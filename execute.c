@@ -665,6 +665,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
 }
 
 int exec_spawn(ExecCommand *command,
+               char **argv,
                const ExecContext *context,
                int fds[], unsigned n_fds,
                bool apply_permissions,
@@ -682,7 +683,10 @@ int exec_spawn(ExecCommand *command,
         assert(ret);
         assert(fds || n_fds <= 0);
 
-        if (!(line = exec_command_line(command)))
+        if (!argv)
+                argv = command->argv;
+
+        if (!(line = exec_command_line(argv)))
                 return -ENOMEM;
 
         log_debug("About to execute: %s", line);
@@ -732,7 +736,7 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
 
                         /* Now ask the question. */
-                        if (!(line = exec_command_line(command))) {
+                        if (!(line = exec_command_line(argv))) {
                                 r = EXIT_MEMORY;
                                 goto fail;
                         }
@@ -950,7 +954,7 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
-                execve(command->path, command->argv, final_env);
+                execve(command->path, argv, final_env);
                 r = EXIT_EXEC;
 
         fail:
@@ -1270,23 +1274,22 @@ void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
                         prefix, s->status);
 }
 
-char *exec_command_line(ExecCommand *c) {
+char *exec_command_line(char **argv) {
         size_t k;
         char *n, *p, **a;
         bool first = true;
 
-        assert(c);
-        assert(c->argv);
+        assert(argv);
 
         k = 1;
-        STRV_FOREACH(a, c->argv)
+        STRV_FOREACH(a, argv)
                 k += strlen(*a)+3;
 
         if (!(n = new(char, k)))
                 return NULL;
 
         p = n;
-        STRV_FOREACH(a, c->argv) {
+        STRV_FOREACH(a, argv) {
 
                 if (!first)
                         *(p++) = ' ';
@@ -1324,7 +1327,7 @@ void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         p2 = strappend(prefix, "\t");
         prefix2 = p2 ? p2 : prefix;
 
-        cmd = exec_command_line(c);
+        cmd = exec_command_line(c->argv);
 
         fprintf(f,
                 "%sCommand Line: %s\n",

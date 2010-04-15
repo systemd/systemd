@@ -36,6 +36,7 @@
 #include "ioprio.h"
 #include "securebits.h"
 #include "missing.h"
+#include "unit-name.h"
 
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
         static int function(                                            \
@@ -83,24 +84,21 @@ static int config_parse_deps(
         assert(lvalue);
         assert(rvalue);
 
-        if (UNIT_VTABLE(u)->refuse_requires &&
-            (d == UNIT_REQUIRES ||
-             d == UNIT_SOFT_REQUIRES ||
-             d == UNIT_REQUISITE ||
-             d == UNIT_SOFT_REQUISITE)) {
-                    log_error("[%s:%u] Dependency of type %s not acceptable for this unit type.", filename, line, lvalue);
-                    return -EBADMSG;
-            }
-
         FOREACH_WORD(w, l, rvalue, state) {
-                char *t;
+                char *t, *k;
                 int r;
 
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
-                r = unit_add_dependency_by_name(u, d, t);
+                k = unit_name_printf(u, t);
                 free(t);
+
+                if (!k)
+                        return -ENOMEM;
+
+                r = unit_add_dependency_by_name(u, d, k, NULL);
+                free(k);
 
                 if (r < 0)
                         return r;
@@ -129,14 +127,20 @@ static int config_parse_names(
         assert(data);
 
         FOREACH_WORD(w, l, rvalue, state) {
-                char *t;
+                char *t, *k;
                 int r;
 
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
-                r = unit_merge_by_name(u, t);
+                k = unit_name_printf(u, t);
                 free(t);
+
+                if (!k)
+                        return -ENOMEM;
+
+                r = unit_merge_by_name(u, k);
+                free(k);
 
                 if (r < 0)
                         return r;
@@ -907,7 +911,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to
 
 #define FOLLOW_MAX 8
 
-static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
+static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
         unsigned c = 0;
         int fd, r;
         FILE *f;
@@ -966,12 +970,12 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
 
         if (!(f = fdopen(fd, "r"))) {
                 r = -errno;
-                assert(close_nointr(fd) == 0);
+                close_nointr_nofail(fd);
                 return r;
         }
 
         *_f = f;
-        *_id = id;
+        *_final = id;
         return 0;
 }
 
@@ -1151,10 +1155,10 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Names",                  config_parse_names,           u,                                               "Meta"    },
                 { "Description",            config_parse_string,          &u->meta.description,                            "Meta"    },
                 { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                      "Meta"    },
-                { "SoftRequires",           config_parse_deps,            UINT_TO_PTR(UNIT_SOFT_REQUIRES),                 "Meta"    },
-                { "Wants",                  config_parse_deps,            UINT_TO_PTR(UNIT_WANTS),                         "Meta"    },
+                { "RequiresOverridable",    config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES_OVERRIDABLE),          "Meta"    },
                 { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                     "Meta"    },
-                { "SoftRequisite",          config_parse_deps,            UINT_TO_PTR(UNIT_SOFT_REQUISITE),                "Meta"    },
+                { "RequisiteOverridable",   config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE_OVERRIDABLE),         "Meta"    },
+                { "Wants",                  config_parse_deps,            UINT_TO_PTR(UNIT_WANTS),                         "Meta"    },
                 { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                     "Meta"    },
                 { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                        "Meta"    },
                 { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Meta"    },
@@ -1336,15 +1340,14 @@ int unit_load_fragment(Unit *u) {
                 const char *t;
 
                 /* Try to find the unit under its id */
-                if ((t = unit_id(u)))
-                        if ((r = load_from_path(u, t)) < 0)
-                                return r;
+                if ((r = load_from_path(u, u->meta.id)) < 0)
+                        return r;
 
                 /* Try to find an alias we can load this with */
                 if (u->meta.load_state == UNIT_STUB)
                         SET_FOREACH(t, u->meta.names, i) {
 
-                                if (unit_id(u) == t)
+                                if (t == u->meta.id)
                                         continue;
 
                                 if ((r = load_from_path(u, t)) < 0)
@@ -1353,6 +1356,39 @@ int unit_load_fragment(Unit *u) {
                                 if (u->meta.load_state != UNIT_STUB)
                                         break;
                         }
+
+                /* Now, follow the same logic, but look for a template */
+                if (u->meta.load_state == UNIT_STUB && u->meta.instance) {
+                        char *k;
+
+                        if (!(k = unit_name_template(u->meta.id)))
+                                return -ENOMEM;
+
+                        r = load_from_path(u, k);
+                        free(k);
+
+                        if (r < 0)
+                                return r;
+
+                        if (u->meta.load_state == UNIT_STUB)
+                                SET_FOREACH(t, u->meta.names, i) {
+
+                                        if (t == u->meta.id)
+                                                continue;
+
+                                        if (!(k = unit_name_template(t)))
+                                                return -ENOMEM;
+
+                                        r = load_from_path(u, k);
+                                        free(k);
+
+                                        if (r < 0)
+                                                return r;
+
+                                        if (u->meta.load_state != UNIT_STUB)
+                                                break;
+                                }
+                }
         }
 
         return 0;

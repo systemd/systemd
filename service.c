@@ -30,6 +30,7 @@
 #include "load-dropin.h"
 #include "log.h"
 #include "strv.h"
+#include "unit-name.h"
 
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
@@ -282,7 +283,7 @@ static int priority_from_rcd(Service *s, const char *init_script) {
 
                                 s->sysv_start_priority = a*10 + b;
 
-                                log_debug("Determined priority %i from link farm for %s", s->sysv_start_priority, unit_id(UNIT(s)));
+                                log_debug("Determined priority %i from link farm for %s", s->sysv_start_priority, UNIT(s)->meta.id);
 
                                 closedir(d);
                                 return 0;
@@ -485,8 +486,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
                                         else {
-                                                if ((r = unit_add_dependency_by_name_inverse(u, UNIT_REQUIRES, m)) >= 0)
-                                                        r = unit_add_dependency_by_name(u, UNIT_BEFORE, m);
+                                                if ((r = unit_add_dependency_by_name_inverse(u, UNIT_REQUIRES, m, NULL)) >= 0)
+                                                        r = unit_add_dependency_by_name(u, UNIT_BEFORE, m, NULL);
                                         }
 
                                         free(m);
@@ -519,7 +520,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        r = unit_add_dependency_by_name(u, UNIT_AFTER, m);
+                                        r = unit_add_dependency_by_name(u, UNIT_AFTER, m, NULL);
                                         free(m);
 
                                         if (r < 0)
@@ -596,13 +597,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
          * needed as soon as at least one non-LSB script is used. */
 
         if (s->sysv_start_priority < 0) {
-                log_debug("%s has no chkconfig header, trying to determine SysV priority from link farm.", unit_id(u));
+                log_debug("%s has no chkconfig header, trying to determine SysV priority from link farm.", u->meta.id);
 
                 if ((r = priority_from_rcd(s, file_name_from_path(path))) < 0)
                         goto finish;
 
                 if (s->sysv_start_priority < 0)
-                        log_warning("%s has neither a chkconfig header nor a directory link, cannot order unit!", unit_id(u));
+                        log_warning("%s has neither a chkconfig header nor a directory link, cannot order unit!", u->meta.id);
         }
 
         if ((r = sysv_exec_commands(s)) < 0)
@@ -615,8 +616,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
                  * needed for early boot) and don't create any links
                  * to it. */
 
-                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET)) < 0 ||
-                    (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET)) < 0)
+                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL)) < 0 ||
+                    (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL)) < 0)
                         goto finish;
         }
 
@@ -680,13 +681,13 @@ static int service_load_sysv(Service *s) {
         if (strv_isempty(UNIT(s)->meta.manager->sysvinit_path))
                 return 0;
 
-        if ((t = unit_id(UNIT(s))))
+        if ((t = UNIT(s)->meta.id))
                 if ((r = service_load_sysv_name(s, t)) < 0)
                         return r;
 
         if (UNIT(s)->meta.load_state == UNIT_STUB)
                 SET_FOREACH(t, UNIT(s)->meta.names, i) {
-                        if (t == unit_id(UNIT(s)))
+                        if (t == UNIT(s)->meta.id)
                                 continue;
 
                         if ((r == service_load_sysv_name(s, t)) < 0)
@@ -737,7 +738,7 @@ static int service_verify(Service *s) {
                 return 0;
 
         if (!s->exec_command[SERVICE_EXEC_START]) {
-                log_error("%s lacks ExecStart setting. Refusing.", unit_id(UNIT(s)));
+                log_error("%s lacks ExecStart setting. Refusing.", UNIT(s)->meta.id);
                 return -EINVAL;
         }
 
@@ -1020,7 +1021,7 @@ static void service_set_state(Service *s, ServiceState state) {
                 service_notify_sockets_dead(s);
 
         if (old_state != state)
-                log_debug("%s changed %s → %s", unit_id(UNIT(s)), service_state_to_string(old_state), service_state_to_string(state));
+                log_debug("%s changed %s → %s", UNIT(s)->meta.id, service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -1099,6 +1100,7 @@ static int service_spawn(
         int r;
         int *fds = NULL;
         unsigned n_fds = 0;
+        char **argv;
 
         assert(s);
         assert(c);
@@ -1114,14 +1116,23 @@ static int service_spawn(
         } else
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
-        if ((r = exec_spawn(c,
-                            &s->exec_context,
-                            fds, n_fds,
-                            apply_permissions,
-                            apply_chroot,
-                            UNIT(s)->meta.manager->confirm_spawn,
-                            UNIT(s)->meta.cgroup_bondings,
-                            &pid)) < 0)
+        if (!(argv = unit_full_printf_strv(UNIT(s), c->argv))) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = exec_spawn(c,
+                       argv,
+                       &s->exec_context,
+                       fds, n_fds,
+                       apply_permissions,
+                       apply_chroot,
+                       UNIT(s)->meta.manager->confirm_spawn,
+                       UNIT(s)->meta.cgroup_bondings,
+                       &pid);
+
+        strv_free(argv);
+        if (r < 0)
                 goto fail;
 
         if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
@@ -1198,7 +1209,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
         return;
 
 fail:
-        log_warning("%s failed to run install restart timer: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run install restart timer: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_dead(s, false, false);
 }
 
@@ -1231,7 +1242,7 @@ static void service_enter_stop_post(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run stop-post executable: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run stop-post executable: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -1291,7 +1302,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to kill processes: %s", UNIT(s)->meta.id, strerror(-r));
 
         if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
                 service_enter_stop_post(s, false);
@@ -1325,7 +1336,7 @@ static void service_enter_stop(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run stop executable: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run stop executable: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
 }
 
@@ -1367,7 +1378,7 @@ static void service_enter_start_post(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run start-post executable: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run start-post executable: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_stop(s, false);
 }
 
@@ -1429,7 +1440,7 @@ static void service_enter_start(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run start exectuable: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run start exectuable: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -1457,7 +1468,7 @@ static void service_enter_start_pre(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run start-pre executable: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run start-pre executable: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_dead(s, false, true);
 }
 
@@ -1470,12 +1481,12 @@ static void service_enter_restart(Service *s) {
         if ((r = manager_add_job(UNIT(s)->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL)) < 0)
                 goto fail;
 
-        log_debug("%s scheduled restart job.", unit_id(UNIT(s)));
+        log_debug("%s scheduled restart job.", UNIT(s)->meta.id);
         return;
 
 fail:
 
-        log_warning("%s failed to schedule restart job: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to schedule restart job: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_dead(s, false, false);
 }
 
@@ -1503,7 +1514,7 @@ static void service_enter_reload(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run reload executable: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run reload executable: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_stop(s, false);
 }
 
@@ -1533,7 +1544,7 @@ static void service_run_next(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run spawn next executable: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run spawn next executable: %s", UNIT(s)->meta.id, strerror(-r));
 
         if (s->state == SERVICE_START_PRE)
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
@@ -1570,7 +1581,7 @@ static int service_start(Unit *u) {
 
         /* Make sure we don't enter a busy loop of some kind. */
         if (!ratelimit_test(&s->ratelimit)) {
-                log_warning("%s start request repeated too quickly, refusing to start.", unit_id(u));
+                log_warning("%s start request repeated too quickly, refusing to start.", u->meta.id);
                 return -EAGAIN;
         }
 
@@ -1664,7 +1675,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         s->exec_command[SERVICE_EXEC_START]->exec_status = s->main_exec_status;
                 }
 
-                log_debug("%s: main process exited, code=%s, status=%i", unit_id(u), sigchld_code_to_string(code), status);
+                log_debug("%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
 
                 /* The service exited, so the service is officially
                  * gone. */
@@ -1711,7 +1722,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 exec_status_fill(&s->control_command->exec_status, pid, code, status);
                 s->control_pid = 0;
 
-                log_debug("%s: control process exited, code=%s status=%i", unit_id(u), sigchld_code_to_string(code), status);
+                log_debug("%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
 
                 /* If we are shutting things down anyway we
                  * don't care about failing commands. */
@@ -1721,14 +1732,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         /* There is another command to *
                          * execute, so let's do that. */
 
-                        log_debug("%s running next command for state %s", unit_id(u), service_state_to_string(s->state));
+                        log_debug("%s running next command for state %s", u->meta.id, service_state_to_string(s->state));
                         service_run_next(s, success);
 
                 } else {
                         /* No further commands for this step, so let's
                          * figure out what to do next */
 
-                        log_debug("%s got final SIGCHLD for state %s", unit_id(u), service_state_to_string(s->state));
+                        log_debug("%s got final SIGCHLD for state %s", u->meta.id, service_state_to_string(s->state));
 
                         switch (s->state) {
 
@@ -1769,7 +1780,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                          * executed. */
 
                                         if ((r = service_load_pid_file(s)) < 0)
-                                                log_warning("%s: failed to load PID file %s: %s", unit_id(UNIT(s)), s->pid_file, strerror(-r));
+                                                log_warning("%s: failed to load PID file %s: %s", UNIT(s)->meta.id, s->pid_file, strerror(-r));
                                 }
 
                                 /* Fall through */
@@ -1822,23 +1833,23 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
 
         case SERVICE_START_PRE:
         case SERVICE_START:
-                log_warning("%s operation timed out. Terminating.", unit_id(u));
+                log_warning("%s operation timed out. Terminating.", u->meta.id);
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
                 break;
 
         case SERVICE_START_POST:
         case SERVICE_RELOAD:
-                log_warning("%s operation timed out. Stopping.", unit_id(u));
+                log_warning("%s operation timed out. Stopping.", u->meta.id);
                 service_enter_stop(s, false);
                 break;
 
         case SERVICE_STOP:
-                log_warning("%s stopping timed out. Terminating.", unit_id(u));
+                log_warning("%s stopping timed out. Terminating.", u->meta.id);
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
                 break;
 
         case SERVICE_STOP_SIGTERM:
-                log_warning("%s stopping timed out. Killing.", unit_id(u));
+                log_warning("%s stopping timed out. Killing.", u->meta.id);
                 service_enter_signal(s, SERVICE_STOP_SIGKILL, false);
                 break;
 
@@ -1847,27 +1858,27 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                  * Must be something we cannot kill, so let's just be
                  * weirded out and continue */
 
-                log_warning("%s still around after SIGKILL. Ignoring.", unit_id(u));
+                log_warning("%s still around after SIGKILL. Ignoring.", u->meta.id);
                 service_enter_stop_post(s, false);
                 break;
 
         case SERVICE_STOP_POST:
-                log_warning("%s stopping timed out (2). Terminating.", unit_id(u));
+                log_warning("%s stopping timed out (2). Terminating.", u->meta.id);
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
                 break;
 
         case SERVICE_FINAL_SIGTERM:
-                log_warning("%s stopping timed out (2). Killing.", unit_id(u));
+                log_warning("%s stopping timed out (2). Killing.", u->meta.id);
                 service_enter_signal(s, SERVICE_FINAL_SIGKILL, false);
                 break;
 
         case SERVICE_FINAL_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering maintainance mode.", unit_id(u));
+                log_warning("%s still around after SIGKILL (2). Entering maintainance mode.", u->meta.id);
                 service_enter_dead(s, false, true);
                 break;
 
         case SERVICE_AUTO_RESTART:
-                log_debug("%s holdoff time over, scheduling restart.", unit_id(u));
+                log_debug("%s holdoff time over, scheduling restart.", u->meta.id);
                 service_enter_restart(s);
                 break;
 
@@ -1881,7 +1892,7 @@ static void service_cgroup_notify_event(Unit *u) {
 
         assert(u);
 
-        log_debug("%s: cgroup is empty", unit_id(u));
+        log_debug("%s: cgroup is empty", u->meta.id);
 
         switch (s->state) {
 
@@ -1964,10 +1975,10 @@ static int service_enumerate(Manager *m) {
                                         goto finish;
                                 }
 
-                                if ((r = manager_load_unit(m, name, &service)) < 0)
+                                if ((r = manager_load_unit(m, name, NULL, &service)) < 0)
                                         goto finish;
 
-                                if ((r = manager_load_unit(m, rcnd_table[i+1], &runlevel)) < 0)
+                                if ((r = manager_load_unit(m, rcnd_table[i+1], NULL, &runlevel)) < 0)
                                         goto finish;
 
                                 if (de->d_name[0] == 'S') {

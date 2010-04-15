@@ -61,23 +61,6 @@ static const char introspection[] =
         BUS_INTROSPECTABLE_INTERFACE
         "</node>";
 
-static int bus_unit_append_id(Manager *m, DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
-        const char *id;
-
-        assert(m);
-        assert(i);
-        assert(property);
-        assert(u);
-
-        id = unit_id(u);
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &id))
-                return -ENOMEM;
-
-        return 0;
-}
-
 static int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *d;
@@ -216,7 +199,7 @@ static int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *prope
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message) {
 
         const BusProperty properties[] = {
-                { "org.freedesktop.systemd1.Unit", "Id",                   bus_unit_append_id,           "s",    u                               },
+                { "org.freedesktop.systemd1.Unit", "Id",                   bus_property_append_string,   "s",    u->meta.id                      },
                 { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,  "s",    u                               },
                 { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,   "s",    &u->meta.load_state             },
                 { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state, "s",    u                               },
@@ -353,15 +336,13 @@ void bus_unit_send_change_signal(Unit *u) {
                 if (!(m = dbus_message_new_signal(p, "org.freedesktop.systemd1.Unit", "Changed")))
                         goto oom;
         } else {
-                const char *id;
                 /* Send a new signal */
 
                 if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "UnitNew")))
                         goto oom;
 
-                id = unit_id(u);
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &id,
+                                              DBUS_TYPE_STRING, &u->meta.id,
                                               DBUS_TYPE_OBJECT_PATH, &p,
                                               DBUS_TYPE_INVALID))
                         goto oom;
@@ -389,7 +370,6 @@ oom:
 void bus_unit_send_removed_signal(Unit *u) {
         char *p = NULL;
         DBusMessage *m = NULL;
-        const char *id;
 
         assert(u);
 
@@ -402,9 +382,8 @@ void bus_unit_send_removed_signal(Unit *u) {
         if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "UnitRemoved")))
                 goto oom;
 
-        id = unit_id(u);
         if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &id,
+                                      DBUS_TYPE_STRING, &u->meta.id,
                                       DBUS_TYPE_OBJECT_PATH, &p,
                                       DBUS_TYPE_INVALID))
                 goto oom;

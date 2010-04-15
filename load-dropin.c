@@ -26,6 +26,45 @@
 #include "load-dropin.h"
 #include "log.h"
 #include "strv.h"
+#include "unit-name.h"
+
+static int iterate_dir(Unit *u, const char *path) {
+        DIR *d;
+        struct dirent *de;
+        int r;
+
+        if (!(d = opendir(path))) {
+
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        while ((de = readdir(d))) {
+                char *f;
+
+                if (ignore_file(de->d_name))
+                        continue;
+
+                if (asprintf(&f, "%s/%s", path, de->d_name) < 0) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                r = unit_add_dependency_by_name(u, UNIT_WANTS, de->d_name, f);
+                free(f);
+
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = 0;
+
+finish:
+        closedir(d);
+        return r;
+}
 
 int unit_load_dropin(Unit *u) {
         Iterator i;
@@ -38,8 +77,6 @@ int unit_load_dropin(Unit *u) {
 
         SET_FOREACH(t, u->meta.names, i) {
                 char *path;
-                DIR *d;
-                struct dirent *de;
                 char **p;
 
                 STRV_FOREACH(p, u->meta.manager->unit_path) {
@@ -47,44 +84,32 @@ int unit_load_dropin(Unit *u) {
                         if (asprintf(&path, "%s/%s.wants", *p, t) < 0)
                                 return -ENOMEM;
 
-                        if (!(d = opendir(path))) {
-                                r = -errno;
-                                free(path);
-
-                                if (r == -ENOENT)
-                                        continue;
-
-                                return r;
-                        }
-
+                        r = iterate_dir(u, path);
                         free(path);
 
-                        while ((de = readdir(d))) {
+                        if (r < 0)
+                                return r;
 
-                                if (ignore_file(de->d_name))
-                                        continue;
+                        if (u->meta.instance) {
+                                char *template;
+                                /* Also try the template dir */
 
-                                if (asprintf(&path, "%s/%s.wants/%s", *p, t, de->d_name) < 0) {
-                                        closedir(d);
+                                if (!(template = unit_name_template(t)))
                                         return -ENOMEM;
-                                }
 
-                                if (!unit_name_is_valid(de->d_name)) {
-                                        log_info("Name of %s is not a valid unit name. Ignoring.", path);
-                                        free(path);
-                                        continue;
-                                }
+                                r = asprintf(&path, "%s/%s.wants", *p, template);
+                                free(template);
 
-                                r = unit_add_dependency_by_name(u, UNIT_WANTS, path);
+                                if (r < 0)
+                                        return -ENOMEM;
+
+                                r = iterate_dir(u, path);
                                 free(path);
 
-                                if (r < 0) {
-                                        closedir(d);
+                                if (r < 0)
                                         return r;
-                                }
                         }
 
-                        closedir(d);
                 }
         }
 

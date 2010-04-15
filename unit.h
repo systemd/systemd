@@ -99,21 +99,21 @@ static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
 enum UnitDependency {
         /* Positive dependencies */
         UNIT_REQUIRES,
-        UNIT_SOFT_REQUIRES,
-        UNIT_WANTS,
+        UNIT_REQUIRES_OVERRIDABLE,
         UNIT_REQUISITE,
-        UNIT_SOFT_REQUISITE,
+        UNIT_REQUISITE_OVERRIDABLE,
+        UNIT_WANTS,
 
         /* Inverse of the above */
-        UNIT_REQUIRED_BY,       /* inverse of 'requires' and 'requisite' is 'required_by' */
-        UNIT_SOFT_REQUIRED_BY,  /* inverse of 'soft_requires' and 'soft_requisite' is 'soft_required_by' */
-        UNIT_WANTED_BY,         /* inverse of 'wants' */
+        UNIT_REQUIRED_BY,             /* inverse of 'requires' and 'requisite' is 'required_by' */
+        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'soft_requires' and 'soft_requisite' is 'soft_required_by' */
+        UNIT_WANTED_BY,               /* inverse of 'wants' */
 
         /* Negative dependencies */
-        UNIT_CONFLICTS,         /* inverse of 'conflicts' is 'conflicts' */
+        UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicts' */
 
         /* Order */
-        UNIT_BEFORE,            /* inverse of before is after and vice versa */
+        UNIT_BEFORE,                  /* inverse of before is after and vice versa */
         UNIT_AFTER,
 
         _UNIT_DEPENDENCY_MAX,
@@ -132,6 +132,7 @@ struct Meta {
         Unit *merged_into;
 
         char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
+        char *instance;
 
         Set *names;
         Set *dependencies[_UNIT_DEPENDENCY_MAX];
@@ -203,7 +204,10 @@ struct UnitVTable {
         /* If true units of this types can never have "Requires"
          * dependencies, because state changes can only be observed,
          * not triggered */
-        bool refuse_requires:1;
+        bool no_requires:1;
+
+        /* Instances make no sense for this type */
+        bool no_instances:1;
 
         /* This should reset all type-specific variables. This should
          * not allocate memory, and is either called with 0
@@ -284,17 +288,14 @@ DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);
 DEFINE_CAST(SNAPSHOT, Snapshot);
 
-UnitType unit_name_to_type(const char *n);
-bool unit_name_is_valid(const char *n);
-char *unit_name_change_suffix(const char *n, const char *suffix);
-
 Unit *unit_new(Manager *m);
 void unit_free(Unit *u);
 
 int unit_add_name(Unit *u, const char *name);
+
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other);
-int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name);
-int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name);
+int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename);
+int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *filename);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
@@ -319,7 +320,6 @@ int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
 int unit_load(Unit *unit);
 
-const char* unit_id(Unit *u);
 const char *unit_description(Unit *u);
 
 bool unit_has_name(Unit *u, const char *name);
@@ -352,11 +352,13 @@ bool unit_job_is_applicable(Unit *u, JobType j);
 
 int set_unit_path(const char *p);
 
-char *unit_name_escape_path(const char *path, const char *suffix);
-
 char *unit_dbus_path(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
+
+char *unit_name_printf(Unit *u, const char* text);
+char *unit_full_printf(Unit *u, const char *text);
+char **unit_full_printf_strv(Unit *u, char **l);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);

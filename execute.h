@@ -163,6 +163,7 @@ typedef enum ExitStatus {
 } ExitStatus;
 
 int exec_spawn(ExecCommand *command,
+               char **argv,
                const ExecContext *context,
                int fds[], unsigned n_fds,
                bool apply_permissions,
@@ -177,7 +178,8 @@ void exec_command_done_array(ExecCommand *c, unsigned n);
 void exec_command_free_list(ExecCommand *c);
 void exec_command_free_array(ExecCommand **c, unsigned n);
 
-char *exec_command_line(ExecCommand *c);
+char *exec_command_line(char **argv);
+
 void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_append_list(ExecCommand **l, ExecCommand *e);

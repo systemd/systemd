@@ -35,6 +35,8 @@
 #include "load-fragment.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "unit-name.h"
+#include "specifier.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -46,71 +48,6 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_AUTOMOUNT] = &automount_vtable,
         [UNIT_SNAPSHOT] = &snapshot_vtable
 };
-
-UnitType unit_name_to_type(const char *n) {
-        UnitType t;
-
-        assert(n);
-
-        for (t = 0; t < _UNIT_TYPE_MAX; t++)
-                if (endswith(n, unit_vtable[t]->suffix))
-                        return t;
-
-        return _UNIT_TYPE_INVALID;
-}
-
-#define VALID_CHARS                             \
-        "0123456789"                            \
-        "abcdefghijklmnopqrstuvwxyz"            \
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
-        "-_.\\"
-
-bool unit_name_is_valid(const char *n) {
-        UnitType t;
-        const char *e, *i;
-
-        assert(n);
-
-        if (strlen(n) >= UNIT_NAME_MAX)
-                return false;
-
-        t = unit_name_to_type(n);
-        if (t < 0 || t >= _UNIT_TYPE_MAX)
-                return false;
-
-        if (!(e = strrchr(n, '.')))
-                return false;
-
-        if (e == n)
-                return false;
-
-        for (i = n; i < e; i++)
-                if (!strchr(VALID_CHARS, *i))
-                        return false;
-
-        return true;
-}
-
-char *unit_name_change_suffix(const char *n, const char *suffix) {
-        char *e, *r;
-        size_t a, b;
-
-        assert(n);
-        assert(unit_name_is_valid(n));
-        assert(suffix);
-
-        assert_se(e = strrchr(n, '.'));
-        a = e - n;
-        b = strlen(suffix);
-
-        if (!(r = new(char, a + b + 1)))
-                return NULL;
-
-        memcpy(r, n, a);
-        memcpy(r+a, suffix, b+1);
-
-        return r;
-}
 
 Unit *unit_new(Manager *m) {
         Unit *u;
@@ -140,74 +77,114 @@ bool unit_has_name(Unit *u, const char *name) {
 
 int unit_add_name(Unit *u, const char *text) {
         UnitType t;
-        char *s;
+        char *s = NULL, *i = NULL;
         int r;
 
         assert(u);
         assert(text);
 
-        if (!unit_name_is_valid(text))
-                return -EINVAL;
+        if (unit_name_is_template(text)) {
+                if (!u->meta.instance)
+                        return -EINVAL;
 
-        if ((t = unit_name_to_type(text)) == _UNIT_TYPE_INVALID)
-                return -EINVAL;
+                s = unit_name_replace_instance(text, u->meta.instance);
+        } else
+                s = strdup(text);
 
-        if (u->meta.type != _UNIT_TYPE_INVALID && t != u->meta.type)
-                return -EINVAL;
-
-        if (u->meta.type != _UNIT_TYPE_INVALID &&
-            UNIT_VTABLE(u)->no_alias &&
-            !set_isempty(u->meta.names))
-                return -EEXIST;
-
-        if (!(s = strdup(text)))
+        if (!s)
                 return -ENOMEM;
 
+        if (!unit_name_is_valid(s)) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        assert_se((t = unit_name_to_type(s)) >= 0);
+
+        if (u->meta.type != _UNIT_TYPE_INVALID && t != u->meta.type) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        if ((r = unit_name_to_instance(s, &i)) < 0)
+                goto fail;
+
+        if (i && unit_vtable[t]->no_instances)
+                goto fail;
+
+        if (u->meta.type != _UNIT_TYPE_INVALID && !streq_ptr(u->meta.instance, i)) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        if (unit_vtable[t]->no_alias &&
+            !set_isempty(u->meta.names) &&
+            !set_get(u->meta.names, s)) {
+                r = -EEXIST;
+                goto fail;
+        }
+
         if ((r = set_put(u->meta.names, s)) < 0) {
-                free(s);
-
                 if (r == -EEXIST)
-                        return 0;
-
-                return r;
+                        r = 0;
+                goto fail;
         }
 
         if ((r = hashmap_put(u->meta.manager->units, s, u)) < 0) {
                 set_remove(u->meta.names, s);
-                free(s);
-                return r;
+                goto fail;
         }
 
         if (u->meta.type == _UNIT_TYPE_INVALID) {
-                LIST_PREPEND(Meta, units_per_type, u->meta.manager->units_per_type[t], &u->meta);
 
                 u->meta.type = t;
+                u->meta.id = s;
+                u->meta.instance = i;
+
+                LIST_PREPEND(Meta, units_per_type, u->meta.manager->units_per_type[t], &u->meta);
 
                 if (UNIT_VTABLE(u)->init)
                         UNIT_VTABLE(u)->init(u);
-        }
-
-        if (!u->meta.id)
-                u->meta.id = s;
+        } else
+                free(i);
 
         unit_add_to_dbus_queue(u);
         return 0;
+
+fail:
+        free(s);
+        free(i);
+
+        return r;
 }
 
 int unit_choose_id(Unit *u, const char *name) {
-        char *s;
+        char *s, *t = NULL;
 
         assert(u);
         assert(name);
 
-        /* Selects one of the names of this unit as the id */
+        if (unit_name_is_template(name)) {
 
-        if (!(s = set_get(u->meta.names, (char*) name)))
+                if (!u->meta.instance)
+                        return -EINVAL;
+
+                if (!(t = unit_name_replace_instance(name, u->meta.instance)))
+                        return -ENOMEM;
+
+                name = t;
+        }
+
+        /* Selects one of the names of this unit as the id */
+        s = set_get(u->meta.names, (char*) name);
+        free(t);
+
+        if (!s)
                 return -ENOENT;
 
         u->meta.id = s;
-
         unit_add_to_dbus_queue(u);
+
         return 0;
 }
 
@@ -322,6 +299,8 @@ void unit_free(Unit *u) {
                 free(t);
         set_free(u->meta.names);
 
+        free(u->meta.instance);
+
         free(u);
 }
 
@@ -409,13 +388,17 @@ int unit_merge(Unit *u, Unit *other) {
         assert(u);
         assert(other);
         assert(u->meta.manager == other->meta.manager);
+        assert(u->meta.type != _UNIT_TYPE_INVALID);
 
         other = unit_follow_merge(other);
 
         if (other == u)
                 return 0;
 
-        if (u->meta.type != u->meta.type)
+        if (u->meta.type != other->meta.type)
+                return -EINVAL;
+
+        if (!streq_ptr(u->meta.instance, other->meta.instance))
                 return -EINVAL;
 
         if (other->meta.load_state != UNIT_STUB &&
@@ -452,14 +435,29 @@ int unit_merge(Unit *u, Unit *other) {
 
 int unit_merge_by_name(Unit *u, const char *name) {
         Unit *other;
+        int r;
+        char *s = NULL;
 
         assert(u);
         assert(name);
 
-        if (!(other = manager_get_unit(u->meta.manager, name)))
-                return unit_add_name(u, name);
+        if (unit_name_is_template(name)) {
+                if (!u->meta.instance)
+                        return -EINVAL;
 
-        return unit_merge(u, other);
+                if (!(s = unit_name_replace_instance(name, u->meta.instance)))
+                        return -ENOMEM;
+
+                name = s;
+        }
+
+        if (!(other = manager_get_unit(u->meta.manager, name)))
+                r = unit_add_name(u, name);
+        else
+                r = unit_merge(u, other);
+
+        free(s);
+        return r;
 }
 
 Unit* unit_follow_merge(Unit *u) {
@@ -483,23 +481,14 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         /* If syslog or kernel logging is requested, make sure our own
          * logging daemon is run first. */
 
-        if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET)) < 0)
+        if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET, NULL)) < 0)
                 return r;
 
         if (u->meta.manager->running_as != MANAGER_SESSION)
-                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET)) < 0)
+                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET, NULL)) < 0)
                         return r;
 
         return 0;
-}
-
-const char* unit_id(Unit *u) {
-        assert(u);
-
-        if (u->meta.id)
-                return u->meta.id;
-
-        return set_first(u->meta.names);
 }
 
 const char *unit_description(Unit *u) {
@@ -508,7 +497,7 @@ const char *unit_description(Unit *u) {
         if (u->meta.description)
                 return u->meta.description;
 
-        return unit_id(u);
+        return u->meta.id;
 }
 
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
@@ -521,6 +510,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
 
         assert(u);
+        assert(u->meta.type >= 0);
 
         if (!prefix)
                 prefix = "";
@@ -530,12 +520,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%s→ Unit %s:\n"
                 "%s\tDescription: %s\n"
+                "%s\tInstance: %s\n"
                 "%s\tUnit Load State: %s\n"
                 "%s\tUnit Active State: %s\n"
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n",
-                prefix, unit_id(u),
+                prefix, u->meta.id,
                 prefix, unit_description(u),
+                prefix, strna(u->meta.instance),
                 prefix, unit_load_state_to_string(u->meta.load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
                 prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.active_enter_timestamp)),
@@ -551,7 +543,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 Unit *other;
 
                 SET_FOREACH(other, u->meta.dependencies[d], i)
-                        fprintf(f, "%s\t%s: %s\n", prefix, unit_dependency_to_string(d), unit_id(other));
+                        fprintf(f, "%s\t%s: %s\n", prefix, unit_dependency_to_string(d), other->meta.id);
         }
 
         if (u->meta.load_state == UNIT_LOADED) {
@@ -571,7 +563,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         } else if (u->meta.load_state == UNIT_MERGED)
                 fprintf(f,
                         "%s\tMerged into: %s\n",
-                        prefix, unit_id(u->meta.merged_into));
+                        prefix, u->meta.merged_into->meta.id);
 
         if (u->meta.job)
                 job_dump(u->meta.job, f, prefix2);
@@ -657,7 +649,7 @@ fail:
         u->meta.load_state = UNIT_FAILED;
         unit_add_to_dbus_queue(u);
 
-        log_error("Failed to load configuration for %s: %s", unit_id(u), strerror(-r));
+        log_error("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
 
         return r;
 }
@@ -776,7 +768,7 @@ static void unit_check_uneeded(Unit *u) {
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         return;
 
-        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUIRED_BY], i)
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         return;
 
@@ -784,7 +776,7 @@ static void unit_check_uneeded(Unit *u) {
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         return;
 
-        log_debug("Service %s is not needed anymore. Stopping.", unit_id(u));
+        log_debug("Service %s is not needed anymore. Stopping.", u->meta.id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
         manager_add_job(u->meta.manager, JOB_STOP, u, JOB_FAIL, true, NULL);
@@ -801,7 +793,7 @@ static void retroactively_start_dependencies(Unit *u) {
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
 
-        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUIRES], i)
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
 
@@ -836,7 +828,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         unit_check_uneeded(other);
-        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUIRES], i)
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         unit_check_uneeded(other);
         SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
@@ -845,7 +837,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         unit_check_uneeded(other);
-        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUISITE], i)
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         unit_check_uneeded(other);
 }
@@ -1150,12 +1142,12 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
 
         static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
                 [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
-                [UNIT_SOFT_REQUIRES] = UNIT_SOFT_REQUIRED_BY,
+                [UNIT_REQUIRES_OVERRIDABLE] = UNIT_REQUIRED_BY_OVERRIDABLE,
                 [UNIT_WANTS] = UNIT_WANTED_BY,
                 [UNIT_REQUISITE] = UNIT_REQUIRED_BY,
-                [UNIT_SOFT_REQUISITE] = UNIT_SOFT_REQUIRED_BY,
+                [UNIT_REQUISITE_OVERRIDABLE] = UNIT_REQUIRED_BY_OVERRIDABLE,
                 [UNIT_REQUIRED_BY] = _UNIT_DEPENDENCY_INVALID,
-                [UNIT_SOFT_REQUIRED_BY] = _UNIT_DEPENDENCY_INVALID,
+                [UNIT_REQUIRED_BY_OVERRIDABLE] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_WANTED_BY] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_CONFLICTS] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
@@ -1172,6 +1164,14 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
          * consider them an error however. */
         if (u == other)
                 return 0;
+
+        if (UNIT_VTABLE(u)->no_requires &&
+            (d == UNIT_REQUIRES ||
+             d == UNIT_REQUIRES_OVERRIDABLE ||
+             d == UNIT_REQUISITE ||
+             d == UNIT_REQUISITE_OVERRIDABLE)) {
+                    return -EINVAL;
+        }
 
         if ((r = set_ensure_allocated(&u->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0)
                 return r;
@@ -1191,30 +1191,79 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
         return 0;
 }
 
-int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name) {
-        Unit *other;
-        int r;
+static const char *resolve_template(Unit *u, const char *name, const char*path, char **p) {
+        char *s;
 
-        if ((r = manager_load_unit(u->meta.manager, name, &other)) < 0)
-                return r;
+        assert(u);
+        assert(name || path);
 
-        if ((r = unit_add_dependency(u, d, other)) < 0)
-                return r;
+        if (!name)
+                name = file_name_from_path(path);
 
-        return 0;
+        if (!unit_name_is_template(name)) {
+                *p = NULL;
+                return name;
+        }
+
+        if (u->meta.instance)
+                s = unit_name_replace_instance(name, u->meta.instance);
+        else {
+                char *i;
+
+                if (!(i = unit_name_to_prefix(u->meta.id)))
+                        return NULL;
+
+                s = unit_name_replace_instance(name, i);
+                free(i);
+        }
+
+        if (!s)
+                return NULL;
+
+        *p = s;
+        return s;
 }
 
-int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name) {
+int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *path) {
         Unit *other;
         int r;
+        char *s;
 
-        if ((r = manager_load_unit(u->meta.manager, name, &other)) < 0)
-                return r;
+        assert(u);
+        assert(name || path);
 
-        if ((r = unit_add_dependency(other, d, u)) < 0)
-                return r;
+        if (!(name = resolve_template(u, name, path, &s)))
+                return -ENOMEM;
 
-        return 0;
+        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+                goto finish;
+
+        r = unit_add_dependency(u, d, other);
+
+finish:
+        free(s);
+        return r;
+}
+
+int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path) {
+        Unit *other;
+        int r;
+        char *s;
+
+        assert(u);
+        assert(name || path);
+
+        if (!(name = resolve_template(u, name, path, &s)))
+                return -ENOMEM;
+
+        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+                goto finish;
+
+        r = unit_add_dependency(other, d, u);
+
+finish:
+        free(s);
+        return r;
 }
 
 int set_unit_path(const char *p) {
@@ -1246,54 +1295,12 @@ int set_unit_path(const char *p) {
         return 0;
 }
 
-char *unit_name_escape_path(const char *path, const char *suffix) {
-        char *r, *t;
-        const char *f;
-        size_t a, b;
-
-        assert(path);
-
-        /* Takes a path and a suffix and prefix and makes a nice
-         * string suitable as unit name of it, escaping all weird
-         * chars on the way.
-         *
-         * / becomes ., and all chars not alloweed in a unit name get
-         * escaped as \xFF, including \ and ., of course. This
-         * escaping is hence reversible.
-         */
-
-        if (!suffix)
-                suffix = "";
-
-        a = strlen(path);
-        b = strlen(suffix);
-
-        if (!(r = new(char, a*4+b+1)))
-                return NULL;
-
-        for (f = path, t = r; *f; f++) {
-                if (*f == '/')
-                        *(t++) = '.';
-                else if (*f == '.' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
-                        *(t++) = '\\';
-                        *(t++) = 'x';
-                        *(t++) = hexchar(*f > 4);
-                        *(t++) = hexchar(*f);
-                } else
-                        *(t++) = *f;
-        }
-
-        memcpy(t, suffix, b+1);
-
-        return r;
-}
-
 char *unit_dbus_path(Unit *u) {
         char *p, *e;
 
         assert(u);
 
-        if (!(e = bus_path_escape(unit_id(u))))
+        if (!(e = bus_path_escape(u->meta.id)))
                 return NULL;
 
         if (asprintf(&p, "/org/freedesktop/systemd1/unit/%s", e) < 0) {
@@ -1335,7 +1342,7 @@ static char *default_cgroup_path(Unit *u) {
 
         assert(u);
 
-        if (asprintf(&p, "%s/%s", u->meta.manager->cgroup_hierarchy, unit_id(u)) < 0)
+        if (asprintf(&p, "%s/%s", u->meta.manager->cgroup_hierarchy, u->meta.id) < 0)
                 return NULL;
 
         return p;
@@ -1462,18 +1469,132 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
         assert(type);
         assert(_found);
 
-        if (!(t = unit_name_change_suffix(unit_id(u), type)))
+        if (!(t = unit_name_change_suffix(u->meta.id, type)))
                 return -ENOMEM;
 
         assert(!unit_has_name(u, t));
 
-        r = manager_load_unit(u->meta.manager, t, _found);
+        r = manager_load_unit(u->meta.manager, t, NULL, _found);
         free(t);
 
-        if (r >= 0)
-                assert(*_found != u);
+        assert(r < 0 || *_found != u);
 
         return r;
+}
+
+static char *specifier_prefix_and_instance(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        return unit_name_to_prefix_and_instance(u->meta.id);
+}
+
+static char *specifier_prefix(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        return unit_name_to_prefix(u->meta.id);
+}
+
+static char *specifier_prefix_unescaped(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        char *p, *r;
+
+        assert(u);
+
+        if (!(p = unit_name_to_prefix(u->meta.id)))
+                return NULL;
+
+        r = unit_name_unescape(p);
+        free(p);
+
+        return r;
+}
+
+static char *specifier_instance_unescaped(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        if (u->meta.instance)
+                return unit_name_unescape(u->meta.instance);
+
+        return strdup("");
+}
+
+char *unit_name_printf(Unit *u, const char* format) {
+
+        /*
+         * This will use the passed string as format string and
+         * replace the following specifiers:
+         *
+         * %n: the full id of the unit                 (foo@bar.waldo)
+         * %N: the id of the unit without the suffix   (foo@bar)
+         * %p: the prefix                              (foo)
+         * %i: the instance                            (bar)
+         */
+
+        const Specifier table[] = {
+                { 'n', specifier_string,              u->meta.id },
+                { 'N', specifier_prefix_and_instance, NULL },
+                { 'p', specifier_prefix,              NULL },
+                { 'i', specifier_string,              u->meta.instance },
+                { 0, NULL, NULL }
+        };
+
+        assert(u);
+        assert(format);
+
+        return specifier_printf(format, table, u);
+}
+
+char *unit_full_printf(Unit *u, const char *format) {
+
+        /* This is similar to unit_name_printf() but also supports
+         * unescaping */
+
+        const Specifier table[] = {
+                { 'n', specifier_string,              u->meta.id },
+                { 'N', specifier_prefix_and_instance, NULL },
+                { 'p', specifier_prefix,              NULL },
+                { 'P', specifier_prefix_unescaped,    NULL },
+                { 'i', specifier_string,              u->meta.instance },
+                { 'I', specifier_instance_unescaped,  NULL },
+                { 0, NULL, NULL }
+        };
+
+        assert(u);
+        assert(format);
+
+        return specifier_printf(format, table, u);
+}
+
+char **unit_full_printf_strv(Unit *u, char **l) {
+        size_t n;
+        char **r, **i, **j;
+
+        /* Applies unit_full_printf to every entry in l */
+
+        assert(u);
+
+        n = strv_length(l);
+        if (!(r = new(char*, n+1)))
+                return NULL;
+
+        for (i = l, j = r; *i; i++, j++)
+                if (!(*j = unit_full_printf(u, *i)))
+                        goto fail;
+
+        *j = NULL;
+        return r;
+
+fail:
+        j--;
+        while (j >= r)
+                free(*j);
+
+        free(r);
+
+        return NULL;
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
@@ -1509,12 +1630,12 @@ DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
 
 static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REQUIRES] = "Requires",
-        [UNIT_SOFT_REQUIRES] = "SoftRequires",
+        [UNIT_REQUIRES_OVERRIDABLE] = "RequiresOverridable",
         [UNIT_WANTS] = "Wants",
         [UNIT_REQUISITE] = "Requisite",
-        [UNIT_SOFT_REQUISITE] = "SoftRequisite",
+        [UNIT_REQUISITE_OVERRIDABLE] = "RequisiteOverridable",
         [UNIT_REQUIRED_BY] = "RequiredBy",
-        [UNIT_SOFT_REQUIRED_BY] = "SoftRequiredBy",
+        [UNIT_REQUIRED_BY_OVERRIDABLE] = "RequiredByOverridable",
         [UNIT_WANTED_BY] = "WantedBy",
         [UNIT_CONFLICTS] = "Conflicts",
         [UNIT_BEFORE] = "Before",

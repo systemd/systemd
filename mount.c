@@ -32,6 +32,7 @@
 #include "log.h"
 #include "strv.h"
 #include "mount-setup.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
@@ -156,10 +157,10 @@ static int mount_add_node_links(Mount *m) {
         if (!path_startswith(what, "/dev/"))
                 return 0;
 
-        if (!(e = unit_name_escape_path(what+1, ".device")))
+        if (!(e = unit_name_build_escape(what+1, NULL, ".device")))
                 return -ENOMEM;
 
-        r = manager_load_unit(UNIT(m)->meta.manager, e, &device);
+        r = manager_load_unit(UNIT(m)->meta.manager, e, NULL, &device);
         free(e);
 
         if (r < 0)
@@ -268,7 +269,7 @@ static int mount_add_target_links(Mount *m) {
         else
                 target = SPECIAL_LOCAL_FS_TARGET;
 
-        if ((r = manager_load_unit(UNIT(m)->meta.manager, target, &u)) < 0)
+        if ((r = manager_load_unit(UNIT(m)->meta.manager, target, NULL, &u)) < 0)
                 return r;
 
         if (handle)
@@ -337,7 +338,7 @@ static void mount_set_state(Mount *m, MountState state) {
         }
 
         if (state != old_state)
-                log_debug("%s changed %s → %s", unit_id(UNIT(m)), state_string_table[old_state], state_string_table[state]);
+                log_debug("%s changed %s → %s", UNIT(m)->meta.id, state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -366,6 +367,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                 goto fail;
 
         if ((r = exec_spawn(c,
+                            NULL,
                             &m->exec_context,
                             NULL, 0,
                             true,
@@ -492,7 +494,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", unit_id(UNIT(m)), strerror(-r));
+        log_warning("%s failed to kill processes: %s", UNIT(m)->meta.id, strerror(-r));
 
         if (state == MOUNT_REMOUNTING_SIGTERM || state == MOUNT_REMOUNTING_SIGKILL)
                 mount_enter_mounted(m, false);
@@ -528,7 +530,7 @@ static void mount_enter_unmounting(Mount *m, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run umount exectuable: %s", unit_id(UNIT(m)), strerror(-r));
+        log_warning("%s failed to run umount exectuable: %s", UNIT(m)->meta.id, strerror(-r));
         mount_enter_mounted(m, false);
 }
 
@@ -574,7 +576,7 @@ static void mount_enter_mounting(Mount *m, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run mount exectuable: %s", unit_id(UNIT(m)), strerror(-r));
+        log_warning("%s failed to run mount exectuable: %s", UNIT(m)->meta.id, strerror(-r));
         mount_enter_dead(m, false);
 }
 
@@ -745,7 +747,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         exec_status_fill(&m->control_command->exec_status, pid, code, status);
         m->control_pid = 0;
 
-        log_debug("%s control process exited, code=%s status=%i", unit_id(u), sigchld_code_to_string(code), status);
+        log_debug("%s control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
 
         /* Note that mount(8) returning and the kernel sending us a
          * mount table change event might happen out-of-order. If an
@@ -800,39 +802,39 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
-                log_warning("%s mounting timed out. Stopping.", unit_id(u));
+                log_warning("%s mounting timed out. Stopping.", u->meta.id);
                 mount_enter_signal(m, MOUNT_MOUNTING_SIGTERM, false);
                 break;
 
         case MOUNT_REMOUNTING:
-                log_warning("%s remounting timed out. Stopping.", unit_id(u));
+                log_warning("%s remounting timed out. Stopping.", u->meta.id);
                 mount_enter_signal(m, MOUNT_REMOUNTING_SIGTERM, false);
                 break;
 
         case MOUNT_UNMOUNTING:
-                log_warning("%s unmounting timed out. Stopping.", unit_id(u));
+                log_warning("%s unmounting timed out. Stopping.", u->meta.id);
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, false);
                 break;
 
         case MOUNT_MOUNTING_SIGTERM:
-                log_warning("%s mounting timed out. Killing.", unit_id(u));
+                log_warning("%s mounting timed out. Killing.", u->meta.id);
                 mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, false);
                 break;
 
         case MOUNT_REMOUNTING_SIGTERM:
-                log_warning("%s remounting timed out. Killing.", unit_id(u));
+                log_warning("%s remounting timed out. Killing.", u->meta.id);
                 mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, false);
                 break;
 
         case MOUNT_UNMOUNTING_SIGTERM:
-                log_warning("%s unmounting timed out. Killing.", unit_id(u));
+                log_warning("%s unmounting timed out. Killing.", u->meta.id);
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, false);
                 break;
 
         case MOUNT_MOUNTING_SIGKILL:
         case MOUNT_REMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGKILL:
-                log_warning("%s mount process still around after SIGKILL. Ignoring.", unit_id(u));
+                log_warning("%s mount process still around after SIGKILL. Ignoring.", u->meta.id);
 
                 if (m->from_proc_self_mountinfo)
                         mount_enter_mounted(m, false);
@@ -879,7 +881,7 @@ static int mount_add_one(
         if (streq(where, "/"))
                 e = strdup("-.mount");
         else
-                e = unit_name_escape_path(where+1, ".mount");
+                e = unit_name_build_escape(where+1, NULL, ".mount");
 
         if (!e)
                 return -ENOMEM;
@@ -1245,7 +1247,7 @@ int mount_path_is_mounted(Manager *m, const char* path) {
                 char *e, *slash;
                 Unit *u;
 
-                if (!(e = unit_name_escape_path(t+1, ".mount"))) {
+                if (!(e = unit_name_build_escape(t+1, NULL, ".mount"))) {
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -1281,6 +1283,7 @@ const UnitVTable mount_vtable = {
         .suffix = ".mount",
 
         .no_alias = true,
+        .no_instances = true,
 
         .init = mount_init,
         .load = mount_load,

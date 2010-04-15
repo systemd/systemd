@@ -555,11 +555,11 @@ int main(int argc, char *argv[]) {
 
         log_debug("Activating default unit: %s", default_unit);
 
-        if ((r = manager_load_unit(m, default_unit, &target)) < 0) {
+        if ((r = manager_load_unit(m, default_unit, NULL, &target)) < 0) {
                 log_error("Failed to load default target: %s", strerror(-r));
 
                 log_info("Trying to load rescue target...");
-                if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, &target)) < 0) {
+                if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &target)) < 0) {
                         log_error("Failed to load rescue target: %s", strerror(-r));
                         goto finish;
                 }

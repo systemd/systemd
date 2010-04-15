@@ -135,7 +135,11 @@ COMMON_SOURCES= \
 	hostname-setup.c \
 	hostname-setup.h \
 	utmp-wtmp.c \
-	utmp-wtmp.h
+	utmp-wtmp.h \
+	specifier.c \
+	specifier.h \
+	unit-name.c \
+	unit-name.h
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \

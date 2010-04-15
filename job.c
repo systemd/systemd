@@ -152,9 +152,9 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 "%s\tState: %s\n"
                 "%s\tForced: %s\n",
                 prefix, j->id,
-                prefix, unit_id(j->unit), job_type_to_string(j->type),
+                prefix, j->unit->meta.id, job_type_to_string(j->type),
                 prefix, job_state_to_string(j->state),
-                prefix, yes_no(j->forced));
+                prefix, yes_no(j->override));
 }
 
 bool job_is_anchor(Job *j) {
@@ -455,15 +455,15 @@ int job_finish_and_invalidate(Job *j, bool success) {
         assert(j);
         assert(j->installed);
 
-        log_debug("Job %s/%s finished, success=%s", unit_id(j->unit), job_type_to_string(j->type), yes_no(success));
+        log_debug("Job %s/%s finished, success=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(success));
         job_add_to_dbus_queue(j);
 
         /* Patch restart jobs so that they become normal start jobs */
         if (success && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
 
                 log_debug("Converting job %s/%s → %s/%s",
-                          unit_id(j->unit), job_type_to_string(j->type),
-                          unit_id(j->unit), job_type_to_string(JOB_START));
+                          j->unit->meta.id, job_type_to_string(j->type),
+                          j->unit->meta.id, job_type_to_string(JOB_START));
 
                 j->state = JOB_RUNNING;
                 j->type = JOB_START;
@@ -490,9 +490,9 @@ int job_finish_and_invalidate(Job *j, bool success) {
                                      other->meta.job->type == JOB_RELOAD_OR_START))
                                         job_finish_and_invalidate(other->meta.job, false);
 
-                        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUIRED_BY], i)
+                        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
                                 if (other->meta.job &&
-                                    !other->meta.job->forced &&
+                                    !other->meta.job->override &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
                                      other->meta.job->type == JOB_RELOAD_OR_START))

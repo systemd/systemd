@@ -27,6 +27,7 @@
 #include "device.h"
 #include "strv.h"
 #include "log.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD] = UNIT_INACTIVE,
@@ -64,7 +65,7 @@ static void device_set_state(Device *d, DeviceState state) {
         d->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s → %s", unit_id(UNIT(d)), state_string_table[old_state], state_string_table[state]);
+                log_debug("%s changed %s → %s", UNIT(d)->meta.id, state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -113,7 +114,7 @@ static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
         assert(dn);
         assert(dn[0] == '/');
 
-        if (!(e = unit_name_escape_path(dn+1, ".device")))
+        if (!(e = unit_name_build_escape(dn+1, NULL, ".device")))
                 return -ENOMEM;
 
         r = unit_add_name(u, e);
@@ -138,7 +139,7 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
         assert(dn[0] == '/');
         assert(_u);
 
-        if (!(e = unit_name_escape_path(dn+1, ".device")))
+        if (!(e = unit_name_build_escape(dn+1, NULL, ".device")))
                 return -ENOMEM;
 
         u = manager_get_unit(m, e);
@@ -303,7 +304,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                                 goto fail;
                         }
 
-                        r = unit_add_dependency_by_name(u, UNIT_WANTS, e);
+                        r = unit_add_dependency_by_name(u, UNIT_WANTS, NULL, e);
                         free(e);
 
                         if (r < 0)
@@ -356,7 +357,7 @@ static int device_process_removed_device(Manager *m, struct udev_device *dev) {
                 return -ENOMEM;
 
         assert(sysfs[0] == '/');
-        if (!(e = unit_name_escape_path(sysfs+1, ".device")))
+        if (!(e = unit_name_build_escape(sysfs+1, NULL, ".device")))
                 return -ENOMEM;
 
         u = manager_get_unit(m, e);
@@ -414,21 +415,21 @@ static int device_enumerate(Manager *m) {
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_watch.fd, &ev) < 0)
                 return -errno;
 
-        if (!(e = udev_enumerate_new(m->udev))) {
-                r = -ENOMEM;
-                goto fail;
-        }
+        /* if (!(e = udev_enumerate_new(m->udev))) { */
+        /*         r = -ENOMEM; */
+        /*         goto fail; */
+        /* } */
 
-        if (udev_enumerate_scan_devices(e) < 0) {
-                r = -EIO;
-                goto fail;
-        }
+        /* if (udev_enumerate_scan_devices(e) < 0) { */
+        /*         r = -EIO; */
+        /*         goto fail; */
+        /* } */
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first)
-                device_process_path(m, udev_list_entry_get_name(item), false);
+        /* first = udev_enumerate_get_list_entry(e); */
+        /* udev_list_entry_foreach(item, first) */
+        /*         device_process_path(m, udev_list_entry_get_name(item), false); */
 
-        udev_enumerate_unref(e);
+        /* udev_enumerate_unref(e); */
         return 0;
 
 fail:
@@ -475,6 +476,9 @@ fail:
 
 const UnitVTable device_vtable = {
         .suffix = ".device",
+
+        .no_requires = true,
+        .no_instances = true,
 
         .init = device_init,
         .load = unit_load_fragment_and_dropin_optional,

@@ -46,6 +46,7 @@
 #include "cgroup.h"
 #include "mount-setup.h"
 #include "utmp-wtmp.h"
+#include "unit-name.h"
 
 static int enable_special_signals(Manager *m) {
         char fd;
@@ -448,7 +449,7 @@ int manager_coldplug(Manager *m) {
         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
 
                 /* ignore aliases */
-                if (unit_id(u) != k)
+                if (u->meta.id != k)
                         continue;
 
                 if (UNIT_VTABLE(u)->coldplug)
@@ -563,7 +564,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
 
         j->type = t;
         j->state = JOB_WAITING;
-        j->forced = j->forced || other->forced;
+        j->override = j->override || other->override;
 
         j->matters_to_anchor = j->matters_to_anchor || other->matters_to_anchor;
 
@@ -635,7 +636,7 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
                                 return -ENOEXEC;
 
                         /* Ok, we can drop one, so let's do so. */
-                        log_debug("Trying to fix job merging by deleting job %s/%s", unit_id(d->unit), job_type_to_string(d->type));
+                        log_debug("Trying to fix job merging by deleting job %s/%s", d->unit->meta.id, job_type_to_string(d->type));
                         transaction_delete_job(m, d, true);
                         return 0;
                 }
@@ -735,7 +736,7 @@ static void transaction_drop_redundant(Manager *m) {
                         if (changes_something)
                                 continue;
 
-                        log_debug("Found redundant job %s/%s, dropping.", unit_id(j->unit), job_type_to_string(j->type));
+                        log_debug("Found redundant job %s/%s, dropping.", j->unit->meta.id, job_type_to_string(j->type));
                         transaction_delete_job(m, j, false);
                         again = true;
                         break;
@@ -781,17 +782,17 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                  * since smart how we are we stored our way back in
                  * there. */
 
-                log_debug("Found ordering cycle on %s/%s", unit_id(j->unit), job_type_to_string(j->type));
+                log_debug("Found ordering cycle on %s/%s", j->unit->meta.id, job_type_to_string(j->type));
 
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
 
-                        log_debug("Walked on cycle path to %s/%s", unit_id(k->unit), job_type_to_string(k->type));
+                        log_debug("Walked on cycle path to %s/%s", k->unit->meta.id, job_type_to_string(k->type));
 
                         if (!k->installed &&
                             !unit_matters_to_anchor(k->unit, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
-                                log_debug("Breaking order cycle by deleting job %s/%s", unit_id(k->unit), job_type_to_string(k->type));
+                                log_debug("Breaking order cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
                                 transaction_delete_unit(m, k->unit);
                                 return -EAGAIN;
                         }
@@ -872,7 +873,7 @@ static void transaction_collect_garbage(Manager *m) {
                         if (j->object_list)
                                 continue;
 
-                        log_debug("Garbage collecting job %s/%s", unit_id(j->unit), job_type_to_string(j->type));
+                        log_debug("Garbage collecting job %s/%s", j->unit->meta.id, job_type_to_string(j->type));
                         transaction_delete_job(m, j, true);
                         again = true;
                         break;
@@ -940,13 +941,13 @@ static void transaction_minimize_impact(Manager *m) {
                                         continue;
 
                                 if (stops_running_service)
-                                        log_debug("%s/%s would stop a running service.", unit_id(j->unit), job_type_to_string(j->type));
+                                        log_debug("%s/%s would stop a running service.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 if (changes_existing_job)
-                                        log_debug("%s/%s would change existing job.", unit_id(j->unit), job_type_to_string(j->type));
+                                        log_debug("%s/%s would change existing job.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 /* Ok, let's get rid of this */
-                                log_debug("Deleting %s/%s to minimize impact.", unit_id(j->unit), job_type_to_string(j->type));
+                                log_debug("Deleting %s/%s to minimize impact.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 transaction_delete_job(m, j, true);
                                 again = true;
@@ -1101,7 +1102,7 @@ rollback:
         return r;
 }
 
-static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool force, bool *is_new) {
+static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool override, bool *is_new) {
         Job *j, *f;
         int r;
 
@@ -1132,7 +1133,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool f
         j->generation = 0;
         j->marker = NULL;
         j->matters_to_anchor = false;
-        j->forced = force;
+        j->override = override;
 
         LIST_PREPEND(Job, transaction, f, j);
 
@@ -1144,7 +1145,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool f
         if (is_new)
                 *is_new = true;
 
-        log_debug("Added job %s/%s to transaction.", unit_id(unit), job_type_to_string(type));
+        log_debug("Added job %s/%s to transaction.", unit->meta.id, job_type_to_string(type));
 
         return j;
 }
@@ -1175,14 +1176,21 @@ void manager_transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies
 
                 if (other && delete_dependencies) {
                         log_debug("Deleting job %s/%s as dependency of job %s/%s",
-                                  unit_id(other->unit), job_type_to_string(other->type),
-                                  unit_id(j->unit), job_type_to_string(j->type));
+                                  other->unit->meta.id, job_type_to_string(other->type),
+                                  j->unit->meta.id, job_type_to_string(j->type));
                         transaction_delete_job(m, other, delete_dependencies);
                 }
         }
 }
 
-static int transaction_add_job_and_dependencies(Manager *m, JobType type, Unit *unit, Job *by, bool matters, bool force, Job **_ret) {
+static int transaction_add_job_and_dependencies(
+                Manager *m,
+                JobType type,
+                Unit *unit,
+                Job *by,
+                bool matters,
+                bool override,
+                Job **_ret) {
         Job *ret;
         Iterator i;
         Unit *dep;
@@ -1200,7 +1208,7 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Unit *
                 return -EBADR;
 
         /* First add the job. */
-        if (!(ret = transaction_add_one_job(m, type, unit, force, &is_new)))
+        if (!(ret = transaction_add_one_job(m, type, unit, override, &is_new)))
                 return -ENOMEM;
 
         /* Then, add a link to the job. */
@@ -1211,28 +1219,33 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Unit *
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
                                         goto fail;
-                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_SOFT_REQUIRES], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !force, force, NULL)) < 0 && r != -EBADR)
-                                        goto fail;
+
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, NULL)) < 0 && r != -EBADR)
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, force, NULL)) < 0)
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", unit_id(dep), strerror(-r));
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, NULL)) < 0)
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
                                         goto fail;
-                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_SOFT_REQUISITE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !force, force, NULL)) < 0 && r != -EBADR)
-                                        goto fail;
+
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, NULL)) < 0 && r != -EBADR)
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
                                         goto fail;
                 }
 
@@ -1248,7 +1261,7 @@ fail:
         return r;
 }
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, Job **_ret) {
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, Job **_ret) {
         int r;
         Job *ret;
 
@@ -1257,9 +1270,9 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
         assert(unit);
         assert(mode < _JOB_MODE_MAX);
 
-        log_debug("Trying to enqueue job %s/%s", unit_id(unit), job_type_to_string(type));
+        log_debug("Trying to enqueue job %s/%s", unit->meta.id, job_type_to_string(type));
 
-        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, force, &ret)) < 0) {
+        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, &ret)) < 0) {
                 transaction_abort(m);
                 return r;
         }
@@ -1267,7 +1280,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
         if ((r = transaction_activate(m, mode)) < 0)
                 return r;
 
-        log_debug("Enqueued job %s/%s as %u", unit_id(unit), job_type_to_string(type), (unsigned) ret->id);
+        log_debug("Enqueued job %s/%s as %u", unit->meta.id, job_type_to_string(type), (unsigned) ret->id);
 
         if (_ret)
                 *_ret = ret;
@@ -1275,7 +1288,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
         return 0;
 }
 
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool force, Job **_ret) {
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool override, Job **_ret) {
         Unit *unit;
         int r;
 
@@ -1284,10 +1297,10 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         assert(name);
         assert(mode < _JOB_MODE_MAX);
 
-        if ((r = manager_load_unit(m, name, &unit)) < 0)
+        if ((r = manager_load_unit(m, name, NULL, &unit)) < 0)
                 return r;
 
-        return manager_add_job(m, type, unit, mode, force, _ret);
+        return manager_add_job(m, type, unit, mode, override, _ret);
 }
 
 Job *manager_get_job(Manager *m, uint32_t id) {
@@ -1329,19 +1342,24 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
+int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_ret) {
         Unit *ret;
         int r;
-        const char *name;
 
         assert(m);
-        assert(path);
-        assert(_ret);
+        assert(name || path);
 
         /* This will load the service information files, but not actually
          * start any services or anything. */
 
-        name = file_name_from_path(path);
+        if (path && !is_path(path))
+                return -EINVAL;
+
+        if (!name)
+                name = file_name_from_path(path);
+
+        if (!unit_name_is_valid(name))
+                return -EINVAL;
 
         if ((ret = manager_get_unit(m, name))) {
                 *_ret = ret;
@@ -1351,12 +1369,11 @@ int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
         if (!(ret = unit_new(m)))
                 return -ENOMEM;
 
-        if (is_path(path)) {
+        if (path)
                 if (!(ret->meta.fragment_path = strdup(path))) {
                         unit_free(ret);
                         return -ENOMEM;
                 }
-        }
 
         if ((r = unit_add_name(ret, name)) < 0) {
                 unit_free(ret);
@@ -1368,7 +1385,9 @@ int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
 
         manager_dispatch_load_queue(m);
 
-        *_ret = unit_follow_merge(ret);
+        if (_ret)
+                *_ret = unit_follow_merge(ret);
+
         return 0;
 }
 
@@ -1392,7 +1411,7 @@ void manager_dump_units(Manager *s, FILE *f, const char *prefix) {
         assert(f);
 
         HASHMAP_FOREACH_KEY(u, t, s->units, i)
-                if (unit_id(u) == t)
+                if (u->meta.id == t)
                         unit_dump(u, f, prefix);
 }
 
@@ -1512,7 +1531,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (!(u = hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
                         continue;
 
-                log_debug("Child %llu belongs to %s", (long long unsigned) si.si_pid, unit_id(u));
+                log_debug("Child %llu belongs to %s", (long long unsigned) si.si_pid, u->meta.id);
 
                 UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
         }

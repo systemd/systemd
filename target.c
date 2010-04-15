@@ -65,7 +65,7 @@ static void target_set_state(Target *t, TargetState state) {
         t->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s → %s", unit_id(UNIT(t)), state_string_table[old_state], state_string_table[state]);
+                log_debug("%s changed %s → %s", UNIT(t)->meta.id, state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
 }

@@ -1041,16 +1041,15 @@ char *bus_path_escape(const char *s) {
         return r;
 }
 
-char *bus_path_unescape(const char *s) {
+char *bus_path_unescape(const char *f) {
         char *r, *t;
-        const char *f;
 
-        assert(s);
+        assert(f);
 
-        if (!(r = new(char, strlen(s)+1)))
+        if (!(r = strdup(f)))
                 return NULL;
 
-        for (f = s, t = r; *f; f++) {
+        for (t = r; *f; f++) {
 
                 if (*f == '_') {
                         int a, b;

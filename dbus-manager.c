@@ -175,7 +175,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, message, &error, -EINVAL);
 
-                if ((r = manager_load_unit(m, name, &u)) < 0)
+                if ((r = manager_load_unit(m, name, NULL, &u)) < 0)
                         return bus_send_error_reply(m, message, NULL, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -239,12 +239,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
 
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                         char *u_path, *j_path;
-                        const char *id, *description, *load_state, *active_state, *sub_state, *job_type;
+                        const char *description, *load_state, *active_state, *sub_state, *job_type;
                         DBusMessageIter sub2;
                         uint32_t job_id;
 
-                        id = unit_id(u);
-                        if (k != id)
+                        if (k != u->meta.id)
                                 continue;
 
                         if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
@@ -273,7 +272,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                 job_type = "";
                         }
 
-                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &id) ||
+                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &u->meta.id) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &description) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &load_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &active_state) ||
@@ -314,7 +313,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
 
                 HASHMAP_FOREACH(j, m->jobs, i) {
                         char *u_path, *j_path;
-                        const char *unit, *state, *type;
+                        const char *state, *type;
                         uint32_t id;
                         DBusMessageIter sub2;
 
@@ -322,7 +321,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                 goto oom;
 
                         id = (uint32_t) j->id;
-                        unit = unit_id(j->unit);
                         state = job_state_to_string(j->state);
                         type = job_type_to_string(j->type);
 
@@ -335,7 +333,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         }
 
                         if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &unit) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &j->unit->meta.id) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &type) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &j_path) ||
@@ -434,7 +432,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                         char *p;
 
-                        if (k != unit_id(u))
+                        if (k != u->meta.id)
                                 continue;
 
                         if (!(p = bus_path_escape(k))) {

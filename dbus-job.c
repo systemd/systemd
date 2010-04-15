@@ -46,7 +46,6 @@ static int bus_job_append_unit(Manager *m, DBusMessageIter *i, const char *prope
         Job *j = data;
         DBusMessageIter sub;
         char *p;
-        const char *id;
 
         assert(m);
         assert(i);
@@ -59,9 +58,7 @@ static int bus_job_append_unit(Manager *m, DBusMessageIter *i, const char *prope
         if (!(p = unit_dbus_path(j->unit)))
                 return -ENOMEM;
 
-        id = unit_id(j->unit);
-
-        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &id) ||
+        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &j->unit->meta.id) ||
             !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
                 free(p);
                 return -ENOMEM;
