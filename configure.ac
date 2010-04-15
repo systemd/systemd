@@ -73,7 +73,7 @@ if test "x$enable_extras" = xyes; then
 	AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
 	AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
 	AC_ARG_WITH(pci-ids-path,
-		AS_HELP_STRING([--pci-ids-path=DIR], [Path to pci.ids file]),
+		AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file]),
 		[PCI_DATABASE=${withval}],
 		[if test -n "$pciids" ; then
 			PCI_DATABASE="$pciids"
