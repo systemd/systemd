@@ -245,7 +245,7 @@ static int cd_inquiry(struct udev *udev, int fd) {
 	scsi_cmd_set(udev, &sc, 4, 36);
 	scsi_cmd_set(udev, &sc, 5, 0);
 	err = scsi_cmd_run(udev, &sc, fd, inq, 36);
-	if ((err < 0)) {
+	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "INQUIRY", err);
 		return -1;
 	}
@@ -351,7 +351,7 @@ static int cd_profiles(struct udev *udev, int fd)
 	scsi_cmd_set(udev, &sc, 8, sizeof(features) & 0xff);
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, features, sizeof(features));
-	if ((err < 0)) {
+	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
 		return -1;
 	}
@@ -492,7 +492,7 @@ static int cd_media_info(struct udev *udev, int fd)
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
-	if ((err < 0)) {
+	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "READ DISC INFORMATION", err);
 		return -1;
 	};
@@ -526,7 +526,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
-	if ((err < 0)) {
+	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "READ TOC", err);
 		return -1;
 	}
@@ -549,7 +549,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	scsi_cmd_set(udev, &sc, 8, len);
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, toc, len);
-	if ((err < 0)) {
+	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "READ TOC (tracks)", err);
 		return -1;
 	}
@@ -576,7 +576,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	scsi_cmd_set(udev, &sc, 8, 12);
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
-	if ((err < 0)) {
+	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "READ TOC (multi session)", err);
 		return -1;
 	}
