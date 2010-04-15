@@ -1339,13 +1339,22 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 
 static char *default_cgroup_path(Unit *u) {
         char *p;
+        int r;
 
         assert(u);
 
-        if (asprintf(&p, "%s/%s", u->meta.manager->cgroup_hierarchy, u->meta.id) < 0)
-                return NULL;
+        if (u->meta.instance) {
+                char *t;
 
-        return p;
+                if (!(t = unit_name_template(u->meta.id)))
+                        return NULL;
+
+                r = asprintf(&p, "%s/%s/%s", u->meta.manager->cgroup_hierarchy, t, u->meta.instance);
+                free(t);
+        } else
+                r = asprintf(&p, "%s/%s", u->meta.manager->cgroup_hierarchy, u->meta.id);
+
+        return r < 0 ? NULL : p;
 }
 
 int unit_add_cgroup_from_text(Unit *u, const char *name) {

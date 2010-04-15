@@ -316,7 +316,7 @@ int socket_address_listen(
         if ((r = socket_address_verify(a)) < 0)
                 return r;
 
-        if ((fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0)) < 0)
+        if ((fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK, 0)) < 0)
                 return -errno;
 
         if (socket_address_family(a) == AF_INET6 && only != SOCKET_ADDRESS_DEFAULT) {
@@ -372,4 +372,12 @@ fail:
         r = -errno;
         close_nointr(fd);
         return r;
+}
+
+bool socket_address_can_accept(const SocketAddress *a) {
+        assert(a);
+
+        return
+                a->type == SOCK_STREAM ||
+                a->type == SOCK_SEQPACKET;
 }

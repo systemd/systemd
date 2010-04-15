@@ -46,6 +46,7 @@ typedef enum ExecInput {
         EXEC_INPUT_TTY,
         EXEC_INPUT_TTY_FORCE,
         EXEC_INPUT_TTY_FAIL,
+        EXEC_INPUT_SOCKET,
         _EXEC_INPUT_MAX,
         _EXEC_INPUT_INVALID = -1
 } ExecInput;
@@ -56,6 +57,7 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_TTY,
         EXEC_OUTPUT_SYSLOG,
         EXEC_OUTPUT_KERNEL,
+        EXEC_OUTPUT_SOCKET,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;

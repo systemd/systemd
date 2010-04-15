@@ -222,10 +222,41 @@ static bool is_terminal_input(ExecInput i) {
                 i == EXEC_INPUT_TTY_FAIL;
 }
 
-static int setup_input(const ExecContext *context) {
+static int fixup_input(const ExecContext *context, int socket_fd) {
         assert(context);
 
-        switch (context->std_input) {
+        if (socket_fd < 0 && context->std_input == EXEC_INPUT_SOCKET)
+                return EXEC_INPUT_NULL;
+
+        return context->std_input;
+}
+
+static int fixup_output(const ExecContext *context, int socket_fd) {
+        assert(context);
+
+        if (socket_fd < 0 && context->std_output == EXEC_OUTPUT_SOCKET)
+                return EXEC_OUTPUT_INHERIT;
+
+        return context->std_output;
+}
+
+static int fixup_error(const ExecContext *context, int socket_fd) {
+        assert(context);
+
+        if (socket_fd < 0 && context->std_error == EXEC_OUTPUT_SOCKET)
+                return EXEC_OUTPUT_INHERIT;
+
+        return context->std_error;
+}
+
+static int setup_input(const ExecContext *context, int socket_fd) {
+        ExecInput i;
+
+        assert(context);
+
+        i = fixup_input(context, socket_fd);
+
+        switch (i) {
 
         case EXEC_INPUT_NULL:
                 return open_null_as(O_RDONLY, STDIN_FILENO);
@@ -237,8 +268,8 @@ static int setup_input(const ExecContext *context) {
 
                 if ((fd = acquire_terminal(
                                      tty_path(context),
-                                     context->std_input == EXEC_INPUT_TTY_FAIL,
-                                     context->std_input == EXEC_INPUT_TTY_FORCE)) < 0)
+                                     i == EXEC_INPUT_TTY_FAIL,
+                                     i == EXEC_INPUT_TTY_FORCE)) < 0)
                         return fd;
 
                 if (fd != STDIN_FILENO) {
@@ -250,72 +281,90 @@ static int setup_input(const ExecContext *context) {
                 return r;
         }
 
+        case EXEC_INPUT_SOCKET:
+                return dup2(socket_fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+
         default:
                 assert_not_reached("Unknown input type");
         }
 }
 
-static int setup_output(const ExecContext *context, const char *ident) {
+static int setup_output(const ExecContext *context, int socket_fd, const char *ident) {
+        ExecOutput o;
+        ExecInput i;
+
         assert(context);
         assert(ident);
 
+        i = fixup_input(context, socket_fd);
+        o = fixup_output(context, socket_fd);
+
         /* This expects the input is already set up */
 
-        switch (context->std_output) {
+        switch (o) {
 
         case EXEC_OUTPUT_INHERIT:
 
                 /* If the input is connected to a terminal, inherit that... */
-                if (is_terminal_input(context->std_input))
+                if (is_terminal_input(i) || i == EXEC_INPUT_SOCKET)
                         return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
 
-                return 0;
+                return STDIN_FILENO;
 
         case EXEC_OUTPUT_NULL:
                 return open_null_as(O_WRONLY, STDOUT_FILENO);
 
-        case EXEC_OUTPUT_TTY: {
-                if (is_terminal_input(context->std_input))
+        case EXEC_OUTPUT_TTY:
+                if (is_terminal_input(i))
                         return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
 
                 /* We don't reset the terminal if this is just about output */
                 return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
-        }
 
         case EXEC_OUTPUT_SYSLOG:
         case EXEC_OUTPUT_KERNEL:
-                return connect_logger_as(context, context->std_output, ident, STDOUT_FILENO);
+                return connect_logger_as(context, o, ident, STDOUT_FILENO);
+
+        case EXEC_OUTPUT_SOCKET:
+                assert(socket_fd >= 0);
+                return dup2(socket_fd, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
 
         default:
                 assert_not_reached("Unknown output type");
         }
 }
 
-static int setup_error(const ExecContext *context, const char *ident) {
+static int setup_error(const ExecContext *context, int socket_fd, const char *ident) {
+        ExecOutput o, e;
+        ExecInput i;
+
         assert(context);
         assert(ident);
+
+        i = fixup_input(context, socket_fd);
+        o = fixup_output(context, socket_fd);
+        e = fixup_error(context, socket_fd);
 
         /* This expects the input and output are already set up */
 
         /* Don't change the stderr file descriptor if we inherit all
          * the way and are not on a tty */
-        if (context->std_error == EXEC_OUTPUT_INHERIT &&
-            context->std_output == EXEC_OUTPUT_INHERIT &&
-            !is_terminal_input(context->std_input))
+        if (e == EXEC_OUTPUT_INHERIT &&
+            o == EXEC_OUTPUT_INHERIT &&
+            !is_terminal_input(i))
                 return STDERR_FILENO;
 
         /* Duplicate form stdout if possible */
-        if (context->std_error == context->std_output ||
-            context->std_error == EXEC_OUTPUT_INHERIT)
+        if (e == o || e == EXEC_OUTPUT_INHERIT)
                 return dup2(STDOUT_FILENO, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
 
-        switch (context->std_error) {
+        switch (e) {
 
         case EXEC_OUTPUT_NULL:
                 return open_null_as(O_WRONLY, STDERR_FILENO);
 
         case EXEC_OUTPUT_TTY:
-                if (is_terminal_input(context->std_input))
+                if (is_terminal_input(i))
                         return dup2(STDIN_FILENO, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
 
                 /* We don't reset the terminal if this is just about output */
@@ -323,7 +372,11 @@ static int setup_error(const ExecContext *context, const char *ident) {
 
         case EXEC_OUTPUT_SYSLOG:
         case EXEC_OUTPUT_KERNEL:
-                return connect_logger_as(context, context->std_error, ident, STDERR_FILENO);
+                return connect_logger_as(context, e, ident, STDERR_FILENO);
+
+        case EXEC_OUTPUT_SOCKET:
+                assert(socket_fd >= 0);
+                return dup2(socket_fd, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
 
         default:
                 assert_not_reached("Unknown error type");
@@ -677,11 +730,26 @@ int exec_spawn(ExecCommand *command,
         pid_t pid;
         int r;
         char *line;
+        int socket_fd;
 
         assert(command);
         assert(context);
         assert(ret);
         assert(fds || n_fds <= 0);
+
+        if (context->std_input == EXEC_INPUT_SOCKET ||
+            context->std_output == EXEC_OUTPUT_SOCKET ||
+            context->std_error == EXEC_OUTPUT_SOCKET) {
+
+                if (n_fds != 1)
+                        return -EINVAL;
+
+                socket_fd = fds[0];
+
+                fds = NULL;
+                n_fds = 0;
+        } else
+                socket_fd = -1;
 
         if (!argv)
                 argv = command->argv;
@@ -760,18 +828,18 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (!keep_stdin)
-                        if (setup_input(context) < 0) {
+                        if (setup_input(context, socket_fd) < 0) {
                                 r = EXIT_STDIN;
                                 goto fail;
                         }
 
                 if (!keep_stdout)
-                        if (setup_output(context, file_name_from_path(command->path)) < 0) {
+                        if (setup_output(context, socket_fd, file_name_from_path(command->path)) < 0) {
                                 r = EXIT_STDOUT;
                                 goto fail;
                         }
 
-                if (setup_error(context, file_name_from_path(command->path)) < 0) {
+                if (setup_error(context, socket_fd, file_name_from_path(command->path)) < 0) {
                         r = EXIT_STDERR;
                         goto fail;
                 }
@@ -1501,7 +1569,8 @@ static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_NULL] = "null",
         [EXEC_INPUT_TTY] = "tty",
         [EXEC_INPUT_TTY_FORCE] = "tty-force",
-        [EXEC_INPUT_TTY_FAIL] = "tty-fail"
+        [EXEC_INPUT_TTY_FAIL] = "tty-fail",
+        [EXEC_INPUT_SOCKET] = "socket"
 };
 
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
@@ -1509,7 +1578,8 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_NULL] = "null",
         [EXEC_OUTPUT_TTY] = "tty",
         [EXEC_OUTPUT_SYSLOG] = "syslog",
-        [EXEC_OUTPUT_KERNEL] = "kernel"
+        [EXEC_OUTPUT_KERNEL] = "kernel",
+        [EXEC_OUTPUT_SOCKET] = "socket"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);

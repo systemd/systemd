@@ -1199,6 +1199,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "DirectoryMode",          config_parse_mode,            &u->socket.directory_mode,                       "Socket"  },
                 { "SocketMode",             config_parse_mode,            &u->socket.socket_mode,                          "Socket"  },
                 { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
+                { "Accept",                 config_parse_bool,            &u->socket.accept,                               "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 { "What",                   config_parse_string,          &u->mount.parameters_fragment.what,              "Mount"   },

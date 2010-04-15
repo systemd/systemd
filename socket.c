@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <sys/epoll.h>
 #include <signal.h>
+#include <arpa/inet.h>
 
 #include "unit.h"
 #include "socket.h"
@@ -33,6 +34,7 @@
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "strv.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -120,7 +122,38 @@ static void socket_init(Unit *u) {
         s->failure = false;
         s->control_pid = 0;
         s->service = NULL;
+        s->accept = false;
+        s->n_accepted = 0;
         exec_context_init(&s->exec_context);
+}
+
+static bool have_non_accept_socket(Socket *s) {
+        SocketPort *p;
+
+        assert(s);
+
+        if (!s->accept)
+                return true;
+
+        LIST_FOREACH(port, p, s->ports)
+                if (!socket_address_can_accept(&p->address))
+                        return true;
+
+        return false;
+}
+
+static int socket_verify(Socket *s) {
+        assert(s);
+
+        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+                return 0;
+
+        if (!s->ports) {
+                log_error("%s lacks Listen setting. Refusing.", UNIT(s)->meta.id);
+                return -EINVAL;
+        }
+
+        return 0;
 }
 
 static int socket_load(Unit *u) {
@@ -136,11 +169,13 @@ static int socket_load(Unit *u) {
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
 
-                if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)))
-                        return r;
+                if (have_non_accept_socket(s)) {
+                        if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)))
+                                return r;
 
-                if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service))) < 0)
-                        return r;
+                        if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service))) < 0)
+                                return r;
+                }
 
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                         return r;
@@ -149,7 +184,7 @@ static int socket_load(Unit *u) {
                         return r;
         }
 
-        return 0;
+        return socket_verify(s);
 }
 
 static const char* listen_lookup(int type) {
@@ -210,6 +245,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sBindToDevice: %s\n",
                         prefix, s->bind_to_device);
 
+        if (s->accept)
+                fprintf(f,
+                        "%sAccepted: %u\n",
+                        prefix, s->n_accepted);
+
         LIST_FOREACH(port, p, s->ports) {
 
                 if (p->type == SOCKET_SOCKET) {
@@ -241,6 +281,87 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         }
 
         free(p2);
+}
+
+static int instance_from_socket(int fd, unsigned nr, char **instance) {
+        socklen_t l;
+        char *r;
+        union {
+                struct sockaddr sa;
+                struct sockaddr_un un;
+                struct sockaddr_in in;
+                struct sockaddr_in6 in6;
+                struct sockaddr_storage storage;
+        } local, remote;
+
+        assert(fd >= 0);
+        assert(instance);
+
+        l = sizeof(local);
+        if (getsockname(fd, &local.sa, &l) < 0)
+                return -errno;
+
+        l = sizeof(remote);
+        if (getpeername(fd, &remote.sa, &l) < 0)
+                return -errno;
+
+        switch (local.sa.sa_family) {
+
+        case AF_INET: {
+                uint32_t
+                        a = ntohl(local.in.sin_addr.s_addr),
+                        b = ntohl(remote.in.sin_addr.s_addr);
+
+                if (asprintf(&r,
+                             "%u-%u.%u.%u.%u-%u-%u.%u.%u.%u-%u",
+                             nr,
+                             a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
+                             ntohs(local.in.sin_port),
+                             b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
+                             ntohs(remote.in.sin_port)) < 0)
+                        return -ENOMEM;
+
+                break;
+        }
+
+        case AF_INET6: {
+                char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
+
+                if (asprintf(&r,
+                             "%u-%s-%u-%s-%u",
+                             nr,
+                             inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
+                             ntohs(local.in6.sin6_port),
+                             inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
+                             ntohs(remote.in6.sin6_port)) < 0)
+                        return -ENOMEM;
+
+                break;
+        }
+
+        case AF_UNIX: {
+                struct ucred ucred;
+
+                l = sizeof(ucred);
+                if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0)
+                        return -errno;
+
+                if (asprintf(&r,
+                             "%u-%llu-%llu",
+                             nr,
+                             (unsigned long long) ucred.pid,
+                             (unsigned long long) ucred.uid) < 0)
+                        return -ENOMEM;
+
+                break;
+        }
+
+        default:
+                assert_not_reached("Unhandled socket type.");
+        }
+
+        *instance = r;
+        return 0;
 }
 
 static void socket_close_fds(Socket *s) {
@@ -341,6 +462,10 @@ static int socket_watch_fds(Socket *s) {
         LIST_FOREACH(port, p, s->ports) {
                 if (p->fd < 0)
                         continue;
+
+                p->fd_watch.data.socket_accept =
+                        s->accept &&
+                        socket_address_can_accept(&p->address);
 
                 if ((r = unit_watch_fd(UNIT(s), p->fd, EPOLLIN, &p->fd_watch)) < 0)
                         goto fail;
@@ -607,20 +732,59 @@ fail:
         socket_enter_dead(s, false);
 }
 
-static void socket_enter_running(Socket *s) {
+static void socket_enter_running(Socket *s, int cfd) {
         int r;
 
         assert(s);
 
-        if ((r = manager_add_job(UNIT(s)->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, NULL)) < 0)
-                goto fail;
+        if (cfd < 0) {
+                if ((r = manager_add_job(UNIT(s)->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, NULL)) < 0)
+                        goto fail;
 
-        socket_set_state(s, SOCKET_RUNNING);
+                socket_set_state(s, SOCKET_RUNNING);
+        } else {
+                Unit *u;
+                char *prefix, *instance, *name;
+
+                if ((r = instance_from_socket(cfd, s->n_accepted++, &instance)))
+                        goto fail;
+
+                if (!(prefix = unit_name_to_prefix(UNIT(s)->meta.id))) {
+                        free(instance);
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                name = unit_name_build(prefix, instance, ".service");
+                free(prefix);
+                free(instance);
+
+                if (!name)
+                        r = -ENOMEM;
+
+                r = manager_load_unit(UNIT(s)->meta.manager, name, NULL, &u);
+                free(name);
+
+                if (r < 0)
+                        goto fail;
+
+                if ((r = service_set_socket_fd(SERVICE(u), cfd) < 0))
+                        goto fail;
+
+                cfd = -1;
+
+                if ((r = manager_add_job(u->meta.manager, JOB_START, u, JOB_REPLACE, true, NULL)) < 0)
+                        goto fail;
+        }
+
         return;
 
 fail:
         log_warning("%s failed to queue socket startup job: %s", s->meta.id, strerror(-r));
         socket_enter_stop_pre(s, false);
+
+        if (cfd >= 0)
+                close_nointr_nofail(cfd);
 }
 
 static void socket_run_next(Socket *s, bool success) {
@@ -673,15 +837,17 @@ static int socket_start(Unit *u) {
                 return 0;
 
         /* Cannot run this without the service being around */
-        if (s->service->meta.load_state != UNIT_LOADED)
-                return -ENOENT;
+        if (s->service) {
+                if (s->service->meta.load_state != UNIT_LOADED)
+                        return -ENOENT;
 
-        /* If the service is alredy actvie we cannot start the
-         * socket */
-        if (s->service->state != SERVICE_DEAD &&
-            s->service->state != SERVICE_MAINTAINANCE &&
-            s->service->state != SERVICE_AUTO_RESTART)
-                return -EBUSY;
+                /* If the service is alredy actvie we cannot start the
+                 * socket */
+                if (s->service->state != SERVICE_DEAD &&
+                    s->service->state != SERVICE_MAINTAINANCE &&
+                    s->service->state != SERVICE_AUTO_RESTART)
+                        return -EBUSY;
+        }
 
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_MAINTAINANCE);
 
@@ -730,15 +896,36 @@ static const char *socket_sub_state_to_string(Unit *u) {
 
 static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         Socket *s = SOCKET(u);
+        int cfd = -1;
 
         assert(s);
 
         log_debug("Incoming traffic on %s", u->meta.id);
 
-        if (events != EPOLLIN)
+        if (events != EPOLLIN) {
+                log_error("Got invalid poll event on socket.");
                 socket_enter_stop_pre(s, false);
+                return;
+        }
 
-        socket_enter_running(s);
+        if (w->data.socket_accept) {
+                for (;;) {
+
+                        if ((cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK)) < 0) {
+
+                                if (errno == EINTR)
+                                        continue;
+
+                                log_error("Failed to accept socket: %m");
+                                socket_enter_stop_pre(s, false);
+                                return;
+                        }
+
+                        break;
+                }
+        }
+
+        socket_enter_running(s, cfd);
 }
 
 static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {

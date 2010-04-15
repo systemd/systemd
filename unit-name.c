@@ -29,7 +29,7 @@
         "0123456789"                            \
         "abcdefghijklmnopqrstuvwxyz"            \
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
-        "-_.\\"
+        ":-_.\\"
 
 UnitType unit_name_to_type(const char *n) {
         UnitType t;

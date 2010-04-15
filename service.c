@@ -85,6 +85,16 @@ static void service_unwatch_main_pid(Service *s) {
         s->main_pid = 0;
 }
 
+static void service_close_socket_fd(Service *s) {
+        assert(s);
+
+        if (s->socket_fd < 0)
+                return;
+
+        close_nointr_nofail(s->socket_fd);
+        s->socket_fd = -1;
+}
+
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -107,6 +117,8 @@ static void service_done(Unit *u) {
          * our resources */
         service_unwatch_main_pid(s);
         service_unwatch_control_pid(s);
+
+        service_close_socket_fd(s);
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -728,6 +740,8 @@ static void service_init(Unit *u) {
         s->main_pid_known = false;
         s->failure = false;
 
+        s->socket_fd = -1;
+
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 }
 
@@ -944,7 +958,6 @@ fail:
         return r;
 }
 
-
 static int service_notify_sockets_dead(Service *s) {
         Iterator i;
         Set *set;
@@ -954,7 +967,6 @@ static int service_notify_sockets_dead(Service *s) {
         assert(s);
 
         /* Notifies all our sockets when we die */
-
         if ((r = service_get_sockets(s, &set)) < 0)
                 return r;
 
@@ -1019,6 +1031,11 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_MAINTAINANCE ||
             state == SERVICE_AUTO_RESTART)
                 service_notify_sockets_dead(s);
+
+        if (state != SERVICE_START_PRE &&
+            state != SERVICE_START &&
+            !(state == SERVICE_DEAD && UNIT(s)->meta.job))
+                service_close_socket_fd(s);
 
         if (old_state != state)
                 log_debug("%s changed %s → %s", UNIT(s)->meta.id, service_state_to_string(old_state), service_state_to_string(state));
@@ -1106,9 +1123,13 @@ static int service_spawn(
         assert(c);
         assert(_pid);
 
-        if (pass_fds)
-                if ((r = service_collect_fds(s, &fds, &n_fds)) < 0)
+        if (pass_fds) {
+                if (s->socket_fd >= 0) {
+                        fds = &s->socket_fd;
+                        n_fds = 1;
+                } else if ((r = service_collect_fds(s, &fds, &n_fds)) < 0)
                         goto fail;
+        }
 
         if (timeout) {
                 if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
@@ -1135,11 +1156,17 @@ static int service_spawn(
         if (r < 0)
                 goto fail;
 
+        if (fds) {
+                if (s->socket_fd >= 0)
+                        service_close_socket_fd(s);
+                else
+                        free(fds);
+        }
+
         if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
 
-        free(fds);
         *_pid = pid;
 
         return 0;
@@ -2017,6 +2044,27 @@ finish:
         closedir(d);
 
         return r;
+}
+
+int service_set_socket_fd(Service *s, int fd) {
+        assert(s);
+        assert(fd >= 0);
+
+        /* This is called by the socket code when instantiating a new
+         * service for a stream socket and the socket needs to be
+         * configured. */
+
+        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+                return -EINVAL;
+
+        if (s->socket_fd >= 0)
+                return -EBUSY;
+
+        if (s->state != SERVICE_DEAD)
+                return -EAGAIN;
+
+        s->socket_fd = fd;
+        return 0;
 }
 
 static const char* const service_state_table[_SERVICE_STATE_MAX] = {

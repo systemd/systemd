@@ -59,6 +59,7 @@ struct Watch {
                 union Unit *unit;
                 DBusWatch *bus_watch;
                 DBusTimeout *bus_timeout;
+                bool socket_accept;
         } data;
 };
 

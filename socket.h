@@ -102,6 +102,9 @@ struct Socket {
         mode_t directory_mode;
         mode_t socket_mode;
 
+        bool accept;
+        unsigned n_accepted;
+
         bool failure;
         Watch timer_watch;
 };

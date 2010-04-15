@@ -415,21 +415,21 @@ static int device_enumerate(Manager *m) {
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_watch.fd, &ev) < 0)
                 return -errno;
 
-        /* if (!(e = udev_enumerate_new(m->udev))) { */
-        /*         r = -ENOMEM; */
-        /*         goto fail; */
-        /* } */
+        if (!(e = udev_enumerate_new(m->udev))) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
-        /* if (udev_enumerate_scan_devices(e) < 0) { */
-        /*         r = -EIO; */
-        /*         goto fail; */
-        /* } */
+        if (udev_enumerate_scan_devices(e) < 0) {
+                r = -EIO;
+                goto fail;
+        }
 
-        /* first = udev_enumerate_get_list_entry(e); */
-        /* udev_list_entry_foreach(item, first) */
-        /*         device_process_path(m, udev_list_entry_get_name(item), false); */
+        first = udev_enumerate_get_list_entry(e);
+        udev_list_entry_foreach(item, first)
+                device_process_path(m, udev_list_entry_get_name(item), false);
 
-        /* udev_enumerate_unref(e); */
+        udev_enumerate_unref(e);
         return 0;
 
 fail:
