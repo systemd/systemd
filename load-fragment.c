@@ -1152,18 +1152,18 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ControlGroup",           config_parse_cgroup,          u,                                               section   }
 
         const ConfigItem items[] = {
-                { "Names",                  config_parse_names,           u,                                               "Meta"    },
-                { "Description",            config_parse_string,          &u->meta.description,                            "Meta"    },
-                { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                      "Meta"    },
-                { "RequiresOverridable",    config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES_OVERRIDABLE),          "Meta"    },
-                { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                     "Meta"    },
-                { "RequisiteOverridable",   config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE_OVERRIDABLE),         "Meta"    },
-                { "Wants",                  config_parse_deps,            UINT_TO_PTR(UNIT_WANTS),                         "Meta"    },
-                { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                     "Meta"    },
-                { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                        "Meta"    },
-                { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Meta"    },
-                { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Meta"    },
-                { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Meta"    },
+                { "Names",                  config_parse_names,           u,                                               "Unit"    },
+                { "Description",            config_parse_string,          &u->meta.description,                            "Unit"    },
+                { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                      "Unit"    },
+                { "RequiresOverridable",    config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES_OVERRIDABLE),          "Unit"    },
+                { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                     "Unit"    },
+                { "RequisiteOverridable",   config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE_OVERRIDABLE),         "Unit"    },
+                { "Wants",                  config_parse_deps,            UINT_TO_PTR(UNIT_WANTS),                         "Unit"    },
+                { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                     "Unit"    },
+                { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                        "Unit"    },
+                { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Unit"    },
+                { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Unit"    },
+                { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
@@ -1233,7 +1233,7 @@ static int load_from_path(Unit *u, const char *path) {
         assert(u);
         assert(path);
 
-        sections[0] = "Meta";
+        sections[0] = "Unit";
         sections[1] = section_table[u->meta.type];
         sections[2] = NULL;
 
