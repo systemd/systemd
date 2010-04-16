@@ -38,16 +38,17 @@ typedef struct MountPoint {
         const char *type;
         const char *options;
         unsigned long flags;
+        bool fatal;
 } MountPoint;
 
 static const MountPoint mount_table[] = {
-        { "proc",    "/proc",             "proc",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV },
-        { "sysfs",   "/sys",              "sysfs",    NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV },
-        { "devtmps", "/dev",              "devtmpfs", "mode=755",  MS_NOSUID },
-        { "tmpfs",   "/dev/shm",          "tmpfs",    "mode=1777", MS_NOSUID|MS_NOEXEC|MS_NODEV },
-        { "devpts",  "/dev/pts",          "devpts",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV },
-        { "cgroup",  "/cgroup/debug",     "cgroup",   "debug",     MS_NOSUID|MS_NOEXEC|MS_NODEV },
-        { "debugfs", "/sys/kernel/debug", "debugfs",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV }
+        { "proc",    "/proc",             "proc",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "sysfs",   "/sys",              "sysfs",    NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "devtmps", "/dev",              "devtmpfs", "mode=755",  MS_NOSUID,                    true },
+        { "tmpfs",   "/dev/shm",          "tmpfs",    "mode=1777", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "devpts",  "/dev/pts",          "devpts",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
+        { "cgroup",  "/cgroup/debug",     "cgroup",   "debug",     MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "debugfs", "/sys/kernel/debug", "debugfs",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, false }
 };
 
 bool mount_point_is_api(const char *path) {
@@ -115,10 +116,67 @@ static int mount_one(const MountPoint *p) {
                   p->flags,
                   p->options) < 0) {
                 log_error("Failed to mount %s: %s", p->where, strerror(errno));
-                return -errno;
+                return p->fatal ? -errno : 0;
         }
 
         return 0;
+}
+
+static int mount_cgroup_controllers(void) {
+        int r;
+        FILE *f;
+        char buf [256];
+
+        /* Mount all available cgroup controllers. */
+
+        if (!(f = fopen("/proc/cgroups", "re")))
+                return -ENOENT;
+
+        /* Ignore the header line */
+        fgets(buf, sizeof(buf), f);
+
+        for (;;) {
+                MountPoint p;
+                char *controller, *where;
+
+                if (fscanf(f, "%ms %*i %*i %*i", &controller) != 1) {
+
+                        if (feof(f))
+                                break;
+
+                        log_error("Failed to parse /proc/cgroups.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (asprintf(&where, "/cgroup/%s", controller) < 0) {
+                        free(controller);
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                zero(p);
+                p.what = "cgroup";
+                p.where = where;
+                p.type = "cgroup";
+                p.options = controller;
+                p.flags = MS_NOSUID|MS_NOEXEC|MS_NODEV;
+                p.fatal = false;
+
+                r = mount_one(&p);
+                free(controller);
+                free(where);
+
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = 0;
+
+finish:
+        fclose(f);
+
+        return r;
 }
 
 int mount_setup(void) {
@@ -129,5 +187,5 @@ int mount_setup(void) {
                 if ((r = mount_one(mount_table+i)) < 0)
                         return r;
 
-        return 0;
+        return mount_cgroup_controllers();
 }
