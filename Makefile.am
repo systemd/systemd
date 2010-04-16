@@ -194,6 +194,7 @@ dist_udevrules_DATA += \
 # ------------------------------------------------------------------------------
 extras_firmware_firmware_SOURCES = extras/firmware/firmware.c
 extras_firmware_firmware_LDADD = libudev/libudev-private.la
+extras_firmware_firmware_CPPFLAGS = $(AM_CPPFLAGS) -DFIRMWARE_PATH="$(FIRMWARE_PATH)"
 dist_udevrules_DATA += extras/firmware/50-firmware.rules
 libexec_PROGRAMS = extras/firmware/firmware
 

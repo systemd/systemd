@@ -82,6 +82,26 @@ if test "x$enable_extras" = xyes; then
 		fi])
 	AC_SUBST(PCI_DATABASE)
 
+	AC_ARG_WITH(firmware-path,
+		AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
+		   [Firmware search path (default=/lib/firmware/updates:/lib/firmware)]),
+		[],
+		[with_firmware_path="/lib/fimware/updates:/lib/fimware"]
+		)
+	OLD_IFS=$IFS
+	IFS=:
+	for i in $with_firmware_path
+	do
+		if test "x${FIRMWARE_PATH}" = "x"
+		then
+			FIRMWARE_PATH="\\\"${i}/\\\""
+		else
+			FIRMWARE_PATH="${FIRMWARE_PATH}, \\\"${i}/\\\""
+		fi
+	done
+	IFS=$OLD_IFS
+	AC_SUBST([FIRMWARE_PATH], [$FIRMWARE_PATH])
+
 	AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
 	AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
 fi
@@ -144,6 +164,7 @@ AC_MSG_RESULT([
 
 	usb.ids:		${USB_DATABASE}
 	pci.ids:		${PCI_DATABASE}
+	firmware path:		${FIRMWARE_PATH}
 
 	xsltproc:		${XSLTPROC}
 	gperf:			${GPERF}

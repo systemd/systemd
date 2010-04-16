@@ -79,10 +79,7 @@ int main(int argc, char **argv)
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
-	static const char *searchpath[] = {
-		"/lib/firmware/updates/",
-		"/lib/firmware/"
-	};
+	static const char *searchpath[] = { FIRMWARE_PATH };
 	char fwencpath[UTIL_PATH_SIZE];
 	char misspath[UTIL_PATH_SIZE];
 	char loadpath[UTIL_PATH_SIZE];
