@@ -274,6 +274,18 @@ static int feature_profiles(struct udev *udev, const unsigned char *profiles, si
 			info(udev, "profile 0x%02x mo\n", profile);
 			cd_mo = 1;
 			break;
+		case 0x08:
+			info(udev, "profile 0x%02x cd_rom\n", profile);
+			cd_cd_rom = 1;
+			break;
+		case 0x09:
+			info(udev, "profile 0x%02x cd_r\n", profile);
+			cd_cd_r = 1;
+			break;
+		case 0x0A:
+			info(udev, "profile 0x%02x cd_rw\n", profile);
+			cd_cd_rw = 1;
+			break;
 		case 0x10:
 			info(udev, "profile 0x%02x dvd_rom\n", profile);
 			cd_dvd_rom = 1;
