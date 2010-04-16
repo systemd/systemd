@@ -54,12 +54,12 @@ typedef enum KillMode {
 
 enum UnitType {
         UNIT_SERVICE = 0,
-        UNIT_TIMER,
         UNIT_SOCKET,
         UNIT_TARGET,
         UNIT_DEVICE,
         UNIT_MOUNT,
         UNIT_AUTOMOUNT,
+        UNIT_TIMER,
         UNIT_SNAPSHOT,
         _UNIT_TYPE_MAX,
         _UNIT_TYPE_INVALID = -1

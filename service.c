@@ -740,30 +740,13 @@ static void service_init(Unit *u) {
         assert(u);
         assert(u->meta.load_state == UNIT_STUB);
 
-        s->type = 0;
-        s->restart = 0;
-
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->restart_usec = DEFAULT_RESTART_USEC;
+        s->timer_watch.type = WATCH_INVALID;
+        s->sysv_start_priority = -1;
+        s->socket_fd = -1;
 
         exec_context_init(&s->exec_context);
-
-        s->timer_watch.type = WATCH_INVALID;
-
-        s->state = SERVICE_DEAD;
-
-        s->sysv_start_priority = -1;
-        s->permissions_start_only = false;
-        s->root_directory_start_only = false;
-        s->valid_no_process = false;
-        s->kill_mode = 0;
-        s->sysv_has_lsb = false;
-        s->main_pid = s->control_pid = 0;
-        s->main_pid_known = false;
-        s->failure = false;
-
-        s->socket_fd = -1;
-        s->bus_name_good = false;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 }
@@ -987,7 +970,8 @@ static int service_get_sockets(Service *s, Set **_set) {
                 p = manager_get_unit(UNIT(s)->meta.manager, k);
                 free(k);
 
-                if (!p) continue;
+                if (!p)
+                        continue;
 
                 if ((r = set_put(set, p)) < 0)
                         goto fail;

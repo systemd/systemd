@@ -66,6 +66,15 @@ static const char* const state_string_table[_MOUNT_STATE_MAX] = {
         [MOUNT_MAINTAINANCE] = "maintainance"
 };
 
+static char *mount_name_from_where(const char *where) {
+        assert(where);
+
+        if (streq(where, "/"))
+                return strdup("-.mount");
+
+        return unit_name_build_escape(where+1, NULL, ".mount");
+}
+
 static void service_unwatch_control_pid(Mount *m) {
         assert(m);
 
@@ -113,26 +122,34 @@ static void mount_init(Unit *u) {
         assert(u);
         assert(u->meta.load_state == UNIT_STUB);
 
-        m->state = 0;
-        m->from_etc_fstab = false;
-        m->from_proc_self_mountinfo = false;
-        m->from_fragment = false;
-
-        m->is_mounted = false;
-        m->just_mounted = false;
-        m->just_changed = false;
-
         m->timeout_usec = DEFAULT_TIMEOUT_USEC;
-
-        zero(m->exec_command);
         exec_context_init(&m->exec_context);
 
-        m->kill_mode = 0;
-
-        m->control_pid = 0;
-        m->failure = false;
+        /* We need to make sure that /bin/mount is always called in
+         * the same process group as us, so that the autofs kernel
+         * side doesn't send us another mount request while we are
+         * already trying to comply its last one. */
+        m->exec_context.no_setsid = true;
 
         m->timer_watch.type = WATCH_INVALID;
+}
+
+static int mount_notify_automount(Mount *m, int status) {
+        Unit *p;
+        char *k;
+
+        assert(m);
+
+        if (!(k = unit_name_change_suffix(UNIT(m)->meta.id, ".automount")))
+                return -ENOMEM;
+
+        p = manager_get_unit(UNIT(m)->meta.manager, k);
+        free(k);
+
+        if (!p)
+                return 0;
+
+        return automount_send_ready(AUTOMOUNT(p), status);
 }
 
 static int mount_add_node_links(Mount *m) {
@@ -279,6 +296,35 @@ static int mount_add_target_links(Mount *m) {
         return unit_add_dependency(UNIT(m), UNIT_BEFORE, u);
 }
 
+static int mount_verify(Mount *m) {
+        bool b;
+        char *e;
+        assert(m);
+
+        if (UNIT(m)->meta.load_state != UNIT_LOADED)
+                return 0;
+
+        if (!m->where) {
+                log_error("%s lacks Where setting. Refusing.", UNIT(m)->meta.id);
+                return -EINVAL;
+        }
+
+        path_kill_slashes(m->where);
+
+        if (!(e = mount_name_from_where(m->where)))
+                return -ENOMEM;
+
+        b = unit_has_name(UNIT(m), e);
+        free(e);
+
+        if (!b) {
+                log_error("%s's Where setting doesn't match unit name. Refusing.", UNIT(m)->meta.id);
+                return -EINVAL;
+        }
+
+        return 0;
+}
+
 static int mount_load(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
@@ -312,7 +358,7 @@ static int mount_load(Unit *u) {
                         return r;
         }
 
-        return 0;
+        return mount_verify(m);
 }
 
 static void mount_set_state(Mount *m, MountState state) {
@@ -336,6 +382,20 @@ static void mount_set_state(Mount *m, MountState state) {
                 service_unwatch_control_pid(m);
                 m->control_command = NULL;
         }
+
+        if (state == MOUNT_MOUNTED ||
+            state == MOUNT_REMOUNTING)
+                mount_notify_automount(m, 0);
+        else if (state == MOUNT_DEAD ||
+                 state == MOUNT_UNMOUNTING ||
+                 state == MOUNT_MOUNTING_SIGTERM ||
+                 state == MOUNT_MOUNTING_SIGKILL ||
+                 state == MOUNT_REMOUNTING_SIGTERM ||
+                 state == MOUNT_REMOUNTING_SIGKILL ||
+                 state == MOUNT_UNMOUNTING_SIGTERM ||
+                 state == MOUNT_UNMOUNTING_SIGKILL ||
+                 state == MOUNT_MAINTAINANCE)
+                mount_notify_automount(m, -ENODEV);
 
         if (state != old_state)
                 log_debug("%s changed %s → %s", UNIT(m)->meta.id, state_string_table[old_state], state_string_table[state]);
@@ -534,14 +594,11 @@ fail:
         mount_enter_mounted(m, false);
 }
 
-static void mount_enter_mounting(Mount *m, bool success) {
+static void mount_enter_mounting(Mount *m) {
         ExecCommand *c;
         int r;
 
         assert(m);
-
-        if (!success)
-                m->failure = true;
 
         m->control_command = c = m->exec_command + MOUNT_EXEC_MOUNT;
 
@@ -552,7 +609,7 @@ static void mount_enter_mounting(Mount *m, bool success) {
                                 m->parameters_fragment.what,
                                 m->where,
                                 "-t", m->parameters_fragment.fstype,
-                                "-o", m->parameters_fragment.options,
+                                m->parameters_fragment.options ? "-o" : NULL, m->parameters_fragment.options,
                                 NULL);
         else if (m->from_etc_fstab)
                 r = exec_command_set(
@@ -580,11 +637,8 @@ fail:
         mount_enter_dead(m, false);
 }
 
-static void mount_enter_mounting_done(Mount *m, bool success) {
+static void mount_enter_mounting_done(Mount *m) {
         assert(m);
-
-        if (!success)
-                m->failure = true;
 
         mount_set_state(m, MOUNT_MOUNTING_DONE);
 }
@@ -674,7 +728,7 @@ static int mount_start(Unit *u) {
 
         m->failure = false;
 
-        mount_enter_mounting(m, true);
+        mount_enter_mounting(m);
         return 0;
 }
 
@@ -874,14 +928,14 @@ static int mount_add_one(
         if (mount_point_is_api(where))
                 return 0;
 
+        if (streq(fstype, "autofs"))
+                return 0;
+
         /* probably some kind of swap, which we don't cover for now */
         if (where[0] != '/')
                 return 0;
 
-        if (streq(where, "/"))
-                e = strdup("-.mount");
-        else
-                e = unit_name_build_escape(where+1, NULL, ".mount");
+        e = mount_name_from_where(where);
 
         if (!e)
                 return -ENOMEM;
@@ -1209,7 +1263,7 @@ void mount_fd_event(Manager *m, int events) {
                                 break;
 
                         case MOUNT_MOUNTING:
-                                mount_enter_mounting_done(mount, true);
+                                mount_enter_mounting_done(mount);
                                 break;
 
                         default:
@@ -1247,7 +1301,7 @@ int mount_path_is_mounted(Manager *m, const char* path) {
                 char *e, *slash;
                 Unit *u;
 
-                if (!(e = unit_name_build_escape(t+1, NULL, ".mount"))) {
+                if (!(e = mount_name_from_where(t))) {
                         r = -ENOMEM;
                         goto finish;
                 }

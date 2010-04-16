@@ -111,19 +111,12 @@ static void socket_init(Unit *u) {
         assert(u);
         assert(u->meta.load_state == UNIT_STUB);
 
-        s->state = 0;
         s->timer_watch.type = WATCH_INVALID;
-        s->bind_ipv6_only = false;
         s->backlog = SOMAXCONN;
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->directory_mode = 0755;
         s->socket_mode = 0666;
-        s->kill_mode = 0;
-        s->failure = false;
-        s->control_pid = 0;
-        s->service = NULL;
-        s->accept = false;
-        s->n_accepted = 0;
+
         exec_context_init(&s->exec_context);
 }
 
@@ -899,13 +892,13 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         int cfd = -1;
 
         assert(s);
+        assert(fd >= 0);
 
         log_debug("Incoming traffic on %s", u->meta.id);
 
         if (events != EPOLLIN) {
                 log_error("Got invalid poll event on socket.");
-                socket_enter_stop_pre(s, false);
-                return;
+                goto fail;
         }
 
         if (w->data.socket_accept) {
@@ -917,8 +910,7 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                                         continue;
 
                                 log_error("Failed to accept socket: %m");
-                                socket_enter_stop_pre(s, false);
-                                return;
+                                goto fail;
                         }
 
                         break;
@@ -926,6 +918,10 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         }
 
         socket_enter_running(s, cfd);
+        return;
+
+fail:
+        socket_enter_stop_pre(s, false);
 }
 
 static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {

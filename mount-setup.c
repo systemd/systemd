@@ -64,37 +64,12 @@ bool mount_point_is_api(const char *path) {
         return false;
 }
 
-static int is_mount_point(const char *t) {
-        struct stat a, b;
-        char *copy;
-
-        if (lstat(t, &a) < 0) {
-
-                if (errno == ENOENT)
-                        return 0;
-
-                return -errno;
-        }
-
-        if (!(copy = strdup(t)))
-                return -ENOMEM;
-
-        if (lstat(dirname(copy), &b) < 0) {
-                free(copy);
-                return -errno;
-        }
-
-        free(copy);
-
-        return a.st_dev != b.st_dev;
-}
-
 static int mount_one(const MountPoint *p) {
         int r;
 
         assert(p);
 
-        if ((r = is_mount_point(p->where)) < 0)
+        if ((r = path_is_mount_point(p->where)) < 0)
                 return r;
 
         if (r > 0)

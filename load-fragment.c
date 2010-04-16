@@ -1211,6 +1211,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "KillMode",               config_parse_kill_mode,       &u->mount.kill_mode,                             "Mount"   },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
 
+                { "Where",                  config_parse_path,            &u->automount.where,                             "Automount" },
+
                 { NULL, NULL, NULL, NULL }
         };
 

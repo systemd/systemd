@@ -788,10 +788,11 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
-                if (setsid() < 0) {
-                        r = EXIT_SETSID;
-                        goto fail;
-                }
+                if (!context->no_setsid)
+                        if (setsid() < 0) {
+                                r = EXIT_SETSID;
+                                goto fail;
+                        }
 
                 umask(context->umask);
 

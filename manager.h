@@ -165,6 +165,8 @@ struct Manager {
         char **sysvinit_path;
         char **sysvrcnd_path;
 
+        usec_t boot_timestamp;
+
         /* Data specific to the device subsystem */
         struct udev* udev;
         struct udev_monitor* udev_monitor;
@@ -186,7 +188,8 @@ struct Manager {
         char *cgroup_controller;
         char *cgroup_hierarchy;
 
-        usec_t boot_timestamp;
+        /* Data specific to the Automount subsystem */
+        int dev_autofs_fd;
 };
 
 int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **m);

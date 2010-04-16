@@ -322,7 +322,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         m->confirm_spawn = confirm_spawn;
         m->name_data_slot = -1;
 
-        m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
+        m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))

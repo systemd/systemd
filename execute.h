@@ -97,6 +97,13 @@ struct ExecContext {
         bool cpu_affinity_set:1;
         bool timer_slack_ns_set:1;
 
+        /* This is not exposed to the user but available
+         * internally. We need it to make sure that whenever we spawn
+         * /bin/mount it is run in the same process group as us so
+         * that the autofs logic detects that it belongs to us and we
+         * don't enter a trigger loop. */
+        bool no_setsid:1;
+
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
 

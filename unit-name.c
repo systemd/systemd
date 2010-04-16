@@ -207,8 +207,8 @@ static char* do_escape(const char *f, char *t) {
 
         for (; *f; f++) {
                 if (*f == '/')
-                        *(t++) = '.';
-                else if (*f == '.' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
+                        *(t++) = '-';
+                else if (*f == '-' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
                         *(t++) = '\\';
                         *(t++) = 'x';
                         *(t++) = hexchar(*f > 4);
@@ -286,7 +286,7 @@ char *unit_name_unescape(const char *f) {
                 return NULL;
 
         for (t = r; *f; f++) {
-                if (*f == '.')
+                if (*f == '-')
                         *(t++) = '/';
                 else if (*f == '\\') {
                         int a, b;

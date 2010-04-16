@@ -40,9 +40,21 @@ struct Automount {
 
         AutomountState state;
 
+        char *where;
+
         Mount *mount;
+
+        int pipe_fd;
+        Watch pipe_watch;
+        dev_t dev_id;
+
+        Set *tokens;
+
+        bool failure:1;
 };
 
 extern const UnitVTable automount_vtable;
+
+int automount_send_ready(Automount *a, int status);
 
 #endif
