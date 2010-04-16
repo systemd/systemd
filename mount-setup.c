@@ -62,7 +62,7 @@ bool mount_point_is_api(const char *path) {
                 if (path_startswith(path, mount_table[i].where))
                         return true;
 
-        return false;
+        return path_startswith(path, "/cgroup/");
 }
 
 static int mount_one(const MountPoint *p) {
