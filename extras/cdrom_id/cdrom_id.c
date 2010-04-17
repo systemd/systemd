@@ -401,83 +401,99 @@ static int cd_profiles(struct udev *udev, int fd)
 		return -1;
 	}
 
-	cd_media = 1;
-
 	switch (cur_profile) {
 	case 0x03:
 	case 0x04:
 	case 0x05:
 		info(udev, "profile 0x%02x \n", cur_profile);
+		cd_media = 1;
 		cd_media_mo = 1;
 		break;
 	case 0x08:
 		info(udev, "profile 0x%02x media_cd_rom\n", cur_profile);
+		cd_media = 1;
 		cd_media_cd_rom = 1;
 		break;
 	case 0x09:
 		info(udev, "profile 0x%02x media_cd_r\n", cur_profile);
+		cd_media = 1;
 		cd_media_cd_r = 1;
 		break;
 	case 0x0a:
 		info(udev, "profile 0x%02x media_cd_rw\n", cur_profile);
+		cd_media = 1;
 		cd_media_cd_rw = 1;
 		break;
 	case 0x10:
 		info(udev, "profile 0x%02x media_dvd_ro\n", cur_profile);
+		cd_media = 1;
 		cd_media_dvd_rom = 1;
 		break;
 	case 0x11:
 		info(udev, "profile 0x%02x media_dvd_r\n", cur_profile);
+		cd_media = 1;
 		cd_media_dvd_r = 1;
 		break;
 	case 0x12:
 		info(udev, "profile 0x%02x media_dvd_ram\n", cur_profile);
+		cd_media = 1;
 		cd_media_dvd_ram = 1;
 		break;
 	case 0x13:
 	case 0x14:
 		info(udev, "profile 0x%02x media_dvd_rw\n", cur_profile);
+		cd_media = 1;
 		cd_media_dvd_rw = 1;
 		break;
 	case 0x1B:
 		info(udev, "profile 0x%02x media_dvd_plus_r\n", cur_profile);
+		cd_media = 1;
 		cd_media_dvd_plus_r = 1;
 		break;
 	case 0x1A:
 		info(udev, "profile 0x%02x media_dvd_plus_rw\n", cur_profile);
+		cd_media = 1;
 		cd_media_dvd_plus_rw = 1;
 		break;
 	case 0x2A:
 		info(udev, "profile 0x%02x media_dvd_plus_rw_dl\n", cur_profile);
+		cd_media = 1;
 		cd_media_dvd_plus_rw_dl = 1;
 		break;
 	case 0x2B:
 		info(udev, "profile 0x%02x media_dvd_plus_r_dl\n", cur_profile);
+		cd_media = 1;
 		cd_media_dvd_plus_r_dl = 1;
 		break;
 	case 0x40:
 		info(udev, "profile 0x%02x media_bd\n", cur_profile);
+		cd_media = 1;
 		cd_media_bd = 1;
 		break;
 	case 0x41:
 	case 0x42:
 		info(udev, "profile 0x%02x media_bd_r\n", cur_profile);
+		cd_media = 1;
 		cd_media_bd_r = 1;
 		break;
 	case 0x43:
 		info(udev, "profile 0x%02x media_bd_re\n", cur_profile);
+		cd_media = 1;
 		cd_media_bd_re = 1;
 		break;
 	case 0x50:
 		info(udev, "profile 0x%02x media_hddvd\n", cur_profile);
+		cd_media = 1;
 		cd_media_hddvd = 1;
 		break;
 	case 0x51:
 		info(udev, "profile 0x%02x media_hddvd_r\n", cur_profile);
+		cd_media = 1;
 		cd_media_hddvd_r = 1;
 		break;
 	case 0x52:
 		info(udev, "profile 0x%02x media_hddvd_rw\n", cur_profile);
+		cd_media = 1;
 		cd_media_hddvd_rw = 1;
 		break;
 	default:
@@ -501,7 +517,7 @@ static int cd_media_info(struct udev *udev, int fd)
 
 	scsi_cmd_init(udev, &sc, header, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x51);
-	scsi_cmd_set(udev, &sc, 8, sizeof(header));
+	scsi_cmd_set(udev, &sc, 8, sizeof(header) & 0xff);
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
 	if ((err != 0)) {
@@ -509,10 +525,11 @@ static int cd_media_info(struct udev *udev, int fd)
 		return -1;
 	};
 
+	cd_media = 1;
 	info(udev, "disk type %02x\n", header[8]);
 
 	/* exclude plain CDROM, some fake cdroms return 0 for "blank" media here */
-	if (!cd_media_cd_rom && (header[2] & 3) < 4)
+	if (!cd_media_cd_rom)
 		cd_media_state = media_status[header[2] & 3];
 
 	if ((header[2] & 3) != 2)
@@ -535,7 +552,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	scsi_cmd_init(udev, &sc, header, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 6, 1);
-	scsi_cmd_set(udev, &sc, 8, sizeof(header));
+	scsi_cmd_set(udev, &sc, 8, sizeof(header) & 0xff);
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
 	if ((err != 0)) {
@@ -557,8 +574,8 @@ static int cd_media_toc(struct udev *udev, int fd)
 	scsi_cmd_init(udev, &sc, toc, sizeof(toc));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 6, header[2]); /* First Track/Session Number */
-	scsi_cmd_set(udev, &sc, 7, len >> 8);
-	scsi_cmd_set(udev, &sc, 8, len);
+	scsi_cmd_set(udev, &sc, 7, (len >> 8) & 0xff);
+	scsi_cmd_set(udev, &sc, 8, len & 0xff);
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, toc, len);
 	if ((err != 0)) {
@@ -585,7 +602,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	scsi_cmd_init(udev, &sc, header, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 2, 1); /* Session Info */
-	scsi_cmd_set(udev, &sc, 8, 12);
+	scsi_cmd_set(udev, &sc, 8, sizeof(header));
 	scsi_cmd_set(udev, &sc, 9, 0);
 	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
 	if ((err != 0)) {
