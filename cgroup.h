@@ -70,6 +70,8 @@ int cgroup_bonding_is_empty_list(CGroupBonding *first);
 
 CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *controller);
 
+char *cgroup_bonding_to_string(CGroupBonding *b);
+
 #include "manager.h"
 
 int manager_setup_cgroup(Manager *m);

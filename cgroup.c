@@ -540,3 +540,14 @@ CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *contro
 
         return NULL;
 }
+
+char *cgroup_bonding_to_string(CGroupBonding *b) {
+        char *r;
+
+        assert(b);
+
+        if (asprintf(&r, "%s:%s", b->controller, b->path) < 0)
+                return NULL;
+
+        return r;
+}
