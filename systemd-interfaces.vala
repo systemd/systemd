@@ -19,7 +19,7 @@
 
 using DBus;
 
-[DBus (name = "org.freedesktop.systemd1")]
+[DBus (name = "org.freedesktop.systemd1.Manager")]
 public interface Manager : DBus.Object {
 
         public struct UnitInfo {
@@ -76,12 +76,16 @@ public interface Unit : DBus.Object {
         public abstract string description { owned get; }
         public abstract string load_state { owned get; }
         public abstract string active_state { owned get; }
+        public abstract string sub_state { owned get; }
         public abstract string fragment_path { owned get; }
         public abstract uint64 active_enter_timestamp { owned get; }
         public abstract uint64 active_exit_timestamp { owned get; }
-        public abstract bool can_reload { owned get; }
         public abstract bool can_start { owned get; }
+        public abstract bool can_reload { owned get; }
         public abstract JobLink job { owned get; /* FIXME: this setter is a temporary fix to make valac not segfault */ set; }
+        public abstract bool recursive_stop { owned get; }
+        public abstract bool stop_when_unneeded { owned get; }
+        public abstract string default_control_group { owned get; }
 
         public abstract ObjectPath start(string mode) throws DBus.Error;
         public abstract ObjectPath stop(string mode) throws DBus.Error;

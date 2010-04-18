@@ -33,6 +33,8 @@
 #include "strv.h"
 #include "mount-setup.h"
 #include "unit-name.h"
+#include "mount.h"
+#include "dbus-mount.h"
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
@@ -1356,6 +1358,8 @@ const UnitVTable mount_vtable = {
 
         .sigchld_event = mount_sigchld_event,
         .timer_event = mount_timer_event,
+
+        .bus_message_handler = bus_mount_message_handler,
 
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown

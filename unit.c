@@ -37,6 +37,7 @@
 #include "log.h"
 #include "unit-name.h"
 #include "specifier.h"
+#include "dbus-unit.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,

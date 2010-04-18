@@ -66,30 +66,27 @@ unsigned bus_dispatch(Manager *m);
 void bus_watch_event(Manager *m, Watch *w, int events);
 void bus_timeout_event(Manager *m, Watch *w, int events);
 
+int bus_query_pid(Manager *m, const char *name);
+
 DBusHandlerResult bus_default_message_handler(Manager *m, DBusMessage *message, const char* introspection, const BusProperty *properties);
 
 DBusHandlerResult bus_send_error_reply(Manager *m, DBusMessage *message, DBusError *bus_error, int error);
 
-int bus_query_pid(Manager *m, const char *name);
-
 int bus_property_append_string(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_strv(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_bool(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_property_append_int32(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_uint32(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *property, void *data);
 
-extern const DBusObjectPathVTable bus_manager_vtable;
-extern const DBusObjectPathVTable bus_job_vtable;
-extern const DBusObjectPathVTable bus_unit_vtable;
+#define bus_property_append_int bus_property_append_int32
+#define bus_property_append_pid bus_property_append_uint32
+#define bus_property_append_mode bus_property_append_uint32
+#define bus_property_append_unsigned bus_property_append_uint32
+#define bus_property_append_usec bus_property_append_uint64
 
-void bus_unit_send_change_signal(Unit *u);
-void bus_unit_send_removed_signal(Unit *u);
-
-void bus_job_send_change_signal(Job *j);
-void bus_job_send_removed_signal(Job *j);
-
-#define DEFINE_BUS_PROPERTY_APPEND_ENUM(function,name,type)            \
-        static int function(Manager *m, DBusMessageIter *i, const char *property, void *data) { \
+#define DEFINE_BUS_PROPERTY_APPEND_ENUM(function,name,type)             \
+        int function(Manager *m, DBusMessageIter *i, const char *property, void *data) { \
                 const char *value;                                      \
                 type *field = data;                                     \
                                                                         \

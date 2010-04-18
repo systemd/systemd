@@ -264,6 +264,9 @@ struct UnitVTable {
         /* Called whenever a bus PID lookup finishes */
         void (*bus_query_pid_done)(Unit *u, const char *name, pid_t pid);
 
+        /* Called for each message received on the bus */
+        DBusHandlerResult (*bus_message_handler)(Unit *u, DBusMessage *message);
+
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
          * everything that is loaded here should still stay in

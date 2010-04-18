@@ -128,6 +128,22 @@ COMMON_SOURCES= \
         dbus-unit.h \
         dbus-job.c \
         dbus-job.h \
+	dbus-service.c \
+	dbus-service.h \
+	dbus-socket.c \
+	dbus-socket.h \
+	dbus-target.c \
+	dbus-target.h \
+	dbus-mount.c \
+	dbus-mount.h \
+	dbus-automount.c \
+	dbus-autpmount.h \
+	dbus-snapshot.c \
+	dbus-snapshot.h \
+	dbus-device.c \
+	dbus-device.h \
+	dbus-execute.c \
+	dbus-execute.h \
 	cgroup.c \
 	cgroup.h \
 	mount-setup.c \

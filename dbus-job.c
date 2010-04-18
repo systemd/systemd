@@ -23,6 +23,7 @@
 
 #include "dbus.h"
 #include "log.h"
+#include "dbus-job.h"
 
 static const char introspection[] =
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
@@ -39,8 +40,8 @@ static const char introspection[] =
         BUS_INTROSPECTABLE_INTERFACE
         "</node>";
 
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_state, job_state, JobState);
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_type, job_type, JobType);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_state, job_state, JobState);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_type, job_type, JobType);
 
 static int bus_job_append_unit(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Job *j = data;

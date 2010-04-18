@@ -34,6 +34,7 @@
 #include "load-fragment.h"
 #include "load-dropin.h"
 #include "unit-name.h"
+#include "dbus-automount.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -601,6 +602,8 @@ const UnitVTable automount_vtable = {
         .sub_state_to_string = automount_sub_state_to_string,
 
         .fd_event = automount_fd_event,
+
+        .bus_message_handler = bus_automount_message_handler,
 
         .shutdown = automount_shutdown
 };

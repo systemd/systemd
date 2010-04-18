@@ -23,11 +23,12 @@
 
 #include "dbus.h"
 #include "log.h"
+#include "dbus-manager.h"
 
 #define INTROSPECTION_BEGIN                                             \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
         "<node>"                                                        \
-        " <interface name=\"org.freedesktop.systemd1\">"                \
+        " <interface name=\"org.freedesktop.systemd1.Manager\">"        \
         "  <method name=\"GetUnit\">"                                   \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>"           \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>"          \
@@ -50,6 +51,11 @@
         "  <method name=\"Subscribe\"/>"                                \
         "  <method name=\"Unsubscribe\"/>"                              \
         "  <method name=\"Dump\"/>"                                     \
+        "  <method name=\"CreateSnapshot\">"                            \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>"           \
+        "   <arg nane=\"cleanup\" type=\"b\" direction=\"in\"/>"        \
+        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>"          \
+        "  </method>"                                                   \
         "  <signal name=\"UnitNew\">"                                   \
         "   <arg name=\"id\" type=\"s\"/>"                              \
         "   <arg name=\"unit\" type=\"o\"/>"                            \
@@ -78,7 +84,7 @@
 #define INTROSPECTION_END                                               \
         "</node>"
 
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
 
 static int bus_manager_append_log_target(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         const char *t;
@@ -114,11 +120,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
         Manager *m = data;
 
         const BusProperty properties[] = {
-                { "org.freedesktop.systemd1", "Version",       bus_property_append_string, "s",    PACKAGE_VERSION    },
-                { "org.freedesktop.systemd1", "RunningAs",     bus_manager_append_running_as, "s", &m->running_as     },
-                { "org.freedesktop.systemd1", "BootTimestamp", bus_property_append_uint64, "t",    &m->boot_timestamp },
-                { "org.freedesktop.systemd1", "LogLevel",      bus_manager_append_log_level, "s",  NULL               },
-                { "org.freedesktop.systemd1", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
+                { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s", PACKAGE_STRING     },
+                { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s", &m->running_as     },
+                { "org.freedesktop.systemd1.Manager", "BootTimestamp", bus_property_append_uint64,    "t", &m->boot_timestamp },
+                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s", NULL               },
+                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
@@ -138,7 +144,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                   dbus_message_get_member(message),
                   dbus_message_get_path(message));
 
-        if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "GetUnit")) {
+        if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnit")) {
                 const char *name;
                 Unit *u;
 
@@ -164,7 +170,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_INVALID))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "LoadUnit")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "LoadUnit")) {
                 const char *name;
                 Unit *u;
 
@@ -216,14 +222,14 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_INVALID))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "ClearJobs")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ClearJobs")) {
 
                 manager_clear_jobs(m);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "ListUnits")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnits")) {
                 DBusMessageIter iter, sub;
                 Iterator i;
                 Unit *u;
@@ -298,7 +304,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "ListJobs")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListJobs")) {
                 DBusMessageIter iter, sub;
                 Iterator i;
                 Job *j;
@@ -353,7 +359,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "Subscribe")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Subscribe")) {
                 char *client;
 
                 if (!(client = strdup(dbus_message_get_sender(message))))
@@ -367,7 +373,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "Unsubscribe")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Unsubscribe")) {
                 char *client;
 
                 if (!(client = set_remove(m->subscribed, (char*) dbus_message_get_sender(message))))
@@ -378,7 +384,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "Dump")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Dump")) {
                 FILE *f;
                 char *dump = NULL;
                 size_t size;
@@ -406,6 +412,36 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 }
 
                 free(dump);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "CreateSnapshot")) {
+                const char *name;
+                dbus_bool_t cleanup;
+                Snapshot *s;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_BOOLEAN, &cleanup,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, message, &error, -EINVAL);
+
+                if (name && name[0] == 0)
+                        name = NULL;
+
+                if ((r = snapshot_create(m, name, cleanup, &s)) < 0)
+                        return bus_send_error_reply(m, message, NULL, r);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                if (!(path = unit_dbus_path(UNIT(s))))
+                        goto oom;
+
+                if (!dbus_message_append_args(
+                                    reply,
+                                    DBUS_TYPE_OBJECT_PATH, &path,
+                                    DBUS_TYPE_INVALID))
+                        goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
                 char *introspection = NULL;

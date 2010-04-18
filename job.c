@@ -29,6 +29,7 @@
 #include "load-fragment.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "dbus-job.h"
 
 Job* job_new(Manager *m, JobType type, Unit *unit) {
         Job *j;

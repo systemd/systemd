@@ -23,45 +23,28 @@
 
 #include "dbus.h"
 #include "log.h"
+#include "dbus-unit.h"
 
-static const char introspection[] =
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-        "<node>"
-        " <interface name=\"org.freedesktop.systemd1.Unit\">"
-        "  <method name=\"Start\">"
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
-        "  </method>"
-        "  <method name=\"Stop\">"
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
-        "  </method>"
-        "  <method name=\"Restart\">"
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
-        "  </method>"
-        "  <method name=\"Reload\">"
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
-        "  </method>"
-        "  <signal name=\"Changed\"/>"
-        "  <property name=\"Id\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"Description\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"SubState\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"FragmentPath\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>"
-        "  <property name=\"ActiveExitTimestamp\" type=\"t\" access=\"read\"/>"
-        "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>"
-        "  <property name=\"CanStart\" type=\"b\" access=\"read\"/>"
-        "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>"
-        " </interface>"
-        BUS_PROPERTIES_INTERFACE
-        BUS_INTROSPECTABLE_INTERFACE
-        "</node>";
+int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        char *t;
+        Iterator j;
+        DBusMessageIter sub;
+        Unit *u = data;
 
-static int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "s", &sub))
+                return -ENOMEM;
+
+        SET_FOREACH(t, u->meta.names, j)
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &t))
+                        return -ENOMEM;
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *d;
 
@@ -80,7 +63,7 @@ static int bus_unit_append_description(Manager *m, DBusMessageIter *i, const cha
 
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_unit_append_load_state, unit_load_state, UnitLoadState);
 
-static int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *state;
 
@@ -97,7 +80,7 @@ static int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const ch
         return 0;
 }
 
-static int bus_unit_append_sub_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_sub_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *state;
 
@@ -114,24 +97,7 @@ static int bus_unit_append_sub_state(Manager *m, DBusMessageIter *i, const char 
         return 0;
 }
 
-static int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
-        dbus_bool_t b;
-
-        assert(m);
-        assert(i);
-        assert(property);
-        assert(u);
-
-        b = unit_can_reload(u);
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
-                return -ENOMEM;
-
-        return 0;
-}
-
-static int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
 
@@ -148,7 +114,24 @@ static int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char 
         return 0;
 }
 
-static int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        b = unit_can_reload(u);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         DBusMessageIter sub;
         char *p;
@@ -196,23 +179,62 @@ static int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *prope
         return 0;
 }
 
+int bus_unit_append_default_cgroup(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        char *t;
+        CGroupBonding *cgb;
+        bool success;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        if ((cgb = unit_get_default_cgroup(u))) {
+                if (!(t = cgroup_bonding_to_string(cgb)))
+                        return -ENOMEM;
+        } else
+                t = (char*) "";
+
+        success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
+
+        if (cgb)
+                free(t);
+
+        return success ? 0 : -ENOMEM;
+}
+
+int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        CGroupBonding *cgb;
+        DBusMessageIter sub;
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "s", &sub))
+                return -ENOMEM;
+
+        LIST_FOREACH(by_unit, cgb, u->meta.cgroup_bondings) {
+                char *t;
+                bool success;
+
+                if (!(t = cgroup_bonding_to_string(cgb)))
+                        return -ENOMEM;
+
+                success = dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &t);
+                free(t);
+
+                if (!success)
+                        return -ENOMEM;
+        }
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
+DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_unit_append_kill_mode, kill_mode, KillMode);
+
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message) {
-
-        const BusProperty properties[] = {
-                { "org.freedesktop.systemd1.Unit", "Id",                   bus_property_append_string,   "s",    u->meta.id                      },
-                { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,  "s",    u                               },
-                { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,   "s",    &u->meta.load_state             },
-                { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state, "s",    u                               },
-                { "org.freedesktop.systemd1.Unit", "SubState",             bus_unit_append_sub_state,    "s",    u                               },
-                { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,   "s",    u->meta.fragment_path           },
-                { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_uint64,   "t",    &u->meta.active_enter_timestamp },
-                { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_uint64,   "t",    &u->meta.active_exit_timestamp  },
-                { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,   "b",    u                               },
-                { "org.freedesktop.systemd1.Unit", "CanStart",             bus_unit_append_can_start,    "b",    u                               },
-                { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,          "(uo)", u                               },
-                { NULL, NULL, NULL, NULL, NULL }
-        };
-
         DBusMessage *reply = NULL;
         Manager *m = u->meta.manager;
         DBusError error;
@@ -228,8 +250,10 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                 job_type = JOB_RELOAD;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Restart"))
                 job_type = JOB_RESTART;
+        else if (UNIT_VTABLE(u)->bus_message_handler)
+                return UNIT_VTABLE(u)->bus_message_handler(u, message);
         else
-                return bus_default_message_handler(u->meta.manager, message, introspection, properties);
+                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
         if (job_type != _JOB_TYPE_INVALID) {
                 const char *smode;

@@ -19,17 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
-
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <errno.h>
 #include <unistd.h>
+#include <dbus/dbus.h>
 
 #include "dbus.h"
 #include "log.h"
 #include "strv.h"
 #include "cgroup.h"
+#include "dbus-unit.h"
+#include "dbus-job.h"
+#include "dbus-manager.h"
 
 static void api_bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus status, void *data)  {
         Manager *m = data;
@@ -1023,6 +1025,10 @@ int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *prope
         assert(property);
         assert(data);
 
+        /* Let's ensure that pid_t is actually 64bit, and hence this
+         * function can be used for usec_t */
+        assert_cc(sizeof(uint64_t) == sizeof(usec_t));
+
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, data))
                 return -ENOMEM;
 
@@ -1035,7 +1041,27 @@ int bus_property_append_uint32(Manager *m, DBusMessageIter *i, const char *prope
         assert(property);
         assert(data);
 
+        /* Let's ensure that pid_t and mode_t is actually 32bit, and
+         * hence this function can be used for pid_t/mode_t */
+        assert_cc(sizeof(uint32_t) == sizeof(pid_t));
+        assert_cc(sizeof(uint32_t) == sizeof(mode_t));
+        assert_cc(sizeof(uint32_t) == sizeof(unsigned));
+
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT32, data))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_property_append_int32(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(data);
+
+        assert_cc(sizeof(int32_t) == sizeof(int));
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, data))
                 return -ENOMEM;
 
         return 0;

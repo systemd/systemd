@@ -26,6 +26,7 @@
 #include "target.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "dbus-target.h"
 
 static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD] = UNIT_INACTIVE,
@@ -133,5 +134,7 @@ const UnitVTable target_vtable = {
         .stop = target_stop,
 
         .active_state = target_active_state,
-        .sub_state_to_string = target_sub_state_to_string
+        .sub_state_to_string = target_sub_state_to_string,
+
+        .bus_message_handler = bus_target_message_handler
 };

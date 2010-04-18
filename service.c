@@ -31,6 +31,7 @@
 #include "log.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "dbus-service.h"
 
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
@@ -2238,6 +2239,8 @@ const UnitVTable service_vtable = {
 
         .bus_name_owner_change = service_bus_name_owner_change,
         .bus_query_pid_done = service_bus_query_pid_done,
+
+        .bus_message_handler = bus_service_message_handler,
 
         .enumerate = service_enumerate
 };

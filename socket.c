@@ -35,6 +35,7 @@
 #include "load-fragment.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "dbus-socket.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -1098,5 +1099,7 @@ const UnitVTable socket_vtable = {
 
         .fd_event = socket_fd_event,
         .sigchld_event = socket_sigchld_event,
-        .timer_event = socket_timer_event
+        .timer_event = socket_timer_event,
+
+        .bus_message_handler = bus_socket_message_handler
 };

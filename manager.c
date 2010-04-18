@@ -47,6 +47,8 @@
 #include "mount-setup.h"
 #include "utmp-wtmp.h"
 #include "unit-name.h"
+#include "dbus-unit.h"
+#include "dbus-job.h"
 
 static int enable_special_signals(Manager *m) {
         char fd;

@@ -28,6 +28,7 @@
 #include "strv.h"
 #include "log.h"
 #include "unit-name.h"
+#include "dbus-device.h"
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD] = UNIT_INACTIVE,
@@ -462,6 +463,8 @@ const UnitVTable device_vtable = {
 
         .active_state = device_active_state,
         .sub_state_to_string = device_sub_state_to_string,
+
+        .bus_message_handler = bus_device_message_handler,
 
         .enumerate = device_enumerate,
         .shutdown = device_shutdown
