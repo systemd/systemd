@@ -190,6 +190,9 @@ struct Manager {
 
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
+
+        /* Data specific to the Snapshot subsystem */
+        unsigned n_snapshots;
 };
 
 int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **m);

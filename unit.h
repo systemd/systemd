@@ -59,8 +59,8 @@ enum UnitType {
         UNIT_DEVICE,
         UNIT_MOUNT,
         UNIT_AUTOMOUNT,
-        UNIT_TIMER,
         UNIT_SNAPSHOT,
+        UNIT_TIMER,
         _UNIT_TYPE_MAX,
         _UNIT_TYPE_INVALID = -1
 };
@@ -208,6 +208,9 @@ struct UnitVTable {
 
         /* Instances make no sense for this type */
         bool no_instances:1;
+
+        /* Execlude this type from snapshots */
+        bool no_snapshots:1;
 
         /* This should reset all type-specific variables. This should
          * not allocate memory, and is either called with 0

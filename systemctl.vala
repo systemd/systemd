@@ -83,7 +83,9 @@ int main (string[] args) {
                         "  stop [NAME...]      Stop on or more units\n" +
                         "  restart [NAME...]   Restart on or more units\n" +
                         "  reload [NAME...]    Reload on or more units\n" +
-                        "  monitor             Monitor unit/job changes\n");
+                        "  monitor             Monitor unit/job changes\n" +
+                        "  dump                Dump servier status\n" +
+                        "  snapshot [NAME]     Create a snapshot\n");
 
         try {
                 context.parse(ref args);
@@ -224,7 +226,17 @@ int main (string[] args) {
 
                 } else if (args[1] == "dump")
                         stdout.puts(manager.dump());
-                else {
+                else if (args[1] == "snapshot") {
+
+                        ObjectPath p = manager.create_snapshot(args.length > 2 ? args[2] : "");
+
+                        Unit u = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        p,
+                                        "org.freedesktop.systemd1.Unit") as Unit;
+
+                        stdout.printf("%s\n", u.id);
+                } else {
                         stderr.printf("Unknown command %s.\n", args[1]);
                         return 1;
                 }
