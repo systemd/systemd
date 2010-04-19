@@ -323,7 +323,7 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 			err = util_create_path(udev, filename);
 			if (err != 0 && err != -ENOENT)
 				break;
-			fd = open(filename, O_WRONLY|O_CREAT, 0444);
+			fd = open(filename, O_WRONLY|O_CREAT|O_NOFOLLOW, 0444);
 			if (fd >= 0)
 				close(fd);
 			else
