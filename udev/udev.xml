@@ -426,7 +426,8 @@
             <varlistentry>
               <term><option>WAIT_FOR</option></term>
               <listitem>
-                <para>Wait for a file to become available.</para>
+                <para>Wait for a file to become available or until a 10
+                seconds timeout expires.</para>
               </listitem>
             </varlistentry>
 
@@ -461,7 +462,7 @@
                     <term><option>watch</option></term>
                     <listitem>
                       <para>Watch the device node with inotify, when closed after being opened for
-		      writing, a change uevent will be synthesised.</para>
+                      writing, a change uevent will be synthesised.</para>
                     </listitem>
                   </varlistentry>
                 </variablelist>
