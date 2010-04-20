@@ -297,8 +297,13 @@
             <varlistentry>
               <term><option>NAME</option></term>
               <listitem>
-                <para>The name of the node to be created, or the name the network interface
-                should be renamed to.</para>
+                <para>The name, a network interface should be renamed to, or the name
+                a device node should be named. Usually the kernel provides the defined
+                node name, or even creates and removes the node before udev receives
+                any event. Changing the node name from the kernel's default may result
+                in unexpected behavior and is not supported. Udev is only expected to
+                handle device node permissions and to create additional symlinks, which
+                do not conflict with the kernel device node names.</para>
               </listitem>
             </varlistentry>
 
@@ -306,9 +311,16 @@
               <term><option>SYMLINK</option></term>
               <listitem>
                 <para>The name of a symlink targeting the node. Every matching rule will add
-                this value to the list of symlinks to be created along with the device  node.
+                this value to the list of symlinks to be created along with the device node.
                 Multiple symlinks may be specified by separating the names by the space
-                character.</para>
+                character. In case multiple devices claim the same name, the link will
+                always point to the device with the highest link_priority. If the current device
+                goes away, the links will be re-evaluated and the device with the next highest
+                link_priority will own the link. If no link_priority is specified, the order
+                of the devices, and which of them will own the link, is undefined. Claiming
+                the same name for a node and links may result in unexpected behavior and is
+                not supported.
+                </para>
               </listitem>
             </varlistentry>
 
