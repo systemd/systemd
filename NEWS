@@ -9,7 +9,7 @@ events are expected as "add" events.
 
 The option "all_partitons" was removed from udev. This should not be
 needed for usual hardware. Udev can not safely make assumptions
-about non-exixting partition major/minor numbers, and therefore no
+about non-existing partition major/minor numbers, and therefore no
 longer provide this unreliable and unsafe option.
 
 The option "ignore_remove" was removed from udev. With devtmpfs

@@ -1,3 +1,124 @@
+Summary of changes from v151 to v152
+============================================
+
+Adrian Bunk (1):
+      udev needs automake 1.10
+
+Amit Shah (2):
+      Fix virtio-ports rule to use $attr instead of $ATTR
+      rules: virtio - fix is to check if the 'name' attribute is present
+
+Andy Whitcroft (2):
+      keymap: Add Samsung Q210/P210 force-release quirk
+      keymap: Add Fujitsu Amilo 1848+u  force-release quirk
+
+Dan Williams (1):
+      modeswitch: morph into tool that only switches Mobile Action cables
+
+David Zeuthen (3):
+      Decrease buffer size when advancing past NUL byte
+      Use UTIL_LINE_SIZE, not UTIL_PATH_SIZE to truncate properties
+      Increase UTIL_LINE_SIZE from 2048 to 16384
+
+Harald Hoyer (1):
+      cdrom_id: remove debugging code
+
+Jerone Young (6):
+      Force key release for volume keys on Dell Studio 1557
+      Fix Keymapping for upcoming Dell Laptops
+      Add new Dell touchpad keycode
+      Revert special casing 0xD8 to latitude XT only
+      Fix Dell Studio 1558 volume keys not releasing
+      Add support for another Dell touchpad toggle key
+
+Kamal Mostafa (3):
+      keymap: Unite laptop models needing common volume-key release quirk
+      keymap: Add force-release quirk for Coolbox QBook 270-02
+      keymap: Add force-release quirk for Mitac 8050QDA
+
+Kay Sievers (43):
+      libudev: bump minor version
+      udevadm: fix untested and broken commit to set buffer size
+      configure.ac: version bump
+      udev-acl: no not encourage use of ACL_MANAGE outside of rules file
+      replace utimes() with utimensat()
+      libbudev-private: rename udev_list_entry_get_flag()
+      udevadm: monitor - use / as separator in --subsystem-match=subsystem[/devtype]
+      use major:minor as entries in symlink stack instead of devpath
+      use major:minor as entries in watch directory
+      libudev: docs - .gitignore backup files
+      firmware: fix possible segfault when firmware device goes away while loading
+      do not reset SELinux context when the node was not touched
+      libudev: add udev_device_new_from_environment()
+      add LGPL COPYING to libudev and GUdev
+      cdrom_id: open non-mounted optical media with O_EXCL
+      libudev: update documentation
+      extras: mobile-action-modeswitch - update gitignore
+      scsi_id: add rand() in retry loop
+      cdrom_id: retry to open the device, if EBUSY
+      cdrom_id: check mount state in retry loop
+      cdrom_id: always set ID_CDROM regardless if we can run cdrom_id
+      rules: delete outdated packagees rules
+      rules: we do not have static devices which are renamed
+      unify/cleanup event handling
+      allow IMPORT{db}="KEY"
+      usb-db: remove double '/'
+      replace "add|change" with "!remove"
+      update NEWS
+      log info only if we actually delete the node
+      udevadm: trigger - switch default action from "add" to "change"
+      remove "all_partitions" option
+      rules: call modprobe on all events but "remove"
+      remove "ignore_remove" option
+      update NEWS
+      cdrom_id: rework feature/profiles buffer parsing
+      cdrom_id: print more debug messages
+      cdrom_id: debug - print feature values in hex
+      cdrom_id: debug - print feature values in hex
+      cdrom_id: set ID_CDROM_MEDIA=1 only for known media
+      Revert "Fix switching Logitech bluetooth adapters into hci mode."
+      add O_NOFOLLOW when creating files in link stack
+      delete only device nodes, not symlinks when deleting a devtmpfs node
+      doc: add section about how *not* to rename device nodes
+
+Marco d'Itri (3):
+      rules: input - create by-path/ links for pci devices
+      Fix switching Logitech bluetooth adapters into hci mode.
+      doc: document the WAIT_FOR timeout
+
+Martin Pitt (12):
+      keymap: Add Dell Inspiron 1011 (Mini 10)
+      Fix brightness keys on MSI Wind U-100
+      keymap: Fix LG X110
+      keymap: Add Toshiba Satellite M30X
+      udev-acl: Correctly handle ENV{ACL_MANAGE}==0
+      input_id: Fix linking
+      keymap: Add Acer TravelMate 6593G and Acer Aspire 1640
+      keymap: Fix another key for Acer TravelMate 6593
+      cdrom_id: Fix uninitialized variables
+      cdrom_id: Fix uninitialized buffers
+      cdrom_id: Do not ignore errors from scsi_cmd_run()
+      cdrom_id: Swap media state and TOC info probing
+
+Mike Brudevold (1):
+      cdrom_id: add missing profiles to feature_profiles
+
+Robert Hooker (1):
+      keymap: Add support for Gateway AOA110/AOA150 clones.
+
+Scott James Remnant (2):
+      libudev: export udev_monitor_set_receive_buffer_size()
+      udevadm monitor: increase netlink buffer size
+
+Thomas Bächler (1):
+      firmware: fix error reporting on missing firmware files
+
+Yury G. Kudryashov (3):
+      configure.ac - fix typo in --with-pci-ids-path option
+      hid2hci: include linux/types.h for __u32
+      configure.ac: ddd --with-firmware-path option
+
+
 Summary of changes from v150 to v151
 ============================================
 
