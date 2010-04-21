@@ -118,17 +118,15 @@ void cgroup_bonding_free(CGroupBonding *b) {
                         hashmap_remove(b->unit->meta.manager->cgroup_bondings, b->path);
         }
 
-        free(b->controller);
-        free(b->path);
-
         if (b->cgroup) {
-
-                if (b->only_us && b->clean_up)
-                        cgroup_delete_cgroup(b->cgroup, true);
+                if (b->only_us && b->clean_up && cgroup_bonding_is_empty(b) > 0)
+                        cgroup_delete_cgroup_ext(b->cgroup, true);
 
                 cgroup_free(&b->cgroup);
         }
 
+        free(b->controller);
+        free(b->path);
         free(b);
 }
 
