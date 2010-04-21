@@ -37,6 +37,12 @@ struct CGroupBonding {
 
         struct cgroup *cgroup;
 
+        /* For the Unit::cgroup_bondings list */
+        LIST_FIELDS(CGroupBonding, by_unit);
+
+        /* For the Manager::cgroup_bondings hashmap */
+        LIST_FIELDS(CGroupBonding, by_path);
+
         /* When shutting down, remove cgroup? */
         bool clean_up:1;
 
@@ -45,12 +51,6 @@ struct CGroupBonding {
 
         /* Inherit parameters from parent group */
         bool inherit:1;
-
-        /* For the Unit::cgroup_bondings list */
-        LIST_FIELDS(CGroupBonding, by_unit);
-
-        /* For the Manager::cgroup_bondings hashmap */
-        LIST_FIELDS(CGroupBonding, by_path);
 };
 
 int cgroup_bonding_realize(CGroupBonding *b);

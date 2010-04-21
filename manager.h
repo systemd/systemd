@@ -64,13 +64,13 @@ enum WatchType {
 struct Watch {
         int fd;
         WatchType type;
-        bool fd_is_dupped;
         union {
                 union Unit *unit;
                 DBusWatch *bus_watch;
                 DBusTimeout *bus_timeout;
                 bool socket_accept;
         } data;
+        bool fd_is_dupped;
 };
 
 #include "unit.h"
@@ -151,25 +151,13 @@ struct Manager {
         Hashmap *transaction_jobs;      /* Unit object => Job object list 1:1 */
         JobDependency *transaction_anchor;
 
-        bool dispatching_load_queue:1;
-        bool dispatching_run_queue:1;
-        bool dispatching_dbus_queue:1;
-
-        bool request_api_bus_dispatch:1;
-        bool request_system_bus_dispatch:1;
-
-        bool utmp_reboot_written:1;
-
-        bool confirm_spawn:1;
-
-        ManagerExitCode exit_code:4;
-        ManagerRunningAs running_as;
-
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
+
+        Watch signal_watch;
 
         int epoll_fd;
 
-        Watch signal_watch;
+        unsigned n_snapshots;
 
         char **unit_path;
         char **sysvinit_path;
@@ -197,16 +185,28 @@ struct Manager {
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
         int32_t name_data_slot;
 
+        /* Data specific to the Automount subsystem */
+        int dev_autofs_fd;
+
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
         char *cgroup_controller;
         char *cgroup_hierarchy;
 
-        /* Data specific to the Automount subsystem */
-        int dev_autofs_fd;
+        /* Flags */
+        ManagerRunningAs running_as;
+        ManagerExitCode exit_code:4;
 
-        /* Data specific to the Snapshot subsystem */
-        unsigned n_snapshots;
+        bool dispatching_load_queue:1;
+        bool dispatching_run_queue:1;
+        bool dispatching_dbus_queue:1;
+
+        bool request_api_bus_dispatch:1;
+        bool request_system_bus_dispatch:1;
+
+        bool utmp_reboot_written:1;
+
+        bool confirm_spawn:1;
 };
 
 int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **m);

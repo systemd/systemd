@@ -75,27 +75,15 @@ struct JobDependency {
         Job *subject;
         Job *object;
 
-        bool matters;
-
         LIST_FIELDS(JobDependency, subject);
         LIST_FIELDS(JobDependency, object);
+
+        bool matters;
 };
 
 struct Job {
         Manager *manager;
-        uint32_t id;
-
         Unit *unit;
-
-        JobType type;
-        JobState state;
-
-        bool installed:1;
-        bool in_run_queue:1;
-        bool matters_to_anchor:1;
-        bool override:1;
-        bool in_dbus_queue:1;
-        bool sent_dbus_new_signal:1;
 
         LIST_FIELDS(Job, transaction);
         LIST_FIELDS(Job, run_queue);
@@ -108,6 +96,17 @@ struct Job {
         Job* marker;
         unsigned generation;
 
+        uint32_t id;
+
+        JobType type;
+        JobState state;
+
+        bool installed:1;
+        bool in_run_queue:1;
+        bool matters_to_anchor:1;
+        bool override:1;
+        bool in_dbus_queue:1;
+        bool sent_dbus_new_signal:1;
 };
 
 Job* job_new(Manager *m, JobType type, Unit *unit);

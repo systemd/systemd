@@ -144,17 +144,6 @@ struct Meta {
          * the job for it */
         Job *job;
 
-        bool in_load_queue:1;
-        bool in_dbus_queue:1;
-        bool in_cleanup_queue:1;
-        bool sent_dbus_new_signal:1;
-
-        /* If we go down, pull down everything that depends on us, too */
-        bool recursive_stop;
-
-        /* Garbage collect us we nobody wants or requires us anymore */
-        bool stop_when_unneeded;
-
         usec_t active_enter_timestamp;
         usec_t active_exit_timestamp;
 
@@ -172,6 +161,17 @@ struct Meta {
 
         /* Cleanup queue */
         LIST_FIELDS(Meta, cleanup_queue);
+
+        /* If we go down, pull down everything that depends on us, too */
+        bool recursive_stop;
+
+        /* Garbage collect us we nobody wants or requires us anymore */
+        bool stop_when_unneeded;
+
+        bool in_load_queue:1;
+        bool in_dbus_queue:1;
+        bool in_cleanup_queue:1;
+        bool sent_dbus_new_signal:1;
 };
 
 #include "service.h"
@@ -197,20 +197,6 @@ union Unit {
 
 struct UnitVTable {
         const char *suffix;
-
-        /* Can units of this type have multiple names? */
-        bool no_alias:1;
-
-        /* If true units of this types can never have "Requires"
-         * dependencies, because state changes can only be observed,
-         * not triggered */
-        bool no_requires:1;
-
-        /* Instances make no sense for this type */
-        bool no_instances:1;
-
-        /* Exclude this type from snapshots */
-        bool no_snapshots:1;
 
         /* This should reset all type-specific variables. This should
          * not allocate memory, and is called with zero-initialized
@@ -283,6 +269,20 @@ struct UnitVTable {
 
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
+
+        /* Can units of this type have multiple names? */
+        bool no_alias:1;
+
+        /* If true units of this types can never have "Requires"
+         * dependencies, because state changes can only be observed,
+         * not triggered */
+        bool no_requires:1;
+
+        /* Instances make no sense for this type */
+        bool no_instances:1;
+
+        /* Exclude this type from snapshots */
+        bool no_snapshots:1;
 };
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];

@@ -65,11 +65,11 @@ typedef struct SocketPort SocketPort;
 
 struct SocketPort {
         SocketType type;
+        int fd;
 
         SocketAddress address;
         char *path;
 
-        int fd;
         Watch fd_watch;
 
         LIST_FIELDS(SocketPort, port);

@@ -63,9 +63,9 @@ typedef enum ExecOutput {
 } ExecOutput;
 
 struct ExecStatus {
-        pid_t pid;
         usec_t start_timestamp;
         usec_t exit_timestamp;
+        pid_t pid;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in sigingo_t::si_status */
 };
@@ -79,16 +79,43 @@ struct ExecCommand {
 
 struct ExecContext {
         char **environment;
-        mode_t umask;
         struct rlimit *rlimit[RLIMIT_NLIMITS];
         char *working_directory, *root_directory;
+
+        mode_t umask;
         int oom_adjust;
         int nice;
         int ioprio;
         int cpu_sched_policy;
         int cpu_sched_priority;
+
         cpu_set_t cpu_affinity;
         unsigned long timer_slack_ns;
+
+        ExecInput std_input;
+        ExecOutput std_output;
+        ExecOutput std_error;
+
+        int syslog_priority;
+        char *syslog_identifier;
+
+        char *tty_path;
+
+        /* Since resolving these names might might involve socket
+         * connections and we don't want to deadlock ourselves these
+         * names are resolved on execution only and in the child
+         * process. */
+        char *user;
+        char *group;
+        char **supplementary_groups;
+
+        uint64_t capability_bounding_set_drop;
+
+        cap_t capabilities;
+        int secure_bits;
+
+        bool cpu_sched_reset_on_fork;
+        bool non_blocking;
 
         bool oom_adjust_set:1;
         bool nice_set:1;
@@ -103,30 +130,6 @@ struct ExecContext {
          * that the autofs logic detects that it belongs to us and we
          * don't enter a trigger loop. */
         bool no_setsid:1;
-
-        bool cpu_sched_reset_on_fork;
-        bool non_blocking;
-
-        ExecInput std_input;
-        ExecOutput std_output;
-        ExecOutput std_error;
-
-        char *tty_path;
-
-        int syslog_priority;
-        char *syslog_identifier;
-
-        cap_t capabilities;
-        int secure_bits;
-        uint64_t capability_bounding_set_drop;
-
-        /* Since resolving these names might might involve socket
-         * connections and we don't want to deadlock ourselves these
-         * names are resolved on execution only and in the child
-         * process. */
-        char *user;
-        char *group;
-        char **supplementary_groups;
 };
 
 typedef enum ExitStatus {
