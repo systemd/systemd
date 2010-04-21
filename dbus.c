@@ -637,6 +637,7 @@ void bus_done_api(Manager *m) {
                         m->system_bus = NULL;
 
                 dbus_connection_set_dispatch_status_function(m->api_bus, NULL, NULL, NULL);
+                dbus_connection_flush(m->api_bus);
                 dbus_connection_close(m->api_bus);
                 dbus_connection_unref(m->api_bus);
                 m->api_bus = NULL;
@@ -664,6 +665,7 @@ void bus_done_system(Manager *m) {
 
         if (m->system_bus) {
                 dbus_connection_set_dispatch_status_function(m->system_bus, NULL, NULL, NULL);
+                dbus_connection_flush(m->system_bus);
                 dbus_connection_close(m->system_bus);
                 dbus_connection_unref(m->system_bus);
                 m->system_bus = NULL;
