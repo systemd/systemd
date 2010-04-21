@@ -163,7 +163,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 			int len;
 
 			dbg(udev, "found existing symlink '%s'\n", slink);
-			len = readlink(slink, buf, sizeof(buf));
+			len = readlink(slink, buf, sizeof(buf) - 1);
 			if (len > 0) {
 				buf[len] = '\0';
 				if (strcmp(target, buf) == 0) {
