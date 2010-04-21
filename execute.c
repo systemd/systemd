@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <grp.h>
 #include <pwd.h>
+#include <sys/mount.h>
 
 #include "execute.h"
 #include "strv.h"
@@ -43,6 +44,7 @@
 #include "ioprio.h"
 #include "securebits.h"
 #include "cgroup.h"
+#include "namespace.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -794,8 +796,6 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                umask(context->umask);
-
                 if (confirm_spawn) {
                         char response;
 
@@ -900,6 +900,19 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
+                if (strv_length(context->read_write_dirs) > 0 ||
+                    strv_length(context->read_only_dirs) > 0 ||
+                    strv_length(context->inaccessible_dirs) > 0 ||
+                    context->mount_flags != MS_SHARED ||
+                    context->private_tmp)
+                        if ((r = setup_namespace(
+                                             context->read_write_dirs,
+                                             context->read_only_dirs,
+                                             context->inaccessible_dirs,
+                                             context->private_tmp,
+                                             context->mount_flags)) < 0)
+                                goto fail;
+
                 if (context->user) {
                         username = context->user;
                         if (get_user_creds(&username, &uid, &gid, &home) < 0) {
@@ -919,6 +932,8 @@ int exec_spawn(ExecCommand *command,
                                 r = EXIT_GROUP;
                                 goto fail;
                         }
+
+                umask(context->umask);
 
                 if (apply_chroot) {
                         if (context->root_directory)
@@ -1066,6 +1081,7 @@ void exec_context_init(ExecContext *c) {
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
+        c->mount_flags = MS_SHARED;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1105,6 +1121,15 @@ void exec_context_done(ExecContext *c) {
                 cap_free(c->capabilities);
                 c->capabilities = NULL;
         }
+
+        strv_free(c->read_only_dirs);
+        c->read_only_dirs = NULL;
+
+        strv_free(c->read_write_dirs);
+        c->read_write_dirs = NULL;
+
+        strv_free(c->inaccessible_dirs);
+        c->inaccessible_dirs = NULL;
 }
 
 void exec_command_done(ExecCommand *c) {
@@ -1143,6 +1168,15 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
         }
 }
 
+static void strv_fprintf(FILE *f, char **l) {
+        char **g;
+
+        assert(f);
+
+        STRV_FOREACH(g, l)
+                fprintf(f, " %s", *g);
+}
+
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         char ** e;
         unsigned i;
@@ -1157,11 +1191,13 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sUMask: %04o\n"
                 "%sWorkingDirectory: %s\n"
                 "%sRootDirectory: %s\n"
-                "%sNonBlocking: %s\n",
+                "%sNonBlocking: %s\n"
+                "%sPrivateTmp: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
-                prefix, yes_no(c->non_blocking));
+                prefix, yes_no(c->non_blocking),
+                prefix, yes_no(c->private_tmp));
 
         if (c->environment)
                 for (e = c->environment; *e; e++)
@@ -1269,14 +1305,27 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->group)
                 fprintf(f, "%sGroup: %s", prefix, c->group);
 
-        if (c->supplementary_groups) {
-                char **g;
-
+        if (strv_length(c->supplementary_groups) > 0) {
                 fprintf(f, "%sSupplementaryGroups:", prefix);
+                strv_fprintf(f, c->supplementary_groups);
+                fputs("\n", f);
+        }
 
-                STRV_FOREACH(g, c->supplementary_groups)
-                        fprintf(f, " %s", *g);
+        if (strv_length(c->read_write_dirs) > 0) {
+                fprintf(f, "%sReadWriteDirs:", prefix);
+                strv_fprintf(f, c->read_write_dirs);
+                fputs("\n", f);
+        }
 
+        if (strv_length(c->read_only_dirs) > 0) {
+                fprintf(f, "%sReadOnlyDirs:", prefix);
+                strv_fprintf(f, c->read_only_dirs);
+                fputs("\n", f);
+        }
+
+        if (strv_length(c->inaccessible_dirs) > 0) {
+                fprintf(f, "%sInaccessibleDirs:", prefix);
+                strv_fprintf(f, c->inaccessible_dirs);
                 fputs("\n", f);
         }
 }

@@ -109,6 +109,9 @@ struct ExecContext {
         char *group;
         char **supplementary_groups;
 
+        char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
+        unsigned long mount_flags;
+
         uint64_t capability_bounding_set_drop;
 
         cap_t capabilities;
@@ -116,6 +119,7 @@ struct ExecContext {
 
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
+        bool private_tmp;
 
         bool oom_adjust_set:1;
         bool nice_set:1;

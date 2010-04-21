@@ -52,7 +52,8 @@ pkglibexec_PROGRAMS = \
 
 noinst_PROGRAMS = \
 	test-engine \
-	test-job-type
+	test-job-type \
+	test-ns
 
 dbuspolicy_DATA = \
 	org.freedesktop.systemd1.conf
@@ -161,7 +162,9 @@ COMMON_SOURCES= \
 	unit-name.c \
 	unit-name.h \
 	fdset.c \
-	fdset.h
+	fdset.h \
+	namespace.h \
+	namespace.c
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -191,6 +194,14 @@ test_job_type_SOURCES = \
 
 test_job_type_CPPFLAGS = $(systemd_CPPFLAGS)
 test_job_type_LDADD = $(systemd_LDADD)
+
+test_ns_SOURCES = \
+	$(BASIC_SOURCES) \
+	test-ns.c \
+	namespace.c
+
+test_ns_CPPFLAGS = $(systemd_CPPFLAGS)
+test_ns_LDADD = $(systemd_LDADD)
 
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \

@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <sched.h>
 #include <sys/prctl.h>
+#include <sys/mount.h>
 
 #include "unit.h"
 #include "strv.h"
@@ -909,6 +910,43 @@ static int config_parse_sysv_priority(
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
+static int config_parse_mount_flags(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        char *w;
+        size_t l;
+        char *state;
+        unsigned long flags = 0;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        FOREACH_WORD(w, l, rvalue, state) {
+                if (strncmp(w, "shared", l) == 0)
+                        flags |= MS_SHARED;
+                else if (strncmp(w, "slave", l) == 0)
+                        flags |= MS_SLAVE;
+                else if (strncmp(w, "private", l) == 0)
+                        flags |= MS_PRIVATE;
+                else {
+                        log_error("[%s:%u] Failed to parse mount flags: %s", filename, line, rvalue);
+                        return -EINVAL;
+                }
+        }
+
+        c->mount_flags = flags;
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -1149,7 +1187,12 @@ static int load_from_path(Unit *u, const char *path) {
                 { "LimitNICE",              config_parse_limit,           &(context).rlimit[RLIMIT_NICE],                  section   }, \
                 { "LimitRTPRIO",            config_parse_limit,           &(context).rlimit[RLIMIT_RTPRIO],                section   }, \
                 { "LimitRTTIME",            config_parse_limit,           &(context).rlimit[RLIMIT_RTTIME],                section   }, \
-                { "ControlGroup",           config_parse_cgroup,          u,                                               section   }
+                { "ControlGroup",           config_parse_cgroup,          u,                                               section   }, \
+                { "ReadWriteDirectories",   config_parse_path_strv,       &(context).read_write_dirs,                      section   }, \
+                { "ReadOnlyDirectories",    config_parse_path_strv,       &(context).read_only_dirs,                       section   }, \
+                { "InaccessibleDirectories",config_parse_path_strv,       &(context).inaccessible_dirs,                    section   }, \
+                { "PrivateTmp",             config_parse_bool,            &(context).private_tmp,                          section   }, \
+                { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },

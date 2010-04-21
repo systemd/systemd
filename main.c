@@ -701,7 +701,6 @@ int main(int argc, char *argv[]) {
                         break;
 
                 case MANAGER_REEXECUTE:
-
                         if (prepare_reexecute(m, &serialization, &fds) < 0)
                                 goto finish;
 

@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
-#ifndef foomissinghfoo
-#define foomissinghfoo
+#ifndef foonamespacehfoo
+#define foonamespacehfoo
 
 /***
   This file is part of systemd.
@@ -22,18 +22,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-/* Missing glibc definitions to access certain kernel APIs */
+#include <stdbool.h>
 
-#include <sys/resource.h>
-#include <sys/syscall.h>
-
-#ifndef RLIMIT_RTTIME
-#define RLIMIT_RTTIME 15
-#endif
-
-static inline int pivot_root(const char *new_root, const char *put_old) {
-        return syscall(SYS_pivot_root, new_root, put_old);
-}
-
+int setup_namespace(
+                char **writable,
+                char **readable,
+                char **inaccessible,
+                bool private_tmp,
+                unsigned long flags);
 
 #endif

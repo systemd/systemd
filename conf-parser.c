@@ -329,7 +329,7 @@ int config_parse_path(
         assert(rvalue);
         assert(data);
 
-        if (*rvalue != '/') {
+        if (!path_is_absolute(rvalue)) {
                 log_error("[%s:%u] Not an absolute path: %s", filename, line, rvalue);
                 return -EINVAL;
         }
@@ -393,4 +393,68 @@ fail:
         free(n);
 
         return -ENOMEM;
+}
+
+int config_parse_path_strv(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char*** sv = data;
+        char **n;
+        char *w;
+        unsigned k;
+        size_t l;
+        char *state;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        k = strv_length(*sv);
+        FOREACH_WORD_QUOTED(w, l, rvalue, state)
+                k++;
+
+        if (!(n = new(char*, k+1)))
+                return -ENOMEM;
+
+        k = 0;
+        if (*sv)
+                for (; (*sv)[k]; k++)
+                        n[k] = (*sv)[k];
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                if (!(n[k] = strndup(w, l))) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                if (!path_is_absolute(n[k])) {
+                        log_error("[%s:%u] Not an absolute path: %s", filename, line, rvalue);
+                        r = -EINVAL;
+                        goto fail;
+                }
+
+                k++;
+        }
+
+        n[k] = NULL;
+        free(*sv);
+        *sv = n;
+
+        return 0;
+
+fail:
+        free(n[k]);
+        for (; k > 0; k--)
+                free(n[k-1]);
+        free(n);
+
+        return r;
 }
