@@ -155,7 +155,7 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
 }
 
 static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
-        const char *dn, *names, *wants, *sysfs, *expose, *model;
+        const char *dn, *wants, *sysfs, *expose, *model;
         Unit *u = NULL;
         int r;
         char *w, *state;
@@ -182,7 +182,6 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
 
         /* Check whether this entry is even relevant for us. */
         dn = udev_device_get_devnode(dev);
-        names = udev_device_get_property_value(dev, "SYSTEMD_NAMES");
         wants = udev_device_get_property_value(dev, "SYSTEMD_WANTS");
 
         if ((r = device_find_escape_name(m, sysfs, &u)) < 0)
@@ -246,27 +245,6 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
         } else if (dn)
                 if ((r = unit_set_description(u, dn)) < 0)
                         goto fail;
-
-        /* We don't remove names that are gone. But that should be
-         * fine and should probably be fixed only on a configuration
-         * refresh. */
-
-        if (names) {
-                FOREACH_WORD(w, l, names, state) {
-                        char *e;
-
-                        if (!(e = strndup(w, l))) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        r = unit_add_name(u, e);
-                        free(e);
-
-                        if (r < 0 && r != -EEXIST)
-                                goto fail;
-                }
-        }
 
         if (wants) {
                 FOREACH_WORD(w, l, wants, state) {
