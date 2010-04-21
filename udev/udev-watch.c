@@ -81,7 +81,7 @@ void udev_watch_restore(struct udev *udev)
 			s = device;
 			l = util_strpcpy(&s, sizeof(device), udev_get_sys_path(udev));
 			len = readlinkat(dirfd(dir), ent->d_name, s, l);
-			if (len <= 0 || len >= (ssize_t)l)
+			if (len <= 0 || len == (ssize_t)l)
 				goto unlink;
 			s[len] = '\0';
 
@@ -173,7 +173,7 @@ struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
 	s = majmin;
 	l = util_strpcpy(&s, sizeof(majmin), udev_get_sys_path(udev));
 	len = readlink(filename, s, l);
-	if (len < 0 || (size_t)len >= l)
+	if (len <= 0 || (size_t)len == l)
 		return NULL;
 	s[len] = '\0';
 

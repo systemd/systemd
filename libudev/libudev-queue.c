@@ -488,7 +488,7 @@ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev
 		s = syspath;
 		l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev_queue->udev), NULL);
 		len = readlinkat(dirfd(dir), dent->d_name, s, l);
-		if (len < 0 || (size_t)len >= l)
+		if (len <= 0 || (size_t)len == l)
 			continue;
 		s[len] = '\0';
 		dbg(udev_queue->udev, "found '%s' [%s]\n", syspath, dent->d_name);

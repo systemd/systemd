@@ -222,12 +222,11 @@ int udev_device_read_db(struct udev_device *udev_device)
 		char *next;
 
 		target_len = readlink(filename, target, sizeof(target));
-		if (target_len > 0)
-			target[target_len] = '\0';
-		else {
-			dbg(udev_device->udev, "error reading db link %s: %m\n", filename);
+		if (target_len <= 0 || target_len == sizeof(target)) {
+			info(udev_device->udev, "error reading db link %s: %m\n", filename);
 			return -1;
 		}
+		target[target_len] = '\0';
 
 		next = strchr(target, ' ');
 		if (next != NULL) {
@@ -1095,16 +1094,18 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 			goto out;
 
 		len = readlink(path, target, sizeof(target));
-		if (len > 0) {
-			target[len] = '\0';
-			pos = strrchr(target, '/');
-			if (pos != NULL) {
-				pos = &pos[1];
-				dbg(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, pos);
-				list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, pos, 0, 0);
-				val = udev_list_entry_get_value(list_entry);
-			}
+		if (len <= 0 || len == sizeof(target))
+			goto out;
+		target[len] = '\0';
+
+		pos = strrchr(target, '/');
+		if (pos != NULL) {
+			pos = &pos[1];
+			dbg(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, pos);
+			list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, pos, 0, 0);
+			val = udev_list_entry_get_value(list_entry);
 		}
+
 		goto out;
 	}
 
