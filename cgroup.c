@@ -414,6 +414,7 @@ int manager_setup_cgroup(Manager *m) {
         char *mp, *cp;
         int r;
         pid_t pid;
+        char suffix[32];
 
         assert(m);
 
@@ -436,12 +437,25 @@ int manager_setup_cgroup(Manager *m) {
                 return translate_error(r, errno);
         }
 
+        snprintf(suffix, sizeof(suffix), "/systemd-%u", (unsigned) pid);
+        char_array_0(suffix);
+
         free(m->cgroup_hierarchy);
-        m->cgroup_hierarchy = NULL;
-        if (asprintf(&m->cgroup_hierarchy, "%s/systemd-%llu", strcmp(cp, "/") == 0 ? "" : cp, (unsigned long long) pid) < 0) {
+
+        if (endswith(cp, suffix))
+                /* We probably got reexecuted and can continue to use our root cgroup */
+                m->cgroup_hierarchy = cp;
+        else {
+                /* We need a new root cgroup */
+
+                m->cgroup_hierarchy = NULL;
+                r = asprintf(&m->cgroup_hierarchy, "%s%s", streq(cp, "/") ? "" : cp, suffix);
                 free(cp);
-                free(mp);
-                return -ENOMEM;
+
+                if (r < 0) {
+                        free(mp);
+                        return -ENOMEM;
+                }
         }
 
         log_info("Using cgroup controller <%s>, hierarchy mounted at <%s>, using root group <%s>.",
@@ -455,7 +469,6 @@ int manager_setup_cgroup(Manager *m) {
                 log_info("Installed release agent, or already installed.");
 
         free(mp);
-        free(cp);
 
         if ((r = create_hierarchy_cgroup(m)) < 0)
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
