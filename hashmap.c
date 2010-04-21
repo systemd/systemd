@@ -217,7 +217,7 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
 
         link_entry(h, e, hash);
 
-        return 0;
+        return 1;
 }
 
 int hashmap_replace(Hashmap *h, const void *key, void *value) {
