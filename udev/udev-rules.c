@@ -149,7 +149,6 @@ enum token_type {
 	TK_A_STRING_ESCAPE_NONE,
 	TK_A_STRING_ESCAPE_REPLACE,
 	TK_A_INOTIFY_WATCH,		/* int */
-	TK_A_NUM_FAKE_PART,		/* int */
 	TK_A_DEVLINK_PRIO,		/* int */
 	TK_A_OWNER,			/* val */
 	TK_A_GROUP,			/* val */
@@ -161,7 +160,6 @@ enum token_type {
 	TK_A_NAME,			/* val */
 	TK_A_DEVLINK,			/* val */
 	TK_A_EVENT_TIMEOUT,		/* int */
-	TK_A_IGNORE_REMOVE,
 	TK_A_ATTR,			/* val, attr */
 	TK_A_RUN,			/* val, bool */
 	TK_A_GOTO,			/* size_t */
@@ -279,7 +277,6 @@ static const char *token_str(enum token_type type)
 		[TK_A_STRING_ESCAPE_NONE] =	"A STRING_ESCAPE_NONE",
 		[TK_A_STRING_ESCAPE_REPLACE] =	"A STRING_ESCAPE_REPLACE",
 		[TK_A_INOTIFY_WATCH] = 		"A INOTIFY_WATCH",
-		[TK_A_NUM_FAKE_PART] =		"A NUM_FAKE_PART",
 		[TK_A_DEVLINK_PRIO] =		"A DEVLINK_PRIO",
 		[TK_A_OWNER] =			"A OWNER",
 		[TK_A_GROUP] =			"A GROUP",
@@ -291,7 +288,6 @@ static const char *token_str(enum token_type type)
 		[TK_A_NAME] =			"A NAME",
 		[TK_A_DEVLINK] =		"A DEVLINK",
 		[TK_A_EVENT_TIMEOUT] =		"A EVENT_TIMEOUT",
-		[TK_A_IGNORE_REMOVE] =		"A IGNORE_REMOVE",
 		[TK_A_ATTR] =			"A ATTR",
 		[TK_A_RUN] =			"A RUN",
 		[TK_A_GOTO] =			"A GOTO",
@@ -360,9 +356,6 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		break;
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
-	case TK_A_IGNORE_REMOVE:
-		dbg(rules->udev, "%s\n", token_str(type));
-		break;
 	case TK_M_TEST:
 		dbg(rules->udev, "%s %s '%s'(%s) %#o\n",
 		    token_str(type), operation_str(op), value, string_glob_str(glob), token->key.mode);
@@ -1030,14 +1023,11 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		break;
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
-	case TK_A_IGNORE_REMOVE:
-		break;
 	case TK_A_RUN:
 		token->key.value_off = add_string(rule_tmp->rules, value);
 		token->key.fail_on_error = *(int *)data;
 		break;
 	case TK_A_INOTIFY_WATCH:
-	case TK_A_NUM_FAKE_PART:
 	case TK_A_DEVLINK_PRIO:
 		token->key.devlink_prio = *(int *)data;
 		break;
