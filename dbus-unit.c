@@ -362,7 +362,7 @@ void bus_unit_send_change_signal(Unit *u) {
         } else {
                 /* Send a new signal */
 
-                if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "UnitNew")))
+                if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitNew")))
                         goto oom;
 
                 if (!dbus_message_append_args(m,
@@ -403,7 +403,7 @@ void bus_unit_send_removed_signal(Unit *u) {
         if (!(p = unit_dbus_path(u)))
                 goto oom;
 
-        if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "UnitRemoved")))
+        if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitRemoved")))
                 goto oom;
 
         if (!dbus_message_append_args(m,

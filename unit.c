@@ -204,6 +204,25 @@ int unit_set_description(Unit *u, const char *description) {
         return 0;
 }
 
+bool unit_check_gc(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->no_gc)
+                return true;
+
+        if (u->meta.job)
+                return true;
+
+        if (unit_active_state(u) != UNIT_INACTIVE)
+                return true;
+
+        if (UNIT_VTABLE(u)->check_gc)
+                if (UNIT_VTABLE(u)->check_gc(u))
+                        return true;
+
+        return false;
+}
+
 void unit_add_to_load_queue(Unit *u) {
         assert(u);
         assert(u->meta.type != _UNIT_TYPE_INVALID);
@@ -223,6 +242,24 @@ void unit_add_to_cleanup_queue(Unit *u) {
 
         LIST_PREPEND(Meta, cleanup_queue, u->meta.manager->cleanup_queue, &u->meta);
         u->meta.in_cleanup_queue = true;
+}
+
+void unit_add_to_gc_queue(Unit *u) {
+        assert(u);
+
+        if (u->meta.in_gc_queue || u->meta.in_cleanup_queue)
+                return;
+
+        if (unit_check_gc(u))
+                return;
+
+        LIST_PREPEND(Meta, gc_queue, u->meta.manager->gc_queue, &u->meta);
+        u->meta.in_gc_queue = true;
+
+        u->meta.manager->n_in_gc_queue ++;
+
+        if (u->meta.manager->gc_queue_timestamp <= 0)
+                u->meta.manager->gc_queue_timestamp = now(CLOCK_MONOTONIC);
 }
 
 void unit_add_to_dbus_queue(Unit *u) {
@@ -250,6 +287,8 @@ static void bidi_set_free(Unit *u, Set *s) {
 
                 for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                         set_remove(other->meta.dependencies[d], u);
+
+                unit_add_to_gc_queue(other);
         }
 
         set_free(s);
@@ -279,6 +318,11 @@ void unit_free(Unit *u) {
 
         if (u->meta.in_cleanup_queue)
                 LIST_REMOVE(Meta, cleanup_queue, u->meta.manager->cleanup_queue, &u->meta);
+
+        if (u->meta.in_gc_queue) {
+                LIST_REMOVE(Meta, gc_queue, u->meta.manager->gc_queue, &u->meta);
+                u->meta.manager->n_in_gc_queue--;
+        }
 
         /* Free data and next 'smaller' objects */
         if (u->meta.job)
@@ -482,11 +526,11 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         /* If syslog or kernel logging is requested, make sure our own
          * logging daemon is run first. */
 
-        if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET, NULL)) < 0)
+        if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET, NULL, true)) < 0)
                 return r;
 
         if (u->meta.manager->running_as != MANAGER_SESSION)
-                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET, NULL)) < 0)
+                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET, NULL, true)) < 0)
                         return r;
 
         return 0;
@@ -525,14 +569,16 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tUnit Load State: %s\n"
                 "%s\tUnit Active State: %s\n"
                 "%s\tActive Enter Timestamp: %s\n"
-                "%s\tActive Exit Timestamp: %s\n",
+                "%s\tActive Exit Timestamp: %s\n"
+                "%s\tGC Check Good: %s\n",
                 prefix, u->meta.id,
                 prefix, unit_description(u),
                 prefix, strna(u->meta.instance),
                 prefix, unit_load_state_to_string(u->meta.load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
                 prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.active_enter_timestamp)),
-                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_exit_timestamp)));
+                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_exit_timestamp)),
+                prefix, yes_no(unit_check_gc(u)));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -653,6 +699,7 @@ int unit_load(Unit *u) {
         assert((u->meta.load_state != UNIT_MERGED) == !u->meta.merged_into);
 
         unit_add_to_dbus_queue(unit_follow_merge(u));
+        unit_add_to_gc_queue(u);
 
         return 0;
 
@@ -987,6 +1034,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         unit_check_uneeded(u);
 
         unit_add_to_dbus_queue(u);
+        unit_add_to_gc_queue(u);
 }
 
 int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {
@@ -1152,7 +1200,7 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
         }
 }
 
-int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
+int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference) {
 
         static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
                 [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
@@ -1165,9 +1213,11 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
                 [UNIT_WANTED_BY] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_CONFLICTS] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
-                [UNIT_AFTER] = UNIT_BEFORE
+                [UNIT_AFTER] = UNIT_BEFORE,
+                [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
+                [UNIT_REFERENCED_BY] = UNIT_REFERENCES
         };
-        int r;
+        int r, q = 0, v = 0, w = 0;
 
         assert(u);
         assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
@@ -1187,22 +1237,47 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
                     return -EINVAL;
         }
 
-        if ((r = set_ensure_allocated(&u->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0)
+        if ((r = set_ensure_allocated(&u->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0 ||
+            (r = set_ensure_allocated(&other->meta.dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func)) < 0)
                 return r;
 
-        if ((r = set_ensure_allocated(&other->meta.dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func)) < 0)
-                return r;
+        if (add_reference)
+                if ((r = set_ensure_allocated(&u->meta.dependencies[UNIT_REFERENCES], trivial_hash_func, trivial_compare_func)) < 0 ||
+                    (r = set_ensure_allocated(&other->meta.dependencies[UNIT_REFERENCED_BY], trivial_hash_func, trivial_compare_func)) < 0)
+                        return r;
 
-        if ((r = set_put(u->meta.dependencies[d], other)) < 0)
-                return r;
+        if ((q = set_put(u->meta.dependencies[d], other)) < 0)
+                return q;
 
-        if ((r = set_put(other->meta.dependencies[inverse_table[d]], u)) < 0) {
-                set_remove(u->meta.dependencies[d], other);
-                return r;
+        if ((v = set_put(other->meta.dependencies[inverse_table[d]], u)) < 0) {
+                r = v;
+                goto fail;
+        }
+
+        if (add_reference) {
+                if ((w = set_put(u->meta.dependencies[UNIT_REFERENCES], other)) < 0) {
+                        r = w;
+                        goto fail;
+                }
+
+                if ((r = set_put(other->meta.dependencies[UNIT_REFERENCED_BY], u)) < 0)
+                        goto fail;
         }
 
         unit_add_to_dbus_queue(u);
         return 0;
+
+fail:
+        if (q > 0)
+                set_remove(u->meta.dependencies[d], other);
+
+        if (v > 0)
+                set_remove(other->meta.dependencies[inverse_table[d]], u);
+
+        if (w > 0)
+                set_remove(u->meta.dependencies[UNIT_REFERENCES], other);
+
+        return r;
 }
 
 static const char *resolve_template(Unit *u, const char *name, const char*path, char **p) {
@@ -1238,7 +1313,7 @@ static const char *resolve_template(Unit *u, const char *name, const char*path, 
         return s;
 }
 
-int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *path) {
+int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
         Unit *other;
         int r;
         char *s;
@@ -1252,14 +1327,14 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, con
         if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
                 goto finish;
 
-        r = unit_add_dependency(u, d, other);
+        r = unit_add_dependency(u, d, other, add_reference);
 
 finish:
         free(s);
         return r;
 }
 
-int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path) {
+int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
         Unit *other;
         int r;
         char *s;
@@ -1273,7 +1348,7 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
         if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
                 goto finish;
 
-        r = unit_add_dependency(other, d, u);
+        r = unit_add_dependency(other, d, u, add_reference);
 
 finish:
         free(s);
@@ -1794,6 +1869,8 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_CONFLICTS] = "Conflicts",
         [UNIT_BEFORE] = "Before",
         [UNIT_AFTER] = "After",
+        [UNIT_REFERENCES] = "References",
+        [UNIT_REFERENCED_BY] = "ReferencedBy"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);

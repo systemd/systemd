@@ -139,10 +139,10 @@ static int snapshot_deserialize_item(Unit *u, const char *key, const char *value
 
         } else if (streq(key, "requires")) {
 
-                if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, value, NULL)) < 0)
+                if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, value, NULL, true)) < 0)
                         return r;
 
-                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, value, NULL)) < 0)
+                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, value, NULL, true)) < 0)
                         return r;
         } else
                 log_debug("Unknown serialization key '%s'", key);
@@ -211,13 +211,17 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
                 if (k != other->meta.id)
                         continue;
 
+                if (UNIT_VTABLE(other)->check_snapshot)
+                        if (!UNIT_VTABLE(other)->check_snapshot(other))
+                            continue;
+
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         continue;
 
-                if ((r = unit_add_dependency(u, UNIT_REQUIRES, other)) < 0)
+                if ((r = unit_add_dependency(u, UNIT_REQUIRES, other, true)) < 0)
                         goto fail;
 
-                if ((r = unit_add_dependency(u, UNIT_AFTER, other)) < 0)
+                if ((r = unit_add_dependency(u, UNIT_AFTER, other, true)) < 0)
                         goto fail;
         }
 
@@ -252,6 +256,7 @@ const UnitVTable snapshot_vtable = {
         .no_alias = true,
         .no_instances = true,
         .no_snapshots = true,
+        .no_gc = true,
 
         .load = unit_load_nop,
         .coldplug = snapshot_coldplug,

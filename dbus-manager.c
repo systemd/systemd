@@ -199,7 +199,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_INVALID))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "GetJob")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
                 uint32_t id;
                 Job *j;
 

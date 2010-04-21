@@ -145,7 +145,11 @@ struct Manager {
         LIST_HEAD(Meta, dbus_unit_queue);
         LIST_HEAD(Job, dbus_job_queue);
 
+        /* Units to remove */
         LIST_HEAD(Meta, cleanup_queue);
+
+        /* Units to check when doing GC */
+        LIST_HEAD(Meta, gc_queue);
 
         /* Jobs to be added */
         Hashmap *transaction_jobs;      /* Unit object => Job object list 1:1 */
@@ -192,6 +196,11 @@ struct Manager {
         Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
         char *cgroup_controller;
         char *cgroup_hierarchy;
+
+        usec_t gc_queue_timestamp;
+
+        int gc_marker;
+        unsigned n_in_gc_queue;
 
         /* Flags */
         ManagerRunningAs running_as;

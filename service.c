@@ -225,7 +225,7 @@ static int sysv_chkconfig_order(Service *s) {
 
                 /* FIXME: Maybe we should compare the name here lexicographically? */
 
-                if (!(r = unit_add_dependency(UNIT(s), d, UNIT(t))) < 0)
+                if (!(r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
                         return r;
         }
 
@@ -524,8 +524,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
                                         else {
-                                                if ((r = unit_add_dependency_by_name_inverse(u, UNIT_REQUIRES, m, NULL)) >= 0)
-                                                        r = unit_add_dependency_by_name(u, UNIT_BEFORE, m, NULL);
+                                                if ((r = unit_add_dependency_by_name_inverse(u, UNIT_REQUIRES, m, NULL, true)) >= 0)
+                                                        r = unit_add_dependency_by_name(u, UNIT_BEFORE, m, NULL, true);
                                         }
 
                                         free(m);
@@ -558,7 +558,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        r = unit_add_dependency_by_name(u, UNIT_AFTER, m, NULL);
+                                        r = unit_add_dependency_by_name(u, UNIT_AFTER, m, NULL, true);
                                         free(m);
 
                                         if (r < 0)
@@ -654,8 +654,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
                  * needed for early boot) and don't create any links
                  * to it. */
 
-                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL)) < 0 ||
-                    (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL)) < 0)
+                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true)) < 0 ||
+                    (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         goto finish;
         }
 
@@ -1890,6 +1890,22 @@ static const char *service_sub_state_to_string(Unit *u) {
         return service_state_to_string(SERVICE(u)->state);
 }
 
+static bool service_check_gc(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        return !!s->sysv_path;
+}
+
+static bool service_check_snapshot(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        return !s->got_socket_fd;
+}
+
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Service *s = SERVICE(u);
         bool success;
@@ -2221,10 +2237,10 @@ static int service_enumerate(Manager *m) {
                                         goto finish;
 
                                 if (de->d_name[0] == 'S') {
-                                        if ((r = unit_add_dependency(runlevel, UNIT_WANTS, service)) < 0)
+                                        if ((r = unit_add_dependency(runlevel, UNIT_WANTS, service, true)) < 0)
                                                 goto finish;
 
-                                        if ((r = unit_add_dependency(runlevel, UNIT_AFTER, service)) < 0)
+                                        if ((r = unit_add_dependency(runlevel, UNIT_AFTER, service, true)) < 0)
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
@@ -2238,10 +2254,10 @@ static int service_enumerate(Manager *m) {
                                          * implicitly added by the
                                          * core logic. */
 
-                                        if ((r = unit_add_dependency(runlevel, UNIT_CONFLICTS, service)) < 0)
+                                        if ((r = unit_add_dependency(runlevel, UNIT_CONFLICTS, service, true)) < 0)
                                                 goto finish;
 
-                                        if ((r = unit_add_dependency(runlevel, UNIT_BEFORE, service)) < 0)
+                                        if ((r = unit_add_dependency(runlevel, UNIT_BEFORE, service, true)) < 0)
                                                 goto finish;
                                 }
                         }
@@ -2342,6 +2358,7 @@ int service_set_socket_fd(Service *s, int fd) {
                 return -EAGAIN;
 
         s->socket_fd = fd;
+        s->got_socket_fd = true;
         return 0;
 }
 
@@ -2415,6 +2432,9 @@ const UnitVTable service_vtable = {
 
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,
+
+        .check_gc = service_check_gc,
+        .check_snapshot = service_check_snapshot,
 
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,

@@ -216,7 +216,7 @@ public class MainWindow : Window {
                 manager = bus.get_object(
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1") as Manager;
+                                "org.freedesktop.systemd1.Manager") as Manager;
 
                 manager.unit_new += on_unit_new;
                 manager.job_new += on_job_new;

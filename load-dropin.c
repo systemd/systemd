@@ -52,7 +52,7 @@ static int iterate_dir(Unit *u, const char *path) {
                         goto finish;
                 }
 
-                r = unit_add_dependency_by_name(u, UNIT_WANTS, de->d_name, f);
+                r = unit_add_dependency_by_name(u, UNIT_WANTS, de->d_name, f, true);
                 free(f);
 
                 if (r < 0)

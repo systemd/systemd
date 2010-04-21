@@ -58,8 +58,10 @@ void job_free(Job *j) {
         if (j->installed) {
                 bus_job_send_removed_signal(j);
 
-                if (j->unit->meta.job == j)
+                if (j->unit->meta.job == j) {
                         j->unit->meta.job = NULL;
+                        unit_add_to_gc_queue(j->unit);
+                }
 
                 hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
                 j->installed = false;

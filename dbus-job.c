@@ -166,7 +166,7 @@ void bus_job_send_change_signal(Job *j) {
         } else {
                 /* Send a new signal */
 
-                if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "JobNew")))
+                if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobNew")))
                         goto oom;
 
                 if (!dbus_message_append_args(m,
@@ -207,7 +207,7 @@ void bus_job_send_removed_signal(Job *j) {
         if (!(p = job_dbus_path(j)))
                 goto oom;
 
-        if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "JobRemoved")))
+        if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobRemoved")))
                 goto oom;
 
         if (!dbus_message_append_args(m,

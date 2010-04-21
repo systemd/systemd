@@ -144,15 +144,15 @@ static int mount_add_node_links(Mount *m) {
         if (r < 0)
                 return r;
 
-        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, device)) < 0)
+        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, device, true)) < 0)
                 return r;
 
-        if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, device)) < 0)
+        if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, device, true)) < 0)
                 return r;
 
         if (UNIT(m)->meta.manager->running_as == MANAGER_INIT ||
             UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM)
-                if ((r = unit_add_dependency(device, UNIT_WANTS, UNIT(m))) < 0)
+                if ((r = unit_add_dependency(device, UNIT_WANTS, UNIT(m), false)) < 0)
                         return r;
 
         return 0;
@@ -180,20 +180,20 @@ static int mount_add_path_links(Mount *m) {
 
                 if (path_startswith(m->where, n->where)) {
 
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(other))) < 0)
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(other), true)) < 0)
                                 return r;
 
                         if (n->from_etc_fstab || n->from_fragment)
-                                if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(other))) < 0)
+                                if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(other), true)) < 0)
                                         return r;
 
                 } else if (path_startswith(n->where, m->where)) {
 
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(other))) < 0)
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(other), true)) < 0)
                                 return r;
 
                         if (m->from_etc_fstab || m->from_fragment)
-                                if ((r = unit_add_dependency(UNIT(other), UNIT_REQUIRES, UNIT(m))) < 0)
+                                if ((r = unit_add_dependency(UNIT(other), UNIT_REQUIRES, UNIT(m), true)) < 0)
                                         return r;
                 }
         }
@@ -256,18 +256,18 @@ static int mount_add_target_links(Mount *m) {
                 if ((r = unit_load_related_unit(UNIT(m), ".automount", &am)) < 0)
                         return r;
 
-                if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(am))) < 0)
+                if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(am), true)) < 0)
                         return r;
 
-                return unit_add_dependency(UNIT(am), UNIT_BEFORE, tu);
+                return unit_add_dependency(UNIT(am), UNIT_BEFORE, tu, true);
 
         } else {
 
                 if (handle)
-                        if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m))) < 0)
+                        if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
                                 return r;
 
-                return unit_add_dependency(UNIT(m), UNIT_BEFORE, tu);
+                return unit_add_dependency(UNIT(m), UNIT_BEFORE, tu, true);
         }
 }
 
@@ -868,6 +868,14 @@ static const char *mount_sub_state_to_string(Unit *u) {
         assert(u);
 
         return mount_state_to_string(MOUNT(u)->state);
+}
+
+static bool mount_check_gc(Unit *u) {
+        Mount *m = MOUNT(u);
+
+        assert(m);
+
+        return m->from_etc_fstab || m->from_proc_self_mountinfo;
 }
 
 static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -1472,6 +1480,8 @@ const UnitVTable mount_vtable = {
 
         .active_state = mount_active_state,
         .sub_state_to_string = mount_sub_state_to_string,
+
+        .check_gc = mount_check_gc,
 
         .sigchld_event = mount_sigchld_event,
         .timer_event = mount_timer_event,

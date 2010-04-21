@@ -97,7 +97,7 @@ static int config_parse_deps(
                 if (!k)
                         return -ENOMEM;
 
-                r = unit_add_dependency_by_name(u, d, k, NULL);
+                r = unit_add_dependency_by_name(u, d, k, NULL, true);
                 free(k);
 
                 if (r < 0)

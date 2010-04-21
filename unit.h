@@ -113,8 +113,12 @@ enum UnitDependency {
         UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicts' */
 
         /* Order */
-        UNIT_BEFORE,                  /* inverse of before is after and vice versa */
+        UNIT_BEFORE,                  /* inverse of 'before' is 'after' and vice versa */
         UNIT_AFTER,
+
+        /* Reference information for GC logic */
+        UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
+        UNIT_REFERENCED_BY,
 
         _UNIT_DEPENDENCY_MAX,
         _UNIT_DEPENDENCY_INVALID = -1
@@ -150,17 +154,23 @@ struct Meta {
         /* Counterparts in the cgroup filesystem */
         CGroupBonding *cgroup_bondings;
 
-        /* Load queue */
-        LIST_FIELDS(Meta, load_queue);
-
         /* Per type list */
         LIST_FIELDS(Meta, units_per_type);
+
+        /* Load queue */
+        LIST_FIELDS(Meta, load_queue);
 
         /* D-Bus queue */
         LIST_FIELDS(Meta, dbus_queue);
 
         /* Cleanup queue */
         LIST_FIELDS(Meta, cleanup_queue);
+
+        /* GC queue */
+        LIST_FIELDS(Meta, gc_queue);
+
+        /* Used during GC sweeps */
+        int gc_marker;
 
         /* If we go down, pull down everything that depends on us, too */
         bool recursive_stop;
@@ -171,6 +181,8 @@ struct Meta {
         bool in_load_queue:1;
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
+        bool in_gc_queue:1;
+
         bool sent_dbus_new_signal:1;
 };
 
@@ -242,6 +254,14 @@ struct UnitVTable {
          * unit is in. */
         const char* (*sub_state_to_string)(Unit *u);
 
+        /* Return true when there is reason to keep this entry around
+         * even nothing references it and it isn't active in any
+         * way */
+        bool (*check_gc)(Unit *u);
+
+        /* Return true when this unit is suitable for snapshotting */
+        bool (*check_snapshot)(Unit *u);
+
         void (*fd_event)(Unit *u, int fd, uint32_t events, Watch *w);
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
@@ -283,6 +303,9 @@ struct UnitVTable {
 
         /* Exclude this type from snapshots */
         bool no_snapshots:1;
+
+        /* Exclude from automatic gc */
+        bool no_gc:1;
 };
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
@@ -315,9 +338,9 @@ void unit_free(Unit *u);
 
 int unit_add_name(Unit *u, const char *name);
 
-int unit_add_dependency(Unit *u, UnitDependency d, Unit *other);
-int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename);
-int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *filename);
+int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference);
+int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
+int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
@@ -329,9 +352,12 @@ CGroupBonding* unit_get_default_cgroup(Unit *u);
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
 
+bool unit_check_gc(Unit *u);
+
 void unit_add_to_load_queue(Unit *u);
 void unit_add_to_dbus_queue(Unit *u);
 void unit_add_to_cleanup_queue(Unit *u);
+void unit_add_to_gc_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);

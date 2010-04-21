@@ -101,7 +101,7 @@ int main (string[] args) {
                 Manager manager = bus.get_object (
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1") as Manager;
+                                "org.freedesktop.systemd1.Manager") as Manager;
 
                 if (args[1] == "list-units" || args.length <= 1) {
                         var list = manager.list_units();

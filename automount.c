@@ -149,7 +149,7 @@ static int automount_load(Unit *u) {
                 if ((r = unit_load_related_unit(u, ".mount", (Unit**) &a->mount)) < 0)
                         return r;
 
-                if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount))) < 0)
+                if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount), true)) < 0)
                         return r;
         }
 
@@ -640,12 +640,19 @@ static const char *automount_sub_state_to_string(Unit *u) {
         return automount_state_to_string(AUTOMOUNT(u)->state);
 }
 
+static bool automount_check_gc(Unit *u) {
+        Automount *a = AUTOMOUNT(u);
+
+        assert(a);
+
+        return UNIT_VTABLE(UNIT(a->mount))->check_gc(UNIT(a->mount));
+}
+
 static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
+        Automount *a = AUTOMOUNT(u);
         union autofs_v5_packet_union packet;
         ssize_t l;
         int r;
-
-        Automount *a = AUTOMOUNT(u);
 
         assert(a);
         assert(fd == a->pipe_fd);
@@ -728,6 +735,8 @@ const UnitVTable automount_vtable = {
 
         .active_state = automount_active_state,
         .sub_state_to_string = automount_sub_state_to_string,
+
+        .check_gc = automount_check_gc,
 
         .fd_event = automount_fd_event,
 

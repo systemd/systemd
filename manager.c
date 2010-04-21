@@ -52,6 +52,12 @@
 #include "dbus-unit.h"
 #include "dbus-job.h"
 
+/* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
+#define GC_QUEUE_ENTRIES_MAX 16
+
+/* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
+#define GC_QUEUE_USEC_MAX (5*USEC_PER_SEC)
+
 static int enable_special_signals(Manager *m) {
         char fd;
 
@@ -385,6 +391,77 @@ static unsigned manager_dispatch_cleanup_queue(Manager *m) {
                 unit_free(UNIT(meta));
                 n++;
         }
+
+        return n;
+}
+
+static void unit_gc_sweep(Unit *u, int gc_marker) {
+        Iterator i;
+        Unit *other;
+
+        assert(u);
+
+        if (u->meta.gc_marker == gc_marker ||
+            u->meta.gc_marker == -gc_marker)
+                return;
+
+        if (!u->meta.in_cleanup_queue)
+                goto bad;
+
+        if (unit_check_gc(u))
+                goto good;
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REFERENCED_BY], i) {
+                unit_gc_sweep(other, gc_marker);
+
+                if (other->meta.gc_marker == gc_marker)
+                        goto good;
+        }
+
+bad:
+        /* So there is no reason to keep this unit around, hence let's get rid of it */
+        u->meta.gc_marker = -gc_marker;
+        return;
+
+good:
+        u->meta.gc_marker = gc_marker;
+}
+
+static unsigned manager_dispatch_gc_queue(Manager *m) {
+        Meta *meta;
+        unsigned n = 0;
+        int gc_marker;
+
+        assert(m);
+
+        if ((m->n_in_gc_queue < GC_QUEUE_ENTRIES_MAX) &&
+            (m->gc_queue_timestamp <= 0 ||
+             (m->gc_queue_timestamp + GC_QUEUE_USEC_MAX) > now(CLOCK_MONOTONIC)))
+                return 0;
+
+        log_debug("Running GC...");
+
+        gc_marker = m->gc_marker;
+        m->gc_marker = MIN(0, m->gc_marker + 1);
+
+        while ((meta = m->gc_queue)) {
+                assert(meta->in_gc_queue);
+
+                LIST_REMOVE(Meta, gc_queue, m->gc_queue, meta);
+                meta->in_gc_queue = false;
+
+                n++;
+
+                unit_gc_sweep(UNIT(meta), gc_marker);
+
+                if (meta->gc_marker == -gc_marker) {
+                        log_debug("Collecting %s", meta->id);
+                        unit_add_to_cleanup_queue(UNIT(meta));
+                }
+        }
+
+        m->n_in_gc_queue = 0;
+        m->gc_queue_timestamp = 0;
 
         return n;
 }
@@ -1768,6 +1845,9 @@ int manager_loop(Manager *m) {
                 }
 
                 if (manager_dispatch_cleanup_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_gc_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_load_queue(m) > 0)

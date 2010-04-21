@@ -157,7 +157,7 @@ static int socket_load(Unit *u) {
                         if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)))
                                 return r;
 
-                        if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service))) < 0)
+                        if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service), true)) < 0)
                                 return r;
                 }
 

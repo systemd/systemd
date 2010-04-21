@@ -244,7 +244,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                                 goto fail;
                         }
 
-                        r = unit_add_dependency_by_name(u, UNIT_WANTS, NULL, e);
+                        r = unit_add_dependency_by_name(u, UNIT_WANTS, NULL, e, true);
                         free(e);
 
                         if (r < 0)
