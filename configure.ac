@@ -86,7 +86,7 @@ if test "x$enable_extras" = xyes; then
 		AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
 		   [Firmware search path (default=/lib/firmware/updates:/lib/firmware)]),
 		[],
-		[with_firmware_path="/lib/fimware/updates:/lib/fimware"]
+		[with_firmware_path="/lib/firmware/updates:/lib/firmware"]
 		)
 	OLD_IFS=$IFS
 	IFS=:
