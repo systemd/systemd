@@ -356,6 +356,8 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		break;
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
+		dbg(rules->udev, "%s\n", token_str(type));
+		break;
 	case TK_M_TEST:
 		dbg(rules->udev, "%s %s '%s'(%s) %#o\n",
 		    token_str(type), operation_str(op), value, string_glob_str(glob), token->key.mode);
@@ -1023,6 +1025,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		break;
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
+		break;
 	case TK_A_RUN:
 		token->key.value_off = add_string(rule_tmp->rules, value);
 		token->key.fail_on_error = *(int *)data;
