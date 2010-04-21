@@ -1,3 +1,13 @@
+Summary of changes from v152 to v153
+============================================
+
+Kay Sievers (1):
+      configure.ac: version bump
+
+Robby Workman (1):
+      configure.ac: fix broken firmware search path in configure.ac
+
+
 Summary of changes from v151 to v152
 ============================================
 

@@ -1,5 +1,6 @@
 udev 153
 ========
+Fix broken firmware loader search path.
 
 udev 152
 ========
