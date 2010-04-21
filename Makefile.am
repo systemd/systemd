@@ -32,7 +32,11 @@ AM_CPPFLAGS = \
 	-DSYSTEM_SYSVRCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
 	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
-	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\"
+	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\" \
+	-DSYSTEMD_BINARY_PATH=\"$(sbindir)/systemd\"
+
+#	-DSYSTEMD_BINARY_PATH=\"/home/lennart/projects/systemd/systemd\"
+
 
 sbin_PROGRAMS = \
 	systemd
@@ -155,7 +159,9 @@ COMMON_SOURCES= \
 	specifier.c \
 	specifier.h \
 	unit-name.c \
-	unit-name.h
+	unit-name.h \
+	fdset.c \
+	fdset.h
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \

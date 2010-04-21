@@ -52,32 +52,27 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_MAINTAINANCE] = UNIT_INACTIVE,
 };
 
-static const char* const state_string_table[_MOUNT_STATE_MAX] = {
-        [MOUNT_DEAD] = "dead",
-        [MOUNT_MOUNTING] = "mounting",
-        [MOUNT_MOUNTING_DONE] = "mounting-done",
-        [MOUNT_MOUNTED] = "mounted",
-        [MOUNT_REMOUNTING] = "remounting",
-        [MOUNT_UNMOUNTING] = "unmounting",
-        [MOUNT_MOUNTING_SIGTERM] = "mounting-sigterm",
-        [MOUNT_MOUNTING_SIGKILL] = "mounting-sigkill",
-        [MOUNT_REMOUNTING_SIGTERM] = "remounting-sigterm",
-        [MOUNT_REMOUNTING_SIGKILL] = "remounting-sigkill",
-        [MOUNT_UNMOUNTING_SIGTERM] = "unmounting-sigterm",
-        [MOUNT_UNMOUNTING_SIGKILL] = "unmounting-sigkill",
-        [MOUNT_MAINTAINANCE] = "maintainance"
-};
+static void mount_init(Unit *u) {
+        Mount *m = MOUNT(u);
 
-static char *mount_name_from_where(const char *where) {
-        assert(where);
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
 
-        if (streq(where, "/"))
-                return strdup("-.mount");
+        m->timeout_usec = DEFAULT_TIMEOUT_USEC;
+        exec_context_init(&m->exec_context);
 
-        return unit_name_build_escape(where+1, NULL, ".mount");
+        /* We need to make sure that /bin/mount is always called in
+         * the same process group as us, so that the autofs kernel
+         * side doesn't send us another mount request while we are
+         * already trying to comply its last one. */
+        m->exec_context.no_setsid = true;
+
+        m->timer_watch.type = WATCH_INVALID;
+
+        m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 }
 
-static void service_unwatch_control_pid(Mount *m) {
+static void mount_unwatch_control_pid(Mount *m) {
         assert(m);
 
         if (m->control_pid <= 0)
@@ -113,45 +108,9 @@ static void mount_done(Unit *u) {
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
-        service_unwatch_control_pid(m);
+        mount_unwatch_control_pid(m);
 
         unit_unwatch_timer(u, &m->timer_watch);
-}
-
-static void mount_init(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
-
-        m->timeout_usec = DEFAULT_TIMEOUT_USEC;
-        exec_context_init(&m->exec_context);
-
-        /* We need to make sure that /bin/mount is always called in
-         * the same process group as us, so that the autofs kernel
-         * side doesn't send us another mount request while we are
-         * already trying to comply its last one. */
-        m->exec_context.no_setsid = true;
-
-        m->timer_watch.type = WATCH_INVALID;
-}
-
-static int mount_notify_automount(Mount *m, int status) {
-        Unit *p;
-        char *k;
-
-        assert(m);
-
-        if (!(k = unit_name_change_suffix(UNIT(m)->meta.id, ".automount")))
-                return -ENOMEM;
-
-        p = manager_get_unit(UNIT(m)->meta.manager, k);
-        free(k);
-
-        if (!p)
-                return 0;
-
-        return automount_send_ready(AUTOMOUNT(p), status);
 }
 
 static int mount_add_node_links(Mount *m) {
@@ -262,10 +221,9 @@ static bool mount_test_option(const char *haystack, const char *needle) {
 static int mount_add_target_links(Mount *m) {
         const char *target;
         MountParameters *p;
-        Unit *u;
+        Unit *tu;
         int r;
-        bool noauto;
-        bool handle;
+        bool noauto, handle, automount;
 
         assert(m);
 
@@ -278,8 +236,9 @@ static int mount_add_target_links(Mount *m) {
 
         noauto = mount_test_option(p->options, MNTOPT_NOAUTO);
         handle = mount_test_option(p->options, "comment=systemd.mount");
+        automount = mount_test_option(p->options, "comment=systemd.automount");
 
-        if (noauto && !handle)
+        if (noauto && !handle && !automount)
                 return 0;
 
         if (mount_test_option(p->options, "_netdev") ||
@@ -288,14 +247,28 @@ static int mount_add_target_links(Mount *m) {
         else
                 target = SPECIAL_LOCAL_FS_TARGET;
 
-        if ((r = manager_load_unit(UNIT(m)->meta.manager, target, NULL, &u)) < 0)
+        if ((r = manager_load_unit(UNIT(m)->meta.manager, target, NULL, &tu)) < 0)
                 return r;
 
-        if (handle)
-                if ((r = unit_add_dependency(u, UNIT_WANTS, UNIT(m))) < 0)
+        if (automount) {
+                Unit *am;
+
+                if ((r = unit_load_related_unit(UNIT(m), ".automount", &am)) < 0)
                         return r;
 
-        return unit_add_dependency(UNIT(m), UNIT_BEFORE, u);
+                if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(am))) < 0)
+                        return r;
+
+                return unit_add_dependency(UNIT(am), UNIT_BEFORE, tu);
+
+        } else {
+
+                if (handle)
+                        if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m))) < 0)
+                                return r;
+
+                return unit_add_dependency(UNIT(m), UNIT_BEFORE, tu);
+        }
 }
 
 static int mount_verify(Mount *m) {
@@ -306,14 +279,7 @@ static int mount_verify(Mount *m) {
         if (UNIT(m)->meta.load_state != UNIT_LOADED)
                 return 0;
 
-        if (!m->where) {
-                log_error("%s lacks Where setting. Refusing.", UNIT(m)->meta.id);
-                return -EINVAL;
-        }
-
-        path_kill_slashes(m->where);
-
-        if (!(e = mount_name_from_where(m->where)))
+        if (!(e = unit_name_from_path(m->where, ".mount")))
                 return -ENOMEM;
 
         b = unit_has_name(UNIT(m), e);
@@ -340,6 +306,12 @@ static int mount_load(Unit *u) {
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
 
+                if (!m->where)
+                        if (!(m->where = unit_name_to_path(u->meta.id)))
+                                return -ENOMEM;
+
+                path_kill_slashes(m->where);
+
                 /* Minor validity checking */
                 if ((m->parameters_fragment.options || m->parameters_fragment.fstype) && !m->parameters_fragment.what)
                         return -EBADMSG;
@@ -363,6 +335,18 @@ static int mount_load(Unit *u) {
         return mount_verify(m);
 }
 
+static int mount_notify_automount(Mount *m, int status) {
+        Unit *p;
+        int r;
+
+        assert(m);
+
+        if ((r = unit_get_related_unit(UNIT(m), ".automount", &p)) < 0)
+                return r == -ENOENT ? 0 : r;
+
+        return automount_send_ready(AUTOMOUNT(p), status);
+}
+
 static void mount_set_state(Mount *m, MountState state) {
         MountState old_state;
         assert(m);
@@ -381,8 +365,9 @@ static void mount_set_state(Mount *m, MountState state) {
             state != MOUNT_REMOUNTING_SIGTERM &&
             state != MOUNT_REMOUNTING_SIGKILL) {
                 unit_unwatch_timer(UNIT(m), &m->timer_watch);
-                service_unwatch_control_pid(m);
+                mount_unwatch_control_pid(m);
                 m->control_command = NULL;
+                m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
 
         if (state == MOUNT_MOUNTED ||
@@ -400,21 +385,96 @@ static void mount_set_state(Mount *m, MountState state) {
                 mount_notify_automount(m, -ENODEV);
 
         if (state != old_state)
-                log_debug("%s changed %s → %s", UNIT(m)->meta.id, state_string_table[old_state], state_string_table[state]);
+                log_debug("%s changed %s → %s",
+                          UNIT(m)->meta.id,
+                          mount_state_to_string(old_state),
+                          mount_state_to_string(state));
 
         unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state]);
 }
 
 static int mount_coldplug(Unit *u) {
         Mount *m = MOUNT(u);
+        MountState new_state = MOUNT_DEAD;
+        int r;
 
         assert(m);
         assert(m->state == MOUNT_DEAD);
 
-        if (m->from_proc_self_mountinfo)
-                mount_set_state(m, MOUNT_MOUNTED);
+        if (m->deserialized_state != m->state)
+                new_state = m->deserialized_state;
+        else if (m->from_proc_self_mountinfo)
+                new_state = MOUNT_MOUNTED;
+
+        if (new_state != m->state) {
+
+                if (new_state == MOUNT_MOUNTING ||
+                    new_state == MOUNT_MOUNTING_DONE ||
+                    new_state == MOUNT_REMOUNTING ||
+                    new_state == MOUNT_UNMOUNTING ||
+                    new_state == MOUNT_MOUNTING_SIGTERM ||
+                    new_state == MOUNT_MOUNTING_SIGKILL ||
+                    new_state == MOUNT_UNMOUNTING_SIGTERM ||
+                    new_state == MOUNT_UNMOUNTING_SIGKILL ||
+                    new_state == MOUNT_REMOUNTING_SIGTERM ||
+                    new_state == MOUNT_REMOUNTING_SIGKILL) {
+
+                        if (m->control_pid <= 0)
+                                return -EBADMSG;
+
+                        if ((r = unit_watch_pid(UNIT(m), m->control_pid)) < 0)
+                                return r;
+
+                        if ((r = unit_watch_timer(UNIT(m), m->timeout_usec, &m->timer_watch)) < 0)
+                                return r;
+                }
+
+                mount_set_state(m, new_state);
+        }
 
         return 0;
+}
+
+static void mount_dump(Unit *u, FILE *f, const char *prefix) {
+        Mount *m = MOUNT(u);
+        MountParameters *p;
+
+        assert(m);
+        assert(f);
+
+        if (m->from_proc_self_mountinfo)
+                p = &m->parameters_proc_self_mountinfo;
+        else if (m->from_fragment)
+                p = &m->parameters_fragment;
+        else
+                p = &m->parameters_etc_fstab;
+
+        fprintf(f,
+                "%sMount State: %s\n"
+                "%sWhere: %s\n"
+                "%sWhat: %s\n"
+                "%sFile System Type: %s\n"
+                "%sOptions: %s\n"
+                "%sFrom /etc/fstab: %s\n"
+                "%sFrom /proc/self/mountinfo: %s\n"
+                "%sFrom fragment: %s\n"
+                "%sKillMode: %s\n",
+                prefix, mount_state_to_string(m->state),
+                prefix, m->where,
+                prefix, strna(p->what),
+                prefix, strna(p->fstype),
+                prefix, strna(p->options),
+                prefix, yes_no(m->from_etc_fstab),
+                prefix, yes_no(m->from_proc_self_mountinfo),
+                prefix, yes_no(m->from_fragment),
+                prefix, kill_mode_to_string(m->kill_mode));
+
+        if (m->control_pid > 0)
+                fprintf(f,
+                        "%sControl PID: %llu\n",
+                        prefix, (unsigned long long) m->control_pid);
+
+        exec_context_dump(&m->exec_context, f, prefix);
 }
 
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
@@ -451,48 +511,6 @@ fail:
         unit_unwatch_timer(UNIT(m), &m->timer_watch);
 
         return r;
-}
-
-static void mount_dump(Unit *u, FILE *f, const char *prefix) {
-        Mount *m = MOUNT(u);
-        MountParameters *p;
-
-        assert(m);
-        assert(f);
-
-        if (m->from_proc_self_mountinfo)
-                p = &m->parameters_proc_self_mountinfo;
-        else if (m->from_fragment)
-                p = &m->parameters_fragment;
-        else
-                p = &m->parameters_etc_fstab;
-
-        fprintf(f,
-                "%sMount State: %s\n"
-                "%sWhere: %s\n"
-                "%sWhat: %s\n"
-                "%sFile System Type: %s\n"
-                "%sOptions: %s\n"
-                "%sFrom /etc/fstab: %s\n"
-                "%sFrom /proc/self/mountinfo: %s\n"
-                "%sFrom fragment: %s\n"
-                "%sKillMode: %s\n",
-                prefix, state_string_table[m->state],
-                prefix, m->where,
-                prefix, strna(p->what),
-                prefix, strna(p->fstype),
-                prefix, strna(p->options),
-                prefix, yes_no(m->from_etc_fstab),
-                prefix, yes_no(m->from_proc_self_mountinfo),
-                prefix, yes_no(m->from_fragment),
-                prefix, kill_mode_to_string(m->kill_mode));
-
-        if (m->control_pid > 0)
-                fprintf(f,
-                        "%sControl PID: %llu\n",
-                        prefix, (unsigned long long) m->control_pid);
-
-        exec_context_dump(&m->exec_context, f, prefix);
 }
 
 static void mount_enter_dead(Mount *m, bool success) {
@@ -565,7 +583,6 @@ fail:
 }
 
 static void mount_enter_unmounting(Mount *m, bool success) {
-        ExecCommand *c;
         int r;
 
         assert(m);
@@ -573,18 +590,19 @@ static void mount_enter_unmounting(Mount *m, bool success) {
         if (!success)
                 m->failure = true;
 
-        m->control_command = c = m->exec_command + MOUNT_EXEC_UNMOUNT;
+        m->control_command_id = MOUNT_EXEC_UNMOUNT;
+        m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
         if ((r = exec_command_set(
-                             c,
+                             m->control_command,
                              "/bin/umount",
                              m->where,
                              NULL)) < 0)
                 goto fail;
 
-        service_unwatch_control_pid(m);
+        mount_unwatch_control_pid(m);
 
-        if ((r = mount_spawn(m, c, &m->control_pid)) < 0)
+        if ((r = mount_spawn(m, m->control_command, &m->control_pid)) < 0)
                 goto fail;
 
         mount_set_state(m, MOUNT_UNMOUNTING);
@@ -597,16 +615,16 @@ fail:
 }
 
 static void mount_enter_mounting(Mount *m) {
-        ExecCommand *c;
         int r;
 
         assert(m);
 
-        m->control_command = c = m->exec_command + MOUNT_EXEC_MOUNT;
+        m->control_command_id = MOUNT_EXEC_MOUNT;
+        m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
         if (m->from_fragment)
                 r = exec_command_set(
-                                c,
+                                m->control_command,
                                 "/bin/mount",
                                 m->parameters_fragment.what,
                                 m->where,
@@ -615,7 +633,7 @@ static void mount_enter_mounting(Mount *m) {
                                 NULL);
         else if (m->from_etc_fstab)
                 r = exec_command_set(
-                                c,
+                                m->control_command,
                                 "/bin/mount",
                                 m->where,
                                 NULL);
@@ -625,9 +643,9 @@ static void mount_enter_mounting(Mount *m) {
         if (r < 0)
                 goto fail;
 
-        service_unwatch_control_pid(m);
+        mount_unwatch_control_pid(m);
 
-        if ((r = mount_spawn(m, c, &m->control_pid)) < 0)
+        if ((r = mount_spawn(m, m->control_command, &m->control_pid)) < 0)
                 goto fail;
 
         mount_set_state(m, MOUNT_MOUNTING);
@@ -646,7 +664,6 @@ static void mount_enter_mounting_done(Mount *m) {
 }
 
 static void mount_enter_remounting(Mount *m, bool success) {
-        ExecCommand *c;
         int r;
 
         assert(m);
@@ -654,7 +671,8 @@ static void mount_enter_remounting(Mount *m, bool success) {
         if (!success)
                 m->failure = true;
 
-        m->control_command = c = m->exec_command + MOUNT_EXEC_REMOUNT;
+        m->control_command_id = MOUNT_EXEC_REMOUNT;
+        m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
 
         if (m->from_fragment) {
                 char *buf = NULL;
@@ -671,7 +689,7 @@ static void mount_enter_remounting(Mount *m, bool success) {
                         o = "remount";
 
                 r = exec_command_set(
-                                c,
+                                m->control_command,
                                 "/bin/mount",
                                 m->parameters_fragment.what,
                                 m->where,
@@ -682,7 +700,7 @@ static void mount_enter_remounting(Mount *m, bool success) {
                 free(buf);
         } else if (m->from_etc_fstab)
                 r = exec_command_set(
-                                c,
+                                m->control_command,
                                 "/bin/mount",
                                 m->where,
                                 "-o", "remount",
@@ -695,9 +713,9 @@ static void mount_enter_remounting(Mount *m, bool success) {
                 goto fail;
         }
 
-        service_unwatch_control_pid(m);
+        mount_unwatch_control_pid(m);
 
-        if ((r = mount_spawn(m, c, &m->control_pid)) < 0)
+        if ((r = mount_spawn(m, m->control_command, &m->control_pid)) < 0)
                 goto fail;
 
         mount_set_state(m, MOUNT_REMOUNTING);
@@ -729,7 +747,6 @@ static int mount_start(Unit *u) {
         assert(m->state == MOUNT_DEAD || m->state == MOUNT_MAINTAINANCE);
 
         m->failure = false;
-
         mount_enter_mounting(m);
         return 0;
 }
@@ -775,6 +792,72 @@ static int mount_reload(Unit *u) {
         return 0;
 }
 
+static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
+        Mount *m = MOUNT(u);
+
+        assert(m);
+        assert(f);
+        assert(fds);
+
+        unit_serialize_item(u, f, "state", mount_state_to_string(m->state));
+        unit_serialize_item(u, f, "failure", yes_no(m->failure));
+
+        if (m->control_pid > 0)
+                unit_serialize_item_format(u, f, "control-pid", "%u", (unsigned) m->control_pid);
+
+        if (m->control_command_id >= 0)
+                unit_serialize_item(u, f, "control-command", mount_exec_command_to_string(m->control_command_id));
+
+        return 0;
+}
+
+static int mount_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
+        Mount *m = MOUNT(u);
+        int r;
+
+        assert(u);
+        assert(key);
+        assert(value);
+        assert(fds);
+
+        if (streq(key, "state")) {
+                MountState state;
+
+                if ((state = mount_state_from_string(value)) < 0)
+                        log_debug("Failed to parse state value %s", value);
+                else
+                        m->deserialized_state = state;
+        } else if (streq(key, "failure")) {
+                int b;
+
+                if ((b = parse_boolean(value)) < 0)
+                        log_debug("Failed to parse failure value %s", value);
+                else
+                        m->failure = b || m->failure;
+
+        } else if (streq(key, "control-pid")) {
+                unsigned pid;
+
+                if ((r = safe_atou(value, &pid)) < 0 || pid <= 0)
+                        log_debug("Failed to parse control-pid value %s", value);
+                else
+                        m->control_pid = (pid_t) pid;
+        } else if (streq(key, "control-command")) {
+                MountExecCommand id;
+
+                if ((id = mount_exec_command_from_string(value)) < 0)
+                        log_debug("Failed to parse exec-command value %s", value);
+                else {
+                        m->control_command_id = id;
+                        m->control_command = m->exec_command + id;
+                }
+
+        } else
+                log_debug("Unknown serialization key '%s'", key);
+
+        return 0;
+}
+
 static UnitActiveState mount_active_state(Unit *u) {
         assert(u);
 
@@ -784,7 +867,7 @@ static UnitActiveState mount_active_state(Unit *u) {
 static const char *mount_sub_state_to_string(Unit *u) {
         assert(u);
 
-        return state_string_table[MOUNT(u)->state];
+        return mount_state_to_string(MOUNT(u)->state);
 }
 
 static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -798,10 +881,13 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         m->failure = m->failure || !success;
 
         assert(m->control_pid == pid);
-        assert(m->control_command);
-
-        exec_status_fill(&m->control_command->exec_status, pid, code, status);
         m->control_pid = 0;
+
+        if (m->control_command) {
+                exec_status_fill(&m->control_command->exec_status, pid, code, status);
+                m->control_command = NULL;
+                m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
+        }
 
         log_debug("%s control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
 
@@ -937,9 +1023,7 @@ static int mount_add_one(
         if (where[0] != '/')
                 return 0;
 
-        e = mount_name_from_where(where);
-
-        if (!e)
+        if (!(e = unit_name_from_path(where, ".mount")))
                 return -ENOMEM;
 
         if (!(u = manager_get_unit(m, e))) {
@@ -1172,8 +1256,10 @@ finish:
 static void mount_shutdown(Manager *m) {
         assert(m);
 
-        if (m->proc_self_mountinfo)
+        if (m->proc_self_mountinfo) {
                 fclose(m->proc_self_mountinfo);
+                m->proc_self_mountinfo = NULL;
+        }
 }
 
 static int mount_enumerate(Manager *m) {
@@ -1181,18 +1267,20 @@ static int mount_enumerate(Manager *m) {
         struct epoll_event ev;
         assert(m);
 
-        if (!(m->proc_self_mountinfo = fopen("/proc/self/mountinfo", "r")))
-                return -errno;
+        if (!m->proc_self_mountinfo) {
+                if (!(m->proc_self_mountinfo = fopen("/proc/self/mountinfo", "re")))
+                        return -errno;
 
-        m->mount_watch.type = WATCH_MOUNT;
-        m->mount_watch.fd = fileno(m->proc_self_mountinfo);
+                m->mount_watch.type = WATCH_MOUNT;
+                m->mount_watch.fd = fileno(m->proc_self_mountinfo);
 
-        zero(ev);
-        ev.events = EPOLLERR;
-        ev.data.ptr = &m->mount_watch;
+                zero(ev);
+                ev.events = EPOLLERR;
+                ev.data.ptr = &m->mount_watch;
 
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->mount_watch.fd, &ev) < 0)
-                return -errno;
+                if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->mount_watch.fd, &ev) < 0)
+                        return -errno;
+        }
 
         if ((r = mount_load_etc_fstab(m)) < 0)
                 goto fail;
@@ -1303,7 +1391,7 @@ int mount_path_is_mounted(Manager *m, const char* path) {
                 char *e, *slash;
                 Unit *u;
 
-                if (!(e = mount_name_from_where(t))) {
+                if (!(e = unit_name_from_path(t, ".mount"))) {
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -1335,6 +1423,32 @@ finish:
         return r;
 }
 
+static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
+        [MOUNT_DEAD] = "dead",
+        [MOUNT_MOUNTING] = "mounting",
+        [MOUNT_MOUNTING_DONE] = "mounting-done",
+        [MOUNT_MOUNTED] = "mounted",
+        [MOUNT_REMOUNTING] = "remounting",
+        [MOUNT_UNMOUNTING] = "unmounting",
+        [MOUNT_MOUNTING_SIGTERM] = "mounting-sigterm",
+        [MOUNT_MOUNTING_SIGKILL] = "mounting-sigkill",
+        [MOUNT_REMOUNTING_SIGTERM] = "remounting-sigterm",
+        [MOUNT_REMOUNTING_SIGKILL] = "remounting-sigkill",
+        [MOUNT_UNMOUNTING_SIGTERM] = "unmounting-sigterm",
+        [MOUNT_UNMOUNTING_SIGKILL] = "unmounting-sigkill",
+        [MOUNT_MAINTAINANCE] = "maintainance"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(mount_state, MountState);
+
+static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
+        [MOUNT_EXEC_MOUNT] = "ExecMount",
+        [MOUNT_EXEC_UNMOUNT] = "ExecUnmount",
+        [MOUNT_EXEC_REMOUNT] = "ExecRemount",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);
+
 const UnitVTable mount_vtable = {
         .suffix = ".mount",
 
@@ -1352,6 +1466,9 @@ const UnitVTable mount_vtable = {
         .start = mount_start,
         .stop = mount_stop,
         .reload = mount_reload,
+
+        .serialize = mount_serialize,
+        .deserialize_item = mount_deserialize_item,
 
         .active_state = mount_active_state,
         .sub_state_to_string = mount_sub_state_to_string,

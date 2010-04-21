@@ -381,6 +381,18 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection  *connection, 
 unsigned bus_dispatch(Manager *m) {
         assert(m);
 
+        if (m->queued_message) {
+                /* If we cannot get rid of this message we won't
+                 * dispatch any D-Bus messages, so that we won't end
+                 * up wanting to queue another message. */
+
+                if (!dbus_connection_send(m->api_bus, m->queued_message, NULL))
+                        return 0;
+
+                dbus_message_unref(m->queued_message);
+                m->queued_message = NULL;
+        }
+
         if (m->request_api_bus_dispatch) {
                 if (dbus_connection_dispatch(m->api_bus) == DBUS_DISPATCH_COMPLETE)
                         m->request_api_bus_dispatch = false;
@@ -655,6 +667,11 @@ void bus_done_api(Manager *m) {
 
        if (m->name_data_slot >= 0)
                dbus_pending_call_free_data_slot(&m->name_data_slot);
+
+       if (m->queued_message) {
+               dbus_message_unref(m->queued_message);
+               m->queued_message = NULL;
+       }
 }
 
 void bus_done_system(Manager *m) {

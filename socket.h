@@ -91,11 +91,12 @@ struct Socket {
 
         Service *service;
 
-        SocketState state;
+        SocketState state, deserialized_state;
 
         KillMode kill_mode;
 
         ExecCommand* control_command;
+        SocketExecCommand control_command_id;
         pid_t control_pid;
 
         char *bind_to_device;
@@ -116,5 +117,11 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
 void socket_notify_service_dead(Socket *s);
 
 extern const UnitVTable socket_vtable;
+
+const char* socket_state_to_string(SocketState i);
+SocketState socket_state_from_string(const char *s);
+
+const char* socket_exec_command_to_string(SocketExecCommand i);
+SocketExecCommand socket_exec_command_from_string(const char *s);
 
 #endif

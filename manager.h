@@ -25,12 +25,22 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <stdio.h>
-
 #include <dbus/dbus.h>
+
+#include "fdset.h"
 
 typedef struct Manager Manager;
 typedef enum WatchType WatchType;
 typedef struct Watch Watch;
+
+typedef enum ManagerExitCode {
+        MANAGER_RUNNING,
+        MANAGER_EXIT,
+        MANAGER_RELOAD,
+        MANAGER_REEXECUTE,
+        _MANAGER_EXIT_CODE_MAX,
+        _MANAGER_EXIT_CODE_INVALID = -1
+} ManagerExitCode;
 
 typedef enum ManagerRunningAs {
         MANAGER_INIT,      /* root and pid=1 */
@@ -155,6 +165,8 @@ struct Manager {
 
         bool confirm_spawn:1;
 
+        ManagerExitCode exit_code;
+
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
         int epoll_fd;
@@ -179,6 +191,10 @@ struct Manager {
         /* Data specific to the D-Bus subsystem */
         DBusConnection *api_bus, *system_bus;
         Set *subscribed;
+        DBusMessage *queued_message; /* This is used during reloading:
+                                      * before the reload we queue the
+                                      * reply message here, and
+                                      * afterwards we send it */
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
         int32_t name_data_slot;
@@ -198,7 +214,9 @@ struct Manager {
 int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **m);
 void manager_free(Manager *m);
 
+int manager_enumerate(Manager *m);
 int manager_coldplug(Manager *m);
+int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
@@ -229,6 +247,13 @@ void manager_write_utmp_runlevel(Manager *m, Unit *t);
 
 void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
 void manager_dispatch_bus_query_pid_done(Manager *m, const char *name, pid_t pid);
+
+int manager_open_serialization(FILE **_f);
+
+int manager_serialize(Manager *m, FILE *f, FDSet *fds);
+int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
+
+int manager_reload(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

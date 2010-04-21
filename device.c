@@ -35,11 +35,6 @@ static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_AVAILABLE] = UNIT_ACTIVE
 };
 
-static const char* const state_string_table[_DEVICE_STATE_MAX] = {
-        [DEVICE_DEAD] = "dead",
-        [DEVICE_AVAILABLE] = "available"
-};
-
 static void device_done(Unit *u) {
         Device *d = DEVICE(u);
 
@@ -47,15 +42,6 @@ static void device_done(Unit *u) {
 
         free(d->sysfs);
         d->sysfs = NULL;
-}
-
-static void device_init(Unit *u) {
-        Device *d = DEVICE(u);
-
-        assert(d);
-        assert(u->meta.load_state == UNIT_STUB);
-
-        d->state = 0;
 }
 
 static void device_set_state(Device *d, DeviceState state) {
@@ -66,7 +52,10 @@ static void device_set_state(Device *d, DeviceState state) {
         d->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s → %s", UNIT(d)->meta.id, state_string_table[old_state], state_string_table[state]);
+                log_debug("%s changed %s → %s",
+                          UNIT(d)->meta.id,
+                          device_state_to_string(old_state),
+                          device_state_to_string(state));
 
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -91,7 +80,7 @@ static void device_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sDevice State: %s\n"
                 "%sSysfs Path: %s\n",
-                prefix, state_string_table[d->state],
+                prefix, device_state_to_string(d->state),
                 prefix, strna(d->sysfs));
 }
 
@@ -104,7 +93,7 @@ static UnitActiveState device_active_state(Unit *u) {
 static const char *device_sub_state_to_string(Unit *u) {
         assert(u);
 
-        return state_string_table[DEVICE(u)->state];
+        return device_state_to_string(DEVICE(u)->state);
 }
 
 static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
@@ -115,7 +104,7 @@ static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
         assert(dn);
         assert(dn[0] == '/');
 
-        if (!(e = unit_name_build_escape(dn+1, NULL, ".device")))
+        if (!(e = unit_name_from_path(dn, ".device")))
                 return -ENOMEM;
 
         r = unit_add_name(u, e);
@@ -140,7 +129,7 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
         assert(dn[0] == '/');
         assert(_u);
 
-        if (!(e = unit_name_build_escape(dn+1, NULL, ".device")))
+        if (!(e = unit_name_from_path(dn, ".device")))
                 return -ENOMEM;
 
         u = manager_get_unit(m, e);
@@ -308,7 +297,7 @@ static int device_process_removed_device(Manager *m, struct udev_device *dev) {
                 return -ENOMEM;
 
         assert(sysfs[0] == '/');
-        if (!(e = unit_name_build_escape(sysfs+1, NULL, ".device")))
+        if (!(e = unit_name_from_path(sysfs, ".device")))
                 return -ENOMEM;
 
         u = manager_get_unit(m, e);
@@ -328,11 +317,15 @@ static int device_process_removed_device(Manager *m, struct udev_device *dev) {
 static void device_shutdown(Manager *m) {
         assert(m);
 
-        if (m->udev_monitor)
+        if (m->udev_monitor) {
                 udev_monitor_unref(m->udev_monitor);
+                m->udev_monitor = NULL;
+        }
 
-        if (m->udev)
+        if (m->udev) {
                 udev_unref(m->udev);
+                m->udev = NULL;
+        }
 }
 
 static int device_enumerate(Manager *m) {
@@ -343,28 +336,30 @@ static int device_enumerate(Manager *m) {
 
         assert(m);
 
-        if (!(m->udev = udev_new()))
-                return -ENOMEM;
+        if (!m->udev) {
+                if (!(m->udev = udev_new()))
+                        return -ENOMEM;
 
-        if (!(m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev"))) {
-                r = -ENOMEM;
-                goto fail;
+                if (!(m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev"))) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                if (udev_monitor_enable_receiving(m->udev_monitor) < 0) {
+                        r = -EIO;
+                        goto fail;
+                }
+
+                m->udev_watch.type = WATCH_UDEV;
+                m->udev_watch.fd = udev_monitor_get_fd(m->udev_monitor);
+
+                zero(ev);
+                ev.events = EPOLLIN;
+                ev.data.ptr = &m->udev_watch;
+
+                if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_watch.fd, &ev) < 0)
+                        return -errno;
         }
-
-        if (udev_monitor_enable_receiving(m->udev_monitor) < 0) {
-                r = -EIO;
-                goto fail;
-        }
-
-        m->udev_watch.type = WATCH_UDEV;
-        m->udev_watch.fd = udev_monitor_get_fd(m->udev_monitor);
-
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.ptr = &m->udev_watch;
-
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_watch.fd, &ev) < 0)
-                return -errno;
 
         if (!(e = udev_enumerate_new(m->udev))) {
                 r = -ENOMEM;
@@ -425,6 +420,13 @@ fail:
         udev_device_unref(dev);
 }
 
+static const char* const device_state_table[_DEVICE_STATE_MAX] = {
+        [DEVICE_DEAD] = "dead",
+        [DEVICE_AVAILABLE] = "available"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
+
 const UnitVTable device_vtable = {
         .suffix = ".device",
 
@@ -432,7 +434,6 @@ const UnitVTable device_vtable = {
         .no_instances = true,
         .no_snapshots = true,
 
-        .init = device_init,
         .load = unit_load_fragment_and_dropin_optional,
         .done = device_done,
         .coldplug = device_coldplug,

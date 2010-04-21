@@ -33,10 +33,33 @@ static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
         [TARGET_ACTIVE] = UNIT_ACTIVE
 };
 
-static const char* const state_string_table[_TARGET_STATE_MAX] = {
-        [TARGET_DEAD] = "dead",
-        [TARGET_ACTIVE] = "active"
-};
+static void target_set_state(Target *t, TargetState state) {
+        TargetState old_state;
+        assert(t);
+
+        old_state = t->state;
+        t->state = state;
+
+        if (state != old_state)
+                log_debug("%s changed %s → %s",
+                          UNIT(t)->meta.id,
+                          target_state_to_string(old_state),
+                          target_state_to_string(state));
+
+        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
+}
+
+static int target_coldplug(Unit *u) {
+        Target *t = TARGET(u);
+
+        assert(t);
+        assert(t->state == TARGET_DEAD);
+
+        if (t->deserialized_state != t->state)
+                target_set_state(t, t->deserialized_state);
+
+        return 0;
+}
 
 static void target_dump(Unit *u, FILE *f, const char *prefix) {
         Target *t = TARGET(u);
@@ -46,20 +69,7 @@ static void target_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sTarget State: %s\n",
-                prefix, state_string_table[t->state]);
-}
-
-static void target_set_state(Target *t, TargetState state) {
-        TargetState old_state;
-        assert(t);
-
-        old_state = t->state;
-        t->state = state;
-
-        if (state != old_state)
-                log_debug("%s changed %s → %s", UNIT(t)->meta.id, state_string_table[old_state], state_string_table[state]);
-
-        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
+                prefix, target_state_to_string(t->state));
 }
 
 static int target_start(Unit *u) {
@@ -82,6 +92,39 @@ static int target_stop(Unit *u) {
         return 0;
 }
 
+static int target_serialize(Unit *u, FILE *f, FDSet *fds) {
+        Target *s = TARGET(u);
+
+        assert(s);
+        assert(f);
+        assert(fds);
+
+        unit_serialize_item(u, f, "state", target_state_to_string(s->state));
+        return 0;
+}
+
+static int target_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
+        Target *s = TARGET(u);
+
+        assert(u);
+        assert(key);
+        assert(value);
+        assert(fds);
+
+        if (streq(key, "state")) {
+                TargetState state;
+
+                if ((state = target_state_from_string(value)) < 0)
+                        log_debug("Failed to parse state value %s", value);
+                else
+                        s->deserialized_state = state;
+
+        } else
+                log_debug("Unknown serialization key '%s'", key);
+
+        return 0;
+}
+
 static UnitActiveState target_active_state(Unit *u) {
         assert(u);
 
@@ -91,7 +134,7 @@ static UnitActiveState target_active_state(Unit *u) {
 static const char *target_sub_state_to_string(Unit *u) {
         assert(u);
 
-        return state_string_table[TARGET(u)->state];
+        return target_state_to_string(TARGET(u)->state);
 }
 
 int target_get_runlevel(Target *t) {
@@ -123,15 +166,26 @@ int target_get_runlevel(Target *t) {
         return 0;
 }
 
+static const char* const target_state_table[_TARGET_STATE_MAX] = {
+        [TARGET_DEAD] = "dead",
+        [TARGET_ACTIVE] = "active"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
+
 const UnitVTable target_vtable = {
         .suffix = ".target",
 
         .load = unit_load_fragment_and_dropin,
+        .coldplug = target_coldplug,
 
         .dump = target_dump,
 
         .start = target_start,
         .stop = target_stop,
+
+        .serialize = target_serialize,
+        .deserialize_item = target_deserialize_item,
 
         .active_state = target_active_state,
         .sub_state_to_string = target_sub_state_to_string,

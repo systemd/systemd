@@ -85,7 +85,9 @@ int main (string[] args) {
                         "  reload [NAME...]    Reload on or more units\n" +
                         "  monitor             Monitor unit/job changes\n" +
                         "  dump                Dump servier status\n" +
-                        "  snapshot [NAME]     Create a snapshot\n");
+                        "  snapshot [NAME]     Create a snapshot\n" +
+                        "  daemon-reload       Reload daemon configuration\n" +
+                        "  daemon-reexecute    Reexecute daemon\n");
 
         try {
                 context.parse(ref args);
@@ -236,7 +238,13 @@ int main (string[] args) {
                                         "org.freedesktop.systemd1.Unit") as Unit;
 
                         stdout.printf("%s\n", u.id);
-                } else {
+                } else if (args[1] == "daemon-reload")
+                        manager.reload();
+                else if (args[1] == "daemon-reexecute" || args[1] == "daemon-reexec")
+                        manager.reexecute();
+                else if (args[1] == "daemon-exit")
+                        manager.exit();
+                else {
                         stderr.printf("Unknown command %s.\n", args[1]);
                         return 1;
                 }

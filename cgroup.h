@@ -75,7 +75,7 @@ char *cgroup_bonding_to_string(CGroupBonding *b);
 #include "manager.h"
 
 int manager_setup_cgroup(Manager *m);
-int manager_shutdown_cgroup(Manager *m);
+int manager_shutdown_cgroup(Manager *m, bool delete);
 
 int cgroup_notify_empty(Manager *m, const char *group);
 

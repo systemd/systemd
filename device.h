@@ -47,4 +47,7 @@ extern const UnitVTable device_vtable;
 
 void device_fd_event(Manager *m, int events);
 
+const char* device_state_to_string(DeviceState i);
+DeviceState device_state_from_string(const char *s);
+
 #endif

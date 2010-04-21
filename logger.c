@@ -283,7 +283,7 @@ static void stream_free(Stream *s) {
                 if (s->server)
                         epoll_ctl(s->server->epoll_fd, EPOLL_CTL_DEL, s->fd, NULL);
 
-                assert_se(close_nointr(s->fd) == 0);
+                close_nointr_nofail(s->fd);
         }
 
         free(s->process);
@@ -305,12 +305,12 @@ static int stream_new(Server *s, int server_fd) {
 
         if (s->n_streams >= STREAMS_MAX) {
                 log_warning("Too many connections, refusing connection.");
-                assert_se(close_nointr(fd) == 0);
+                close_nointr_nofail(fd);
                 return 0;
         }
 
         if (!(stream = new0(Stream, 1))) {
-                assert_se(close_nointr(fd) == 0);
+                close_nointr_nofail(fd);
                 return -ENOMEM;
         }
 
@@ -399,16 +399,16 @@ static void server_done(Server *s) {
                 stream_free(s->streams);
 
         for (i = 0; i < s->n_server_fd; i++)
-                assert_se(close_nointr(SERVER_FD_START+i) == 0);
+                close_nointr_nofail(SERVER_FD_START+i);
 
         if (s->syslog_fd >= 0)
-                assert_se(close_nointr(s->syslog_fd) == 0);
+                close_nointr_nofail(s->syslog_fd);
 
         if (s->epoll_fd >= 0)
-                assert_se(close_nointr(s->epoll_fd) == 0);
+                close_nointr_nofail(s->epoll_fd);
 
         if (s->kmsg_fd >= 0)
-                assert_se(close_nointr(s->kmsg_fd) == 0);
+                close_nointr_nofail(s->kmsg_fd);
 }
 
 static int server_init(Server *s, unsigned n_sockets) {

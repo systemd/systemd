@@ -1063,30 +1063,9 @@ void exec_context_init(ExecContext *c) {
         assert(c);
 
         c->umask = 0002;
-        c->oom_adjust = 0;
-        c->oom_adjust_set = false;
-        c->nice = 0;
-        c->nice_set = false;
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
-        c->ioprio_set = false;
         c->cpu_sched_policy = SCHED_OTHER;
-        c->cpu_sched_priority = 0;
-        c->cpu_sched_set = false;
-        CPU_ZERO(&c->cpu_affinity);
-        c->cpu_affinity_set = false;
-        c->timer_slack_ns = 0;
-        c->timer_slack_ns_set = false;
-
-        c->cpu_sched_reset_on_fork = false;
-        c->non_blocking = false;
-
-        c->std_input = 0;
-        c->std_output = 0;
-        c->std_error = 0;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
-
-        c->secure_bits = 0;
-        c->capability_bounding_set_drop = 0;
 }
 
 void exec_context_done(ExecContext *c) {

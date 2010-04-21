@@ -43,7 +43,7 @@ static int kmsg_fd = -1;
 void log_close_kmsg(void) {
 
         if (kmsg_fd >= 0) {
-                close_nointr(kmsg_fd);
+                close_nointr_nofail(kmsg_fd);
                 kmsg_fd = -1;
         }
 }
@@ -71,7 +71,7 @@ int log_open_kmsg(void) {
 void log_close_syslog(void) {
 
         if (syslog_fd >= 0) {
-                close_nointr(syslog_fd);
+                close_nointr_nofail(syslog_fd);
                 syslog_fd = -1;
         }
 }

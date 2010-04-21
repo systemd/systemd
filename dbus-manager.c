@@ -56,6 +56,9 @@
         "   <arg nane=\"cleanup\" type=\"b\" direction=\"in\"/>"        \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>"          \
         "  </method>"                                                   \
+        "  <method name=\"Reload\"/>"                                   \
+        "  <method name=\"Reexecute\"/>"                                \
+        "  <method name=\"Exit\"/>"                                     \
         "  <signal name=\"UnitNew\">"                                   \
         "   <arg name=\"id\" type=\"s\"/>"                              \
         "   <arg name=\"unit\" type=\"o\"/>"                            \
@@ -503,6 +506,37 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 }
 
                 free(introspection);
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reload")) {
+
+                assert(!m->queued_message);
+
+                /* Instead of sending the reply back right away, we
+                 * just remember that we need to and then send it
+                 * after the reload is finished. That way the caller
+                 * knows when the reload finished. */
+
+                if (!(m->queued_message = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_RELOAD;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reexecute")) {
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_REEXECUTE;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
+
+                if (m->running_as == MANAGER_INIT)
+                        return bus_send_error_reply(m, message, NULL, -ENOTSUP);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_EXIT;
 
         } else
                 return bus_default_message_handler(m, message, NULL, properties);

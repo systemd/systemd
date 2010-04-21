@@ -478,7 +478,7 @@ int manager_setup_cgroup(Manager *m) {
         return r;
 }
 
-int manager_shutdown_cgroup(Manager *m) {
+int manager_shutdown_cgroup(Manager *m, bool delete) {
         struct cgroup *cg;
         int r;
 
@@ -495,11 +495,10 @@ int manager_shutdown_cgroup(Manager *m) {
                 goto finish;
         }
 
-        if ((r = cgroup_delete_cgroup_ext(cg, CGFLAG_DELETE_IGNORE_MIGRATION|CGFLAG_DELETE_RECURSIVE)) != 0) {
-                log_error("Failed to delete cgroup hierarchy group: %s", cgroup_strerror(r));
-                r = translate_error(r, errno);
-                goto finish;
-        }
+        /* Often enough we won't be able to delete the cgroup we
+         * ourselves are in, hence ignore all errors here */
+        if (delete)
+                cgroup_delete_cgroup_ext(cg, CGFLAG_DELETE_IGNORE_MIGRATION|CGFLAG_DELETE_RECURSIVE);
         r = 0;
 
 finish:

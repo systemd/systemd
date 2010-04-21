@@ -43,21 +43,7 @@ static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_MAINTAINANCE] = UNIT_INACTIVE,
 };
 
-static const char* const state_string_table[_AUTOMOUNT_STATE_MAX] = {
-        [AUTOMOUNT_DEAD] = "dead",
-        [AUTOMOUNT_WAITING] = "waiting",
-        [AUTOMOUNT_RUNNING] = "running",
-        [AUTOMOUNT_MAINTAINANCE] = "maintainance"
-};
-
-static char *automount_name_from_where(const char *where) {
-        assert(where);
-
-        if (streq(where, "/"))
-                return strdup("-.automount");
-
-        return unit_name_build_escape(where+1, NULL, ".automount");
-}
+static int open_dev_autofs(Manager *m);
 
 static void automount_init(Unit *u) {
         Automount *a = AUTOMOUNT(u);
@@ -66,6 +52,7 @@ static void automount_init(Unit *u) {
         assert(u->meta.load_state == UNIT_STUB);
 
         a->pipe_watch.fd = a->pipe_fd = -1;
+        a->pipe_watch.type = WATCH_INVALID;
 }
 
 static void repeat_unmout(const char *path) {
@@ -95,7 +82,12 @@ static void unmount_autofs(Automount *a) {
         close_nointr_nofail(a->pipe_fd);
         a->pipe_fd = -1;
 
-        repeat_unmout(a->where);
+        /* If we reload/reexecute things we keep the mount point
+         * around */
+        if (a->where &&
+            (UNIT(a)->meta.manager->exit_code != MANAGER_RELOAD &&
+             UNIT(a)->meta.manager->exit_code != MANAGER_REEXECUTE))
+                repeat_unmout(a->where);
 }
 
 static void automount_done(Unit *u) {
@@ -106,10 +98,11 @@ static void automount_done(Unit *u) {
         unmount_autofs(a);
         a->mount = NULL;
 
-        if (a->tokens) {
-                set_free(a->tokens);
-                a->tokens = NULL;
-        }
+        free(a->where);
+        a->where = NULL;
+
+        set_free(a->tokens);
+        a->tokens = NULL;
 }
 
 static int automount_verify(Automount *a) {
@@ -120,14 +113,7 @@ static int automount_verify(Automount *a) {
         if (UNIT(a)->meta.load_state != UNIT_LOADED)
                 return 0;
 
-        if (!a->where) {
-                log_error("%s lacks Where setting. Refusing.", UNIT(a)->meta.id);
-                return -EINVAL;
-        }
-
-        path_kill_slashes(a->where);
-
-        if (!(e = automount_name_from_where(a->where)))
+        if (!(e = unit_name_from_path(a->where, ".automount")))
                 return -ENOMEM;
 
         b = unit_has_name(UNIT(a), e);
@@ -154,6 +140,12 @@ static int automount_load(Unit *u) {
 
         if (u->meta.load_state == UNIT_LOADED) {
 
+                if (!a->where)
+                        if (!(a->where = unit_name_to_path(u->meta.id)))
+                                return -ENOMEM;
+
+                path_kill_slashes(a->where);
+
                 if ((r = unit_load_related_unit(u, ".mount", (Unit**) &a->mount)) < 0)
                         return r;
 
@@ -176,19 +168,51 @@ static void automount_set_state(Automount *a, AutomountState state) {
                 unmount_autofs(a);
 
         if (state != old_state)
-                log_debug("%s changed %s → %s", UNIT(a)->meta.id, state_string_table[old_state], state_string_table[state]);
+                log_debug("%s changed %s → %s",
+                          UNIT(a)->meta.id,
+                          automount_state_to_string(old_state),
+                          automount_state_to_string(state));
 
         unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state]);
 }
 
-static void automount_dump(Unit *u, FILE *f, const char *prefix) {
-        Automount *s = AUTOMOUNT(u);
+static int automount_coldplug(Unit *u) {
+        Automount *a = AUTOMOUNT(u);
+        int r;
 
-        assert(s);
+        assert(a);
+        assert(a->state == AUTOMOUNT_DEAD);
+
+        if (a->deserialized_state != a->state) {
+
+                if ((r = open_dev_autofs(u->meta.manager)) < 0)
+                        return r;
+
+                if (a->deserialized_state == AUTOMOUNT_WAITING ||
+                    a->deserialized_state == AUTOMOUNT_RUNNING) {
+
+                        assert(a->pipe_fd >= 0);
+
+                        if ((r = unit_watch_fd(UNIT(a), a->pipe_fd, EPOLLIN, &a->pipe_watch)) < 0)
+                                return r;
+                }
+
+                automount_set_state(a, a->deserialized_state);
+        }
+
+        return 0;
+}
+
+static void automount_dump(Unit *u, FILE *f, const char *prefix) {
+        Automount *a = AUTOMOUNT(u);
+
+        assert(a);
 
         fprintf(f,
-                "%sAutomount State: %s\n",
-                prefix, state_string_table[s->state]);
+                "%sAutomount State: %s\n"
+                "%sWhere: %s\n",
+                prefix, automount_state_to_string(a->state),
+                prefix, a->where);
 }
 
 static void automount_enter_dead(Automount *a, bool success) {
@@ -208,7 +232,7 @@ static int open_dev_autofs(Manager *m) {
         if (m->dev_autofs_fd >= 0)
                 return m->dev_autofs_fd;
 
-        if ((m->dev_autofs_fd = open("/dev/autofs", O_RDONLY)) < 0) {
+        if ((m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY)) < 0) {
                 log_error("Failed to open /dev/autofs: %s", strerror(errno));
                 return -errno;
         }
@@ -254,6 +278,7 @@ static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid) {
                 goto finish;
         }
 
+        fd_cloexec(param->ioctlfd, true);
         r = param->ioctlfd;
 
 finish:
@@ -383,10 +408,6 @@ static void automount_enter_waiting(Automount *a) {
 
         if (a->tokens)
                 set_clear(a->tokens);
-        else if (!(a->tokens = set_new(trivial_hash_func, trivial_compare_func))) {
-                r = -ENOMEM;
-                goto fail;
-        }
 
         if ((dev_autofs_fd = open_dev_autofs(UNIT(a)->meta.manager)) < 0) {
                 r = dev_autofs_fd;
@@ -396,7 +417,7 @@ static void automount_enter_waiting(Automount *a) {
         /* We knowingly ignore the results of this call */
         mkdir_p(a->where, 0555);
 
-        if (pipe2(p, O_NONBLOCK) < 0) {
+        if (pipe2(p, O_NONBLOCK|O_CLOEXEC) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -521,7 +542,94 @@ static int automount_stop(Unit *u) {
         return 0;
 }
 
+static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
+        Automount *a = AUTOMOUNT(u);
+        void *p;
+        Iterator i;
+
+        assert(a);
+        assert(f);
+        assert(fds);
+
+        unit_serialize_item(u, f, "state", automount_state_to_string(a->state));
+        unit_serialize_item(u, f, "failure", yes_no(a->failure));
+        unit_serialize_item_format(u, f, "dev-id", "%u", (unsigned) a->dev_id);
+
+        SET_FOREACH(p, a->tokens, i)
+                unit_serialize_item_format(u, f, "token", "%u", PTR_TO_UINT(p));
+
+        if (a->pipe_fd >= 0) {
+                int copy;
+
+                if ((copy = fdset_put_dup(fds, a->pipe_fd)) < 0)
+                        return copy;
+
+                unit_serialize_item_format(u, f, "pipe-fd", "%i", copy);
+        }
+
+        return 0;
+}
+
+static int automount_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
+        Automount *a = AUTOMOUNT(u);
+        int r;
+
+        assert(a);
+        assert(fds);
+
+        if (streq(key, "state")) {
+                AutomountState state;
+
+                if ((state = automount_state_from_string(value)) < 0)
+                        log_debug("Failed to parse state value %s", value);
+                else
+                        a->deserialized_state = state;
+        } else if (streq(key, "failure")) {
+                int b;
+
+                if ((b = parse_boolean(value)) < 0)
+                        log_debug("Failed to parse failure value %s", value);
+                else
+                        a->failure = b || a->failure;
+        } else if (streq(key, "dev-id")) {
+                unsigned d;
+
+                if (safe_atou(value, &d) < 0)
+                        log_debug("Failed to parse dev-id value %s", value);
+                else
+                        a->dev_id = (unsigned) d;
+        } else if (streq(key, "token")) {
+                unsigned token;
+
+                if (safe_atou(value, &token) < 0)
+                        log_debug("Failed to parse token value %s", value);
+                else {
+                        if (!a->tokens)
+                                if (!(a->tokens = set_new(trivial_hash_func, trivial_compare_func)))
+                                        return -ENOMEM;
+
+                        if ((r = set_put(a->tokens, UINT_TO_PTR(token))) < 0)
+                                return r;
+                }
+        } else if (streq(key, "pipe-fd")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        log_debug("Failed to parse pipe-fd value %s", value);
+                else {
+                        if (a->pipe_fd >= 0)
+                                close_nointr_nofail(a->pipe_fd);
+
+                        a->pipe_fd = fdset_remove(fds, fd);
+                }
+        } else
+                log_debug("Unknown serialization key '%s'", key);
+
+        return 0;
+}
+
 static UnitActiveState automount_active_state(Unit *u) {
+        assert(u);
 
         return state_translation_table[AUTOMOUNT(u)->state];
 }
@@ -529,7 +637,7 @@ static UnitActiveState automount_active_state(Unit *u) {
 static const char *automount_sub_state_to_string(Unit *u) {
         assert(u);
 
-        return state_string_table[AUTOMOUNT(u)->state];
+        return automount_state_to_string(AUTOMOUNT(u)->state);
 }
 
 static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
@@ -557,6 +665,12 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         case autofs_ptype_missing_direct:
                 log_debug("Got direct mount request for %s", packet.v5_packet.name);
 
+                if (!a->tokens)
+                        if (!(a->tokens = set_new(trivial_hash_func, trivial_compare_func))) {
+                                log_error("Failed to allocate token set.");
+                                goto fail;
+                        }
+
                 if ((r = set_put(a->tokens, UINT_TO_PTR(packet.v5_packet.wait_queue_token))) < 0) {
                         log_error("Failed to remember token: %s", strerror(-r));
                         goto fail;
@@ -583,6 +697,15 @@ static void automount_shutdown(Manager *m) {
                 close_nointr_nofail(m->dev_autofs_fd);
 }
 
+static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
+        [AUTOMOUNT_DEAD] = "dead",
+        [AUTOMOUNT_WAITING] = "waiting",
+        [AUTOMOUNT_RUNNING] = "running",
+        [AUTOMOUNT_MAINTAINANCE] = "maintainance"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
+
 const UnitVTable automount_vtable = {
         .suffix = ".automount",
 
@@ -593,10 +716,15 @@ const UnitVTable automount_vtable = {
         .load = automount_load,
         .done = automount_done,
 
+        .coldplug = automount_coldplug,
+
         .dump = automount_dump,
 
         .start = automount_start,
         .stop = automount_stop,
+
+        .serialize = automount_serialize,
+        .deserialize_item = automount_deserialize_item,
 
         .active_state = automount_active_state,
         .sub_state_to_string = automount_sub_state_to_string,

@@ -371,3 +371,43 @@ char *unit_name_template(const char *f) {
         return r;
 
 }
+
+char *unit_name_from_path(const char *path, const char *suffix) {
+        assert(path);
+        assert(suffix);
+
+        if (path[0] == '/')
+                path++;
+
+        if (path[0] == 0)
+                return strappend("-", suffix);
+
+        return unit_name_build_escape(path, NULL, suffix);
+}
+
+char *unit_name_to_path(const char *name) {
+        char *w, *e;
+
+        assert(name);
+
+        if (!(w = unit_name_to_prefix(name)))
+                return NULL;
+
+        e = unit_name_unescape(w);
+        free(w);
+
+        if (!e)
+                return NULL;
+
+        if (e[0] != '/') {
+                w = strappend("/", e);
+                free(e);
+
+                if (!w)
+                        return NULL;
+
+                e = w;
+        }
+
+        return e;
+}

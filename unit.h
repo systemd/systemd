@@ -209,23 +209,23 @@ struct UnitVTable {
         /* Instances make no sense for this type */
         bool no_instances:1;
 
-        /* Execlude this type from snapshots */
+        /* Exclude this type from snapshots */
         bool no_snapshots:1;
 
         /* This should reset all type-specific variables. This should
-         * not allocate memory, and is either called with 0
-         * initialized data, or with data left from done() */
+         * not allocate memory, and is called with zero-initialized
+         * data. It should hence only initialize variables that need
+         * to be set != 0. */
         void (*init)(Unit *u);
+
+        /* This should free all type-specific variables. It should be
+         * idempotent. */
+        void (*done)(Unit *u);
 
         /* Actually load data from disk. This may fail, and should set
          * load_state to UNIT_LOADED, UNIT_MERGED or leave it at
          * UNIT_STUB if no configuration could be found. */
         int (*load)(Unit *u);
-
-        /* This should free all type-specific variables. It should be
-         * idempotent. There's no need to reset variables that deal
-         * with dynamic memory/resources. */
-        void (*done)(Unit *u);
 
         /* If a a lot of units got created via enumerate(), this is
          * where to actually set the state and call unit_notify(). */
@@ -238,6 +238,13 @@ struct UnitVTable {
         int (*reload)(Unit *u);
 
         bool (*can_reload)(Unit *u);
+
+        /* Write all data that cannot be restored from other sources
+         * away using unit_serialize_item() */
+        int (*serialize)(Unit *u, FILE *f, FDSet *fds);
+
+        /* Restore one item from the serialization */
+        int (*deserialize_item)(Unit *u, const char *key, const char *data, FDSet *fds);
 
         /* Boils down the more complex internal state of this unit to
          * a simpler one that the engine can understand */
@@ -333,6 +340,7 @@ Unit *unit_follow_merge(Unit *u);
 
 int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
+int unit_load_nop(Unit *u);
 int unit_load(Unit *unit);
 
 const char *unit_description(Unit *u);
@@ -373,10 +381,17 @@ int set_unit_path(const char *p);
 char *unit_dbus_path(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
+int unit_get_related_unit(Unit *u, const char *type, Unit **_found);
 
 char *unit_name_printf(Unit *u, const char* text);
 char *unit_full_printf(Unit *u, const char *text);
 char **unit_full_printf_strv(Unit *u, char **l);
+
+bool unit_can_serialize(Unit *u);
+int unit_serialize(Unit *u, FILE *f, FDSet *fds);
+void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_attr(4,5);
+void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
+int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);

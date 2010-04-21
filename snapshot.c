@@ -31,31 +31,30 @@ static const UnitActiveState state_translation_table[_SNAPSHOT_STATE_MAX] = {
         [SNAPSHOT_ACTIVE] = UNIT_ACTIVE
 };
 
-static const char* const state_string_table[_SNAPSHOT_STATE_MAX] = {
-        [SNAPSHOT_DEAD] = "dead",
-        [SNAPSHOT_ACTIVE] = "active"
-};
+static void snapshot_set_state(Snapshot *s, SnapshotState state) {
+        SnapshotState old_state;
+        assert(s);
 
-static int snapshot_load(Unit *u) {
-        Iterator i;
-        Unit *other;
-        int r;
+        old_state = s->state;
+        s->state = state;
 
-        assert(u);
+        if (state != old_state)
+                log_debug("%s changed %s → %s",
+                          UNIT(s)->meta.id,
+                          snapshot_state_to_string(old_state),
+                          snapshot_state_to_string(state));
 
-        HASHMAP_FOREACH(other, u->meta.manager->units, i) {
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+}
 
-                if (UNIT_VTABLE(other)->no_snapshots)
-                        continue;
+static int snapshot_coldplug(Unit *u) {
+        Snapshot *s = SNAPSHOT(u);
 
-                if ((r = unit_add_dependency(u, UNIT_REQUIRES, other)) < 0)
-                        return r;
+        assert(s);
+        assert(s->state == SNAPSHOT_DEAD);
 
-                if ((r = unit_add_dependency(u, UNIT_AFTER, other)) < 0)
-                        return r;
-        }
-
-        u->meta.load_state = UNIT_LOADED;
+        if (s->deserialized_state != s->state)
+                snapshot_set_state(s, s->deserialized_state);
 
         return 0;
 }
@@ -69,21 +68,8 @@ static void snapshot_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sSnapshot State: %s\n"
                 "%sClean Up: %s\n",
-                prefix, state_string_table[s->state],
+                prefix, snapshot_state_to_string(s->state),
                 prefix, yes_no(s->cleanup));
-}
-
-static void snapshot_set_state(Snapshot *s, SnapshotState state) {
-        SnapshotState old_state;
-        assert(s);
-
-        old_state = s->state;
-        s->state = state;
-
-        if (state != old_state)
-                log_debug("%s changed %s → %s", UNIT(s)->meta.id, state_string_table[old_state], state_string_table[state]);
-
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
 
 static int snapshot_start(Unit *u) {
@@ -110,6 +96,60 @@ static int snapshot_stop(Unit *u) {
         return 0;
 }
 
+static int snapshot_serialize(Unit *u, FILE *f, FDSet *fds) {
+        Snapshot *s = SNAPSHOT(u);
+        Unit *other;
+        Iterator i;
+
+        assert(s);
+        assert(f);
+        assert(fds);
+
+        unit_serialize_item(u, f, "state", snapshot_state_to_string(s->state));
+        unit_serialize_item(u, f, "cleanup", yes_no(s->cleanup));
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
+                unit_serialize_item(u, f, "requires", other->meta.id);
+
+        return 0;
+}
+
+static int snapshot_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
+        Snapshot *s = SNAPSHOT(u);
+        int r;
+
+        assert(u);
+        assert(key);
+        assert(value);
+        assert(fds);
+
+        if (streq(key, "state")) {
+                SnapshotState state;
+
+                if ((state = snapshot_state_from_string(value)) < 0)
+                        log_debug("Failed to parse state value %s", value);
+                else
+                        s->deserialized_state = state;
+
+        } else if (streq(key, "cleanup")) {
+
+                if ((r = parse_boolean(value)) < 0)
+                        log_debug("Failed to parse cleanup value %s", value);
+                else
+                        s->cleanup = r;
+
+        } else if (streq(key, "requires")) {
+
+                if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, value, NULL)) < 0)
+                        return r;
+
+                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, value, NULL)) < 0)
+                        return r;
+        } else
+                log_debug("Unknown serialization key '%s'", key);
+
+        return 0;
+}
+
 static UnitActiveState snapshot_active_state(Unit *u) {
         assert(u);
 
@@ -119,13 +159,15 @@ static UnitActiveState snapshot_active_state(Unit *u) {
 static const char *snapshot_sub_state_to_string(Unit *u) {
         assert(u);
 
-        return state_string_table[SNAPSHOT(u)->state];
+        return snapshot_state_to_string(SNAPSHOT(u)->state);
 }
 
 int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
-        Unit *u;
+        Iterator i;
+        Unit *other, *u = NULL;
         char *n = NULL;
         int r;
+        const char *k;
 
         assert(m);
         assert(_s);
@@ -159,12 +201,36 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
         free(n);
 
         if (r < 0)
-                return r;
+                goto fail;
+
+        HASHMAP_FOREACH_KEY(other, k, m->units, i) {
+
+                if (UNIT_VTABLE(other)->no_snapshots)
+                        continue;
+
+                if (k != other->meta.id)
+                        continue;
+
+                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                        continue;
+
+                if ((r = unit_add_dependency(u, UNIT_REQUIRES, other)) < 0)
+                        goto fail;
+
+                if ((r = unit_add_dependency(u, UNIT_AFTER, other)) < 0)
+                        goto fail;
+        }
 
         SNAPSHOT(u)->cleanup = cleanup;
         *_s = SNAPSHOT(u);
 
         return 0;
+
+fail:
+        if (u)
+                unit_add_to_cleanup_queue(u);
+
+        return r;
 }
 
 void snapshot_remove(Snapshot *s) {
@@ -173,6 +239,13 @@ void snapshot_remove(Snapshot *s) {
         unit_add_to_cleanup_queue(UNIT(s));
 }
 
+static const char* const snapshot_state_table[_SNAPSHOT_STATE_MAX] = {
+        [SNAPSHOT_DEAD] = "dead",
+        [SNAPSHOT_ACTIVE] = "active"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(snapshot_state, SnapshotState);
+
 const UnitVTable snapshot_vtable = {
         .suffix = ".snapshot",
 
@@ -180,12 +253,16 @@ const UnitVTable snapshot_vtable = {
         .no_instances = true,
         .no_snapshots = true,
 
-        .load = snapshot_load,
+        .load = unit_load_nop,
+        .coldplug = snapshot_coldplug,
 
         .dump = snapshot_dump,
 
         .start = snapshot_start,
         .stop = snapshot_stop,
+
+        .serialize = snapshot_serialize,
+        .deserialize_item = snapshot_deserialize_item,
 
         .active_state = snapshot_active_state,
         .sub_state_to_string = snapshot_sub_state_to_string,

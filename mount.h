@@ -84,11 +84,12 @@ struct Mount {
         ExecCommand exec_command[_MOUNT_EXEC_COMMAND_MAX];
         ExecContext exec_context;
 
-        MountState state;
+        MountState state, deserialized_state;
 
         KillMode kill_mode;
 
         ExecCommand* control_command;
+        MountExecCommand control_command_id;
         pid_t control_pid;
 
         Watch timer_watch;
@@ -99,5 +100,11 @@ extern const UnitVTable mount_vtable;
 void mount_fd_event(Manager *m, int events);
 
 int mount_path_is_mounted(Manager *m, const char* path);
+
+const char* mount_state_to_string(MountState i);
+MountState mount_state_from_string(const char *s);
+
+const char* mount_exec_command_to_string(MountExecCommand i);
+MountExecCommand mount_exec_command_from_string(const char *s);
 
 #endif

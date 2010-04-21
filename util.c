@@ -1215,7 +1215,7 @@ int close_all_fds(const int except[], unsigned n_except) {
         while ((de = readdir(d))) {
                 int fd = -1;
 
-                if (de->d_name[0] == '.')
+                if (ignore_file(de->d_name))
                         continue;
 
                 if ((r = safe_atoi(de->d_name, &fd)) < 0)
@@ -1324,7 +1324,7 @@ int chvt(int vt) {
         if (ioctl(fd, VT_ACTIVATE, vt) < 0)
                 r = -errno;
 
-        close_nointr(r);
+        close_nointr_nofail(r);
         return r;
 }
 
@@ -1612,7 +1612,7 @@ int acquire_terminal(const char *name, bool fail, bool force) {
         }
 
         if (notify >= 0)
-                close_nointr(notify);
+                close_nointr_nofail(notify);
 
         if ((r = reset_terminal(fd)) < 0)
                 log_warning("Failed to reset terminal: %s", strerror(-r));
@@ -1621,10 +1621,10 @@ int acquire_terminal(const char *name, bool fail, bool force) {
 
 fail:
         if (fd >= 0)
-                close_nointr(fd);
+                close_nointr_nofail(fd);
 
         if (notify >= 0)
-                close_nointr(notify);
+                close_nointr_nofail(notify);
 
         return r;
 }

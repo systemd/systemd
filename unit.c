@@ -615,6 +615,16 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
         return 0;
 }
 
+/* Common implementation for multiple backends */
+int unit_load_nop(Unit *u) {
+        assert(u);
+
+        if (u->meta.load_state == UNIT_STUB)
+                u->meta.load_state = UNIT_LOADED;
+
+        return 0;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1109,7 +1119,7 @@ void unit_unwatch_timer(Unit *u, Watch *w) {
         assert(w->type == WATCH_TIMER && w->data.unit == u);
 
         assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
-        assert_se(close_nointr(w->fd) == 0);
+        close_nointr_nofail(w->fd);
 
         w->fd = -1;
         w->type = WATCH_INVALID;
@@ -1495,6 +1505,29 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
         return r;
 }
 
+int unit_get_related_unit(Unit *u, const char *type, Unit **_found) {
+        Unit *found;
+        char *t;
+
+        assert(u);
+        assert(type);
+        assert(_found);
+
+        if (!(t = unit_name_change_suffix(u->meta.id, type)))
+                return -ENOMEM;
+
+        assert(!unit_has_name(u, t));
+
+        found = manager_get_unit(u->meta.manager, t);
+        free(t);
+
+        if (!found)
+                return -ENOENT;
+
+        *_found = found;
+        return 0;
+}
+
 static char *specifier_prefix_and_instance(char specifier, void *data, void *userdata) {
         Unit *u = userdata;
         assert(u);
@@ -1626,6 +1659,97 @@ void unit_unwatch_bus_name(Unit *u, const char *name) {
 
         hashmap_remove_value(u->meta.manager->watch_bus, name, u);
 }
+
+bool unit_can_serialize(Unit *u) {
+        assert(u);
+
+        return UNIT_VTABLE(u)->serialize && UNIT_VTABLE(u)->deserialize_item;
+}
+
+int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(u);
+        assert(f);
+        assert(fds);
+
+        if (!unit_can_serialize(u))
+                return 0;
+
+        if ((r = UNIT_VTABLE(u)->serialize(u, f, fds)) < 0)
+                return r;
+
+        /* End marker */
+        fputc('\n', f);
+        return 0;
+}
+
+void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *format, ...) {
+        va_list ap;
+
+        assert(u);
+        assert(f);
+        assert(key);
+        assert(format);
+
+        fputs(key, f);
+        fputc('=', f);
+
+        va_start(ap, format);
+        vfprintf(f, format, ap);
+        va_end(ap);
+
+        fputc('\n', f);
+}
+
+void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
+        assert(u);
+        assert(f);
+        assert(key);
+        assert(value);
+
+        fprintf(f, "%s=%s\n", key, value);
+}
+
+int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(u);
+        assert(f);
+        assert(fds);
+
+        if (!unit_can_serialize(u))
+                return 0;
+
+        for (;;) {
+                char line[1024], *l, *v;
+                size_t k;
+
+                if (!fgets(line, sizeof(line), f)) {
+                        if (feof(f))
+                                return 0;
+                        return -errno;
+                }
+
+                l = strstrip(line);
+
+                /* End marker */
+                if (l[0] == 0)
+                        return 0;
+
+                k = strcspn(l, "=");
+
+                if (l[k] == '=') {
+                        l[k] = 0;
+                        v = l+k+1;
+                } else
+                        v = l+k;
+
+                if ((r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds)) < 0)
+                        return r;
+        }
+}
+
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",

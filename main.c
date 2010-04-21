@@ -37,6 +37,7 @@
 #include "mount-setup.h"
 #include "hostname-setup.h"
 #include "load-fragment.h"
+#include "fdset.h"
 
 static enum {
         ACTION_RUN,
@@ -51,8 +52,8 @@ static ManagerRunningAs running_as = _MANAGER_RUNNING_AS_INVALID;
 static bool dump_core = true;
 static bool crash_shell = false;
 static int crash_chvt = -1;
-
 static bool confirm_spawn = false;
+static FILE* serialization = NULL;
 
 _noreturn static void freeze(void) {
         for (;;)
@@ -202,10 +203,10 @@ static int console_setup(void) {
 
 finish:
         if (tty_fd >= 0)
-                close_nointr(tty_fd);
+                close_nointr_nofail(tty_fd);
 
         if (null_fd >= 0)
-                close_nointr(null_fd);
+                close_nointr_nofail(null_fd);
 
         return r;
 }
@@ -351,19 +352,21 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RUNNING_AS,
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
-                ARG_CONFIRM_SPAWN
+                ARG_CONFIRM_SPAWN,
+                ARG_DESERIALIZE
         };
 
         static const struct option options[] = {
-                { "log-level",  required_argument, NULL, ARG_LOG_LEVEL },
-                { "log-target", required_argument, NULL, ARG_LOG_TARGET },
-                { "default",    required_argument, NULL, ARG_DEFAULT },
-                { "running-as", required_argument, NULL, ARG_RUNNING_AS },
-                { "test",       no_argument,       NULL, ARG_TEST },
-                { "help",       no_argument,       NULL, 'h' },
-                { "dump-configuration-items", no_argument, NULL, ARG_DUMP_CONFIGURATION_ITEMS },
-                { "confirm-spawn", no_argument,    NULL, ARG_CONFIRM_SPAWN },
-                { NULL,         0,                 NULL, 0 }
+                { "log-level",                required_argument, NULL, ARG_LOG_LEVEL                },
+                { "log-target",               required_argument, NULL, ARG_LOG_TARGET               },
+                { "default",                  required_argument, NULL, ARG_DEFAULT                  },
+                { "running-as",               required_argument, NULL, ARG_RUNNING_AS               },
+                { "test",                     no_argument,       NULL, ARG_TEST                     },
+                { "help",                     no_argument,       NULL, 'h'                          },
+                { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
+                { "confirm-spawn",            no_argument,       NULL, ARG_CONFIRM_SPAWN            },
+                { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
+                { NULL,                       0,                 NULL, 0                            }
         };
 
         int c, r;
@@ -425,6 +428,28 @@ static int parse_argv(int argc, char *argv[]) {
                         confirm_spawn = true;
                         break;
 
+                case ARG_DESERIALIZE: {
+                        int fd;
+                        FILE *f;
+
+                        if ((r = safe_atoi(optarg, &fd)) < 0 || fd < 0) {
+                                log_error("Failed to parse deserialize option %s.", optarg);
+                                return r;
+                        }
+
+                        if (!(f = fdopen(fd, "r"))) {
+                                log_error("Failed to open serialization fd: %m");
+                                return r;
+                        }
+
+                        if (serialization)
+                                fclose(serialization);
+
+                        serialization = f;
+
+                        break;
+                }
+
                 case 'h':
                         action = ACTION_HELP;
                         break;
@@ -456,11 +481,67 @@ static int help(void) {
         return 0;
 }
 
+static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
+        FILE *f = NULL;
+        FDSet *fds = NULL;
+        int r;
+
+        assert(m);
+        assert(_f);
+        assert(_fds);
+
+        if ((r = manager_open_serialization(&f)) < 0) {
+                log_error("Failed to create serialization faile: %s", strerror(-r));
+                goto fail;
+        }
+
+        if (!(fds = fdset_new())) {
+                r = -ENOMEM;
+                log_error("Failed to allocate fd set: %s", strerror(-r));
+                goto fail;
+        }
+
+        if ((r = manager_serialize(m, f, fds)) < 0) {
+                log_error("Failed to serialize state: %s", strerror(-r));
+                goto fail;
+        }
+
+        if (fseeko(f, 0, SEEK_SET) < 0) {
+                log_error("Failed to rewind serialization fd: %m");
+                goto fail;
+        }
+
+        if ((r = fd_cloexec(fileno(f), false)) < 0) {
+                log_error("Failed to disable O_CLOEXEC for serialization: %s", strerror(-r));
+                goto fail;
+        }
+
+        if ((r = fdset_cloexec(fds, false)) < 0) {
+                log_error("Failed to disable O_CLOEXEC for serialization fds: %s", strerror(-r));
+                goto fail;
+        }
+
+        *_f = f;
+        *_fds = fds;
+
+        return 0;
+
+fail:
+        fdset_free(fds);
+
+        if (f)
+                fclose(f);
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         Unit *target = NULL;
         Job *job = NULL;
         int r, retval = 1;
+        FDSet *fds = NULL;
+        bool reexecute = false;
 
         if (getpid() == 1)
                 running_as = MANAGER_INIT;
@@ -484,9 +565,6 @@ int main(int argc, char *argv[]) {
         ignore_signal(SIGKILL);
         ignore_signal(SIGPIPE);
 
-        /* Close all open files */
-        assert_se(close_all_fds(NULL, 0) == 0);
-
         if (running_as != MANAGER_SESSION)
                 if (parse_proc_cmdline() < 0)
                         goto finish;
@@ -506,6 +584,17 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(action == ACTION_RUN || action == ACTION_TEST);
+
+        /* Remember open file descriptors for later deserialization */
+        if (serialization) {
+                if ((r = fdset_new_fill(&fds)) < 0) {
+                        log_error("Failed to allocate fd set: %s", strerror(-r));
+                        goto finish;
+                }
+
+                assert_se(fdset_remove(fds, fileno(serialization)) >= 0);
+        } else
+                close_all_fds(NULL, 0);
 
         /* Set up PATH unless it is already set */
         setenv("PATH",
@@ -548,52 +637,82 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((r = manager_coldplug(m)) < 0) {
-                log_error("Failed to retrieve coldplug information: %s", strerror(-r));
-                goto finish;
+        if ((r = manager_startup(m, serialization, fds)) < 0)
+                log_error("Failed to fully startup daemon: %s", strerror(-r));
+
+        if (fds) {
+                /* This will close all file descriptors that were opened, but
+                 * not claimed by any unit. */
+
+                fdset_free(fds);
+                fds = NULL;
         }
 
-        log_debug("Activating default unit: %s", default_unit);
+        if (serialization) {
+                fclose(serialization);
+                serialization = NULL;
+        } else {
+                log_debug("Activating default unit: %s", default_unit);
 
-        if ((r = manager_load_unit(m, default_unit, NULL, &target)) < 0) {
-                log_error("Failed to load default target: %s", strerror(-r));
+                if ((r = manager_load_unit(m, default_unit, NULL, &target)) < 0) {
+                        log_error("Failed to load default target: %s", strerror(-r));
 
-                log_info("Trying to load rescue target...");
-                if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &target)) < 0) {
-                        log_error("Failed to load rescue target: %s", strerror(-r));
+                        log_info("Trying to load rescue target...");
+                        if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &target)) < 0) {
+                                log_error("Failed to load rescue target: %s", strerror(-r));
+                                goto finish;
+                        }
+                }
+
+                if (action == ACTION_TEST) {
+                        printf("→ By units:\n");
+                        manager_dump_units(m, stdout, "\t");
+                }
+
+                if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &job)) < 0) {
+                        log_error("Failed to start default target: %s", strerror(-r));
+                        goto finish;
+                }
+
+                if (action == ACTION_TEST) {
+                        printf("→ By jobs:\n");
+                        manager_dump_jobs(m, stdout, "\t");
+                        retval = 0;
                         goto finish;
                 }
         }
 
-        if (action == ACTION_TEST) {
-                printf("→ By units:\n");
-                manager_dump_units(m, stdout, "\t");
+        for (;;) {
+                if ((r = manager_loop(m)) < 0) {
+                        log_error("Failed to run mainloop: %s", strerror(-r));
+                        goto finish;
+                }
+
+                switch (m->exit_code) {
+
+                case MANAGER_EXIT:
+                        retval = 0;
+                        log_debug("Exit.");
+                        goto finish;
+
+                case MANAGER_RELOAD:
+                        if ((r = manager_reload(m)) < 0)
+                                log_error("Failed to reload: %s", strerror(-r));
+                        break;
+
+                case MANAGER_REEXECUTE:
+
+                        if (prepare_reexecute(m, &serialization, &fds) < 0)
+                                goto finish;
+
+                        reexecute = true;
+                        log_debug("Reexecuting.");
+                        goto finish;
+
+                default:
+                        assert_not_reached("Unknown exit code.");
+                }
         }
-
-        if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &job)) < 0) {
-                log_error("Failed to start default target: %s", strerror(-r));
-                goto finish;
-        }
-
-        if (action == ACTION_TEST) {
-                printf("→ By jobs:\n");
-                manager_dump_jobs(m, stdout, "\t");
-
-                if (getpid() == 1)
-                        pause();
-
-                retval = 0;
-                goto finish;
-        }
-
-        if ((r = manager_loop(m)) < 0) {
-                log_error("Failed to run mainloop: %s", strerror(-r));
-                goto finish;
-        }
-
-        retval = 0;
-
-        log_debug("Exit.");
 
 finish:
         if (m)
@@ -602,6 +721,49 @@ finish:
         free(default_unit);
 
         dbus_shutdown();
+
+        if (reexecute) {
+                const char *args[11];
+                unsigned i = 0;
+                char sfd[16];
+
+                assert(serialization);
+                assert(fds);
+
+                args[i++] = SYSTEMD_BINARY_PATH;
+
+                args[i++] = "--log-level";
+                args[i++] = log_level_to_string(log_get_max_level());
+
+                args[i++] = "--log-target";
+                args[i++] = log_target_to_string(log_get_target());
+
+                args[i++] = "--running-as";
+                args[i++] = manager_running_as_to_string(running_as);
+
+                snprintf(sfd, sizeof(sfd), "%i", fileno(serialization));
+                char_array_0(sfd);
+
+                args[i++] = "--deserialize";
+                args[i++] = sfd;
+
+                if (confirm_spawn)
+                        args[i++] = "--confirm-spawn";
+
+                args[i++] = NULL;
+
+                assert(i <= ELEMENTSOF(args));
+
+                execv(args[0], (char* const*) args);
+
+                log_error("Failed to reexecute: %m");
+        }
+
+        if (serialization)
+                fclose(serialization);
+
+        if (fds)
+                fdset_free(fds);
 
         if (getpid() == 1)
                 freeze();

@@ -246,7 +246,7 @@ static void fifo_free(Fifo *f) {
                 if (f->server)
                         epoll_ctl(f->server->epoll_fd, EPOLL_CTL_DEL, f->fd, NULL);
 
-                assert_se(close_nointr(f->fd) == 0);
+                close_nointr_nofail(f->fd);
         }
 
         free(f);
@@ -302,7 +302,7 @@ static void server_done(Server *s) {
                 fifo_free(s->fifos);
 
         if (s->epoll_fd >= 0)
-                assert_se(close_nointr(s->epoll_fd) == 0);
+                close_nointr_nofail(s->epoll_fd);
 
         if (s->bus)
                 dbus_connection_unref(s->bus);

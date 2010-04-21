@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
-#ifndef footargethfoo
-#define footargethfoo
+#ifndef foofdsethfoo
+#define foofdsethfoo
 
 /***
   This file is part of systemd.
@@ -22,28 +22,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct Target Target;
+typedef struct FDSet FDSet;
 
-#include "unit.h"
+FDSet* fdset_new(void);
+void fdset_free(FDSet *s);
 
-typedef enum TargetState {
-        TARGET_DEAD,
-        TARGET_ACTIVE,
-        _TARGET_STATE_MAX,
-        _TARGET_STATE_INVALID = -1
-} TargetState;
+int fdset_put(FDSet *s, int fd);
+int fdset_put_dup(FDSet *s, int fd);
 
-struct Target {
-        Meta meta;
+bool fdset_contains(FDSet *s, int fd);
+int fdset_remove(FDSet *s, int fd);
 
-        TargetState state, deserialized_state;
-};
+int fdset_new_fill(FDSet **_s);
 
-extern const UnitVTable target_vtable;
-
-int target_get_runlevel(Target *t);
-
-const char* target_state_to_string(TargetState i);
-TargetState target_state_from_string(const char *s);
+int fdset_cloexec(FDSet *fds, bool b);
 
 #endif

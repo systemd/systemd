@@ -94,13 +94,14 @@ struct Service {
         bool root_directory_start_only;
         bool valid_no_process;
 
-        ServiceState state;
+        ServiceState state, deserialized_state;
 
         KillMode kill_mode;
 
         ExecStatus main_exec_status;
 
         ExecCommand *control_command;
+        ServiceExecCommand control_command_id;
         pid_t main_pid, control_pid;
         bool main_pid_known:1;
 

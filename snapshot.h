@@ -36,7 +36,7 @@ typedef enum SnapshotState {
 struct Snapshot {
         Meta meta;
 
-        SnapshotState state;
+        SnapshotState state, deserialized_state;
 
         bool cleanup;
 };
@@ -45,5 +45,8 @@ extern const UnitVTable snapshot_vtable;
 
 int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **s);
 void snapshot_remove(Snapshot *s);
+
+const char* snapshot_state_to_string(SnapshotState i);
+SnapshotState snapshot_state_from_string(const char *s);
 
 #endif

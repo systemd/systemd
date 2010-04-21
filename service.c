@@ -66,6 +66,25 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
 };
 
+static void service_init(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
+
+        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
+        s->restart_usec = DEFAULT_RESTART_USEC;
+        s->timer_watch.type = WATCH_INVALID;
+        s->sysv_start_priority = -1;
+        s->socket_fd = -1;
+
+        exec_context_init(&s->exec_context);
+
+        RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
+
+        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+}
+
 static void service_unwatch_control_pid(Service *s) {
         assert(s);
 
@@ -735,23 +754,6 @@ static int service_add_bus_name(Service *s) {
         return r;
 }
 
-static void service_init(Unit *u) {
-        Service *s = SERVICE(u);
-
-        assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
-
-        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
-        s->restart_usec = DEFAULT_RESTART_USEC;
-        s->timer_watch.type = WATCH_INVALID;
-        s->sysv_start_priority = -1;
-        s->socket_fd = -1;
-
-        exec_context_init(&s->exec_context);
-
-        RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
-}
-
 static int service_verify(Service *s) {
         assert(s);
 
@@ -1047,6 +1049,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_FINAL_SIGKILL) {
                 service_unwatch_control_pid(s);
                 s->control_command = NULL;
+                s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
         }
 
         if (state == SERVICE_DEAD ||
@@ -1069,6 +1072,66 @@ static void service_set_state(Service *s, ServiceState state) {
                 log_debug("%s changed %s → %s", UNIT(s)->meta.id, service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+}
+
+static int service_coldplug(Unit *u) {
+        Service *s = SERVICE(u);
+        int r;
+
+        assert(s);
+        assert(s->state == SERVICE_DEAD);
+
+        if (s->deserialized_state != s->state) {
+
+                if (s->deserialized_state == SERVICE_START_PRE ||
+                    s->deserialized_state == SERVICE_START ||
+                    s->deserialized_state == SERVICE_START_POST ||
+                    s->deserialized_state == SERVICE_RELOAD ||
+                    s->deserialized_state == SERVICE_STOP ||
+                    s->deserialized_state == SERVICE_STOP_SIGTERM ||
+                    s->deserialized_state == SERVICE_STOP_SIGKILL ||
+                    s->deserialized_state == SERVICE_STOP_POST ||
+                    s->deserialized_state == SERVICE_FINAL_SIGTERM ||
+                    s->deserialized_state == SERVICE_FINAL_SIGKILL ||
+                    s->deserialized_state == SERVICE_AUTO_RESTART)
+                        if ((r = unit_watch_timer(UNIT(s),
+                                                  s->deserialized_state == SERVICE_AUTO_RESTART ?
+                                                  s->restart_usec :
+                                                  s->timeout_usec,
+                                                  &s->timer_watch)) < 0)
+                                return r;
+
+                if ((s->deserialized_state == SERVICE_START &&
+                     (s->type == SERVICE_FORKING ||
+                      s->type == SERVICE_DBUS)) ||
+                    s->deserialized_state == SERVICE_START_POST ||
+                    s->deserialized_state == SERVICE_RUNNING ||
+                    s->deserialized_state == SERVICE_RELOAD ||
+                    s->deserialized_state == SERVICE_STOP ||
+                    s->deserialized_state == SERVICE_STOP_SIGTERM ||
+                    s->deserialized_state == SERVICE_STOP_SIGKILL)
+                        if (s->main_pid > 0)
+                                if ((r = unit_watch_pid(UNIT(s), s->main_pid)) < 0)
+                                        return r;
+
+                if (s->deserialized_state == SERVICE_START_PRE ||
+                    s->deserialized_state == SERVICE_START ||
+                    s->deserialized_state == SERVICE_START_POST ||
+                    s->deserialized_state == SERVICE_RELOAD ||
+                    s->deserialized_state == SERVICE_STOP ||
+                    s->deserialized_state == SERVICE_STOP_SIGTERM ||
+                    s->deserialized_state == SERVICE_STOP_SIGKILL ||
+                    s->deserialized_state == SERVICE_STOP_POST ||
+                    s->deserialized_state == SERVICE_FINAL_SIGTERM ||
+                    s->deserialized_state == SERVICE_FINAL_SIGKILL)
+                        if (s->control_pid > 0)
+                                if ((r = unit_watch_pid(UNIT(s), s->control_pid)) < 0)
+                                        return r;
+
+                service_set_state(s, s->deserialized_state);
+        }
+
+        return 0;
 }
 
 static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
@@ -1279,6 +1342,7 @@ static void service_enter_stop_post(Service *s, bool success) {
 
         service_unwatch_control_pid(s);
 
+        s->control_command_id = SERVICE_EXEC_STOP_POST;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
@@ -1374,6 +1438,7 @@ static void service_enter_stop(Service *s, bool success) {
 
         service_unwatch_control_pid(s);
 
+        s->control_command_id = SERVICE_EXEC_STOP;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
@@ -1417,6 +1482,7 @@ static void service_enter_start_post(Service *s) {
 
         service_unwatch_control_pid(s);
 
+        s->control_command_id = SERVICE_EXEC_START_POST;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
@@ -1478,6 +1544,7 @@ static void service_enter_start(Service *s) {
 
                 s->control_pid = pid;
 
+                s->control_command_id = SERVICE_EXEC_START;
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
                 service_set_state(s, SERVICE_START);
 
@@ -1511,6 +1578,7 @@ static void service_enter_start_pre(Service *s) {
 
         service_unwatch_control_pid(s);
 
+        s->control_command_id = SERVICE_EXEC_START_PRE;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
@@ -1557,6 +1625,7 @@ static void service_enter_reload(Service *s) {
 
         service_unwatch_control_pid(s);
 
+        s->control_command_id = SERVICE_EXEC_RELOAD;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
@@ -1703,6 +1772,112 @@ static bool service_can_reload(Unit *u) {
         return !!s->exec_command[SERVICE_EXEC_RELOAD];
 }
 
+static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
+        Service *s = SERVICE(u);
+
+        assert(u);
+        assert(f);
+        assert(fds);
+
+        unit_serialize_item(u, f, "state", service_state_to_string(s->state));
+        unit_serialize_item(u, f, "failure", yes_no(s->failure));
+
+        if (s->control_pid > 0)
+                unit_serialize_item_format(u, f, "control-pid", "%u", (unsigned) (s->control_pid));
+
+        if (s->main_pid > 0)
+                unit_serialize_item_format(u, f, "main-pid", "%u", (unsigned) (s->main_pid));
+
+        unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
+
+        /* There's a minor uncleanliness here: if there are multiple
+         * commands attached here, we will start from the first one
+         * again */
+        if (s->control_command_id >= 0)
+                unit_serialize_item(u, f, "control-command", mount_exec_command_to_string(s->control_command_id));
+
+        if (s->socket_fd >= 0) {
+                int copy;
+
+                if ((copy = fdset_put_dup(fds, s->socket_fd)) < 0)
+                        return copy;
+
+                unit_serialize_item_format(u, f, "socket-fd", "%i", copy);
+        }
+
+        return 0;
+}
+
+static int service_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
+        Service *s = SERVICE(u);
+        int r;
+
+        assert(u);
+        assert(key);
+        assert(value);
+        assert(fds);
+
+        if (streq(key, "state")) {
+                ServiceState state;
+
+                if ((state = service_state_from_string(value)) < 0)
+                        log_debug("Failed to parse state value %s", value);
+                else
+                        s->deserialized_state = state;
+        } else if (streq(key, "failure")) {
+                int b;
+
+                if ((b = parse_boolean(value)) < 0)
+                        log_debug("Failed to parse failure value %s", value);
+                else
+                        s->failure = b || s->failure;
+        } else if (streq(key, "control-pid")) {
+                unsigned pid;
+
+                if ((r = safe_atou(value, &pid)) < 0 || pid <= 0)
+                        log_debug("Failed to parse control-pid value %s", value);
+                else
+                        s->control_pid = (pid_t) pid;
+        } else if (streq(key, "main-pid")) {
+                unsigned pid;
+
+                if ((r = safe_atou(value, &pid)) < 0 || pid <= 0)
+                        log_debug("Failed to parse main-pid value %s", value);
+                else
+                        s->main_pid = (pid_t) pid;
+        } else if (streq(key, "main-pid-known")) {
+                int b;
+
+                if ((b = parse_boolean(value)) < 0)
+                        log_debug("Failed to parse main-pid-known value %s", value);
+                else
+                        s->main_pid_known = b;
+        } else if (streq(key, "control-command")) {
+                ServiceExecCommand id;
+
+                if ((id = service_exec_command_from_string(value)) < 0)
+                        log_debug("Failed to parse exec-command value %s", value);
+                else {
+                        s->control_command_id = id;
+                        s->control_command = s->exec_command[id];
+                }
+        } else if (streq(key, "socket-fd")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        log_debug("Failed to parse socket-fd value %s", value);
+                else {
+
+                        if (s->socket_fd >= 0)
+                                close_nointr_nofail(s->socket_fd);
+                        s->socket_fd = fdset_remove(fds, fd);
+                }
+        } else
+                log_debug("Unknown serialization key '%s'", key);
+
+        return 0;
+}
+
 static UnitActiveState service_active_state(Unit *u) {
         assert(u);
 
@@ -1777,9 +1952,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 }
 
         } else if (s->control_pid == pid) {
-                assert(s->control_command);
 
-                exec_status_fill(&s->control_command->exec_status, pid, code, status);
+                if (s->control_command)
+                        exec_status_fill(&s->control_command->exec_status, pid, code, status);
+
                 s->control_pid = 0;
 
                 log_debug("%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
@@ -1787,7 +1963,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* If we are shutting things down anyway we
                  * don't care about failing commands. */
 
-                if (s->control_command->command_next && success) {
+                if (s->control_command && s->control_command->command_next && success) {
 
                         /* There is another command to *
                          * execute, so let's do that. */
@@ -1798,6 +1974,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 } else {
                         /* No further commands for this step, so let's
                          * figure out what to do next */
+
+                        s->control_command = NULL;
+                        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
                         log_debug("%s got final SIGCHLD for state %s", u->meta.id, service_state_to_string(s->state));
 
@@ -2218,8 +2397,10 @@ const UnitVTable service_vtable = {
         .suffix = ".service",
 
         .init = service_init,
-        .load = service_load,
         .done = service_done,
+        .load = service_load,
+
+        .coldplug = service_coldplug,
 
         .dump = service_dump,
 
@@ -2228,6 +2409,9 @@ const UnitVTable service_vtable = {
         .reload = service_reload,
 
         .can_reload = service_can_reload,
+
+        .serialize = service_serialize,
+        .deserialize_item = service_deserialize_item,
 
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,

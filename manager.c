@@ -35,6 +35,8 @@
 #include <libcgroup.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -323,6 +325,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         m->running_as = running_as;
         m->confirm_spawn = confirm_spawn;
         m->name_data_slot = -1;
+        m->exit_code = _MANAGER_EXIT_CODE_INVALID;
 
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
@@ -386,10 +389,9 @@ static unsigned manager_dispatch_cleanup_queue(Manager *m) {
         return n;
 }
 
-void manager_free(Manager *m) {
-        UnitType c;
-        Unit *u;
+static void manager_clear_jobs_and_units(Manager *m) {
         Job *j;
+        Unit *u;
 
         assert(m);
 
@@ -398,14 +400,22 @@ void manager_free(Manager *m) {
 
         while ((u = hashmap_first(m->units)))
                 unit_free(u);
+}
 
-        manager_dispatch_cleanup_queue(m);
+void manager_free(Manager *m) {
+        UnitType c;
+
+        assert(m);
+
+        manager_clear_jobs_and_units(m);
 
         for (c = 0; c < _UNIT_TYPE_MAX; c++)
                 if (unit_vtable[c]->shutdown)
                         unit_vtable[c]->shutdown(m);
 
-        manager_shutdown_cgroup(m);
+        /* If we reexecute ourselves, we keep the root cgroup
+         * around */
+        manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
         bus_done_api(m);
         bus_done_system(m);
@@ -417,9 +427,9 @@ void manager_free(Manager *m) {
         hashmap_free(m->watch_bus);
 
         if (m->epoll_fd >= 0)
-                close_nointr(m->epoll_fd);
+                close_nointr_nofail(m->epoll_fd);
         if (m->signal_watch.fd >= 0)
-                close_nointr(m->signal_watch.fd);
+                close_nointr_nofail(m->signal_watch.fd);
 
         strv_free(m->unit_path);
         strv_free(m->sysvinit_path);
@@ -428,29 +438,35 @@ void manager_free(Manager *m) {
         free(m->cgroup_controller);
         free(m->cgroup_hierarchy);
 
-        assert(hashmap_isempty(m->cgroup_bondings));
         hashmap_free(m->cgroup_bondings);
 
         free(m);
 }
 
-int manager_coldplug(Manager *m) {
-        int r;
+int manager_enumerate(Manager *m) {
+        int r = 0, q;
         UnitType c;
+
+        assert(m);
+
+        /* Let's ask every type to load all units from disk/kernel
+         * that it might know */
+        for (c = 0; c < _UNIT_TYPE_MAX; c++)
+                if (unit_vtable[c]->enumerate)
+                        if ((q = unit_vtable[c]->enumerate(m)) < 0)
+                                r = q;
+
+        manager_dispatch_load_queue(m);
+        return r;
+}
+
+int manager_coldplug(Manager *m) {
+        int r = 0, q;
         Iterator i;
         Unit *u;
         char *k;
 
         assert(m);
-
-        /* First, let's ask every type to load all units from
-         * disk/kernel that it might know */
-        for (c = 0; c < _UNIT_TYPE_MAX; c++)
-                if (unit_vtable[c]->enumerate)
-                        if ((r = unit_vtable[c]->enumerate(m)) < 0)
-                                return r;
-
-        manager_dispatch_load_queue(m);
 
         /* Then, let's set up their initial state. */
         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
@@ -460,15 +476,35 @@ int manager_coldplug(Manager *m) {
                         continue;
 
                 if (UNIT_VTABLE(u)->coldplug)
-                        if ((r = UNIT_VTABLE(u)->coldplug(u)) < 0)
-                                return r;
+                        if ((q = UNIT_VTABLE(u)->coldplug(u)) < 0)
+                                r = q;
         }
+
+        return r;
+}
+
+int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
+        int r, q;
+
+        assert(m);
+
+        /* First, enumerate what we can from all config files */
+        r = manager_enumerate(m);
+
+        /* Second, deserialize if there is something to deserialize */
+        if (serialization)
+                if ((q = manager_deserialize(m, serialization, fds)) < 0)
+                        r = q;
+
+        /* Third, fire things up! */
+        if ((q = manager_coldplug(m)) < 0)
+                r = q;
 
         /* Now that the initial devices are available, let's see if we
          * can write the utmp file */
         manager_write_utmp_reboot(m);
 
-        return 0;
+        return r;
 }
 
 static void transaction_delete_job(Manager *m, Job *j, bool delete_dependencies) {
@@ -1553,7 +1589,7 @@ static void manager_start_target(Manager *m, const char *name) {
                 log_error("Failed to enqueue %s job: %s", name, strerror(-r));
 }
 
-static int manager_process_signal_fd(Manager *m, bool *quit) {
+static int manager_process_signal_fd(Manager *m) {
         ssize_t n;
         struct signalfd_siginfo sfsi;
         bool sigchld = false;
@@ -1586,7 +1622,7 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
                                 break;
                         }
 
-                        *quit = true;
+                        m->exit_code = MANAGER_EXIT;
                         return 0;
 
                 case SIGWINCH:
@@ -1628,6 +1664,10 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
                         break;
                 }
 
+                case SIGHUP:
+                        m->exit_code = MANAGER_RELOAD;
+                        break;
+
                 default:
                         log_info("Got unhandled signal <%s>.", strsignal(sfsi.ssi_signo));
                 }
@@ -1639,7 +1679,7 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
         return 0;
 }
 
-static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
+static int process_event(Manager *m, struct epoll_event *ev) {
         int r;
         Watch *w;
 
@@ -1656,7 +1696,7 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
                 if (ev->events != EPOLLIN)
                         return -EINVAL;
 
-                if ((r = manager_process_signal_fd(m, quit)) < 0)
+                if ((r = manager_process_signal_fd(m)) < 0)
                         return r;
 
                 break;
@@ -1711,13 +1751,13 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
 
 int manager_loop(Manager *m) {
         int r;
-        bool quit = false;
 
         RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 1000);
 
         assert(m);
+        m->exit_code = MANAGER_RUNNING;
 
-        do {
+        while (m->exit_code == MANAGER_RUNNING) {
                 struct epoll_event event;
                 int n;
 
@@ -1752,11 +1792,11 @@ int manager_loop(Manager *m) {
 
                 assert(n == 1);
 
-                if ((r = process_event(m, &event, &quit)) < 0)
+                if ((r = process_event(m, &event)) < 0)
                         return r;
-        } while (!quit);
+        }
 
-        return 0;
+        return m->exit_code;
 }
 
 int manager_get_unit_from_dbus_path(Manager *m, const char *s, Unit **_u) {
@@ -1905,6 +1945,156 @@ void manager_dispatch_bus_query_pid_done(
                 return;
 
         UNIT_VTABLE(u)->bus_query_pid_done(u, name, pid);
+}
+
+int manager_open_serialization(FILE **_f) {
+        char *path;
+        mode_t saved_umask;
+        int fd;
+        FILE *f;
+
+        assert(_f);
+
+        if (asprintf(&path, "/dev/shm/systemd-%u.dump-XXXXXX", (unsigned) getpid()) < 0)
+                return -ENOMEM;
+
+        saved_umask = umask(0077);
+        fd = mkostemp(path, O_RDWR|O_CLOEXEC);
+        umask(saved_umask);
+
+        if (fd < 0) {
+                free(path);
+                return -errno;
+        }
+
+        unlink(path);
+
+        log_debug("Serializing state to %s", path);
+        free(path);
+
+        if (!(f = fdopen(fd, "w+")) < 0)
+                return -errno;
+
+        *_f = f;
+
+        return 0;
+}
+
+int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
+        Iterator i;
+        Unit *u;
+        const char *t;
+        int r;
+
+        assert(m);
+        assert(f);
+        assert(fds);
+
+        HASHMAP_FOREACH_KEY(u, t, m->units, i) {
+                if (u->meta.id != t)
+                        continue;
+
+                if (!unit_can_serialize(u))
+                        continue;
+
+                /* Start marker */
+                fputs(u->meta.id, f);
+                fputc('\n', f);
+
+                if ((r = unit_serialize(u, f, fds)) < 0)
+                        return r;
+        }
+
+        if (ferror(f))
+                return -EIO;
+
+        return 0;
+}
+
+int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
+        int r = 0;
+
+        assert(m);
+        assert(f);
+
+        log_debug("Deserializing state...");
+
+        for (;;) {
+                Unit *u;
+                char name[UNIT_NAME_MAX+2];
+
+                /* Start marker */
+                if (!fgets(name, sizeof(name), f)) {
+                        if (feof(f))
+                                break;
+
+                        return -errno;
+                }
+
+                char_array_0(name);
+
+                if ((r = manager_load_unit(m, strstrip(name), NULL, &u)) < 0)
+                        return r;
+
+                if ((r = unit_deserialize(u, f, fds)) < 0)
+                        return r;
+        }
+
+        if (ferror(f))
+                return -EIO;
+
+        return 0;
+}
+
+int manager_reload(Manager *m) {
+        int r, q;
+        FILE *f;
+        FDSet *fds;
+
+        assert(m);
+
+        if ((r = manager_open_serialization(&f)) < 0)
+                return r;
+
+        if (!(fds = fdset_new())) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if ((r = manager_serialize(m, f, fds)) < 0)
+                goto finish;
+
+        if (fseeko(f, 0, SEEK_SET) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        /* From here on there is no way back. */
+        manager_clear_jobs_and_units(m);
+
+        /* First, enumerate what we can from all config files */
+        if ((q = manager_enumerate(m)) < 0)
+                r = q;
+
+        /* Second, deserialize our stored data */
+        if ((q = manager_deserialize(m, f, fds)) < 0)
+                r = q;
+
+        fclose(f);
+        f = NULL;
+
+        /* Third, fire things up! */
+        if ((q = manager_coldplug(m)) < 0)
+                r = q;
+
+finish:
+        if (f)
+                fclose(f);
+
+        if (fds)
+                fdset_free(fds);
+
+        return r;
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

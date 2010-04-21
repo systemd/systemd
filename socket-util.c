@@ -316,7 +316,7 @@ int socket_address_listen(
         if ((r = socket_address_verify(a)) < 0)
                 return r;
 
-        if ((fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK, 0)) < 0)
+        if ((fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0)) < 0)
                 return -errno;
 
         if (socket_address_family(a) == AF_INET6 && only != SOCKET_ADDRESS_DEFAULT) {
@@ -370,7 +370,7 @@ int socket_address_listen(
 
 fail:
         r = -errno;
-        close_nointr(fd);
+        close_nointr_nofail(fd);
         return r;
 }
 
@@ -380,4 +380,78 @@ bool socket_address_can_accept(const SocketAddress *a) {
         return
                 a->type == SOCK_STREAM ||
                 a->type == SOCK_SEQPACKET;
+}
+
+bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
+        assert(a);
+        assert(b);
+
+        /* Invalid addresses are unequal to all */
+        if (socket_address_verify(a) < 0 ||
+            socket_address_verify(b) < 0)
+                return false;
+
+        if (a->type != b->type)
+                return false;
+
+        if (a->size != b->size)
+                return false;
+
+        if (socket_address_family(a) != socket_address_family(b))
+                return false;
+
+        switch (socket_address_family(a)) {
+
+        case AF_INET:
+                if (a->sockaddr.in4.sin_addr.s_addr != b->sockaddr.in4.sin_addr.s_addr)
+                        return false;
+
+                if (a->sockaddr.in4.sin_port != b->sockaddr.in4.sin_port)
+                        return false;
+
+                break;
+
+        case AF_INET6:
+                if (memcmp(&a->sockaddr.in6.sin6_addr, &b->sockaddr.in6.sin6_addr, sizeof(a->sockaddr.in6.sin6_addr)) != 0)
+                        return false;
+
+                if (a->sockaddr.in6.sin6_port != b->sockaddr.in6.sin6_port)
+                        return false;
+
+                break;
+
+        case AF_UNIX:
+
+                if ((a->sockaddr.un.sun_path[0] == 0) != (b->sockaddr.un.sun_path[0] == 0))
+                        return false;
+
+                if (a->sockaddr.un.sun_path[0]) {
+                        if (strncmp(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, sizeof(a->sockaddr.un.sun_path)) != 0)
+                                return false;
+                } else {
+                        if (memcmp(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, sizeof(a->sockaddr.un.sun_path)) != 0)
+                                return false;
+                }
+
+                break;
+
+        default:
+                /* Cannot compare, so we assume the addresses are different */
+                return false;
+        }
+
+        return true;
+}
+
+bool socket_address_is(const SocketAddress *a, const char *s) {
+        struct SocketAddress b;
+
+        assert(a);
+        assert(s);
+
+        if (socket_address_parse(&b, s) < 0)
+                return false;
+
+        return socket_address_equal(a, &b);
+
 }
