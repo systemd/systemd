@@ -118,9 +118,6 @@ struct Watch {
 #define SPECIAL_RUNLEVEL6_TARGET "runlevel6.target"
 
 struct Manager {
-        /* In which mode are we running */
-        ManagerRunningAs running_as;
-
         uint32_t current_job_id;
 
         /* Note that the set of units we know of is allowed to be
@@ -165,7 +162,8 @@ struct Manager {
 
         bool confirm_spawn:1;
 
-        ManagerExitCode exit_code;
+        ManagerExitCode exit_code:4;
+        ManagerRunningAs running_as;
 
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
