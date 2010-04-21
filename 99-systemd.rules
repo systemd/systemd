@@ -20,5 +20,6 @@ ACTION!="add|change", GOTO="systemd_end"
 KERNEL=="tty[0-9]|tty1[0-2]", ENV{SYSTEMD_EXPOSE}="1"
 KERNEL=="ttyS*", ENV{SYSTEMD_EXPOSE}="1"
 SUBSYSTEM=="block", ENV{SYSTEMD_EXPOSE}="1"
+SUBSYSTEM=="net", ENV{SYSTEMD_EXPOSE}="1"
 
 LABEL="systemd_end"
