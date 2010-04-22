@@ -238,6 +238,13 @@
             </varlistentry>
 
             <varlistentry>
+              <term><option>TAG</option></term>
+              <listitem>
+                <para>Match against a device tag.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
               <term><option>TEST{<replaceable>octal mode mask</replaceable>}</option></term>
               <listitem>
                 <para>Test the existence of a file. An octal mode mask can be specified

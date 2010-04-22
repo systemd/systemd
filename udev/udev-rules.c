@@ -125,6 +125,7 @@ enum token_type {
 	TK_M_DEVLINK,			/* val */
 	TK_M_NAME,			/* val */
 	TK_M_ENV,			/* val, attr */
+	TK_M_TAG,			/* val */
 	TK_M_SUBSYSTEM,			/* val */
 	TK_M_DRIVER,			/* val */
 	TK_M_WAITFOR,			/* val */
@@ -254,6 +255,7 @@ static const char *token_str(enum token_type type)
 		[TK_M_DEVLINK] =		"M DEVLINK",
 		[TK_M_NAME] =			"M NAME",
 		[TK_M_ENV] =			"M ENV",
+		[TK_M_TAG] =			"M TAG",
 		[TK_M_SUBSYSTEM] =		"M SUBSYSTEM",
 		[TK_M_DRIVER] =			"M DRIVER",
 		[TK_M_WAITFOR] =		"M WAITFOR",
@@ -356,6 +358,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		dbg(rules->udev, "%s %s '%s' '%s'(%s)\n",
 		    token_str(type), operation_str(op), attr, value, string_glob_str(glob));
 		break;
+	case TK_M_TAG:
 	case TK_A_TAG:
 		dbg(rules->udev, "%s %s '%s'\n", token_str(type), operation_str(op), value);
 		break;
@@ -1008,6 +1011,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_A_MODE:
 	case TK_A_NAME:
 	case TK_A_GOTO:
+	case TK_M_TAG:
 	case TK_A_TAG:
 		token->key.value_off = add_string(rule_tmp->rules, value);
 		break;
@@ -1357,7 +1361,10 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcmp(key, "TAG") == 0) {
-			rule_add_key(&rule_tmp, TK_A_TAG, op, value, NULL);
+			if (op < OP_MATCH_MAX)
+				rule_add_key(&rule_tmp, TK_M_TAG, op, value, NULL);
+			else
+				rule_add_key(&rule_tmp, TK_A_TAG, op, value, NULL);
 			continue;
 		}
 
@@ -2101,6 +2108,21 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					value = "";
 				}
 				if (match_key(rules, cur, value))
+					goto nomatch;
+				break;
+			}
+		case TK_M_TAG:
+			{
+				struct udev_list_entry *list_entry;
+				bool match = false;
+
+				udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(event->dev)) {
+					if (strcmp(&rules->buf[cur->key.value_off], udev_list_entry_get_name(list_entry)) == 0) {
+						match = true;
+						break;
+					}
+				}
+				if (!match && (cur->key.op != OP_NOMATCH))
 					goto nomatch;
 				break;
 			}
