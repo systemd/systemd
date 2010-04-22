@@ -78,8 +78,10 @@
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>"     \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>"   \
         "  <property name=\"BootTimestamp\" type=\"t\" access=\"read\"/>" \
-        "  <property name=\"LogLevel\" type=\"s\" access=\"readwrite\"/>" \
-        "  <property name=\"LogTarget\" type=\"s\" access=\"readwrite\"/>" \
+        "  <property name=\"LogLevel\" type=\"s\" access=\"read\"/>"    \
+        "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>"   \
+        "  <property name=\"NNames\" type=\"u\" access=\"read\"/>"      \
+        "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>"       \
         " </interface>"                                                 \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE
@@ -119,6 +121,36 @@ static int bus_manager_append_log_level(Manager *m, DBusMessageIter *i, const ch
         return 0;
 }
 
+static int bus_manager_append_n_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        uint32_t u;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        u = hashmap_size(m->units);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT32, &u))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_manager_append_n_jobs(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        uint32_t u;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        u = hashmap_size(m->jobs);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT32, &u))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusMessage *message, void *data) {
         Manager *m = data;
 
@@ -128,6 +160,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 { "org.freedesktop.systemd1.Manager", "BootTimestamp", bus_property_append_uint64,    "t", &m->boot_timestamp },
                 { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s", NULL               },
                 { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
+                { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u", NULL               },
+                { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u", NULL               },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

@@ -125,6 +125,11 @@ int unit_add_name(Unit *u, const char *text) {
                 goto fail;
         }
 
+        if (hashmap_size(u->meta.manager->units) >= MANAGER_MAX_NAMES) {
+                r = -E2BIG;
+                goto fail;
+        }
+
         if ((r = set_put(u->meta.names, s)) < 0) {
                 if (r == -EEXIST)
                         r = 0;
