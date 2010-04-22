@@ -284,6 +284,8 @@ int udev_device_read_db(struct udev_device *udev_device)
 		dbg(udev_device->udev, "error reading db file %s: %m\n", filename);
 		return -1;
 	}
+	udev_device->db_loaded = true;
+
 	while (fgets(line, sizeof(line), f)) {
 		ssize_t len;
 		const char *val;
@@ -322,7 +324,6 @@ int udev_device_read_db(struct udev_device *udev_device)
 	fclose(f);
 
 	info(udev_device->udev, "device %p filled with db file data\n", udev_device);
-	udev_device->db_loaded = true;
 	return 0;
 }
 
@@ -341,6 +342,7 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 	f = fopen(filename, "r");
 	if (f == NULL)
 		return -1;
+	udev_device->uevent_loaded = true;
 
 	while (fgets(line, sizeof(line), f)) {
 		char *pos;
@@ -364,7 +366,6 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 
 	udev_device->devnum = makedev(maj, min);
 	fclose(f);
-	udev_device->uevent_loaded = true;
 	return 0;
 }
 
