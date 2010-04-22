@@ -289,7 +289,7 @@ static void apply_acl_to_devices(uid_t uid, int add)
 	/* iterate over all devices tagged with ACL_SET */
 	udev = udev_new();
 	enumerate = udev_enumerate_new(udev);
-	udev_enumerate_add_match_property(enumerate, "ACL_MANAGE", "1");
+	udev_enumerate_add_match_tag(enumerate, "udev-acl");
 	udev_enumerate_scan_devices(enumerate);
 	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
 		struct udev_device *device;

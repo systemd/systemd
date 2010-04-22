@@ -8,70 +8,70 @@ ACTION=="remove", GOTO="acl_apply"
 
 # PTP/MTP protocol devices, cameras, portable media players
 SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="", ENV{DEVTYPE}=="usb_device", IMPORT{program}="usb_id --export %p"
-SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:060101:*", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:060101:*", TAG="udev-acl"
 
 # digicams with proprietary protocol
-ENV{ID_GPHOTO2}=="*?", ENV{ACL_MANAGE}="1"
+ENV{ID_GPHOTO2}=="*?", TAG="udev-acl"
 
 # SCSI scanners
-KERNEL=="sg[0-9]*", ATTRS{type}=="6", ENV{ACL_MANAGE}="1"
-KERNEL=="sg[0-9]*", ATTRS{type}=="3", ATTRS{vendor}=="HP|EPSON|Epson", ENV{ACL_MANAGE}="1"
+KERNEL=="sg[0-9]*", ATTRS{type}=="6", TAG="udev-acl"
+KERNEL=="sg[0-9]*", ATTRS{type}=="3", ATTRS{vendor}=="HP|EPSON|Epson", TAG="udev-acl"
 
 # USB scanners
-ENV{libsane_matched}=="yes", ENV{ACL_MANAGE}="1"
+ENV{libsane_matched}=="yes", TAG="udev-acl"
 
 # HPLIP devices (necessary for ink level check and HP tool maintenance)
-ENV{ID_HPLIP}=="1", ENV{ACL_MANAGE}="1"
+ENV{ID_HPLIP}=="1", TAG="udev-acl"
 
 # optical drives
-SUBSYSTEM=="block", ENV{ID_CDROM}=="1", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="block", ENV{ID_CDROM}=="1", TAG="udev-acl"
 
 # sound devices
-SUBSYSTEM=="sound", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="sound", TAG="udev-acl"
 # sound jack-sense
-SUBSYSTEM=="input", SUBSYSTEMS=="sound", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="input", SUBSYSTEMS=="sound", TAG="udev-acl"
 
 # webcams, frame grabber, TV cards
-SUBSYSTEM=="video4linux", ENV{ACL_MANAGE}="1"
-SUBSYSTEM=="dvb", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="video4linux", TAG="udev-acl"
+SUBSYSTEM=="dvb", TAG="udev-acl"
 
 # IIDC devices: industrial cameras and some webcams
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*",  ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*",  TAG="udev-acl"
 # AV/C devices: camcorders, set-top boxes, TV sets, audio devices, and more
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", TAG="udev-acl"
 
 # old style firewire devices
-KERNEL=="dv1394-[0-9]*", ENV{ACL_MANAGE}="1"
-KERNEL=="video1394-[0-9]*", ENV{ACL_MANAGE}="1"
+KERNEL=="dv1394-[0-9]*", TAG="udev-acl"
+KERNEL=="video1394-[0-9]*", TAG="udev-acl"
 
 # fingerprint readers
-SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="2016", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="2016", TAG="udev-acl"
 
 # GPS devices
  # Garmin GPSMap 60
-SUBSYSTEM=="usb", ATTR{idVendor}=="091e", ATTR{idProduct}=="0003", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="usb", ATTR{idVendor}=="091e", ATTR{idProduct}=="0003", TAG="udev-acl"
 
 
 # DRI video devices
-SUBSYSTEM=="drm", KERNEL=="card*", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="drm", KERNEL=="card*", TAG="udev-acl"
 
 # KVM
-SUBSYSTEM=="misc", KERNEL=="kvm", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="misc", KERNEL=="kvm", TAG="udev-acl"
 
 # smart-card readers
-ENV{ID_SMARTCARD_READER}=="*?", ENV{ACL_MANAGE}="1"
+ENV{ID_SMARTCARD_READER}=="*?", TAG="udev-acl"
 
 # joysticks
-SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", TAG="udev-acl"
 
 # smart phones
-SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="0c02", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="0c02", TAG="udev-acl"
 
 # color measurement devices
-ENV{COLOR_MEASUREMENT_DEVICE}=="*?", ENV{ACL_MANAGE}="1"
+ENV{COLOR_MEASUREMENT_DEVICE}=="*?", TAG="udev-acl"
 
 # apply ACL for all locally logged in users
-LABEL="acl_apply", ENV{ACL_MANAGE}=="1", TEST=="/var/run/ConsoleKit/database", \
+LABEL="acl_apply", TAG=="udev-acl", TEST=="/var/run/ConsoleKit/database", \
   RUN+="udev-acl --action=$env{ACTION} --device=$env{DEVNAME}"
 
 LABEL="acl_end"
