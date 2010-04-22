@@ -40,6 +40,10 @@ static int log_max_level = LOG_DEBUG;
 static int syslog_fd = -1;
 static int kmsg_fd = -1;
 
+/* Akin to glibc's __abort_msg; which is private and we hance cannot
+ * use here. */
+static char *log_abort_msg = NULL;
+
 void log_close_kmsg(void) {
 
         if (kmsg_fd >= 0) {
@@ -245,6 +249,26 @@ static int write_to_kmsg(
         return 0;
 }
 
+#define LOG_DISPATCH(level,file,line,func,format)                       \
+        do {                                                            \
+                va_list _ap;                                            \
+                bool written = false;                                   \
+                if (log_target == LOG_TARGET_KMSG) {                    \
+                        va_start(_ap, format);                          \
+                        written = write_to_kmsg(level, file, line, func, format, _ap) >= 0; \
+                        va_end(_ap);                                    \
+                } else if (log_target == LOG_TARGET_SYSLOG) {           \
+                        va_start(_ap, format);                          \
+                        written = write_to_syslog(level, file, line, func, format, _ap) >= 0; \
+                        va_end(_ap);                                    \
+                }                                                       \
+                if (!written) {                                         \
+                        va_start(_ap, format);                          \
+                        write_to_console(level, file, line, func, format, _ap); \
+                        va_end(_ap);                                    \
+                }                                                       \
+        } while (false)
+
 void log_meta(
         int level,
         const char*file,
@@ -252,32 +276,37 @@ void log_meta(
         const char *func,
         const char *format, ...) {
 
-        va_list ap;
-        bool written;
         int saved_errno;
 
         if (LOG_PRI(level) > log_max_level)
                 return;
 
         saved_errno = errno;
-        written = false;
+        LOG_DISPATCH(level, file, line, func, format);
+        errno = saved_errno;
+}
 
-        if (log_target == LOG_TARGET_KMSG) {
-                va_start(ap, format);
-                written = write_to_kmsg(level, file, line, func, format, ap) >= 0;
-                va_end(ap);
-        } else if (log_target == LOG_TARGET_SYSLOG) {
-                va_start(ap, format);
-                written = write_to_syslog(level, file, line, func, format, ap) >= 0;
-                va_end(ap);
-        }
+void log_assert(
+        const char*file,
+        int line,
+        const char *func,
+        const char *format, ...) {
 
-        if (!written) {
-                va_start(ap, format);
-                write_to_console(level, file, line, func, format, ap);
-                va_end(ap);
-        }
+        static char buffer[LOG_BUFFER_MAX];
+        va_list ap;
+        int saved_errno = errno;
 
+        va_start(ap, format);
+        vsnprintf(buffer, sizeof(buffer), format, ap);
+        va_end(ap);
+
+        char_array_0(buffer);
+        log_abort_msg = buffer;
+
+        LOG_DISPATCH(LOG_CRIT, file, line, func, format);
+        abort();
+
+        /* If the user chose to ignore this SIGABRT, we are happy to go on, as if nothing happened. */
         errno = saved_errno;
 }
 

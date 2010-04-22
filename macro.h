@@ -35,6 +35,7 @@
 #define _deprecated __attribute__ ((deprecated))
 #define _packed __attribute__ ((packed))
 #define _malloc __attribute__ ((malloc))
+#define _weak __attribute__ ((weak))
 #define _likely(x) (__builtin_expect(!!(x),1))
 #define _unlikely(x) (__builtin_expect(!!(x),0))
 
@@ -69,11 +70,10 @@ static inline size_t ALIGN(size_t l) {
 
 #define assert_se(expr)                                                 \
         do {                                                            \
-                if (_unlikely(!(expr))) {                               \
-                        log_error("Assertion '%s' failed at %s:%u, function %s(). Aborting.", \
-                                  #expr , __FILE__, __LINE__, __PRETTY_FUNCTION__); \
-                        abort();                                        \
-                }                                                       \
+                if (_unlikely(!(expr)))                                 \
+                        log_assert(__FILE__, __LINE__, __PRETTY_FUNCTION__, \
+                                   "Assertion '%s' failed at %s:%u, function %s(). Aborting.", \
+                                   #expr , __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)                                                 \
 
 /* We override the glibc assert() here. */
@@ -86,9 +86,9 @@ static inline size_t ALIGN(size_t l) {
 
 #define assert_not_reached(t)                                           \
         do {                                                            \
-                log_error("Code should not be reached '%s' at %s:%u, function %s(). Aborting.", \
-                          t, __FILE__, __LINE__, __PRETTY_FUNCTION__);  \
-                abort();                                                \
+                log_assert(__FILE__, __LINE__, __PRETTY_FUNCTION__,     \
+                           "Code should not be reached '%s' at %s:%u, function %s(). Aborting.", \
+                           t, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
 #define assert_cc(expr)                            \
