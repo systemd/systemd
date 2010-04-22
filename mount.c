@@ -1462,6 +1462,7 @@ const UnitVTable mount_vtable = {
 
         .no_alias = true,
         .no_instances = true,
+        .no_isolate = true,
 
         .init = mount_init,
         .load = mount_load,

@@ -81,6 +81,7 @@ int main (string[] args) {
                         "  cancel [JOB...]     Cancel one or more jobs\n" +
                         "  start [NAME...]     Start on or more units\n" +
                         "  stop [NAME...]      Stop on or more units\n" +
+                        "  enter [NAME]        Start one unit and stop all others\n" +
                         "  restart [NAME...]   Restart on or more units\n" +
                         "  reload [NAME...]    Reload on or more units\n" +
                         "  monitor             Monitor unit/job changes\n" +
@@ -213,6 +214,22 @@ int main (string[] args) {
                                 else if (args[1] == "reload")
                                         u.reload(mode);
                         }
+
+                } else if (args[1] == "isolate") {
+
+                        if (args.length != 3) {
+                                stderr.printf("Missing argument.\n");
+                                return 1;
+                        }
+
+                        ObjectPath p = manager.get_unit(args[2]);
+
+                        Unit u = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        p,
+                                        "org.freedesktop.systemd1.Unit") as Unit;
+
+                        u.start("isolate");
 
                 } else if (args[1] == "monitor") {
 

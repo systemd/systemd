@@ -65,6 +65,7 @@ enum JobState {
 enum JobMode {
         JOB_FAIL,
         JOB_REPLACE,
+        JOB_ISOLATE,
         _JOB_MODE_MAX,
         _JOB_MODE_INVALID = -1
 };

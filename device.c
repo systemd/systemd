@@ -433,6 +433,7 @@ const UnitVTable device_vtable = {
         .no_requires = true,
         .no_instances = true,
         .no_snapshots = true,
+        .no_isolate = true,
 
         .load = unit_load_fragment_and_dropin_optional,
         .done = device_done,

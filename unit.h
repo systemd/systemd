@@ -306,6 +306,9 @@ struct UnitVTable {
 
         /* Exclude from automatic gc */
         bool no_gc:1;
+
+        /* Exclude from isolation requests */
+        bool no_isolate:1;
 };
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];

@@ -1004,7 +1004,7 @@ static void transaction_collect_garbage(Manager *m) {
         } while (again);
 }
 
-static int transaction_is_destructive(Manager *m, JobMode mode) {
+static int transaction_is_destructive(Manager *m) {
         Iterator i;
         Job *j;
 
@@ -1083,7 +1083,7 @@ static void transaction_minimize_impact(Manager *m) {
         } while (again);
 }
 
-static int transaction_apply(Manager *m, JobMode mode) {
+static int transaction_apply(Manager *m) {
         Iterator i;
         Job *j;
         int r;
@@ -1203,13 +1203,13 @@ static int transaction_activate(Manager *m, JobMode mode) {
 
         /* Ninth step: check whether we can actually apply this */
         if (mode == JOB_FAIL)
-                if ((r = transaction_is_destructive(m, mode)) < 0) {
+                if ((r = transaction_is_destructive(m)) < 0) {
                         log_debug("Requested transaction contradicts existing jobs: %s", strerror(-r));
                         goto rollback;
                 }
 
         /* Tenth step: apply changes */
-        if ((r = transaction_apply(m, mode)) < 0) {
+        if ((r = transaction_apply(m)) < 0) {
                 log_debug("Failed to apply transaction: %s", strerror(-r));
                 goto rollback;
         }
@@ -1383,6 +1383,38 @@ fail:
         return r;
 }
 
+static int transaction_add_isolate_jobs(Manager *m) {
+        Iterator i;
+        Unit *u;
+        char *k;
+        int r;
+
+        assert(m);
+
+        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+
+                /* ignore aliases */
+                if (u->meta.id != k)
+                        continue;
+
+                if (UNIT_VTABLE(u)->no_isolate)
+                        continue;
+
+                /* No need to stop inactive jobs */
+                if (unit_active_state(u) == UNIT_INACTIVE)
+                        continue;
+
+                /* Is there already something listed for this? */
+                if (hashmap_get(m->transaction_jobs, u))
+                        continue;
+
+                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, NULL)) < 0)
+                        log_warning("Cannot add isolate job for unit %s, ignoring: %s", u->meta.id, strerror(-r));
+        }
+
+        return 0;
+}
+
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, Job **_ret) {
         int r;
         Job *ret;
@@ -1392,12 +1424,21 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         assert(unit);
         assert(mode < _JOB_MODE_MAX);
 
+        if (mode == JOB_ISOLATE && type != JOB_START)
+                return -EINVAL;
+
         log_debug("Trying to enqueue job %s/%s", unit->meta.id, job_type_to_string(type));
 
         if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, &ret)) < 0) {
                 transaction_abort(m);
                 return r;
         }
+
+        if (mode == JOB_ISOLATE)
+                if ((r = transaction_add_isolate_jobs(m)) < 0) {
+                        transaction_abort(m);
+                        return r;
+                }
 
         if ((r = transaction_activate(m, mode)) < 0)
                 return r;
