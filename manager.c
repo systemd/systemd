@@ -405,7 +405,7 @@ static void unit_gc_sweep(Unit *u, int gc_marker) {
             u->meta.gc_marker == -gc_marker)
                 return;
 
-        if (!u->meta.in_cleanup_queue)
+        if (u->meta.in_cleanup_queue)
                 goto bad;
 
         if (unit_check_gc(u))
@@ -441,8 +441,10 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
         log_debug("Running GC...");
 
-        gc_marker = m->gc_marker;
-        m->gc_marker = MIN(0, m->gc_marker + 1);
+        gc_marker = ++m->gc_marker;
+
+        if (m->gc_marker < 0)
+                m->gc_marker = 1;
 
         while ((meta = m->gc_queue)) {
                 assert(meta->in_gc_queue);
