@@ -73,6 +73,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	int print_kernel = 0;
 	int print_udev = 0;
 	struct udev_list_node subsystem_match_list;
+	struct udev_list_node tag_match_list;
 	struct udev_monitor *udev_monitor = NULL;
 	struct udev_monitor *kernel_monitor = NULL;
 	fd_set readfds;
@@ -84,13 +85,15 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		{ "kernel", no_argument, NULL, 'k' },
 		{ "udev", no_argument, NULL, 'u' },
 		{ "subsystem-match", required_argument, NULL, 's' },
+		{ "tag-match", required_argument, NULL, 't' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 
 	udev_list_init(&subsystem_match_list);
+	udev_list_init(&tag_match_list);
 	while (1) {
-		option = getopt_long(argc, argv, "epkus:h", options, NULL);
+		option = getopt_long(argc, argv, "pekus:t:h", options, NULL);
 		if (option == -1)
 			break;
 
@@ -119,12 +122,16 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 				udev_list_entry_add(udev, &subsystem_match_list, subsys, devtype, 0, 0);
 				break;
 			}
+		case 't':
+			udev_list_entry_add(udev, &tag_match_list, optarg, NULL, 0, 0);
+			break;
 		case 'h':
 			printf("Usage: udevadm monitor [--property] [--kernel] [--udev] [--help]\n"
 			       "  --property                              print the event properties\n"
 			       "  --kernel                                print kernel uevents\n"
 			       "  --udev                                  print udev events\n"
 			       "  --subsystem-match=<subsystem[/devtype]> filter events by subsystem\n"
+			       "  --tag-match=<tag>                       filter events by tag\n"
 			       "  --help\n\n");
 		default:
 			goto out;
@@ -166,6 +173,13 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 			if (udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, subsys, devtype) < 0)
 				fprintf(stderr, "error: unable to apply subsystem filter '%s'\n", subsys);
+		}
+
+		udev_list_entry_foreach(entry, udev_list_get_entry(&tag_match_list)) {
+			const char *tag = udev_list_entry_get_name(entry);
+
+			if (udev_monitor_filter_add_match_tag(udev_monitor, tag) < 0)
+				fprintf(stderr, "error: unable to apply tag filter '%s'\n", tag);
 		}
 
 		if (udev_monitor_enable_receiving(udev_monitor) < 0) {
@@ -244,5 +258,6 @@ out:
 	udev_monitor_unref(udev_monitor);
 	udev_monitor_unref(kernel_monitor);
 	udev_list_cleanup_entries(udev, &subsystem_match_list);
+	udev_list_cleanup_entries(udev, &tag_match_list);
 	return rc;
 }

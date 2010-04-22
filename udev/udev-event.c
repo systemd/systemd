@@ -543,7 +543,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 	if (strcmp(udev_device_get_action(dev), "remove") == 0) {
 		udev_device_read_db(dev);
-		udev_device_set_info_loaded(dev);
 		udev_device_delete_db(dev);
 
 		if (major(udev_device_get_devnum(dev)) != 0)

@@ -481,15 +481,74 @@ err:
 	return -1;
 }
 
+/*
+ * http://sites.google.com/site/murmurhash/
+ *
+ * All code is released to the public domain. For business purposes,
+ * Murmurhash is under the MIT license.
+ *
+ */
+static unsigned int murmur_hash2(const char *key, int len, unsigned int seed)
+{
+	/*
+	 *  'm' and 'r' are mixing constants generated offline.
+	 *  They're not really 'magic', they just happen to work well.
+	 */
+	const unsigned int m = 0x5bd1e995;
+	const int r = 24;
+
+	/* initialize the hash to a 'random' value */
+	unsigned int h = seed ^ len;
+
+	/* mix 4 bytes at a time into the hash */
+	const unsigned char * data = (const unsigned char *)key;
+
+	while(len >= 4) {
+		unsigned int k = *(unsigned int *)data;
+
+		k *= m; 
+		k ^= k >> r; 
+		k *= m; 
+		h *= m; 
+		h ^= k;
+
+		data += 4;
+		len -= 4;
+	}
+
+	/* handle the last few bytes of the input array */
+	switch(len) {
+	case 3:
+		h ^= data[2] << 16;
+	case 2:
+		h ^= data[1] << 8;
+	case 1:
+		h ^= data[0];
+		h *= m;
+	};
+
+	/* do a few final mixes of the hash to ensure the last few bytes are well-incorporated */
+	h ^= h >> 13;
+	h *= m;
+	h ^= h >> 15;
+
+	return h;
+}
+
 unsigned int util_string_hash32(const char *str)
 {
-	unsigned int hash = 0;
+	return murmur_hash2(str, strlen(str), 0);
+}
 
-	while (str[0] != '\0') {
-		hash += str[0] << 4;
-		hash += str[0] >> 4;
-		hash *= 11;
-		str++;
-	}
-	return hash;
+/* get a bunch of bit numbers out of the hash, and set the bits in our bit field */
+uint64_t util_string_bloom64(const char *str)
+{
+	uint64_t bits = 0;
+	unsigned int hash = util_string_hash32(str);
+
+	bits |= 1LLU << (hash & 63);
+	bits |= 1LLU << ((hash >> 6) & 63);
+	bits |= 1LLU << ((hash >> 12) & 63);
+	bits |= 1LLU << ((hash >> 18) & 63);
+	return bits;
 }

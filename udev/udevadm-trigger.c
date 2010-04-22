@@ -101,6 +101,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		{ "attr-match", required_argument, NULL, 'a' },
 		{ "attr-nomatch", required_argument, NULL, 'A' },
 		{ "property-match", required_argument, NULL, 'p' },
+		{ "tag-match", required_argument, NULL, 'g' },
 		{ "sysname-match", required_argument, NULL, 'y' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
@@ -127,7 +128,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		const char *val;
 		char buf[UTIL_PATH_SIZE];
 
-		option = getopt_long(argc, argv, "vnFo:t:hcp:s:S:a:A:y:", options, NULL);
+		option = getopt_long(argc, argv, "vng:o:t:hcp:s:S:a:A:y:", options, NULL);
 		if (option == -1)
 			break;
 
@@ -172,6 +173,9 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			key = keyval(optarg, &val, buf, sizeof(buf));
 			udev_enumerate_add_match_property(udev_enumerate, key, val);
 			break;
+		case 'g':
+			udev_enumerate_add_match_tag(udev_enumerate, optarg);
+			break;
 		case 'y':
 			udev_enumerate_add_match_sysname(udev_enumerate, optarg);
 			break;
@@ -190,6 +194,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			       "  --attr-match=<file[=<value>]>   trigger devices with a matching attribute\n"
 			       "  --attr-nomatch=<file[=<value>]> exclude devices with a matching attribute\n"
 			       "  --property-match=<key>=<value>  trigger devices with a matching property\n"
+			       "  --tag-match=<key>=<value>       trigger devices with a matching property\n"
 			       "  --sysname-match=<name>          trigger devices with a matching name\n"
 			       "  --help\n\n");
 			goto exit;

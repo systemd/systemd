@@ -157,6 +157,7 @@ enum token_type {
 	TK_A_GROUP_ID,			/* gid_t */
 	TK_A_MODE_ID,			/* mode_t */
 	TK_A_ENV,			/* val, attr */
+	TK_A_TAG,			/* val */
 	TK_A_NAME,			/* val */
 	TK_A_DEVLINK,			/* val */
 	TK_A_EVENT_TIMEOUT,		/* int */
@@ -285,6 +286,7 @@ static const char *token_str(enum token_type type)
 		[TK_A_GROUP_ID] =		"A GROUP_ID",
 		[TK_A_MODE_ID] =		"A MODE_ID",
 		[TK_A_ENV] =			"A ENV",
+		[TK_A_TAG] =			"A ENV",
 		[TK_A_NAME] =			"A NAME",
 		[TK_A_DEVLINK] =		"A DEVLINK",
 		[TK_A_EVENT_TIMEOUT] =		"A EVENT_TIMEOUT",
@@ -353,6 +355,9 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_A_ENV:
 		dbg(rules->udev, "%s %s '%s' '%s'(%s)\n",
 		    token_str(type), operation_str(op), attr, value, string_glob_str(glob));
+		break;
+	case TK_A_TAG:
+		dbg(rules->udev, "%s %s '%s'\n", token_str(type), operation_str(op), value);
 		break;
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
@@ -1003,6 +1008,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_A_MODE:
 	case TK_A_NAME:
 	case TK_A_GOTO:
+	case TK_A_TAG:
 		token->key.value_off = add_string(rule_tmp->rules, value);
 		break;
 	case TK_M_ENV:
@@ -1347,6 +1353,11 @@ static int add_rule(struct udev_rules *rules, char *line,
 				if (rule_add_key(&rule_tmp, TK_A_ENV, op, value, attr) != 0)
 					goto invalid;
 			}
+			continue;
+		}
+
+		if (strcmp(key, "TAG") == 0) {
+			rule_add_key(&rule_tmp, TK_A_TAG, op, value, NULL);
 			continue;
 		}
 
@@ -2408,6 +2419,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				}
 				break;
 			}
+		case TK_A_TAG:
+			udev_device_add_tag(event->dev, &rules->buf[cur->key.value_off]);
+			break;
 		case TK_A_NAME:
 			{
 				const char *name  = &rules->buf[cur->key.value_off];

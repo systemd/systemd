@@ -60,6 +60,7 @@ udev_monitor_get_udev
 udev_monitor_get_fd
 udev_monitor_receive_device
 udev_monitor_filter_add_match_subsystem_devtype
+udev_monitor_filter_add_match_tag
 udev_monitor_filter_update
 udev_monitor_filter_remove
 udev_queue_new

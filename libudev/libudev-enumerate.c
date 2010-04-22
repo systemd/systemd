@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -51,6 +51,7 @@ struct udev_enumerate {
 	struct udev_list_node subsystem_nomatch_list;
 	struct udev_list_node sysname_match_list;
 	struct udev_list_node properties_match_list;
+	struct udev_list_node tags_match_list;
 	struct udev_list_node devices_list;
 	struct syspath *devices;
 	unsigned int devices_cur;
@@ -79,6 +80,7 @@ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 	udev_list_init(&udev_enumerate->subsystem_nomatch_list);
 	udev_list_init(&udev_enumerate->sysname_match_list);
 	udev_list_init(&udev_enumerate->properties_match_list);
+	udev_list_init(&udev_enumerate->tags_match_list);
 	udev_list_init(&udev_enumerate->devices_list);
 	return udev_enumerate;
 }
@@ -121,6 +123,7 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->subsystem_nomatch_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->sysname_match_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->properties_match_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->tags_match_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
 	for (i = 0; i < udev_enumerate->devices_cur; i++)
 		free(udev_enumerate->devices[i].syspath);
@@ -191,7 +194,7 @@ static int syspath_cmp(const void *p1, const void *p2)
 }
 
 /* For devices that should be moved to the absolute end of the list */
-static int devices_delay_end(struct udev *udev, const char *syspath)
+static bool devices_delay_end(struct udev *udev, const char *syspath)
 {
 	static const char *delay_device_list[] = {
 		"/block/md",
@@ -205,10 +208,10 @@ static int devices_delay_end(struct udev *udev, const char *syspath)
 	for (i = 0; delay_device_list[i] != NULL; i++) {
 		if (strstr(&syspath[len], delay_device_list[i]) != NULL) {
 			dbg(udev, "delaying: %s\n", syspath);
-			return 1;
+			return true;
 		}
 	}
-	return 0;
+	return false;
 }
 
 /* For devices that should just be moved a little bit later, just
@@ -394,16 +397,12 @@ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, co
 	return 0;
 }
 
-static int match_sysattr_value(struct udev *udev, const char *syspath, const char *sysattr, const char *match_val)
+static int match_sysattr_value(struct udev_device *dev, const char *sysattr, const char *match_val)
 {
-	struct udev_device *device;
 	const char *val = NULL;
 	bool match = false;
 
-	device = udev_device_new_from_syspath(udev, syspath);
-	if (device == NULL)
-		return -EINVAL;
-	val = udev_device_get_sysattr_value(device, sysattr);
+	val = udev_device_get_sysattr_value(dev, sysattr);
 	if (val == NULL)
 		goto exit;
 	if (match_val == NULL) {
@@ -415,7 +414,6 @@ static int match_sysattr_value(struct udev *udev, const char *syspath, const cha
 		goto exit;
 	}
 exit:
-	udev_device_unref(device);
 	return match;
 }
 
@@ -440,6 +438,25 @@ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, con
 }
 
 /**
+ * udev_enumerate_add_match_tag:
+ * @udev_enumerate: context
+ * @tag: filter for a tag of the device to include in the list
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
+int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const char *tag)
+{
+	if (udev_enumerate == NULL)
+		return -EINVAL;
+	if (tag == NULL)
+		return 0;
+	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
+				&udev_enumerate->tags_match_list, tag, NULL, 1, 0) == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+/**
  * udev_enumerate_add_match_sysname:
  * @udev_enumerate: context
  * @sysname: filter for the name of the device to include in the list
@@ -458,46 +475,37 @@ int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumerate, cons
 	return 0;
 }
 
-static int match_sysattr(struct udev_enumerate *udev_enumerate, const char *syspath)
+static bool match_sysattr(struct udev_enumerate *udev_enumerate, struct udev_device *dev)
 {
-	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	struct udev_list_entry *list_entry;
 
 	/* skip list */
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->sysattr_nomatch_list)) {
-		if (match_sysattr_value(udev, syspath,
-				     udev_list_entry_get_name(list_entry),
-				     udev_list_entry_get_value(list_entry)))
-			return 0;
+		if (match_sysattr_value(dev, udev_list_entry_get_name(list_entry),
+					udev_list_entry_get_value(list_entry)))
+			return false;
 	}
 	/* include list */
 	if (udev_list_get_entry(&udev_enumerate->sysattr_match_list) != NULL) {
 		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->sysattr_match_list)) {
 			/* anything that does not match, will make it FALSE */
-			if (!match_sysattr_value(udev, syspath,
-					      udev_list_entry_get_name(list_entry),
-					      udev_list_entry_get_value(list_entry)))
-				return 0;
+			if (!match_sysattr_value(dev, udev_list_entry_get_name(list_entry),
+						 udev_list_entry_get_value(list_entry)))
+				return false;
 		}
-		return 1;
+		return true;
 	}
-	return 1;
+	return true;
 }
 
-static int match_property(struct udev_enumerate *udev_enumerate, const char *syspath)
+static bool match_property(struct udev_enumerate *udev_enumerate, struct udev_device *dev)
 {
-	struct udev_device *dev;
 	struct udev_list_entry *list_entry;
-	int match = false;
+	bool match = false;
 
 	/* no match always matches */
 	if (udev_list_get_entry(&udev_enumerate->properties_match_list) == NULL)
-		return 1;
-
-	/* no device does not match */
-	dev = udev_device_new_from_syspath(udev_enumerate->udev, syspath);
-	if (dev == NULL)
-		return 0;
+		return true;
 
 	/* loop over matches */
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->properties_match_list)) {
@@ -525,23 +533,38 @@ static int match_property(struct udev_enumerate *udev_enumerate, const char *sys
 		}
 	}
 out:
-	udev_device_unref(dev);
 	return match;
 }
 
-static int match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname)
+static bool match_tag(struct udev_enumerate *udev_enumerate, struct udev_device *dev)
+{
+	struct udev_list_entry *list_entry;
+
+	/* no match always matches */
+	if (udev_list_get_entry(&udev_enumerate->tags_match_list) == NULL)
+		return true;
+
+	/* loop over matches */
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->tags_match_list))
+		if (!udev_device_has_tag(dev, udev_list_entry_get_name(list_entry)))
+			return false;
+
+	return true;
+}
+
+static bool match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname)
 {
 	struct udev_list_entry *list_entry;
 
 	if (udev_list_get_entry(&udev_enumerate->sysname_match_list) == NULL)
-		return 1;
+		return true;
 
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->sysname_match_list)) {
 		if (fnmatch(udev_list_entry_get_name(list_entry), sysname, 0) != 0)
 			continue;
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
 }
 
 static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
@@ -562,54 +585,53 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 		util_strpcpyl(&s, l, "/", subdir2, NULL);
 	dir = opendir(path);
 	if (dir == NULL)
-		return -1;
+		return -ENOENT;
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 		char syspath[UTIL_PATH_SIZE];
-		char filename[UTIL_PATH_SIZE];
-		struct stat statbuf;
+		struct udev_device *dev;
 
 		if (dent->d_name[0] == '.')
 			continue;
+
 		if (!match_sysname(udev_enumerate, dent->d_name))
 			continue;
 
 		util_strscpyl(syspath, sizeof(syspath), path, "/", dent->d_name, NULL);
-		if (!match_property(udev_enumerate, syspath))
+		dev = udev_device_new_from_syspath(udev_enumerate->udev, syspath);
+		if (dev == NULL)
 			continue;
-		if (lstat(syspath, &statbuf) != 0)
-			continue;
-		if (S_ISREG(statbuf.st_mode))
-			continue;
-		if (S_ISLNK(statbuf.st_mode))
-			util_resolve_sys_link(udev, syspath, sizeof(syspath));
 
-		util_strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
-		if (stat(filename, &statbuf) != 0)
-			continue;
-		if (!match_sysattr(udev_enumerate, syspath))
-			continue;
-		syspath_add(udev_enumerate, syspath);
+		if (!match_tag(udev_enumerate, dev))
+			goto nomatch;
+		if (!match_property(udev_enumerate, dev))
+			goto nomatch;
+		if (!match_sysattr(udev_enumerate, dev))
+			goto nomatch;
+
+		syspath_add(udev_enumerate, udev_device_get_syspath(dev));
+nomatch:
+		udev_device_unref(dev);
 	}
 	closedir(dir);
 	return 0;
 }
 
-static int match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
+static bool match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
 {
 	struct udev_list_entry *list_entry;
 
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->subsystem_nomatch_list)) {
 		if (fnmatch(udev_list_entry_get_name(list_entry), subsystem, 0) == 0)
-			return 0;
+			return false;
 	}
 	if (udev_list_get_entry(&udev_enumerate->subsystem_match_list) != NULL) {
 		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->subsystem_match_list)) {
 			if (fnmatch(udev_list_entry_get_name(list_entry), subsystem, 0) == 0)
-				return 1;
+				return true;
 		}
-		return 0;
+		return false;
 	}
-	return 1;
+	return true;
 }
 
 static int scan_dir(struct udev_enumerate *udev_enumerate, const char *basedir, const char *subdir, const char *subsystem)
@@ -675,17 +697,59 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 
 	if (udev_enumerate == NULL)
 		return -EINVAL;
-	util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
-	if (stat(base, &statbuf) == 0) {
-		/* we have /subsystem/, forget all the old stuff */
-		dbg(udev, "searching '/subsystem/*/devices/*' dir\n");
-		scan_dir(udev_enumerate, "subsystem", "devices", NULL);
+
+	if (udev_list_get_entry(&udev_enumerate->tags_match_list) != NULL) {
+		struct udev_list_entry *list_entry;
+
+		/* scan only tagged devices, use tags reverse-index, instead of searching all devices in /sys */
+		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->tags_match_list)) {
+			DIR *dir;
+			struct dirent *dent;
+			char path[UTIL_PATH_SIZE];
+
+			util_strscpyl(path, sizeof(path), udev_get_dev_path(udev), "/.udev/tags/",
+				      udev_list_entry_get_name(list_entry), NULL);
+			dir = opendir(path);
+			if (dir == NULL)
+				continue;
+			for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+				struct udev_device *dev;
+				char syspath[UTIL_PATH_SIZE];
+				char *s;
+				size_t l;
+				ssize_t len;
+
+				if (dent->d_name[0] == '.')
+					continue;
+
+				s = syspath;
+				l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev), NULL);
+				len = readlinkat(dirfd(dir), dent->d_name, s, l);
+				if (len <= 0 || (size_t)len == l)
+					continue;
+				s[len] = '\0';
+
+				dev = udev_device_new_from_syspath(udev_enumerate->udev, syspath);
+				if (dev == NULL)
+					continue;
+				syspath_add(udev_enumerate, udev_device_get_syspath(dev));
+				udev_device_unref(dev);
+			}
+		}
 	} else {
+		util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
+		if (stat(base, &statbuf) == 0) {
+			/* we have /subsystem/, forget all the old stuff */
+			dbg(udev, "searching '/subsystem/*/devices/*' dir\n");
+			scan_dir(udev_enumerate, "subsystem", "devices", NULL);
+		} else {
 		dbg(udev, "searching '/bus/*/devices/*' dir\n");
-		scan_dir(udev_enumerate, "bus", "devices", NULL);
-		dbg(udev, "searching '/class/*' dir\n");
-		scan_dir(udev_enumerate, "class", NULL, NULL);
+			scan_dir(udev_enumerate, "bus", "devices", NULL);
+			dbg(udev, "searching '/class/*' dir\n");
+			scan_dir(udev_enumerate, "class", NULL, NULL);
+		}
 	}
+
 	return 0;
 }
 
@@ -704,6 +768,7 @@ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
 
 	if (udev_enumerate == NULL)
 		return -EINVAL;
+
 	util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
 	if (stat(base, &statbuf) == 0)
 		subsysdir = "subsystem";

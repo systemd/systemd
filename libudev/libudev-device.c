@@ -60,6 +60,7 @@ struct udev_device {
 	struct udev_list_node devlinks_list;
 	struct udev_list_node properties_list;
 	struct udev_list_node sysattr_list;
+	struct udev_list_node tags_list;
 	unsigned long long int seqnum;
 	int event_timeout;
 	int timeout;
@@ -68,18 +69,21 @@ struct udev_device {
 	dev_t devnum;
 	int watch_handle;
 	int maj, min;
-	unsigned int parent_set:1;
-	unsigned int subsystem_set:1;
-	unsigned int devtype_set:1;
-	unsigned int devlinks_uptodate:1;
-	unsigned int envp_uptodate:1;
-	unsigned int driver_set:1;
-	unsigned int info_loaded:1;
+	bool parent_set;
+	bool subsystem_set;
+	bool devtype_set;
+	bool devlinks_uptodate;
+	bool envp_uptodate;
+	bool tags_uptodate;
+	bool driver_set;
+	bool info_loaded;
+	bool db_loaded;
+	bool uevent_loaded;
 };
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
-	udev_device->envp_uptodate = 0;
+	udev_device->envp_uptodate = false;
 	if (value == NULL) {
 		struct udev_list_entry *list_entry;
 
@@ -149,6 +153,26 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
 		}
 		if (slink[0] != '\0')
 			udev_device_add_devlink(udev_device, slink, 0);
+	} else if (strncmp(property, "TAGS=", 5) == 0) {
+		char tags[UTIL_PATH_SIZE];
+		char *next;
+
+		util_strscpy(tags, sizeof(tags), &property[5]);
+		next = strchr(tags, ':');
+		if (next != NULL) {
+			next++;
+			while (next[0] != '\0') {
+				char *tag;
+
+				tag = next;
+				next = strchr(tag, ':');
+				if (next == NULL)
+					break;
+				next[0] = '\0';
+				next++;
+				udev_device_add_tag(udev_device, tag);
+			}
+		}
 	} else if (strncmp(property, "DRIVER=", 7) == 0) {
 		udev_device_set_driver(udev_device, &property[7]);
 	} else if (strncmp(property, "ACTION=", 7) == 0) {
@@ -207,6 +231,9 @@ int udev_device_read_db(struct udev_device *udev_device)
 	char filename[UTIL_PATH_SIZE];
 	char line[UTIL_LINE_SIZE];
 	FILE *f;
+
+	if (udev_device->db_loaded)
+		return 0;
 
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/.udev/db/",
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
@@ -284,6 +311,9 @@ int udev_device_read_db(struct udev_device *udev_device)
 		case 'E':
 			udev_device_add_property_from_string(udev_device, val);
 			break;
+		case 'G':
+			udev_device_add_tag(udev_device, val);
+			break;
 		case 'W':
 			udev_device_set_watch_handle(udev_device, atoi(val));
 			break;
@@ -292,6 +322,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 	fclose(f);
 
 	info(udev_device->udev, "device %p filled with db file data\n", udev_device);
+	udev_device->db_loaded = true;
 	return 0;
 }
 
@@ -302,6 +333,9 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 	char line[UTIL_LINE_SIZE];
 	int maj = 0;
 	int min = 0;
+
+	if (udev_device->uevent_loaded)
+		return 0;
 
 	util_strscpyl(filename, sizeof(filename), udev_device->syspath, "/uevent", NULL);
 	f = fopen(filename, "r");
@@ -329,21 +363,14 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 	}
 
 	udev_device->devnum = makedev(maj, min);
-
 	fclose(f);
+	udev_device->uevent_loaded = true;
 	return 0;
-}
-
-static void device_load_info(struct udev_device *device)
-{
-	device->info_loaded = 1;
-	udev_device_read_uevent_file(device);
-	udev_device_read_db(device);
 }
 
 void udev_device_set_info_loaded(struct udev_device *device)
 {
-	device->info_loaded = 1;
+	device->info_loaded = true;
 }
 
 struct udev_device *udev_device_new(struct udev *udev)
@@ -362,6 +389,7 @@ struct udev_device *udev_device_new(struct udev *udev)
 	udev_list_init(&udev_device->devlinks_list);
 	udev_list_init(&udev_device->properties_list);
 	udev_list_init(&udev_device->sysattr_list);
+	udev_list_init(&udev_device->tags_list);
 	udev_device->event_timeout = -1;
 	udev_device->watch_handle = -1;
 	/* copy global properties */
@@ -420,7 +448,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	util_strscpy(path, sizeof(path), syspath);
 	util_resolve_sys_link(udev, path, sizeof(path));
 
-	if (strncmp(&syspath[len], "/devices/", 9) == 0) {
+	if (strncmp(&path[len], "/devices/", 9) == 0) {
 		char file[UTIL_PATH_SIZE];
 
 		/* all "devices" require a "uevent" file */
@@ -648,7 +676,7 @@ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->parent_set) {
-		udev_device->parent_set = 1;
+		udev_device->parent_set = true;
 		udev_device->parent_device = device_new_from_parent(udev_device);
 	}
 	if (udev_device->parent_device != NULL)
@@ -758,12 +786,13 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->devtype);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->devlinks_list);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->properties_list);
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->tags_list);
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
 	free(udev_device->sysname_old);
 	free(udev_device->knodename);
-	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
 	free(udev_device->envp);
 	free(udev_device->monitor_buf);
 	dbg(udev_device->udev, "udev_device: %p released\n", udev_device);
@@ -842,7 +871,7 @@ const char *udev_device_get_devnode(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
+		udev_device_read_db(udev_device);
 	return udev_device->devnode;
 }
 
@@ -862,7 +891,7 @@ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->subsystem_set) {
-		udev_device->subsystem_set = 1;
+		udev_device->subsystem_set = true;
 		/* read "subsystem" link */
 		if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
 			udev_device_set_subsystem(udev_device, subsystem);
@@ -900,9 +929,8 @@ const char *udev_device_get_devtype(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->devtype_set) {
-		udev_device->devtype_set = 1;
-		if (!udev_device->info_loaded)
-			udev_device_read_uevent_file(udev_device);
+		udev_device->devtype_set = true;
+		udev_device_read_uevent_file(udev_device);
 	}
 	return udev_device->devtype;
 }
@@ -925,13 +953,13 @@ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
+		udev_device_read_db(udev_device);
 	return udev_list_get_entry(&udev_device->devlinks_list);
 }
 
 void udev_device_cleanup_devlinks_list(struct udev_device *udev_device)
 {
-	udev_device->devlinks_uptodate = 0;
+	udev_device->devlinks_uptodate = false;
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->devlinks_list);
 }
 
@@ -951,13 +979,15 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
 {
 	if (udev_device == NULL)
 		return NULL;
-	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
+	if (!udev_device->info_loaded) {
+		udev_device_read_uevent_file(udev_device);
+		udev_device_read_db(udev_device);
+	}
 	if (!udev_device->devlinks_uptodate) {
 		char symlinks[UTIL_PATH_SIZE];
 		struct udev_list_entry *list_entry;
 
-		udev_device->devlinks_uptodate = 1;
+		udev_device->devlinks_uptodate = true;
 		list_entry = udev_device_get_devlinks_list_entry(udev_device);
 		if (list_entry != NULL) {
 			char *s;
@@ -968,6 +998,21 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
 			udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
 				l = util_strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry), NULL);
 			udev_device_add_property(udev_device, "DEVLINKS", symlinks);
+		}
+	}
+	if (!udev_device->tags_uptodate) {
+		udev_device->tags_uptodate = true;
+		if (udev_device_get_tags_list_entry(udev_device) != NULL) {
+			char tags[UTIL_PATH_SIZE];
+			struct udev_list_entry *list_entry;
+			char *s;
+			size_t l;
+
+			s = tags;
+			l = util_strpcpyl(&s, sizeof(tags), ":", NULL);
+			udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
+				l = util_strpcpyl(&s, l, udev_list_entry_get_name(list_entry), ":", NULL);
+			udev_device_add_property(udev_device, "TAGS", tags);
 		}
 	}
 	return udev_list_get_entry(&udev_device->properties_list);
@@ -986,7 +1031,7 @@ const char *udev_device_get_driver(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->driver_set) {
-		udev_device->driver_set = 1;
+		udev_device->driver_set = true;
 		if (util_get_sys_driver(udev_device->udev, udev_device->syspath, driver, sizeof(driver)) > 0)
 			udev_device->driver = strdup(driver);
 	}
@@ -1004,7 +1049,7 @@ dev_t udev_device_get_devnum(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return makedev(0, 0);
 	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
+		udev_device_read_uevent_file(udev_device);
 	return udev_device->devnum;
 }
 
@@ -1184,7 +1229,7 @@ int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsy
 	udev_device->subsystem = strdup(subsystem);
 	if (udev_device->subsystem == NULL)
 		return -ENOMEM;
-	udev_device->subsystem_set = 1;
+	udev_device->subsystem_set = true;
 	udev_device_add_property(udev_device, "SUBSYSTEM", udev_device->subsystem);
 	return 0;
 }
@@ -1195,7 +1240,7 @@ int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype
 	udev_device->devtype = strdup(devtype);
 	if (udev_device->devtype == NULL)
 		return -ENOMEM;
-	udev_device->devtype_set = 1;
+	udev_device->devtype_set = true;
 	udev_device_add_property(udev_device, "DEVTYPE", udev_device->devtype);
 	return 0;
 }
@@ -1216,12 +1261,46 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 {
 	struct udev_list_entry *list_entry;
 
-	udev_device->devlinks_uptodate = 0;
+	udev_device->devlinks_uptodate = false;
 	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->devlinks_list, devlink, NULL, 1, 0);
 	if (list_entry == NULL)
 		return -ENOMEM;
 	if (unique)
 		udev_list_entry_set_flags(list_entry, 1);
+	return 0;
+}
+
+int udev_device_add_tag(struct udev_device *udev_device, const char *tag)
+{
+	if (strchr(tag, ':') != NULL || strchr(tag, ' ') != NULL)
+		return -EINVAL;
+	udev_device->tags_uptodate = false;
+	if (udev_list_entry_add(udev_device->udev, &udev_device->tags_list, tag, NULL, 1, 0) != NULL)
+		return 0;
+	return -ENOMEM;
+}
+
+void udev_device_cleanup_tags_list(struct udev_device *udev_device)
+{
+	udev_device->tags_uptodate = false;
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->tags_list);
+}
+
+struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device)
+{
+	return udev_list_get_entry(&udev_device->tags_list);
+}
+
+int udev_device_has_tag(struct udev_device *udev_device, const char *tag)
+{
+	struct udev_list_entry *list_entry;
+
+	if (!udev_device->info_loaded)
+		udev_device_read_db(udev_device);
+	list_entry = udev_device_get_tags_list_entry(udev_device);
+	list_entry =  udev_list_entry_get_by_name(list_entry, tag);
+	if (list_entry != NULL)
+		return 1;
 	return 0;
 }
 
@@ -1273,7 +1352,7 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
 	}
 	udev_device->envp[i] = NULL;
 	udev_device->monitor_buf_len = s - udev_device->monitor_buf;
-	udev_device->envp_uptodate = 1;
+	udev_device->envp_uptodate = true;
 	dbg(udev_device->udev, "filled envp/monitor buffer, %u properties, %zu bytes\n",
 	    i, udev_device->monitor_buf_len);
 	return 0;
@@ -1312,7 +1391,7 @@ int udev_device_set_driver(struct udev_device *udev_device, const char *driver)
 	udev_device->driver = strdup(driver);
 	if (udev_device->driver == NULL)
 		return -ENOMEM;
-	udev_device->driver_set = 1;
+	udev_device->driver_set = true;
 	udev_device_add_property(udev_device, "DRIVER", udev_device->driver);
 	return 0;
 }
@@ -1385,7 +1464,7 @@ int udev_device_set_timeout(struct udev_device *udev_device, int timeout)
 int udev_device_get_event_timeout(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
+		udev_device_read_db(udev_device);
 	return udev_device->event_timeout;
 }
 
@@ -1421,7 +1500,7 @@ int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 int udev_device_get_devlink_priority(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
+		udev_device_read_db(udev_device);
 	return udev_device->devlink_priority;
 }
 
@@ -1434,7 +1513,7 @@ int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio)
 int udev_device_get_watch_handle(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
+		udev_device_read_db(udev_device);
 	return udev_device->watch_handle;
 }
 

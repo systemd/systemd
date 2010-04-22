@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -118,6 +118,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 /* in-kernel socket filters to select messages that get delivered to a listener */
 int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor,
 						    const char *subsystem, const char *devtype);
+int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor, const char *tag);
 int udev_monitor_filter_update(struct udev_monitor *udev_monitor);
 int udev_monitor_filter_remove(struct udev_monitor *udev_monitor);
 
@@ -138,6 +139,7 @@ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, cons
 int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value);
 int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value);
 int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname);
+int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const char *tag);
 int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath);
 /* run enumeration with active filters */
 int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate);

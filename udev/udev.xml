@@ -349,6 +349,19 @@
             </varlistentry>
 
             <varlistentry>
+              <term><option>TAG</option></term>
+              <listitem>
+                <para>Attach a tag to a device. This is used to filter events for users
+                of libudev's monitor functionality, or to enumerate a group of tagged
+                devices. The implementation can only work efficiently if only a few
+                tags are attached to a device. It is only meant to be used in
+                contexts with specific device filter requirements, and not as a
+                general-purpose flag. Excessive use might result in inefficient event
+                handling.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
               <term><option>RUN</option></term>
               <listitem>
                 <para>Add a program to the list of programs to be executed for a specific

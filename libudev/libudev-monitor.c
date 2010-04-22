@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -49,6 +49,7 @@ struct udev_monitor {
 	struct sockaddr_un sun;
 	socklen_t addrlen;
 	struct udev_list_node filter_subsystem_list;
+	struct udev_list_node filter_tag_list;
 };
 
 enum udev_monitor_netlink_group {
@@ -57,25 +58,28 @@ enum udev_monitor_netlink_group {
 	UDEV_MONITOR_UDEV,
 };
 
-#define UDEV_MONITOR_MAGIC		0xcafe1dea
+#define UDEV_MONITOR_MAGIC		0xfeedcafe
 struct udev_monitor_netlink_header {
-	/* udev version text */
-	char version[16];
+	/* "libudev" prefix to distinguish libudev and kernel messages */
+	char prefix[8];
 	/*
 	 * magic to protect against daemon <-> library message format mismatch
 	 * used in the kernel from socket filter rules; needs to be stored in network order
 	 */
 	unsigned int magic;
-	/* properties buffer */
-	unsigned short properties_off;
-	unsigned short properties_len;
+	/* total length of header structure known to the sender */
+	unsigned int header_size;
+	/* properties string buffer */
+	unsigned int properties_off;
+	unsigned int properties_len;
 	/*
-	 * hashes of some common device properties strings to filter with socket filters in
-	 * the client used in the kernel from socket filter rules; needs to be stored in
-	 * network order
+	 * hashes of primary device properties strings, to let libudev subscribers
+	 * use in-kernel socket filters; values need to be stored in network order
 	 */
-	unsigned int filter_subsystem;
-	unsigned int filter_devtype;
+	unsigned int filter_subsystem_hash;
+	unsigned int filter_devtype_hash;
+	unsigned int filter_tag_bloom_hi;
+	unsigned int filter_tag_bloom_lo;
 };
 
 static struct udev_monitor *udev_monitor_new(struct udev *udev)
@@ -88,6 +92,7 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
 	udev_monitor->refcount = 1;
 	udev_monitor->udev = udev;
 	udev_list_init(&udev_monitor->filter_subsystem_list);
+	udev_list_init(&udev_monitor->filter_tag_list);
 	return udev_monitor;
 }
 
@@ -247,13 +252,14 @@ static inline void bpf_jmp(struct sock_filter *inss, unsigned int *i,
  */
 int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 {
-	static struct sock_filter ins[256];
-	static struct sock_fprog filter;
+	struct sock_filter ins[512];
+	struct sock_fprog filter;
 	unsigned int i;
 	struct udev_list_entry *list_entry;
 	int err;
 
-	if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL)
+	if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL &&
+	    udev_list_get_entry(&udev_monitor->filter_tag_list) == NULL)
 		return 0;
 
 	memset(ins, 0x00, sizeof(ins));
@@ -266,35 +272,74 @@ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 	/* wrong magic, pass packet */
 	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
-	/* add all subsystem match values */
-	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
-		unsigned int hash;
+	if (udev_list_get_entry(&udev_monitor->filter_tag_list) != NULL) {
+		int tag_matches;
 
-		/* load filter_subsystem value in A */
-		bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_subsystem));
-		hash = util_string_hash32(udev_list_entry_get_name(list_entry));
-		if (udev_list_entry_get_value(list_entry) == NULL) {
-			/* jump if subsystem does not match */
-			bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
-		} else {
-			/* jump if subsystem does not match */
-			bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 3);
+		/* count tag matches, to calculate end of tag match block */
+		tag_matches = 0;
+		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list))
+			tag_matches++;
 
-			/* load filter_devtype value in A */
-			bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_devtype));
-			/* jump if value does not match */
-			hash = util_string_hash32(udev_list_entry_get_value(list_entry));
-			bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+		/* add all tags matches */
+		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list)) {
+			uint64_t tag_bloom_bits = util_string_bloom64(udev_list_entry_get_name(list_entry));
+			uint32_t tag_bloom_hi = tag_bloom_bits >> 32;
+			uint32_t tag_bloom_lo = tag_bloom_bits & 0xffffffff;
+
+			/* load device bloom bits in A */
+			bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_tag_bloom_hi));
+			/* clear bits (tag bits & bloom bits) */
+			bpf_stmt(ins, &i, BPF_ALU|BPF_AND|BPF_K, tag_bloom_hi);
+			/* jump to next tag if it does not match */
+			bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, tag_bloom_hi, 0, 3);
+
+			/* load device bloom bits in A */
+			bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_tag_bloom_lo));
+			/* clear bits (tag bits & bloom bits) */
+			bpf_stmt(ins, &i, BPF_ALU|BPF_AND|BPF_K, tag_bloom_lo);
+			/* jump behind end of tag match block if tag matches */
+			tag_matches--;
+			bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, tag_bloom_lo, 1 + (tag_matches * 6), 0);
 		}
 
-		/* matched, pass packet */
-		bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
-
-		if (i+1 >= ARRAY_SIZE(ins))
-			return -1;
+		/* nothing matched, drop packet */
+		bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
 	}
-	/* nothing matched, drop packet */
-	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+
+	/* add all subsystem matches */
+	if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) != NULL) {
+		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
+			unsigned int hash = util_string_hash32(udev_list_entry_get_name(list_entry));
+
+			/* load device subsystem value in A */
+			bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_subsystem_hash));
+			if (udev_list_entry_get_value(list_entry) == NULL) {
+				/* jump if subsystem does not match */
+				bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+			} else {
+				/* jump if subsystem does not match */
+				bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 3);
+
+				/* load device devtype value in A */
+				bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_devtype_hash));
+				/* jump if value does not match */
+				hash = util_string_hash32(udev_list_entry_get_value(list_entry));
+				bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+			}
+
+			/* matched, pass packet */
+			bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+
+			if (i+1 >= ARRAY_SIZE(ins))
+				return -1;
+		}
+
+		/* nothing matched, drop packet */
+		bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+	}
+
+	/* matched, pass packet */
+	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
 	/* install filter */
 	filter.len = i;
@@ -406,6 +451,7 @@ void udev_monitor_unref(struct udev_monitor *udev_monitor)
 	if (udev_monitor->sock >= 0)
 		close(udev_monitor->sock);
 	udev_list_cleanup_entries(udev_monitor->udev, &udev_monitor->filter_subsystem_list);
+	udev_list_cleanup_entries(udev_monitor->udev, &udev_monitor->filter_tag_list);
 	dbg(udev_monitor->udev, "monitor %p released\n", udev_monitor);
 	free(udev_monitor);
 }
@@ -445,8 +491,7 @@ static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *
 	struct udev_list_entry *list_entry;
 
 	if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL)
-		return 1;
-
+		goto tag;
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
 		const char *subsys = udev_list_entry_get_name(list_entry);
 		const char *dsubsys = udev_device_get_subsystem(udev_device);
@@ -458,11 +503,22 @@ static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *
 
 		devtype = udev_list_entry_get_value(list_entry);
 		if (devtype == NULL)
-			return 1;
+			goto tag;
 		ddevtype = udev_device_get_devtype(udev_device);
 		if (ddevtype == NULL)
 			continue;
 		if (strcmp(ddevtype, devtype) == 0)
+			goto tag;
+	}
+	return 0;
+
+tag:
+	if (udev_list_get_entry(&udev_monitor->filter_tag_list) == NULL)
+		return 1;
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list)) {
+		const char *tag = udev_list_entry_get_name(list_entry);
+
+		if (udev_device_has_tag(udev_device, tag))
 			return 1;
 	}
 	return 0;
@@ -556,12 +612,10 @@ retry:
 		return NULL;
 	}
 
-	if (strncmp(buf, "udev-", 5) == 0) {
+	if (memcmp(buf, "libudev", 8) == 0) {
 		/* udev message needs proper version magic */
 		nlh = (struct udev_monitor_netlink_header *) buf;
 		if (nlh->magic != htonl(UDEV_MONITOR_MAGIC))
-			return NULL;
-		if (nlh->properties_off < sizeof(struct udev_monitor_netlink_header))
 			return NULL;
 		if (nlh->properties_off+32 > buflen)
 			return NULL;
@@ -626,17 +680,17 @@ retry:
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 			     struct udev_monitor *destination, struct udev_device *udev_device)
 {
-	struct msghdr smsg;
-	struct iovec iov[2];
 	const char *buf;
 	ssize_t blen;
 	ssize_t count;
 
 	blen = udev_device_get_properties_monitor_buf(udev_device, &buf);
 	if (blen < 32)
-		return -1;
+		return -EINVAL;
 
 	if (udev_monitor->sun.sun_family != 0) {
+		struct msghdr smsg;
+		struct iovec iov[2];
 		const char *action;
 		char header[2048];
 		char *s;
@@ -660,22 +714,40 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 		smsg.msg_iovlen = 2;
 		smsg.msg_name = &udev_monitor->sun;
 		smsg.msg_namelen = udev_monitor->addrlen;
-	} else if (udev_monitor->snl.nl_family != 0) {
+		count = sendmsg(udev_monitor->sock, &smsg, 0);
+		info(udev_monitor->udev, "passed %zi bytes to socket monitor %p\n", count, udev_monitor);
+		return count;
+	}
+
+	if (udev_monitor->snl.nl_family != 0) {
+		struct msghdr smsg;
+		struct iovec iov[2];
 		const char *val;
 		struct udev_monitor_netlink_header nlh;
-
+		struct udev_list_entry *list_entry;
+		uint64_t tag_bloom_bits;
 
 		/* add versioned header */
 		memset(&nlh, 0x00, sizeof(struct udev_monitor_netlink_header));
-		util_strscpy(nlh.version, sizeof(nlh.version), "udev-" VERSION);
+		memcpy(nlh.prefix, "libudev", 8);
 		nlh.magic = htonl(UDEV_MONITOR_MAGIC);
+		nlh.header_size = sizeof(struct udev_monitor_netlink_header);
 		val = udev_device_get_subsystem(udev_device);
-		nlh.filter_subsystem = htonl(util_string_hash32(val));
+		nlh.filter_subsystem_hash = htonl(util_string_hash32(val));
 		val = udev_device_get_devtype(udev_device);
 		if (val != NULL)
-			nlh.filter_devtype = htonl(util_string_hash32(val));
+			nlh.filter_devtype_hash = htonl(util_string_hash32(val));
 		iov[0].iov_base = &nlh;
 		iov[0].iov_len = sizeof(struct udev_monitor_netlink_header);
+
+		/* add tag bloom filter */
+		tag_bloom_bits = 0;
+		udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
+			tag_bloom_bits |= util_string_bloom64(udev_list_entry_get_name(list_entry));
+		if (tag_bloom_bits > 0) {
+			nlh.filter_tag_bloom_hi = htonl(tag_bloom_bits >> 32);
+			nlh.filter_tag_bloom_lo = htonl(tag_bloom_bits & 0xffffffff);
+		}
 
 		/* add properties list */
 		nlh.properties_off = iov[0].iov_len;
@@ -697,13 +769,12 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 		else
 			smsg.msg_name = &udev_monitor->snl_destination;
 		smsg.msg_namelen = sizeof(struct sockaddr_nl);
-	} else {
-		return -1;
+		count = sendmsg(udev_monitor->sock, &smsg, 0);
+		info(udev_monitor->udev, "passed %zi bytes to netlink monitor %p\n", count, udev_monitor);
+		return count;
 	}
 
-	count = sendmsg(udev_monitor->sock, &smsg, 0);
-	info(udev_monitor->udev, "passed %zi bytes to monitor %p\n", count, udev_monitor);
-	return count;
+	return -EINVAL;
 }
 
 /**
@@ -711,6 +782,9 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
  * @udev_monitor: the monitor
  * @subsystem: the subsystem value to match the incoming devices against
  * @devtype: the devtype value to match the incoming devices against
+ *
+ * This filer is efficiently executed inside the kernel, and libudev subscribers
+ * will usually not be woken up for devices which do not match.
  *
  * The filter must be installed before the monitor is switched to listening mode.
  *
@@ -721,9 +795,33 @@ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_mo
 	if (udev_monitor == NULL)
 		return -EINVAL;
 	if (subsystem == NULL)
-		return 0;
+		return -EINVAL;
 	if (udev_list_entry_add(udev_monitor->udev,
 				&udev_monitor->filter_subsystem_list, subsystem, devtype, 0, 0) == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+/**
+ * udev_monitor_filter_add_match_tag:
+ * @udev_monitor: the monitor
+ * @tag: the name of a tag
+ *
+ * This filer is efficiently executed inside the kernel, and libudev subscribers
+ * will usually not be woken up for devices which do not match.
+ *
+ * The filter must be installed before the monitor is switched to listening mode.
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
+int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor, const char *tag)
+{
+	if (udev_monitor == NULL)
+		return -EINVAL;
+	if (tag == NULL)
+		return -EINVAL;
+	if (udev_list_entry_add(udev_monitor->udev,
+				&udev_monitor->filter_tag_list, tag, NULL, 0, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }

@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -20,6 +21,37 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
+
+static int udev_device_tag_index(struct udev_device *udev_device, bool add)
+{
+	struct udev *udev = udev_device_get_udev(udev_device);
+	struct udev_list_entry *list_entry;
+
+	udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device)) {
+		char filename[UTIL_PATH_SIZE];
+
+		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/tags/",
+			      udev_list_entry_get_name(list_entry), "/",
+			      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
+
+		if (add) {
+			util_create_path(udev, filename);
+			symlink(udev_device_get_devpath(udev_device), filename);
+			if (udev_device_get_sysname_old(udev_device) != NULL) {
+				char filename_old[UTIL_PATH_SIZE];
+
+				util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/tags/",
+					      udev_list_entry_get_name(list_entry),
+					      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname_old(udev_device), NULL);
+				unlink(filename_old);
+			}
+		} else {
+			unlink(filename);
+			util_delete_path(udev, filename);
+		}
+	}
+	return 0;
+}
 
 int udev_device_update_db(struct udev_device *udev_device)
 {
@@ -41,6 +73,8 @@ int udev_device_update_db(struct udev_device *udev_device)
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
 		if (udev_list_entry_get_flags(list_entry))
 			goto file;
+	if (udev_device_get_tags_list_entry(udev_device) != NULL)
+		goto file;
 	if (udev_device_get_devlink_priority(udev_device) != 0)
 		goto file;
 	if (udev_device_get_event_timeout(udev_device) >= 0)
@@ -80,7 +114,7 @@ file:
 	if (f == NULL) {
 		err(udev, "unable to create temporary db file '%s': %m\n", filename_tmp);
 		return -1;
-		}
+	}
 
 	if (udev_device_get_devnode(udev_device) != NULL) {
 		fprintf(f, "N:%s\n", &udev_device_get_devnode(udev_device)[devlen]);
@@ -100,10 +134,13 @@ file:
 			udev_list_entry_get_name(list_entry),
 			udev_list_entry_get_value(list_entry));
 	}
+	udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
+		fprintf(f, "G:%s\n", udev_list_entry_get_name(list_entry));
 	fclose(f);
 	rename(filename_tmp, filename);
 	info(udev, "created db file for '%s' in '%s'\n", udev_device_get_devpath(udev_device), filename);
 out:
+	udev_device_tag_index(udev_device, true);
 	return 0;
 }
 
@@ -112,6 +149,7 @@ int udev_device_delete_db(struct udev_device *udev_device)
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
 
+	udev_device_tag_index(udev_device, false);
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
 	unlink(filename);
@@ -124,9 +162,13 @@ int udev_device_rename_db(struct udev_device *udev_device)
 	char filename_old[UTIL_PATH_SIZE];
 	char filename[UTIL_PATH_SIZE];
 
+	if (strcmp(udev_device_get_sysname(udev_device), udev_device_get_sysname_old(udev_device)) == 0)
+		return 0;
+
 	util_strscpyl(filename_old, sizeof(filename_old), udev_get_dev_path(udev), "/.udev/db/",
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname_old(udev_device), NULL);
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
+	udev_device_tag_index(udev_device, true);
 	return rename(filename_old, filename);
 }

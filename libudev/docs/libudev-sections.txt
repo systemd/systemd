@@ -68,6 +68,7 @@ udev_monitor_enable_receiving
 udev_monitor_get_fd
 udev_monitor_receive_device
 udev_monitor_filter_add_match_subsystem_devtype
+udev_monitor_filter_add_match_tag
 udev_monitor_filter_update
 udev_monitor_filter_remove
 </SECTION>
@@ -85,6 +86,7 @@ udev_enumerate_add_nomatch_subsystem
 udev_enumerate_add_match_sysattr
 udev_enumerate_add_nomatch_sysattr
 udev_enumerate_add_match_property
+udev_enumerate_add_match_tag
 udev_enumerate_add_match_sysname
 udev_enumerate_add_syspath
 udev_enumerate_scan_devices

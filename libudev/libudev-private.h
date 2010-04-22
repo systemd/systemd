@@ -14,6 +14,8 @@
 
 #include <syslog.h>
 #include <signal.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "libudev.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -84,7 +86,8 @@ const char *udev_device_get_sysname_old(struct udev_device *udev_device);
 int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old);
 const char *udev_device_get_knodename(struct udev_device *udev_device);
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
-struct udev_list_entry *udev_device_get_tag_list_entry(struct udev_device *udev_device);
+void udev_device_cleanup_tags_list(struct udev_device *udev_device);
+struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device);
 int udev_device_has_tag(struct udev_device *udev_device, const char *tag);
 int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename);
 int udev_device_get_timeout(struct udev_device *udev_device);
@@ -203,7 +206,8 @@ size_t util_strscpyl(char *dest, size_t size, const char *src, ...) __attribute_
 int udev_util_replace_whitespace(const char *str, char *to, size_t len);
 int udev_util_replace_chars(char *str, const char *white);
 int udev_util_encode_string(const char *str, char *str_enc, size_t len);
-unsigned int util_string_hash32(const char *str);
+unsigned int util_string_hash32(const char *key);
+uint64_t util_string_bloom64(const char *str);
 
 /* libudev-util-private.c */
 int util_create_path(struct udev *udev, const char *path);
