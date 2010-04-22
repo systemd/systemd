@@ -2442,6 +2442,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				break;
 			}
 		case TK_A_TAG:
+			if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
+				udev_device_cleanup_tags_list(event->dev);
 			udev_device_add_tag(event->dev, &rules->buf[cur->key.value_off]);
 			break;
 		case TK_A_NAME:
