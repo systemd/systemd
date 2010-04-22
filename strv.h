@@ -29,7 +29,7 @@
 
 char *strv_find(char **l, const char *name);
 void strv_free(char **l);
-char **strv_copy(char **l);
+char **strv_copy(char **l) _malloc;
 unsigned strv_length(char **l);
 
 char **strv_merge(char **a, char **b);
@@ -41,17 +41,17 @@ char **strv_uniq(char **l);
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 
-char **strv_new(const char *x, ...) _sentinel;
-char **strv_new_ap(const char *x, va_list ap);
+char **strv_new(const char *x, ...) _sentinel _malloc;
+char **strv_new_ap(const char *x, va_list ap) _malloc;
 
 static inline bool strv_isempty(char **l) {
         return !l || !*l;
 }
 
-char **strv_split(const char *s, const char *separator);
-char **strv_split_quoted(const char *s);
+char **strv_split(const char *s, const char *separator) _malloc;
+char **strv_split_quoted(const char *s) _malloc;
 
-char *strv_join(char **l, const char *separator);
+char *strv_join(char **l, const char *separator) _malloc;
 
 char **strv_env_merge(char **x, ...) _sentinel;
 
