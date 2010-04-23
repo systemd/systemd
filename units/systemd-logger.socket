@@ -1,4 +1,4 @@
-[Meta]
+[Unit]
 Description=systemd Logging Socket
 
 [Socket]
