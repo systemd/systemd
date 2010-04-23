@@ -196,7 +196,7 @@ int main (string[] args) {
 
                         for (int i = 2; i < args.length; i++) {
 
-                                ObjectPath p = manager.get_unit(args[i]);
+                                ObjectPath p = manager.load_unit(args[i]);
 
                                 Unit u = bus.get_object(
                                                 "org.freedesktop.systemd1",
