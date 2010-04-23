@@ -702,12 +702,13 @@ int main (string[] args) {
 
                 MainWindow window = new MainWindow();
                 window.show_all();
+
+                Gtk.main();
         } catch (DBus.Error e) {
                 message("%s", e.message);
         } catch (GLib.Error e) {
                 message("%s", e.message);
         }
 
-        Gtk.main();
         return 0;
 }
