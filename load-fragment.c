@@ -411,7 +411,6 @@ static int config_parse_usec(
                 void *userdata) {
 
         usec_t *usec = data;
-        unsigned long long u;
         int r;
 
         assert(filename);
@@ -419,16 +418,10 @@ static int config_parse_usec(
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atollu(rvalue, &u)) < 0) {
+        if ((r = parse_usec(rvalue, usec)) < 0) {
                 log_error("[%s:%u] Failed to parse time value: %s", filename, line, rvalue);
                 return r;
         }
-
-        /* We actually assume the user configures seconds. Later on we
-         * might choose to support suffixes for time values, to
-         * configure bigger or smaller units */
-
-        *usec = u * USEC_PER_SEC;
 
         return 0;
 }

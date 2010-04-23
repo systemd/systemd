@@ -38,6 +38,11 @@ typedef uint64_t usec_t;
 #define NSEC_PER_MSEC 1000000ULL
 #define NSEC_PER_USEC 1000ULL
 
+#define USEC_PER_MINUTE (60ULL*USEC_PER_SEC)
+#define USEC_PER_HOUR (60ULL*USEC_PER_MINUTE)
+#define USEC_PER_DAY (24ULL*USEC_PER_HOUR)
+#define USEC_PER_WEEK (7ULL*USEC_PER_DAY)
+
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
@@ -91,6 +96,7 @@ int close_nointr(int fd);
 void close_nointr_nofail(int fd);
 
 int parse_boolean(const char *v);
+int parse_usec(const char *t, usec_t *usec);
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
