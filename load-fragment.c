@@ -1094,7 +1094,10 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_kill_mode,        "KILLMODE" },
                 { config_parse_listen,           "SOCKET [...]" },
                 { config_parse_socket_bind,      "SOCKETBIND" },
-                { config_parse_bindtodevice,     "NETWORKINTERFACE" }
+                { config_parse_bindtodevice,     "NETWORKINTERFACE" },
+                { config_parse_usec,             "SECONDS" },
+                { config_parse_path_strv,        "PATH [...]" },
+                { config_parse_mount_flags,      "MOUNTFLAG [...]" }
         };
 
         assert(f);
