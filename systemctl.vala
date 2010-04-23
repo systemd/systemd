@@ -222,7 +222,7 @@ int main (string[] args) {
                                 return 1;
                         }
 
-                        ObjectPath p = manager.get_unit(args[2]);
+                        ObjectPath p = manager.load_unit(args[2]);
 
                         Unit u = bus.get_object(
                                         "org.freedesktop.systemd1",
