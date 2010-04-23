@@ -114,6 +114,9 @@ bool endswith(const char *s, const char *postfix) {
         sl = strlen(s);
         pl = strlen(postfix);
 
+        if (pl == 0)
+                return true;
+
         if (sl < pl)
                 return false;
 
@@ -128,6 +131,9 @@ bool startswith(const char *s, const char *prefix) {
 
         sl = strlen(s);
         pl = strlen(prefix);
+
+        if (pl == 0)
+                return true;
 
         if (sl < pl)
                 return false;
@@ -147,11 +153,14 @@ bool first_word(const char *s, const char *word) {
         if (sl < wl)
                 return false;
 
+        if (wl == 0)
+                return true;
+
         if (memcmp(s, word, wl) != 0)
                 return false;
 
-        return (s[wl] == 0 ||
-                strchr(WHITESPACE, s[wl]));
+        return s[wl] == 0 ||
+                strchr(WHITESPACE, s[wl]);
 }
 
 int close_nointr(int fd) {
