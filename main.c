@@ -615,7 +615,7 @@ int main(int argc, char *argv[]) {
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
-        if (running_as == MANAGER_INIT)
+        if (running_as == MANAGER_INIT && action == ACTION_RUN)
                 console_setup(getpid() == 1 && !serialization);
 
         /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
