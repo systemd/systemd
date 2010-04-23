@@ -2253,7 +2253,7 @@ static int service_enumerate(Manager *m) {
                                         if ((r = unit_add_dependency(runlevel_target, UNIT_WANTS, service, true)) < 0)
                                                 goto finish;
 
-                                        if ((r = unit_add_dependency(runlevel_target, UNIT_AFTER, service, true)) < 0)
+                                        if ((r = unit_add_dependency(service, UNIT_BEFORE, runlevel_target, true)) < 0)
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
@@ -2276,10 +2276,10 @@ static int service_enumerate(Manager *m) {
                                         if ((r = manager_load_unit(m, SPECIAL_SHUTDOWN_TARGET, NULL, &shutdown_target)) < 0)
                                                 goto finish;
 
-                                        if ((r = unit_add_dependency(shutdown_target, UNIT_CONFLICTS, service, true)) < 0)
+                                        if ((r = unit_add_dependency(service, UNIT_CONFLICTS, shutdown_target, true)) < 0)
                                                 goto finish;
 
-                                        if ((r = unit_add_dependency(shutdown_target, UNIT_BEFORE, service, true)) < 0)
+                                        if ((r = unit_add_dependency(service, UNIT_BEFORE, shutdown_target, true)) < 0)
                                                 goto finish;
                                 }
                         }
