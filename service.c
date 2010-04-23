@@ -1093,13 +1093,17 @@ static int service_coldplug(Unit *u) {
                     s->deserialized_state == SERVICE_STOP_POST ||
                     s->deserialized_state == SERVICE_FINAL_SIGTERM ||
                     s->deserialized_state == SERVICE_FINAL_SIGKILL ||
-                    s->deserialized_state == SERVICE_AUTO_RESTART)
-                        if ((r = unit_watch_timer(UNIT(s),
-                                                  s->deserialized_state == SERVICE_AUTO_RESTART ?
-                                                  s->restart_usec :
-                                                  s->timeout_usec,
-                                                  &s->timer_watch)) < 0)
-                                return r;
+                    s->deserialized_state == SERVICE_AUTO_RESTART) {
+
+                        if (s->deserialized_state == SERVICE_AUTO_RESTART || s->timeout_usec > 0) {
+                                usec_t k;
+
+                                k = s->deserialized_state == SERVICE_AUTO_RESTART ? s->restart_usec : s->timeout_usec;
+
+                                if ((r = unit_watch_timer(UNIT(s), k, &s->timer_watch)) < 0)
+                                        return r;
+                        }
+                }
 
                 if ((s->deserialized_state == SERVICE_START &&
                      (s->type == SERVICE_FORKING ||
@@ -1222,7 +1226,7 @@ static int service_spawn(
                         goto fail;
         }
 
-        if (timeout) {
+        if (timeout && s->timeout_usec) {
                 if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
                         goto fail;
         } else
@@ -1409,8 +1413,9 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         }
 
         if (sent) {
-                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
-                        goto fail;
+                if (s->timeout_usec > 0)
+                        if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+                                goto fail;
 
                 service_set_state(s, state);
         } else if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
