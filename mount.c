@@ -385,7 +385,7 @@ static void mount_set_state(Mount *m, MountState state) {
                 mount_notify_automount(m, -ENODEV);
 
         if (state != old_state)
-                log_debug("%s changed %s → %s",
+                log_debug("%s changed %s -> %s",
                           UNIT(m)->meta.id,
                           mount_state_to_string(old_state),
                           mount_state_to_string(state));

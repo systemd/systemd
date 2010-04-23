@@ -668,7 +668,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (action == ACTION_TEST) {
-                        printf("→ By units:\n");
+                        printf("-> By units:\n");
                         manager_dump_units(m, stdout, "\t");
                 }
 
@@ -678,7 +678,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (action == ACTION_TEST) {
-                        printf("→ By jobs:\n");
+                        printf("-> By jobs:\n");
                         manager_dump_jobs(m, stdout, "\t");
                         retval = 0;
                         goto finish;

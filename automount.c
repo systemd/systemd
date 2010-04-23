@@ -168,7 +168,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
                 unmount_autofs(a);
 
         if (state != old_state)
-                log_debug("%s changed %s → %s",
+                log_debug("%s changed %s -> %s",
                           UNIT(a)->meta.id,
                           automount_state_to_string(old_state),
                           automount_state_to_string(state));

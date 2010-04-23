@@ -875,7 +875,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 if (!s->exec_command[c])
                         continue;
 
-                fprintf(f, "%s→ %s:\n",
+                fprintf(f, "%s-> %s:\n",
                         prefix, service_exec_command_to_string(c));
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
@@ -1069,7 +1069,7 @@ static void service_set_state(Service *s, ServiceState state) {
                 service_close_socket_fd(s);
 
         if (old_state != state)
-                log_debug("%s changed %s → %s", UNIT(s)->meta.id, service_state_to_string(old_state), service_state_to_string(state));
+                log_debug("%s changed %s -> %s", UNIT(s)->meta.id, service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }

@@ -251,7 +251,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 if (!s->exec_command[c])
                         continue;
 
-                fprintf(f, "%s→ %s:\n",
+                fprintf(f, "%s-> %s:\n",
                         prefix, socket_exec_command_to_string(c));
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
@@ -496,7 +496,7 @@ static void socket_set_state(Socket *s, SocketState state) {
                 socket_close_fds(s);
 
         if (state != old_state)
-                log_debug("%s changed %s → %s",
+                log_debug("%s changed %s -> %s",
                           s->meta.id,
                           socket_state_to_string(old_state),
                           socket_state_to_string(state));

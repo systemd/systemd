@@ -568,7 +568,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         prefix2 = p2 ? p2 : prefix;
 
         fprintf(f,
-                "%s→ Unit %s:\n"
+                "%s-> Unit %s:\n"
                 "%s\tDescription: %s\n"
                 "%s\tInstance: %s\n"
                 "%s\tUnit Load State: %s\n"

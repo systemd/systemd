@@ -150,8 +150,8 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
         assert(f);
 
         fprintf(f,
-                "%s→ Job %u:\n"
-                "%s\tAction: %s → %s\n"
+                "%s-> Job %u:\n"
+                "%s\tAction: %s -> %s\n"
                 "%s\tState: %s\n"
                 "%s\tForced: %s\n",
                 prefix, j->id,
@@ -464,7 +464,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
         /* Patch restart jobs so that they become normal start jobs */
         if (success && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
 
-                log_debug("Converting job %s/%s → %s/%s",
+                log_debug("Converting job %s/%s -> %s/%s",
                           j->unit->meta.id, job_type_to_string(j->type),
                           j->unit->meta.id, job_type_to_string(JOB_START));
 
