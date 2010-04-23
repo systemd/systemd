@@ -453,7 +453,7 @@ static int socket_watch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                p->fd_watch.data.socket_accept =
+                p->fd_watch.socket_accept =
                         s->accept &&
                         p->type == SOCKET_SOCKET &&
                         socket_address_can_accept(&p->address);
@@ -1094,7 +1094,7 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 goto fail;
         }
 
-        if (w->data.socket_accept) {
+        if (w->socket_accept) {
                 for (;;) {
 
                         if ((cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK)) < 0) {

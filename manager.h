@@ -71,9 +71,9 @@ struct Watch {
                 union Unit *unit;
                 DBusWatch *bus_watch;
                 DBusTimeout *bus_timeout;
-                bool socket_accept;
         } data;
-        bool fd_is_dupped;
+        bool fd_is_dupped:1;
+        bool socket_accept:1;
 };
 
 #include "unit.h"
