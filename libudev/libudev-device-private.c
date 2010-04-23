@@ -22,34 +22,58 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-static int udev_device_tag_index(struct udev_device *udev_device, bool add)
+static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
 {
-	struct udev *udev = udev_device_get_udev(udev_device);
+	struct udev *udev = udev_device_get_udev(dev);
+	char filename[UTIL_PATH_SIZE];
+
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/tags/", tag, "/",
+		      udev_device_get_subsystem(dev), ":", udev_device_get_sysname(dev), NULL);
+
+	if (add) {
+		util_create_path(udev, filename);
+		symlink(udev_device_get_devpath(dev), filename);
+		/* possibly cleanup old entries after a device renaming */
+		if (udev_device_get_sysname_old(dev) != NULL) {
+			char filename_old[UTIL_PATH_SIZE];
+
+			util_strscpyl(filename_old, sizeof(filename_old), udev_get_dev_path(udev), "/.udev/tags/", tag, "/",
+				      udev_device_get_subsystem(dev), ":", udev_device_get_sysname_old(dev), NULL);
+			unlink(filename_old);
+		}
+	} else {
+		unlink(filename);
+	}
+}
+
+int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, bool add)
+{
 	struct udev_list_entry *list_entry;
+	bool found;
 
-	udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device)) {
-		char filename[UTIL_PATH_SIZE];
+	if (add) {
+		/* delete possible left-over tags */
+		udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(dev_old)) {
+			const char *tag_old = udev_list_entry_get_name(list_entry);
+			struct udev_list_entry *list_entry_current;
 
-		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/tags/",
-			      udev_list_entry_get_name(list_entry), "/",
-			      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
+			found = false;
+			udev_list_entry_foreach(list_entry_current, udev_device_get_tags_list_entry(dev)) {
+				const char *tag = udev_list_entry_get_name(list_entry_current);
 
-		if (add) {
-			util_create_path(udev, filename);
-			symlink(udev_device_get_devpath(udev_device), filename);
-			if (udev_device_get_sysname_old(udev_device) != NULL) {
-				char filename_old[UTIL_PATH_SIZE];
-
-				util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/tags/",
-					      udev_list_entry_get_name(list_entry),
-					      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname_old(udev_device), NULL);
-				unlink(filename_old);
+				if (strcmp(tag, tag_old) == 0) {
+					found = true;
+					break;
+				}
 			}
-		} else {
-			unlink(filename);
-			util_delete_path(udev, filename);
+			if (!found)
+				udev_device_tag(dev_old, tag_old, false);
 		}
 	}
+
+	udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(dev))
+		udev_device_tag(dev, udev_list_entry_get_name(list_entry), add);
+
 	return 0;
 }
 
@@ -140,7 +164,6 @@ file:
 	rename(filename_tmp, filename);
 	info(udev, "created db file for '%s' in '%s'\n", udev_device_get_devpath(udev_device), filename);
 out:
-	udev_device_tag_index(udev_device, true);
 	return 0;
 }
 
@@ -149,7 +172,6 @@ int udev_device_delete_db(struct udev_device *udev_device)
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
 
-	udev_device_tag_index(udev_device, false);
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
 	unlink(filename);
@@ -169,6 +191,5 @@ int udev_device_rename_db(struct udev_device *udev_device)
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname_old(udev_device), NULL);
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
-	udev_device_tag_index(udev_device, true);
 	return rename(filename_old, filename);
 }

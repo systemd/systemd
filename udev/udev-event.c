@@ -544,6 +544,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	if (strcmp(udev_device_get_action(dev), "remove") == 0) {
 		udev_device_read_db(dev);
 		udev_device_delete_db(dev);
+		udev_device_tag_index(dev, NULL, false);
 
 		if (major(udev_device_get_devnum(dev)) != 0)
 			udev_watch_end(event->udev, dev);
@@ -577,6 +578,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 				/* delete stale db file */
 				udev_device_delete_db(dev);
+				udev_device_tag_index(dev, NULL, false);
 
 				/* remember old name */
 				udev_device_add_property(dev, "INTERFACE_OLD", udev_device_get_sysname(dev));
@@ -618,6 +620,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			if (event->name == NULL) {
 				/* things went wrong */
 				udev_device_delete_db(dev);
+				udev_device_tag_index(dev, NULL, false);
 				udev_device_unref(event->dev_db);
 				err = -ENOMEM;
 				goto out;
@@ -629,6 +632,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		}
 
 		udev_device_update_db(dev);
+		udev_device_tag_index(dev, event->dev_db, true);
 
 		if (major(udev_device_get_devnum(dev)) != 0) {
 			/* remove/update possible left-over symlinks from old database entry */
