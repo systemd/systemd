@@ -467,7 +467,7 @@ fail:
         return r;
 }
 
-static int restore_conform_stdio(const ExecContext *context,
+static int restore_confirm_stdio(const ExecContext *context,
                                  int *saved_stdin,
                                  int *saved_stdout,
                                  bool *keep_stdin,
@@ -822,7 +822,7 @@ int exec_spawn(ExecCommand *command,
                         }
 
                         /* Release terminal for the question */
-                        if ((r = restore_conform_stdio(context,
+                        if ((r = restore_confirm_stdio(context,
                                                        &saved_stdin, &saved_stdout,
                                                        &keep_stdin, &keep_stdout)))
                                 goto fail;
