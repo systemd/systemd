@@ -39,6 +39,7 @@
 #include "log.h"
 #include "list.h"
 #include "initreq.h"
+#include "manager.h"
 
 #define SERVER_FD_START 3
 #define SERVER_FD_MAX 16
@@ -67,42 +68,35 @@ struct Fifo {
 };
 
 static const char *translate_runlevel(int runlevel) {
+        static const struct {
+                const int runlevel;
+                const char *special;
+        } table[] = {
+                { '0', SPECIAL_RUNLEVEL0_TARGET },
+                { '1', SPECIAL_RUNLEVEL1_TARGET },
+                { 's', SPECIAL_RUNLEVEL1_TARGET },
+                { 'S', SPECIAL_RUNLEVEL1_TARGET },
+                { '2', SPECIAL_RUNLEVEL2_TARGET },
+                { '3', SPECIAL_RUNLEVEL3_TARGET },
+                { '4', SPECIAL_RUNLEVEL4_TARGET },
+                { '5', SPECIAL_RUNLEVEL5_TARGET },
+                { '6', SPECIAL_RUNLEVEL6_TARGET },
+        };
 
-        switch (runlevel) {
+        unsigned i;
 
-        case '0':
-                return "halt.target";
+        for (i = 0; i < ELEMENTSOF(table); i++)
+                if (table[i].runlevel == runlevel)
+                        return table[i].special;
 
-        case '1':
-        case 's':
-        case 'S':
-                return "rescue.target";
-
-        case '2':
-                return "runlevel2.target";
-
-        case '3':
-                return "runlevel3.target";
-
-        case '4':
-                return "runlevel4.target";
-
-        case '5':
-                return "runlevel5.target";
-
-        case '6':
-                return "reboot.target";
-
-        default:
-                return NULL;
-        }
+        return NULL;
 }
 
 static void change_runlevel(Server *s, int runlevel) {
         const char *target;
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        const char *path, *replace = "replace";
+        const char *path, *replace = "isolate";
 
         assert(s);
 

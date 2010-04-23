@@ -2197,7 +2197,7 @@ static int service_enumerate(Manager *m) {
                         }
 
                         while ((de = readdir(d))) {
-                                Unit *runlevel, *service;
+                                Unit *service;
 
                                 if (ignore_file(de->d_name))
                                         continue;
@@ -2233,31 +2233,42 @@ static int service_enumerate(Manager *m) {
                                 if ((r = manager_load_unit(m, name, NULL, &service)) < 0)
                                         goto finish;
 
-                                if ((r = manager_load_unit(m, rcnd_table[i+1], NULL, &runlevel)) < 0)
-                                        goto finish;
-
                                 if (de->d_name[0] == 'S') {
-                                        if ((r = unit_add_dependency(runlevel, UNIT_WANTS, service, true)) < 0)
+                                        Unit *runlevel_target;
+
+                                        if ((r = manager_load_unit(m, rcnd_table[i+1], NULL, &runlevel_target)) < 0)
                                                 goto finish;
 
-                                        if ((r = unit_add_dependency(runlevel, UNIT_AFTER, service, true)) < 0)
+                                        if ((r = unit_add_dependency(runlevel_target, UNIT_WANTS, service, true)) < 0)
+                                                goto finish;
+
+                                        if ((r = unit_add_dependency(runlevel_target, UNIT_AFTER, service, true)) < 0)
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
                                            (streq(rcnd_table[i+1], SPECIAL_RUNLEVEL0_TARGET) ||
                                             streq(rcnd_table[i+1], SPECIAL_RUNLEVEL6_TARGET))) {
 
+                                        Unit *shutdown_target;
+
                                         /* We honour K links only for
                                          * halt/reboot. For the normal
                                          * runlevels we assume the
                                          * stop jobs will be
                                          * implicitly added by the
-                                         * core logic. */
+                                         * core logic. Also, we don't
+                                         * really distuingish here
+                                         * between the runlevels 0 and
+                                         * 6 and just add them to the
+                                         * special shutdown target. */
 
-                                        if ((r = unit_add_dependency(runlevel, UNIT_CONFLICTS, service, true)) < 0)
+                                        if ((r = manager_load_unit(m, SPECIAL_SHUTDOWN_TARGET, NULL, &shutdown_target)) < 0)
                                                 goto finish;
 
-                                        if ((r = unit_add_dependency(runlevel, UNIT_BEFORE, service, true)) < 0)
+                                        if ((r = unit_add_dependency(shutdown_target, UNIT_CONFLICTS, service, true)) < 0)
+                                                goto finish;
+
+                                        if ((r = unit_add_dependency(shutdown_target, UNIT_BEFORE, service, true)) < 0)
                                                 goto finish;
                                 }
                         }

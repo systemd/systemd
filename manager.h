@@ -85,6 +85,12 @@ struct Watch {
 
 #define SPECIAL_DEFAULT_TARGET "default.target"
 
+/* This is not really intended to be started by directly. This is
+ * mostly so that other targets (reboot/halt/poweroff) can depend on
+ * it to bring all services down that want to be brought down on
+ * system shutdown. */
+#define SPECIAL_SHUTDOWN_TARGET "shutdown.target"
+
 #define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
 
 #define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
