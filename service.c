@@ -1805,7 +1805,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
          * commands attached here, we will start from the first one
          * again */
         if (s->control_command_id >= 0)
-                unit_serialize_item(u, f, "control-command", mount_exec_command_to_string(s->control_command_id));
+                unit_serialize_item(u, f, "control-command", service_exec_command_to_string(s->control_command_id));
 
         if (s->socket_fd >= 0) {
                 int copy;
