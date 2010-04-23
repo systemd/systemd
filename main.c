@@ -164,7 +164,7 @@ static void install_crash_handler(void) {
         assert_se(sigaction(SIGABRT, &sa, NULL) == 0);
 }
 
-static int console_setup(void) {
+static int console_setup(bool do_reset) {
         int tty_fd = -1, null_fd = -1, r = 0;
 
         /* If we are init, we connect stdout/stderr to /dev/console
@@ -188,8 +188,9 @@ static int console_setup(void) {
         assert(tty_fd >= 3);
         assert(null_fd >= 3);
 
-        if (reset_terminal(tty_fd) < 0)
-                log_error("Failed to reset /dev/console: %m");
+        if (do_reset)
+                if (reset_terminal(tty_fd) < 0)
+                        log_error("Failed to reset /dev/console: %m");
 
         if (dup2(tty_fd, STDOUT_FILENO) < 0 ||
             dup2(tty_fd, STDERR_FILENO) < 0 ||
@@ -612,8 +613,10 @@ int main(int argc, char *argv[]) {
                 umask(0);
         }
 
+        /* Reset the console, but only if this is really init and we
+         * are freshly booted */
         if (running_as == MANAGER_INIT)
-                console_setup();
+                console_setup(getpid() == 1 && !serialization);
 
         /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
         dbus_connection_set_change_sigpipe(FALSE);
