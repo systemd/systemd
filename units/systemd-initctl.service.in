@@ -2,5 +2,5 @@
 Description=systemd /dev/initctl Compatibility
 
 [Service]
-ExecStart=@libexecdir@/systemd-initctl
+ExecStart=@pkglibexecdir@/systemd-initctl
 Type=simple

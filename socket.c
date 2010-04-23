@@ -1110,7 +1110,6 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 }
         }
 
-        log_debug("cfd=%i", cfd);
         socket_enter_running(s, cfd);
         return;
 

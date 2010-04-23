@@ -246,10 +246,14 @@ systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS)
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
 systemd-initctl.service: units/systemd-initctl.service.in Makefile
-	sed -e 's,@libexecdir\@,$(libexecdir),g' < $< > $@
+	sed -e 's,@libexecdir\@,$(libexecdir),g' \
+		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
+		< $< > $@
 
 systemd-logger.service: units/systemd-logger.service.in Makefile
-	sed -e 's,@libexecdir\@,$(libexecdir),g' < $< > $@
+	sed -e 's,@libexecdir\@,$(libexecdir),g' \
+		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
+		< $< > $@
 
 CLEANFILES = \
 	systemd-interfaces.c \

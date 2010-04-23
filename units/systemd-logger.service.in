@@ -2,5 +2,5 @@
 Description=systemd Logging Daemon
 
 [Service]
-ExecStart=@libexecdir@/systemd-logger
+ExecStart=@pkglibexecdir@/systemd-logger
 Type=simple
