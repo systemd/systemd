@@ -1765,9 +1765,15 @@ static int manager_process_signal_fd(Manager *m) {
                         sigchld = true;
                         break;
 
-                case SIGINT:
                 case SIGTERM:
+                        if (m->running_as == MANAGER_INIT)
+                                m->exit_code = MANAGER_REEXECUTE;
+                        else
+                                m->exit_code = MANAGER_EXIT;
 
+                        return 0;
+
+                case SIGINT:
                         if (m->running_as == MANAGER_INIT) {
                                 manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET);
                                 break;
@@ -1777,7 +1783,6 @@ static int manager_process_signal_fd(Manager *m) {
                         return 0;
 
                 case SIGWINCH:
-
                         if (m->running_as == MANAGER_INIT)
                                 manager_start_target(m, SPECIAL_KBREQUEST_TARGET);
 
