@@ -395,14 +395,24 @@ static unsigned manager_dispatch_cleanup_queue(Manager *m) {
         return n;
 }
 
-static void unit_gc_sweep(Unit *u, int gc_marker) {
+enum {
+        GC_OFFSET_IN_PATH,  /* This one is on the path we were travelling */
+        GC_OFFSET_UNSURE,   /* No clue */
+        GC_OFFSET_GOOD,     /* We still need this unit */
+        GC_OFFSET_BAD,      /* We don't need this unit anymore */
+        _GC_OFFSET_MAX
+};
+
+static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
         Iterator i;
         Unit *other;
+        bool is_bad;
 
         assert(u);
 
-        if (u->meta.gc_marker == gc_marker ||
-            u->meta.gc_marker == -gc_marker)
+        if (u->meta.gc_marker == gc_marker + GC_OFFSET_GOOD ||
+            u->meta.gc_marker == gc_marker + GC_OFFSET_BAD ||
+            u->meta.gc_marker == gc_marker + GC_OFFSET_IN_PATH)
                 return;
 
         if (u->meta.in_cleanup_queue)
@@ -411,26 +421,44 @@ static void unit_gc_sweep(Unit *u, int gc_marker) {
         if (unit_check_gc(u))
                 goto good;
 
+        u->meta.gc_marker = gc_marker + GC_OFFSET_IN_PATH;
+
+        is_bad = true;
+
         SET_FOREACH(other, u->meta.dependencies[UNIT_REFERENCED_BY], i) {
                 unit_gc_sweep(other, gc_marker);
 
-                if (other->meta.gc_marker == gc_marker)
+                if (other->meta.gc_marker == gc_marker + GC_OFFSET_GOOD)
                         goto good;
+
+                if (other->meta.gc_marker != gc_marker + GC_OFFSET_BAD)
+                        is_bad = false;
         }
 
+        if (is_bad)
+                goto bad;
+
+        /* We were unable to find anything out about this entry, so
+         * let's investigate it later */
+        u->meta.gc_marker = gc_marker + GC_OFFSET_UNSURE;
+        unit_add_to_gc_queue(u);
+        return;
+
 bad:
-        /* So there is no reason to keep this unit around, hence let's get rid of it */
-        u->meta.gc_marker = -gc_marker;
+        /* We definitely know that this one is not useful anymore, so
+         * let's mark it for deletion */
+        u->meta.gc_marker = gc_marker + GC_OFFSET_BAD;
+        unit_add_to_cleanup_queue(u);
         return;
 
 good:
-        u->meta.gc_marker = gc_marker;
+        u->meta.gc_marker = gc_marker + GC_OFFSET_GOOD;
 }
 
 static unsigned manager_dispatch_gc_queue(Manager *m) {
         Meta *meta;
         unsigned n = 0;
-        int gc_marker;
+        unsigned gc_marker;
 
         assert(m);
 
@@ -441,23 +469,26 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
         log_debug("Running GC...");
 
-        gc_marker = ++m->gc_marker;
-
-        if (m->gc_marker < 0)
+        m->gc_marker += _GC_OFFSET_MAX;
+        if (m->gc_marker + _GC_OFFSET_MAX <= _GC_OFFSET_MAX)
                 m->gc_marker = 1;
+
+        gc_marker = m->gc_marker;
 
         while ((meta = m->gc_queue)) {
                 assert(meta->in_gc_queue);
+
+                unit_gc_sweep(UNIT(meta), gc_marker);
 
                 LIST_REMOVE(Meta, gc_queue, m->gc_queue, meta);
                 meta->in_gc_queue = false;
 
                 n++;
 
-                unit_gc_sweep(UNIT(meta), gc_marker);
-
-                if (meta->gc_marker == -gc_marker) {
+                if (meta->gc_marker == gc_marker + GC_OFFSET_BAD ||
+                    meta->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
                         log_debug("Collecting %s", meta->id);
+                        meta->gc_marker = gc_marker + GC_OFFSET_BAD;
                         unit_add_to_cleanup_queue(UNIT(meta));
                 }
         }

@@ -170,7 +170,7 @@ struct Meta {
         LIST_FIELDS(Meta, gc_queue);
 
         /* Used during GC sweeps */
-        int gc_marker;
+        unsigned gc_marker;
 
         /* If we go down, pull down everything that depends on us, too */
         bool recursive_stop;
