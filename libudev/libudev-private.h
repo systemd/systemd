@@ -87,7 +87,6 @@ int udev_device_set_devpath_old(struct udev_device *udev_device, const char *dev
 const char *udev_device_get_knodename(struct udev_device *udev_device);
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
 void udev_device_cleanup_tags_list(struct udev_device *udev_device);
-struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device);
 int udev_device_has_tag(struct udev_device *udev_device, const char *tag);
 int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename);
 int udev_device_get_timeout(struct udev_device *udev_device);
