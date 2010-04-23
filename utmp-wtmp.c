@@ -193,8 +193,12 @@ int utmp_put_runlevel(usec_t timestamp, int runlevel, int previous) {
         if (previous <= 0) {
                 /* Find the old runlevel automatically */
 
-                if ((r = utmp_get_runlevel(&previous, NULL)) < 0)
-                        return r;
+                if ((r = utmp_get_runlevel(&previous, NULL)) < 0) {
+                        if (r != -ESRCH)
+                                return r;
+
+                        previous = 0;
+                }
 
                 if (previous == runlevel)
                         return 0;
