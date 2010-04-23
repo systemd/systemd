@@ -179,7 +179,7 @@ int utmp_put_reboot(usec_t timestamp) {
         init_entry(&store, timestamp);
 
         store.ut_type = BOOT_TIME;
-        strncpy(store.ut_user, "reboot", sizeof(store.ut_type));
+        strncpy(store.ut_user, "reboot", sizeof(store.ut_user));
 
         return write_entry_both(&store);
 }
