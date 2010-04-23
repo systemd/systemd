@@ -61,7 +61,7 @@ public interface Manager : DBus.Object {
         public abstract void reexecute() throws DBus.Error;
         public abstract void exit() throws DBus.Error;
 
-        public abstract ObjectPath create_snapshot(string name, bool cleanup = false) throws DBus.Error;
+        public abstract ObjectPath create_snapshot(string name = "", bool cleanup = false) throws DBus.Error;
 
         public abstract signal void unit_new(string id, ObjectPath path);
         public abstract signal void unit_removed(string id, ObjectPath path);
@@ -77,6 +77,7 @@ public interface Unit : DBus.Object {
         }
 
         public abstract string id { owned get; }
+        public abstract string[] names { owned get; }
         public abstract string description { owned get; }
         public abstract string load_state { owned get; }
         public abstract string active_state { owned get; }
