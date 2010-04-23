@@ -1429,9 +1429,13 @@ int ask(char *ret, const char *replies, const char *text, ...) {
                 int r;
                 bool need_nl = true;
 
+                fputs("\x1B[1m", stdout);
+
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
+
+                fputs("\x1B[0m", stdout);
 
                 fflush(stdout);
 
