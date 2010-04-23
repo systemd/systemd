@@ -183,7 +183,7 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig) {
         if (!(s = set_new(trivial_hash_func, trivial_compare_func)))
                 return -ENOMEM;
 
-        log_debug("Killing processes from process group %s:%s", b->controller, b->path);
+        log_debug("Killing processes from process group %s:%s with %s", b->controller, b->path, strsignal(sig));
 
         do {
                 void *iterator;
