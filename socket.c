@@ -119,9 +119,14 @@ static bool have_non_accept_socket(Socket *s) {
         if (!s->accept)
                 return true;
 
-        LIST_FOREACH(port, p, s->ports)
+        LIST_FOREACH(port, p, s->ports) {
+
+                if (p->type != SOCKET_SOCKET)
+                        return true;
+
                 if (!socket_address_can_accept(&p->address))
                         return true;
+        }
 
         return false;
 }
@@ -450,6 +455,7 @@ static int socket_watch_fds(Socket *s) {
 
                 p->fd_watch.data.socket_accept =
                         s->accept &&
+                        p->type == SOCKET_SOCKET &&
                         socket_address_can_accept(&p->address);
 
                 if ((r = unit_watch_fd(UNIT(s), p->fd, EPOLLIN, &p->fd_watch)) < 0)
