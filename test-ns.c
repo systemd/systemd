@@ -34,7 +34,9 @@ int main(int argc, char *argv[]) {
         };
 
         const char * const readable[] = {
-                "/var",
+                "/",
+                "/usr",
+                "/boot",
                 NULL
         };
 

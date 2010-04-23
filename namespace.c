@@ -123,7 +123,6 @@ static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_d
         const char *what;
         char *where;
         int r;
-        bool read_only = false;
 
         assert(p);
         assert(root_dir);
@@ -137,11 +136,11 @@ static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_d
 
         case INACCESSIBLE:
                 what = inaccessible_dir;
-                read_only = true;
+                flags |= MS_RDONLY;
                 break;
 
         case READONLY:
-                read_only = true;
+                flags |= MS_RDONLY;
                 /* Fall through */
 
         case READWRITE:
@@ -160,14 +159,11 @@ static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_d
                  * flags. If we want to set any flag we need
                  * to do so in a second indepdant step. */
                 if (flags)
-                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_REC|flags, NULL);
+                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|MS_REC|flags, NULL);
 
                 /* Avoid expontial growth of trees */
                 if (r >= 0 && path_equal(p->path, "/"))
-                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_UNBINDABLE, NULL);
-
-                if (r >= 0 && read_only)
-                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_RDONLY, NULL);
+                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|MS_UNBINDABLE|flags, NULL);
 
                 if (r < 0) {
                         r = -errno;
