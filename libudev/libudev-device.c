@@ -1289,6 +1289,8 @@ void udev_device_cleanup_tags_list(struct udev_device *udev_device)
 
 struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device)
 {
+	if (udev_device == NULL)
+		return NULL;
 	return udev_list_get_entry(&udev_device->tags_list);
 }
 

@@ -51,7 +51,7 @@ int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, 
 	struct udev_list_entry *list_entry;
 	bool found;
 
-	if (add) {
+	if (add && dev_old != NULL) {
 		/* delete possible left-over tags */
 		udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(dev_old)) {
 			const char *tag_old = udev_list_entry_get_name(list_entry);
