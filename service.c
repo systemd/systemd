@@ -1318,6 +1318,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
                 s->failure = true;
 
         if (allow_restart &&
+            s->allow_restart &&
             (s->restart == SERVICE_RESTART_ALWAYS ||
              (s->restart == SERVICE_RESTART_ON_SUCCESS && !s->failure))) {
 
@@ -1721,6 +1722,7 @@ static int service_start(Unit *u) {
 
         s->failure = false;
         s->main_pid_known = false;
+        s->allow_restart = true;
 
         service_enter_start_pre(s);
         return 0;
@@ -1753,6 +1755,10 @@ static int service_stop(Unit *u) {
         }
 
         assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
+
+        /* This is a user request, so don't do restarts on this
+         * shutdown. */
+        s->allow_restart = false;
 
         service_enter_stop(s, true);
         return 0;

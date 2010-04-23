@@ -110,6 +110,8 @@ struct Service {
 
         bool bus_name_good:1;
 
+        bool allow_restart:1;
+
         bool got_socket_fd:1;
 
         bool sysv_has_lsb:1;
