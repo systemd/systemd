@@ -1938,7 +1938,7 @@ int manager_loop(Manager *m) {
 
                 if ((n = epoll_wait(m->epoll_fd, &event, 1, -1)) < 0) {
 
-                        if (errno == -EINTR)
+                        if (errno == EINTR)
                                 continue;
 
                         return -errno;
