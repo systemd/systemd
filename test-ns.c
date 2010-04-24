@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mount.h>
+#include <linux/fs.h>
 
 #include "namespace.h"
 #include "log.h"

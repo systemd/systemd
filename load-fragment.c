@@ -28,6 +28,7 @@
 #include <sched.h>
 #include <sys/prctl.h>
 #include <sys/mount.h>
+#include <linux/fs.h>
 
 #include "unit.h"
 #include "strv.h"

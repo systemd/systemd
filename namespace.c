@@ -29,6 +29,7 @@
 #include <sched.h>
 #include <sys/syscall.h>
 #include <limits.h>
+#include <linux/fs.h>
 
 #include "strv.h"
 #include "util.h"

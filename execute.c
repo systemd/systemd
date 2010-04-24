@@ -35,6 +35,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <sys/mount.h>
+#include <linux/fs.h>
 
 #include "execute.h"
 #include "strv.h"
