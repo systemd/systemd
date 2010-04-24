@@ -486,7 +486,7 @@ public class MainWindow : Window {
                 try {
                         u.start("replace");
                 } catch (DBus.Error e) {
-                        message("%s", e.message);
+                        new MessageDialog(this, DialogFlags.DESTROY_WITH_PARENT, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
                 }
         }
 
@@ -499,7 +499,7 @@ public class MainWindow : Window {
                 try {
                         u.stop("replace");
                 } catch (DBus.Error e) {
-                        message("%s", e.message);
+                        new MessageDialog(this, DialogFlags.DESTROY_WITH_PARENT, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
                 }
         }
 
@@ -512,7 +512,7 @@ public class MainWindow : Window {
                 try {
                         u.reload("replace");
                 } catch (DBus.Error e) {
-                        message("%s", e.message);
+                        new MessageDialog(this, DialogFlags.DESTROY_WITH_PARENT, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
                 }
         }
 
@@ -525,7 +525,7 @@ public class MainWindow : Window {
                 try {
                         u.restart("replace");
                 } catch (DBus.Error e) {
-                        message("%s", e.message);
+                        new MessageDialog(this, DialogFlags.DESTROY_WITH_PARENT, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
                 }
         }
 
@@ -538,7 +538,7 @@ public class MainWindow : Window {
                 try {
                         j.cancel();
                 } catch (DBus.Error e) {
-                        message("%s", e.message);
+                        new MessageDialog(this, DialogFlags.DESTROY_WITH_PARENT, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
                 }
         }
 
@@ -683,7 +683,7 @@ public class MainWindow : Window {
                 try {
                         manager.reload();
                 } catch (DBus.Error e) {
-                        message("%s", e.message);
+                        new MessageDialog(this, DialogFlags.DESTROY_WITH_PARENT, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
                 }
         }
 
@@ -695,7 +695,7 @@ public class MainWindow : Window {
                                 unit_type_combo_box.set_active(8);
 
                 } catch (DBus.Error e) {
-                        message("%s", e.message);
+                        new MessageDialog(this, DialogFlags.DESTROY_WITH_PARENT, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
                 }
         }
 }
@@ -716,9 +716,9 @@ int main (string[] args) {
 
                 Gtk.main();
         } catch (DBus.Error e) {
-                message("%s", e.message);
+                new MessageDialog(null, 0, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
         } catch (GLib.Error e) {
-                message("%s", e.message);
+                new MessageDialog(null, 0, MessageType.ERROR, ButtonsType.CLOSE, "%s", e.message).run();
         }
 
         return 0;
