@@ -661,6 +661,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
         /* Special setting for all SysV services */
         s->valid_no_process = true;
+        s->kill_mode = KILL_PROCESS_GROUP;
 
         /* Don't timeout special services during boot (like fsck) */
         if (s->sysv_runlevels && !chars_intersect("12345", s->sysv_runlevels))
