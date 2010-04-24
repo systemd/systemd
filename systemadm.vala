@@ -385,8 +385,19 @@ public class MainWindow : Window {
                 current_unit_id = unit.id;
 
                 unit_id_label.set_text_or_na(current_unit_id);
-                unit_aliases_label.set_text_or_na(string.joinv("\n", unit.names));
 
+                string a = "";
+                foreach (string i in unit.names) {
+                        if (i == current_unit_id)
+                                continue;
+
+                        if (a == "")
+                                a = i;
+                        else
+                                a += "\n" + i;
+                }
+
+                unit_aliases_label.set_text_or_na(a);
                 unit_description_label.set_text_or_na(unit.description);
                 unit_load_state_label.set_text_or_na(unit.load_state);
                 unit_active_state_label.set_text_or_na(unit.active_state);
