@@ -150,6 +150,38 @@ static int config_parse_names(
         return 0;
 }
 
+static int config_parse_description(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        char *k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!(k = unit_full_printf(u, rvalue)))
+                return -ENOMEM;
+
+        free(u->meta.description);
+
+        if (*k)
+                u->meta.description = k;
+        else {
+                free(k);
+                u->meta.description = NULL;
+        }
+
+        return 0;
+}
+
 static int config_parse_listen(
                 const char *filename,
                 unsigned line,
@@ -1097,7 +1129,8 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_bindtodevice,     "NETWORKINTERFACE" },
                 { config_parse_usec,             "SECONDS" },
                 { config_parse_path_strv,        "PATH [...]" },
-                { config_parse_mount_flags,      "MOUNTFLAG [...]" }
+                { config_parse_mount_flags,      "MOUNTFLAG [...]" },
+                { config_parse_description,      "DESCRIPTION" },
         };
 
         assert(f);
@@ -1192,7 +1225,7 @@ static int load_from_path(Unit *u, const char *path) {
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },
-                { "Description",            config_parse_string,          &u->meta.description,                            "Unit"    },
+                { "Description",            config_parse_description,     u,                                               "Unit"    },
                 { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                      "Unit"    },
                 { "RequiresOverridable",    config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES_OVERRIDABLE),          "Unit"    },
                 { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                     "Unit"    },
