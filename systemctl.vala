@@ -70,7 +70,7 @@ static const OptionEntry entries[] = {
 
 int main (string[] args) {
 
-        OptionContext context = new OptionContext("[OPTION...] [COMMAND [ARGUMENT...]]");
+        OptionContext context = new OptionContext("[COMMAND [ARGUMENT...]]");
         context.add_main_entries(entries, null);
         context.set_description(
                         "Commands:\n" +
@@ -85,7 +85,7 @@ int main (string[] args) {
                         "  restart [NAME...]   Restart on or more units\n" +
                         "  reload [NAME...]    Reload on or more units\n" +
                         "  monitor             Monitor unit/job changes\n" +
-                        "  dump                Dump servier status\n" +
+                        "  dump                Dump server status\n" +
                         "  snapshot [NAME]     Create a snapshot\n" +
                         "  daemon-reload       Reload daemon configuration\n" +
                         "  daemon-reexecute    Reexecute daemon\n");
