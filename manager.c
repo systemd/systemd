@@ -1816,12 +1816,7 @@ static int manager_process_signal_fd(Manager *m) {
                         /* This is a nop on non-init */
                         break;
 
-                case SIGUSR1:
-                        manager_dump_units(m, stdout, "\t");
-                        manager_dump_jobs(m, stdout, "\t");
-                        break;
-
-                case SIGUSR2:  {
+                case SIGUSR1: {
                         Unit *u;
 
                         u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
@@ -1839,6 +1834,11 @@ static int manager_process_signal_fd(Manager *m) {
 
                         break;
                 }
+
+                case SIGUSR2:
+                        manager_dump_units(m, stdout, "\t");
+                        manager_dump_jobs(m, stdout, "\t");
+                        break;
 
                 case SIGHUP:
                         m->exit_code = MANAGER_RELOAD;
