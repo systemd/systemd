@@ -1413,7 +1413,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                 }
         }
 
-        if (sent) {
+        if (sent && (s->main_pid > 0 || s->control_pid > 0)) {
                 if (s->timeout_usec > 0)
                         if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
                                 goto fail;

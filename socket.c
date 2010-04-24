@@ -667,7 +667,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                         }
         }
 
-        if (sent) {
+        if (sent && s->control_pid > 0) {
                 if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
                         goto fail;
 
