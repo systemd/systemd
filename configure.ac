@@ -46,6 +46,24 @@ if test "x$enable_logging" = "xyes"; then
 	AC_DEFINE(ENABLE_LOGGING, [1], [System logging.])
 fi
 
+AC_ARG_WITH(firmware-path,
+	AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
+	   [Firmware search path (default=/lib/firmware/updates:/lib/firmware)]),
+	[], [with_firmware_path="/lib/firmware/updates:/lib/firmware"]
+	)
+OLD_IFS=$IFS
+IFS=:
+for i in $with_firmware_path
+do
+	if test "x${FIRMWARE_PATH}" = "x"; then
+		FIRMWARE_PATH="\\\"${i}/\\\""
+	else
+		FIRMWARE_PATH="${FIRMWARE_PATH}, \\\"${i}/\\\""
+	fi
+done
+IFS=$OLD_IFS
+AC_SUBST([FIRMWARE_PATH], [$FIRMWARE_PATH])
+
 AC_ARG_ENABLE([extras],
 	AS_HELP_STRING([--disable-extras], [disable extras with external dependencies]),
 	[], [enable_extras=yes])
@@ -81,26 +99,6 @@ if test "x$enable_extras" = xyes; then
 			AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
 		fi])
 	AC_SUBST(PCI_DATABASE)
-
-	AC_ARG_WITH(firmware-path,
-		AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
-		   [Firmware search path (default=/lib/firmware/updates:/lib/firmware)]),
-		[],
-		[with_firmware_path="/lib/firmware/updates:/lib/firmware"]
-		)
-	OLD_IFS=$IFS
-	IFS=:
-	for i in $with_firmware_path
-	do
-		if test "x${FIRMWARE_PATH}" = "x"
-		then
-			FIRMWARE_PATH="\\\"${i}/\\\""
-		else
-			FIRMWARE_PATH="${FIRMWARE_PATH}, \\\"${i}/\\\""
-		fi
-	done
-	IFS=$OLD_IFS
-	AC_SUBST([FIRMWARE_PATH], [$FIRMWARE_PATH])
 
 	AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
 	AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
