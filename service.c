@@ -37,16 +37,30 @@
 #define NEWLINES "\n\r"
 #define LINE_MAX 4096
 
-static const char * const rcnd_table[] = {
-        "/rc0.d",  SPECIAL_RUNLEVEL0_TARGET,
-        "/rc1.d",  SPECIAL_RUNLEVEL1_TARGET,
-        "/rc2.d",  SPECIAL_RUNLEVEL2_TARGET,
-        "/rc3.d",  SPECIAL_RUNLEVEL3_TARGET,
-        "/rc4.d",  SPECIAL_RUNLEVEL4_TARGET,
-        "/rc5.d",  SPECIAL_RUNLEVEL5_TARGET,
-        "/rc6.d",  SPECIAL_RUNLEVEL6_TARGET,
-        "/boot.d", SPECIAL_BASIC_TARGET
+
+typedef enum RunlevelType {
+        RUNLEVEL_UP,
+        RUNLEVEL_DOWN,
+        RUNLEVEL_BASIC
+} RunlevelType;
+
+static const struct {
+        const char *path;
+        const char *target;
+        const RunlevelType type;
+} rcnd_table[] = {
+        { "/rc0.d",  SPECIAL_RUNLEVEL0_TARGET, RUNLEVEL_DOWN },
+        { "/rc1.d",  SPECIAL_RUNLEVEL1_TARGET, RUNLEVEL_UP },
+        { "/rc2.d",  SPECIAL_RUNLEVEL2_TARGET, RUNLEVEL_UP },
+        { "/rc3.d",  SPECIAL_RUNLEVEL3_TARGET, RUNLEVEL_UP },
+        { "/rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
+        { "/rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
+        { "/rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
+        { "/boot.d", SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
 };
+
+#define RUNLEVELS_UP "12345"
+#define RUNLEVELS_DOWN "06"
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
@@ -278,7 +292,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
         Unit *u;
         unsigned line = 0;
         int r;
-        bool normal_service;
         enum {
                 NORMAL,
                 DESCRIPTION,
@@ -580,9 +593,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
 
-        normal_service = !s->sysv_runlevels || chars_intersect("12345", s->sysv_runlevels);
-
-        if (normal_service) {
+        if (!s->sysv_runlevels || chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
                 /* If there a runlevels configured for this service
                  * but none of the standard ones, then we assume this
                  * is some special kind of service (which might be
@@ -592,15 +603,14 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true)) < 0 ||
                     (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         goto finish;
-        }
+
+        } else
+                /* Don't timeout special services during boot (like fsck) */
+                s->timeout_usec = 0;
 
         /* Special setting for all SysV services */
         s->valid_no_process = true;
         s->kill_mode = KILL_PROCESS_GROUP;
-
-        /* Don't timeout special services during boot (like fsck) */
-        if (s->sysv_runlevels && !normal_service)
-                s->timeout_usec = 0;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -2123,12 +2133,12 @@ static int service_enumerate(Manager *m) {
         assert(m);
 
         STRV_FOREACH(p, m->sysvrcnd_path)
-                for (i = 0; i < ELEMENTSOF(rcnd_table); i += 2) {
+                for (i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
                         struct dirent *de;
 
                         free(path);
                         path = NULL;
-                        if (asprintf(&path, "%s/%s", *p, rcnd_table[i]) < 0) {
+                        if (asprintf(&path, "%s/%s", *p, rcnd_table[i].path) < 0) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -2164,7 +2174,7 @@ static int service_enumerate(Manager *m) {
 
                                 free(fpath);
                                 fpath = NULL;
-                                if (asprintf(&fpath, "%s/%s/%s", *p, rcnd_table[i], de->d_name) < 0) {
+                                if (asprintf(&fpath, "%s/%s/%s", *p, rcnd_table[i].path, de->d_name) < 0) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
@@ -2187,7 +2197,8 @@ static int service_enumerate(Manager *m) {
                                 if ((r = manager_load_unit_prepare(m, name, NULL, &service)) < 0)
                                         goto finish;
 
-                                if (de->d_name[0] == 'S')
+                                if (de->d_name[0] == 'S' &&
+                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_BASIC))
                                         SERVICE(service)->sysv_start_priority = a*10 + b;
 
                                 manager_dispatch_load_queue(m);
@@ -2196,7 +2207,7 @@ static int service_enumerate(Manager *m) {
                                 if (de->d_name[0] == 'S') {
                                         Unit *runlevel_target;
 
-                                        if ((r = manager_load_unit(m, rcnd_table[i+1], NULL, &runlevel_target)) < 0)
+                                        if ((r = manager_load_unit(m, rcnd_table[i].target, NULL, &runlevel_target)) < 0)
                                                 goto finish;
 
                                         if ((r = unit_add_dependency(runlevel_target, UNIT_WANTS, service, true)) < 0)
@@ -2205,10 +2216,7 @@ static int service_enumerate(Manager *m) {
                                         if ((r = unit_add_dependency(service, UNIT_BEFORE, runlevel_target, true)) < 0)
                                                 goto finish;
 
-                                } else if (de->d_name[0] == 'K' &&
-                                           (streq(rcnd_table[i+1], SPECIAL_RUNLEVEL0_TARGET) ||
-                                            streq(rcnd_table[i+1], SPECIAL_RUNLEVEL6_TARGET))) {
-
+                                } else if (de->d_name[0] == 'K' && rcnd_table[i].type == RUNLEVEL_DOWN) {
                                         Unit *shutdown_target;
 
                                         /* We honour K links only for
