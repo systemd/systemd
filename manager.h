@@ -240,6 +240,7 @@ Unit *manager_get_unit(Manager *m, const char *name);
 int manager_get_unit_from_dbus_path(Manager *m, const char *s, Unit **_u);
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
+int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Unit **_ret);
 int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_ret);
 
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, Job **_ret);

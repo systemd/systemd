@@ -1536,15 +1536,15 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_ret) {
+int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Unit **_ret) {
         Unit *ret;
         int r;
 
         assert(m);
         assert(name || path);
 
-        /* This will load the service information files, but not actually
-         * start any services or anything. */
+        /* This will prepare the unit for loading, but not actually
+         * load anything from disk. */
 
         if (path && !is_path(path))
                 return -EINVAL;
@@ -1576,6 +1576,24 @@ int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_re
 
         unit_add_to_load_queue(ret);
         unit_add_to_dbus_queue(ret);
+
+        if (_ret)
+                *_ret = ret;
+
+        return 0;
+}
+
+int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_ret) {
+        Unit *ret;
+        int r;
+
+        assert(m);
+
+        /* This will load the service information files, but not actually
+         * start any services or anything. */
+
+        if ((r = manager_load_unit_prepare(m, name, path, &ret)) < 0)
+                return r;
 
         manager_dispatch_load_queue(m);
 
@@ -1767,6 +1785,8 @@ static int manager_process_signal_fd(Manager *m) {
 
                 case SIGTERM:
                         if (m->running_as == MANAGER_INIT)
+                                /* This is for compatibility with the
+                                 * original sysvinit */
                                 m->exit_code = MANAGER_REEXECUTE;
                         else
                                 m->exit_code = MANAGER_EXIT;

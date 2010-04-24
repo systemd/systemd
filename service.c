@@ -273,71 +273,12 @@ static int sysv_exec_commands(Service *s) {
         return 0;
 }
 
-static int priority_from_rcd(Service *s, const char *init_script) {
-        char **p;
-        unsigned i;
-
-        STRV_FOREACH(p, UNIT(s)->meta.manager->sysvrcnd_path)
-                for (i = 0; i < ELEMENTSOF(rcnd_table); i += 2) {
-                        char *path;
-                        DIR *d;
-                        struct dirent *de;
-
-                        if (asprintf(&path, "%s/%s", *p, rcnd_table[i]) < 0)
-                                return -ENOMEM;
-
-                        d = opendir(path);
-                        free(path);
-
-                        if (!d) {
-                                if (errno != ENOENT)
-                                        log_warning("opendir() failed on %s: %s", path, strerror(errno));
-
-                                continue;
-                        }
-
-                        while ((de = readdir(d))) {
-                                int a, b;
-
-                                if (ignore_file(de->d_name))
-                                        continue;
-
-                                if (de->d_name[0] != 'S')
-                                        continue;
-
-                                if (strlen(de->d_name) < 4)
-                                        continue;
-
-                                if (!streq(de->d_name + 3, init_script))
-                                        continue;
-
-                                /* Yay, we found it! Now decode the priority */
-
-                                a = undecchar(de->d_name[1]);
-                                b = undecchar(de->d_name[2]);
-
-                                if (a < 0 || b < 0)
-                                        continue;
-
-                                s->sysv_start_priority = a*10 + b;
-
-                                log_debug("Determined priority %i from link farm for %s", s->sysv_start_priority, UNIT(s)->meta.id);
-
-                                closedir(d);
-                                return 0;
-                        }
-
-                        closedir(d);
-                }
-
-        return 0;
-}
-
 static int service_load_sysv_path(Service *s, const char *path) {
         FILE *f;
         Unit *u;
         unsigned line = 0;
         int r;
+        bool normal_service;
         enum {
                 NORMAL,
                 DESCRIPTION,
@@ -416,7 +357,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 if (start_priority < 0 || start_priority > 99)
                                         log_warning("[%s:%u] Start priority out of range. Ignoring.", path, line);
-                                else
+                                else if (s->sysv_start_priority < 0)
                                         s->sysv_start_priority = start_priority;
 
                                 char_array_0(runlevels);
@@ -433,7 +374,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         free(s->sysv_runlevels);
                                         s->sysv_runlevels = d;
                                 }
-
 
                         } else if (startswith(t, "description:")) {
 
@@ -634,20 +574,15 @@ static int service_load_sysv_path(Service *s, const char *path) {
          * a priority for *all* init scripts here, since they are
          * needed as soon as at least one non-LSB script is used. */
 
-        if (s->sysv_start_priority < 0) {
-                log_debug("%s has no chkconfig header, trying to determine SysV priority from link farm.", u->meta.id);
-
-                if ((r = priority_from_rcd(s, file_name_from_path(path))) < 0)
-                        goto finish;
-
-                if (s->sysv_start_priority < 0)
-                        log_warning("%s has neither a chkconfig header nor a directory link, cannot order unit!", u->meta.id);
-        }
+        if (s->sysv_start_priority < 0)
+                log_warning("%s has neither a chkconfig header nor a directory link, cannot order unit!", u->meta.id);
 
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
 
-        if (!s->sysv_runlevels || chars_intersect("12345", s->sysv_runlevels)) {
+        normal_service = !s->sysv_runlevels || chars_intersect("12345", s->sysv_runlevels);
+
+        if (normal_service) {
                 /* If there a runlevels configured for this service
                  * but none of the standard ones, then we assume this
                  * is some special kind of service (which might be
@@ -664,8 +599,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->kill_mode = KILL_PROCESS_GROUP;
 
         /* Don't timeout special services during boot (like fsck) */
-        if (s->sysv_runlevels && !chars_intersect("12345", s->sysv_runlevels))
-                s->timeout_usec = -1;
+        if (s->sysv_runlevels && !normal_service)
+                s->timeout_usec = 0;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -2210,6 +2145,7 @@ static int service_enumerate(Manager *m) {
 
                         while ((de = readdir(d))) {
                                 Unit *service;
+                                int a, b;
 
                                 if (ignore_file(de->d_name))
                                         continue;
@@ -2218,6 +2154,12 @@ static int service_enumerate(Manager *m) {
                                         continue;
 
                                 if (strlen(de->d_name) < 4)
+                                        continue;
+
+                                a = undecchar(de->d_name[1]);
+                                b = undecchar(de->d_name[2]);
+
+                                if (a < 0 || b < 0)
                                         continue;
 
                                 free(fpath);
@@ -2242,8 +2184,14 @@ static int service_enumerate(Manager *m) {
                                         goto finish;
                                 }
 
-                                if ((r = manager_load_unit(m, name, NULL, &service)) < 0)
+                                if ((r = manager_load_unit_prepare(m, name, NULL, &service)) < 0)
                                         goto finish;
+
+                                if (de->d_name[0] == 'S')
+                                        SERVICE(service)->sysv_start_priority = a*10 + b;
+
+                                manager_dispatch_load_queue(m);
+                                service = unit_follow_merge(service);
 
                                 if (de->d_name[0] == 'S') {
                                         Unit *runlevel_target;
