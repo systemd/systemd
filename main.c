@@ -463,6 +463,15 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
 
+        /* PID 1 will get the kernel arguments as parameters, which we
+         * ignore and unconditionally read from
+         * /proc/cmdline. However, we need to ignore those arguments
+         * here. */
+        if (running_as != MANAGER_INIT && optind < argc) {
+                log_error("Excess arguments.");
+                return -EINVAL;
+        }
+
         return 0;
 }
 
