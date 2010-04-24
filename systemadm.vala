@@ -395,15 +395,15 @@ public class MainWindow : Window {
 
                 uint64 t = unit.active_enter_timestamp;
                 if (t > 0) {
-                        TimeVal tv = { (long) (t / 1000000), (long) (t % 1000000) };
-                        unit_active_enter_timestamp_label.set_text_or_na(tv.to_iso8601());
+                        Time timestamp = Time.gm((time_t) (t / 1000000));
+                        unit_active_enter_timestamp_label.set_text_or_na(timestamp.format("%a, %d %b %Y %H:%M:%S %z"));
                 } else
                         unit_active_enter_timestamp_label.set_text_or_na();
 
                 t = unit.active_exit_timestamp;
                 if (t > 0) {
-                        TimeVal tv = { (long) (t / 1000000), (long) (t % 1000000) };
-                        unit_active_exit_timestamp_label.set_text_or_na(tv.to_iso8601());
+                        Time timestamp = Time.gm((time_t) (t / 1000000));
+                        unit_active_exit_timestamp_label.set_text_or_na(timestamp.format("%a, %d %b %Y %H:%M:%S %z"));
                 } else
                         unit_active_exit_timestamp_label.set_text_or_na();
 
