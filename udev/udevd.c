@@ -360,7 +360,7 @@ static void worker_new(struct event *event)
 	}
 }
 
-static void event_run(struct event *event)
+static void event_run(struct event *event, bool force)
 {
 	struct udev_list_node *loop;
 
@@ -385,7 +385,7 @@ static void event_run(struct event *event)
 		return;
 	}
 
-	if (childs >= max_childs) {
+	if (!force && childs >= max_childs) {
 		info(event->udev, "maximum number (%i) of childs reached\n", childs);
 		return;
 	}
@@ -420,7 +420,7 @@ static void event_queue_insert(struct udev_device *dev)
 
 	/* run all events with a timeout set immediately */
 	if (udev_device_get_timeout(dev) > 0) {
-		worker_new(event);
+		event_run(event, true);
 		return;
 	}
 }
@@ -552,7 +552,7 @@ static void events_start(struct udev *udev)
 			continue;
 		}
 
-		event_run(event);
+		event_run(event, false);
 	}
 }
 
