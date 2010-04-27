@@ -69,7 +69,7 @@ endif
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libudev/libudev.pc
 
-EXTRA_DIST += libudev/exported_symbols
+EXTRA_DIST += libudev/exported_symbols libudev/COPYING
 # move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
 libudev-install-move-hook:
 	if test "$(libdir)" != "$(rootlib_execdir)"; then \
@@ -351,6 +351,7 @@ extras_gudev_libgudev_1_0_la_LDFLAGS = \
 	-export-symbols-regex '^g_udev_.*'
 
 EXTRA_DIST += \
+	extras/gudev/COPYING \
 	extras/gudev/gudevmarshal.list \
 	extras/gudev/gudevenumtypes.h.template \
 	extras/gudev/gudevenumtypes.c.template
