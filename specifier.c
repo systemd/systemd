@@ -70,7 +70,7 @@ char *specifier_printf(const char *text, const Specifier table[], void *userdata
                                         j = t - r;
                                         k = strlen(w);
 
-                                        if (!(n = new(char, j + k + (l - (f - text)) + 1))) {
+                                        if (!(n = new(char, j + k + l + 1))) {
                                                 free(r);
                                                 free(w);
                                                 return NULL;
