@@ -1199,6 +1199,7 @@ bool ignore_file(const char *filename) {
 
         return
                 filename[0] == '.' ||
+                streq(filename, "lost+found") ||
                 endswith(filename, "~") ||
                 endswith(filename, ".rpmnew") ||
                 endswith(filename, ".rpmsave") ||
