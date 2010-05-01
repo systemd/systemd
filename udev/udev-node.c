@@ -428,7 +428,7 @@ int udev_node_remove(struct udev_device *dev)
 	}
 
 	util_strscpyl(filename, sizeof(filename), LIBEXECDIR "/devices", &devnode[strlen(udev_get_dev_path(udev))], NULL);
-	if (stat(filename, &stats) == 0 || stats.st_rdev == udev_device_get_devnum(dev)) {
+	if (stat(filename, &stats) == 0 && stats.st_rdev == udev_device_get_devnum(dev)) {
 		info(udev, "static device entry found '%s', skip removal\n", devnode);
 		goto out;
 	}
