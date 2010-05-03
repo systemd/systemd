@@ -33,14 +33,13 @@
 
 #define TMP_FILE_EXT		".udev-tmp"
 
-int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid)
+int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct udev *udev = udev_device_get_udev(dev);
+	dev_t devnum = udev_device_get_devnum(dev);
 	struct stat stats;
 	int err = 0;
 
-	if (major(devnum) == 0)
-		devnum = udev_device_get_devnum(dev);
 
 	if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
 		mode |= S_IFBLK;
@@ -373,7 +372,7 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 	     major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)),
 	     mode, uid, gid);
 
-	if (udev_node_mknod(dev, NULL, makedev(0,0), mode, uid, gid) != 0) {
+	if (udev_node_mknod(dev, NULL, mode, uid, gid) != 0) {
 		err = -1;
 		goto exit;
 	}

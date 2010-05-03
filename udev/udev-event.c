@@ -380,7 +380,7 @@ subst:
 				 minor(udev_device_get_devnum(dev)));
 			if (event->tmp_node == NULL)
 				break;
-			udev_node_mknod(dev, event->tmp_node, makedev(0, 0), 0600, 0, 0);
+			udev_node_mknod(dev, event->tmp_node, 0600, 0, 0);
 			l = util_strpcpy(&s, l, event->tmp_node);
 			break;
 		}
