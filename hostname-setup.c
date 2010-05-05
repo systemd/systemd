@@ -75,6 +75,47 @@ finish:
         fclose(f);
         return r;
 
+#elif defined(TARGET_ARCH)
+        int r;
+        FILE *f;
+
+        assert(hn);
+
+        if (!(f = fopen("/etc/rc.conf", "re")))
+                return -errno;
+
+        for (;;) {
+                char line[LINE_MAX];
+                char *s, *k;
+
+                if (!fgets(line, sizeof(line), f)) {
+                        if (feof(f))
+                                break;
+
+                        r = -errno;
+                        goto finish;
+                }
+
+                s = strstrip(line);
+
+                if (!startswith(s, "HOSTNAME="))
+                        continue;
+
+                if (!(k = strdup(s+9))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                *hn = k;
+                break;
+        }
+
+        r = 0;
+
+finish:
+        fclose(f);
+        return r;
+
 #elif defined(TARGET_SUSE)
         int r;
         char *s, *k;
