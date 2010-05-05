@@ -1,5 +1,16 @@
 udev 154
 ========
+Bugfixes.
+
+Udev now gradually starts to pass control over the primary device nodes
+and their names to the kernel, and will in the end only manage the
+permissions of the node, and possibly create additional symlinks.
+As a first step NAME="" will be ignored, and NAME= setings with names
+other than the kernel provided name will result in a logged warning.
+Kernels that don't provide device names, or devtmpfs is not used, will
+still work as they did before, but it is strongly recommended to use
+only the same names for the primary device node as the recent kernel
+provides for all devices.
 
 udev 153
 ========

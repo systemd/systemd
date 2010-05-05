@@ -1468,9 +1468,13 @@ static int add_rule(struct udev_rules *rules, char *line,
 			if (op < OP_MATCH_MAX) {
 				rule_add_key(&rule_tmp, TK_M_NAME, op, value, NULL);
 			} else {
-				if (strcmp(value, "%k") == 0)
-					err(rules->udev, "NAME=\"%%k\" is superfluous and breaks "
-					    "kernel supplied names, please remove it from %s:%u\n", filename, lineno);
+				if (strcmp(value, "%k") == 0) {
+					err(rules->udev, "NAME=\"%%k\" is ignored because it breaks kernel supplied names, "
+					    "please remove it from %s:%u\n", filename, lineno);
+					continue;
+				}
+				if (value[0] == '\0')
+					continue;
 				rule_add_key(&rule_tmp, TK_A_NAME, op, value, NULL);
 			}
 			rule_tmp.rule.rule.flags = 1;

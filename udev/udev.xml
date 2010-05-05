@@ -18,23 +18,28 @@
 
       <refnamediv>
         <refname>udev</refname>
-        <refpurpose>dynamic device management</refpurpose>
+        <refpurpose>Linux dynamic device management</refpurpose>
       </refnamediv>
 
       <refsect1><title>DESCRIPTION</title>
-        <para>udev provides a dynamic device directory containing only the files for
-        actually present devices. It creates or removes device node files in the
-        <filename>/dev</filename> directory, or it renames network interfaces.</para>
+        <para>udev supplies the system software with device events, manages permissions
+        of device nodes and may create additional symlinks in the <filename>/dev</filename>
+        directory, or renames network interfaces. The kernel usually just assigns unpredictable
+        device names based on the order of discovery. Meaningful symlinks or network device
+        names provide a way to reliably identify devices based on their properties or
+        current configuration.</para>
 
-        <para>Usually udev runs as <citerefentry><refentrytitle>udevd</refentrytitle>
-        <manvolnum>8</manvolnum></citerefentry> and receives uevents directly from the
-        kernel if a device is added or removed from the system.</para>
+        <para>The udev daemon <citerefentry><refentrytitle>udevd</refentrytitle>
+        <manvolnum>8</manvolnum></citerefentry> receives device uevents directly from
+        the kernel whenever a device is added or removed from the system, or it changes its
+        state. When udev receives a device event, it matches its configured set of rules
+        against various device attributes to identify the device. Rules that match, may
+        provide additional device information to be stored in the udev database, or information
+        to be used to create meaningful symlink names.</para>
 
-        <para>If udev receives a device event, it matches its configured rules
-        against the available device attributes provided in sysfs to identify the device.
-        Rules that match may provide additional device information or specify a device
-        node name and multiple symlink names and instruct udev to run additional programs
-        as part of the device event handling.</para>
+        <para>All device information udev processes, is stored in the udev database and
+        sent out to possible event subscribers. Access to all stored data and the event
+        sources are provided by the library libudev.</para>
       </refsect1>
 
       <refsect1><title>CONFIGURATION</title>
@@ -84,9 +89,9 @@
           If all match keys are matching against its value, the rule gets applied and the
           assign keys get the specified value assigned.</para>
 
-          <para>A matching rule may specify the name of the device node, add a symlink
-          pointing to the node, or run a specified program as part of the event handling.
-          If no matching rule is found, the default device node name is used.</para>
+          <para>A matching rule may rename a network interface, add symlinks
+          pointing to the device node, or run a specified program as part of
+          the event handling.</para>
 
           <para>A rule consists of a list of one or more key value pairs separated by
           a comma. Each key has a distinct operation, depending on the used operator. Valid
@@ -304,13 +309,17 @@
             <varlistentry>
               <term><option>NAME</option></term>
               <listitem>
-                <para>The name, a network interface should be renamed to, or the name
-                a device node should be named. Usually the kernel provides the defined
-                node name, or even creates and removes the node before udev receives
-                any event. Changing the node name from the kernel's default may result
-                in unexpected behavior and is not supported. Udev is only expected to
-                handle device node permissions and to create additional symlinks, which
-                do not conflict with the kernel device node names.</para>
+                <para>The name, a network interface should be renamed to. Or as
+                a temporary workaraound, the name a device node should be named.
+                Usually the kernel provides the defined node name, or even creates
+                and removes the node before udev even receives any event. Changing
+                the node name from the kernel's default creates inconsistencies
+                and is not supported. If the kernel and NAME specify different names,
+                an error will be logged. Udev is only expected to handle device node
+                permissions and to create additional symlinks, not to change
+                kernel-provided device node names. Instead of renaming a device node,
+                SYMLINK should be used. Symlink names must never conflict with
+                device node names, it will result in unpredictable behavior.</para>
               </listitem>
             </varlistentry>
 
@@ -318,15 +327,15 @@
               <term><option>SYMLINK</option></term>
               <listitem>
                 <para>The name of a symlink targeting the node. Every matching rule will add
-                this value to the list of symlinks to be created along with the device node.
-                Multiple symlinks may be specified by separating the names by the space
-                character. In case multiple devices claim the same name, the link will
-                always point to the device with the highest link_priority. If the current device
-                goes away, the links will be re-evaluated and the device with the next highest
-                link_priority will own the link. If no link_priority is specified, the order
-                of the devices, and which of them will own the link, is undefined. Claiming
-                the same name for a node and links may result in unexpected behavior and is
-                not supported.
+                this value to the list of symlinks to be created. Multiple symlinks may be
+                specified by separating the names by the space character. In case multiple
+                devices claim the same name, the link will always point to the device with
+                the highest link_priority. If the current device goes away, the links will
+                be re-evaluated and the device with the next highest link_priority will own
+                the link. If no link_priority is specified, the order of the devices, and
+                which one of them will own the link, is undefined. Claiming the same name for
+                a symlink, which is or might be used for a device node, may result in
+                unexpected behavior and is not supported.
                 </para>
               </listitem>
             </varlistentry>
@@ -379,18 +388,10 @@
                 <option>RUN{<replaceable>fail_event_on_error</replaceable>}</option> is
                 specified, and the executed program returns non-zero, the event will be
                 marked as failed for a possible later handling.</para>
-                <para>If no path is given, the program must be in 
-                <filename>/lib/udev</filename>, otherwise the full path must be
-                specified.</para>
-                <para>If the specified string starts with
-                <option>socket:<replaceable>path</replaceable></option>, all current event
-                values will be passed to the specified socket, as a message in the same
-                format the kernel sends an uevent. If the first character of the specified path
-                is an @ character, an abstract namespace socket is used, instead of an existing
-                socket file.</para>
-                <para>Program name and arguments are separated with spaces. To
-                include spaces in an argument, use single quotes. Please note
-                that this does not run through a shell.</para>
+                <para>If no absolute path is given, the program is expected to live in
+                <filename>/lib/udev</filename>, otherwise the absolute path must be
+                specified. Program name and arguments are separated by spaces. Single quotes
+                can be used to specify arguments with spaces.</para>
               </listitem>
             </varlistentry>
 

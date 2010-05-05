@@ -617,14 +617,19 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 				}
 			}
 
-			if (event->name == NULL) {
-				/* things went wrong */
+			if (event->name == NULL || event->name[0] == '\0') {
 				udev_device_delete_db(dev);
 				udev_device_tag_index(dev, NULL, false);
 				udev_device_unref(event->dev_db);
 				err = -ENOMEM;
+				err(event->udev, "no node name, something went wrong, ignoring\n");
 				goto out;
 			}
+
+			if (udev_device_get_knodename(dev) != NULL && strcmp(udev_device_get_knodename(dev), event->name) != 0)
+				err(event->udev, "kernel-provided name '%s' and NAME= '%s' disagree, "
+				    "please use SYMLINK+= or change the kernel to provide the proper name\n",
+				    udev_device_get_knodename(dev), event->name);
 
 			/* set device node name */
 			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", event->name, NULL);
@@ -639,23 +644,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			if (event->dev_db != NULL)
 				udev_node_update_old_links(dev, event->dev_db);
 
-			if (event->name[0] != '\0')
-				err = udev_node_add(dev, event->mode, event->uid, event->gid);
-			else
-				info(event->udev, "device node creation suppressed\n");
-
-			/* remove kernel-created node, if needed */
-			if (udev_device_get_knodename(dev) != NULL && strcmp(event->name, udev_device_get_knodename(dev)) != 0) {
-				struct stat stats;
-				char filename[UTIL_PATH_SIZE];
-
-				util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", udev_device_get_knodename(dev), NULL);
-				if (lstat(filename, &stats) == 0 && stats.st_rdev == udev_device_get_devnum(dev)) {
-					info(event->udev, "remove kernel created node '%s'\n", udev_device_get_knodename(dev));
-					util_unlink_secure(event->udev, filename);
-					util_delete_path(event->udev, filename);
-				}
-			}
+			err = udev_node_add(dev, event->mode, event->uid, event->gid);
 		}
 
 		udev_device_unref(event->dev_db);
