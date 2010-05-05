@@ -149,7 +149,7 @@
         </refsect2>
 
         <refsect2><title>udevadm trigger <optional>options</optional></title>
-          <para>Request device events from the kernel. Usually used to replay events at system coldplug time.</para>
+          <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
           <variablelist>
             <varlistentry>
               <term><option>--verbose</option></term>
@@ -174,7 +174,7 @@
             <varlistentry>
               <term><option>--action=<replaceable>action</replaceable></option></term>
               <listitem>
-                <para>Type of event to be triggered. The default value is <command>add</command>.</para>
+                <para>Type of event to be triggered. The default value is <command>change</command>.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
