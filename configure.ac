@@ -87,7 +87,7 @@ PKG_CHECK_MODULES( CGROUP, [ libcgroup >= 0.35 ], [],
 AC_SUBST(CGROUP_CFLAGS)
 AC_SUBST(CGROUP_LIBS)
 
-AM_PROG_VALAC()
+AM_PROG_VALAC([0.7])
 AC_SUBST(VAPIDIR)
 
 AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, or none]))
