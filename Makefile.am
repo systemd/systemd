@@ -229,7 +229,7 @@ systemd_cgroups_agent_CPPFLAGS = \
 systemd_cgroups_agent_LDADD = \
 	$(DBUS_LIBS)
 
-VALAFLAGS = -g --save-temps --pkg=dbus-glib-1 --pkg=posix --pkg gee-1.0 --pkg gtk+-2.0
+VALAFLAGS = -g --save-temps --pkg=dbus-glib-1 --pkg=posix --pkg gtk+-2.0
 
 systemctl_SOURCES = \
 	systemctl.vala \
