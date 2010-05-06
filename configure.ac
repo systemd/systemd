@@ -90,7 +90,7 @@ AC_SUBST(CGROUP_LIBS)
 AM_PROG_VALAC([0.7])
 AC_SUBST(VAPIDIR)
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, or none]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, or none]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -125,7 +125,7 @@ case $with_distro in
                 SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc
                 special_dbus_service=dbus.service
-                special_syslog_service=sysklogd.service
+                special_syslog_service=rsyslog.service
                 AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian/Ubuntu])
                 ;;
         arch)
