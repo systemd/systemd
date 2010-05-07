@@ -1469,12 +1469,15 @@ static int add_rule(struct udev_rules *rules, char *line,
 				rule_add_key(&rule_tmp, TK_M_NAME, op, value, NULL);
 			} else {
 				if (strcmp(value, "%k") == 0) {
-					err(rules->udev, "NAME=\"%%k\" is ignored because it breaks kernel supplied names, "
+					err(rules->udev, "NAME=\"%%k\" is ignored, because it breaks kernel supplied names, "
 					    "please remove it from %s:%u\n", filename, lineno);
 					continue;
 				}
-				if (value[0] == '\0')
+				if (value[0] == '\0') {
+					info(rules->udev, "NAME=\"\" is ignored, because udev will not delete any device nodes, "
+					     "please remove it from %s:%u\n", filename, lineno);
 					continue;
+				}
 				rule_add_key(&rule_tmp, TK_A_NAME, op, value, NULL);
 			}
 			rule_tmp.rule.rule.flags = 1;
