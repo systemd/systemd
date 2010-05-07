@@ -47,6 +47,7 @@ udev_device_get_sysnum
 udev_device_get_devnode
 udev_device_get_devlinks_list_entry
 udev_device_get_properties_list_entry
+udev_device_get_tags_list_entry
 udev_device_get_property_value
 udev_device_get_driver
 udev_device_get_devnum
@@ -65,6 +66,7 @@ udev_monitor_get_udev
 udev_monitor_new_from_netlink
 udev_monitor_new_from_socket
 udev_monitor_enable_receiving
+udev_monitor_set_receive_buffer_size
 udev_monitor_get_fd
 udev_monitor_receive_device
 udev_monitor_filter_add_match_subsystem_devtype

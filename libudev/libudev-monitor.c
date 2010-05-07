@@ -400,6 +400,16 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 	return 0;
 }
 
+/**
+ * udev_monitor_set_receive_buffer_size:
+ * @udev_monitor: the monitor which should receive events
+ * @size: the size in bytes
+ *
+ * Set the size of the kernel socket buffer. This call needs the
+ * appropriate privileges to succeed.
+ *
+ * Returns: 0 on success, otherwise -1 on error.
+ */
 int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size)
 {
 	if (udev_monitor == NULL)

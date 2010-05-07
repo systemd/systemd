@@ -1287,6 +1287,17 @@ void udev_device_cleanup_tags_list(struct udev_device *udev_device)
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->tags_list);
 }
 
+/**
+ * udev_device_get_tags_list_entry:
+ * @udev_device: udev device
+ *
+ * Retrieve the list of tags attached to the udev device. The next
+ * list entry can be retrieved with udev_list_entry_next(),
+ * which returns #NULL if no more entries exist. The tag string
+ * can be retrieved from the list entry by udev_list_get_name().
+ *
+ * Returns: the first entry of the tag list
+ **/
 struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
