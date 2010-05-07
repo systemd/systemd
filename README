@@ -7,7 +7,7 @@ does not recommend to replace a distro's udev installation with the upstream
 version.
 
 The upstream udev project's set of default rules may require a most recent
-kernel release to work properly.
+kernel release to work properly. This is currently version 2.6.31.
 
 Tools and rules shipped by udev are not public API and may change at any time.
 Never call any private tool in /lib/udev from any external application, it might
