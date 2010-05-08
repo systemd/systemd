@@ -77,7 +77,7 @@ EXTRA_DIST = \
 	units/systemd-logger.service.in \
 	units/systemd-logger.socket
 
-BASIC_SOURCES= \
+BASIC_SOURCES = \
         util.c \
         util.h \
         hashmap.c \
@@ -95,7 +95,7 @@ BASIC_SOURCES= \
         ratelimit.c \
         ratelimit.h
 
-COMMON_SOURCES= \
+COMMON_SOURCES = \
 	$(BASIC_SOURCES) \
 	unit.c \
 	unit.h \

@@ -32,15 +32,25 @@
 
 #define LINE_MAX 4096
 
+#if defined(TARGET_FEDORA)
+#define FILENAME "/etc/sysconfig/network"
+#elif defined(TARGET_SUSE)
+#define FILENAME "/etc/HOSTNAME"
+#elif defined(TARGET_DEBIAN)
+#define FILENAME "/etc/hostname"
+#elif defined(TARGET_ARCH)
+#define FILENAME "/etc/rc.conf"
+#endif
+
 static int read_hostname(char **hn) {
 
-#if defined(TARGET_FEDORA)
+#if defined(TARGET_FEDORA) || defined(TARGET_ARCH)
         int r;
         FILE *f;
 
         assert(hn);
 
-        if (!(f = fopen("/etc/sysconfig/network", "re")))
+        if (!(f = fopen(FILENAME, "re")))
                 return -errno;
 
         for (;;) {
@@ -75,54 +85,13 @@ finish:
         fclose(f);
         return r;
 
-#elif defined(TARGET_ARCH)
-        int r;
-        FILE *f;
-
-        assert(hn);
-
-        if (!(f = fopen("/etc/rc.conf", "re")))
-                return -errno;
-
-        for (;;) {
-                char line[LINE_MAX];
-                char *s, *k;
-
-                if (!fgets(line, sizeof(line), f)) {
-                        if (feof(f))
-                                break;
-
-                        r = -errno;
-                        goto finish;
-                }
-
-                s = strstrip(line);
-
-                if (!startswith(s, "HOSTNAME="))
-                        continue;
-
-                if (!(k = strdup(s+9))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                *hn = k;
-                break;
-        }
-
-        r = 0;
-
-finish:
-        fclose(f);
-        return r;
-
-#elif defined(TARGET_SUSE)
+#elif defined(TARGET_SUSE) || defined(TARGET_DEBIAN)
         int r;
         char *s, *k;
 
         assert(hn);
 
-        if ((r = read_one_line_file("/etc/HOSTNAME", &s)) < 0)
+        if ((r = read_one_line_file(FILENAME, &s)) < 0)
                 return r;
 
         k = strdup(strstrip(s));
@@ -133,22 +102,6 @@ finish:
 
         *hn = k;
 
-#elif defined(TARGET_DEBIAN)
-        int r;
-        char *s, *k;
-
-        assert(hn);
-
-        if ((r = read_one_line_file("/etc/hostname", &s)) < 0)
-                return r;
-
-        k = strdup(strstrip(s));
-        free(s);
-
-        if (!k)
-                return -ENOMEM;
-
-        *hn = k;
 #else
 #warning "Don't know how to read the hostname"
 
