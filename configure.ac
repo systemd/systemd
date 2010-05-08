@@ -90,7 +90,7 @@ AC_SUBST(CGROUP_LIBS)
 AM_PROG_VALAC([0.7])
 AC_SUBST(VAPIDIR)
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, or none]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo, or none]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -99,6 +99,7 @@ if test "z$with_distro" = "z"; then
                 AC_CHECK_FILE(/etc/SuSE-release,with_distro="suse")
                 AC_CHECK_FILE(/etc/debian_version,with_distro="debian")
                 AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
+                AC_CHECK_FILE(/etc/gentoo-release,with_distro="gentoo")
         fi
         if test "z$with_distro" = "z"; then
                 with_distro=`uname -s`
@@ -135,6 +136,13 @@ case $with_distro in
                 special_syslog_service=syslog-ng.service
                 AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
                 ;;
+        gentoo)
+                SYSTEM_SYSVINIT_PATH=/etc/init.d
+                SYSTEM_SYSVRCND_PATH=/etc
+                special_dbus_service=dbus.service
+                special_syslog_service=syslog-ng.service
+                AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
+                ;;
         none)
                 SYSTEM_SYSVINIT_PATH=/fix/the/configure/script
                 SYSTEM_SYSVRCND_PATH=/fix/the/configure/script
@@ -153,6 +161,7 @@ AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
 AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
+AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 
 AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$special_dbus_service"], [D-Bus service name])
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$special_syslog_service"], [syslog service name])
