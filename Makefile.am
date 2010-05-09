@@ -78,99 +78,57 @@ EXTRA_DIST = \
 	units/systemd-logger.service.in \
 	units/systemd-logger.socket
 
+# This is needed because automake is buggy in how it generates the
+# rules for C programs, but not Vala programs.  We therefore can't
+# list the .h files as dependencies if we want make dist to work.
 BASIC_SOURCES = \
         util.c \
-        util.h \
         hashmap.c \
-        hashmap.h \
         set.c \
-        set.h \
         strv.c \
-        strv.h \
         conf-parser.c \
-        conf-parser.h \
         socket-util.c \
-        socket-util.h \
         log.c \
-        log.h \
-        ratelimit.c \
-        ratelimit.h
+        ratelimit.c
 
 COMMON_SOURCES = \
 	$(BASIC_SOURCES) \
 	unit.c \
-	unit.h \
         job.c \
-	job.h \
         manager.c \
-        manager.h \
         load-fragment.c \
-        load-fragment.h \
         service.c \
-        service.h \
         automount.c \
-        automount.h \
         mount.c \
-        mount.h \
         swap.c \
-        swap.h \
         device.c \
-        device.h \
         target.c \
-        target.h \
         snapshot.c \
-        snapshot.h \
         socket.c \
-        socket.h \
         timer.c \
-        timer.h \
         load-dropin.c \
-        load-dropin.h \
         execute.c \
-        execute.h \
         dbus.c \
-        dbus.h \
         dbus-manager.c \
-        dbus-manager.h \
         dbus-unit.c \
-        dbus-unit.h \
         dbus-job.c \
-        dbus-job.h \
 	dbus-service.c \
-	dbus-service.h \
 	dbus-socket.c \
-	dbus-socket.h \
 	dbus-target.c \
-	dbus-target.h \
 	dbus-mount.c \
-	dbus-mount.h \
 	dbus-automount.c \
-	dbus-autpmount.h \
 	dbus-swap.c \
-	dbus-swap.h \
 	dbus-snapshot.c \
-	dbus-snapshot.h \
 	dbus-device.c \
-	dbus-device.h \
 	dbus-execute.c \
-	dbus-execute.h \
 	cgroup.c \
-	cgroup.h \
 	mount-setup.c \
-	mount-setup.h \
 	hostname-setup.c \
-	hostname-setup.h \
 	loopback-setup.c \
-	loopback-setup.h \
 	utmp-wtmp.c \
-	utmp-wtmp.h \
 	specifier.c \
-	specifier.h \
 	unit-name.c \
-	unit-name.h \
 	fdset.c \
-	fdset.h \
-	namespace.h \
 	namespace.c
 
 systemd_SOURCES = \
