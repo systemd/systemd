@@ -131,6 +131,16 @@ COMMON_SOURCES = \
 	fdset.c \
 	namespace.c
 
+EXTRA_DIST += \
+	${COMMON_SOURCES:.c=.h} \
+	macro.h \
+	ioprio.h \
+	missing.h \
+	list.h \
+	securebits.h \
+	linux/auto_dev-ioctl.h \
+	initreq.h
+
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \
 	main.c
