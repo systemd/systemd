@@ -130,7 +130,7 @@ finish:
 
         if (k[0] == 0) {
                 free(k);
-                return -NOENT;
+                return -ENOENT;
         }
 
         *hn = k;
