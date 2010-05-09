@@ -490,6 +490,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             NULL,
                             &m->exec_context,
                             NULL, 0,
+                            m->meta.manager->environment,
                             true,
                             true,
                             UNIT(m)->meta.manager->confirm_spawn,

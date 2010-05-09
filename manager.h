@@ -177,6 +177,8 @@ struct Manager {
         char **sysvinit_path;
         char **sysvrcnd_path;
 
+        char **environment;
+
         usec_t boot_timestamp;
 
         /* Data specific to the device subsystem */

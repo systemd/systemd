@@ -43,6 +43,8 @@ public interface Manager : DBus.Object {
                 ObjectPath unit_path;
         }
 
+        public abstract string[] environment { owned get; }
+
         public abstract UnitInfo[] list_units() throws DBus.Error;
         public abstract JobInfo[] list_jobs() throws DBus.Error;
 
@@ -62,6 +64,9 @@ public interface Manager : DBus.Object {
         public abstract void exit() throws DBus.Error;
 
         public abstract ObjectPath create_snapshot(string name = "", bool cleanup = false) throws DBus.Error;
+
+        public abstract void set_environment(string[] names) throws DBus.Error;
+        public abstract void unset_environment(string[] names) throws DBus.Error;
 
         public abstract signal void unit_new(string id, ObjectPath path);
         public abstract signal void unit_removed(string id, ObjectPath path);

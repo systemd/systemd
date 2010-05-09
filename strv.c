@@ -434,3 +434,70 @@ fail:
 
         return NULL;
 }
+
+static bool env_match(const char *t, const char *pattern) {
+        assert(t);
+        assert(pattern);
+
+        /* pattern a matches string a
+         *         a matches a=
+         *         a matches a=b
+         *         a= matches a=
+         *         a=b matches a=b
+         *         a= does not match a
+         *         a=b does not match a=
+         *         a=b does not match a
+         *         a=b does not match a=c */
+
+        if (streq(t, pattern))
+                return true;
+
+        if (!strchr(pattern, '=')) {
+                size_t l = strlen(pattern);
+
+                return strncmp(t, pattern, l) == 0 && t[l] == '=';
+        }
+
+        return false;
+}
+
+char **strv_env_delete(char **x, ...) {
+        size_t n = 0, i = 0;
+        char **l, **k, **r, **j;
+        va_list ap;
+
+        /* Deletes every entry fromx that is mentioned in the other
+         * string lists */
+
+        n = strv_length(x);
+
+        if (!(r = new(char*, n+1)))
+                return NULL;
+
+        STRV_FOREACH(k, x) {
+                va_start(ap, x);
+
+                while ((l = va_arg(ap, char**)))
+                        STRV_FOREACH(j, l)
+                                if (env_match(*k, *j))
+                                        goto delete;
+
+                va_end(ap);
+
+                if (!(r[i++] = strdup(*k))) {
+                        strv_free(r);
+                        return NULL;
+                }
+
+                continue;
+
+        delete:
+                va_end(ap);
+        }
+
+        r[i] = NULL;
+
+        assert(i <= n);
+
+        return r;
+}

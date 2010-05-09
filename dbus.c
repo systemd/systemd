@@ -1085,3 +1085,52 @@ int bus_property_append_int32(Manager *m, DBusMessageIter *i, const char *proper
 
         return 0;
 }
+
+int bus_parse_strv(DBusMessage *m, char ***_l) {
+        DBusMessageIter iter, sub;
+        unsigned n = 0, i = 0;
+        char **l;
+
+        assert(m);
+        assert(_l);
+
+        if (!dbus_message_iter_init(m, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRING)
+            return -EINVAL;
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                n++;
+                dbus_message_iter_next(&sub);
+        }
+
+        if (!(l = new(char*, n+1)))
+                return -ENOMEM;
+
+        assert_se(dbus_message_iter_init(m, &iter));
+        dbus_message_iter_recurse(&iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *s;
+
+                assert_se(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
+                dbus_message_iter_get_basic(&sub, &s);
+
+                if (!(l[i++] = strdup(s))) {
+                        strv_free(l);
+                        return -ENOMEM;
+                }
+
+                dbus_message_iter_next(&sub);
+        }
+
+        assert(i == n);
+        l[i] = NULL;
+
+        if (_l)
+                *_l = l;
+
+        return 0;
+}

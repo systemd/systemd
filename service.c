@@ -1187,6 +1187,7 @@ static int service_spawn(
                        argv,
                        &s->exec_context,
                        fds, n_fds,
+                       s->meta.manager->environment,
                        apply_permissions,
                        apply_chroot,
                        UNIT(s)->meta.manager->confirm_spawn,

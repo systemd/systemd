@@ -74,21 +74,24 @@ int main (string[] args) {
         context.add_main_entries(entries, null);
         context.set_description(
                         "Commands:\n" +
-                        "  list-units          List units\n" +
-                        "  list-jobs           List jobs\n" +
-                        "  clear-jobs          Cancel all jobs\n" +
-                        "  load [NAME...]      Load one or more units\n" +
-                        "  cancel [JOB...]     Cancel one or more jobs\n" +
-                        "  start [NAME...]     Start on or more units\n" +
-                        "  stop [NAME...]      Stop on or more units\n" +
-                        "  enter [NAME]        Start one unit and stop all others\n" +
-                        "  restart [NAME...]   Restart on or more units\n" +
-                        "  reload [NAME...]    Reload on or more units\n" +
-                        "  monitor             Monitor unit/job changes\n" +
-                        "  dump                Dump server status\n" +
-                        "  snapshot [NAME]     Create a snapshot\n" +
-                        "  daemon-reload       Reload daemon configuration\n" +
-                        "  daemon-reexecute    Reexecute daemon\n");
+                        "  list-units                      List units\n" +
+                        "  list-jobs                       List jobs\n" +
+                        "  clear-jobs                      Cancel all jobs\n" +
+                        "  load [NAME...]                  Load one or more units\n" +
+                        "  cancel [JOB...]                 Cancel one or more jobs\n" +
+                        "  start [NAME...]                 Start on or more units\n" +
+                        "  stop [NAME...]                  Stop on or more units\n" +
+                        "  enter [NAME]                    Start one unit and stop all others\n" +
+                        "  restart [NAME...]               Restart on or more units\n" +
+                        "  reload [NAME...]                Reload on or more units\n" +
+                        "  monitor                         Monitor unit/job changes\n" +
+                        "  dump                            Dump server status\n" +
+                        "  snapshot [NAME]                 Create a snapshot\n" +
+                        "  daemon-reload                   Reload daemon configuration\n" +
+                        "  daemon-reexecute                Reexecute daemon\n" +
+                        "  show-environment                Dump environment\n" +
+                        "  set-environment [NAME=VALUE...] Set one or more environment variables\n" +
+                        "  unset-environment [NAME...]     Unset one or more environment variables\n");
 
         try {
                 context.parse(ref args);
@@ -245,6 +248,7 @@ int main (string[] args) {
 
                 } else if (args[1] == "dump")
                         stdout.puts(manager.dump());
+
                 else if (args[1] == "snapshot") {
 
                         ObjectPath p = manager.create_snapshot(args.length > 2 ? args[2] : "");
@@ -255,12 +259,26 @@ int main (string[] args) {
                                         "org.freedesktop.systemd1.Unit") as Unit;
 
                         stdout.printf("%s\n", u.id);
+
                 } else if (args[1] == "daemon-reload")
                         manager.reload();
+
                 else if (args[1] == "daemon-reexecute" || args[1] == "daemon-reexec")
                         manager.reexecute();
+
                 else if (args[1] == "daemon-exit")
                         manager.exit();
+
+                else if (args[1] == "show-environment") {
+                        foreach(var x in manager.environment)
+                                stderr.printf("%s\n", x);
+
+                } else if (args[1] == "set-environment")
+                        manager.set_environment(args[2:args.length]);
+
+                else if (args[1] == "unset-environment")
+                        manager.unset_environment(args[2:args.length]);
+
                 else {
                         stderr.printf("Unknown command %s.\n", args[1]);
                         return 1;

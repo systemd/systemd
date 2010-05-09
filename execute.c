@@ -724,6 +724,7 @@ int exec_spawn(ExecCommand *command,
                char **argv,
                const ExecContext *context,
                int fds[], unsigned n_fds,
+               char **environment,
                bool apply_permissions,
                bool apply_chroot,
                bool confirm_spawn,
@@ -1034,7 +1035,7 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                if (!(final_env = strv_env_merge(environ, our_env, context->environment, NULL))) {
+                if (!(final_env = strv_env_merge(environment, our_env, context->environment, NULL))) {
                         r = EXIT_MEMORY;
                         goto fail;
                 }

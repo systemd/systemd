@@ -51,6 +51,7 @@
 #include "unit-name.h"
 #include "dbus-unit.h"
 #include "dbus-job.h"
+#include "missing.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -336,6 +337,9 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
+        if (!(m->environment = strv_copy(environ)))
+                goto fail;
+
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
 
@@ -544,6 +548,7 @@ void manager_free(Manager *m) {
         strv_free(m->unit_path);
         strv_free(m->sysvinit_path);
         strv_free(m->sysvrcnd_path);
+        strv_free(m->environment);
 
         free(m->cgroup_controller);
         free(m->cgroup_hierarchy);

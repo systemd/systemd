@@ -102,4 +102,6 @@ int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *prope
                 return 0;                                               \
         }
 
+int bus_parse_strv(DBusMessage *m, char ***_l);
+
 #endif

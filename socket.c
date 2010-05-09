@@ -578,6 +578,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        argv,
                        &s->exec_context,
                        NULL, 0,
+                       s->meta.manager->environment,
                        true,
                        true,
                        UNIT(s)->meta.manager->confirm_spawn,

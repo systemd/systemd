@@ -24,6 +24,7 @@
 #include "dbus.h"
 #include "log.h"
 #include "dbus-manager.h"
+#include "strv.h"
 
 #define INTROSPECTION_BEGIN                                             \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
@@ -59,6 +60,12 @@
         "  <method name=\"Reload\"/>"                                   \
         "  <method name=\"Reexecute\"/>"                                \
         "  <method name=\"Exit\"/>"                                     \
+        "  <method name=\"SetEnvironment\">"                            \
+        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>"         \
+        "  </method>"                                                   \
+        "  <method name=\"UnsetEnvironment\">"                          \
+        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>"        \
+        "  </method>"                                                   \
         "  <signal name=\"UnitNew\">"                                   \
         "   <arg name=\"id\" type=\"s\"/>"                              \
         "   <arg name=\"unit\" type=\"o\"/>"                            \
@@ -82,6 +89,7 @@
         "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>"   \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>"      \
         "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>"       \
+        "  <property name=\"Environment\" type=\"as\" access=\"read\"/>" \
         " </interface>"                                                 \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE
@@ -162,6 +170,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
                 { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u", NULL               },
                 { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u", NULL               },
+                { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment   },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
@@ -571,6 +580,52 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         goto oom;
 
                 m->exit_code = MANAGER_EXIT;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetEnvironment")) {
+                char **l = NULL, **e = NULL;
+
+                if ((r = bus_parse_strv(message, &l)) < 0) {
+                        if (r == -ENOMEM)
+                                goto oom;
+
+                        return bus_send_error_reply(m, message, NULL, r);
+                }
+
+                e = strv_env_merge(m->environment, l, NULL);
+                strv_free(l);
+
+                if (!e)
+                        goto oom;
+
+                if (!(reply = dbus_message_new_method_return(message))) {
+                        strv_free(e);
+                        goto oom;
+                }
+
+                strv_free(m->environment);
+                m->environment = e;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetEnvironment")) {
+                char **l = NULL, **e = NULL;
+
+                if ((r = bus_parse_strv(message, &l)) < 0) {
+                        if (r == -ENOMEM)
+                                goto oom;
+
+                        return bus_send_error_reply(m, message, NULL, r);
+                }
+
+                e = strv_env_delete(m->environment, l, NULL);
+                strv_free(l);
+
+                if (!e)
+                        goto oom;
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                strv_free(m->environment);
+                m->environment = e;
 
         } else
                 return bus_default_message_handler(m, message, NULL, properties);
