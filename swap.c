@@ -40,6 +40,14 @@ static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_MAINTAINANCE] = UNIT_INACTIVE
 };
 
+static void swap_done(Unit *u) {
+        Swap *s = SWAP(u);
+
+        assert(s);
+
+        free(s->what);
+}
+
 static int swap_verify(Swap *s) {
         bool b;
         char *e;
@@ -398,8 +406,10 @@ const UnitVTable swap_vtable = {
 
         .no_alias = true,
         .no_instances = true,
+        .no_isolate = true,
 
         .load = swap_load,
+        .done = swap_done,
 
         .coldplug = swap_coldplug,
 
@@ -418,7 +428,6 @@ const UnitVTable swap_vtable = {
 
         .bus_message_handler = bus_swap_message_handler,
 
-        .shutdown = swap_shutdown,
-
-        .enumerate = swap_enumerate
+        .enumerate = swap_enumerate,
+        .shutdown = swap_shutdown
 };
