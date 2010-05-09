@@ -1,5 +1,6 @@
 *~
 test-ns
+test-loopback
 systemd-initctl.service
 systemd-logger.service
 systemd-cgroups-agent

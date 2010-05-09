@@ -53,7 +53,8 @@ pkglibexec_PROGRAMS = \
 noinst_PROGRAMS = \
 	test-engine \
 	test-job-type \
-	test-ns
+	test-ns \
+	test-loopback
 
 dbuspolicy_DATA = \
 	org.freedesktop.systemd1.conf
@@ -155,6 +156,8 @@ COMMON_SOURCES = \
 	mount-setup.h \
 	hostname-setup.c \
 	hostname-setup.h \
+	loopback-setup.c \
+	loopback-setup.h \
 	utmp-wtmp.c \
 	utmp-wtmp.h \
 	specifier.c \
@@ -202,6 +205,14 @@ test_ns_SOURCES = \
 
 test_ns_CPPFLAGS = $(systemd_CPPFLAGS)
 test_ns_LDADD = $(systemd_LDADD)
+
+test_loopback_SOURCES = \
+	$(BASIC_SOURCES) \
+	test-loopback.c \
+	loopback-setup.c
+
+test_loopback_CPPFLAGS = $(systemd_CPPFLAGS)
+test_loopback_LDADD = $(systemd_LDADD)
 
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \

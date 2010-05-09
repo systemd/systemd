@@ -36,6 +36,7 @@
 #include "log.h"
 #include "mount-setup.h"
 #include "hostname-setup.h"
+#include "loopback-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 
@@ -641,8 +642,10 @@ int main(int argc, char *argv[]) {
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
-        if (running_as == MANAGER_INIT)
+        if (running_as == MANAGER_INIT) {
                 hostname_setup();
+                loopback_setup();
+        }
 
         if ((r = manager_new(running_as, confirm_spawn, &m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
