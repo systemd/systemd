@@ -89,6 +89,7 @@ static inline bool is_path_absolute(const char *p) {
 
 bool endswith(const char *s, const char *postfix);
 bool startswith(const char *s, const char *prefix);
+bool startswith_no_case(const char *s, const char *prefix);
 
 bool first_word(const char *s, const char *word);
 

@@ -42,6 +42,7 @@
 #include <sys/inotify.h>
 #include <sys/poll.h>
 #include <libgen.h>
+#include <ctype.h>
 
 #include "macro.h"
 #include "util.h"
@@ -139,6 +140,30 @@ bool startswith(const char *s, const char *prefix) {
                 return false;
 
         return memcmp(s, prefix, pl) == 0;
+}
+
+bool startswith_no_case(const char *s, const char *prefix) {
+        size_t sl, pl;
+        unsigned i;
+
+        assert(s);
+        assert(prefix);
+
+        sl = strlen(s);
+        pl = strlen(prefix);
+
+        if (pl == 0)
+                return true;
+
+        if (sl < pl)
+                return false;
+
+        for(i = 0; i < pl; ++i) {
+                if (tolower(s[i]) != tolower(prefix[i]))
+                        return false;
+        }
+
+        return true;
 }
 
 bool first_word(const char *s, const char *word) {

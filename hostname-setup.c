@@ -40,11 +40,13 @@
 #define FILENAME "/etc/hostname"
 #elif defined(TARGET_ARCH)
 #define FILENAME "/etc/rc.conf"
+#elif defined(TARGET_GENTOO)
+#define FILENAME "/etc/conf.d/hostname"
 #endif
 
 static int read_hostname(char **hn) {
 
-#if defined(TARGET_FEDORA) || defined(TARGET_ARCH)
+#if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO)
         int r;
         FILE *f;
 
@@ -67,10 +69,15 @@ static int read_hostname(char **hn) {
 
                 s = strstrip(line);
 
-                if (!startswith(s, "HOSTNAME="))
+                if (!startswith_no_case(s, "HOSTNAME="))
                         continue;
 
                 if (!(k = strdup(s+9))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!(k = delete_chars(k, "\"\'"))) {
                         r = -ENOMEM;
                         goto finish;
                 }
