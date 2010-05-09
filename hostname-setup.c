@@ -44,6 +44,22 @@
 #define FILENAME "/etc/conf.d/hostname"
 #endif
 
+static char* strip_bad_chars(char *s) {
+        char *p, *d;
+
+        for (p = s, d = s; *p; p++)
+                if ((*p >= 'a' && *p <= 'z') ||
+                    (*p >= 'A' && *p <= 'Z') ||
+                    (*p >= '0' && *p <= '9') ||
+                    *p == '-' ||
+                    *p == '_')
+                        *(d++) = *p;
+
+        *d = 0;
+
+        return s;
+}
+
 static int read_hostname(char **hn) {
 
 #if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO)
@@ -77,8 +93,11 @@ static int read_hostname(char **hn) {
                         goto finish;
                 }
 
-                if (!(k = delete_chars(k, "\"\'"))) {
-                        r = -ENOMEM;
+                strip_bad_chars(k);
+
+                if (k[0] == 0) {
+                        free(k);
+                        r = -ENOENT;
                         goto finish;
                 }
 
@@ -106,6 +125,13 @@ finish:
 
         if (!k)
                 return -ENOMEM;
+
+        strip_bad_chars(k);
+
+        if (k[0] == 0) {
+                free(k);
+                return -NOENT;
+        }
 
         *hn = k;
 
