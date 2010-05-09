@@ -47,7 +47,8 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_DEVICE] = &device_vtable,
         [UNIT_MOUNT] = &mount_vtable,
         [UNIT_AUTOMOUNT] = &automount_vtable,
-        [UNIT_SNAPSHOT] = &snapshot_vtable
+        [UNIT_SNAPSHOT] = &snapshot_vtable,
+        [UNIT_SWAP] = &swap_vtable
 };
 
 Unit *unit_new(Manager *m) {
@@ -1839,7 +1840,8 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_DEVICE] = "device",
         [UNIT_MOUNT] = "mount",
         [UNIT_AUTOMOUNT] = "automount",
-        [UNIT_SNAPSHOT] = "snapshot"
+        [UNIT_SNAPSHOT] = "snapshot",
+        [UNIT_SWAP] = "swap"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);

@@ -112,6 +112,8 @@ COMMON_SOURCES = \
         automount.h \
         mount.c \
         mount.h \
+        swap.c \
+        swap.h \
         device.c \
         device.h \
         target.c \
@@ -144,6 +146,8 @@ COMMON_SOURCES = \
 	dbus-mount.h \
 	dbus-automount.c \
 	dbus-autpmount.h \
+	dbus-swap.c \
+	dbus-swap.h \
 	dbus-snapshot.c \
 	dbus-snapshot.h \
 	dbus-device.c \

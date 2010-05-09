@@ -99,6 +99,7 @@ struct Watch {
 
 #define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
 #define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"
+#define SPECIAL_SWAP_TARGET "swap.target"
 #define SPECIAL_NETWORK_TARGET "network.target"
 #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
@@ -186,6 +187,9 @@ struct Manager {
         /* Data specific to the mount subsystem */
         FILE *proc_self_mountinfo;
         Watch mount_watch;
+
+        /* Data specific to the swap filesystem */
+        FILE *proc_swaps;
 
         /* Data specific to the D-Bus subsystem */
         DBusConnection *api_bus, *system_bus;

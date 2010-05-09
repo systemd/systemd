@@ -1171,7 +1171,8 @@ static int load_from_path(Unit *u, const char *path) {
                 [UNIT_DEVICE]    = "Device",
                 [UNIT_MOUNT]     = "Mount",
                 [UNIT_AUTOMOUNT] = "Automount",
-                [UNIT_SNAPSHOT]  = "Snapshot"
+                [UNIT_SNAPSHOT]  = "Snapshot",
+                [UNIT_SWAP]      = "Swap"
         };
 
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
@@ -1285,6 +1286,10 @@ static int load_from_path(Unit *u, const char *path) {
                 EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
 
                 { "Where",                  config_parse_path,            &u->automount.where,                             "Automount" },
+
+                { "What",                   config_parse_path,            &u->swap.what,                                   "Swap" },
+                { "Priority",               config_parse_unsigned,        &u->swap.priority,                               "Swap" },
+                { "NoAuto",                 config_parse_bool,            &u->swap.no_auto,                                "Swap" },
 
                 { NULL, NULL, NULL, NULL }
         };

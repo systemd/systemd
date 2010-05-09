@@ -61,6 +61,7 @@ enum UnitType {
         UNIT_AUTOMOUNT,
         UNIT_SNAPSHOT,
         UNIT_TIMER,
+        UNIT_SWAP,
         _UNIT_TYPE_MAX,
         _UNIT_TYPE_INVALID = -1
 };
@@ -194,6 +195,7 @@ struct Meta {
 #include "mount.h"
 #include "automount.h"
 #include "snapshot.h"
+#include "swap.h"
 
 union Unit {
         Meta meta;
@@ -205,6 +207,7 @@ union Unit {
         Mount mount;
         Automount automount;
         Snapshot snapshot;
+        Swap swap;
 };
 
 struct UnitVTable {
@@ -335,6 +338,7 @@ DEFINE_CAST(DEVICE, Device);
 DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);
 DEFINE_CAST(SNAPSHOT, Snapshot);
+DEFINE_CAST(SWAP, Swap);
 
 Unit *unit_new(Manager *m);
 void unit_free(Unit *u);
