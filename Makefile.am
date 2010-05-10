@@ -42,8 +42,12 @@ sbin_PROGRAMS = \
 	systemd
 
 bin_PROGRAMS = \
-	systemctl \
+	systemctl
+
+if HAVE_GTK
+bin_PROGRAMS += \
 	systemadm
+endif
 
 pkglibexec_PROGRAMS = \
 	systemd-logger \

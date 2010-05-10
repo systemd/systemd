@@ -50,7 +50,7 @@ AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not 
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
 
 # This makes sure pkg.m4 is available.
-m4_pattern_forbid([^_?PKG_[A-Z_]+$],[pkg.m4 missing, please install pkg-config])
+m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 PKG_CHECK_MODULES(UDEV, [ libudev ])
 AC_SUBST(UDEV_CFLAGS)
 AC_SUBST(UDEV_LIBS)
@@ -63,27 +63,35 @@ PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
 AC_SUBST(DBUSGLIB_CFLAGS)
 AC_SUBST(DBUSGLIB_LIBS)
 
-PKG_CHECK_MODULES(GTK, [ gtk+-2.0 ])
-AC_SUBST(GTK_CFLAGS)
-AC_SUBST(GTK_LIBS)
+have_gtk=no
+AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
+if test "x$enable_gtk" != "xno"; then
+        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 ],
+                [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
+        AC_SUBST(GTK_CFLAGS)
+        AC_SUBST(GTK_LIBS)
+        if test "x$have_gtk" = xno -a "x$enable_gtk" = xyes; then
+             AC_MSG_ERROR([*** gtk support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
 
-PKG_CHECK_MODULES( CGROUP, [ libcgroup >= 0.35 ], [],
-    [AC_CHECK_HEADER( [libcgroup.h], [], [AC_MSG_ERROR([*** libcgroup.h not found])], )
-     save_CPPFLAGS="$CPPFLAGS"
-     save_LIBS="$LIBS"
-     CGROUP_LIBS=${CGROUP_LIBS:--lcgroup}
-     LIBS="$LIBS $CGROUP_LIBS"
-     CPPFLAGS="$CPPFLAGS $CGROUP_CFLAGS"
-     AC_MSG_CHECKING([for libcgroup >= 0.35])
-     AC_LINK_IFELSE(
-         [AC_LANG_PROGRAM([[#include <libcgroup.h>]], [[ CGFLAG_DELETE_RECURSIVE; cgroup_init(); ]])],
-         [AC_MSG_RESULT([yes])],
-         [AC_MSG_RESULT([no]); AC_MSG_ERROR([*** systemd needs libcgroup 0.35 or newer])],
-         [${CGROUP_LIBS}])
-     CPPFLAGS="$save_CPPFLAGS"
-     LIBS="$save_LIBS"
-    ])
-
+PKG_CHECK_MODULES( CGROUP, [ libcgroup >= 0.35 ], [], [
+        AC_CHECK_HEADER( [libcgroup.h], [], [AC_MSG_ERROR([*** libcgroup.h not found])], )
+        save_CPPFLAGS="$CPPFLAGS"
+        save_LIBS="$LIBS"
+        CGROUP_LIBS=${CGROUP_LIBS:--lcgroup}
+        LIBS="$LIBS $CGROUP_LIBS"
+        CPPFLAGS="$CPPFLAGS $CGROUP_CFLAGS"
+        AC_MSG_CHECKING([for libcgroup >= 0.35])
+        AC_LINK_IFELSE(
+                [AC_LANG_PROGRAM([[#include <libcgroup.h>]], [[ CGFLAG_DELETE_RECURSIVE; cgroup_init(); ]])],
+                [AC_MSG_RESULT([yes])],
+                [AC_MSG_RESULT([no]); AC_MSG_ERROR([*** systemd needs libcgroup 0.35 or newer])],
+                [${CGROUP_LIBS}])
+        CPPFLAGS="$save_CPPFLAGS"
+        LIBS="$save_LIBS"
+])
 AC_SUBST(CGROUP_CFLAGS)
 AC_SUBST(CGROUP_LIBS)
 
@@ -176,4 +184,5 @@ echo "
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Syslog service:          ${special_syslog_service}
         D-Bus service:           ${special_dbus_service}
+        Gtk:                     ${have_gtk}
 "
