@@ -19,7 +19,20 @@ ACTION!="add|change", GOTO="systemd_end"
 
 KERNEL=="tty[0-9]|tty1[0-2]", ENV{SYSTEMD_EXPOSE}="1"
 KERNEL=="ttyS*", ENV{SYSTEMD_EXPOSE}="1"
+
 SUBSYSTEM=="block", ENV{SYSTEMD_EXPOSE}="1"
-SUBSYSTEM=="net", ENV{SYSTEMD_EXPOSE}="1"
+
+# We need a hardware independant way to identify network devices. We
+# use the /sys/subsystem path for this. Current vanilla kernels don't
+# actually support that hierarchy right now, however upcoming kernels
+# will. HAL and udev internally support /sys/subsystem already, hence
+# it should be safe to use this here, too. This is mostly just an
+# identification string for systemd, so whether the path actually is
+# accessible or not does not matter as long as it is unique and in the
+# filesystem namespace.
+#
+# http://git.kernel.org/?p=linux/hotplug/udev.git;a=blob;f=libudev/libudev-enumerate.c;h=da831449dcaf5e936a14409e8e68ab12d30a98e2;hb=HEAD#l742
+
+SUBSYSTEM=="net", KERNEL!="lo", ENV{SYSTEMD_EXPOSE}="1", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/%k"
 
 LABEL="systemd_end"

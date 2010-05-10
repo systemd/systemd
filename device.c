@@ -144,7 +144,7 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
 }
 
 static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
-        const char *dn, *wants, *sysfs, *expose, *model;
+        const char *dn, *wants, *sysfs, *expose, *model, *alias;
         Unit *u = NULL;
         int r;
         char *w, *state;
@@ -172,6 +172,15 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
         /* Check whether this entry is even relevant for us. */
         dn = udev_device_get_devnode(dev);
         wants = udev_device_get_property_value(dev, "SYSTEMD_WANTS");
+        alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
+
+        /* We allow exactly one alias to be configured a this time and
+         * it must be a path */
+
+        if (alias && !is_path(alias)) {
+                log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, alias);
+                alias = NULL;
+        }
 
         if ((r = device_find_escape_name(m, sysfs, &u)) < 0)
                 return r;
@@ -191,12 +200,16 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 }
         }
 
+        if (r == 0 && alias)
+                if ((r = device_find_escape_name(m, alias, &u)) < 0)
+                        return r;
+
         /* FIXME: this needs proper merging */
 
         assert((r > 0) == !!u);
 
         /* If this is a different unit, then let's not merge things */
-        if (u && DEVICE(u)->sysfs && !streq(DEVICE(u)->sysfs, sysfs))
+        if (u && DEVICE(u)->sysfs && !path_equal(DEVICE(u)->sysfs, sysfs))
                 u = NULL;
 
         if (!u) {
@@ -217,6 +230,10 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                         r = -ENOMEM;
                         goto fail;
                 }
+
+        if (alias)
+                if ((r = device_add_escaped_name(u, alias, true)) < 0)
+                        goto fail;
 
         if (dn)
                 if ((r = device_add_escaped_name(u, dn, true)) < 0)
