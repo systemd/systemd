@@ -1597,7 +1597,7 @@ int flush_fd(int fd) {
 }
 
 int acquire_terminal(const char *name, bool fail, bool force) {
-        int fd = -1, notify = -1, r, wd;
+        int fd = -1, notify = -1, r, wd = -1;
 
         assert(name);
 

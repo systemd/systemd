@@ -110,7 +110,7 @@ static int mount_cgroup_controllers(void) {
                 return -ENOENT;
 
         /* Ignore the header line */
-        fgets(buf, sizeof(buf), f);
+        (void) fgets(buf, sizeof(buf), f);
 
         for (;;) {
                 MountPoint p;

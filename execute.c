@@ -392,8 +392,8 @@ static int chown_terminal(int fd, uid_t uid) {
         assert(fd >= 0);
 
         /* This might fail. What matters are the results. */
-        fchown(fd, uid, -1);
-        fchmod(fd, TTY_MODE);
+        (void) fchown(fd, uid, -1);
+        (void) fchmod(fd, TTY_MODE);
 
         if (fstat(fd, &st) < 0)
                 return -errno;

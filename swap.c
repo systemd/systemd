@@ -318,7 +318,8 @@ static int swap_load_proc_swaps(Manager *m) {
         Meta *meta;
 
         rewind(m->proc_swaps);
-        fscanf(m->proc_self_mountinfo, "%*s %*s %*s %*s %*s\n");
+
+        (void) fscanf(m->proc_self_mountinfo, "%*s %*s %*s %*s %*s\n");
 
         for (;;) {
                 char *dev = NULL, *d;
