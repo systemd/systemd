@@ -1,3 +1,58 @@
+Summary of changes from v153 to v154
+============================================
+
+Harald Hoyer (2):
+      Makefile.am: add LGPL COPYING file to EXTRA_DIST
+      cdrom_id: only mark sr[0-9]* as ID_CDROM
+
+Jerone Young (1):
+      Fix volume keys not releasing for Pegatron platform
+
+Kay Sievers (23):
+      configure.ac: version bump
+      more readlink buffer size handling
+      remove left-over from ignore_remove and all_partitions
+      fix previous commit
+      udevadm: info --export-db -- remove watch handle export
+      add TAG= to improve event filtering and device enumeration
+      all to match against a given TAG==
+      udev-acl: use a tag instead of a property to mark devices
+      fix logic on-demand loading logic for db and uevent
+      use the usual TAG+=, TAG= logic
+      delete old tags when configuration changes
+      libudev: accept NULL in udev_device_get_tags_list_entry()
+      export tag functions
+      export udev_device_get_tags_list_entry()
+      udevd: always try to find an idle worker instead of forking a new one
+      remove unused parameter from udev_node_mknod()
+      remove debug output during rules parsing
+      warn when renaming kernel-provided nodes instead of adding symlinks
+      man: udevadm trigger - the default is "change" not "add"
+      update README regarding kernel version and default rules
+      add info message when empty NAME is given
+      libudev: add documentation for recently added functions
+      udevd: reload config only for *.rules files
+
+Martin Pitt (1):
+      keymap: Fix Bluetooth key on Acer TravelMate 4720
+
+Mathias Nyman (1):
+      remove buffer-overrun risk in readlink call
+
+Matthias Schwarzott (1):
+      rules: Gentoo - remove old devfs compat rules
+
+Michael Thayer (1):
+      fix device node deletion
+
+Robby Workman (1):
+      configure.ac: move firmware-path setting out of extras section
+
+Yin Kangkai (2):
+      keymap: Add keymap and force-release quirk for Samsung N128
+      keymap: Add keymap quirk of WebCam key for MSI netbooks.
+
+
 Summary of changes from v152 to v153
 ============================================
 
