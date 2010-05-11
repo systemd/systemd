@@ -685,14 +685,21 @@ static int handle_inotify(struct udev *udev)
 
 		ev = (struct inotify_event *)(buf + pos);
 		if (ev->len) {
-			dbg(udev, "inotify event: %x for %s\n", ev->mask, ev->name);
+			const char *s;
+
+			info(udev, "inotify event: %x for %s\n", ev->mask, ev->name);
+			s = strstr(ev->name, ".rules");
+			if (s == NULL)
+				continue;
+			if (strlen(s) != strlen(".rules"))
+				continue;
 			reload_config = true;
 			continue;
 		}
 
 		dev = udev_watch_lookup(udev, ev->wd);
 		if (dev != NULL) {
-			dbg(udev, "inotify event: %x for %s\n", ev->mask, udev_device_get_devnode(dev));
+			info(udev, "inotify event: %x for %s\n", ev->mask, udev_device_get_devnode(dev));
 			if (ev->mask & IN_CLOSE_WRITE) {
 				char filename[UTIL_PATH_SIZE];
 				int fd;
