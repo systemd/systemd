@@ -747,7 +747,7 @@ static int import_program_into_properties(struct udev_device *dev, const char *p
 	char *line;
 
 	envp = udev_device_get_properties_envp(dev);
-	if (util_run_program(udev, program, envp, result, sizeof(result), &reslen, NULL) != 0)
+	if (util_run_program(udev, program, envp, result, sizeof(result), &reslen, NULL, false) != 0)
 		return -1;
 
 	line = result;
@@ -2255,7 +2255,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				     program,
 				     &rules->buf[rule->rule.filename_off],
 				     rule->rule.filename_line);
-				if (util_run_program(event->udev, program, envp, result, sizeof(result), NULL, NULL) != 0) {
+				if (util_run_program(event->udev, program, envp, result, sizeof(result), NULL, NULL, false) != 0) {
 					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
 				} else {

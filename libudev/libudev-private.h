@@ -217,7 +217,7 @@ uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);
 int util_run_program(struct udev *udev, const char *command, char **envp,
 		     char *result, size_t ressize, size_t *reslen,
-		     const sigset_t *sigmask);
+		     const sigset_t *sigmask, bool reset_prio);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string,
 				      char *result, size_t maxsize, int read_value);
 
