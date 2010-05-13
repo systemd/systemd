@@ -47,14 +47,17 @@ struct Swap {
         bool from_proc_swaps_only:1;
         bool found_in_proc_swaps:1;
 
-        MountState state, deserialized_state;
+        SwapState state, deserialized_state;
 };
 
 extern const UnitVTable swap_vtable;
 
+int swap_add_one(Manager *m, const char *what, bool no_auto, int prio, bool from_proc_swap);
+
+int swap_add_one_mount_link(Swap *s, Mount *m);
+
 const char* swap_state_to_string(SwapState i);
 SwapState swap_state_from_string(const char *s);
 
-extern int swap_add_one(Manager *m, const char *what, bool no_auto, int prio, bool from_proc_swap);
 
 #endif

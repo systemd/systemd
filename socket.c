@@ -145,6 +145,79 @@ static int socket_verify(Socket *s) {
         return 0;
 }
 
+static bool socket_needs_mount(Socket *s, const char *prefix) {
+        SocketPort *p;
+
+        assert(s);
+
+        LIST_FOREACH(port, p, s->ports) {
+
+                if (p->type == SOCKET_SOCKET) {
+                        if (socket_address_needs_mount(&p->address, prefix))
+                                return true;
+                } else {
+                        assert(p->type == SOCKET_FIFO);
+                        if (path_startswith(p->path, prefix))
+                                return true;
+                }
+        }
+
+        return false;
+}
+
+int socket_add_one_mount_link(Socket *s, Mount *m) {
+        int r;
+
+        assert(s);
+        assert(m);
+
+        if (s->meta.load_state != UNIT_LOADED ||
+            m->meta.load_state != UNIT_LOADED)
+                return 0;
+
+        if (!socket_needs_mount(s, m->where))
+                return 0;
+
+        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(s), true)) < 0)
+                return r;
+
+        if ((r = unit_add_dependency(UNIT(s), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                return r;
+
+        return 0;
+}
+
+static int socket_add_mount_links(Socket *s) {
+        Meta *other;
+        int r;
+
+        assert(s);
+
+        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_MOUNT])
+                if ((r = socket_add_one_mount_link(s, (Mount*) other)) < 0)
+                        return r;
+
+        return 0;
+}
+
+static int socket_add_device_link(Socket *s) {
+        char *t;
+        int r;
+
+        assert(s);
+
+        if (!s->bind_to_device)
+                return 0;
+
+        if (asprintf(&t, "/sys/subsystem/net/devices/%s", s->bind_to_device) < 0)
+                return -ENOMEM;
+
+        r = unit_add_node_link(UNIT(s), t, false);
+        free(t);
+
+        return r;
+}
+
 static int socket_load(Unit *u) {
         Socket *s = SOCKET(u);
         int r;
@@ -165,6 +238,12 @@ static int socket_load(Unit *u) {
                         if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service), true)) < 0)
                                 return r;
                 }
+
+                if ((r = socket_add_mount_links(s)) < 0)
+                        return r;
+
+                if ((r = socket_add_device_link(s)) < 0)
+                        return r;
 
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                         return r;

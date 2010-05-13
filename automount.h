@@ -57,6 +57,8 @@ extern const UnitVTable automount_vtable;
 
 int automount_send_ready(Automount *a, int status);
 
+int automount_add_one_mount_link(Automount *a, Mount *m);
+
 const char* automount_state_to_string(AutomountState i);
 AutomountState automount_state_from_string(const char *s);
 

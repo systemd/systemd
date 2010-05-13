@@ -1831,6 +1831,42 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         }
 }
 
+int unit_add_node_link(Unit *u, const char *what, bool wants) {
+        Unit *device;
+        char *e;
+        int r;
+
+        assert(u);
+
+        if (!what)
+                return 0;
+
+        /* Adds in links to the device node that this unit is based on */
+
+        if (!path_startswith(what, "/dev/") && !path_startswith(what, "/sys/"))
+                return 0;
+
+        if (!(e = unit_name_build_escape(what+1, NULL, ".device")))
+                return -ENOMEM;
+
+        r = manager_load_unit(u->meta.manager, e, NULL, &device);
+        free(e);
+
+        if (r < 0)
+                return r;
+
+        if ((r = unit_add_dependency(u, UNIT_AFTER, device, true)) < 0)
+                return r;
+
+        if ((r = unit_add_dependency(u, UNIT_REQUIRES, device, true)) < 0)
+                return r;
+
+        if (wants)
+                if ((r = unit_add_dependency(device, UNIT_WANTS, u, false)) < 0)
+                        return r;
+
+        return 0;
+}
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",

@@ -653,7 +653,7 @@ int main(int argc, char *argv[]) {
         }
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
-                log_error("Failed to fully startup daemon: %s", strerror(-r));
+                log_error("Failed to fully start up daemon: %s", strerror(-r));
 
         if (fds) {
                 /* This will close all file descriptors that were opened, but

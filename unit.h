@@ -426,6 +426,8 @@ void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *v
 void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 
+int unit_add_node_link(Unit *u, const char *what, bool wants);
+
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);
 

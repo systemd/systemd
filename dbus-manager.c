@@ -64,7 +64,7 @@
         "   <arg name=\"names\" type=\"as\" direction=\"in\"/>"         \
         "  </method>"                                                   \
         "  <method name=\"UnsetEnvironment\">"                          \
-        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>"        \
+        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>"         \
         "  </method>"                                                   \
         "  <signal name=\"UnitNew\">"                                   \
         "   <arg name=\"id\" type=\"s\"/>"                              \

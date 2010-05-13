@@ -100,8 +100,6 @@ extern const UnitVTable mount_vtable;
 void mount_fd_event(Manager *m, int events);
 
 int mount_path_is_mounted(Manager *m, const char* path);
-int mount_add_node_links(Unit *m, const char *what);
-int mount_add_path_links(Unit *m, const char *where, bool requires);
 
 const char* mount_state_to_string(MountState i);
 MountState mount_state_from_string(const char *s);

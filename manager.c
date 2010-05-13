@@ -254,7 +254,7 @@ static int manager_find_paths(Manager *m) {
         }
 
         if (m->running_as == MANAGER_INIT) {
-                /* /etc/init.d/ compativility does not matter to users */
+                /* /etc/init.d/ compatibility does not matter to users */
 
                 if ((e = getenv("SYSTEMD_SYSVINIT_PATH")))
                         if (!(m->sysvinit_path = split_path_and_make_absolute(e)))

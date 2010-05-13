@@ -74,4 +74,6 @@ bool socket_address_is(const SocketAddress *a, const char *s);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b);
 
+bool socket_address_needs_mount(const SocketAddress *a, const char *prefix);
+
 #endif

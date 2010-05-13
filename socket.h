@@ -27,6 +27,7 @@ typedef struct Socket Socket;
 #include "manager.h"
 #include "unit.h"
 #include "socket-util.h"
+#include "mount.h"
 
 typedef enum SocketState {
         SOCKET_DEAD,
@@ -115,6 +116,10 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
 
 /* Called from the service when it shut down */
 void socket_notify_service_dead(Socket *s);
+
+/* Called from the mount code figure out if a mount is a dependency of
+ * any of the sockets of this socket */
+int socket_add_one_mount_link(Socket *s, Mount *m);
 
 extern const UnitVTable socket_vtable;
 

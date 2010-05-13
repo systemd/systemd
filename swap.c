@@ -68,17 +68,52 @@ static int swap_verify(Swap *s) {
         return 0;
 }
 
+int swap_add_one_mount_link(Swap *s, Mount *m) {
+         int r;
+
+        assert(s);
+        assert(m);
+
+        if (s->meta.load_state != UNIT_LOADED ||
+            m->meta.load_state != UNIT_LOADED)
+                return 0;
+
+        if (!path_startswith(s->what, m->where))
+                return 0;
+
+        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(s), true)) < 0)
+                return r;
+
+        if ((r = unit_add_dependency(UNIT(s), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                return r;
+
+        return 0;
+}
+
+static int swap_add_mount_links(Swap *s) {
+        Meta *other;
+        int r;
+
+        assert(s);
+
+        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_MOUNT])
+                if ((r = swap_add_one_mount_link(s, (Mount*) other)) < 0)
+                        return r;
+
+        return 0;
+}
+
 static int swap_add_target_links(Swap *s) {
         Manager *m = s->meta.manager;
         Unit *tu;
         int r;
 
-        r = manager_load_unit(m, SPECIAL_SWAP_TARGET, NULL, &tu);
-        if (r < 0)
+        if ((r = manager_load_unit(m, SPECIAL_SWAP_TARGET, NULL, &tu)) < 0)
                 return r;
 
-        if (!s->no_auto && (r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
-                return r;
+        if (!s->no_auto)
+                if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
+                        return r;
 
         return unit_add_dependency(UNIT(s), UNIT_BEFORE, tu, true);
 }
@@ -101,12 +136,13 @@ static int swap_load(Unit *u) {
 
                 path_kill_slashes(s->what);
 
-                if ((r = mount_add_node_links(u, s->what)) < 0)
+                if ((r = unit_add_node_link(u, s->what,
+                                            (u->meta.manager->running_as == MANAGER_INIT ||
+                                             u->meta.manager->running_as == MANAGER_SYSTEM))) < 0)
                         return r;
 
-                if (!path_startswith(s->what, "/dev/"))
-                        if ((r = mount_add_path_links(u, s->what, true)) < 0)
-                                return r;
+                if ((r = swap_add_mount_links(s)) < 0)
+                        return r;
 
                 if ((r = swap_add_target_links(s)) < 0)
                         return r;

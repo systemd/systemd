@@ -105,6 +105,41 @@ static void automount_done(Unit *u) {
         a->tokens = NULL;
 }
 
+int automount_add_one_mount_link(Automount *a, Mount *m) {
+        int r;
+
+        assert(a);
+        assert(m);
+
+        if (a->meta.load_state != UNIT_LOADED ||
+            m->meta.load_state != UNIT_LOADED)
+                return 0;
+
+        if (!path_startswith(a->where, m->where))
+                return 0;
+
+        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(a), true)) < 0)
+                return r;
+
+        if ((r = unit_add_dependency(UNIT(a), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                return r;
+
+        return 0;
+}
+
+static int automount_add_mount_links(Automount *a) {
+        Meta *other;
+        int r;
+
+        assert(a);
+
+        LIST_FOREACH(units_per_type, other, a->meta.manager->units_per_type[UNIT_MOUNT])
+                if ((r = automount_add_one_mount_link(a, (Mount*) other)) < 0)
+                        return r;
+
+        return 0;
+}
+
 static int automount_verify(Automount *a) {
         bool b;
         char *e;
@@ -145,6 +180,9 @@ static int automount_load(Unit *u) {
                                 return -ENOMEM;
 
                 path_kill_slashes(a->where);
+
+                if ((r = automount_add_mount_links(a)) < 0)
+                        return r;
 
                 if ((r = unit_load_related_unit(u, ".mount", (Unit**) &a->mount)) < 0)
                         return r;

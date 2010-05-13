@@ -453,5 +453,16 @@ bool socket_address_is(const SocketAddress *a, const char *s) {
                 return false;
 
         return socket_address_equal(a, &b);
+}
 
+bool socket_address_needs_mount(const SocketAddress *a, const char *prefix) {
+        assert(a);
+
+        if (socket_address_family(a) != AF_UNIX)
+                return false;
+
+        if (a->sockaddr.un.sun_path[0] == 0)
+                return false;
+
+        return path_startswith(a->sockaddr.un.sun_path, prefix);
 }

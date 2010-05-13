@@ -113,85 +113,82 @@ static void mount_done(Unit *u) {
         unit_unwatch_timer(u, &m->timer_watch);
 }
 
-int mount_add_node_links(Unit *u, const char *what) {
-        Unit *device;
-        char *e;
+static int mount_add_mount_links(Mount *m) {
+        Meta *other;
         int r;
 
-        assert(u);
+        assert(m);
 
-        if (!what)
-                /* We observe kernel mounts only while they are live,
-                 * hence don't create any links for them */
-                return 0;
+        /* Adds in links to other mount points that might lie below or
+         * above us in the hierarchy */
 
-        /* Adds in links to the device that this node is based on */
+        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_MOUNT]) {
+                Mount *n = (Mount*) other;
 
-        if (!path_startswith(what, "/dev/"))
-                return 0;
+                if (n == m)
+                        continue;
 
-        if (!(e = unit_name_build_escape(what+1, NULL, ".device")))
-                return -ENOMEM;
+                if (n->meta.load_state != UNIT_LOADED)
+                        continue;
 
-        r = manager_load_unit(u->meta.manager, e, NULL, &device);
-        free(e);
+                if (path_startswith(m->where, n->where)) {
 
-        if (r < 0)
-                return r;
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
+                                return r;
 
-        if ((r = unit_add_dependency(u, UNIT_AFTER, device, true)) < 0)
-                return r;
+                        if (n->from_etc_fstab || n->from_fragment)
+                                if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
+                                        return r;
 
-        if ((r = unit_add_dependency(u, UNIT_REQUIRES, device, true)) < 0)
-                return r;
+                } else if (path_startswith(n->where, m->where)) {
 
-        if (u->meta.manager->running_as == MANAGER_INIT ||
-            u->meta.manager->running_as == MANAGER_SYSTEM)
-                if ((r = unit_add_dependency(device, UNIT_WANTS, u, false)) < 0)
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(n), true)) < 0)
+                                return r;
+
+                        if (m->from_etc_fstab || m->from_fragment)
+                                if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int mount_add_swap_links(Mount *m) {
+        Meta *other;
+        int r;
+
+        assert(m);
+
+        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_SWAP])
+                if ((r = swap_add_one_mount_link((Swap*) other, m)) < 0)
                         return r;
 
         return 0;
 }
 
-int mount_add_path_links(Unit *u, const char *where, bool requires) {
+static int mount_add_automount_links(Mount *m) {
         Meta *other;
         int r;
 
-        assert(u);
+        assert(m);
 
-        /* Adds in link to other mount points, that might lie below or
-         * above us in the hierarchy */
+        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_AUTOMOUNT])
+                if ((r = automount_add_one_mount_link((Automount*) other, m)) < 0)
+                        return r;
 
-        LIST_FOREACH(units_per_type, other, u->meta.manager->units_per_type[UNIT_MOUNT]) {
-                Mount *n;
+        return 0;
+}
 
-                n = (Mount*) other;
+static int mount_add_socket_links(Mount *m) {
+        Meta *other;
+        int r;
 
-                if (UNIT(n) == u)
-                        continue;
+        assert(m);
 
-                if (u->meta.load_state != UNIT_LOADED)
-                        continue;
-
-                if (path_startswith(where, n->where)) {
-
-                        if ((r = unit_add_dependency(u, UNIT_AFTER, UNIT(other), true)) < 0)
-                                return r;
-
-                        if (requires)
-                                if ((r = unit_add_dependency(u, UNIT_REQUIRES, UNIT(other), true)) < 0)
-                                        return r;
-
-                } else if (path_startswith(n->where, where)) {
-
-                        if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(other), true)) < 0)
-                                return r;
-
-                        if (requires)
-                                if ((r = unit_add_dependency(UNIT(other), UNIT_REQUIRES, u, true)) < 0)
-                                        return r;
-                }
-        }
+        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_SOCKET])
+                if ((r = socket_add_one_mount_link((Socket*) other, m)) < 0)
+                        return r;
 
         return 0;
 }
@@ -301,6 +298,7 @@ static int mount_load(Unit *u) {
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
                 const char *what = m->parameters_fragment.what;
+
                 if (!what)
                         what = m->parameters_etc_fstab.what;
 
@@ -317,13 +315,24 @@ static int mount_load(Unit *u) {
                 if (m->parameters_fragment.what)
                         m->from_fragment = true;
 
-                if ((r = mount_add_node_links(u, what)) < 0)
+                if ((r = unit_add_node_link(u, what,
+                                            (u->meta.manager->running_as == MANAGER_INIT ||
+                                             u->meta.manager->running_as == MANAGER_SYSTEM))) < 0)
                         return r;
 
-                if ((r = mount_add_path_links(u, m->where, m->from_etc_fstab || m->from_fragment)) < 0)
+                if ((r = mount_add_mount_links(m)) < 0)
                         return r;
 
-                if ((r = mount_add_target_links(MOUNT(u))) < 0)
+                if ((r = mount_add_socket_links(m)) < 0)
+                        return r;
+
+                if ((r = mount_add_swap_links(m)) < 0)
+                        return r;
+
+                if ((r = mount_add_automount_links(m)) < 0)
+                        return r;
+
+                if ((r = mount_add_target_links(m)) < 0)
                         return r;
 
                 if ((r = unit_add_default_cgroup(u)) < 0)
