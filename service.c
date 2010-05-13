@@ -591,14 +591,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 }
         }
 
-        /* If init scripts have no LSB header, then we enforce the
-         * ordering via the chkconfig priorities. We try to determine
-         * a priority for *all* init scripts here, since they are
-         * needed as soon as at least one non-LSB script is used. */
-
-        if (s->sysv_start_priority < 0)
-                log_warning("%s has neither a chkconfig header nor a directory link, cannot order unit!", u->meta.id);
-
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
 
