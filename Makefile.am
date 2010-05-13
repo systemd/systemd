@@ -36,7 +36,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_BINARY_PATH=\"$(sbindir)/systemd\"
 
 #	-DSYSTEMD_BINARY_PATH=\"/home/lennart/projects/systemd/systemd\"
-
+VALA_CFLAGS=-Wno-unused-variable -Wno-unused-function
 
 sbin_PROGRAMS = \
 	systemd
@@ -222,14 +222,14 @@ systemctl_SOURCES = \
 	systemctl.vala \
 	systemd-interfaces.vala
 
-systemctl_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS)
+systemctl_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(VALA_CFLAGS)
 systemctl_LDADD = $(DBUSGLIB_LIBS)
 
 systemadm_SOURCES = \
 	systemadm.vala \
 	systemd-interfaces.vala
 
-systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS)
+systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS) $(VALA_CFLAGS)
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
 systemd-initctl.service: units/systemd-initctl.service.in Makefile
