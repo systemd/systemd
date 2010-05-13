@@ -1,0 +1,35 @@
+systemd System and Session Manager
+
+DETAILS:
+        http://0pointer.de/blog/projects/systemd.html
+
+WEB SITE:
+        http://www.freedesktop.org/wiki/Software/systemd
+
+GIT:
+        git://anongit.freedesktop.org/systemd
+        ssh://git.freedesktop.org/git/systemd
+
+GITWEB:
+        http://cgit.freedesktop.org/systemd/
+
+MAILING LIST:
+        http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+        http://lists.freedesktop.org/mailman/listinfo/systemd-commits
+
+IRC:
+        #systemd on irc.freenode.org
+
+BUG REPORTS:
+        https://bugs.freedesktop.org/enter_bug.cgi?product=systemd
+
+AUTHOR:
+        Lennart Poettering with major support from Kay Sievers
+
+REQUIREMENTS:
+        Linux kernel >= 2.6.30 (with autofs4, devtmpfs and the debug cgroup controller)
+        libudev >= 151
+        libcgroup >= 0.35
+        vala >= 0.80
+        gtk+ >= 2.20
+        dbus >= 1.2.24

@@ -80,7 +80,9 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-initctl.socket \
 	units/systemd-logger.service.in \
-	units/systemd-logger.socket
+	units/systemd-logger.socket \
+	LICENSE \
+	README
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
