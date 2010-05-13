@@ -37,7 +37,6 @@
 #define NEWLINES "\n\r"
 #define LINE_MAX 4096
 
-
 typedef enum RunlevelType {
         RUNLEVEL_UP,
         RUNLEVEL_DOWN,
@@ -49,18 +48,25 @@ static const struct {
         const char *target;
         const RunlevelType type;
 } rcnd_table[] = {
-        { "/rc0.d",  SPECIAL_RUNLEVEL0_TARGET, RUNLEVEL_DOWN },
-        { "/rc1.d",  SPECIAL_RUNLEVEL1_TARGET, RUNLEVEL_UP },
-        { "/rc2.d",  SPECIAL_RUNLEVEL2_TARGET, RUNLEVEL_UP },
-        { "/rc3.d",  SPECIAL_RUNLEVEL3_TARGET, RUNLEVEL_UP },
-        { "/rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
-        { "/rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
-        { "/rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
-        { "/boot.d", SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
+        /* Standard SysV runlevels */
+        { "rc0.d",  SPECIAL_RUNLEVEL0_TARGET, RUNLEVEL_DOWN },
+        { "rc1.d",  SPECIAL_RUNLEVEL1_TARGET, RUNLEVEL_UP },
+        { "rc2.d",  SPECIAL_RUNLEVEL2_TARGET, RUNLEVEL_UP },
+        { "rc3.d",  SPECIAL_RUNLEVEL3_TARGET, RUNLEVEL_UP },
+        { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
+        { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
+        { "rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
+
+        /* SuSE style boot.d */
+        { "boot.d", SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
+
+        /* Debian style rcS.d */
+        { "rcS.d",  SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
 };
 
 #define RUNLEVELS_UP "12345"
-#define RUNLEVELS_DOWN "06"
+/* #define RUNLEVELS_DOWN "06" */
+/* #define RUNLEVELS_BOOT "bBsS" */
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
@@ -368,6 +374,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         continue;
                                 }
 
+                                /* A start priority gathered from the
+                                 * symlink farms is preferred over the
+                                 * data from the LSB header. */
                                 if (start_priority < 0 || start_priority > 99)
                                         log_warning("[%s:%u] Start priority out of range. Ignoring.", path, line);
                                 else if (s->sysv_start_priority < 0)
@@ -640,7 +649,25 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 path[strlen(path)-8] = 0;
 
                 r = service_load_sysv_path(s, path);
+
+                if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
+                        /* Try Debian style .sh source'able init scripts */
+                        strcat(path, ".sh");
+                        r = service_load_sysv_path(s, path);
+                }
+
                 free(path);
+
+                if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
+                        /* Try Suse style boot.xxxx init scripts */
+
+                        if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
+                                return -ENOMEM;
+
+                        path[strlen(path)-8] = 0;
+                        r = service_load_sysv_path(s, path);
+                        free(path);
+                }
 
                 if (r < 0)
                         return r;
@@ -2189,18 +2216,30 @@ static int service_enumerate(Manager *m) {
                                 }
 
                                 free(name);
-                                name = NULL;
-                                if (asprintf(&name, "%s.service", de->d_name+3) < 0) {
+                                if (!(name = new(char, strlen(de->d_name) - 3 + 8 + 1))) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
 
-                                if ((r = manager_load_unit_prepare(m, name, NULL, &service)) < 0)
-                                        goto finish;
+                                if (startswith(de->d_name+3, "boot."))
+                                        /* Drop SuSE-style boot. prefix */
+                                        strcpy(stpcpy(name, de->d_name + 3 + 5), ".service");
+                                else if (endswith(de->d_name+3, ".sh"))
+                                        /* Drop Debian-style .sh suffix */
+                                        strcpy(stpcpy(name, de->d_name + 3) - 3, ".service");
+                                else
+                                        /* Normal init scripts */
+                                        strcpy(stpcpy(name, de->d_name + 3), ".service");
+
+                                if ((r = manager_load_unit_prepare(m, name, NULL, &service)) < 0) {
+                                        log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
+                                        continue;
+                                }
 
                                 if (de->d_name[0] == 'S' &&
                                     (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_BASIC))
-                                        SERVICE(service)->sysv_start_priority = a*10 + b;
+                                        SERVICE(service)->sysv_start_priority =
+                                                MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
 
                                 manager_dispatch_load_queue(m);
                                 service = unit_follow_merge(service);
@@ -2249,7 +2288,9 @@ finish:
         free(path);
         free(fpath);
         free(name);
-        closedir(d);
+
+        if (d)
+                closedir(d);
 
         return r;
 }
