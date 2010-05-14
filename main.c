@@ -191,7 +191,7 @@ static int console_setup(bool do_reset) {
 
         release_terminal();
 
-        if ((tty_fd = open_terminal("/dev/console", O_WRONLY)) < 0) {
+        if ((tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY)) < 0) {
                 log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
                 r = -tty_fd;
                 goto finish;

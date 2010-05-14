@@ -68,7 +68,7 @@ static int enable_special_signals(Manager *m) {
         if (reboot(RB_DISABLE_CAD) < 0)
                 log_warning("Failed to enable ctrl-alt-del handling: %m");
 
-        if ((fd = open_terminal("/dev/tty0", O_RDWR)) < 0)
+        if ((fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY)) < 0)
                 log_warning("Failed to open /dev/tty0: %m");
         else {
                 /* Enable that we get SIGWINCH on kbrequest */
