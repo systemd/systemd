@@ -248,8 +248,11 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
             (model = udev_device_get_property_value(dev, "ID_MODEL"))) {
                 if ((r = unit_set_description(u, model)) < 0)
                         goto fail;
-        } else if (dn)
+        } else if (dn) {
                 if ((r = unit_set_description(u, dn)) < 0)
+                        goto fail;
+        } else
+                if ((r = unit_set_description(u, sysfs)) < 0)
                         goto fail;
 
         if (wants) {

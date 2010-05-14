@@ -230,9 +230,6 @@ static int mount_add_target_links(Mount *m) {
         handle = !!mount_test_option(p->options, "comment=systemd.mount");
         automount = !!mount_test_option(p->options, "comment=systemd.automount");
 
-        if (noauto && !handle && !automount)
-                return 0;
-
         if (mount_test_option(p->options, "_netdev") ||
             fstype_is_network(p->fstype))
                 target = SPECIAL_REMOTE_FS_TARGET;
@@ -255,7 +252,7 @@ static int mount_add_target_links(Mount *m) {
 
         } else {
 
-                if (handle)
+                if (!noauto && handle)
                         if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
                                 return r;
 
@@ -282,6 +279,11 @@ static int mount_verify(Mount *m) {
                 return -EINVAL;
         }
 
+        if (m->meta.fragment_path && !m->parameters_fragment.what) {
+                log_error("%s's What setting is missing. Refusing.", UNIT(m)->meta.id);
+                return -EBADMSG;
+        }
+
         return 0;
 }
 
@@ -297,10 +299,10 @@ static int mount_load(Unit *u) {
 
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
-                const char *what = m->parameters_fragment.what;
+                const char *what = NULL;
 
-                if (!what)
-                        what = m->parameters_etc_fstab.what;
+                if (m->meta.fragment_path)
+                        m->from_fragment = true;
 
                 if (!m->where)
                         if (!(m->where = unit_name_to_path(u->meta.id)))
@@ -308,17 +310,22 @@ static int mount_load(Unit *u) {
 
                 path_kill_slashes(m->where);
 
-                /* Minor validity checking */
-                if ((m->parameters_fragment.options || m->parameters_fragment.fstype) && !m->parameters_fragment.what)
-                        return -EBADMSG;
+                if (!m->meta.description)
+                        if ((r = unit_set_description(u, m->where)) < 0)
+                                return r;
 
-                if (m->parameters_fragment.what)
-                        m->from_fragment = true;
+                if (m->from_fragment && m->parameters_fragment.what)
+                        what = m->parameters_fragment.what;
+                else if (m->from_etc_fstab && m->parameters_etc_fstab.what)
+                        what = m->parameters_etc_fstab.what;
+                else if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
+                        what = m->parameters_proc_self_mountinfo.what;
 
-                if ((r = unit_add_node_link(u, what,
-                                            (u->meta.manager->running_as == MANAGER_INIT ||
-                                             u->meta.manager->running_as == MANAGER_SYSTEM))) < 0)
-                        return r;
+                if (what)
+                        if ((r = unit_add_node_link(u, what,
+                                                    (u->meta.manager->running_as == MANAGER_INIT ||
+                                                     u->meta.manager->running_as == MANAGER_SYSTEM))) < 0)
+                                return r;
 
                 if ((r = mount_add_mount_links(m)) < 0)
                         return r;
@@ -1017,7 +1024,7 @@ static int mount_add_one(
         Unit *u;
         bool delete;
         char *e, *w = NULL, *o = NULL, *f = NULL;
-        MountParameters *mp;
+        MountParameters *p;
 
         assert(m);
         assert(what);
@@ -1035,8 +1042,8 @@ static int mount_add_one(
         if (streq(fstype, "autofs"))
                 return 0;
 
-        /* probably some kind of swap, which we don't cover for now */
-        if (where[0] != '/')
+        /* probably some kind of swap, ignore */
+        if (!is_path(where))
                 return 0;
 
         if (!(e = unit_name_from_path(where, ".mount")))
@@ -1061,9 +1068,6 @@ static int mount_add_one(
                         goto fail;
                 }
 
-                if ((r = unit_set_description(u, where)) < 0)
-                        goto fail;
-
                 unit_add_to_load_queue(u);
         } else {
                 delete = false;
@@ -1078,30 +1082,28 @@ static int mount_add_one(
         }
 
         if (from_proc_self_mountinfo) {
-                mp = &MOUNT(u)->parameters_proc_self_mountinfo;
+                p = &MOUNT(u)->parameters_proc_self_mountinfo;
 
                 if (set_flags) {
                         MOUNT(u)->is_mounted = true;
                         MOUNT(u)->just_mounted = !MOUNT(u)->from_proc_self_mountinfo;
-                        MOUNT(u)->just_changed = !streq_ptr(MOUNT(u)->parameters_proc_self_mountinfo.options, o);
+                        MOUNT(u)->just_changed = !streq_ptr(p->options, o);
                 }
 
                 MOUNT(u)->from_proc_self_mountinfo = true;
-
         } else {
-                mp = &MOUNT(u)->parameters_etc_fstab;
-
+                p = &MOUNT(u)->parameters_etc_fstab;
                 MOUNT(u)->from_etc_fstab = true;
         }
 
-        free(mp->what);
-        mp->what = w;
+        free(p->what);
+        p->what = w;
 
-        free(mp->options);
-        mp->options = o;
+        free(p->options);
+        p->options = o;
 
-        free(mp->fstype);
-        mp->fstype = f;
+        free(p->fstype);
+        p->fstype = f;
 
         unit_add_to_dbus_queue(u);
 
@@ -1115,7 +1117,7 @@ fail:
         if (delete && u)
                 unit_free(u);
 
-        return 0;
+        return r;
 }
 
 static char *fstab_node_to_udev_node(char *p) {
@@ -1216,8 +1218,9 @@ static int mount_load_etc_fstab(Manager *m) {
                         else
                                 r = swap_add_one(m,
                                                  what,
-                                                 !!mount_test_option(me->mnt_opts, MNTOPT_NOAUTO),
                                                  pri,
+                                                 !!mount_test_option(me->mnt_opts, MNTOPT_NOAUTO),
+                                                 !!mount_test_option(me->mnt_opts, "comment=systemd.swapon"),
                                                  false);
                 } else
                         r = mount_add_one(m, what, where, me->mnt_opts, me->mnt_type, false, false);

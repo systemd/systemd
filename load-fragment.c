@@ -1287,9 +1287,8 @@ static int load_from_path(Unit *u, const char *path) {
 
                 { "Where",                  config_parse_path,            &u->automount.where,                             "Automount" },
 
-                { "What",                   config_parse_path,            &u->swap.what,                                   "Swap" },
-                { "Priority",               config_parse_unsigned,        &u->swap.priority,                               "Swap" },
-                { "NoAuto",                 config_parse_bool,            &u->swap.no_auto,                                "Swap" },
+                { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap" },
+                { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap" },
 
                 { NULL, NULL, NULL, NULL }
         };

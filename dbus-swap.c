@@ -20,6 +20,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+
 #include "dbus-unit.h"
 #include "dbus-swap.h"
 
@@ -35,11 +37,35 @@ static const char introspection[] =
         BUS_INTROSPECTABLE_INTERFACE
         "</node>";
 
+static int bus_swap_append_priority(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Swap *s = data;
+        dbus_int32_t j;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(s);
+
+        if (s->from_proc_swaps)
+                j = s->parameters_proc_swaps.priority;
+        else if (s->from_fragment)
+                j = s->parameters_fragment.priority;
+        else if (s->from_etc_fstab)
+                j = s->parameters_etc_fstab.priority;
+        else
+                j = -1;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, &j))
+                return -ENOMEM;
+
+        return 0;
+}
+
 DBusHandlerResult bus_swap_message_handler(Unit *u, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Swap", "What", bus_property_append_string, "s", u->swap.what },
-                { "org.freedesktop.systemd1.Swap", "Priority", bus_property_append_int32, "i", &u->swap.priority },
+                { "org.freedesktop.systemd1.Swap", "What",     bus_property_append_string, "s", u->swap.what },
+                { "org.freedesktop.systemd1.Swap", "Priority", bus_swap_append_priority,   "i", u            },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

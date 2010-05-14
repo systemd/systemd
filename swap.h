@@ -35,24 +35,32 @@ typedef enum SwapState {
         _SWAP_STATE_INVALID = -1
 } SwapState;
 
+typedef struct SwapParameters {
+        char *what;
+        int priority;
+        bool noauto:1;
+        bool handle:1;
+} SwapParameters;
+
 struct Swap {
         Meta meta;
 
+        SwapParameters parameters_etc_fstab;
+        SwapParameters parameters_proc_swaps;
+        SwapParameters parameters_fragment;
+
         char *what;
 
-        int priority;
-
-        bool no_auto;
-
-        bool from_proc_swaps_only:1;
-        bool found_in_proc_swaps:1;
+        bool from_etc_fstab:1;
+        bool from_proc_swaps:1;
+        bool from_fragment:1;
 
         SwapState state, deserialized_state;
 };
 
 extern const UnitVTable swap_vtable;
 
-int swap_add_one(Manager *m, const char *what, bool no_auto, int prio, bool from_proc_swap);
+int swap_add_one(Manager *m, const char *what, int prio, bool no_auto, bool handle, bool from_proc_swap);
 
 int swap_add_one_mount_link(Swap *s, Mount *m);
 

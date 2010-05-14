@@ -40,32 +40,24 @@ static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_MAINTAINANCE] = UNIT_INACTIVE
 };
 
+static void swap_init(Unit *u) {
+        Swap *s = SWAP(u);
+
+        assert(s);
+        assert(s->meta.load_state == UNIT_STUB);
+
+        s->parameters_etc_fstab.priority = s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
+}
+
 static void swap_done(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);
 
         free(s->what);
-}
-
-static int swap_verify(Swap *s) {
-        bool b;
-        char *e;
-
-        if (UNIT(s)->meta.load_state != UNIT_LOADED)
-                  return 0;
-
-        if (!(e = unit_name_from_path(s->what, ".swap")))
-                  return -ENOMEM;
-
-        b = unit_has_name(UNIT(s), e);
-        free(e);
-
-        if (!b) {
-                log_error("%s: Value of \"What\" and unit name do not match, not loading.\n", UNIT(s)->meta.id);
-                return -EINVAL;
-        }
-        return 0;
+        free(s->parameters_etc_fstab.what);
+        free(s->parameters_proc_swaps.what);
+        free(s->parameters_fragment.what);
 }
 
 int swap_add_one_mount_link(Swap *s, Mount *m) {
@@ -104,18 +96,48 @@ static int swap_add_mount_links(Swap *s) {
 }
 
 static int swap_add_target_links(Swap *s) {
-        Manager *m = s->meta.manager;
         Unit *tu;
+        SwapParameters *p;
         int r;
 
-        if ((r = manager_load_unit(m, SPECIAL_SWAP_TARGET, NULL, &tu)) < 0)
+        assert(s);
+
+        if (s->from_fragment)
+                p = &s->parameters_fragment;
+        else if (s->from_etc_fstab)
+                p = &s->parameters_etc_fstab;
+        else
+                return 0;
+
+        if ((r = manager_load_unit(s->meta.manager, SPECIAL_SWAP_TARGET, NULL, &tu)) < 0)
                 return r;
 
-        if (!s->no_auto)
+        if (!p->noauto && p->handle)
                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
                         return r;
 
         return unit_add_dependency(UNIT(s), UNIT_BEFORE, tu, true);
+}
+
+static int swap_verify(Swap *s) {
+        bool b;
+        char *e;
+
+        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+                  return 0;
+
+        if (!(e = unit_name_from_path(s->what, ".swap")))
+                  return -ENOMEM;
+
+        b = unit_has_name(UNIT(s), e);
+        free(e);
+
+        if (!b) {
+                log_error("%s: Value of \"What\" and unit name do not match, not loading.\n", UNIT(s)->meta.id);
+                return -EINVAL;
+        }
+
+        return 0;
 }
 
 static int swap_load(Unit *u) {
@@ -130,11 +152,29 @@ static int swap_load(Unit *u) {
                 return r;
 
         if (u->meta.load_state == UNIT_LOADED) {
-                if (!s->what)
-                        if (!(s->what = unit_name_to_path(u->meta.id)))
+
+                if (s->meta.fragment_path)
+                        s->from_fragment = true;
+
+                if (!s->what) {
+                        if (s->parameters_fragment.what)
+                                s->what = strdup(s->parameters_fragment.what);
+                        else if (s->parameters_etc_fstab.what)
+                                s->what = strdup(s->parameters_etc_fstab.what);
+                        else if (s->parameters_proc_swaps.what)
+                                s->what = strdup(s->parameters_proc_swaps.what);
+                        else
+                                s->what = unit_name_to_path(u->meta.id);
+
+                        if (!s->what)
                                 return -ENOMEM;
+                }
 
                 path_kill_slashes(s->what);
+
+                if (!s->meta.description)
+                        if ((r = unit_set_description(u, s->what)) < 0)
+                                return r;
 
                 if ((r = unit_add_node_link(u, s->what,
                                             (u->meta.manager->running_as == MANAGER_INIT ||
@@ -151,62 +191,122 @@ static int swap_load(Unit *u) {
         return swap_verify(s);
 }
 
-int swap_add_one(Manager *m, const char *what, bool no_auto, int prio, bool from_proc_swaps) {
+static int swap_find(Manager *m, const char *what, Unit **_u) {
         Unit *u;
         char *e;
+
+        assert(m);
+        assert(what);
+        assert(_u);
+
+        /* /proc/swaps and /etc/fstab might refer to this device by
+         * different names (e.g. one by uuid, the other by the kernel
+         * name), we hence need to look for all aliases we are aware
+         * of for this device */
+
+        if (!(e = unit_name_from_path(what, ".device")))
+                return -ENOMEM;
+
+        u = manager_get_unit(m, e);
+        free(e);
+
+        if (u) {
+                Iterator i;
+                const char *d;
+
+                SET_FOREACH(d, u->meta.names, i) {
+                        Unit *k;
+
+                        if (!(e = unit_name_change_suffix(d, ".swap")))
+                                return -ENOMEM;
+
+                        k = manager_get_unit(m, e);
+                        free(e);
+
+                        if (k) {
+                                *_u = k;
+                                return 0;
+                        }
+                }
+        }
+
+        *_u = NULL;
+        return 0;
+}
+
+int swap_add_one(
+                Manager *m,
+                const char *what,
+                int priority,
+                bool noauto,
+                bool handle,
+                bool from_proc_swaps) {
+        Unit *u = NULL;
+        char *e = NULL, *w = NULL;
         bool delete;
         int r;
+        SwapParameters *p;
+
+        assert(m);
+        assert(what);
 
         if (!(e = unit_name_from_path(what, ".swap")))
                 return -ENOMEM;
 
-        if (!(u = manager_get_unit(m, e))) {
+        if (!(u = manager_get_unit(m, e)))
+                if ((r = swap_find(m, what, &u)) < 0)
+                        goto fail;
+
+        if (!u) {
                 delete = true;
 
                 if (!(u = unit_new(m))) {
                         free(e);
                         return -ENOMEM;
                 }
-
-                r = unit_add_name(u, e);
-                free(e);
-
-                if (r < 0)
-                        goto fail;
-
-                if (!(SWAP(u)->what = strdup(what))) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                if ((r = unit_set_description(u, what)) < 0)
-                        goto fail;
-
-                unit_add_to_load_queue(u);
-
-                SWAP(u)->from_proc_swaps_only = from_proc_swaps;
-        } else {
-                if (SWAP(u)->from_proc_swaps_only && !from_proc_swaps)
-                        SWAP(u)->from_proc_swaps_only = false;
-
+        } else
                 delete = false;
-                free(e);
+
+        if ((r = unit_add_name(u, e)) < 0)
+                goto fail;
+
+        if (!(w = strdup(what))) {
+                r = -ENOMEM;
+                goto fail;
         }
 
-        if (!from_proc_swaps)
-                SWAP(u)->no_auto = no_auto;
-        else
-                SWAP(u)->found_in_proc_swaps = true;
+        if (from_proc_swaps) {
+                p = &SWAP(u)->parameters_proc_swaps;
+                SWAP(u)->from_proc_swaps = true;
+        } else {
+                p = &SWAP(u)->parameters_etc_fstab;
+                SWAP(u)->from_etc_fstab = true;
+        }
 
-        SWAP(u)->priority = prio;
+        free(p->what);
+        p->what = w;
+
+        p->priority = priority;
+        p->noauto = noauto;
+        p->handle = handle;
+
+        if (delete)
+                unit_add_to_load_queue(u);
+
+        unit_add_to_dbus_queue(u);
+
+        free(e);
 
         return 0;
 
 fail:
-        if (delete)
+        free(w);
+        free(e);
+
+        if (delete && u)
                 unit_free(u);
 
-        return 0;
+        return r;
 }
 
 static void swap_set_state(Swap *s, SwapState state) {
@@ -234,29 +334,46 @@ static int swap_coldplug(Unit *u) {
 
         if (s->deserialized_state != s->state)
                 new_state = s->deserialized_state;
-        else if (s->found_in_proc_swaps)
+        else if (s->from_proc_swaps)
                 new_state = SWAP_ACTIVE;
 
         if (new_state != s->state)
-                swap_set_state(s, s->deserialized_state);
+                swap_set_state(s, new_state);
 
         return 0;
 }
 
 static void swap_dump(Unit *u, FILE *f, const char *prefix) {
         Swap *s = SWAP(u);
+        SwapParameters *p;
 
         assert(s);
+        assert(f);
+
+        if (s->from_proc_swaps)
+                p = &s->parameters_proc_swaps;
+        else if (s->from_fragment)
+                p = &s->parameters_fragment;
+        else
+                p = &s->parameters_etc_fstab;
 
         fprintf(f,
-                "%sAutomount State: %s\n"
+                "%sSwap State: %s\n"
                 "%sWhat: %s\n"
                 "%sPriority: %i\n"
-                "%sNoAuto: %s\n",
+                "%sNoAuto: %s\n"
+                "%sHandle: %s\n"
+                "%sFrom /etc/fstab: %s\n"
+                "%sFrom /proc/swaps: %s\n"
+                "%sFrom fragment: %s\n",
                 prefix, swap_state_to_string(s->state),
                 prefix, s->what,
-                prefix, s->priority,
-                prefix, yes_no(s->no_auto));
+                prefix, p->priority,
+                prefix, yes_no(p->noauto),
+                prefix, yes_no(p->handle),
+                prefix, yes_no(s->from_etc_fstab),
+                prefix, yes_no(s->from_proc_swaps),
+                prefix, yes_no(s->from_fragment));
 }
 
 static void swap_enter_dead(Swap *s, bool success) {
@@ -267,13 +384,18 @@ static void swap_enter_dead(Swap *s, bool success) {
 
 static int swap_start(Unit *u) {
         Swap *s = SWAP(u);
+        int priority = -1;
         int r;
 
         assert(s);
-
         assert(s->state == SWAP_DEAD || s->state == SWAP_MAINTAINANCE);
 
-        r = swapon(s->what, (s->priority << SWAP_FLAG_PRIO_SHIFT) & SWAP_FLAG_PRIO_MASK);
+        if (s->from_fragment)
+                priority = s->parameters_fragment.priority;
+        else if (s->from_etc_fstab)
+                priority = s->parameters_etc_fstab.priority;
+
+        r = swapon(s->what, (priority << SWAP_FLAG_PRIO_SHIFT) & SWAP_FLAG_PRIO_MASK);
 
         if (r < 0 && errno != EBUSY) {
                 r = -errno;
@@ -347,64 +469,47 @@ static bool swap_check_gc(Unit *u) {
 
         assert(s);
 
-        return !s->from_proc_swaps_only || s->found_in_proc_swaps;
+        return s->from_etc_fstab || s->from_proc_swaps;
 }
 
 static int swap_load_proc_swaps(Manager *m) {
-        Meta *meta;
-
         rewind(m->proc_swaps);
 
-        (void) fscanf(m->proc_self_mountinfo, "%*s %*s %*s %*s %*s\n");
+        (void) fscanf(m->proc_swaps, "%*s %*s %*s %*s %*s\n");
 
         for (;;) {
                 char *dev = NULL, *d;
                 int prio = 0, k;
 
-                k = fscanf(m->proc_self_mountinfo,
-                           "%ms " /* device/file */
-                           "%*s " /* type of swap */
-                           "%*s " /* swap size */
-                           "%*s " /* used */
-                           "%d\n", /* priority */
-                           &dev, &prio);
+                if ((k = fscanf(m->proc_swaps,
+                                "%ms " /* device/file */
+                                "%*s " /* type of swap */
+                                "%*s " /* swap size */
+                                "%*s " /* used */
+                                "%i\n", /* priority */
+                                &dev, &prio)) != 2) {
 
-                if (k != 2) {
                         if (k == EOF)
-                                k = 0;
+                                break;
 
                         free(dev);
                         return -EBADMSG;
                 }
-                if (!(d = cunescape(dev))) {
-                        free(dev);
-                        k = -ENOMEM;
-                        return k;
-                }
 
-                k = swap_add_one(m, d, false, prio, true);
+                d = cunescape(dev);
                 free(dev);
+
+                if (!d)
+                        return -ENOMEM;
+
+                k = swap_add_one(m, d, prio, false, false, true);
                 free(d);
 
                 if (k < 0)
                         return k;
         }
 
-        LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_SWAP]) {
-                Swap *s = (Swap*) meta;
-
-                if (s->state != SWAP_DEAD && s->state != SWAP_ACTIVE)
-                        continue;
-
-                if ((s->state == SWAP_DEAD && !s->found_in_proc_swaps) ||
-                    (s->state == SWAP_ACTIVE && s->found_in_proc_swaps))
-                        continue;
-
-                swap_set_state(s, s->found_in_proc_swaps ? SWAP_ACTIVE : SWAP_DEAD);
-
-                /* Reset the flags for later calls */
-                s->found_in_proc_swaps = false;
-        }
+        return 0;
 }
 
 static void swap_shutdown(Manager *m) {
@@ -428,9 +533,9 @@ static int swap_enumerate(Manager *m) {
         int r;
         assert(m);
 
-        if (!m->proc_swaps &&
-            !(m->proc_swaps = fopen("/proc/swaps", "er")))
-                return -errno;
+        if (!m->proc_swaps)
+                if (!(m->proc_swaps = fopen("/proc/swaps", "re")))
+                        return -errno;
 
         if ((r = swap_load_proc_swaps(m)) < 0)
                 swap_shutdown(m);
@@ -441,10 +546,10 @@ static int swap_enumerate(Manager *m) {
 const UnitVTable swap_vtable = {
         .suffix = ".swap",
 
-        .no_alias = true,
         .no_instances = true,
         .no_isolate = true,
 
+        .init = swap_init,
         .load = swap_load,
         .done = swap_done,
 

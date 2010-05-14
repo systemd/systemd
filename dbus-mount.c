@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+
 #include "dbus-unit.h"
 #include "dbus-mount.h"
 #include "dbus-execute.h"
@@ -30,6 +32,9 @@ static const char introspection[] =
         BUS_PROPERTIES_INTERFACE
         " <interface name=\"org.freedesktop.systemd1.Mount\">"
         "  <property name=\"Where\" type=\"s\" access=\"read\"/>"
+        "  <property name=\"What\" type=\"s\" access=\"read\"/>"
+        "  <property name=\"Options\" type=\"s\" access=\"read\"/>"
+        "  <property name=\"Type\" type=\"s\" access=\"read\"/>"
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>"
         BUS_EXEC_CONTEXT_INTERFACE
         "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>"
@@ -38,11 +43,85 @@ static const char introspection[] =
         BUS_INTROSPECTABLE_INTERFACE
         "</node>";
 
+static int bus_mount_append_what(Manager *n, DBusMessageIter *i, const char *property, void *data) {
+        Mount *m = data;
+        const char *d;
+
+        assert(n);
+        assert(i);
+        assert(property);
+        assert(m);
+
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
+                d = m->parameters_proc_self_mountinfo.what;
+        else if (m->from_fragment && m->parameters_fragment.what)
+                d = m->parameters_fragment.what;
+        else if (m->from_etc_fstab && m->parameters_etc_fstab.what)
+                d = m->parameters_etc_fstab.what;
+        else
+                d = "";
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_mount_append_options(Manager *n, DBusMessageIter *i, const char *property, void *data) {
+        Mount *m = data;
+        const char *d;
+
+        assert(n);
+        assert(i);
+        assert(property);
+        assert(m);
+
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.options)
+                d = m->parameters_proc_self_mountinfo.options;
+        else if (m->from_fragment && m->parameters_fragment.options)
+                d = m->parameters_fragment.options;
+        else if (m->from_etc_fstab && m->parameters_etc_fstab.options)
+                d = m->parameters_etc_fstab.options;
+        else
+                d = "";
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_mount_append_type(Manager *n, DBusMessageIter *i, const char *property, void *data) {
+        Mount *m = data;
+        const char *d;
+
+        assert(n);
+        assert(i);
+        assert(property);
+        assert(m);
+
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
+                d = m->parameters_proc_self_mountinfo.fstype;
+        else if (m->from_fragment && m->parameters_fragment.fstype)
+                d = m->parameters_fragment.fstype;
+        else if (m->from_etc_fstab && m->parameters_etc_fstab.fstype)
+                d = m->parameters_etc_fstab.fstype;
+        else
+                d = "";
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
+                return -ENOMEM;
+
+        return 0;
+}
+
 DBusHandlerResult bus_mount_message_handler(Unit *u, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Mount", "Where",       bus_property_append_string, "s", u->mount.where         },
-                /* Where, Options, fstype */
+                { "org.freedesktop.systemd1.Mount", "What",        bus_mount_append_what,      "s", u                      },
+                { "org.freedesktop.systemd1.Mount", "Options",     bus_mount_append_options,   "s", u                      },
+                { "org.freedesktop.systemd1.Mount", "Type",        bus_mount_append_type,      "s", u                      },
                 { "org.freedesktop.systemd1.Mount", "TimeoutUSec", bus_property_append_usec,   "t", &u->mount.timeout_usec },
                 /* ExecCommand */
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Mount", u->mount.exec_context),

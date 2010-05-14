@@ -1035,6 +1035,8 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
+                assert(n_env <= 6);
+
                 if (!(final_env = strv_env_merge(environment, our_env, context->environment, NULL))) {
                         r = EXIT_MEMORY;
                         goto fail;
@@ -1062,10 +1064,7 @@ int exec_spawn(ExecCommand *command,
          * sure that when we kill the cgroup the process will be
          * killed too). */
         if (cgroup_bondings)
-                if ((r = cgroup_bonding_install_list(cgroup_bondings, pid)) < 0) {
-                        r = EXIT_CGROUP;
-                        goto fail;
-                }
+                cgroup_bonding_install_list(cgroup_bondings, pid);
 
         log_debug("Forked %s as %llu", command->path, (unsigned long long) pid);
 
