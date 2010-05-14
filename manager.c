@@ -149,12 +149,12 @@ static char** session_dirs(void) {
         }
 
         if ((e = getenv("XDG_CONFIG_DIRS")))
-                config_dirs = strv_split(e, ":");
-        else
-                config_dirs = strv_new("/etc/xdg", NULL);
+                if (!(config_dirs = strv_split(e, ":")))
+                        goto fail;
 
-        if (!config_dirs)
-                goto fail;
+        /* We don't treat /etc/xdg/systemd here as the spec
+         * suggests because we assume that that is a link to
+         * /etc/systemd/ anyway. */
 
         if ((e = getenv("XDG_DATA_HOME"))) {
                 if (asprintf(&data_home, "%s/systemd/session", e) < 0)
