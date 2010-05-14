@@ -713,7 +713,7 @@ fail:
         u->meta.load_state = UNIT_FAILED;
         unit_add_to_dbus_queue(u);
 
-        log_error("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
+        log_debug("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
 
         return r;
 }

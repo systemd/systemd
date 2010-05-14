@@ -456,22 +456,22 @@ int manager_setup_cgroup(Manager *m) {
                 }
         }
 
-        log_info("Using cgroup controller <%s>, hierarchy mounted at <%s>, using root group <%s>.",
-                 m->cgroup_controller,
-                 mp,
-                 m->cgroup_hierarchy);
+        log_debug("Using cgroup controller <%s>, hierarchy mounted at <%s>, using root group <%s>.",
+                  m->cgroup_controller,
+                  mp,
+                  m->cgroup_hierarchy);
 
         if ((r = install_release_agent(m, mp)) < 0)
                 log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
         else
-                log_info("Installed release agent, or already installed.");
+                log_debug("Installed release agent, or already installed.");
 
         free(mp);
 
         if ((r = create_hierarchy_cgroup(m)) < 0)
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
         else
-                log_info("Created root group.");
+                log_debug("Created root group.");
 
         return r;
 }
