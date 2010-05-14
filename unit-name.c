@@ -373,16 +373,27 @@ char *unit_name_template(const char *f) {
 }
 
 char *unit_name_from_path(const char *path, const char *suffix) {
+        char *p, *r;
+
         assert(path);
         assert(suffix);
 
-        if (path[0] == '/')
-                path++;
+        if (!(p = strdup(path)))
+                return NULL;
 
-        if (path[0] == 0)
+        path_kill_slashes(p);
+
+        path = p[0] == '/' ? p + 1 : p;
+
+        if (path[0] == 0) {
+                free(p);
                 return strappend("-", suffix);
+        }
 
-        return unit_name_build_escape(path, NULL, suffix);
+        r = unit_name_build_escape(path, NULL, suffix);
+        free(p);
+
+        return r;
 }
 
 char *unit_name_to_path(const char *name) {
