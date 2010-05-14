@@ -146,7 +146,7 @@ struct udev *udev_new(void)
 	}
 	if (config_file == NULL)
 		goto err;
-	f = fopen(config_file, "r");
+	f = fopen(config_file, "re");
 	if (f != NULL) {
 		char line[UTIL_LINE_SIZE];
 		int line_nr = 0;

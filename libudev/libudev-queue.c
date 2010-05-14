@@ -131,7 +131,7 @@ unsigned long long int udev_get_kernel_seqnum(struct udev *udev)
 	ssize_t len;
 
 	util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), "/kernel/uevent_seqnum", NULL);
-	fd = open(filename, O_RDONLY);
+	fd = open(filename, O_RDONLY|O_CLOEXEC);
 	if (fd < 0)
 		return 0;
 	len = read(fd, buf, sizeof(buf));
@@ -215,7 +215,7 @@ static FILE *open_queue_file(struct udev_queue *udev_queue, unsigned long long i
 	FILE *queue_file;
 
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_queue->udev), "/.udev/queue.bin", NULL);
-	queue_file = fopen(filename, "r");
+	queue_file = fopen(filename, "re");
 	if (queue_file == NULL)
 		return NULL;
 

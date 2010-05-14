@@ -279,7 +279,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 		return 0;
 	}
 
-	f = fopen(filename, "r");
+	f = fopen(filename, "re");
 	if (f == NULL) {
 		dbg(udev_device->udev, "error reading db file %s: %m\n", filename);
 		return -1;
@@ -339,7 +339,7 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 		return 0;
 
 	util_strscpyl(filename, sizeof(filename), udev_device->syspath, "/uevent", NULL);
-	f = fopen(filename, "r");
+	f = fopen(filename, "re");
 	if (f == NULL)
 		return -1;
 	udev_device->uevent_loaded = true;
@@ -1164,7 +1164,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 		goto out;
 
 	/* read attribute value */
-	fd = open(path, O_RDONLY);
+	fd = open(path, O_RDONLY|O_CLOEXEC);
 	if (fd < 0) {
 		dbg(udev_device->udev, "attribute '%s' can not be opened\n", path);
 		goto out;

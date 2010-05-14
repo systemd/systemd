@@ -29,7 +29,7 @@ CLEANFILES =
 # libudev
 # ------------------------------------------------------------------------------
 LIBUDEV_CURRENT=8
-LIBUDEV_REVISION=0
+LIBUDEV_REVISION=1
 LIBUDEV_AGE=8
 
 SUBDIRS += libudev/docs
