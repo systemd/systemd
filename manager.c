@@ -521,6 +521,7 @@ void manager_free(Manager *m) {
 
         assert(m);
 
+        manager_dispatch_cleanup_queue(m);
         manager_clear_jobs_and_units(m);
 
         for (c = 0; c < _UNIT_TYPE_MAX; c++)
