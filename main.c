@@ -136,6 +136,23 @@ _noreturn static void crash(int sig) {
                 if ((pid = fork()) < 0)
                         log_error("Failed to fork off crash shell: %s", strerror(errno));
                 else if (pid == 0) {
+                        int fd;
+
+                        if ((fd = acquire_terminal("/dev/console", false, true)) < 0) {
+                                log_error("Failed to acquire terminal: %s", strerror(-fd));
+                                _exit(1);
+                        }
+
+                        if (dup2(fd, STDIN_FILENO) < 0 ||
+                            dup2(fd, STDOUT_FILENO) < 0 ||
+                            dup2(fd, STDERR_FILENO) < 0) {
+                                log_error("Failed to duplicate terminal fd: %s", strerror(errno));
+                                _exit(1);
+                        }
+
+                        if (fd >= 3)
+                                close_nointr_nofail(fd);
+
                         execl("/bin/sh", "/bin/sh", NULL);
 
                         log_error("execl() failed: %s", strerror(errno));
