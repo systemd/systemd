@@ -149,8 +149,10 @@ struct Meta {
          * the job for it */
         Job *job;
 
+        usec_t inactive_exit_timestamp;
         usec_t active_enter_timestamp;
         usec_t active_exit_timestamp;
+        usec_t inactive_enter_timestamp;
 
         /* Counterparts in the cgroup filesystem */
         CGroupBonding *cgroup_bondings;

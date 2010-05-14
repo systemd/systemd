@@ -88,8 +88,10 @@ public interface Unit : DBus.Object {
         public abstract string active_state { owned get; }
         public abstract string sub_state { owned get; }
         public abstract string fragment_path { owned get; }
+        public abstract uint64 inactive_exit_timestamp { owned get; }
         public abstract uint64 active_enter_timestamp { owned get; }
         public abstract uint64 active_exit_timestamp { owned get; }
+        public abstract uint64 inactive_enter_timestamp { owned get; }
         public abstract bool can_start { owned get; }
         public abstract bool can_reload { owned get; }
         public abstract JobLink job { owned get; /* FIXME: this setter is a temporary fix to make valac not segfault */ set; }

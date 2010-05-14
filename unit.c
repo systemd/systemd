@@ -558,7 +558,11 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *p2;
         const char *prefix2;
         CGroupBonding *b;
-        char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
+        char
+                timestamp1[FORMAT_TIMESTAMP_MAX],
+                timestamp2[FORMAT_TIMESTAMP_MAX],
+                timestamp3[FORMAT_TIMESTAMP_MAX],
+                timestamp4[FORMAT_TIMESTAMP_MAX];
 
         assert(u);
         assert(u->meta.type >= 0);
@@ -574,16 +578,20 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tInstance: %s\n"
                 "%s\tUnit Load State: %s\n"
                 "%s\tUnit Active State: %s\n"
+                "%s\tInactive Exit Timestamp: %s\n"
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
+                "%s\tInactive Enter Timestamp: %s\n"
                 "%s\tGC Check Good: %s\n",
                 prefix, u->meta.id,
                 prefix, unit_description(u),
                 prefix, strna(u->meta.instance),
                 prefix, unit_load_state_to_string(u->meta.load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
-                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.active_enter_timestamp)),
-                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_exit_timestamp)),
+                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.inactive_exit_timestamp)),
+                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp)),
+                prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp)),
+                prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp)),
                 prefix, yes_no(unit_check_gc(u)));
 
         SET_FOREACH(t, u->meta.names, i)
@@ -908,6 +916,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         bool unexpected = false;
+        usec_t ts;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -920,10 +929,17 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
          * this function will be called too and the utmp code below
          * relies on that! */
 
+        ts = now(CLOCK_REALTIME);
+
+        if (os == UNIT_INACTIVE && ns != UNIT_INACTIVE)
+                u->meta.inactive_exit_timestamp = ts;
+        else if (os != UNIT_INACTIVE && ns == UNIT_INACTIVE)
+                u->meta.inactive_enter_timestamp = ts;
+
         if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                u->meta.active_enter_timestamp = now(CLOCK_REALTIME);
+                u->meta.active_enter_timestamp = ts;
         else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                u->meta.active_exit_timestamp = now(CLOCK_REALTIME);
+                u->meta.active_exit_timestamp = ts;
 
         if (u->meta.job) {
 
