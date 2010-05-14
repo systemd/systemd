@@ -1627,8 +1627,9 @@ int acquire_terminal(const char *name, bool fail, bool force) {
         }
 
         for (;;) {
-                if ((r = flush_fd(notify)) < 0)
-                        goto fail;
+                if (notify >= 0)
+                        if ((r = flush_fd(notify)) < 0)
+                                goto fail;
 
                 /* We pass here O_NOCTTY only so that we can check the return
                  * value TIOCSCTTY and have a reliable way to figure out if we
