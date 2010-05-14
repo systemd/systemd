@@ -252,6 +252,10 @@ CLEANFILES = \
 	systemd-logger.service
 
 install-data-hook:
-	$(MKDIR_P) $(DESTDIR)$(pkgsysconfdir)/system $(DESTDIR)$(pkgsysconfdir)/session $(DESTDIR)$(sysconfdir)/xdg/systemd
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(pkgsysconfdir)/system \
+		$(DESTDIR)$(pkgsysconfdir)/session \
+		$(DESTDIR)$(sysconfdir)/xdg/systemd \
+		$(DESTDIR)/cgroup/debug
 	rm -f $(DESTDIR)$(sysconfdir)/xdg/systemd/session
 	ln -sf $(DESTDIR)$(pkgsysconfdir)/session $(DESTDIR)$(sysconfdir)/xdg/systemd/session
