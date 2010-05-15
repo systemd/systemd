@@ -179,6 +179,8 @@ bool chars_intersect(const char *a, const char *b);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
 
+int make_stdio(int fd);
+
 #define DEFINE_STRING_TABLE_LOOKUP(name,type)                           \
         const char *name##_to_string(type i) {                          \
                 if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \

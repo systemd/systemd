@@ -37,6 +37,7 @@
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_DEBUG;
 
+static int console_fd = STDERR_FILENO;
 static int syslog_fd = -1;
 static int kmsg_fd = -1;
 
@@ -44,26 +45,52 @@ static int kmsg_fd = -1;
  * use here. */
 static char *log_abort_msg = NULL;
 
-void log_close_kmsg(void) {
+void log_close_console(void) {
 
-        if (kmsg_fd >= 0) {
-                close_nointr_nofail(kmsg_fd);
-                kmsg_fd = -1;
+        if (console_fd < 0)
+                return;
+
+        if (getpid() == 1 || console_fd != STDERR_FILENO) {
+                close_nointr_nofail(console_fd);
+                console_fd = -1;
         }
 }
 
-int log_open_kmsg(void) {
+static int log_open_console(void) {
 
-        if (log_target != LOG_TARGET_KMSG) {
-                log_close_kmsg();
+        if (console_fd >= 0)
                 return 0;
-        }
+
+        if (getpid() == 1) {
+
+                if ((console_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
+                        log_error("Failed to open /dev/console for logging: %s", strerror(-console_fd));
+                        return console_fd;
+                }
+
+                log_info("Succesfully opened /dev/console for logging.");
+        } else
+                console_fd = STDERR_FILENO;
+
+        return 0;
+}
+
+void log_close_kmsg(void) {
+
+        if (kmsg_fd < 0)
+                return;
+
+        close_nointr_nofail(kmsg_fd);
+        kmsg_fd = -1;
+}
+
+static int log_open_kmsg(void) {
 
         if (kmsg_fd >= 0)
                 return 0;
 
         if ((kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
-                log_info("Failed to open syslog for logging: %s", strerror(errno));
+                log_info("Failed to open /dev/kmsg for logging: %s", strerror(errno));
                 return -errno;
         }
 
@@ -74,13 +101,14 @@ int log_open_kmsg(void) {
 
 void log_close_syslog(void) {
 
-        if (syslog_fd >= 0) {
-                close_nointr_nofail(syslog_fd);
-                syslog_fd = -1;
-        }
+        if (syslog_fd < 0)
+                return;
+
+        close_nointr_nofail(syslog_fd);
+        syslog_fd = -1;
 }
 
-int log_open_syslog(void) {
+static int log_open_syslog(void) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_un un;
@@ -88,24 +116,20 @@ int log_open_syslog(void) {
         struct timeval tv;
         int r;
 
-        if (log_target != LOG_TARGET_SYSLOG) {
-                log_close_syslog();
-                return 0;
-        }
-
         if (syslog_fd >= 0)
                 return 0;
 
-        if ((syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0)
-                return -errno;
+        if ((syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0) {
+                r = -errno;
+                goto fail;
+        }
 
         /* Make sure we don't block for more than 5s when talking to
          * syslog */
         timeval_store(&tv, SYSLOG_TIMEOUT_USEC);
         if (setsockopt(syslog_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
                 r = -errno;
-                log_close_syslog();
-                return r;
+                goto fail;
         }
 
         zero(sa);
@@ -114,15 +138,45 @@ int log_open_syslog(void) {
 
         if (connect(syslog_fd, &sa.sa, sizeof(sa)) < 0) {
                 r = -errno;
-                log_close_syslog();
-
-                log_info("Failed to open syslog for logging: %s", strerror(-r));
-                return r;
+                goto fail;
         }
 
         log_info("Succesfully opened syslog for logging.");
 
         return 0;
+
+fail:
+        log_close_syslog();
+        log_info("Failed to open syslog for logging: %s", strerror(-r));
+        return r;
+}
+
+int log_open(void) {
+        int r;
+
+        /* If we don't use the console we close it here, to not get
+         * killed by SAK. If we don't use syslog we close it here so
+         * that we are not confused by somebody deleting the socket in
+         * the fs. If we don't use /dev/kmsg we still keep it open,
+         * because there is no reason to close it. */
+
+        if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+            log_target == LOG_TARGET_SYSLOG)
+                if ((r = log_open_syslog()) >= 0) {
+                        log_close_console();
+                        return r;
+                }
+
+        if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+            log_target == LOG_TARGET_KMSG)
+                if ((r = log_open_kmsg()) >= 0) {
+                        log_close_syslog();
+                        log_close_console();
+                        return r;
+                }
+
+        log_close_syslog();
+        return log_open_console();
 }
 
 void log_set_target(LogTarget target) {
@@ -138,27 +192,39 @@ void log_set_max_level(int level) {
         log_max_level = level;
 }
 
-static void write_to_console(
+static int write_to_console(
         int level,
         const char*file,
         int line,
         const char *func,
-        const char *format,
-        va_list ap) {
+        const char *buffer) {
 
-        const char *prefix, *suffix;
+        char location[64];
+        struct iovec iovec[5];
+        unsigned n = 0;
+        bool highlight;
 
-        if (LOG_PRI(level) <= LOG_ERR) {
-                prefix = "\x1B[1;31m";
-                suffix = "\x1B[0m";
-        } else {
-                prefix = "";
-                suffix = "";
-        }
+        if (console_fd < 0)
+                return 0;
 
-        fprintf(stderr, "(%s:%u) %s", file, line, prefix);
-        vfprintf(stderr, format, ap);
-        fprintf(stderr, "%s\n", suffix);
+        snprintf(location, sizeof(location), "(%s:%u) ", file, line);
+        char_array_0(location);
+
+        highlight = LOG_PRI(level) <= LOG_ERR;
+
+        zero(iovec);
+        IOVEC_SET_STRING(iovec[n++], location);
+        if (highlight)
+                IOVEC_SET_STRING(iovec[n++], "\x1B[1;31m");
+        IOVEC_SET_STRING(iovec[n++], buffer);
+        if (highlight)
+                IOVEC_SET_STRING(iovec[n++], "\x1B[0m");
+        IOVEC_SET_STRING(iovec[n++], "\n");
+
+        if (writev(console_fd, iovec, n) < 0)
+                return -errno;
+
+        return 1;
 }
 
 static int write_to_syslog(
@@ -166,18 +232,16 @@ static int write_to_syslog(
         const char*file,
         int line,
         const char *func,
-        const char *format,
-        va_list ap) {
+        const char *buffer) {
 
         char header_priority[16], header_time[64], header_pid[16];
-        char buffer[LOG_BUFFER_MAX];
         struct iovec iovec[5];
         struct msghdr msghdr;
         time_t t;
         struct tm *tm;
 
         if (syslog_fd < 0)
-                return -EIO;
+                return 0;
 
         snprintf(header_priority, sizeof(header_priority), "<%i>", LOG_MAKEPRI(LOG_DAEMON, LOG_PRI(level)));
         char_array_0(header_priority);
@@ -191,9 +255,6 @@ static int write_to_syslog(
 
         snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) getpid());
         char_array_0(header_pid);
-
-        vsnprintf(buffer, sizeof(buffer), format, ap);
-        char_array_0(buffer);
 
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
@@ -209,7 +270,7 @@ static int write_to_syslog(
         if (sendmsg(syslog_fd, &msghdr, 0) < 0)
                 return -errno;
 
-        return 0;
+        return 1;
 }
 
 static int write_to_kmsg(
@@ -217,15 +278,13 @@ static int write_to_kmsg(
         const char*file,
         int line,
         const char *func,
-        const char *format,
-        va_list ap) {
+        const char *buffer) {
 
         char header_priority[16], header_pid[16];
-        char buffer[LOG_BUFFER_MAX];
         struct iovec iovec[5];
 
         if (kmsg_fd < 0)
-                return -EIO;
+                return 0;
 
         snprintf(header_priority, sizeof(header_priority), "<%i>", LOG_PRI(level));
         char_array_0(header_priority);
@@ -233,57 +292,77 @@ static int write_to_kmsg(
         snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) getpid());
         char_array_0(header_pid);
 
-        vsnprintf(buffer, sizeof(buffer), format, ap);
-        char_array_0(buffer);
-
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], __progname);
         IOVEC_SET_STRING(iovec[2], header_pid);
         IOVEC_SET_STRING(iovec[3], buffer);
-        IOVEC_SET_STRING(iovec[4], (char*) "\n");
+        IOVEC_SET_STRING(iovec[4], "\n");
 
         if (writev(kmsg_fd, iovec, ELEMENTSOF(iovec)) < 0)
                 return -errno;
 
-        return 0;
+        return 1;
 }
 
-#define LOG_DISPATCH(level,file,line,func,format)                       \
-        do {                                                            \
-                va_list _ap;                                            \
-                bool written = false;                                   \
-                if (log_target == LOG_TARGET_KMSG) {                    \
-                        va_start(_ap, format);                          \
-                        written = write_to_kmsg(level, file, line, func, format, _ap) >= 0; \
-                        va_end(_ap);                                    \
-                } else if (log_target == LOG_TARGET_SYSLOG) {           \
-                        va_start(_ap, format);                          \
-                        written = write_to_syslog(level, file, line, func, format, _ap) >= 0; \
-                        va_end(_ap);                                    \
-                }                                                       \
-                if (!written) {                                         \
-                        va_start(_ap, format);                          \
-                        write_to_console(level, file, line, func, format, _ap); \
-                        va_end(_ap);                                    \
-                }                                                       \
-        } while (false)
+static int log_dispatch(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *buffer) {
 
-void log_meta(
+        int r;
+
+        if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+            log_target == LOG_TARGET_SYSLOG) {
+
+                if ((r = write_to_syslog(level, file, line, func, buffer)) < 0) {
+                        log_close_syslog();
+                        log_open_kmsg();
+                } else if (r > 0)
+                        return r;
+        }
+
+        if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+            log_target == LOG_TARGET_KMSG) {
+
+                if ((r = write_to_kmsg(level, file, line, func, buffer)) < 0) {
+                        log_close_kmsg();
+                        log_open_console();
+                } else if (r > 0)
+                        return r;
+        }
+
+        return write_to_console(level, file, line, func, buffer);
+}
+
+int log_meta(
         int level,
         const char*file,
         int line,
         const char *func,
         const char *format, ...) {
 
-        int saved_errno;
+        char buffer[LOG_BUFFER_MAX];
+        int saved_errno, r;
+        va_list ap;
 
         if (_likely(LOG_PRI(level) > log_max_level))
-                return;
+                return 0;
 
         saved_errno = errno;
-        LOG_DISPATCH(level, file, line, func, format);
+
+        va_start(ap, format);
+        vsnprintf(buffer, sizeof(buffer), format, ap);
+        va_end(ap);
+
+        char_array_0(buffer);
+
+        r = log_dispatch(level, file, line, func, buffer);
         errno = saved_errno;
+
+        return r;
 }
 
 void log_assert(
@@ -293,8 +372,8 @@ void log_assert(
         const char *format, ...) {
 
         static char buffer[LOG_BUFFER_MAX];
-        va_list ap;
         int saved_errno = errno;
+        va_list ap;
 
         va_start(ap, format);
         vsnprintf(buffer, sizeof(buffer), format, ap);
@@ -303,7 +382,7 @@ void log_assert(
         char_array_0(buffer);
         log_abort_msg = buffer;
 
-        LOG_DISPATCH(LOG_CRIT, file, line, func, format);
+        log_dispatch(LOG_CRIT, file, line, func, buffer);
         abort();
 
         /* If the user chose to ignore this SIGABRT, we are happy to go on, as if nothing happened. */
@@ -354,6 +433,7 @@ static const char *const log_target_table[] = {
         [LOG_TARGET_CONSOLE] = "console",
         [LOG_TARGET_SYSLOG] = "syslog",
         [LOG_TARGET_KMSG] = "kmsg",
+        [LOG_TARGET_SYSLOG_OR_KMSG] = "syslog-or-kmsg",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);

@@ -1890,6 +1890,24 @@ int parse_usec(const char *t, usec_t *usec) {
         return 0;
 }
 
+int make_stdio(int fd) {
+        int r, s, t;
+
+        assert(fd >= 0);
+
+        r = dup2(fd, STDIN_FILENO);
+        s = dup2(fd, STDOUT_FILENO);
+        t = dup2(fd, STDERR_FILENO);
+
+        if (fd >= 3)
+                close_nointr_nofail(fd);
+
+        if (r < 0 || s < 0 || t < 0)
+                return -errno;
+
+        return 0;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

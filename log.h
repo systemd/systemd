@@ -26,10 +26,13 @@
 
 #include "macro.h"
 
+/* If set to SYSLOG and /dev/log can not be opened we fall back to
+ * KSMG. If KMSG fails, we fall back to CONSOLE */
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,
-        LOG_TARGET_SYSLOG,
         LOG_TARGET_KMSG,
+        LOG_TARGET_SYSLOG,
+        LOG_TARGET_SYSLOG_OR_KMSG,
         _LOG_TARGET_MAX,
         _LOG_TARGET_INVALID = -1
 }  LogTarget;
@@ -43,14 +46,15 @@ int log_set_max_level_from_string(const char *e);
 LogTarget log_get_target(void);
 int log_get_max_level(void);
 
-void log_close_kmsg(void);
-int log_open_kmsg(void);
+int log_open(void);
+
 void log_close_syslog(void);
-int log_open_syslog(void);
+void log_close_kmsg(void);
+void log_close_console(void);
 
 void log_parse_environment(void);
 
-void log_meta(
+int log_meta(
         int level,
         const char*file,
         int line,

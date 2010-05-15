@@ -136,22 +136,17 @@ _noreturn static void crash(int sig) {
                 if ((pid = fork()) < 0)
                         log_error("Failed to fork off crash shell: %s", strerror(errno));
                 else if (pid == 0) {
-                        int fd;
+                        int fd, r;
 
                         if ((fd = acquire_terminal("/dev/console", false, true)) < 0) {
                                 log_error("Failed to acquire terminal: %s", strerror(-fd));
                                 _exit(1);
                         }
 
-                        if (dup2(fd, STDIN_FILENO) < 0 ||
-                            dup2(fd, STDOUT_FILENO) < 0 ||
-                            dup2(fd, STDERR_FILENO) < 0) {
-                                log_error("Failed to duplicate terminal fd: %s", strerror(errno));
+                        if ((r = make_stdio(fd)) < 0) {
+                                log_error("Failed to duplicate terminal fd: %s", strerror(-r));
                                 _exit(1);
                         }
-
-                        if (fd >= 3)
-                                close_nointr_nofail(fd);
 
                         execl("/bin/sh", "/bin/sh", NULL);
 
@@ -182,51 +177,40 @@ static void install_crash_handler(void) {
         assert_se(sigaction(SIGABRT, &sa, NULL) == 0);
 }
 
-static int console_setup(bool do_reset) {
-        int tty_fd = -1, null_fd = -1, r = 0;
+static int make_null_stdio(void) {
+        int null_fd, r;
 
-        /* If we are init, we connect stdout/stderr to /dev/console
-         * and stdin to /dev/null and make sure we don't have a
-         * controlling tty. */
+        if ((null_fd = open("/dev/null", O_RDWR)) < 0) {
+                log_error("Failed to open /dev/null: %m");
+                return -errno;
+        }
+
+        if ((r = make_stdio(null_fd)) < 0)
+                log_warning("Failed to dup2() device: %s", strerror(-r));
+
+        return r;
+}
+
+static int console_setup(bool do_reset) {
+        int tty_fd, r;
+
+        /* If we are init, we connect stdin/stdout/stderr to /dev/null
+         * and make sure we don't have a controlling tty. */
 
         release_terminal();
 
-        if ((tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY)) < 0) {
+        if (!do_reset)
+                return 0;
+
+        if ((tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
                 log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
-                r = -tty_fd;
-                goto finish;
+                return -tty_fd;
         }
 
-        if ((null_fd = open("/dev/null", O_RDONLY)) < 0) {
-                log_error("Failed to open /dev/null: %m");
-                r = -errno;
-                goto finish;
-        }
+        if ((r = reset_terminal(tty_fd)) < 0)
+                log_error("Failed to reset /dev/console: %s", strerror(-r));
 
-        assert(tty_fd >= 3);
-        assert(null_fd >= 3);
-
-        if (do_reset)
-                if (reset_terminal(tty_fd) < 0)
-                        log_error("Failed to reset /dev/console: %m");
-
-        if (dup2(tty_fd, STDOUT_FILENO) < 0 ||
-            dup2(tty_fd, STDERR_FILENO) < 0 ||
-            dup2(null_fd, STDIN_FILENO) < 0) {
-                log_error("Failed to dup2() device: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
-        if (tty_fd >= 0)
-                close_nointr_nofail(tty_fd);
-
-        if (null_fd >= 0)
-                close_nointr_nofail(null_fd);
-
+        close_nointr_nofail(tty_fd);
         return r;
 }
 
@@ -499,7 +483,7 @@ static int help(void) {
                "  -h --help                      Show this help\n"
                "     --default=UNIT              Set default unit\n"
                "     --log-level=LEVEL           Set log level\n"
-               "     --log-target=TARGET         Set log target (console, syslog, kmsg)\n"
+               "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg)\n"
                "     --running-as=AS             Set running as (init, system, session)\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
@@ -571,11 +555,10 @@ int main(int argc, char *argv[]) {
         FDSet *fds = NULL;
         bool reexecute = false;
 
-        if (getpid() == 1)
+        if (getpid() == 1) {
                 running_as = MANAGER_INIT;
-        else if (getuid() == 0)
-                running_as = MANAGER_SYSTEM;
-        else
+                log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        } else
                 running_as = MANAGER_SESSION;
 
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
@@ -640,17 +623,18 @@ int main(int argc, char *argv[]) {
                 umask(0);
         }
 
-        /* Reset the console, but only if this is really init and we
-         * are freshly booted */
-        if (running_as == MANAGER_INIT && action == ACTION_RUN)
-                console_setup(getpid() == 1 && !serialization);
-
         /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
         dbus_connection_set_change_sigpipe(FALSE);
 
+        /* Reset the console, but only if this is really init and we
+         * are freshly booted */
+        if (running_as != MANAGER_SESSION && action == ACTION_RUN) {
+                console_setup(getpid() == 1 && !serialization);
+                make_null_stdio();
+        }
+
         /* Open the logging devices, if possible and necessary */
-        log_open_syslog();
-        log_open_kmsg();
+        log_open();
 
         /* Make sure we leave a core dump without panicing the
          * kernel. */

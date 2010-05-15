@@ -1027,7 +1027,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         /* The syslog daemon just might have become
                          * available, hence try to connect to it, if
                          * we aren't yet connected. */
-                        log_open_syslog();
+                        log_open();
 
                 if (u->meta.type == UNIT_MOUNT)
                         /* Another directory became available, let's
