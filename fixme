@@ -1,49 +1,53 @@
+* timer
 
-- trigger mounting; mounts might take time, need to be executed asynchronously in a forked process?
+* enforce max number of concurrent connection limit in sockets.
 
-- need gc for active jobs that nothing cares for
+* complete dbus exposure
 
-- need gc for units that are not referenced anymore
+* make conf parser work more like .desktop parsers
 
-- refreshing of units (i.e. reload config files)
+* implicitly import "defaults" settings file into all types
 
-- further dbusification (i.e. export dependency information, per-unit-type data)
+* write .service file install tool
 
-- cgroupsification
+* service startup should be delayed if the matching socket is being started
 
-- snapshot system
+* add #ifdefs for non-redhat builds in sysv parser
 
-- add a job mode which shuts everything down but what is requested
+* add #ifdefs for non-sysv builds
 
-- implement timer
+* bootchart hookup
 
-- implement automount
+* dbus.service and syslog.service should be symlinked not ifdef to the right distro-specific names
 
-- create session/pgroup for child processes? handle input on console properly? interactive fsck? interactive luks password?
+* reinvestigate random seed, hwclock
 
-- fs namespaces
+* rework sysv stuff to have SPECIAL_SYSV_BEFORE, SPECIAL_SYSV_AFTER instead SPECIAL_RCSYSINIT
 
-- templating/instances
+* introduce serialized mode
 
-- verify fragment data after loading: refuse cycles on yourself, service units contradicting, more than one Start executable, ...
+* when refusing start due to ratelimit, enter restart state
 
-- .socket needs to be notified not only by .service state changes, but also unsuccessful start jobs
+* "disabled" load state?
 
-- we probably cannot use glibc's syslog() for logging, since it
-  presumably uses the logging socket in blocking mode which might
-  trigger a deadlock if syslog does not process the socket anymore
-  (maybe because it is restarted) and the socket buffer is full.
+* uid are 32bit
 
-- in udev/mount if properties change we need to delete the old
-  settings and install the new settings. Deleting the old settings is
-  currently missing.
+* %m in printf() instead of strerror();
 
-- ability to kill services? i.e. in contrast to stopping them, go directly
+* gc: don't reap broken services
+
+* iCalendar semantics for the timer stuff (RFC2445)
+
+* autofs für /dev/mqueue usw.
+
+* provide sysv-like command line utilities
+
+* Add OnlyByDependency
+
+* ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
 
-- restart-on-success, restart-on-failure, restart-on-abort, restart-on-name-gnone
-
-- port over to LISTEN_FDS/LISTEN_PID:
+* port over to LISTEN_FDS/LISTEN_PID:
 
    - uuidd    DONE
    - nscd     DONE
@@ -59,10 +63,12 @@
    - avahi-daemon (/var/run/avahi-daemon/socket)
    - distccd
 
-- teach dbus to talk to systemd when autospawning services
+* teach dbus to talk to systemd when autospawning services
 
-- unix sockets chown()/chgrp()
+* unix sockets chown()/chgrp()
 
-- watch dbus names for figuring out when a service has finished startup/goes down
+Regularly:
 
-- initialize console tty on startup
+* look for close() vs. close_nointr() vs. close_nointr_nofail()
+
+* check for strerror(r) instead of strerror(-r)
