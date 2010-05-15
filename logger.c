@@ -35,10 +35,10 @@
 #include "util.h"
 #include "log.h"
 #include "list.h"
+#include "sd-daemon.h"
 
 #define STREAM_BUFFER 2048
 #define STREAMS_MAX 256
-#define SERVER_FD_START 3
 #define SERVER_FD_MAX 16
 #define TIMEOUT ((int) (10*MSEC_PER_SEC))
 
@@ -348,49 +348,6 @@ fail:
         return r;
 }
 
-static int verify_environment(unsigned *n_sockets) {
-        unsigned long long pid;
-        const char *e;
-        int r;
-        unsigned ns;
-
-        assert_se(n_sockets);
-
-        if (!(e = getenv("LISTEN_PID"))) {
-                log_error("Missing $LISTEN_PID environment variable.");
-                return -ENOENT;
-        }
-
-        if ((r = safe_atollu(e, &pid)) < 0) {
-                log_error("Failed to parse $LISTEN_PID: %s", strerror(-r));
-                return r;
-        }
-
-        if (pid != (unsigned long long) getpid()) {
-                log_error("Socket nor for me.");
-                return -ENOENT;
-        }
-
-        if (!(e = getenv("LISTEN_FDS"))) {
-                log_error("Missing $LISTEN_FDS environment variable.");
-                return -ENOENT;
-        }
-
-        if ((r = safe_atou(e, &ns)) < 0) {
-                log_error("Failed to parse $LISTEN_FDS: %s", strerror(-r));
-                return -E2BIG;
-        }
-
-        if (ns <= 0 || ns > SERVER_FD_MAX) {
-                log_error("Wrong number of file descriptors passed: %s", e);
-                return -E2BIG;
-        }
-
-        *n_sockets = ns;
-
-        return 0;
-}
-
 static void server_done(Server *s) {
         unsigned i;
         assert(s);
@@ -399,7 +356,7 @@ static void server_done(Server *s) {
                 stream_free(s->streams);
 
         for (i = 0; i < s->n_server_fd; i++)
-                close_nointr_nofail(SERVER_FD_START+i);
+                close_nointr_nofail(SD_LISTEN_FDS_START+i);
 
         if (s->syslog_fd >= 0)
                 close_nointr_nofail(s->syslog_fd);
@@ -439,8 +396,8 @@ static int server_init(Server *s, unsigned n_sockets) {
 
                 zero(ev);
                 ev.events = EPOLLIN;
-                ev.data.ptr = UINT_TO_PTR(SERVER_FD_START+i);
-                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, SERVER_FD_START+i, &ev) < 0) {
+                ev.data.ptr = UINT_TO_PTR(SD_LISTEN_FDS_START+i);
+                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, SD_LISTEN_FDS_START+i, &ev) < 0) {
                         r = -errno;
                         log_error("Failed to add server fd to epoll object: %s", strerror(errno));
                         goto fail;
@@ -480,13 +437,13 @@ static int process_event(Server *s, struct epoll_event *ev) {
         assert(s);
 
         /* Yes, this is a bit ugly, we assume that that valid pointers
-         * are > SERVER_FD_START+SERVER_FD_MAX. Which is certainly
+         * are > SD_LISTEN_FDS_START+SERVER_FD_MAX. Which is certainly
          * true on Linux (and probably most other OSes, too, since the
          * first 4k usually are part of a seperate null pointer
          * dereference page. */
 
-        if (PTR_TO_UINT(ev->data.ptr) >= SERVER_FD_START &&
-            PTR_TO_UINT(ev->data.ptr) < SERVER_FD_START+s->n_server_fd) {
+        if (PTR_TO_UINT(ev->data.ptr) >= SD_LISTEN_FDS_START &&
+            PTR_TO_UINT(ev->data.ptr) < SD_LISTEN_FDS_START+s->n_server_fd) {
 
                 if (ev->events != EPOLLIN) {
                         log_info("Got invalid event from epoll. (1)");
@@ -505,7 +462,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                 timestamp = now(CLOCK_REALTIME);
 
                 if (!(ev->events & EPOLLIN)) {
-                        log_info("Got invalid event from epoll. (3)");
+                        log_info("Got invalid event from epoll. (2)");
                         stream_free(stream);
                         return 0;
                 }
@@ -525,16 +482,25 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
 int main(int argc, char *argv[]) {
         Server server;
-        int r = 3;
-        unsigned n;
+        int r = 3, n;
+
+        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_parse_environment();
 
         log_info("systemd-logger running as pid %llu", (unsigned long long) getpid());
 
-        if (verify_environment(&n) < 0)
+        if ((n = sd_listen_fds(true)) < 0) {
+                log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
                 return 1;
+        }
 
-        if (server_init(&server, n) < 0)
+        if (n <= 0 || n > SERVER_FD_MAX) {
+                log_error("No or too many file descriptors passed.");
                 return 2;
+        }
+
+        if (server_init(&server, (unsigned) n) < 0)
+                return 3;
 
         for (;;) {
                 struct epoll_event event;

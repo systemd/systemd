@@ -40,8 +40,8 @@
 #include "list.h"
 #include "initreq.h"
 #include "manager.h"
+#include "sd-daemon.h"
 
-#define SERVER_FD_START 3
 #define SERVER_FD_MAX 16
 #define TIMEOUT ((int) (10*MSEC_PER_SEC))
 
@@ -246,49 +246,6 @@ static void fifo_free(Fifo *f) {
         free(f);
 }
 
-static int verify_environment(unsigned *n_sockets) {
-        unsigned long long pid;
-        const char *e;
-        int r;
-        unsigned ns;
-
-        assert_se(n_sockets);
-
-        if (!(e = getenv("LISTEN_PID"))) {
-                log_error("Missing $LISTEN_PID environment variable.");
-                return -ENOENT;
-        }
-
-        if ((r = safe_atollu(e, &pid)) < 0) {
-                log_error("Failed to parse $LISTEN_PID: %s", strerror(-r));
-                return r;
-        }
-
-        if (pid != (unsigned long long) getpid()) {
-                log_error("Socket nor for me.");
-                return -ENOENT;
-        }
-
-        if (!(e = getenv("LISTEN_FDS"))) {
-                log_error("Missing $LISTEN_FDS environment variable.");
-                return -ENOENT;
-        }
-
-        if ((r = safe_atou(e, &ns)) < 0) {
-                log_error("Failed to parse $LISTEN_FDS: %s", strerror(-r));
-                return -E2BIG;
-        }
-
-        if (ns <= 0 || ns > SERVER_FD_MAX) {
-                log_error("Wrong number of file descriptors passed: %s", e);
-                return -E2BIG;
-        }
-
-        *n_sockets = ns;
-
-        return 0;
-}
-
 static void server_done(Server *s) {
         assert(s);
 
@@ -335,14 +292,14 @@ static int server_init(Server *s, unsigned n_sockets) {
                 zero(ev);
                 ev.events = EPOLLIN;
                 ev.data.ptr = f;
-                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, SERVER_FD_START+i, &ev) < 0) {
+                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, SD_LISTEN_FDS_START+i, &ev) < 0) {
                         r = -errno;
                         fifo_free(f);
                         log_error("Failed to add fifo fd to epoll object: %s", strerror(errno));
                         goto fail;
                 }
 
-                f->fd = SERVER_FD_START+i;
+                f->fd = SD_LISTEN_FDS_START+i;
                 LIST_PREPEND(Fifo, fifo, s->fifos, f);
                 f->server = s;
                 s->n_fifos ++;
@@ -386,15 +343,24 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
 int main(int argc, char *argv[]) {
         Server server;
-        int r = 3;
-        unsigned n;
+        int r = 3, n;
+
+        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_parse_environment();
 
         log_info("systemd-initctl running as pid %llu", (unsigned long long) getpid());
 
-        if (verify_environment(&n) < 0)
+        if ((n = sd_listen_fds(true)) < 0) {
+                log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
                 return 1;
+        }
 
-        if (server_init(&server, n) < 0)
+        if (n <= 0 || n > SERVER_FD_MAX) {
+                log_error("No or too many file descriptors passed.");
+                return 2;
+        }
+
+        if (server_init(&server, (unsigned) n) < 0)
                 return 2;
 
         for (;;) {

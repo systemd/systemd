@@ -207,11 +207,15 @@ test_loopback_LDADD = $(systemd_LDADD)
 
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \
-	logger.c
+	logger.c \
+	sd-daemon.c \
+	sd-daemon.h
 
 systemd_initctl_SOURCES = \
 	$(BASIC_SOURCES) \
-	initctl.c
+	initctl.c \
+	sd-daemon.c \
+	sd-daemon.h
 
 systemd_initctl_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
