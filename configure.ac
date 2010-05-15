@@ -43,7 +43,43 @@ AM_PROG_CC_C_O
 AC_PROG_GCC_TRADITIONAL
 AC_USE_SYSTEM_EXTENSIONS
 
-CC_CHECK_CFLAGS_APPEND([-Wall -W -Wextra -pipe -Wno-long-long -Winline -Wvla -Wno-overlength-strings -Wundef -Wformat=2 -Wlogical-op -Wsign-compare -Wformat-security -Wmissing-include-dirs -Wformat-nonliteral -Wold-style-definition -Wpointer-arith -Winit-self -Wdeclaration-after-statement -Wfloat-equal -Wmissing-prototypes -Wstrict-prototypes -Wredundant-decls -Wmissing-declarations -Wmissing-noreturn -Wshadow -Wendif-labels -Wcast-align -Wstrict-aliasing=2 -Wwrite-strings -Wno-unused-parameter -ffast-math -Wp,-D_FORTIFY_SOURCE=2 -fno-common -fdiagnostics-show-option -Wno-missing-field-initializers])
+CC_CHECK_CFLAGS_APPEND([ \
+        -Wall \
+        -W \
+        -Wextra \
+        -pipe \
+        -Wno-long-long \
+        -Winline \
+        -Wvla \
+        -Wno-overlength-strings \
+        -Wundef \
+        -Wformat=2 \
+        -Wlogical-op \
+        -Wsign-compare \
+        -Wformat-security \
+        -Wmissing-include-dirs \
+        -Wformat-nonliteral \
+        -Wold-style-definition \
+        -Wpointer-arith \
+        -Winit-self \
+        -Wdeclaration-after-statement \
+        -Wfloat-equal \
+        -Wmissing-prototypes \
+        -Wstrict-prototypes \
+        -Wredundant-decls \
+        -Wmissing-declarations \
+        -Wmissing-noreturn \
+        -Wshadow \
+        -Wendif-labels \
+        -Wcast-align \
+        -Wstrict-aliasing=2 \
+        -Wwrite-strings \
+        -Wno-unused-parameter \
+        -ffast-math \
+        -Wp,-D_FORTIFY_SOURCE=2 \
+        -fno-common \
+        -fdiagnostics-show-option \
+        -Wno-missing-field-initializers])
 
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])
@@ -51,6 +87,7 @@ AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers n
 
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
+
 PKG_CHECK_MODULES(UDEV, [ libudev ])
 AC_SUBST(UDEV_CFLAGS)
 AC_SUBST(UDEV_LIBS)
@@ -97,6 +134,9 @@ AC_SUBST(CGROUP_LIBS)
 
 AM_PROG_VALAC([0.7])
 AC_SUBST(VAPIDIR)
+
+AC_PATH_PROG([XSLTPROC], [xsltproc])
+AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo, or none]))
 if test "z$with_distro" = "z"; then
@@ -174,6 +214,13 @@ AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$special_dbus_service"], [D-Bus service name])
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$special_syslog_service"], [syslog service name])
 
+AC_ARG_WITH([udevrulesdir],
+        AS_HELP_STRING([--with-udevrulesdir=DIR], [Diectory for udev rules]),
+        [],
+        [with_udevrulesdir=/lib/udev/rules.d])
+AC_SUBST([udevrulesdir], [$with_udevrulesdir])
+
+
 AC_OUTPUT([Makefile])
 
 echo "
@@ -185,4 +232,5 @@ echo "
         Syslog service:          ${special_syslog_service}
         D-Bus service:           ${special_dbus_service}
         Gtk:                     ${have_gtk}
+        udev rules dir:          ${with_udevrulesdir}
 "

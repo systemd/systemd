@@ -17,12 +17,12 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-pkgsysconfdir=$(sysconfdir)/systemd
 dbuspolicydir=$(sysconfdir)/dbus-1/system.d
-udevrulesdir=/lib/udev/rules.d
+udevrulesdir=@udevrulesdir@
 
+pkgsysconfdir=$(sysconfdir)/systemd
 systemunitdir=$(pkgdatadir)/system
-sessionunitdir=$(pkgdatadir)/system
+sessionunitdir=$(pkgdatadir)/session
 
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
@@ -35,8 +35,9 @@ AM_CPPFLAGS = \
 	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(sbindir)/systemd\"
 
-#	-DSYSTEMD_BINARY_PATH=\"/home/lennart/projects/systemd/systemd\"
-VALA_CFLAGS=-Wno-unused-variable -Wno-unused-function
+VALA_CFLAGS = \
+	-Wno-unused-variable \
+	-Wno-unused-function
 
 sbin_PROGRAMS = \
 	systemd
@@ -60,27 +61,24 @@ noinst_PROGRAMS = \
 	test-ns \
 	test-loopback
 
-dbuspolicy_DATA = \
+dist_dbuspolicy_DATA = \
 	org.freedesktop.systemd1.conf
 
-udevrules_DATA = \
+dist_udevrules_DATA = \
 	99-systemd.rules
 
-systemunit_DATA = \
+dist_systemunit_DATA = \
 	units/emergency.service \
-	systemd-initctl.service \
 	units/systemd-initctl.socket \
-	systemd-logger.service \
 	units/systemd-logger.socket
 
+systemunit_DATA = \
+	systemd-initctl.service \
+	systemd-logger.service
+
 EXTRA_DIST = \
-	org.freedesktop.systemd1.conf \
-	99-systemd.rules \
-	units/emergency.service \
 	units/systemd-initctl.service.in \
-	units/systemd-initctl.socket \
 	units/systemd-logger.service.in \
-	units/systemd-logger.socket \
 	LICENSE \
 	README
 
@@ -146,6 +144,21 @@ EXTRA_DIST += \
 	securebits.h \
 	linux/auto_dev-ioctl.h \
 	initreq.h
+
+dist_man_MANS = \
+	systemd.unit.5 \
+	systemd.service.5
+
+HTMLMANS = \
+	systemd.unit.html \
+	systemd.service.html
+
+dist_noinst_DATA = \
+	$(HTMLMANS)
+
+EXTRA_DIST += \
+	man/systemd.unit.xml \
+	man/systemd.service.xml
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -251,6 +264,18 @@ CLEANFILES = \
 	systemd-initctl.service \
 	systemd-logger.service
 
+if HAVE_XSLTPROC
+%.5: man/%.xml
+	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+
+%.html: man/%.xml
+	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
+
+CLEANFILES += \
+	$(dist_man_MANS) \
+	$(HTMLMANS)
+endif
+
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(pkgsysconfdir)/system \
@@ -259,3 +284,6 @@ install-data-hook:
 		$(DESTDIR)/cgroup/debug
 	rm -f $(DESTDIR)$(sysconfdir)/xdg/systemd/session
 	ln -sf $(DESTDIR)$(pkgsysconfdir)/session $(DESTDIR)$(sysconfdir)/xdg/systemd/session
+
+DISTCHECK_CONFIGURE_FLAGS = \
+	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)

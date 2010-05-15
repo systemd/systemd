@@ -1,4 +1,7 @@
+*.5
+*.html
 *~
+*.tar.gz
 test-ns
 test-loopback
 systemd-initctl.service

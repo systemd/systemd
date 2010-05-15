@@ -1,0 +1,213 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.service">
+        <refentryinfo>
+                <title>systemd.service</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.service</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.service</refname>
+                <refpurpose>systemd service configuration files</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.service</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A configuration file ending in .service encodes
+                information about a process controlled and supervised
+                by systemd.</para>
+
+                <para>This man page lists the configuration options
+                specific to this unit type. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>Type=</varname></term>
+                                <listitem>
+                                        <para>One of
+                                        <literal>forking</literal>,
+                                        <literal>simple</literal>,
+                                        <literal>finish</literal>,
+                                        <literal>dbus</literal>.</para>
+
+                                        <para>If set to
+                                        <literal>forking</literal>
+                                        (the default) it is expected
+                                        that the process configured
+                                        with
+                                        <varname>ExecStart=</varname>
+                                        will start up and call
+                                        <function>fork()</function>. The
+                                        parent process is expected to
+                                        finish when start-up is
+                                        complete and all communication
+                                        channels set up. The child
+                                        continues to run as the main
+                                        daemon process. This is the
+                                        behaviour of traditional UNIX
+                                        daemons. If this setting is
+                                        used it is recommended to also
+                                        use the
+                                        <varname>PIDFile=</varname>
+                                        option, so that systemd can
+                                        identify the main process of
+                                        the daemon. systemd will start
+                                        follow-up units as soon as the
+                                        parent process exited.</para>
+
+                                        <para>If set to
+                                        <literal>simple</literal> (the
+                                        recommended value) it is
+                                        expected that the process
+                                        configured with
+                                        <varname>ExecStart=</varname>
+                                        is the main process of the
+                                        daemon. In this mode
+                                        communication channels must be
+                                        available before the daemon is
+                                        started up, as systemd will
+                                        immediately start follow-up
+                                        units.</para>
+
+                                        <para>Behaviour of
+                                        <literal>finish</literal> is
+                                        similar to
+                                        <literal>simple</literal>,
+                                        however it is expected that
+                                        the process has to exit before
+                                        systemd starts follow-up
+                                        units. <varname>ValidNoProcess=</varname>
+                                        is particularly useful for
+                                        this type of service.</para>
+
+                                        <para>Behaviour of
+                                        <literal>dbus</literal> is
+                                        similar to
+                                        <literal>simple</literal>,
+                                        however it is expected that
+                                        the daemon acquires a name on
+                                        the D-Bus bus, as configured
+                                        by
+                                        <varname>BusName=</varname>. Follow-up
+                                        units will be started after
+                                        the name has been
+                                        acquired.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>ValidNoProcess=</varname></term>
+                                <listitem>
+                                        <para>Takes a boolean value
+                                        that specifies whether the service
+                                        shall be considered active
+                                        even when all its processes
+                                        exited. Defaults to <literal>no</literal>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PIDFile=</varname></term>
+                                <listitem>
+                                        <para>Takes an absolute file
+                                        name pointing to the PID file
+                                        of this daemon. Use of this
+                                        option is recommended for
+                                        services where
+                                        <varname>Type=</varname> is
+                                        set to
+                                        <literal>forking</literal>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BusName=</varname></term>
+                                <listitem>
+                                        <para>Takes a D-Bus bus name
+                                        that this service is reachable
+                                        as. This option is mandatory
+                                        for services where
+                                        <varname>Type=</varname> is
+                                        set to
+                                        <literal>dbus</literal>, but
+                                        its use is otherwise
+                                        recommended as well if the
+                                        process takes a name on the
+                                        D-Bus bus.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ExecStart=</varname></term>
+                                <listitem>
+                                        <para>Takes a command line
+                                        that is executed when this
+                                        service shall be started
+                                        up. The first word of the
+                                        command line must be an
+                                        absolute file name. It is
+                                        mandatory to set this option
+                                        for all services.</para>
+                                </listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
