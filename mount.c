@@ -1360,7 +1360,7 @@ void mount_fd_event(Manager *m, int events) {
          * table changes */
 
         if ((r = mount_load_proc_self_mountinfo(m, true)) < 0) {
-                log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-errno));
+                log_error("Failed to reread /proc/self/mountinfo: %s", strerror(errno));
 
                 /* Reset flags, just in case, for later calls */
                 LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_MOUNT]) {
