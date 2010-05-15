@@ -55,10 +55,16 @@ typedef struct Server {
         unsigned n_streams;
 } Server;
 
+typedef enum StreamTarget {
+        STREAM_SYSLOG,
+        STREAM_KMSG
+} StreamTarget;
+
 typedef enum StreamState {
-        STREAM_LOG_TARGET,
+        STREAM_TARGET,
         STREAM_PRIORITY,
         STREAM_PROCESS,
+        STREAM_PREFIX,
         STREAM_RUNNING
 } StreamState;
 
@@ -75,6 +81,8 @@ struct Stream {
         pid_t pid;
         uid_t uid;
 
+        bool prefix;
+
         char buffer[STREAM_BUFFER];
         size_t length;
 
@@ -85,9 +93,23 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
 
         char header_priority[16], header_time[64], header_pid[16];
         struct iovec iovec[5];
+        int priority;
 
         assert(s);
         assert(p);
+
+        priority = s->priority;
+
+        if (s->prefix &&
+            p[0] == '<' &&
+            p[1] >= '0' && p[1] <= '7' &&
+            p[2] == '>') {
+
+                /* Detected priority prefix */
+                priority = LOG_MAKEPRI(LOG_FAC(priority), (p[1] - '0'));
+
+                p += 3;
+        }
 
         if (*p == 0)
                 return 0;
@@ -105,10 +127,10 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
          */
 
         snprintf(header_priority, sizeof(header_priority), "<%i>",
-                 s->target == LOG_TARGET_SYSLOG ? s->priority : LOG_PRI(s->priority));
+                 s->target == STREAM_SYSLOG ? priority : LOG_PRI(priority));
         char_array_0(header_priority);
 
-        if (s->target == LOG_TARGET_SYSLOG) {
+        if (s->target == STREAM_SYSLOG) {
                 time_t t;
                 struct tm *tm;
 
@@ -126,7 +148,7 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
 
-        if (s->target == LOG_TARGET_SYSLOG) {
+        if (s->target == STREAM_SYSLOG) {
                 struct msghdr msghdr;
 
                 IOVEC_SET_STRING(iovec[1], header_time);
@@ -141,7 +163,7 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
                 if (sendmsg(s->server->syslog_fd, &msghdr, MSG_NOSIGNAL) < 0)
                         return -errno;
 
-        } else if (s->target == LOG_TARGET_KMSG) {
+        } else if (s->target == STREAM_KMSG) {
                 IOVEC_SET_STRING(iovec[1], s->process);
                 IOVEC_SET_STRING(iovec[2], header_pid);
                 IOVEC_SET_STRING(iovec[3], p);
@@ -165,13 +187,13 @@ static int stream_line(Stream *s, char *p, usec_t timestamp) {
 
         switch (s->state) {
 
-        case STREAM_LOG_TARGET:
+        case STREAM_TARGET:
                 if (streq(p, "syslog"))
-                        s->target = LOG_TARGET_SYSLOG;
+                        s->target = STREAM_SYSLOG;
                 else if (streq(p, "kmsg")) {
 
                         if (s->server->kmsg_fd >= 0 && s->uid == 0)
-                                s->target = LOG_TARGET_KMSG;
+                                s->target = STREAM_KMSG;
                         else {
                                 log_warning("/dev/kmsg logging not available.");
                                 return -EPERM;
@@ -201,6 +223,15 @@ static int stream_line(Stream *s, char *p, usec_t timestamp) {
                 if (!(s->process = strdup(p)))
                         return -ENOMEM;
 
+                s->state = STREAM_PREFIX;
+                return 0;
+
+        case STREAM_PREFIX:
+
+                if ((r = parse_boolean(p)) < 0)
+                        return r;
+
+                s->prefix = r;
                 s->state = STREAM_RUNNING;
                 return 0;
 

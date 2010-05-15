@@ -98,6 +98,7 @@ struct ExecContext {
 
         int syslog_priority;
         char *syslog_identifier;
+        bool syslog_no_prefix;
 
         char *tty_path;
 

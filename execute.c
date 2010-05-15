@@ -187,10 +187,12 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
         dprintf(fd,
                 "%s\n"
                 "%i\n"
-                "%s\n",
+                "%s\n"
+                "%i\n",
                 output == EXEC_OUTPUT_KERNEL ? "kmsg" : "syslog",
                 context->syslog_priority,
-                context->syslog_identifier ? context->syslog_identifier : ident);
+                context->syslog_identifier ? context->syslog_identifier : ident,
+                !context->syslog_no_prefix);
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
