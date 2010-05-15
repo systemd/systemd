@@ -148,6 +148,7 @@ if test "z$with_distro" = "z"; then
                 AC_CHECK_FILE(/etc/debian_version,with_distro="debian")
                 AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
                 AC_CHECK_FILE(/etc/gentoo-release,with_distro="gentoo")
+                AC_CHECK_FILE(/etc/slackware-version,with_distro="slackware")
         fi
         if test "z$with_distro" = "z"; then
                 with_distro=`uname -s`
@@ -191,6 +192,13 @@ case $with_distro in
                 special_syslog_service=syslog-ng.service
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
                 ;;
+        slackware)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
+                SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                special_dbus_service=messagebus.service
+                special_syslog_service=syslog.service
+                AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
+                ;;
         none)
                 SYSTEM_SYSVINIT_PATH=/fix/the/configure/script
                 SYSTEM_SYSVRCND_PATH=/fix/the/configure/script
@@ -210,6 +218,7 @@ AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
 AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
+AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 
 AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$special_dbus_service"], [D-Bus service name])
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$special_syslog_service"], [syslog service name])

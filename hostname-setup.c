@@ -34,7 +34,7 @@
 
 #if defined(TARGET_FEDORA)
 #define FILENAME "/etc/sysconfig/network"
-#elif defined(TARGET_SUSE)
+#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
 #define FILENAME "/etc/HOSTNAME"
 #elif defined(TARGET_DEBIAN)
 #define FILENAME "/etc/hostname"
@@ -111,7 +111,7 @@ finish:
         fclose(f);
         return r;
 
-#elif defined(TARGET_SUSE) || defined(TARGET_DEBIAN)
+#elif defined(TARGET_SUSE) || defined(TARGET_DEBIAN) || defined(TARGET_SLACKWARE)
         int r;
         char *s, *k;
 
