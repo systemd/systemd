@@ -117,10 +117,12 @@ static inline size_t ALIGN(size_t l) {
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;
 
-#define IOVEC_SET_STRING(iovec, s)              \
+#define IOVEC_SET_STRING(i, s)                  \
         do {                                    \
-                (iovec).iov_base = s;           \
-                (iovec).iov_len = strlen(s);    \
+                struct iovec *_i = &(i);        \
+                char *_s = (char *)(s);         \
+                _i->iov_base = _s;              \
+                _i->iov_len = strlen(_s);       \
         } while(false);
 
 #include "log.h"
