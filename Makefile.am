@@ -278,6 +278,8 @@ endif
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(systemunitdir) \
+		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd \
