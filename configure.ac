@@ -138,7 +138,7 @@ AC_SUBST(VAPIDIR)
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo, or none]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -199,14 +199,14 @@ case $with_distro in
                 special_syslog_service=syslog.service
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
                 ;;
-        none)
+        other)
                 SYSTEM_SYSVINIT_PATH=/fix/the/configure/script
                 SYSTEM_SYSVRCND_PATH=/fix/the/configure/script
                 special_dbus_service=fix-the-configure-script.service
                 special_syslog_service=fix-the-configure-script.service
                 ;;
         *)
-                AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=none to skip this check])
+                AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=other to skip this check])
                 ;;
 esac
 
