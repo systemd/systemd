@@ -15,5 +15,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+# See systemd.special(7) for details
+
 [Unit]
 Description=Network

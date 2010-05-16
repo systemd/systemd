@@ -10,6 +10,7 @@ systemctl
 systemadm
 .dirstamp
 *.5
+*.7
 *.html
 *~
 *.tar.gz

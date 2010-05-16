@@ -156,18 +156,21 @@ EXTRA_DIST += \
 
 dist_man_MANS = \
 	man/systemd.unit.5 \
-	man/systemd.service.5
+	man/systemd.service.5 \
+	man/systemd.special.7
 
 HTMLMANS = \
 	man/systemd.unit.html \
-	man/systemd.service.html
+	man/systemd.service.html \
+	man/systemd.special.html
 
 dist_noinst_DATA = \
 	$(HTMLMANS)
 
 EXTRA_DIST += \
 	man/systemd.unit.xml \
-	man/systemd.service.xml
+	man/systemd.service.xml \
+	man/systemd.special.xml
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -297,7 +300,7 @@ CLEANFILES = \
 	units/syslog.target
 
 if HAVE_XSLTPROC
-man/%.5: man/%.xml
+man/%.5 man/%.7: man/%.xml
 	$(MKDIR_P) man
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 

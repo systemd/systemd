@@ -77,7 +77,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term>Names=</term>
+                                <term><varname>Names=</varname></term>
                                 <listitem>
                                         <para>Additional names for this unit. The names
                                         listed here mus have the same suffix (i.e. type)
@@ -86,7 +86,7 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term>Requires=</term>
+                                <term><varname>Requires=</varname></term>
                                 <listitem>
                                         <para>Dependencies on other
                                         units. If this units get

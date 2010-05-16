@@ -1,0 +1,325 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.special">
+
+        <refentryinfo>
+                <title>systemd.special</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.special</refentrytitle>
+                <manvolnum>7</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.special</refname>
+                <refpurpose>special systemd units</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>emergency.service</filename></para>
+                <para><filename>local-fs.target</filename></para>
+                <para><filename>network.target</filename></para>
+                <para><filename>nss-lookup.target</filename></para>
+                <para><filename>remote-fs.target</filename></para>
+                <para><filename>rpcbind.target</filename></para>
+                <para><filename>rtc-set.target</filename></para>
+                <para><filename>shutdown.target</filename></para>
+                <para><filename>sigpwr.target</filename></para>
+                <para><filename>sockets.target</filename></para>
+                <para><filename>swap.target</filename></para>
+                <para><filename>syslog.target</filename></para>
+                <para><filename>systemd-initctl.service</filename></para>
+                <para><filename>systemd-initctl.socket</filename></para>
+                <para><filename>systemd-logger.service</filename></para>
+                <para><filename>systemd-logger.socket</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A few units are treated specially by
+                systemd. They have special internal semantics and
+                cannot be renamed.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Special System Units</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>emergency.service</filename></term>
+                                <listitem>
+                                        <para>A special service unit
+                                        that starts an emergency
+                                        shell on the main
+                                        console. This unit is supposed
+                                        to be used with the kernel
+                                        command line option
+                                        <varname>systemd.default=</varname>
+                                        and has otherwise little use.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>local-fs.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After to all mount units that
+                                        refer to local mount
+                                        points. In addition, systemd
+                                        adds dependencies of type
+                                        Wants to those mounts listed
+                                        in
+                                        <filename>/etc/fstab</filename>
+                                        that have the
+                                        <literal>auto</literal> and
+                                        <literal>comment=systemd.mount</literal>
+                                        mount options set.</para>
+
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After to this target unit for
+                                        all SysV init scripts with an
+                                        LSB header referring to the
+                                        <literal>$local_fs</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>network.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After to this target unit for
+                                        all SysV init scripts with an
+                                        LSB header referring to the
+                                        <literal>$network</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>nss-lookup.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After to this target unit for
+                                        all SysV init scripts with an
+                                        LSB header referring to the
+                                        <literal>$named</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>remote-fs.target</filename></term>
+                                <listitem>
+                                        <para>Similar to <filename>local-fs.target</filename>, but for remote mount points.</para>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After to this target unit for
+                                        all SysV init scripts with an
+                                        LSB header referring to the
+                                        <literal>$remote-fs</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>rpcbind.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After to this target unit for
+                                        all SysV init scripts with an
+                                        LSB header referring to the
+                                        <literal>$rpcbind</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>rtc-set.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After to this target unit for
+                                        all SysV init scripts with an
+                                        LSB header referring to the
+                                        <literal>$time</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>shutdown.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that terminates the services
+                                        on system shutdown.</para>
+
+                                        <para>Services that shall be
+                                        terminated on system shutdown
+                                        shall add Wants dependencies
+                                        from this unit to their
+                                        service unit during
+                                        installation.</para>
+
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        Conflicts to this target unit
+                                        for all SysV init scripts that
+                                        shall be terminated in SysV
+                                        runlevels 0 or 6.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>sigpwr.target</filename></term>
+                                <listitem>
+                                        <para>A special target that is
+                                        started when systemd receives
+                                        the SIGPWR process signal,
+                                        which is normally sent by the
+                                        kernel or UPS daemons when the
+                                        power fails.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>sockets.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that sets up all service
+                                        sockets.</para>
+
+                                        <para>Services that can be
+                                        socket-activated shall add
+                                        Wants dependencies from this
+                                        unit to their socket unit
+                                        during installation.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>swap.target</filename></term>
+                                <listitem>
+                                        <para>Similar to
+                                        <filename>local-fs.target</filename>, but for swap
+                                        partitions and swap
+                                        files.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>syslog.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After to this target unit for
+                                        all SysV init scripts with an
+                                        LSB header referring to the
+                                        <literal>$syslog</literal>
+                                        facility.</para>
+
+                                        <para>Administrators should
+                                        ensure that this target pulls
+                                        in a service unit with the
+                                        name or alias of
+                                        <filename>@SPECIAL_SYSLOG_NAME@</filename> (or a
+                                        socket unit that activates
+                                        this service).</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>systemd-initctl.service</filename></term>
+                                <listitem>
+                                        <para>This provides
+                                        compatibility with the SysV
+                                        /dev/initctl file system FIFO
+                                        for communication with the
+                                        init system.</para>
+                                        <para>This is a
+                                        socket-activated service, see
+                                        <filename>system-initctl.socket</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>systemd-initctl.socket</filename></term>
+                                <listitem>
+                                        <para>Socket activation unit
+                                        for
+                                        <filename>system-initctl.service</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>systemd-logger.service</filename></term>
+                                <listitem>
+                                        <para>This is used internally
+                                        by systemd to provide syslog
+                                        logging to started
+                                        processes.</para>
+                                        <para>This is a
+                                        socket-activated service, see
+                                        <filename>system-logger.socket</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>systemd-logger.socket</filename></term>
+                                <listitem>
+                                        <para>Socket activation unit
+                                        for
+                                        <filename>system-logger.service</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Special Session Units</title>
+
+                <para>When systemd runs as a service instance, the
+                following special units are available, which have
+                similar definitions as their system counterparts:
+                <filename>local-fs.target</filename>,
+                <filename>remote-fs.target</filename>,
+                <filename>shutdown.target</filename>,
+                <filename>sockets.target</filename>,
+                <filename>swap.target</filename>.</para>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
