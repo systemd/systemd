@@ -885,6 +885,7 @@ public class MainWindow : Window {
                         m.run();
                         m.destroy();
 
+                        show_unit(u);
                 } catch (DBus.Error e) {
                         show_error(e.message);
                 }
