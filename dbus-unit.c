@@ -44,6 +44,25 @@ int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, 
         return 0;
 }
 
+int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u;
+        Iterator j;
+        DBusMessageIter sub;
+        Set *s = data;
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "s", &sub))
+                return -ENOMEM;
+
+        SET_FOREACH(u, s, j)
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &u->meta.id))
+                        return -ENOMEM;
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *d;

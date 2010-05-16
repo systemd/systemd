@@ -47,6 +47,17 @@
         "  <signal name=\"Changed\"/>"                                  \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>"          \
         "  <property name=\"Names\" type=\"as\" access=\"read\"/>"      \
+        "  <property name=\"Requires\" type=\"as\" access=\"read\"/>"   \
+        "  <property name=\"RequiresOverridable\" type=\"as\" access=\"read\"/>" \
+        "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>"  \
+        "  <property name=\"RequisiteOverridable\" type=\"as\" access=\"read\"/>" \
+        "  <property name=\"Wants\" type=\"as\" access=\"read\"/>"      \
+        "  <property name=\"RequiredBy\" type=\"as\" access=\"read\"/>" \
+        "  <property name=\"RequiredByOverridable\" type=\"as\" access=\"read\"/>" \
+        "  <property name=\"WantedBy\" type=\"as\" access=\"read\"/>"   \
+        "  <property name=\"Conflicts\" type=\"as\" access=\"read\"/>"  \
+        "  <property name=\"Before\" type=\"as\" access=\"read\"/>"     \
+        "  <property name=\"After\" type=\"as\" access=\"read\"/>"      \
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>" \
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>"   \
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>" \
@@ -66,26 +77,38 @@
         " </interface>"
 
 #define BUS_UNIT_PROPERTIES \
-        { "org.freedesktop.systemd1.Unit", "Id",                   bus_property_append_string,     "s",    u->meta.id                      }, \
-        { "org.freedesktop.systemd1.Unit", "Names",                bus_unit_append_names,          "as",   u                               }, \
-        { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,    "s",    u                               }, \
-        { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,     "s",    &u->meta.load_state             }, \
-        { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                               }, \
-        { "org.freedesktop.systemd1.Unit", "SubState",             bus_unit_append_sub_state,      "s",    u                               }, \
-        { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,     "s",    u->meta.fragment_path           }, \
-        { "org.freedesktop.systemd1.Unit", "InactiveExitTimestamp",bus_property_append_uint64,     "t",    &u->meta.inactive_exit_timestamp}, \
-        { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_uint64,     "t",    &u->meta.active_enter_timestamp }, \
-        { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_uint64,     "t",    &u->meta.active_exit_timestamp  }, \
-        { "org.freedesktop.systemd1.Unit", "InActiveEnterTimestamp",bus_property_append_uint64,    "t",    &u->meta.inactive_enter_timestamp}, \
-        { "org.freedesktop.systemd1.Unit", "CanStart",             bus_unit_append_can_start,      "b",    u                               }, \
-        { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,     "b",    u                               }, \
-        { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,            "(uo)", u                               }, \
-        { "org.freedesktop.systemd1.Unit", "RecursiveStop",        bus_property_append_bool,       "b",    &u->meta.recursive_stop         }, \
-        { "org.freedesktop.systemd1.Unit", "StopWhenUneeded",      bus_property_append_bool,       "b",    &u->meta.stop_when_unneeded     }, \
-        { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                               }, \
-        { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                               }
+        { "org.freedesktop.systemd1.Unit", "Id",                   bus_property_append_string,     "s",    u->meta.id                        }, \
+        { "org.freedesktop.systemd1.Unit", "Names",                bus_unit_append_names,          "as",   u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "Requires",             bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRES] }, \
+        { "org.freedesktop.systemd1.Unit", "RequiresOverridable",  bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE] }, \
+        { "org.freedesktop.systemd1.Unit", "Requisite",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUISITE] }, \
+        { "org.freedesktop.systemd1.Unit", "RequisiteOverridable", bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE] }, \
+        { "org.freedesktop.systemd1.Unit", "Wants",                bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_WANTS]  }, \
+        { "org.freedesktop.systemd1.Unit", "RequiredBy",           bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRED_BY] }, \
+        { "org.freedesktop.systemd1.Unit", "RequiredByOverridable",bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE] }, \
+        { "org.freedesktop.systemd1.Unit", "WantedBy",             bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_WANTED_BY] }, \
+        { "org.freedesktop.systemd1.Unit", "Conflicts",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_CONFLICTS] }, \
+        { "org.freedesktop.systemd1.Unit", "Before",               bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_BEFORE] }, \
+        { "org.freedesktop.systemd1.Unit", "After",                bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_AFTER]  }, \
+        { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,    "s",    u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,     "s",    &u->meta.load_state               }, \
+        { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "SubState",             bus_unit_append_sub_state,      "s",    u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,     "s",    u->meta.fragment_path             }, \
+        { "org.freedesktop.systemd1.Unit", "InactiveExitTimestamp",bus_property_append_uint64,     "t",    &u->meta.inactive_exit_timestamp  }, \
+        { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_uint64,     "t",    &u->meta.active_enter_timestamp   }, \
+        { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_uint64,     "t",    &u->meta.active_exit_timestamp    }, \
+        { "org.freedesktop.systemd1.Unit", "InactiveEnterTimestamp",bus_property_append_uint64,    "t",    &u->meta.inactive_enter_timestamp }, \
+        { "org.freedesktop.systemd1.Unit", "CanStart",             bus_unit_append_can_start,      "b",    u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,     "b",    u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,            "(uo)", u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "RecursiveStop",        bus_property_append_bool,       "b",    &u->meta.recursive_stop           }, \
+        { "org.freedesktop.systemd1.Unit", "StopWhenUneeded",      bus_property_append_bool,       "b",    &u->meta.stop_when_unneeded       }, \
+        { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_load_state(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const char *property, void *data);
