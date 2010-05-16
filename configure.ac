@@ -160,39 +160,49 @@ if test "z$with_distro" = "z"; then
 fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
 
+# Default generic names
+SPECIAL_DBUS_SERVICE=dbus.service
+SPECIAL_SYSLOG_SERVICE=syslog.service
+
+# Location of the init scripts as mandated by LSB
+SYSTEM_SYSVINIT_PATH=/etc/init.d
+
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
+
+                # A little background why we define these special unit
+                # names here in configure.ac: SysV services currently
+                # cannot have aliases. As long as syslog is started
+                # via a SysV init script we hence define these names
+                # to the actual SysV name here. Later on when SysV
+                # init scripts are not used anymore it is advisable to
+                # use the generic names instead and use symlinks in
+                # the unit directories to point to the right native
+                # unit file.
+
                 SPECIAL_DBUS_SERVICE=messagebus.service
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 ;;
         suse)
-                SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
-                SPECIAL_DBUS_SERVICE=dbus.service
-                SPECIAL_SYSLOG_SERVICE=syslog.service
                 AC_DEFINE(TARGET_SUSE, [], [Target is OpenSUSE/SLES])
                 ;;
         debian)
-                SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc
-                SPECIAL_DBUS_SERVICE=dbus.service
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian/Ubuntu])
                 ;;
         arch)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 SYSTEM_SYSVRCND_PATH=/etc
-                SPECIAL_DBUS_SERVICE=dbus.service
                 SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
                 ;;
         gentoo)
-                SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc
-                SPECIAL_DBUS_SERVICE=dbus.service
                 SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
                 ;;
@@ -200,18 +210,17 @@ case $with_distro in
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
                 SPECIAL_DBUS_SERVICE=messagebus.service
-                SPECIAL_SYSLOG_SERVICE=syslog.service
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
                 ;;
         other)
                 AS_IF([test "x$with_sysvinit_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvinit-path to configure])])
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvinit-path= to configure])])
                 AS_IF([test "x$with_sysvrcd_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvrcd-path to configure])])
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvrcd-path= to configure])])
                 AS_IF([test "x$with_dbus_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-dbus-service to configure])])
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-dbus-service= to configure])])
                 AS_IF([test "x$with_syslog_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-syslog-service to configure])])
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-syslog-service= to configure])])
                 ;;
         *)
                 AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=other to skip this check])
