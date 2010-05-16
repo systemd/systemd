@@ -143,7 +143,8 @@ EXTRA_DIST += \
 	list.h \
 	securebits.h \
 	linux/auto_dev-ioctl.h \
-	initreq.h
+	initreq.h \
+	sd-daemon.h
 
 dist_man_MANS = \
 	systemd.unit.5 \
@@ -208,14 +209,12 @@ test_loopback_LDADD = $(systemd_LDADD)
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \
 	logger.c \
-	sd-daemon.c \
-	sd-daemon.h
+	sd-daemon.c
 
 systemd_initctl_SOURCES = \
 	$(BASIC_SOURCES) \
 	initctl.c \
-	sd-daemon.c \
-	sd-daemon.h
+	sd-daemon.c
 
 systemd_initctl_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
