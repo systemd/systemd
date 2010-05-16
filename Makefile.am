@@ -59,10 +59,10 @@ noinst_PROGRAMS = \
 	test-loopback
 
 dist_dbuspolicy_DATA = \
-	org.freedesktop.systemd1.conf
+	src/org.freedesktop.systemd1.conf
 
 dist_udevrules_DATA = \
-	99-systemd.rules
+	src/99-systemd.rules
 
 dist_systemunit_DATA = \
 	units/emergency.service \
@@ -70,8 +70,8 @@ dist_systemunit_DATA = \
 	units/systemd-logger.socket
 
 systemunit_DATA = \
-	systemd-initctl.service \
-	systemd-logger.service
+	units/systemd-initctl.service \
+	units/systemd-logger.service
 
 EXTRA_DIST = \
 	units/systemd-initctl.service.in \
@@ -144,12 +144,12 @@ EXTRA_DIST += \
 	src/sd-daemon.h
 
 dist_man_MANS = \
-	systemd.unit.5 \
-	systemd.service.5
+	man/systemd.unit.5 \
+	man/systemd.service.5
 
 HTMLMANS = \
-	systemd.unit.html \
-	systemd.service.html
+	man/systemd.unit.html \
+	man/systemd.service.html
 
 dist_noinst_DATA = \
 	$(HTMLMANS)
@@ -260,12 +260,14 @@ systemadm_SOURCES = \
 systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS) $(VALA_CFLAGS)
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
-systemd-initctl.service: units/systemd-initctl.service.in Makefile
+units/systemd-initctl.service: units/systemd-initctl.service.in Makefile
+	$(MKDIR_P) units
 	$(SED) -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		< $< > $@
 
-systemd-logger.service: units/systemd-logger.service.in Makefile
+units/systemd-logger.service: units/systemd-logger.service.in Makefile
+	$(MKDIR_P) units
 	$(SED) -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		< $< > $@
@@ -274,14 +276,16 @@ CLEANFILES = \
 	src/systemd-interfaces.c \
 	src/systemctl.c \
 	src/systemadm.c \
-	systemd-initctl.service \
-	systemd-logger.service
+	units/systemd-initctl.service \
+	units/systemd-logger.service
 
 if HAVE_XSLTPROC
-%.5: man/%.xml
+man/%.5: man/%.xml
+	$(MKDIR_P) man
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
-%.html: man/%.xml
+man/%.html: man/%.xml
+	$(MKDIR_P) man
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
 
 CLEANFILES += \
