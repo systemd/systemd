@@ -33,11 +33,8 @@ AM_CPPFLAGS = \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
 	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
 	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\" \
-	-DSYSTEMD_BINARY_PATH=\"$(sbindir)/systemd\"
-
-VALA_CFLAGS = \
-	-Wno-unused-variable \
-	-Wno-unused-function
+	-DSYSTEMD_BINARY_PATH=\"$(sbindir)/systemd\" \
+	-I $(top_srcdir)/src
 
 sbin_PROGRAMS = \
 	systemd
@@ -86,65 +83,65 @@ EXTRA_DIST = \
 # rules for C programs, but not Vala programs.  We therefore can't
 # list the .h files as dependencies if we want make dist to work.
 BASIC_SOURCES = \
-        util.c \
-        hashmap.c \
-        set.c \
-        strv.c \
-        conf-parser.c \
-        socket-util.c \
-        log.c \
-        ratelimit.c
+        src/util.c \
+        src/hashmap.c \
+        src/set.c \
+        src/strv.c \
+        src/conf-parser.c \
+        src/socket-util.c \
+        src/log.c \
+        src/ratelimit.c
 
 COMMON_SOURCES = \
 	$(BASIC_SOURCES) \
-	unit.c \
-        job.c \
-        manager.c \
-        load-fragment.c \
-        service.c \
-        automount.c \
-        mount.c \
-        swap.c \
-        device.c \
-        target.c \
-        snapshot.c \
-        socket.c \
-        timer.c \
-        load-dropin.c \
-        execute.c \
-        dbus.c \
-        dbus-manager.c \
-        dbus-unit.c \
-        dbus-job.c \
-	dbus-service.c \
-	dbus-socket.c \
-	dbus-target.c \
-	dbus-mount.c \
-	dbus-automount.c \
-	dbus-swap.c \
-	dbus-snapshot.c \
-	dbus-device.c \
-	dbus-execute.c \
-	cgroup.c \
-	mount-setup.c \
-	hostname-setup.c \
-	loopback-setup.c \
-	utmp-wtmp.c \
-	specifier.c \
-	unit-name.c \
-	fdset.c \
-	namespace.c
+	src/unit.c \
+        src/job.c \
+        src/manager.c \
+        src/load-fragment.c \
+        src/service.c \
+        src/automount.c \
+        src/mount.c \
+        src/swap.c \
+        src/device.c \
+        src/target.c \
+        src/snapshot.c \
+        src/socket.c \
+        src/timer.c \
+        src/load-dropin.c \
+        src/execute.c \
+        src/dbus.c \
+        src/dbus-manager.c \
+        src/dbus-unit.c \
+        src/dbus-job.c \
+	src/dbus-service.c \
+	src/dbus-socket.c \
+	src/dbus-target.c \
+	src/dbus-mount.c \
+	src/dbus-automount.c \
+	src/dbus-swap.c \
+	src/dbus-snapshot.c \
+	src/dbus-device.c \
+	src/dbus-execute.c \
+	src/cgroup.c \
+	src/mount-setup.c \
+	src/hostname-setup.c \
+	src/loopback-setup.c \
+	src/utmp-wtmp.c \
+	src/specifier.c \
+	src/unit-name.c \
+	src/fdset.c \
+	src/namespace.c
 
 EXTRA_DIST += \
 	${COMMON_SOURCES:.c=.h} \
-	macro.h \
-	ioprio.h \
-	missing.h \
-	list.h \
-	securebits.h \
-	linux/auto_dev-ioctl.h \
-	initreq.h \
-	sd-daemon.h
+	src/macro.h \
+	src/ioprio.h \
+	src/missing.h \
+	src/list.h \
+	src/securebits.h \
+	src/linux/auto_dev-ioctl.h \
+	src/initreq.h \
+	src/sd-daemon.h
 
 dist_man_MANS = \
 	systemd.unit.5 \
@@ -163,7 +160,7 @@ EXTRA_DIST += \
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \
-	main.c
+	src/main.c
 
 systemd_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -178,43 +175,43 @@ systemd_LDADD = \
 
 test_engine_SOURCES = \
 	$(COMMON_SOURCES) \
-	test-engine.c
+	src/test-engine.c
 
 test_engine_CPPFLAGS = $(systemd_CPPFLAGS)
 test_engine_LDADD = $(systemd_LDADD)
 
 test_job_type_SOURCES = \
 	$(COMMON_SOURCES) \
-	test-engine.c
+	src/test-engine.c
 
 test_job_type_CPPFLAGS = $(systemd_CPPFLAGS)
 test_job_type_LDADD = $(systemd_LDADD)
 
 test_ns_SOURCES = \
 	$(BASIC_SOURCES) \
-	test-ns.c \
-	namespace.c
+	src/test-ns.c \
+	src/namespace.c
 
 test_ns_CPPFLAGS = $(systemd_CPPFLAGS)
 test_ns_LDADD = $(systemd_LDADD)
 
 test_loopback_SOURCES = \
 	$(BASIC_SOURCES) \
-	test-loopback.c \
-	loopback-setup.c
+	src/test-loopback.c \
+	src/loopback-setup.c
 
 test_loopback_CPPFLAGS = $(systemd_CPPFLAGS)
 test_loopback_LDADD = $(systemd_LDADD)
 
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \
-	logger.c \
-	sd-daemon.c
+	src/logger.c \
+	src/sd-daemon.c
 
 systemd_initctl_SOURCES = \
 	$(BASIC_SOURCES) \
-	initctl.c \
-	sd-daemon.c
+	src/initctl.c \
+	src/sd-daemon.c
 
 systemd_initctl_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -225,7 +222,7 @@ systemd_initctl_LDADD = \
 
 systemd_cgroups_agent_SOURCES = \
 	$(BASIC_SOURCES) \
-	cgroups-agent.c
+	src/cgroups-agent.c
 
 systemd_cgroups_agent_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -234,18 +231,31 @@ systemd_cgroups_agent_CPPFLAGS = \
 systemd_cgroups_agent_LDADD = \
 	$(DBUS_LIBS)
 
-VALAFLAGS = -g --save-temps --pkg=dbus-glib-1 --pkg=posix --pkg gtk+-2.0
+VALAFLAGS = \
+	-g \
+	--save-temps \
+	--pkg=dbus-glib-1 \
+	--pkg=posix
+
+if HAVE_GTK
+VALAFLAGS += \
+	--pkg=gtk+-2.0
+endif
+
+VALA_CFLAGS = \
+	-Wno-unused-variable \
+	-Wno-unused-function
 
 systemctl_SOURCES = \
-	systemctl.vala \
-	systemd-interfaces.vala
+	src/systemctl.vala \
+	src/systemd-interfaces.vala
 
 systemctl_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(VALA_CFLAGS)
 systemctl_LDADD = $(DBUSGLIB_LIBS)
 
 systemadm_SOURCES = \
-	systemadm.vala \
-	systemd-interfaces.vala
+	src/systemadm.vala \
+	src/systemd-interfaces.vala
 
 systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS) $(VALA_CFLAGS)
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
@@ -261,9 +271,9 @@ systemd-logger.service: units/systemd-logger.service.in Makefile
 		< $< > $@
 
 CLEANFILES = \
-	systemd-interfaces.c \
-	systemctl.c \
-	systemadm.c \
+	src/systemd-interfaces.c \
+	src/systemctl.c \
+	src/systemadm.c \
 	systemd-initctl.service \
 	systemd-logger.service
 
