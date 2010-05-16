@@ -297,6 +297,8 @@ public class MainWindow : Window {
                                         i.unit_path,
                                         "org.freedesktop.systemd1.Unit") as Unit;
 
+                        u.changed += on_unit_changed;
+
                         unit_model.append(out iter);
                         unit_model.set(iter,
                                        0, i.id,
@@ -321,6 +323,8 @@ public class MainWindow : Window {
                                         "org.freedesktop.systemd1",
                                         i.job_path,
                                         "org.freedesktop.systemd1.Job") as Job;
+
+                        j.changed += on_job_changed;
 
                         job_model.append(out iter);
                         job_model.set(iter,
@@ -542,11 +546,7 @@ public class MainWindow : Window {
                 }
         }
 
-        public void on_unit_new(string id, ObjectPath path) {
-                Unit u = bus.get_object(
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit") as Unit;
+        public void update_unit_iter(TreeIter iter, string id, Unit u) {
 
                 string t = "";
                 Unit.JobLink jl = u.job;
@@ -560,8 +560,6 @@ public class MainWindow : Window {
                         t = j.job_type;
                 }
 
-                TreeIter iter;
-                unit_model.append(out iter);
                 unit_model.set(iter,
                                0, id,
                                1, u.description,
@@ -572,21 +570,40 @@ public class MainWindow : Window {
                                6, u);
         }
 
+        public void on_unit_new(string id, ObjectPath path) {
+                Unit u = bus.get_object(
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Unit") as Unit;
+
+                u.changed += on_unit_changed;
+
+                TreeIter iter;
+                unit_model.append(out iter);
+                update_unit_iter(iter, id, u);
+        }
+
+        public void update_job_iter(TreeIter iter, uint32 id, Job j) {
+                job_model.set(iter,
+                              0, "%u".printf(id),
+                              1, j.unit.id,
+                              2, "→ %s".printf(j.job_type),
+                              3, j.state,
+                              4, j,
+                              5, id);
+        }
+
         public void on_job_new(uint32 id, ObjectPath path) {
                 Job j = bus.get_object(
                                 "org.freedesktop.systemd1",
                                 path,
                                 "org.freedesktop.systemd1.Job") as Job;
 
+                j.changed += on_job_changed;
+
                 TreeIter iter;
                 job_model.append(out iter);
-                job_model.set(iter,
-                              0, "%u".printf(j.id),
-                              1, j.unit.id,
-                              2, "→ %s".printf(j.job_type),
-                              3, j.state,
-                              4, j,
-                              5, id);
+                update_job_iter(iter, id, j);
         }
 
         public void on_unit_removed(string id, ObjectPath path) {
@@ -625,6 +642,58 @@ public class MainWindow : Window {
                                         clear_job();
 
                                 job_model.remove(iter);
+
+                                break;
+                        }
+
+                } while (job_model.iter_next(ref iter));
+        }
+
+        public void on_unit_changed(Unit u) {
+                TreeIter iter;
+                string id;
+
+                if (!(unit_model.get_iter_first(out iter)))
+                        return;
+
+                id = u.id;
+
+                do {
+                        string name;
+
+                        unit_model.get(iter, 0, out name);
+
+                        if (id == name) {
+                                update_unit_iter(iter, id, u);
+
+                                if (current_unit_id == id)
+                                        show_unit(u);
+
+                                break;
+                        }
+
+                } while (unit_model.iter_next(ref iter));
+        }
+
+        public void on_job_changed(Job j) {
+                TreeIter iter;
+                uint32 id;
+
+                if (!(job_model.get_iter_first(out iter)))
+                        return;
+
+                id = j.id;
+
+                do {
+                        uint32 k;
+
+                        job_model.get(iter, 5, out k);
+
+                        if (id == k) {
+                                update_job_iter(iter, id, j);
+
+                                if (current_job_id == id)
+                                        show_job(j);
 
                                 break;
                         }
