@@ -103,7 +103,7 @@ struct Watch {
 #define SPECIAL_NETWORK_TARGET "network.target"
 #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
-#define SPECIAL_SYSLOG_TARGET "syslog.target"             /* Should pull in syslog.socket or syslog.service */
+#define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog; Should pull in syslog.socket or syslog.service */
 #define SPECIAL_RTC_SET_TARGET "rtc-set.target"           /* LSB's $time */
 
 #define SPECIAL_BASIC_TARGET "basic.target"

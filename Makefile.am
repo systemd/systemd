@@ -80,11 +80,13 @@ dist_systemunit_DATA = \
 
 systemunit_DATA = \
 	units/systemd-initctl.service \
-	units/systemd-logger.service
+	units/systemd-logger.service \
+	units/syslog.target
 
 EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
+	units/syslog.target.in \
 	LICENSE \
 	README
 
@@ -281,12 +283,18 @@ units/systemd-logger.service: units/systemd-logger.service.in Makefile
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		< $< > $@
 
+units/syslog.target: units/syslog.target.in Makefile
+	$(MKDIR_P) units
+	$(SED) -e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
+		< $< > $@
+
 CLEANFILES = \
 	src/systemd-interfaces.c \
 	src/systemctl.c \
 	src/systemadm.c \
 	units/systemd-initctl.service \
-	units/systemd-logger.service
+	units/systemd-logger.service \
+	units/syslog.target
 
 if HAVE_XSLTPROC
 man/%.5: man/%.xml
