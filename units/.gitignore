@@ -1,3 +1,7 @@
 systemd-initctl.service
 systemd-logger.service
 syslog.target
+basic.target
+graphical.target
+multi-user.target
+getty@.service

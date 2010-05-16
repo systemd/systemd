@@ -142,6 +142,8 @@ AC_SUBST(VAPIDIR)
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
+AC_PATH_PROG([M4], [m4])
+
 AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then

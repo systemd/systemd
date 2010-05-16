@@ -66,10 +66,15 @@ dist_udevrules_DATA = \
 
 dist_systemunit_DATA = \
 	units/emergency.service \
+	units/getty.target \
+	units/halt.target \
 	units/local-fs.target \
 	units/network.target \
 	units/nss-lookup.target \
+	units/poweroff.target \
+	units/reboot.target \
 	units/remote-fs.target \
+	units/rescue.target \
 	units/rpcbind.target \
 	units/rtc-set.target \
 	units/shutdown.target \
@@ -80,16 +85,35 @@ dist_systemunit_DATA = \
 	units/systemd-logger.socket
 
 systemunit_DATA = \
+	units/basic.target \
+	units/getty@.service \
+	units/graphical.target \
+	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/syslog.target
 
 EXTRA_DIST = \
+	units/basic.target.m4 \
+	units/getty@.service.m4 \
+	units/graphical.target.m4 \
+	units/multi-user.target.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
 	LICENSE \
 	README
+
+if TARGET_FEDORA
+dist_systemunit_DATA += \
+	units/fedora/halt.service \
+	units/fedora/killall.service \
+	units/fedora/poweroff.service \
+	units/fedora/prefdm.service \
+	units/fedora/rc-local.service \
+	units/fedora/reboot.service \
+	units/fedora/sysinit.service
+endif
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
@@ -275,22 +299,43 @@ systemadm_SOURCES = \
 systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS) $(VALA_CFLAGS)
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
-units/systemd-initctl.service: units/systemd-initctl.service.in Makefile
-	$(MKDIR_P) units
-	$(SED) -e 's,@libexecdir\@,$(libexecdir),g' \
+SED_PROCESS = \
+	$(MKDIR_P) units && \
+	$(SED)  -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
+		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		< $< > $@
+
+units/systemd-initctl.service: units/systemd-initctl.service.in Makefile
+	$(SED_PROCESS)
 
 units/systemd-logger.service: units/systemd-logger.service.in Makefile
-	$(MKDIR_P) units
-	$(SED) -e 's,@libexecdir\@,$(libexecdir),g' \
-		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
-		< $< > $@
+	$(SED_PROCESS)
 
 units/syslog.target: units/syslog.target.in Makefile
-	$(MKDIR_P) units
-	$(SED) -e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
-		< $< > $@
+	$(SED_PROCESS)
+
+M4_FLAGS =
+
+if TARGET_FEDORA
+M4_FLAGS += -DTARGET_FEDORA=1
+endif
+
+M4_PROCESS = \
+	$(MKDIR_P) units && \
+	$(M4) -P $(M4_FLAGS) < $< > $@
+
+units/basic.target: units/basic.target.m4 Makefile
+	$(M4_PROCESS)
+
+units/graphical.target: units/graphical.target.m4 Makefile
+	$(M4_PROCESS)
+
+units/multi-user.target: units/multi-user.target.m4 Makefile
+	$(M4_PROCESS)
+
+units/getty@.service: units/getty@.service.m4 Makefile
+	$(M4_PROCESS)
 
 CLEANFILES = \
 	src/systemd-interfaces.c \
@@ -298,7 +343,11 @@ CLEANFILES = \
 	src/systemadm.c \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
-	units/syslog.target
+	units/syslog.target \
+	units/basic.target \
+	units/getty@.service \
+	units/graphical.target \
+	units/multi-user.target
 
 if HAVE_XSLTPROC
 man/%.5 man/%.7: man/%.xml
@@ -318,22 +367,63 @@ install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(sessionunitdir) \
+		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
-		$(DESTDIR)$(pkgsysconfdir)/system/sockets.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd \
 		$(DESTDIR)/cgroup/debug
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f session && \
-		$(LN_S) $(DESTDIR)$(pkgsysconfdir)/session session )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/sockets.target.wants && \
+		$(LN_S) $(pkgsysconfdir)/session session )
+	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
 		rm -f systemd-initctl.socket systemd-logger.socket && \
-		$(LN_S) $(DESTDIR)$(systemunitdir)/systemd-logger.socket systemd-logger.socket && \
-		$(LN_S) $(DESTDIR)$(systemunitdir)/systemd-initctl.socket systemd-initctl.socket )
+		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
+		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target && \
 		$(LN_S) ../system/shutdown.target shutdown.target && \
 		$(LN_S) ../system/sockets.target sockets.target )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f runlevel0.target runlevel1.target runlevel6.target && \
+		$(LN_S) poweroff.target runlevel0.target && \
+		$(LN_S) rescue.target runlevel1.target && \
+		$(LN_S) reboot.target runlevel6.target )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
+		rm -f default.target ctrl-alt-del.target kbrequest.target && \
+		$(LN_S) $(systemunitdir)/graphical.target default.target && \
+		$(LN_S) $(systemunitdir)/reboot.target ctrl-alt-del.target && \
+		$(LN_S) $(systemunitdir)/rescue.target kbrequest.target && \
+		rm -f runlevel2.target runlevel3.target runlevel4.target runlevel5.target && \
+		$(LN_S) $(systemunitdir)/multi-user.target runlevel2.target && \
+		$(LN_S) $(systemunitdir)/multi-user.target runlevel3.target && \
+		$(LN_S) $(systemunitdir)/multi-user.target runlevel4.target && \
+		$(LN_S) $(systemunitdir)/graphical.target runlevel5.target )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
+		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty2.service && \
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty3.service && \
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty4.service && \
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
+		rm -f getty.target && \
+		$(LN_S) $(systemunitdir)/getty.target getty.target )
+if TARGET_FEDORA
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
+		rm -f prefdm.service && \
+		$(LN_S) $(systemunitdir)/prefdm.service prefdm.service )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f local.service && \
+		$(LN_S) rc-local.service local.service )
+endif
+
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)
