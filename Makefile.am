@@ -66,6 +66,15 @@ dist_udevrules_DATA = \
 
 dist_systemunit_DATA = \
 	units/emergency.service \
+	units/local-fs.target \
+	units/network.target \
+	units/nss-lookup.target \
+	units/remote-fs.target \
+	units/rtc-set.target \
+	units/shutdown.target \
+	units/sigpwr.target \
+	units/sockets.target \
+	units/swap.target \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket
 
@@ -298,12 +307,21 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(pkgsysconfdir)/system \
+		$(DESTDIR)$(pkgsysconfdir)/system/sockets.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd \
 		$(DESTDIR)/cgroup/debug
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f session && \
 		$(LN_S) $(DESTDIR)$(pkgsysconfdir)/session session )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/sockets.target.wants && \
+		rm -f systemd-initctl.socket systemd-logger.socket && \
+		$(LN_S) $(DESTDIR)$(systemunitdir)/systemd-logger.socket systemd-logger.socket && \
+		$(LN_S) $(DESTDIR)$(systemunitdir)/systemd-initctl.socket systemd-initctl.socket )
+	( cd $(DESTDIR)$(sessionunitdir) && \
+		rm -f shutdown.target sockets.target && \
+		$(LN_S) ../system/shutdown.target shutdown.target && \
+		$(LN_S) ../system/sockets.target sockets.target )
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)

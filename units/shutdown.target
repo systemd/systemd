@@ -16,12 +16,4 @@
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 [Unit]
-Description=Emergency Shell
-
-[Service]
-ExecStart=/bin/sh
-Type=simple
-StandardInput=tty
-Restart=restart-always
-RestartSec=0
-KillMode=process
+Description=Shutdown
