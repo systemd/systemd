@@ -1563,7 +1563,7 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Un
 
         if ((ret = manager_get_unit(m, name))) {
                 *_ret = ret;
-                return 0;
+                return 1;
         }
 
         if (!(ret = unit_new(m)))
@@ -1590,7 +1590,6 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Un
 }
 
 int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_ret) {
-        Unit *ret;
         int r;
 
         assert(m);
@@ -1598,13 +1597,13 @@ int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_re
         /* This will load the service information files, but not actually
          * start any services or anything. */
 
-        if ((r = manager_load_unit_prepare(m, name, path, &ret)) < 0)
+        if ((r = manager_load_unit_prepare(m, name, path, _ret)) != 0)
                 return r;
 
         manager_dispatch_load_queue(m);
 
         if (_ret)
-                *_ret = unit_follow_merge(ret);
+                *_ret = unit_follow_merge(*_ret);
 
         return 0;
 }
