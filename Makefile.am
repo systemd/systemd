@@ -102,7 +102,8 @@ EXTRA_DIST = \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
 	LICENSE \
-	README
+	README \
+	DISTRO_PORTING
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \

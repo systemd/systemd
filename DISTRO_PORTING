@@ -1,0 +1,36 @@
+Porting systemd To New Distributions
+
+        You need to make the follow changes to adapt systemd to your
+        distribution:
+
+        0) Make your distribution recognized via the autoconf checks
+        in configure.ac. Grep for the word "fedora" (case
+        insensitively) and you should be able to find the places where
+        you need to add/change things.
+
+        1) Patch src/hostname-setup.c so that systemd knows where to
+        read your host name from.
+
+        2) Check the unit files in units/ if they match your
+        distribution. Most likely you will have to make additions to
+        units/*.m4 and create a copy of units/fedora/ with changes for
+        your distribution.
+
+        3) Adjust Makefile.am to register the unit files you added in
+        step 2. Also you might need to update the m4 invocation in
+        Makefile.am. Grep for the word "fedora" (case insensitively)
+        and you should be able to find the places where you need to
+        add/change things.
+
+        4) Try it out.
+
+CONTRIBUTING UPSTREAM:
+
+        We are interested in merging your changes upstream, if they
+        are for a big, and well-known distribution. Unfortunately we
+        don't have the time and resources to maintain
+        distribution-specific patches for all distributions on the
+        planet, hence please do not send us patches that adds systemd
+        support to non-mainstream or niche distributions.
+
+        Thank you for understanding.
