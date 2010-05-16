@@ -200,15 +200,43 @@ case $with_distro in
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
                 ;;
         other)
-                SYSTEM_SYSVINIT_PATH=/fix/the/configure/script
-                SYSTEM_SYSVRCND_PATH=/fix/the/configure/script
-                special_dbus_service=fix-the-configure-script.service
-                special_syslog_service=fix-the-configure-script.service
+                AS_IF([test "x$with_sysvinit_path" = "x"],
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvinit-path to configure])])
+                AS_IF([test "x$with_sysvrcd_path" = "x"],
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvrcd-path to configure])])
+                AS_IF([test "x$with_dbus_service" = "x"],
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-dbus-service to configure])])
+                AS_IF([test "x$with_syslog_service" = "x"],
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-syslog-service to configure])])
                 ;;
         *)
                 AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=other to skip this check])
                 ;;
 esac
+
+AC_ARG_WITH([sysvinit-path],
+	[AS_HELP_STRING([--with-sysvinit-path=PATH],
+		[Specify the path to where the SysV init scripts are located @<:@default=based on distro@:>@])],
+	[SYSTEM_SYSVINIT_PATH="$withval"],
+	[])
+
+AC_ARG_WITH([sysvrcd-path],
+        [AS_HELP_STRING([--with-sysvrcd-path=PATH],
+                [Specify the path to the base directory for the SysV rcN.d directories @<:@default=based on distro@:>@])],
+        [SYSTEM_SYSVRCND_PATH="$withval"],
+        [])
+
+AC_ARG_WITH([dbus-service],
+        [AS_HELP_STRING([--with-dbus-service=PATH],
+                [Specify the name of the special DBus service @<:@default=based on distro@:>@])],
+        [special_dbus_service="$withval"],
+        [])
+
+AC_ARG_WITH([syslog-service],
+        [AS_HELP_STRING([--with-syslog-service=PATH],
+                [Specify the name of the special syslog service @<:@default=based on distro@:>@])],
+        [special_syslog_service="$withval"],
+        [])
 
 AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
