@@ -231,6 +231,8 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes);
 
 int path_is_mount_point(const char *path);
 
+bool is_device_path(const char *path);
+
 extern char * __progname;
 
 const char *ioprio_class_to_string(int i);

@@ -70,6 +70,9 @@ int swap_add_one_mount_link(Swap *s, Mount *m) {
             m->meta.load_state != UNIT_LOADED)
                 return 0;
 
+        if (is_device_path(s->what))
+                return 0;
+
         if (!path_startswith(s->what, m->where))
                 return 0;
 

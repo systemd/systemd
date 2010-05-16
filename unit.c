@@ -1864,7 +1864,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
 
         /* Adds in links to the device node that this unit is based on */
 
-        if (!path_startswith(what, "/dev/") && !path_startswith(what, "/sys/"))
+        if (!is_device_path(what))
                 return 0;
 
         if (!(e = unit_name_build_escape(what+1, NULL, ".device")))

@@ -1927,6 +1927,16 @@ bool is_clean_exit(int code, int status) {
         return false;
 }
 
+bool is_device_path(const char *path) {
+
+        /* Returns true on paths that refer to a device, either in
+         * sysfs or in /dev */
+
+        return
+                path_startswith(path, "/dev/") ||
+                path_startswith(path, "/sys/");
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
