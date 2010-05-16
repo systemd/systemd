@@ -1582,6 +1582,7 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Un
 
         unit_add_to_load_queue(ret);
         unit_add_to_dbus_queue(ret);
+        unit_add_to_gc_queue(ret);
 
         if (_ret)
                 *_ret = ret;
