@@ -24,6 +24,7 @@ static string type = null;
 static bool all = false;
 static bool replace = false;
 static bool session = false;
+static Connection bus = null;
 
 public static int job_info_compare(void* key1, void* key2) {
         Manager.JobInfo *j1 = (Manager.JobInfo*) key1;
@@ -43,12 +44,40 @@ public static int unit_info_compare(void* key1, void* key2) {
         return Posix.strcmp(u1->id, u2->id);
 }
 
+public void on_unit_changed(Unit u) {
+        stdout.printf("Unit %s changed.\n", u.id);
+}
+
 public void on_unit_new(string id, ObjectPath path) {
         stdout.printf("Unit %s added.\n", id);
+
+        Unit u = bus.get_object(
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Unit") as Unit;
+
+        u.changed += on_unit_changed;
+
+        /* FIXME: We leak memory here */
+        u.ref();
+}
+
+public void on_job_changed(Job j) {
+        stdout.printf("Job %u changed.\n", j.id);
 }
 
 public void on_job_new(uint32 id, ObjectPath path) {
         stdout.printf("Job %u added.\n", id);
+
+        Job j = bus.get_object(
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Job") as Job;
+
+        j.changed += on_job_changed;
+
+        /* FIXME: We leak memory here */
+        j.ref();
 }
 
 public void on_unit_removed(string id, ObjectPath path) {
@@ -100,7 +129,7 @@ int main (string[] args) {
         }
 
         try {
-                Connection bus = Bus.get(session ? BusType.SESSION : BusType.SYSTEM);
+                bus = Bus.get(session ? BusType.SESSION : BusType.SYSTEM);
 
                 Manager manager = bus.get_object (
                                 "org.freedesktop.systemd1",
