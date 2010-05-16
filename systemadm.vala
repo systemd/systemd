@@ -66,6 +66,9 @@ public class MainWindow : Window {
         private Button reload_button;
         private Button cancel_button;
 
+        private Entry unit_load_entry;
+        private Button unit_load_button;
+
         private Button server_snapshot_button;
         private Button server_reload_button;
 
@@ -126,7 +129,19 @@ public class MainWindow : Window {
                 unit_type_combo_box.set_active(1);
                 unit_type_combo_box.changed += unit_type_changed;
 
-                server_snapshot_button = new Button.with_mnemonic("Take _Snapshot");
+                unit_load_entry = new Entry();
+                unit_load_button = new Button.with_mnemonic("_Load");
+                unit_load_button.set_sensitive(false);
+
+                unit_load_entry.changed += on_unit_load_entry_changed;
+                unit_load_entry.activate += on_unit_load;
+                unit_load_button.clicked += on_unit_load;
+
+                Gtk.Alignment unit_load_button_alignment = new Gtk.Alignment(0.5f, 0.5f, 1f, 1f);
+                unit_load_button_alignment.right_padding = 24;
+                unit_load_button_alignment.add(unit_load_button);
+
+                server_snapshot_button = new Button.with_mnemonic("Take S_napshot");
                 server_reload_button = new Button.with_mnemonic("Reload _Configuration");
 
                 server_snapshot_button.clicked += on_server_snapshot;
@@ -134,6 +149,8 @@ public class MainWindow : Window {
 
                 type_hbox.pack_end(server_snapshot_button, false, true, 0);
                 type_hbox.pack_end(server_reload_button, false, true, 0);
+                type_hbox.pack_end(unit_load_button_alignment, false, true, 0);
+                type_hbox.pack_end(unit_load_entry, false, true, 0);
 
                 unit_model = new ListStore(7, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(Unit));
                 job_model = new ListStore(6, typeof(string), typeof(string), typeof(string), typeof(string), typeof(Job), typeof(uint32));
@@ -768,11 +785,39 @@ public class MainWindow : Window {
                 }
         }
 
+        public void on_unit_load() {
+                try {
+                        var path = manager.load_unit(unit_load_entry.get_text());
+
+                        Unit u = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        path,
+                                        "org.freedesktop.systemd1.Unit") as Unit;
+
+                        var m = new MessageDialog(this,
+                                                  DialogFlags.DESTROY_WITH_PARENT,
+                                                  MessageType.INFO,
+                                                  ButtonsType.CLOSE,
+                                                  "Unit available as id %s", u.id);
+                        m.title = "Unit";
+                        m.run();
+                        m.destroy();
+
+                } catch (DBus.Error e) {
+                        show_error(e.message);
+                }
+        }
+
+        public void on_unit_load_entry_changed() {
+                unit_load_button.set_sensitive(unit_load_entry.get_text() != "");
+        }
+
         public void show_error(string e) {
                 var m = new MessageDialog(this,
                                           DialogFlags.DESTROY_WITH_PARENT,
                                           MessageType.ERROR,
                                           ButtonsType.CLOSE, "%s", e);
+                m.title = "Error";
                 m.run();
                 m.destroy();
         }
