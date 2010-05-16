@@ -1949,12 +1949,6 @@ int manager_loop(Manager *m) {
                         sleep(1);
                 }
 
-                if (manager_dispatch_cleanup_queue(m) > 0)
-                        continue;
-
-                if (manager_dispatch_gc_queue(m) > 0)
-                        continue;
-
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
 
@@ -1962,6 +1956,12 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (bus_dispatch(m) > 0)
+                        continue;
+
+                if (manager_dispatch_cleanup_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_gc_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)
