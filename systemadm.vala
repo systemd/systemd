@@ -137,9 +137,9 @@ public class MainWindow : Window {
                 unit_load_entry.activate += on_unit_load;
                 unit_load_button.clicked += on_unit_load;
 
-                Gtk.Alignment unit_load_button_alignment = new Gtk.Alignment(0.5f, 0.5f, 1f, 1f);
-                unit_load_button_alignment.right_padding = 24;
-                unit_load_button_alignment.add(unit_load_button);
+                Box unit_load_hbox = new HBox(false, 6);
+                unit_load_hbox.pack_start(unit_load_entry, false, true, 0);
+                unit_load_hbox.pack_start(unit_load_button, false, true, 0);
 
                 server_snapshot_button = new Button.with_mnemonic("Take S_napshot");
                 server_reload_button = new Button.with_mnemonic("Reload _Configuration");
@@ -149,8 +149,7 @@ public class MainWindow : Window {
 
                 type_hbox.pack_end(server_snapshot_button, false, true, 0);
                 type_hbox.pack_end(server_reload_button, false, true, 0);
-                type_hbox.pack_end(unit_load_button_alignment, false, true, 0);
-                type_hbox.pack_end(unit_load_entry, false, true, 0);
+                type_hbox.pack_end(unit_load_hbox, false, true, 24);
 
                 unit_model = new ListStore(7, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(Unit));
                 job_model = new ListStore(6, typeof(string), typeof(string), typeof(string), typeof(string), typeof(Job), typeof(uint32));
