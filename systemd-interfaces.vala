@@ -83,6 +83,17 @@ public interface Unit : DBus.Object {
 
         public abstract string id { owned get; }
         public abstract string[] names { owned get; }
+        public abstract string[] requires { owned get; }
+        public abstract string[] requires_overridable { owned get; }
+        public abstract string[] requisite { owned get; }
+        public abstract string[] requisite_overridable { owned get; }
+        public abstract string[] wants { owned get; }
+        public abstract string[] required_by { owned get; }
+        public abstract string[] required_by_overridable { owned get; }
+        public abstract string[] wanted_by { owned get; }
+        public abstract string[] conflicts { owned get; }
+        public abstract string[] before { owned get; }
+        public abstract string[] after { owned get; }
         public abstract string description { owned get; }
         public abstract string load_state { owned get; }
         public abstract string active_state { owned get; }
@@ -94,10 +105,11 @@ public interface Unit : DBus.Object {
         public abstract uint64 inactive_enter_timestamp { owned get; }
         public abstract bool can_start { owned get; }
         public abstract bool can_reload { owned get; }
-        public abstract JobLink job { owned get; /* FIXME: this setter is a temporary fix to make valac not segfault */ set; }
+        public abstract JobLink job { owned get; }
         public abstract bool recursive_stop { owned get; }
         public abstract bool stop_when_unneeded { owned get; }
         public abstract string default_control_group { owned get; }
+        public abstract string[] control_groups { owned get; }
 
         public abstract ObjectPath start(string mode) throws DBus.Error;
         public abstract ObjectPath stop(string mode) throws DBus.Error;
@@ -117,7 +129,7 @@ public interface Job : DBus.Object {
         public abstract uint32 id { owned get; }
         public abstract string state { owned get; }
         public abstract string job_type { owned get; }
-        public abstract UnitLink unit { owned get; /* FIXME: this setter is a temporary fix to make valac not segfault */ set; }
+        public abstract UnitLink unit { owned get; }
 
         public abstract void cancel() throws DBus.Error;
 
