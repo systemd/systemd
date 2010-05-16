@@ -103,7 +103,7 @@ public class MainWindow : Window {
         private ComboBox unit_type_combo_box;
 
         public MainWindow() throws DBus.Error {
-                title = "systemadm";
+                title = session ? "systemd Session Manager" : "systemd System Manager";
                 position = WindowPosition.CENTER;
                 set_default_size(1000, 700);
                 set_border_width(12);
