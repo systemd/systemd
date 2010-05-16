@@ -37,6 +37,10 @@ AS_IF([test "x$STOW" = "xyes" && test -d /usr/local/stow], [
         ac_default_prefix="/usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION}"
 ])
 
+AC_PROG_MKDIR_P
+AC_PROG_LN_S
+AC_PROG_SED
+
 AC_PROG_CC
 AC_PROG_CC_C99
 AM_PROG_CC_C_O

@@ -251,12 +251,12 @@ systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS) $(VALA_CFLA
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
 systemd-initctl.service: units/systemd-initctl.service.in Makefile
-	sed -e 's,@libexecdir\@,$(libexecdir),g' \
+	$(SED) -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		< $< > $@
 
 systemd-logger.service: units/systemd-logger.service.in Makefile
-	sed -e 's,@libexecdir\@,$(libexecdir),g' \
+	$(SED) -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		< $< > $@
 
@@ -287,8 +287,9 @@ install-data-hook:
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd \
 		$(DESTDIR)/cgroup/debug
-	rm -f $(DESTDIR)$(sysconfdir)/xdg/systemd/session
-	ln -sf $(DESTDIR)$(pkgsysconfdir)/session $(DESTDIR)$(sysconfdir)/xdg/systemd/session
+	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
+		rm -f session && \
+		$(LN_S) $(DESTDIR)$(pkgsysconfdir)/session session )
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)
