@@ -24,7 +24,7 @@ AC_CONFIG_HEADERS([config.h])
 
 AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax])
 
-AC_SUBST(PACKAGE_URL, [http://git.0pointer.de/?p=systemd.git])
+AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
 
 AC_CANONICAL_HOST
 
