@@ -900,7 +900,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(m);
         assert(pid >= 0);
 
-        success = code == CLD_EXITED && status == 0;
+        success = is_clean_exit(code, status);
         m->failure = m->failure || !success;
 
         assert(m->control_pid == pid);

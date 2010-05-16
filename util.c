@@ -1910,6 +1910,23 @@ int make_stdio(int fd) {
         return 0;
 }
 
+bool is_clean_exit(int code, int status) {
+
+        if (code == CLD_EXITED)
+                return status == 0;
+
+        /* If a daemon does not implement handlers for some of the
+         * signals that's not considered an unclean shutdown */
+        if (code == CLD_KILLED)
+                return
+                        status == SIGHUP ||
+                        status == SIGINT ||
+                        status == SIGTERM ||
+                        status == SIGPIPE;
+
+        return false;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

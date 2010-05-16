@@ -1890,7 +1890,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        success = code == CLD_EXITED && status == 0;
+        success = is_clean_exit(code, status);
         s->failure = s->failure || !success;
 
         if (s->main_pid == pid) {

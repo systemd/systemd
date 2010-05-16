@@ -181,6 +181,8 @@ char *format_timestamp(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);
 
+bool is_clean_exit(int code, int status);
+
 #define DEFINE_STRING_TABLE_LOOKUP(name,type)                           \
         const char *name##_to_string(type i) {                          \
                 if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \
