@@ -22,7 +22,7 @@ KERNEL=="ttyS*", ENV{SYSTEMD_EXPOSE}="1"
 
 SUBSYSTEM=="block", ENV{SYSTEMD_EXPOSE}="1"
 
-# We need a hardware independant way to identify network devices. We
+# We need a hardware independent way to identify network devices. We
 # use the /sys/subsystem path for this. Current vanilla kernels don't
 # actually support that hierarchy right now, however upcoming kernels
 # will. HAL and udev internally support /sys/subsystem already, hence

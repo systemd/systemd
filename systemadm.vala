@@ -633,9 +633,9 @@ public class MainWindow : Window {
         }
 
         public bool unit_filter(TreeModel model, TreeIter iter) {
-                string id, active_state;
+                string id, active_state, job;
 
-                model.get(iter, 0, out id, 3, out active_state);
+                model.get(iter, 0, out id, 3, out active_state, 5, out job);
 
                 if (id == null)
                         return false;
@@ -646,7 +646,7 @@ public class MainWindow : Window {
                                 return true;
 
                         case 1:
-                                return active_state != "inactive";
+                                return active_state != "inactive" || job != "";
 
                         case 2:
                                 return id.has_suffix(".service");
