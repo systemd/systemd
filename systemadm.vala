@@ -785,8 +785,13 @@ public class MainWindow : Window {
         }
 
         public void on_unit_load() {
+                string t = unit_load_entry.get_text();
+
+                if (t == "")
+                        return;
+
                 try {
-                        var path = manager.load_unit(unit_load_entry.get_text());
+                        var path = manager.load_unit(t);
 
                         Unit u = bus.get_object(
                                         "org.freedesktop.systemd1",
