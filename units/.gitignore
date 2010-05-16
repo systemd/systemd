@@ -1,2 +1,3 @@
 systemd-initctl.service
 systemd-logger.service
+syslog.target

@@ -70,6 +70,7 @@ dist_systemunit_DATA = \
 	units/network.target \
 	units/nss-lookup.target \
 	units/remote-fs.target \
+	units/rpcbind.target \
 	units/rtc-set.target \
 	units/shutdown.target \
 	units/sigpwr.target \
