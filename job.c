@@ -541,6 +541,11 @@ void job_add_to_dbus_queue(Job *j) {
         if (j->in_dbus_queue)
                 return;
 
+        if (set_isempty(j->manager->subscribed)) {
+                j->sent_dbus_new_signal = true;
+                return;
+        }
+
         LIST_PREPEND(Job, dbus_queue, j->manager->dbus_job_queue, j);
         j->in_dbus_queue = true;
 }

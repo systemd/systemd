@@ -348,8 +348,10 @@ void bus_unit_send_change_signal(Unit *u) {
         LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
         u->meta.in_dbus_queue = false;
 
-        if (set_isempty(u->meta.manager->subscribed))
+        if (set_isempty(u->meta.manager->subscribed)) {
+                u->meta.sent_dbus_new_signal = true;
                 return;
+        }
 
         if (!(p = unit_dbus_path(u)))
                 goto oom;

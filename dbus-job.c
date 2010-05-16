@@ -152,8 +152,10 @@ void bus_job_send_change_signal(Job *j) {
         LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
         j->in_dbus_queue = false;
 
-        if (set_isempty(j->manager->subscribed))
+        if (set_isempty(j->manager->subscribed)) {
+                j->sent_dbus_new_signal = true;
                 return;
+        }
 
         if (!(p = job_dbus_path(j)))
                 goto oom;

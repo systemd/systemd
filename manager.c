@@ -57,7 +57,7 @@
 #define GC_QUEUE_ENTRIES_MAX 16
 
 /* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
-#define GC_QUEUE_USEC_MAX (5*USEC_PER_SEC)
+#define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
 
 static int enable_special_signals(Manager *m) {
         char fd;
