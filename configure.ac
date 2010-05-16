@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[0],[mzflfgrzq (at) 0pointer (dot) net])
+AC_INIT([systemd],[0],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
