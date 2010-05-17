@@ -305,7 +305,7 @@ systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS) $(VALA_CFLA
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
 SED_PROCESS = \
-	$(MKDIR_P) units && \
+	$(AM_V_GEN)$(MKDIR_P) units && \
 	$(SED)  -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
@@ -362,11 +362,11 @@ CLEANFILES = \
 
 if HAVE_XSLTPROC
 man/%.5 man/%.7: man/%.xml
-	$(MKDIR_P) man
+	$(AM_V_GEN)$(MKDIR_P) man && \
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 man/%.html: man/%.xml
-	$(MKDIR_P) man
+	$(AM_V_GEN)$(MKDIR_P) man && \
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
 
 CLEANFILES += \
