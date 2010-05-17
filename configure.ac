@@ -216,13 +216,13 @@ case $with_distro in
                 ;;
         other)
                 AS_IF([test "x$with_sysvinit_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvinit-path= to configure])])
+                        [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvinit-path= to configure])])
                 AS_IF([test "x$with_sysvrcd_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvrcd-path= to configure])])
+                        [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvrcd-path= to configure])])
                 AS_IF([test "x$with_dbus_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-dbus-service= to configure])])
+                        [AC_MSG_ERROR([With --distro=other, you must pass --with-dbus-service= to configure])])
                 AS_IF([test "x$with_syslog_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-syslog-service= to configure])])
+                        [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
                 ;;
         *)
                 AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=other to skip this check])
