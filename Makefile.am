@@ -308,7 +308,7 @@ systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS) $(VALA_CFLA
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
 SED_PROCESS = \
-	$(AM_V_GEN)$(MKDIR_P) units && \
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
@@ -317,18 +317,18 @@ SED_PROCESS = \
 units/%: units/%.in Makefile
 	$(SED_PROCESS)
 
-man/%.html: $(builddir)/man/%.html.in Makefile
+man/%.html: man/%.html.in Makefile
 	$(SED_PROCESS)
 
-man/%.7: $(builddir)/man/%.7.in Makefile
+man/%.7: man/%.7.in Makefile
 	$(SED_PROCESS)
 
 M4_PROCESS_SYSTEM = \
-	$(AM_V_GEN)$(MKDIR_P) units && \
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM=1 < $< > $@
 
 M4_PROCESS_SESSION = \
-	$(AM_V_GEN)$(MKDIR_P) units/session && \
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SESSION=1 < $< > $@
 
 units/%: units/%.m4 Makefile
@@ -355,20 +355,20 @@ CLEANFILES = \
 
 #if HAVE_XSLTPROC
 XSLTPROC_PROCESS_MAN = \
-	$(AM_V_GEN)$(MKDIR_P) man && \
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 XSLTPROC_PROCESS_MAN_IN = \
-	$(AM_V_GEN)$(MKDIR_P) man && \
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o ${@:.in=} -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
 XSLTPROC_PROCESS_HTML = \
-	$(AM_V_GEN)$(MKDIR_P) man && \
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
 
 XSLTPROC_PROCESS_HTML_IN = \
-	$(AM_V_GEN)$(MKDIR_P) man && \
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o ${@:.in=} -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
