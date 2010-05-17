@@ -422,7 +422,7 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         free(m->cgroup_controller);
-        if (!(m->cgroup_controller = strdup("debug")))
+        if (!(m->cgroup_controller = strdup("name=systemd")))
                 return -ENOMEM;
 
         if ((r = cgroup_get_subsys_mount_point(m->cgroup_controller, &mp)))

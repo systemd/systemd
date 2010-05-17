@@ -406,7 +406,8 @@ install-data-hook:
 		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd
-	$(MKDIR_P) -m 0755 $(DESTDIR)/cgroup/debug || echo "Don't forget to create /cgroup/debug! Couldn't create it for you, continuing anyway."
+	$(MKDIR_P) -m 0755 $(DESTDIR)/cgroup/systemd || \
+		echo "Don't forget to create /cgroup/systemd! Couldn't create it for you, continuing anyway."
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f session && \
 		$(LN_S) $(pkgsysconfdir)/session session )

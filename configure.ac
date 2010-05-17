@@ -104,6 +104,10 @@ PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
 AC_SUBST(DBUSGLIB_CFLAGS)
 AC_SUBST(DBUSGLIB_LIBS)
 
+PKG_CHECK_MODULES(CGROUP, [ libcgroup >= 0.36 ])
+AC_SUBST(CGROUP_CFLAGS)
+AC_SUBST(CGROUP_LIBS)
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -116,25 +120,6 @@ if test "x$enable_gtk" != "xno"; then
         fi
 fi
 AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
-
-PKG_CHECK_MODULES( CGROUP, [ libcgroup >= 0.35 ], [], [
-        AC_CHECK_HEADER( [libcgroup.h], [], [AC_MSG_ERROR([*** libcgroup.h not found])], )
-        save_CPPFLAGS="$CPPFLAGS"
-        save_LIBS="$LIBS"
-        CGROUP_LIBS=${CGROUP_LIBS:--lcgroup}
-        LIBS="$LIBS $CGROUP_LIBS"
-        CPPFLAGS="$CPPFLAGS $CGROUP_CFLAGS"
-        AC_MSG_CHECKING([for libcgroup >= 0.35])
-        AC_LINK_IFELSE(
-                [AC_LANG_PROGRAM([[#include <libcgroup.h>]], [[ CGFLAG_DELETE_RECURSIVE; cgroup_init(); ]])],
-                [AC_MSG_RESULT([yes])],
-                [AC_MSG_RESULT([no]); AC_MSG_ERROR([*** systemd needs libcgroup 0.35 or newer])],
-                [${CGROUP_LIBS}])
-        CPPFLAGS="$save_CPPFLAGS"
-        LIBS="$save_LIBS"
-])
-AC_SUBST(CGROUP_CFLAGS)
-AC_SUBST(CGROUP_LIBS)
 
 AM_PROG_VALAC([0.8])
 AC_SUBST(VAPIDIR)
