@@ -335,9 +335,6 @@ units/session/%: units/%.m4 Makefile
 	$(M4_PROCESS_SESSION)
 
 CLEANFILES = \
-	src/systemd-interfaces.c \
-	src/systemctl.c \
-	src/systemadm.c \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/syslog.target \
@@ -349,6 +346,13 @@ CLEANFILES = \
 	units/session/remote-fs.target \
 	man/systemd.special.7 \
 	man/systemd.special.html
+
+if HAVE_VALAC
+CLEANFILES += \
+	src/systemd-interfaces.c \
+	src/systemctl.c \
+	src/systemadm.c
+endif
 
 if HAVE_XSLTPROC
 XSLTPROC_PROCESS_MAN = \

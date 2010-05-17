@@ -27,7 +27,7 @@ AUTHOR:
         Lennart Poettering with major support from Kay Sievers
 
 REQUIREMENTS:
-        Linux kernel >= 2.6.30 (with autofs4, devtmpfs and the debug cgroup controller)
+        Linux kernel >= 2.6.30 (with autofs4, devtmpfs, cgroups)
         libudev >= 151
         libcgroup >= 0.35
         vala >= 0.80
