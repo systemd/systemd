@@ -1,5 +1,6 @@
 Porting systemd To New Distributions
 
+HOWTO:
         You need to make the follow changes to adapt systemd to your
         distribution:
 
@@ -22,15 +23,35 @@ Porting systemd To New Distributions
         and you should be able to find the places where you need to
         add/change things.
 
-        4) Try it out.
+        4) Try it out. Play around with 'systemd --test
+        --running-as=init' for a test run of systemd without
+        booting. This will read the unit files and print the initial
+        transaction it would execute during boot-up. This will also
+        inform you about ordering loops and suchlike.
 
 CONTRIBUTING UPSTREAM:
-
         We are interested in merging your changes upstream, if they
         are for a big, and well-known distribution. Unfortunately we
         don't have the time and resources to maintain
         distribution-specific patches for all distributions on the
-        planet, hence please do not send us patches that adds systemd
-        support to non-mainstream or niche distributions.
+        planet, hence please do not send us patches that add systemd
+        support for non-mainstream or niche distributions.
 
         Thank you for understanding.
+
+BE CONSIDERATE:
+        We'd like to keep differences between the distributions
+        minimal. This both simplifies our maintainance work, as well
+        as it helps administrators to move from one distribution to
+        another.
+
+        Hence we'd like to ask you to keep your changes minimal, and
+        not rename any units without a very good reason (if you need a
+        particular name for compatibility reasons, consider using
+        alias names via symlinks). Before you make changes that change
+        semantics from upstream, please talk to us!
+
+        In SysV almost every distribution uses a different
+        nomenclature and different locations for the boot-up
+        scripts. We'd like to avoid chaos like that with systemd right
+        from the beginning. So please, be considerate!
