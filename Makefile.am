@@ -320,19 +320,13 @@ units/systemd-logger.service: units/systemd-logger.service.in Makefile
 units/syslog.target: units/syslog.target.in Makefile
 	$(SED_PROCESS)
 
-M4_FLAGS =
-
-if TARGET_FEDORA
-M4_FLAGS += -DTARGET_FEDORA=1
-endif
-
 M4_PROCESS_SYSTEM = \
-	$(MKDIR_P) units && \
-	$(M4) -P $(M4_FLAGS) -DFOR_SYSTEM < $< > $@
+	$(AM_V_GEN)$(MKDIR_P) units && \
+	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM < $< > $@
 
 M4_PROCESS_SESSION = \
-	$(MKDIR_P) units/session && \
-	$(M4) -P $(M4_FLAGS) -DFOR_SESSION < $< > $@
+	$(AM_V_GEN)$(MKDIR_P) units/session && \
+	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SESSION < $< > $@
 
 units/basic.target: units/basic.target.m4 Makefile
 	$(M4_PROCESS_SYSTEM)
