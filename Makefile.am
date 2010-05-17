@@ -317,10 +317,7 @@ SED_PROCESS = \
 units/%: units/%.in Makefile
 	$(SED_PROCESS)
 
-man/%.html: man/%.html.in Makefile
-	$(SED_PROCESS)
-
-man/%.7: man/%.7.in Makefile
+man/%: man/%.in Makefile
 	$(SED_PROCESS)
 
 M4_PROCESS_SYSTEM = \
