@@ -350,7 +350,7 @@ CLEANFILES = \
 	man/systemd.special.7 \
 	man/systemd.special.html
 
-#if HAVE_XSLTPROC
+if HAVE_XSLTPROC
 XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
@@ -393,7 +393,7 @@ CLEANFILES += \
 	man/systemd.unit.html \
 	man/systemd.service.html \
 	man/systemd.special.html.in
-#endif
+endif
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
