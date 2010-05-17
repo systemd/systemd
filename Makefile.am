@@ -93,6 +93,9 @@ systemunit_DATA = \
 	units/systemd-logger.service \
 	units/syslog.target
 
+sessionunit_DATA = \
+	units/session/remote-fs.target
+
 EXTRA_DIST = \
 	units/basic.target.m4 \
 	units/getty@.service.m4 \
@@ -322,21 +325,31 @@ if TARGET_FEDORA
 M4_FLAGS += -DTARGET_FEDORA=1
 endif
 
-M4_PROCESS = \
+M4_PROCESS_SYSTEM = \
 	$(MKDIR_P) units && \
-	$(M4) -P $(M4_FLAGS) < $< > $@
+	$(M4) -P $(M4_FLAGS) -DFOR_SYSTEM < $< > $@
+
+M4_PROCESS_SESSION = \
+	$(MKDIR_P) units/session && \
+	$(M4) -P $(M4_FLAGS) -DFOR_SESSION < $< > $@
 
 units/basic.target: units/basic.target.m4 Makefile
-	$(M4_PROCESS)
+	$(M4_PROCESS_SYSTEM)
 
 units/graphical.target: units/graphical.target.m4 Makefile
-	$(M4_PROCESS)
+	$(M4_PROCESS_SYSTEM)
 
 units/multi-user.target: units/multi-user.target.m4 Makefile
-	$(M4_PROCESS)
+	$(M4_PROCESS_SYSTEM)
 
 units/getty@.service: units/getty@.service.m4 Makefile
-	$(M4_PROCESS)
+	$(M4_PROCESS_SYSTEM)
+
+units/remote-fs.target: units/remote-fs.target.m4 Makefile
+	$(M4_PROCESS_SYSTEM)
+
+units/session/remote-fs.target: units/remote-fs.target.m4 Makefile
+	$(M4_PROCESS_SESSION)
 
 CLEANFILES = \
 	src/systemd-interfaces.c \
@@ -384,9 +397,11 @@ install-data-hook:
 		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
 	( cd $(DESTDIR)$(sessionunitdir) && \
-		rm -f shutdown.target sockets.target && \
+		rm -f shutdown.target sockets.target local-fs.target swap.target && \
 		$(LN_S) ../system/shutdown.target shutdown.target && \
-		$(LN_S) ../system/sockets.target sockets.target )
+		$(LN_S) ../system/sockets.target sockets.target && \
+		$(LN_S) ../system/local-fs.target local-fs.target && \
+		$(LN_S) ../system/swap.target swap.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel0.target runlevel1.target runlevel6.target && \
 		$(LN_S) poweroff.target runlevel0.target && \

@@ -5,3 +5,4 @@ basic.target
 graphical.target
 multi-user.target
 getty@.service
+remote-fs.target
