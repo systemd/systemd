@@ -101,6 +101,7 @@ EXTRA_DIST = \
 	units/getty@.service.m4 \
 	units/graphical.target.m4 \
 	units/multi-user.target.m4 \
+	units/remote-fs.target.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
@@ -361,7 +362,9 @@ CLEANFILES = \
 	units/basic.target \
 	units/getty@.service \
 	units/graphical.target \
-	units/multi-user.target
+	units/multi-user.target \
+	units/remote-fs.target \
+	units/session/remote-fs.target
 
 if HAVE_XSLTPROC
 man/%.5 man/%.7: man/%.xml
