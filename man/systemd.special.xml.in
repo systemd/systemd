@@ -48,38 +48,39 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>basic.target</filename></para>
-                <para><filename>ctrl-alt-del.target</filename></para>
-                <para><filename>default.target</filename></para>
-                <para><filename>emergency.service</filename></para>
-                <para><filename>graphical.target</filename></para>
-                <para><filename>halt.target</filename></para>
-                <para><filename>kbrequest.target</filename></para>
-                <para><filename>local-fs.target</filename></para>
-                <para><filename>multi-user.target</filename></para>
-                <para><filename>network.target</filename></para>
-                <para><filename>nss-lookup.target</filename></para>
-                <para><filename>poweroff.target</filename></para>
-                <para><filename>reboot.target</filename></para>
-                <para><filename>remote-fs.target</filename></para>
-                <para><filename>rescue.target</filename></para>
-                <para><filename>rpcbind.target</filename></para>
-                <para><filename>rtc-set.target</filename></para>
-                <para><filename>runlevel0.target</filename>,
-                        <filename>runlevel0.target</filename>,
-                        <filename>runlevel1.target</filename>,
-                        <filename>runlevel2.target</filename>,
-                        <filename>runlevel3.target</filename>,
-                        <filename>runlevel4.target</filename>,
-                        <filename>runlevel5.target</filename>,
-                        <filename>runlevel6.target</filename></para>
-                <para><filename>shutdown.target</filename></para>
-                <para><filename>sigpwr.target</filename></para>
-                <para><filename>sockets.target</filename></para>
-                <para><filename>swap.target</filename></para>
-                <para><filename>syslog.target</filename></para>
-                <para><filename>systemd-initctl.service</filename>, <filename>systemd-initctl.socket</filename></para>
-                <para><filename>systemd-logger.service</filename>, <filename>systemd-logger.socket</filename></para>
+                <para><filename>basic.target</filename>,
+                <filename>ctrl-alt-del.target</filename>,
+                <filename>default.target</filename>,
+                <filename>emergency.service</filename>,
+                <filename>graphical.target</filename>,
+                <filename>halt.target</filename>,
+                <filename>kbrequest.target</filename>,
+                <filename>local-fs.target</filename>,
+                <filename>multi-user.target</filename>,
+                <filename>network.target</filename>,
+                <filename>nss-lookup.target</filename>,
+                <filename>poweroff.target</filename>,
+                <filename>reboot.target</filename>,
+                <filename>remote-fs.target</filename>,
+                <filename>rescue.target</filename>,
+                <filename>rpcbind.target</filename>,
+                <filename>rtc-set.target</filename>,
+                <filename>runlevel0.target</filename>,
+                <filename>runlevel1.target</filename>,
+                <filename>runlevel2.target</filename>,
+                <filename>runlevel3.target</filename>,
+                <filename>runlevel4.target</filename>,
+                <filename>runlevel5.target</filename>,
+                <filename>runlevel6.target</filename>
+                <filename>shutdown.target</filename>,
+                <filename>sigpwr.target</filename>,
+                <filename>sockets.target</filename>,
+                <filename>swap.target</filename>,
+                <filename>syslog.target</filename>,
+                <filename>systemd-initctl.service</filename>,
+                <filename>systemd-initctl.socket</filename>,
+                <filename>systemd-logger.service</filename>,
+                <filename>systemd-logger.socket</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

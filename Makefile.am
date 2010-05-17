@@ -186,21 +186,24 @@ EXTRA_DIST += \
 
 dist_man_MANS = \
 	man/systemd.unit.5 \
-	man/systemd.service.5 \
+	man/systemd.service.5
+
+nodist_man_MANS = \
 	man/systemd.special.7
 
-HTMLMANS = \
-	man/systemd.unit.html \
-	man/systemd.service.html \
-	man/systemd.special.html
-
 dist_noinst_DATA = \
-	$(HTMLMANS)
+	man/systemd.unit.html \
+	man/systemd.service.html
+
+nodist_noinst_DATA = \
+	man/systemd.special.html
 
 EXTRA_DIST += \
 	man/systemd.unit.xml \
 	man/systemd.service.xml \
-	man/systemd.special.xml
+	man/systemd.special.xml.in \
+	man/systemd.special.7.in \
+	man/systemd.special.html.in
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -311,39 +314,27 @@ SED_PROCESS = \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		< $< > $@
 
-units/systemd-initctl.service: units/systemd-initctl.service.in Makefile
+units/%: units/%.in Makefile
 	$(SED_PROCESS)
 
-units/systemd-logger.service: units/systemd-logger.service.in Makefile
+man/%.html: $(builddir)/man/%.html.in Makefile
 	$(SED_PROCESS)
 
-units/syslog.target: units/syslog.target.in Makefile
+man/%.7: $(builddir)/man/%.7.in Makefile
 	$(SED_PROCESS)
 
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) units && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM < $< > $@
+	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM=1 < $< > $@
 
 M4_PROCESS_SESSION = \
 	$(AM_V_GEN)$(MKDIR_P) units/session && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SESSION < $< > $@
+	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SESSION=1 < $< > $@
 
-units/basic.target: units/basic.target.m4 Makefile
+units/%: units/%.m4 Makefile
 	$(M4_PROCESS_SYSTEM)
 
-units/graphical.target: units/graphical.target.m4 Makefile
-	$(M4_PROCESS_SYSTEM)
-
-units/multi-user.target: units/multi-user.target.m4 Makefile
-	$(M4_PROCESS_SYSTEM)
-
-units/getty@.service: units/getty@.service.m4 Makefile
-	$(M4_PROCESS_SYSTEM)
-
-units/remote-fs.target: units/remote-fs.target.m4 Makefile
-	$(M4_PROCESS_SYSTEM)
-
-units/session/remote-fs.target: units/remote-fs.target.m4 Makefile
+units/session/%: units/%.m4 Makefile
 	$(M4_PROCESS_SESSION)
 
 CLEANFILES = \
@@ -358,21 +349,54 @@ CLEANFILES = \
 	units/graphical.target \
 	units/multi-user.target \
 	units/remote-fs.target \
-	units/session/remote-fs.target
+	units/session/remote-fs.target \
+	man/systemd.special.7 \
+	man/systemd.special.html
 
-if HAVE_XSLTPROC
-man/%.5 man/%.7: man/%.xml
+#if HAVE_XSLTPROC
+XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) man && \
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
-man/%.html: man/%.xml
+XSLTPROC_PROCESS_MAN_IN = \
+	$(AM_V_GEN)$(MKDIR_P) man && \
+	$(XSLTPROC) -o ${@:.in=} -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $< && \
+	mv ${@:.in=} $@
+
+XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) man && \
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
 
+XSLTPROC_PROCESS_HTML_IN = \
+	$(AM_V_GEN)$(MKDIR_P) man && \
+	$(XSLTPROC) -o ${@:.in=} -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
+	mv ${@:.in=} $@
+
+man/%.5: man/%.xml
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.5.in: man/%.xml.in
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.7: man/%.xml
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.7.in: man/%.xml.in
+	$(XSLTPROC_PROCESS_MAN_IN)
+
+man/%.html: man/%.xml
+	$(XSLTPROC_PROCESS_HTML)
+
+man/%.html.in: man/%.xml.in
+	$(XSLTPROC_PROCESS_HTML_IN)
+
 CLEANFILES += \
 	$(dist_man_MANS) \
-	$(HTMLMANS)
-endif
+	man/systemd.special.7.in \
+	man/systemd.unit.html \
+	man/systemd.service.html \
+	man/systemd.special.html.in
+#endif
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
@@ -436,7 +460,6 @@ if TARGET_FEDORA
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
 endif
-
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)
