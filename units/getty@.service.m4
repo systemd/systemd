@@ -15,10 +15,9 @@
 #  You should have received a copy of the GNU General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-# See systemd.special(7) for details
-m4_ifdef(`TARGET_FEDORA', m4_define(`GETTY', `/sbin/mingetty'))m4_dnl
-m4_ifdef(`TARGET_DEBIAN', m4_define(`GETTY', `/sbin/getty 38400'))m4_dnl
-
+m4_ifdef(`TARGET_FEDORA', `m4_define(`GETTY', `/sbin/mingetty')')m4_dnl
+m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty 38400')')m4_dnl
+m4_dnl
 [Unit]
 Description=Getty on %I
 Before=getty.target

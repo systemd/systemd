@@ -21,7 +21,8 @@
 Description=Multi-User
 Requires=basic.target
 After=basic.target
-
+m4_dnl
 m4_ifdef(`TARGET_FEDORA',
-# On Fedora Runlevel 3 is multi-user
-Names=runlevel3.target)
+m4_dnl On Fedora Runlevel 3 is multi-user
+Names=runlevel3.target
+)m4_dnl
