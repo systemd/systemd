@@ -21,6 +21,7 @@
 Description=Basic System
 Requires=local-fs.target swap.target sockets.target
 After=local-fs.target swap.target sockets.target
+Conflicts=emergency.service
 m4_dnl
 m4_ifdef(`TARGET_FEDORA',
 m4_dnl Hook in Fedora's /etc/rc.d/rc.sysinit
