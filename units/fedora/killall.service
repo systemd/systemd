@@ -20,4 +20,5 @@ Description=Kill All Processes
 
 [Service]
 Type=finish
+ValidNoProcess=yes
 ExecStart=/etc/init.d/killall start

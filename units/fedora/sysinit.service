@@ -21,4 +21,7 @@ Before=local-fs.target remote-fs.target swap.target sockets.target
 
 [Service]
 ExecStart=/etc/rc.d/rc.sysinit
-Type=finish
+Type=forking
+TimeoutSec=0
+StandardInput=tty
+ValidNoProcess=yes

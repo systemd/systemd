@@ -22,6 +22,7 @@ After=shutdown.target killall.service
 
 [Service]
 Type=finish
+ValidNoProcess=yes
 Environment=INIT_HALT=HALT
 Environment=RUNLEVEL=0
 ExecStart=/etc/init.d/halt start

@@ -27,3 +27,5 @@ After=basic.target
 [Service]
 Type=simple
 ExecStart=GETTY %I
+Restart=restart-always
+RestartSec=0
