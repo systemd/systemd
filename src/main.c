@@ -175,7 +175,7 @@ static void install_crash_handler(void) {
 static int make_null_stdio(void) {
         int null_fd, r;
 
-        if ((null_fd = open("/dev/null", O_RDWR)) < 0) {
+        if ((null_fd = open("/dev/null", O_RDWR|O_NOCTTY)) < 0) {
                 log_error("Failed to open /dev/null: %m");
                 return -errno;
         }

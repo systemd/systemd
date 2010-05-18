@@ -50,8 +50,10 @@ void log_close_console(void) {
         if (console_fd < 0)
                 return;
 
-        if (getpid() == 1 || console_fd != STDERR_FILENO) {
-                close_nointr_nofail(console_fd);
+        if (getpid() == 1) {
+                if (console_fd >= 3)
+                        close_nointr_nofail(console_fd);
+
                 console_fd = -1;
         }
 }
