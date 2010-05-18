@@ -82,7 +82,16 @@ dist_systemunit_DATA = \
 	units/sockets.target \
 	units/swap.target \
 	units/systemd-initctl.socket \
-	units/systemd-logger.socket
+	units/systemd-logger.socket \
+	units/dev-hugepages.automount \
+	units/dev-hugepages.mount \
+	units/dev-mqueue.automount \
+	units/dev-mqueue.mount \
+	units/proc-sys-fs-binfmt_misc.automount \
+	units/proc-sys-fs-binfmt_misc.mount \
+	units/sys-kernel-debug.automount \
+	units/sys-kernel-debug.mount \
+	units/var-run.mount
 
 systemunit_DATA = \
 	units/basic.target \
@@ -404,8 +413,10 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
+		$(DESTDIR)$(systemunitdir)/basic.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
@@ -451,6 +462,15 @@ install-data-hook:
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f getty.target && \
 		$(LN_S) $(systemunitdir)/getty.target getty.target )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants && \
+		rm -f var-run.mount && \
+		$(LN_S) $(systemunitdir)/var-run.mount var-run.mount )
+	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
+		rm -f dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount && \
+		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
+		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
+		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
+		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount )
 if TARGET_FEDORA
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
 		rm -f prefdm.service && \
