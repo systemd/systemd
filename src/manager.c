@@ -1939,6 +1939,11 @@ int manager_loop(Manager *m) {
         assert(m);
         m->exit_code = MANAGER_RUNNING;
 
+        /* There might still be some zombies hanging around from
+         * before we were exec()'ed. Leat's reap them */
+        if ((r = manager_dispatch_sigchld(m)) < 0)
+                return r;
+
         while (m->exit_code == MANAGER_RUNNING) {
                 struct epoll_event event;
                 int n;
