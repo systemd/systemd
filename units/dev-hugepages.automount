@@ -16,7 +16,7 @@
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 [Unit]
-Name=Huge Pages File System Automount Point
+Description=Huge Pages File System Automount Point
 Before=basic.target
 
 [Automount]
