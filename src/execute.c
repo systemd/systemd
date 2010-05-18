@@ -274,7 +274,8 @@ static int setup_input(const ExecContext *context, int socket_fd) {
                 if ((fd = acquire_terminal(
                                      tty_path(context),
                                      i == EXEC_INPUT_TTY_FAIL,
-                                     i == EXEC_INPUT_TTY_FORCE)) < 0)
+                                     i == EXEC_INPUT_TTY_FORCE,
+                                     false)) < 0)
                         return fd;
 
                 if (fd != STDIN_FILENO) {
@@ -429,7 +430,8 @@ static int setup_confirm_stdio(const ExecContext *context,
         if ((fd = acquire_terminal(
                              tty_path(context),
                              context->std_input == EXEC_INPUT_TTY_FAIL,
-                             context->std_input == EXEC_INPUT_TTY_FORCE)) < 0) {
+                             context->std_input == EXEC_INPUT_TTY_FORCE,
+                             false)) < 0) {
                 r = EXIT_STDIN;
                 goto fail;
         }

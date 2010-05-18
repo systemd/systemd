@@ -1598,7 +1598,7 @@ int flush_fd(int fd) {
         }
 }
 
-int acquire_terminal(const char *name, bool fail, bool force) {
+int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocstty_eperm) {
         int fd = -1, notify = -1, r, wd = -1;
 
         assert(name);
@@ -1640,8 +1640,15 @@ int acquire_terminal(const char *name, bool fail, bool force) {
                         return -errno;
 
                 /* First, try to get the tty */
-                if ((r = ioctl(fd, TIOCSCTTY, force)) < 0 &&
-                    (force || fail || errno != EPERM)) {
+                r = ioctl(fd, TIOCSCTTY, force);
+
+                /* Sometimes it makes sense to ignore TIOCSCTTY
+                 * returning EPERM, i.e. when very likely we already
+                 * are have this controlling terminal. */
+                if (r < 0 && errno == EPERM && ignore_tiocstty_eperm)
+                        r = 0;
+
+                if (r < 0 && (force || fail || errno != EPERM)) {
                         r = -errno;
                         goto fail;
                 }

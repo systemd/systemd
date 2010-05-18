@@ -218,7 +218,7 @@ int ask(char *ret, const char *replies, const char *text, ...);
 
 int reset_terminal(int fd);
 int open_terminal(const char *name, int mode);
-int acquire_terminal(const char *name, bool fail, bool force);
+int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocstty_eperm);
 int release_terminal(void);
 
 int flush_fd(int fd);

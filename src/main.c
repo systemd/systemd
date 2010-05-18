@@ -138,7 +138,7 @@ _noreturn static void crash(int sig) {
                 else if (pid == 0) {
                         int fd, r;
 
-                        if ((fd = acquire_terminal("/dev/console", false, true)) < 0)
+                        if ((fd = acquire_terminal("/dev/console", false, true, true)) < 0)
                                 log_error("Failed to acquire terminal: %s", strerror(-fd));
                         else if ((r = make_stdio(fd)) < 0)
                                 log_error("Failed to duplicate terminal fd: %s", strerror(-r));
