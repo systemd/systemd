@@ -18,6 +18,7 @@
 [Unit]
 Description=/etc/rc.local Compatibility
 Requires=basic.target
+Conflicts=shutdown.target
 
 # The rcN.d symlink uses the name "local" while the script itself is
 # called "rc.local", hence carry both names here.

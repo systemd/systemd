@@ -17,6 +17,7 @@
 
 [Unit]
 Description=Kill All Processes
+After=shutdown.target
 
 [Service]
 Type=finish

@@ -23,6 +23,7 @@ m4_dnl
 Description=Getty on %I
 Before=getty.target
 After=basic.target
+Conflicts=shutdown.target
 
 [Service]
 Type=simple

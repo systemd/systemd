@@ -19,6 +19,7 @@
 Description=Display Manager
 Before=graphical.target
 After=basic.target syslog.target messagebus.service haldaemon.service
+Conflicts=shutdown.target
 
 [Service]
 ExecStart=/etc/X11/prefdm -nodaemon
