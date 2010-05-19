@@ -189,7 +189,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 "%i\n"
                 "%s\n"
                 "%i\n",
-                output == EXEC_OUTPUT_KERNEL ? "kmsg" : "syslog",
+                output == EXEC_OUTPUT_KMSG ? "kmsg" : "syslog",
                 context->syslog_priority,
                 context->syslog_identifier ? context->syslog_identifier : ident,
                 !context->syslog_no_prefix);
@@ -328,7 +328,7 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
                 return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
 
         case EXEC_OUTPUT_SYSLOG:
-        case EXEC_OUTPUT_KERNEL:
+        case EXEC_OUTPUT_KMSG:
                 return connect_logger_as(context, o, ident, STDOUT_FILENO);
 
         case EXEC_OUTPUT_SOCKET:
@@ -377,7 +377,7 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
                 return open_terminal_as(tty_path(context), O_WRONLY, STDERR_FILENO);
 
         case EXEC_OUTPUT_SYSLOG:
-        case EXEC_OUTPUT_KERNEL:
+        case EXEC_OUTPUT_KMSG:
                 return connect_logger_as(context, e, ident, STDERR_FILENO);
 
         case EXEC_OUTPUT_SOCKET:
@@ -1266,8 +1266,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sTTYPath: %s\n",
                         prefix, c->tty_path);
 
-        if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KERNEL ||
-            c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KERNEL)
+        if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KMSG ||
+            c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KMSG)
                 fprintf(f,
                         "%sSyslogFacility: %s\n"
                         "%sSyslogLevel: %s\n",
@@ -1616,7 +1616,7 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_NULL] = "null",
         [EXEC_OUTPUT_TTY] = "tty",
         [EXEC_OUTPUT_SYSLOG] = "syslog",
-        [EXEC_OUTPUT_KERNEL] = "kernel",
+        [EXEC_OUTPUT_KMSG] = "kmsg",
         [EXEC_OUTPUT_SOCKET] = "socket"
 };
 
