@@ -227,31 +227,20 @@ static bool is_terminal_input(ExecInput i) {
                 i == EXEC_INPUT_TTY_FAIL;
 }
 
-static int fixup_input(const ExecContext *context, int socket_fd) {
-        assert(context);
+static int fixup_input(ExecInput std_input, int socket_fd) {
 
-        if (socket_fd < 0 && context->std_input == EXEC_INPUT_SOCKET)
+        if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
                 return EXEC_INPUT_NULL;
 
-        return context->std_input;
+        return std_input;
 }
 
-static int fixup_output(const ExecContext *context, int socket_fd) {
-        assert(context);
+static int fixup_output(ExecOutput std_output, int socket_fd) {
 
-        if (socket_fd < 0 && context->std_output == EXEC_OUTPUT_SOCKET)
+        if (std_output == EXEC_OUTPUT_SOCKET && socket_fd < 0)
                 return EXEC_OUTPUT_INHERIT;
 
-        return context->std_output;
-}
-
-static int fixup_error(const ExecContext *context, int socket_fd) {
-        assert(context);
-
-        if (socket_fd < 0 && context->std_error == EXEC_OUTPUT_SOCKET)
-                return EXEC_OUTPUT_INHERIT;
-
-        return context->std_error;
+        return std_output;
 }
 
 static int setup_input(const ExecContext *context, int socket_fd) {
@@ -259,7 +248,7 @@ static int setup_input(const ExecContext *context, int socket_fd) {
 
         assert(context);
 
-        i = fixup_input(context, socket_fd);
+        i = fixup_input(context->std_input, socket_fd);
 
         switch (i) {
 
@@ -302,8 +291,8 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         assert(context);
         assert(ident);
 
-        i = fixup_input(context, socket_fd);
-        o = fixup_output(context, socket_fd);
+        i = fixup_input(context->std_input, socket_fd);
+        o = fixup_output(context->std_output, socket_fd);
 
         /* This expects the input is already set up */
 
@@ -347,9 +336,9 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         assert(context);
         assert(ident);
 
-        i = fixup_input(context, socket_fd);
-        o = fixup_output(context, socket_fd);
-        e = fixup_error(context, socket_fd);
+        i = fixup_input(context->std_input, socket_fd);
+        o = fixup_output(context->std_output, socket_fd);
+        e = fixup_output(context->std_error, socket_fd);
 
         /* This expects the input and output are already set up */
 
