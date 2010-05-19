@@ -534,7 +534,10 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         assert(u);
         assert(c);
 
-        if (c->std_output != EXEC_OUTPUT_KMSG && c->std_output != EXEC_OUTPUT_SYSLOG)
+        if (c->std_output != EXEC_OUTPUT_KMSG &&
+            c->std_output != EXEC_OUTPUT_SYSLOG &&
+            c->std_error != EXEC_OUTPUT_KMSG &&
+            c->std_error != EXEC_OUTPUT_SYSLOG)
                 return 0;
 
         /* If syslog or kernel logging is requested, make sure our own
