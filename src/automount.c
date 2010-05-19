@@ -59,6 +59,8 @@ static void repeat_unmout(const char *path) {
         assert(path);
 
         for (;;) {
+                /* If there are multiple mounts on a mount point, this
+                 * removes them all */
 
                 if (umount2(path, MNT_DETACH) >= 0)
                         continue;
@@ -116,6 +118,9 @@ int automount_add_one_mount_link(Automount *a, Mount *m) {
                 return 0;
 
         if (!path_startswith(a->where, m->where))
+                return 0;
+
+        if (path_equal(a->where, m->where))
                 return 0;
 
         if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(a), true)) < 0)

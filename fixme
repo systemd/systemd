@@ -65,7 +65,8 @@
 
 * teach dbus to talk to systemd when autospawning services
 
-* unix sockets chown()/chgrp()
+* Figure out which signal handlers we actually have to reset in the
+  forked off child
 
 Regularly:
 
