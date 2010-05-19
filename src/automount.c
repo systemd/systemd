@@ -276,8 +276,18 @@ static int open_dev_autofs(Manager *m) {
                 return m->dev_autofs_fd;
 
         if ((m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY)) < 0) {
-                log_error("Failed to open /dev/autofs: %s", strerror(errno));
-                return -errno;
+
+                if (errno == ENOENT || errno == ENODEV) {
+                        log_error("Your kernel apparently lacks built-in autofs4 support. Please fix that. "
+                                  "We'll now try to work around this by calling 'modprobe autofs4'...");
+                        system("/sbin/modprobe -q -- autofs4");
+                        m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
+                }
+
+                if (m->dev_autofs_fd < 0) {
+                        log_error("Failed to open /dev/autofs: %s", strerror(errno));
+                        return -errno;
+                }
         }
 
         init_autofs_dev_ioctl(&param);
