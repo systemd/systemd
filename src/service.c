@@ -1708,7 +1708,7 @@ static int service_start(Unit *u) {
         /* Make sure we don't enter a busy loop of some kind. */
         if (!ratelimit_test(&s->ratelimit)) {
                 log_warning("%s start request repeated too quickly, refusing to start.", u->meta.id);
-                return -EAGAIN;
+                return -ECANCELED;
         }
 
         s->failure = false;

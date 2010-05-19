@@ -735,9 +735,10 @@ fail:
 }
 
 /* Errors:
- *         -EBADR:    This unit type does not support starting.
- *         -EALREADY: Unit is already started.
- *         -EAGAIN:   An operation is already in progress. Retry later.
+ *         -EBADR:     This unit type does not support starting.
+ *         -EALREADY:  Unit is already started.
+ *         -EAGAIN:    An operation is already in progress. Retry later.
+ *         -ECANCELED: Too many requests for now.
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
