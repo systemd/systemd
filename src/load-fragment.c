@@ -386,49 +386,73 @@ static int config_parse_exec(
         char *w;
         unsigned k;
         size_t l;
-        char *state;
+        char *state, *path = NULL;
+        bool honour_argv0, write_to_path;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        /* We accept an absolute path as first argument, or
+         * alternatively an absolute prefixed with @ to allow
+         * overriding of argv[0]. */
+
+        honour_argv0 = rvalue[0] == '@';
+
+        if (rvalue[honour_argv0 ? 1 : 0] != '/') {
+                log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
         k = 0;
         FOREACH_WORD_QUOTED(w, l, rvalue, state)
                 k++;
 
-        if (!(n = new(char*, k+1)))
+        if (!(n = new(char*, k + (honour_argv0 ? 0 : 1))))
                 return -ENOMEM;
 
         k = 0;
-        FOREACH_WORD_QUOTED(w, l, rvalue, state)
-                if (!(n[k++] = strndup(w, l)))
-                        goto fail;
+        write_to_path = honour_argv0;
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                if (write_to_path) {
+                        if (!(path = strndup(w+1, l-1)))
+                                goto fail;
+                        write_to_path = false;
+                } else {
+                        if (!(n[k++] = strndup(w, l)))
+                                goto fail;
+                }
+        }
 
         n[k] = NULL;
 
-        if (!n[0] || !path_is_absolute(n[0])) {
-                log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
+        if (!n[0]) {
+                log_error("[%s:%u] Invalid command line: %s", filename, line, rvalue);
                 strv_free(n);
                 return -EINVAL;
         }
+
+        if (!path)
+                if (!(path = strdup(n[0])))
+                        goto fail;
+
+        assert(path_is_absolute(path));
 
         if (!(nce = new0(ExecCommand, 1)))
                 goto fail;
 
         nce->argv = n;
-        if (!(nce->path = strdup(n[0])))
-                goto fail;
+        nce->path = path;
 
         exec_command_append_list(e, nce);
 
         return 0;
 
 fail:
-        for (; k > 0; k--)
-                free(n[k-1]);
-        free(n);
-
+        n[k] = NULL;
+        strv_free(n);
+        free(path);
         free(nce);
 
         return -ENOMEM;

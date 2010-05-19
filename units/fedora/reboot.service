@@ -24,4 +24,4 @@ After=shutdown.target killall.service
 Type=finish
 ValidNoProcess=yes
 Environment=RUNLEVEL=6
-ExecStart=/etc/init.d/reboot start
+ExecStart=@/etc/init.d/halt reboot start
