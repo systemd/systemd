@@ -75,7 +75,7 @@ struct Stream {
 
         int fd;
 
-        LogTarget target;
+        StreamTarget target;
         int priority;
         char *process;
         pid_t pid;
