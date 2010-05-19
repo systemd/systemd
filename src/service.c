@@ -225,7 +225,7 @@ finish:
         return 1;
 }
 
-static int sysv_chkconfig_order(Service *s) {
+static int sysv_fix_order(Service *s) {
         Meta *other;
         int r;
 
@@ -789,7 +789,7 @@ static int service_load(Unit *u) {
                 if ((r = unit_add_default_cgroup(u)) < 0)
                         return r;
 
-                if ((r = sysv_chkconfig_order(s)) < 0)
+                if ((r = sysv_fix_order(s)) < 0)
                         return r;
 
                 if (s->bus_name) {
