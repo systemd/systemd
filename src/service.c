@@ -632,11 +632,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->valid_no_process = true;
         s->kill_mode = KILL_PROCESS_GROUP;
 
-        /* For SysV services log output should go to the console */
-        s->exec_context.std_input = EXEC_INPUT_NULL;
-        s->exec_context.std_output = EXEC_OUTPUT_TTY;
-        s->exec_context.std_error = EXEC_OUTPUT_TTY;
-
         u->meta.load_state = UNIT_LOADED;
         r = 0;
 

@@ -301,10 +301,15 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         case EXEC_OUTPUT_INHERIT:
 
                 /* If the input is connected to a terminal, inherit that... */
-                if (is_terminal_input(i) || i == EXEC_INPUT_SOCKET)
+                if (i != EXEC_INPUT_NULL)
                         return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
 
-                return STDIN_FILENO;
+                /* For PID 1 stdout is always connected to /dev/null,
+                 * hence reopen the console if necessary. */
+                if (getpid() == 1)
+                        return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
+
+                return STDOUT_FILENO;
 
         case EXEC_OUTPUT_NULL:
                 return open_null_as(O_WRONLY, STDOUT_FILENO);
@@ -346,7 +351,8 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
          * the way and are not on a tty */
         if (e == EXEC_OUTPUT_INHERIT &&
             o == EXEC_OUTPUT_INHERIT &&
-            !is_terminal_input(i))
+            i != EXEC_INPUT_NULL &&
+            getpid () != 1)
                 return STDERR_FILENO;
 
         /* Duplicate form stdout if possible */
@@ -1076,11 +1082,6 @@ void exec_context_init(ExecContext *c) {
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->mount_flags = MS_SHARED;
-
-        c->std_input = EXEC_INPUT_NULL;
-        c->std_output = c->std_error =
-                (log_get_target() == LOG_TARGET_CONSOLE ? EXEC_OUTPUT_INHERIT :
-                 log_get_target() == LOG_TARGET_KMSG ? EXEC_OUTPUT_KMSG : EXEC_OUTPUT_SYSLOG);
 }
 
 void exec_context_done(ExecContext *c) {

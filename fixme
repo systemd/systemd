@@ -9,6 +9,9 @@
 * implicitly import "defaults" settings file into all types
 
 * write .service file install tool
+    [Install]
+    WantedBy=graphical.target
+    Names=prefdm.service
 
 * service startup should be delayed if the matching socket is being started
 
@@ -18,15 +21,9 @@
 
 * bootchart hookup
 
-* dbus.service and syslog.service should be symlinked not ifdef to the right distro-specific names
-
 * reinvestigate random seed, hwclock
 
-* rework sysv stuff to have SPECIAL_SYSV_BEFORE, SPECIAL_SYSV_AFTER instead SPECIAL_RCSYSINIT
-
 * introduce serialized mode
-
-* when refusing start due to ratelimit, enter restart state
 
 * "disabled" load state?
 
@@ -37,8 +34,6 @@
 * gc: don't reap broken services
 
 * iCalendar semantics for the timer stuff (RFC2445)
-
-* autofs für /dev/mqueue usw.
 
 * provide sysv-like command line utilities
 
