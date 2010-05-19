@@ -1078,8 +1078,9 @@ void exec_context_init(ExecContext *c) {
         c->mount_flags = MS_SHARED;
 
         c->std_input = EXEC_INPUT_NULL;
-        c->std_output = EXEC_OUTPUT_SYSLOG;
-        c->std_error = EXEC_OUTPUT_SYSLOG;
+        c->std_output = c->std_error =
+                (log_get_target() == LOG_TARGET_CONSOLE ? EXEC_OUTPUT_INHERIT :
+                 log_get_target() == LOG_TARGET_KMSG ? EXEC_OUTPUT_KMSG : EXEC_OUTPUT_SYSLOG);
 }
 
 void exec_context_done(ExecContext *c) {
