@@ -424,11 +424,25 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         for (i = 0; i < n_sockets; i++) {
                 struct epoll_event ev;
+                int fd;
+
+                fd = SD_LISTEN_FDS_START+i;
+
+                if ((r = sd_is_socket(fd, SOCK_STREAM, 1)) < 0) {
+                        log_error("Failed to determine file descriptor type: %s", strerror(-r));
+                        goto fail;
+                }
+
+                if (!r) {
+                        log_error("Wrong file descriptor type.");
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 zero(ev);
                 ev.events = EPOLLIN;
-                ev.data.ptr = UINT_TO_PTR(SD_LISTEN_FDS_START+i);
-                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, SD_LISTEN_FDS_START+i, &ev) < 0) {
+                ev.data.ptr = UINT_TO_PTR(fd);
+                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                         r = -errno;
                         log_error("Failed to add server fd to epoll object: %s", strerror(errno));
                         goto fail;

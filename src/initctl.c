@@ -280,6 +280,20 @@ static int server_init(Server *s, unsigned n_sockets) {
         for (i = 0; i < n_sockets; i++) {
                 struct epoll_event ev;
                 Fifo *f;
+                int fd;
+
+                fd = SD_LISTEN_FDS_START+i;
+
+                if ((r = sd_is_fifo(fd, NULL)) < 0) {
+                        log_error("Failed to determine file descriptor type: %s", strerror(-r));
+                        goto fail;
+                }
+
+                if (!r) {
+                        log_error("Wrong file descriptor type.");
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 if (!(f = new0(Fifo, 1))) {
                         r = -ENOMEM;
@@ -292,7 +306,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 zero(ev);
                 ev.events = EPOLLIN;
                 ev.data.ptr = f;
-                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, SD_LISTEN_FDS_START+i, &ev) < 0) {
+                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                         r = -errno;
                         fifo_free(f);
                         log_error("Failed to add fifo fd to epoll object: %s", strerror(errno));

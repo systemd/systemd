@@ -24,10 +24,15 @@
   SOFTWARE.
 ***/
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "sd-daemon.h"
 
@@ -93,4 +98,172 @@ finish:
 
         return r;
 #endif
+}
+
+int sd_is_fifo(int fd, const char *path) {
+        struct stat st_fd;
+
+        if (fd < 0)
+                return -EINVAL;
+
+        memset(&st_fd, 0, sizeof(st_fd));
+        if (fstat(fd, &st_fd) < 0)
+                return -errno;
+
+        if (!S_ISFIFO(st_fd.st_mode))
+                return 0;
+
+        if (path) {
+                struct stat st_path;
+
+                memset(&st_path, 0, sizeof(st_path));
+                if (fstat(fd, &st_path) < 0) {
+
+                        if (errno == ENOENT || errno == ENOTDIR)
+                                return 0;
+
+                        return -errno;
+                }
+
+                return
+                        st_path.st_dev == st_fd.st_dev &&
+                        st_path.st_ino == st_fd.st_ino;
+        }
+
+        return 1;
+}
+
+int sd_is_socket(int fd, int type, int listening) {
+        struct stat st_fd;
+
+        if (fd < 0 || type < 0)
+                return -EINVAL;
+
+        if (fstat(fd, &st_fd) < 0)
+                return -errno;
+
+        if (!S_ISSOCK(st_fd.st_mode))
+                return 0;
+
+        if (type != 0) {
+                int other_type = 0;
+                socklen_t l = sizeof(other_type);
+
+                if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &other_type, &l) < 0)
+                        return -errno;
+
+                if (l != sizeof(other_type))
+                        return -EINVAL;
+
+                if (other_type != type)
+                        return 0;
+        }
+
+        if (listening >= 0) {
+                int accepting = 0;
+                socklen_t l = sizeof(accepting);
+
+                if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &accepting, &l) < 0)
+                        return -errno;
+
+                if (l != sizeof(accepting))
+                        return -EINVAL;
+
+                if (!accepting == !listening)
+                        return 0;
+        }
+
+        return 1;
+}
+
+int sd_is_socket_inet(int fd, int type, int listening, uint16_t port) {
+        union {
+                struct sockaddr sa;
+                struct sockaddr_in in4;
+                struct sockaddr_in6 in6;
+                struct sockaddr_un un;
+                struct sockaddr_storage storage;
+        } sockaddr;
+        socklen_t l;
+        int r;
+
+        if ((r = sd_is_socket(fd, type, listening)) <= 0)
+                return r;
+
+        memset(&sockaddr, 0, sizeof(sockaddr));
+        l = sizeof(sockaddr);
+
+        if (getsockname(fd, &sockaddr.sa, &l) < 0)
+                return -errno;
+
+        if (l < sizeof(struct sockaddr))
+                return -EINVAL;
+
+        if (sockaddr.sa.sa_family != AF_INET &&
+            sockaddr.sa.sa_family != AF_INET6)
+                return 0;
+
+        if (port > 0) {
+                if (sockaddr.sa.sa_family == AF_INET) {
+                        if (l < sizeof(struct sockaddr_in))
+                                return -EINVAL;
+
+                        return htons(port) == sockaddr.in4.sin_port;
+                } else {
+                        if (l < sizeof(struct sockaddr_in6))
+                                return -EINVAL;
+
+                        return htons(port) == sockaddr.in6.sin6_port;
+                }
+        }
+
+        return 1;
+}
+
+int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) {
+        union {
+                struct sockaddr sa;
+                struct sockaddr_in in4;
+                struct sockaddr_in6 in6;
+                struct sockaddr_un un;
+                struct sockaddr_storage storage;
+        } sockaddr;
+        socklen_t l;
+        int r;
+
+        if ((r = sd_is_socket(fd, type, listening)) <= 0)
+                return r;
+
+        memset(&sockaddr, 0, sizeof(sockaddr));
+        l = sizeof(sockaddr);
+
+        if (getsockname(fd, &sockaddr.sa, &l) < 0)
+                return -errno;
+
+        if (l < sizeof(sa_family_t))
+                return -EINVAL;
+
+        if (sockaddr.sa.sa_family != AF_UNIX)
+                return 0;
+
+        if (path) {
+                if (length <= 0)
+                        length = strlen(path);
+
+                if (length <= 0)
+                        /* Unnamed socket */
+                        return l == sizeof(sa_family_t);
+
+                if (l < sizeof(sa_family_t) + length + 1)
+                        return 0;
+
+                if (path[0])
+                        /* Normal path socket */
+                        return memcmp(path, sockaddr.un.sun_path, length+1) == 0;
+                else
+                        /* Abstract namespace socket */
+                        return memcmp(path, sockaddr.un.sun_path+1, length) == 0;
+        }
+
+        return 1;
 }
