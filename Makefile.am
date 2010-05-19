@@ -416,7 +416,6 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir)/basic.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
@@ -462,9 +461,6 @@ install-data-hook:
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f getty.target && \
 		$(LN_S) $(systemunitdir)/getty.target getty.target )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants && \
-		rm -f var-run.mount && \
-		$(LN_S) $(systemunitdir)/var-run.mount var-run.mount )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
