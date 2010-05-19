@@ -305,8 +305,8 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
                         return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
 
                 /* For PID 1 stdout is always connected to /dev/null,
-                 * hence reopen the console if necessary. */
-                if (getpid() == 1)
+                 * hence reopen the console if out parent is PID1. */
+                if (getppid() == 1)
                         return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
 
                 return STDOUT_FILENO;
@@ -352,7 +352,7 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         if (e == EXEC_OUTPUT_INHERIT &&
             o == EXEC_OUTPUT_INHERIT &&
             i != EXEC_INPUT_NULL &&
-            getpid () != 1)
+            getppid () != 1)
                 return STDERR_FILENO;
 
         /* Duplicate form stdout if possible */
