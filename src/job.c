@@ -144,10 +144,11 @@ void job_dependency_delete(Job *subject, Job *object, bool *matters) {
 }
 
 void job_dump(Job *j, FILE*f, const char *prefix) {
-
-
         assert(j);
         assert(f);
+
+        if (!prefix)
+                prefix = "";
 
         fprintf(f,
                 "%s-> Job %u:\n"
