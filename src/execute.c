@@ -1087,6 +1087,10 @@ void exec_context_init(ExecContext *c) {
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->mount_flags = MS_SHARED;
+
+        c->std_input = EXEC_INPUT_NULL;
+        c->std_output = EXEC_OUTPUT_SYSLOG;
+        c->std_error = EXEC_OUTPUT_SYSLOG;
 }
 
 void exec_context_done(ExecContext *c) {
