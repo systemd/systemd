@@ -169,7 +169,26 @@ static void service_done(Unit *u) {
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
-static int sysv_translate_name(const char *name, char **_r) {
+static char *sysv_translate_name(const char *name) {
+        char *r;
+
+        if (!(r = new(char, strlen(name) + sizeof(".service"))))
+                return NULL;
+
+        if (startswith(name, "boot."))
+                /* Drop SuSE-style boot. prefix */
+                strcpy(stpcpy(r, name + 5), ".service");
+        else if (endswith(name, ".sh"))
+                /* Drop Debian-style .sh suffix */
+                strcpy(stpcpy(r, name) - 3, ".service");
+        else
+                /* Normal init scripts */
+                strcpy(stpcpy(r, name), ".service");
+
+        return r;
+}
+
+static int sysv_translate_facility(const char *name, char **_r) {
 
         static const char * const table[] = {
                 "$local_fs",  SPECIAL_LOCAL_FS_TARGET,
@@ -195,7 +214,7 @@ static int sysv_translate_name(const char *name, char **_r) {
         if (*name == '$')
                 return 0;
 
-        if (asprintf(&r, "%s.service", name) < 0)
+        if (!(r = sysv_translate_name(name)))
                 return -ENOMEM;
 
 finish:
@@ -474,7 +493,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_name(n, &m);
+                                        r = sysv_translate_facility(n, &m);
                                         free(n);
 
                                         if (r < 0)
@@ -511,7 +530,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_name(n, &m);
+                                        r = sysv_translate_facility(n, &m);
                                         free(n);
 
                                         if (r < 0)
@@ -2208,20 +2227,10 @@ static int service_enumerate(Manager *m) {
                                 }
 
                                 free(name);
-                                if (!(name = new(char, strlen(de->d_name) - 3 + 8 + 1))) {
+                                if (!(name = sysv_translate_name(de->d_name + 3))) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
-
-                                if (startswith(de->d_name+3, "boot."))
-                                        /* Drop SuSE-style boot. prefix */
-                                        strcpy(stpcpy(name, de->d_name + 3 + 5), ".service");
-                                else if (endswith(de->d_name+3, ".sh"))
-                                        /* Drop Debian-style .sh suffix */
-                                        strcpy(stpcpy(name, de->d_name + 3) - 3, ".service");
-                                else
-                                        /* Normal init scripts */
-                                        strcpy(stpcpy(name, de->d_name + 3), ".service");
 
                                 if ((r = manager_load_unit_prepare(m, name, NULL, &service)) < 0) {
                                         log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
