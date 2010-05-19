@@ -654,6 +654,12 @@ static int service_load_sysv_name(Service *s, const char *name) {
         assert(s);
         assert(name);
 
+        /* For SysV services we strip the boot. or .sh
+         * prefixes/suffixes. */
+        if (startswith(name, "boot.") ||
+            endswith(name, ".sh.service"))
+                return -ENOENT;
+
         STRV_FOREACH(p, UNIT(s)->meta.manager->sysvinit_path) {
                 char *path;
                 int r;
@@ -667,7 +673,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 r = service_load_sysv_path(s, path);
 
                 if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
-                        /* Try Debian style .sh source'able init scripts */
+                        /* Try Debian style xxx.sh source'able init scripts */
                         strcat(path, ".sh");
                         r = service_load_sysv_path(s, path);
                 }
@@ -675,7 +681,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 free(path);
 
                 if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
-                        /* Try Suse style boot.xxxx init scripts */
+                        /* Try Suse style boot.xxx init scripts */
 
                         if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
                                 return -ENOMEM;
