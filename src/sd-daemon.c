@@ -254,15 +254,16 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
                         /* Unnamed socket */
                         return l == sizeof(sa_family_t);
 
-                if (l < sizeof(sa_family_t) + length + 1)
-                        return 0;
-
                 if (path[0])
                         /* Normal path socket */
-                        return memcmp(path, sockaddr.un.sun_path, length+1) == 0;
+                        return
+                                (l >= sizeof(sa_family_t) + length + 1) &&
+                                memcmp(path, sockaddr.un.sun_path, length+1) == 0;
                 else
                         /* Abstract namespace socket */
-                        return memcmp(path, sockaddr.un.sun_path+1, length) == 0;
+                        return
+                                (l == sizeof(sa_family_t) + length) &&
+                                memcmp(path, sockaddr.un.sun_path, length) == 0;
         }
 
         return 1;

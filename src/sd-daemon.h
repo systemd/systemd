@@ -76,16 +76,20 @@ int sd_is_fifo(int fd, const char *path);
  * the file descriptor is a socket of the specified type (SOCK_DGRAM,
  * SOCK_STREAM, ...), 0 otherwise. If type is 0 a socket type check
  * will not be done and the call only verifies if the file descriptor
- * refers to a socket. Returns a negative errno style error code on
- * failure. */
+ * refers to a socket. If listening is > 0 it is verified that the
+ * socket is in listening mode. (i.e. listen() has been called) If
+ * listening is == 0 it is verified that the socket is not in
+ * listening mode. If listening is < 0 no listening mode check is
+ * done. Returns a negative errno style error code on failure. */
 int sd_is_socket(int fd, int type, int listening);
 
 /* Helper call for identifying a passed file descriptor. Returns 1 if
  * the file descriptor is an Internet socket (either AF_INET or
  * AF_INET6) of the specified type (SOCK_DGRAM, SOCK_STREAM, ...), 0
  * otherwise. If type is 0 a socket type check will not be done. If
- * port is 0 a socket port check will not be done. Returns a negative
- * errno style error code on failure. */
+ * port is 0 a socket port check will not be done. The listening flag
+ * is used the same way as in sd_is_socket(). Returns a negative errno
+ * style error code on failure. */
 int sd_is_socket_inet(int fd, int type, int listening, uint16_t port);
 
 /* Helper call for identifying a passed file descriptor. Returns 1 if
@@ -94,7 +98,9 @@ int sd_is_socket_inet(int fd, int type, int listening, uint16_t port);
  * a socket type check will not be done. If path is NULL a socket path
  * check will not be done. For normal AF_UNIX sockets set length to
  * 0. For abstract namespace sockets set length to the length of the
- * socket name (excluding the initial 0 byte). Returns a negative
+ * socket name (including the initial 0 byte), and pass the full
+ * socket path in path (including the initial 0 byte). The listening
+ * flag is used the same way as in sd_is_socket(). Returns a negative
  * errno style error code on failure. */
 int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length);
 
