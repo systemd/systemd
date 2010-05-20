@@ -218,7 +218,7 @@ static int read_response(int fd) {
         nlmsgerr = NLMSG_DATA(&response.header);
 
         if (nlmsgerr->error < 0 && nlmsgerr->error != -EEXIST) {
-                log_warning("Netlink failure for request %i: %s", response.header.nlmsg_seq, strerror(nlmsgerr->error));
+                log_warning("Netlink failure for request %i: %s", response.header.nlmsg_seq, strerror(-nlmsgerr->error));
                 return nlmsgerr->error;
         }
 
