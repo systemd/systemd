@@ -477,6 +477,8 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
+	( cd $(DESTDIR)/etc/init.d && \
+		$(LN_S) halt reboot > /dev/null 2>&1 || true )
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
