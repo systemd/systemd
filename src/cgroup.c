@@ -194,7 +194,10 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig) {
                                 r = 0;
                                 goto kill_done;
                         } else {
-                                r = translate_error(r, errno);
+                                if (r == ECGOTHER && errno == ENOENT)
+                                        r = ESRCH;
+                                else
+                                        r = translate_error(r, errno);
                                 break;
                         }
                 }
