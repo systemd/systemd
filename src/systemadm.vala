@@ -502,10 +502,12 @@ public class MainWindow : Window {
                 unit_load_state_label.set_text_or_na(unit.load_state);
                 unit_active_state_label.set_text_or_na(unit.active_state);
                 unit_sub_state_label.set_text_or_na(unit.sub_state);
-                if (unit.fragment_path != null)
-                        unit_fragment_path_label.set_markup_or_na("<a href=\"file://" + unit.fragment_path +"\">" + unit.fragment_path + "</a>" );
+
+                string fp = unit.fragment_path;
+                if (fp != "")
+                        unit_fragment_path_label.set_markup_or_na("<a href=\"file://" + fp +"\">" + fp + "</a>" );
                 else
-                        unit_fragment_path_label.set_markup_or_na(null);
+                        unit_fragment_path_label.set_text_or_na();
 
                 uint64 t = unit.active_enter_timestamp;
                 if (t > 0) {
