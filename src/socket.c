@@ -386,16 +386,36 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
         }
 
         case AF_INET6: {
-                char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
+                static const char ipv4_prefix[] = {
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF
+                };
 
-                if (asprintf(&r,
-                             "%u-%s:%u-%s:%u",
-                             nr,
-                             inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
-                             ntohs(local.in6.sin6_port),
-                             inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
-                             ntohs(remote.in6.sin6_port)) < 0)
-                        return -ENOMEM;
+                if (memcmp(&local.in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0 &&
+                    memcmp(&remote.in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0) {
+                        const uint8_t
+                                *a = local.in6.sin6_addr.s6_addr+12,
+                                *b = remote.in6.sin6_addr.s6_addr+12;
+
+                        if (asprintf(&r,
+                                     "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     nr,
+                                     a[0], a[1], a[2], a[3],
+                                     ntohs(local.in6.sin6_port),
+                                     b[0], b[1], b[2], b[3],
+                                     ntohs(remote.in6.sin6_port)) < 0)
+                                return -ENOMEM;
+                } else {
+                        char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
+
+                        if (asprintf(&r,
+                                     "%u-%s:%u-%s:%u",
+                                     nr,
+                                     inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
+                                     ntohs(local.in6.sin6_port),
+                                     inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
+                                     ntohs(remote.in6.sin6_port)) < 0)
+                                return -ENOMEM;
+                }
 
                 break;
         }
