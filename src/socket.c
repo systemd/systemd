@@ -896,7 +896,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Unit *u;
                 char *prefix, *instance, *name;
 
-                if ((r = instance_from_socket(cfd, s->n_accepted++, &instance)))
+                if ((r = instance_from_socket(cfd, s->n_accepted++, &instance)) < 0)
                         goto fail;
 
                 if (!(prefix = unit_name_to_prefix(UNIT(s)->meta.id))) {
@@ -909,8 +909,10 @@ static void socket_enter_running(Socket *s, int cfd) {
                 free(prefix);
                 free(instance);
 
-                if (!name)
+                if (!name) {
                         r = -ENOMEM;
+                        goto fail;
+                }
 
                 r = manager_load_unit(UNIT(s)->meta.manager, name, NULL, &u);
                 free(name);
@@ -918,7 +920,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 if (r < 0)
                         goto fail;
 
-                if ((r = service_set_socket_fd(SERVICE(u), cfd) < 0))
+                if ((r = service_set_socket_fd(SERVICE(u), cfd)) < 0)
                         goto fail;
 
                 cfd = -1;
