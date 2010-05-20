@@ -538,6 +538,14 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)/etc/init.d && \
 		$(LN_S) halt reboot > /dev/null 2>&1 || true )
 endif
+if TARGET_GENTOO
+	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/xdm.service display-manager.service )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
+		rm -f display-manager.service && \
+		$(LN_S) ../display-manager.service display-manager.service )
+endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)

@@ -8,7 +8,8 @@
 [Unit]
 Description=Display Manager
 Before=graphical.target
-After=basic.target syslog.target messagebus.service haldaemon.service
+Requires=basic.target
+After=basic.target syslog.target dbus.service hald.service
 Conflicts=shutdown.target
 
 [Service]
