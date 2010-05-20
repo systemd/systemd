@@ -6,6 +6,7 @@
 #  (at your option) any later version.
 
 m4_ifdef(`TARGET_FEDORA', `m4_define(`GETTY', `/sbin/mingetty')')m4_dnl
+m4_ifdef(`TARGET_SUSE', `m4_define(`GETTY', `/sbin/mingetty')')m4_dnl
 m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty 38400')')m4_dnl
 m4_ifdef(`TARGET_GENTOO', `m4_define(`GETTY', `/sbin/agetty 38400')')m4_dnl
 m4_dnl

@@ -57,7 +57,7 @@ static const struct {
         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
         { "rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
 
-        /* SuSE style boot.d */
+        /* SUSE style boot.d */
         { "boot.d", SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
 
         /* Debian style rcS.d */
@@ -676,7 +676,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 free(path);
 
                 if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
-                        /* Try Suse style boot.xxx init scripts */
+                        /* Try SUSE style boot.xxx init scripts */
 
                         if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
                                 return -ENOMEM;
