@@ -2,10 +2,18 @@ udev 155
 ========
 Bugfixes.
 
-Now, on startup, udevd itself copies the content of /lib/udev/devices
-to /dev. Also the standard symlinks like /dev/std{in,out,err}, /dev/core,
-/dev/fd are created.
+Now the udev daemon itself, does on startup:
+  - copy the content of /lib/udev/devices to /dev
+  - create the standard symlinks like /dev/std{in,out,err},
+    /dev/core, /dev/fd, ...
+  - use static node information provided by kernel modules
+    and creates these nodes to allow module on-demand loading
+  - possibly apply permissions to all ststic nodes from udev
+    rules which are annotated to match a static node
 
+The default mode for a device node is 0600 now to match the kernel
+created devtmpfs defaults. If GROUP= is specified and no MODE= is
+given the default will be 0660.
 
 udev 154
 ========
