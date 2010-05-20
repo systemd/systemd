@@ -62,11 +62,6 @@ Setup:
     works on an empty 'tmpfs' filesystem, but some static device nodes like
     /dev/null, /dev/console, /dev/kmsg are needed to be able to start udev itself.
 
-  - The content of /lib/udev/devices directory which contains static content like
-    symlinks and directories, which are always expected to be in /dev, should
-    be copied over to the mounted /dev directory:
-      cp -axT --remove-destination /lib/udev/devices /dev
-
   - The udev daemon should be started to handle device events sent by the kernel.
     During bootup, the kernel can be asked to send events for all already existing
     devices, to apply the configuration to these devices. This is usually done by:

@@ -1,5 +1,11 @@
 udev 155
 ========
+Bugfixes.
+
+Now, on startup, udevd itself copies the content of /lib/udev/devices
+to /dev. Also the standard symlinks like /dev/std{in,out,err}, /dev/core,
+/dev/fd are created.
+
 
 udev 154
 ========
