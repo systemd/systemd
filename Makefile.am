@@ -102,6 +102,9 @@ systemunit_DATA = \
 	units/systemd-logger.service \
 	units/syslog.target
 
+dist_sessionunit_DATA = \
+	units/session/default.target
+
 sessionunit_DATA = \
 	units/session/remote-fs.target
 
