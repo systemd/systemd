@@ -217,6 +217,8 @@ public class MainWindow : Window {
                 unit_dependency_label.set_selectable(false);
                 unit_dependency_label.activate_link += on_activate_link;
 
+                unit_fragment_path_label.set_track_visited_links(false);
+
                 Table unit_table = new Table(8, 6, false);
                 unit_table.set_row_spacings(6);
                 unit_table.set_border_width(0);
@@ -500,7 +502,10 @@ public class MainWindow : Window {
                 unit_load_state_label.set_text_or_na(unit.load_state);
                 unit_active_state_label.set_text_or_na(unit.active_state);
                 unit_sub_state_label.set_text_or_na(unit.sub_state);
-                unit_fragment_path_label.set_text_or_na(unit.fragment_path);
+                if (unit.fragment_path != null)
+                        unit_fragment_path_label.set_markup_or_na("<a href=\"file://" + unit.fragment_path +"\">" + unit.fragment_path + "</a>" );
+                else
+                        unit_fragment_path_label.set_markup_or_na(null);
 
                 uint64 t = unit.active_enter_timestamp;
                 if (t > 0) {
