@@ -610,7 +610,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/devices/virtual/tty/tty33",
 		exp_name	=> "tty33",
-		exp_perms	=> "0:0:0660",
+		exp_perms	=> "0:0:0600",
 		rules		=> <<EOF
 KERNEL=="tty33", SYMLINK+="tty33", OWNER="bad", GROUP="name"
 EOF
@@ -620,7 +620,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "node",
-		exp_perms	=> "5000::0660",
+		exp_perms	=> "5000::0600",
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OWNER="5000"
 EOF
@@ -640,7 +640,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "node",
-		exp_perms	=> "nobody::0660",
+		exp_perms	=> "nobody::0600",
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OWNER="nobody"
 EOF
@@ -1487,7 +1487,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "sda",
-		exp_perms	=> "0:0:0660",
+		exp_perms	=> "0:0:0600",
 		exp_rem_error	=> "yes",
 		rules		=> <<EOF
 KERNEL=="sda", MODE="440"
@@ -1499,7 +1499,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "sda-8741C4G-end",
-		exp_perms	=> "0:0:0660",
+		exp_perms	=> "0:0:0600",
 		rules		=> <<EOF
 KERNEL=="sda", PROGRAM="/bin/true create-envp"
 KERNEL=="sda", ENV{TESTENV}="change-envp"
