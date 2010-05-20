@@ -41,6 +41,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/inotify.h>
+#include <sys/utsname.h>
 
 #include "udev.h"
 
@@ -745,6 +746,72 @@ static void handle_signal(struct udev *udev, int signo)
 	}
 }
 
+static void static_dev_create_from_modules(struct udev *udev)
+{
+	struct utsname kernel;
+	char modules[UTIL_PATH_SIZE];
+	char buf[4096];
+	FILE *f;
+
+	uname(&kernel);
+	util_strscpyl(modules, sizeof(modules), "/lib/modules/", kernel.release, "/modules.devname", NULL);
+	f = fopen(modules, "r");
+	if (f == NULL)
+		return;
+
+	while (fgets(buf, sizeof(buf), f) != NULL) {
+		char *s;
+		const char *modname;
+		const char *devname;
+		const char *devno;
+		int maj, min;
+		char type;
+		mode_t mode;
+		char filename[UTIL_PATH_SIZE];
+
+		if (buf[0] == '#')
+			continue;
+
+		modname = buf;
+		s = strchr(modname, ' ');
+		if (s == NULL)
+			continue;
+		s[0] = '\0';
+
+		devname = &s[1];
+		s = strchr(devname, ' ');
+		if (s == NULL)
+			continue;
+		s[0] = '\0';
+
+		devno = &s[1];
+		s = strchr(devno, ' ');
+		if (s == NULL)
+			s = strchr(devno, '\n');
+		if (s != NULL)
+			s[0] = '\0';
+		if (sscanf(devno, "%c%u:%u", &type, &maj, &min) != 3)
+			continue;
+
+		if (type == 'c')
+			mode = 0600 | S_IFCHR;
+		else if (type == 'b')
+			mode = 0600 | S_IFBLK;
+		else
+			continue;
+
+		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/", devname, NULL);
+		util_create_path(udev, filename);
+		udev_selinux_setfscreatecon(udev, filename, mode);
+		info(udev, "mknod '%s' %c%u:%u\n", filename, type, maj, min);
+		if (mknod(filename, mode, makedev(maj, min)) < 0 && errno == EEXIST)
+			utimensat(AT_FDCWD, filename, NULL, 0);
+		udev_selinux_resetfscreatecon(udev);
+	}
+
+	fclose(f);
+}
+
 static int copy_dir(struct udev *udev, DIR *dir_from, DIR *dir_to, int maxdepth)
 {
 	struct dirent *dent;
@@ -808,7 +875,7 @@ static int copy_dir(struct udev *udev, DIR *dir_from, DIR *dir_to, int maxdepth)
 	return 0;
 }
 
-static void prepare_dev(struct udev *udev)
+static void static_dev_create_links(struct udev *udev, DIR *dir)
 {
 	struct stdlinks {
 		const char *link;
@@ -822,28 +889,38 @@ static void prepare_dev(struct udev *udev)
 		{ "stderr", "/proc/self/fd/2" },
 	};
 	unsigned int i;
-	DIR *dir_from, *dir_to;
 
-	dir_to = opendir(udev_get_dev_path(udev));
-	if (dir_to == NULL)
-		return;
-
-	/* create standard symlinks to /proc */
 	for (i = 0; i < ARRAY_SIZE(stdlinks); i++) {
-		udev_selinux_setfscreateconat(udev, dirfd(dir_to), stdlinks[i].link, S_IFLNK);
-		if (symlinkat(stdlinks[i].target, dirfd(dir_to), stdlinks[i].link) < 0 && errno == EEXIST)
-			utimensat(dirfd(dir_to), stdlinks[i].link, NULL, AT_SYMLINK_NOFOLLOW);
+		udev_selinux_setfscreateconat(udev, dirfd(dir), stdlinks[i].link, S_IFLNK);
+		if (symlinkat(stdlinks[i].target, dirfd(dir), stdlinks[i].link) < 0 && errno == EEXIST)
+			utimensat(dirfd(dir), stdlinks[i].link, NULL, AT_SYMLINK_NOFOLLOW);
 		udev_selinux_resetfscreatecon(udev);
 	}
+}
 
-	/* copy content from /lib/udev/devices to /dev */
+static void static_dev_create_from_devices(struct udev *udev, DIR *dir)
+{
+	DIR *dir_from;
+
 	dir_from = opendir(LIBEXECDIR "/devices");
-	if (dir_from != NULL) {
-		copy_dir(udev, dir_from, dir_to, 8);
-		closedir(dir_from);
-	}
+	if (dir_from == NULL)
+		return;
+	copy_dir(udev, dir_from, dir, 8);
+	closedir(dir_from);
+}
 
-	closedir(dir_to);
+static void static_dev_create(struct udev *udev)
+{
+	DIR *dir;
+
+	dir = opendir(udev_get_dev_path(udev));
+	if (dir == NULL)
+		return;
+
+	static_dev_create_links(udev, dir);
+	static_dev_create_from_devices(udev, dir);
+
+	closedir(dir);
 }
 
 static int mem_size_mb(void)
@@ -958,8 +1035,6 @@ int main(int argc, char *argv[])
 		dup2(fd, STDOUT_FILENO);
 	if (write(STDERR_FILENO, 0, 0) < 0)
 		dup2(fd, STDERR_FILENO);
-
-	prepare_dev(udev);
 
 	/* init control socket, bind() ensures, that only one udevd instance is running */
 	udev_ctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
@@ -1117,6 +1192,10 @@ int main(int argc, char *argv[])
 	if (value)
 		max_childs = strtoul(value, NULL, 10);
 	info(udev, "initialize max_childs to %u\n", max_childs);
+
+	static_dev_create(udev);
+	static_dev_create_from_modules(udev);
+	udev_rules_apply_static_dev_perms(rules);
 
 	udev_list_init(&event_list);
 	udev_list_init(&worker_list);

@@ -72,22 +72,22 @@ int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_
 			err = mknod(file_tmp, mode, devnum);
 			udev_selinux_resetfscreatecon(udev);
 			if (err != 0) {
-				err(udev, "mknod(%s, %#o, %u, %u) failed: %m\n",
-				    file_tmp, mode, major(devnum), minor(devnum));
+				err(udev, "mknod '%s' %u:%u %#o failed: %m\n",
+				    file_tmp, major(devnum), minor(devnum), mode);
 				goto exit;
 			}
 			err = rename(file_tmp, file);
 			if (err != 0) {
-				err(udev, "rename(%s, %s) failed: %m\n", file_tmp, file);
+				err(udev, "rename '%s' '%s' failed: %m\n", file_tmp, file);
 				unlink(file_tmp);
 				goto exit;
 			}
-			info(udev, "set permissions %s, %#o, uid=%u, gid=%u\n", file, mode, uid, gid);
+			info(udev, "set permissions '%s' %#o uid=%u gid=%u\n", file, mode, uid, gid);
 			chmod(file, mode);
 			chown(file, uid, gid);
 		}
 	} else {
-		info(udev, "mknod(%s, %#o, (%u,%u))\n", file, mode, major(devnum), minor(devnum));
+		info(udev, "mknod '%s' %u:%u %#o\n", file, major(devnum), minor(devnum), mode);
 		do {
 			err = util_create_path(udev, file);
 			if (err != 0 && err != -ENOENT)
@@ -99,8 +99,8 @@ int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_
 			udev_selinux_resetfscreatecon(udev);
 		} while (err == -ENOENT);
 		if (err != 0)
-			err(udev, "mknod(%s, %#o, (%u,%u) failed: %m\n", file, mode, major(devnum), minor(devnum));
-		info(udev, "set permissions %s, %#o, uid=%u, gid=%u\n", file, mode, uid, gid);
+			err(udev, "mknod '%s' %u:%u %#o' failed: %m\n", file, major(devnum), minor(devnum), mode);
+		info(udev, "set permissions '%s' %#o uid=%u gid=%u\n", file, mode, uid, gid);
 		chmod(file, mode);
 		chown(file, uid, gid);
 	}
@@ -204,12 +204,12 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 		udev_selinux_resetfscreatecon(udev);
 	} while (err == -ENOENT);
 	if (err != 0) {
-		err(udev, "symlink(%s, %s) failed: %m\n", target, slink_tmp);
+		err(udev, "symlink '%s' '%s' failed: %m\n", target, slink_tmp);
 		goto exit;
 	}
 	err = rename(slink_tmp, slink);
 	if (err != 0) {
-		err(udev, "rename(%s, %s) failed: %m\n", slink_tmp, slink);
+		err(udev, "rename '%s' '%s' failed: %m\n", slink_tmp, slink);
 		unlink(slink_tmp);
 	}
 exit:
@@ -396,7 +396,6 @@ int udev_node_remove(struct udev_device *dev)
 	const char *devnode;
 	struct stat stats;
 	struct udev_device *dev_check;
-	char filename[UTIL_PATH_SIZE];
 	int err = 0;
 
 	/* remove/update symlinks, remove symlinks from name index */
@@ -423,12 +422,6 @@ int udev_node_remove(struct udev_device *dev)
 		/* do not remove device node if the same sys-device is re-created in the meantime */
 		info(udev, "keeping device node of existing device'%s'\n", devnode);
 		udev_device_unref(dev_check);
-		goto out;
-	}
-
-	util_strscpyl(filename, sizeof(filename), LIBEXECDIR "/devices", &devnode[strlen(udev_get_dev_path(udev))], NULL);
-	if (stat(filename, &stats) == 0 && stats.st_rdev == udev_device_get_devnum(dev)) {
-		info(udev, "static device entry found '%s', skip removal\n", devnode);
 		goto out;
 	}
 

@@ -157,6 +157,7 @@ enum token_type {
 	TK_A_OWNER_ID,			/* uid_t */
 	TK_A_GROUP_ID,			/* gid_t */
 	TK_A_MODE_ID,			/* mode_t */
+	TK_A_STATIC_NODE,		/* val */
 	TK_A_ENV,			/* val, attr */
 	TK_A_TAG,			/* val */
 	TK_A_NAME,			/* val */
@@ -172,10 +173,12 @@ enum token_type {
 /* we try to pack stuff in a way that we take only 12 bytes per token */
 struct token {
 	union {
-		unsigned char type;		/* same as in rule and key */
+		unsigned char type;		/* same in rule and key */
 		struct {
 			enum token_type type:8;
-			unsigned int flags:8;
+			bool can_set_name:1;
+			bool has_static_node:1;
+			unsigned int unused:6;
 			unsigned short token_count;
 			unsigned int label_off;
 			unsigned short filename_off;
@@ -286,6 +289,7 @@ static const char *token_str(enum token_type type)
 		[TK_A_MODE] =			"A MODE",
 		[TK_A_OWNER_ID] =		"A OWNER_ID",
 		[TK_A_GROUP_ID] =		"A GROUP_ID",
+		[TK_A_STATIC_NODE] =		"A STATIC_NODE",
 		[TK_A_MODE_ID] =		"A MODE_ID",
 		[TK_A_ENV] =			"A ENV",
 		[TK_A_TAG] =			"A ENV",
@@ -374,7 +378,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		dbg(rules->udev, "%s %u\n", token_str(type), token->key.watch);
 		break;
 	case TK_A_DEVLINK_PRIO:
-		dbg(rules->udev, "%s %s %u\n", token_str(type), operation_str(op), token->key.devlink_prio);
+		dbg(rules->udev, "%s %u\n", token_str(type), token->key.devlink_prio);
 		break;
 	case TK_A_OWNER_ID:
 		dbg(rules->udev, "%s %s %u\n", token_str(type), operation_str(op), token->key.uid);
@@ -385,8 +389,11 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_A_MODE_ID:
 		dbg(rules->udev, "%s %s %#o\n", token_str(type), operation_str(op), token->key.mode);
 		break;
+	case TK_A_STATIC_NODE:
+		dbg(rules->udev, "%s '%s'\n", token_str(type), value);
+		break;
 	case TK_A_EVENT_TIMEOUT:
-		dbg(rules->udev, "%s %s %u\n", token_str(type), operation_str(op), token->key.event_timeout);
+		dbg(rules->udev, "%s %u\n", token_str(type), token->key.event_timeout);
 		break;
 	case TK_A_GOTO:
 		dbg(rules->udev, "%s '%s' %u\n", token_str(type), value, token->key.rule_goto);
@@ -834,7 +841,7 @@ static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
 
 static int attr_subst_subdir(char *attr, size_t len)
 {
-	int found = 0;
+	bool found = false;
 
 	if (strstr(attr, "/*/")) {
 		char *pos;
@@ -859,7 +866,7 @@ static int attr_subst_subdir(char *attr, size_t len)
 					continue;
 				util_strscpyl(attr, len, dirname, "/", dent->d_name, tail, NULL);
 				if (stat(attr, &stats) == 0) {
-					found = 1;
+					found = true;
 					break;
 				}
 			}
@@ -1052,6 +1059,9 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		break;
 	case TK_A_MODE_ID:
 		token->key.mode = *(mode_t *)data;
+		break;
+	case TK_A_STATIC_NODE:
+		token->key.value_off = add_string(rule_tmp->rules, value);
 		break;
 	case TK_A_EVENT_TIMEOUT:
 		token->key.event_timeout = *(int *)data;
@@ -1480,7 +1490,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				}
 				rule_add_key(&rule_tmp, TK_A_NAME, op, value, NULL);
 			}
-			rule_tmp.rule.rule.flags = 1;
+			rule_tmp.rule.rule.can_set_name = true;
 			continue;
 		}
 
@@ -1495,7 +1505,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 					flag = 1;
 				rule_add_key(&rule_tmp, TK_A_DEVLINK, op, value, &flag);
 			}
-			rule_tmp.rule.rule.flags = 1;
+			rule_tmp.rule.rule.can_set_name = true;
 			continue;
 		}
 
@@ -1512,7 +1522,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else if (rules->resolve_names >= 0) {
 				rule_add_key(&rule_tmp, TK_A_OWNER, op, value, NULL);
 			}
-			rule_tmp.rule.rule.flags = 1;
+			rule_tmp.rule.rule.can_set_name = true;
 			continue;
 		}
 
@@ -1529,7 +1539,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else if (rules->resolve_names >= 0) {
 				rule_add_key(&rule_tmp, TK_A_GROUP, op, value, NULL);
 			}
-			rule_tmp.rule.rule.flags = 1;
+			rule_tmp.rule.rule.can_set_name = true;
 			continue;
 		}
 
@@ -1542,7 +1552,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				rule_add_key(&rule_tmp, TK_A_MODE_ID, op, NULL, &mode);
 			else
 				rule_add_key(&rule_tmp, TK_A_MODE, op, value, NULL);
-			rule_tmp.rule.rule.flags = 1;
+			rule_tmp.rule.rule.can_set_name = true;
 			continue;
 		}
 
@@ -1585,6 +1595,11 @@ static int add_rule(struct udev_rules *rules, char *line,
 					rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, 0, NULL, &on);
 					dbg(rules->udev, "inotify watch of device requested\n");
 				}
+			}
+			pos = strstr(value, "static_node=");
+			if (pos != NULL) {
+				rule_add_key(&rule_tmp, TK_A_STATIC_NODE, 0, &pos[strlen("static_node=")], NULL);
+				rule_tmp.rule.rule.has_static_node = true;
 			}
 			continue;
 		}
@@ -1907,7 +1922,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 {
 	char *key_value = &rules->buf[token->key.value_off];
 	char *pos;
-	int match = 0;
+	bool match = false;
 
 	if (val == NULL)
 		val = "";
@@ -2056,14 +2071,14 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 	/* loop through token list, match, run actions or forward to next rule */
 	cur = &rules->tokens[0];
 	rule = cur;
-	while (1) {
+	for (;;) {
 		dump_token(rules, cur);
 		switch (cur->type) {
 		case TK_RULE:
 			/* current rule */
 			rule = cur;
 			/* possibly skip rules which want to set NAME, SYMLINK, OWNER, GROUP, MODE */
-			if (!can_set_name && rule->rule.flags)
+			if (!can_set_name && rule->rule.can_set_name)
 				goto nomatch;
 			esc = ESCAPE_UNSET;
 			break;
@@ -2083,14 +2098,14 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			{
 				size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
 				struct udev_list_entry *list_entry;
-				int match = 0;
+				bool match = false;
 
 				udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
 					const char *devlink;
 
 					devlink =  &udev_list_entry_get_name(list_entry)[devlen];
 					if (match_key(rules, cur, devlink) == 0) {
-						match = 1;
+						match = true;
 						break;
 					}
 				}
@@ -2348,7 +2363,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				if (event->owner_final)
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
-					event->owner_final = 1;
+					event->owner_final = true;
 				udev_event_apply_format(event, &rules->buf[cur->key.value_off], owner, sizeof(owner));
 				event->uid = util_lookup_user(event->udev, owner);
 				info(event->udev, "OWNER %u %s:%u\n",
@@ -2364,7 +2379,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				if (event->group_final)
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
-					event->group_final = 1;
+					event->group_final = true;
 				udev_event_apply_format(event, &rules->buf[cur->key.value_off], group, sizeof(group));
 				event->gid = util_lookup_group(event->udev, group);
 				info(event->udev, "GROUP %u %s:%u\n",
@@ -2381,12 +2396,12 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				if (event->mode_final)
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
-					event->mode_final = 1;
+					event->mode_final = true;
 				udev_event_apply_format(event, &rules->buf[cur->key.value_off], mode, sizeof(mode));
 				event->mode = strtol(mode, &endptr, 8);
 				if (endptr[0] != '\0') {
-					err(event->udev, "invalide mode '%s' set default mode 0660\n", mode);
-					event->mode = 0660;
+					err(event->udev, "invalide mode '%s' set default mode 0600\n", mode);
+					event->mode = 0600;
 				}
 				info(event->udev, "MODE %#o %s:%u\n",
 				     event->mode,
@@ -2398,7 +2413,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (event->owner_final)
 				break;
 			if (cur->key.op == OP_ASSIGN_FINAL)
-				event->owner_final = 1;
+				event->owner_final = true;
 			event->uid = cur->key.uid;
 			info(event->udev, "OWNER %u %s:%u\n",
 			     event->uid,
@@ -2409,7 +2424,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (event->group_final)
 				break;
 			if (cur->key.op == OP_ASSIGN_FINAL)
-				event->group_final = 1;
+				event->group_final = true;
 			event->gid = cur->key.gid;
 			info(event->udev, "GROUP %u %s:%u\n",
 			     event->gid,
@@ -2420,12 +2435,14 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (event->mode_final)
 				break;
 			if (cur->key.op == OP_ASSIGN_FINAL)
-				event->mode_final = 1;
+				event->mode_final = true;
 			event->mode = cur->key.mode;
 			info(event->udev, "MODE %#o %s:%u\n",
 			     event->mode,
 			     &rules->buf[rule->rule.filename_off],
 			     rule->rule.filename_line);
+			break;
+		case TK_A_STATIC_NODE:
 			break;
 		case TK_A_ENV:
 			{
@@ -2460,7 +2477,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				if (event->name_final)
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
-					event->name_final = 1;
+					event->name_final = true;
 				udev_event_apply_format(event, name, name_str, sizeof(name_str));
 				if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
 					count = udev_util_replace_chars(name_str, "/");
@@ -2487,7 +2504,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				if (major(udev_device_get_devnum(event->dev)) == 0)
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
-					event->devlink_final = 1;
+					event->devlink_final = true;
 				if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
 					udev_device_cleanup_devlinks_list(event->dev);
 
@@ -2590,5 +2607,77 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		cur = rule + rule->rule.token_count;
 		dbg(rules->udev, "forward to rule: %u\n",
 		                 (unsigned int) (cur - rules->tokens));
+	}
+}
+
+void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
+{
+	struct token *cur;
+	struct token *rule;
+	uid_t uid = 0;
+	gid_t gid = 0;
+	mode_t mode = 0;
+
+	if (rules->tokens == NULL)
+		return;
+
+	cur = &rules->tokens[0];
+	rule = cur;
+	for (;;) {
+		switch (cur->type) {
+		case TK_RULE:
+			/* current rule */
+			rule = cur;
+
+			/* skip rules without a static_node tag */
+			if (!rule->rule.has_static_node)
+				goto next;
+
+			uid = 0;
+			gid = 0;
+			mode = 0;
+			break;
+		case TK_A_OWNER_ID:
+			uid = cur->key.uid;
+			break;
+		case TK_A_GROUP_ID:
+			gid = cur->key.gid;
+			break;
+		case TK_A_MODE_ID:
+			mode = cur->key.mode;
+			break;
+		case TK_A_STATIC_NODE: {
+			char filename[UTIL_PATH_SIZE];
+			struct stat stats;
+			/* we assure, that the permissions tokens are sorted before the static token */
+			if (mode == 0 && uid == 0 && gid == 0)
+				goto next;
+			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(rules->udev), "/",
+				      &rules->buf[cur->key.value_off], NULL);
+			if (stat(filename, &stats) != 0)
+				goto next;
+			if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))
+				goto next;
+			if (mode != 0 && mode != (stats.st_mode & 0777)) {
+				chmod(filename, mode);
+				info(rules->udev, "chmod '%s' %#o\n", filename, mode);
+			}
+			if ((uid != 0 && uid != stats.st_uid) || (gid != 0 && gid != stats.st_gid)) {
+				chown(filename, uid, gid);
+				info(rules->udev, "chown '%s' %u %u\n", filename, uid, gid);
+			}
+			utimensat(AT_FDCWD, filename, NULL, 0);
+			break;
+		}
+		case TK_END:
+			return;
+		}
+
+		cur++;
+		continue;
+next:
+		/* fast-forward to next rule */
+		cur = rule + rule->rule.token_count;
+		continue;
 	}
 }

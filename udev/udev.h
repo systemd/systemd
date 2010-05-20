@@ -43,13 +43,13 @@ struct udev_event {
 	uid_t uid;
 	gid_t gid;
 	struct udev_list_node run_list;
-	unsigned int group_final:1;
-	unsigned int owner_final:1;
-	unsigned int mode_final:1;
-	unsigned int name_final:1;
-	unsigned int devlink_final:1;
-	unsigned int run_final:1;
-	unsigned int inotify_watch:1;
+	bool group_final;
+	bool owner_final;
+	bool mode_final;
+	bool name_final;
+	bool devlink_final;
+	bool run_final;
+	bool inotify_watch;
 };
 
 struct udev_watch {
@@ -63,6 +63,7 @@ struct udev_rules;
 struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
 void udev_rules_unref(struct udev_rules *rules);
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event);
+void udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 /* udev-event.c */
 struct udev_event *udev_event_new(struct udev_device *dev);
