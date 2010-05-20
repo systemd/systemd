@@ -41,7 +41,6 @@ struct udev_event *udev_event_new(struct udev_device *dev)
 	event->dev = dev;
 	event->udev = udev_device_get_udev(dev);
 	udev_list_init(&event->run_list);
-	event->mode = 0660;
 	dbg(event->udev, "allocated event %p\n", event);
 	return event;
 }
@@ -644,6 +643,12 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			if (event->dev_db != NULL)
 				udev_node_update_old_links(dev, event->dev_db);
 
+			if (event->mode == 0) {
+				if (event->gid > 0)
+					event->mode = 0660;
+				else
+					event->mode = 0600;
+			}
 			err = udev_node_add(dev, event->mode, event->uid, event->gid);
 		}
 
