@@ -53,7 +53,7 @@ void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int 
 	if (matchpathcon(file, mode, &scontext) < 0) {
 		err(udev, "matchpathcon(%s) failed\n", file);
 		return;
-	} 
+	}
 	if (lsetfilecon(file, scontext) < 0)
 		err(udev, "setfilecon %s failed: %m\n", file);
 	freecon(scontext);
@@ -65,6 +65,7 @@ void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned i
 
 	if (!selinux_enabled)
 		return;
+
 	if (matchpathcon(file, mode, &scontext) < 0) {
 		err(udev, "matchpathcon(%s) failed\n", file);
 		return;
@@ -80,4 +81,29 @@ void udev_selinux_resetfscreatecon(struct udev *udev)
 		return;
 	if (setfscreatecon(selinux_prev_scontext) < 0)
 		err(udev, "setfscreatecon failed: %m\n");
+}
+
+void udev_selinux_setfscreateconat(struct udev *udev, int dirfd, const char *file, unsigned int mode)
+{
+	char filename[UTIL_PATH_SIZE];
+
+	if (!selinux_enabled)
+		return;
+
+	/* resolve relative filename */
+	if (file[0] != '/') {
+		char procfd[UTIL_PATH_SIZE];
+		char target[UTIL_PATH_SIZE];
+		ssize_t len;
+
+		snprintf(procfd, sizeof(procfd), "/proc/%u/fd/%u", getpid(), dirfd);
+		len = readlink(procfd, target, sizeof(target));
+		if (len <= 0 || len == sizeof(target))
+			return;
+		target[len] = '\0';
+
+		util_strscpyl(filename, sizeof(filename), target, "/", file, NULL);
+		file = filename;
+	}
+	udev_selinux_setfscreatecon(udev, file, mode);
 }

@@ -449,29 +449,6 @@ static void worker_kill(struct udev *udev, int retain)
 	}
 }
 
-static int mem_size_mb(void)
-{
-	FILE *f;
-	char buf[4096];
-	long int memsize = -1;
-
-	f = fopen("/proc/meminfo", "r");
-	if (f == NULL)
-		return -1;
-
-	while (fgets(buf, sizeof(buf), f) != NULL) {
-		long int value;
-
-		if (sscanf(buf, "MemTotal: %ld kB", &value) == 1) {
-			memsize = value / 1024;
-			break;
-		}
-	}
-
-	fclose(f);
-	return memsize;
-}
-
 /* lookup event for identical, parent, child device */
 static bool is_devpath_busy(struct event *event)
 {
@@ -768,6 +745,130 @@ static void handle_signal(struct udev *udev, int signo)
 	}
 }
 
+static int copy_dir(struct udev *udev, DIR *dir_from, DIR *dir_to, int maxdepth)
+{
+	struct dirent *dent;
+
+	for (dent = readdir(dir_from); dent != NULL; dent = readdir(dir_from)) {
+		struct stat stats;
+
+		if (dent->d_name[0] == '.')
+			continue;
+		if (fstatat(dirfd(dir_from), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) != 0)
+			continue;
+
+		if (S_ISBLK(stats.st_mode) || S_ISCHR(stats.st_mode)) {
+			udev_selinux_setfscreateconat(udev, dirfd(dir_to), dent->d_name, stats.st_mode & 0777);
+			if (mknodat(dirfd(dir_to), dent->d_name, stats.st_mode, stats.st_rdev) == 0) {
+				fchmodat(dirfd(dir_to), dent->d_name, stats.st_mode & 0777, 0);
+				fchownat(dirfd(dir_to), dent->d_name, stats.st_uid, stats.st_gid, 0);
+			} else {
+				utimensat(dirfd(dir_to), dent->d_name, NULL, 0);
+			}
+			udev_selinux_resetfscreatecon(udev);
+		} else if (S_ISLNK(stats.st_mode)) {
+			char target[UTIL_PATH_SIZE];
+			ssize_t len;
+
+			len = readlinkat(dirfd(dir_from), dent->d_name, target, sizeof(target));
+			if (len <= 0 || len == (ssize_t)sizeof(target))
+				continue;
+			target[len] = '\0';
+			udev_selinux_setfscreateconat(udev, dirfd(dir_to), dent->d_name, S_IFLNK);
+			if (symlinkat(target, dirfd(dir_to), dent->d_name) < 0 && errno == EEXIST)
+				utimensat(dirfd(dir_to), dent->d_name, NULL, AT_SYMLINK_NOFOLLOW);
+			udev_selinux_resetfscreatecon(udev);
+		} else if (S_ISDIR(stats.st_mode)) {
+			DIR *dir2_from, *dir2_to;
+
+			if (maxdepth == 0)
+				continue;
+
+			udev_selinux_setfscreateconat(udev, dirfd(dir_to), dent->d_name, S_IFDIR|0755);
+			mkdirat(dirfd(dir_to), dent->d_name, 0755);
+			udev_selinux_resetfscreatecon(udev);
+
+			dir2_to = fdopendir(openat(dirfd(dir_to), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
+			if (dir2_to == NULL)
+				continue;
+
+			dir2_from = fdopendir(openat(dirfd(dir_from), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
+			if (dir2_from == NULL) {
+				closedir(dir2_to);
+				continue;
+			}
+
+			copy_dir(udev, dir2_from, dir2_to, maxdepth-1);
+
+			closedir(dir2_to);
+			closedir(dir2_from);
+		}
+	}
+
+	return 0;
+}
+
+static void prepare_dev(struct udev *udev)
+{
+	struct stdlinks {
+		const char *link;
+		const char *target;
+	};
+	static const struct stdlinks stdlinks[] = {
+		{ "core", "/proc/kcore" },
+		{ "fd", "/proc/fd" },
+		{ "stdin", "/proc/self/fd/0" },
+		{ "stdout", "/proc/self/fd/1" },
+		{ "stderr", "/proc/self/fd/2" },
+	};
+	unsigned int i;
+	DIR *dir_from, *dir_to;
+
+	dir_to = opendir(udev_get_dev_path(udev));
+	if (dir_to == NULL)
+		return;
+
+	/* create standard symlinks to /proc */
+	for (i = 0; i < ARRAY_SIZE(stdlinks); i++) {
+		udev_selinux_setfscreateconat(udev, dirfd(dir_to), stdlinks[i].link, S_IFLNK);
+		if (symlinkat(stdlinks[i].target, dirfd(dir_to), stdlinks[i].link) < 0 && errno == EEXIST)
+			utimensat(dirfd(dir_to), stdlinks[i].link, NULL, AT_SYMLINK_NOFOLLOW);
+		udev_selinux_resetfscreatecon(udev);
+	}
+
+	/* copy content from /lib/udev/devices to /dev */
+	dir_from = opendir(LIBEXECDIR "/devices");
+	if (dir_from != NULL) {
+		copy_dir(udev, dir_from, dir_to, 8);
+		closedir(dir_from);
+	}
+
+	closedir(dir_to);
+}
+
+static int mem_size_mb(void)
+{
+	FILE *f;
+	char buf[4096];
+	long int memsize = -1;
+
+	f = fopen("/proc/meminfo", "r");
+	if (f == NULL)
+		return -1;
+
+	while (fgets(buf, sizeof(buf), f) != NULL) {
+		long int value;
+
+		if (sscanf(buf, "MemTotal: %ld kB", &value) == 1) {
+			memsize = value / 1024;
+			break;
+		}
+	}
+
+	fclose(f);
+	return memsize;
+}
+
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
@@ -857,6 +958,8 @@ int main(int argc, char *argv[])
 		dup2(fd, STDOUT_FILENO);
 	if (write(STDERR_FILENO, 0, 0) < 0)
 		dup2(fd, STDERR_FILENO);
+
+	prepare_dev(udev);
 
 	/* init control socket, bind() ensures, that only one udevd instance is running */
 	udev_ctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
