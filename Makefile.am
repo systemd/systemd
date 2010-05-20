@@ -132,6 +132,15 @@ dist_systemunit_DATA += \
 	units/fedora/sysinit.service
 endif
 
+if TARGET_GENTOO
+dist_systemunit_DATA += \
+	units/gentoo/halt.service \
+	units/gentoo/killall.service \
+	units/gentoo/poweroff.service \
+	units/gentoo/reboot.service \
+	units/gentoo/xdm.service
+endif
+
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
 # list the .h files as dependencies if we want make dist to work.

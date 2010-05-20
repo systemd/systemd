@@ -1,0 +1,16 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Display Manager
+Before=graphical.target
+After=basic.target syslog.target messagebus.service haldaemon.service
+Conflicts=shutdown.target
+
+[Service]
+ExecStart=/etc/init.d/xdm start
+Type=simple
