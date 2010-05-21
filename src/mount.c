@@ -267,8 +267,11 @@ static int mount_verify(Mount *m) {
         char *e;
         assert(m);
 
-        if (UNIT(m)->meta.load_state != UNIT_LOADED)
+        if (m->meta.load_state != UNIT_LOADED)
                 return 0;
+
+        if (!m->from_etc_fstab && !m->from_fragment && !m->from_proc_self_mountinfo)
+                return -ENOENT;
 
         if (!(e = unit_name_from_path(m->where, ".mount")))
                 return -ENOMEM;
