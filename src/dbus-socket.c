@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+
 #include "dbus-unit.h"
 #include "dbus-socket.h"
 #include "dbus-execute.h"
@@ -43,10 +45,12 @@ static const char introspection[] =
         BUS_INTROSPECTABLE_INTERFACE
         "</node>";
 
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+
 DBusHandlerResult bus_socket_message_handler(Unit *u, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Socket", "BindIPv6Only",  bus_property_append_bool,     "b", &u->socket.bind_ipv6_only },
+                { "org.freedesktop.systemd1.Socket", "BindIPv6Only",  bus_socket_append_bind_ipv6_only, "s", &u->socket.bind_ipv6_only },
                 { "org.freedesktop.systemd1.Socket", "Backlog",       bus_property_append_unsigned, "u", &u->socket.backlog },
                 { "org.freedesktop.systemd1.Socket", "TimeoutUSec",   bus_property_append_usec,     "t", &u->socket.timeout_usec },
                 /* ExecCommand */

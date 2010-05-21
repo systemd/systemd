@@ -50,7 +50,9 @@ typedef struct SocketAddress {
 typedef enum SocketAddressBindIPv6Only {
         SOCKET_ADDRESS_DEFAULT,
         SOCKET_ADDRESS_BOTH,
-        SOCKET_ADDRESS_IPV6_ONLY
+        SOCKET_ADDRESS_IPV6_ONLY,
+        _SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX,
+        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -1
 } SocketAddressBindIPv6Only;
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
@@ -75,5 +77,8 @@ bool socket_address_is(const SocketAddress *a, const char *s);
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b);
 
 bool socket_address_needs_mount(const SocketAddress *a, const char *prefix);
+
+const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b);
+SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s);
 
 #endif

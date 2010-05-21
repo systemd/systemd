@@ -37,8 +37,6 @@
 
 * provide sysv-like command line utilities
 
-* Add OnlyByDependency
-
 * ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
 
@@ -48,9 +46,9 @@
    - nscd     DONE
    - dbus     DONE
    - rsyslog  DONE
-   - rpcbind (/var/run/rpcbind.sock!)
-   - avahi-daemon (/var/run/avahi-daemon/socket)
-   - cups
+   - rpcbind (/var/run/rpcbind.sock!) DONE
+   - cups     DONE
+   - avahi-daemon (/var/run/avahi-daemon/socket) DONE
    - ssh      CLASSIC
    - postfix, saslauthd
    - apache/samba
@@ -63,7 +61,7 @@
 * Figure out which signal handlers we actually have to reset in the
   forked off child
 
-* loopback-setup is borked for ipv6
+* Add code to systemctl to wait for an operation to finish
 
 Regularly:
 

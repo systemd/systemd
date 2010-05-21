@@ -252,8 +252,8 @@ static int config_parse_socket_bind(
                 void *data,
                 void *userdata) {
 
-        int r;
         Socket *s;
+        SocketAddressBindIPv6Only b;
 
         assert(filename);
         assert(lvalue);
@@ -262,12 +262,17 @@ static int config_parse_socket_bind(
 
         s = (Socket*) data;
 
-        if ((r = parse_boolean(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse bind IPv6 only value: %s", filename, line, rvalue);
-                return r;
-        }
+        if ((b = socket_address_bind_ipv6_only_from_string(rvalue)) < 0) {
+                int r;
 
-        s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
+                if ((r = parse_boolean(rvalue)) < 0) {
+                        log_error("[%s:%u] Failed to parse bind IPv6 only value: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+
+                s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
+        } else
+                s->bind_ipv6_only = b;
 
         return 0;
 }

@@ -70,7 +70,6 @@ struct SocketPort {
 
         SocketAddress address;
         char *path;
-
         Watch fd_watch;
 
         LIST_FIELDS(SocketPort, port);
@@ -82,7 +81,7 @@ struct Socket {
         LIST_HEAD(SocketPort, ports);
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
-        bool bind_ipv6_only;
+        SocketAddressBindIPv6Only bind_ipv6_only;
         unsigned backlog;
 
         usec_t timeout_usec;

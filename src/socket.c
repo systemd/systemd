@@ -290,7 +290,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, socket_state_to_string(s->state),
-                prefix, yes_no(s->bind_ipv6_only),
+                prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
                 prefix, s->backlog,
                 prefix, kill_mode_to_string(s->kill_mode),
                 prefix, s->socket_mode,

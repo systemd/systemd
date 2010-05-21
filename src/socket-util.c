@@ -466,3 +466,11 @@ bool socket_address_needs_mount(const SocketAddress *a, const char *prefix) {
 
         return path_startswith(a->sockaddr.un.sun_path, prefix);
 }
+
+static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
+        [SOCKET_ADDRESS_DEFAULT] = "default",
+        [SOCKET_ADDRESS_BOTH] = "both",
+        [SOCKET_ADDRESS_IPV6_ONLY] = "ipv6-only"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
