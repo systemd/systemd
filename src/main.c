@@ -37,6 +37,7 @@
 #include "mount-setup.h"
 #include "hostname-setup.h"
 #include "loopback-setup.h"
+#include "kmod-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 
@@ -639,6 +640,7 @@ int main(int argc, char *argv[]) {
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
         if (running_as == MANAGER_INIT) {
+                kmod_setup();
                 hostname_setup();
                 loopback_setup();
         }

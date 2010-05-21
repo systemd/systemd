@@ -63,7 +63,7 @@
 
 * Add code to systemctl to wait for an operation to finish
 
-* kmod-setup.c
+* update to new libudev/tags
 
 Regularly:
 

@@ -188,6 +188,7 @@ COMMON_SOURCES = \
 	src/mount-setup.c \
 	src/hostname-setup.c \
 	src/loopback-setup.c \
+	src/kmod-setup.c \
 	src/utmp-wtmp.c \
 	src/specifier.c \
 	src/unit-name.c \
