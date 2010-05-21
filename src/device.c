@@ -144,30 +144,18 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
 }
 
 static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
-        const char *dn, *wants, *sysfs, *expose, *model, *alias;
+        const char *dn, *wants, *sysfs, *model, *alias;
         Unit *u = NULL;
         int r;
         char *w, *state;
         size_t l;
         bool delete;
         struct udev_list_entry *item = NULL, *first = NULL;
-        int b;
 
         assert(m);
 
         if (!(sysfs = udev_device_get_syspath(dev)))
                 return -ENOMEM;
-
-        if (!(expose = udev_device_get_property_value(dev, "SYSTEMD_EXPOSE")))
-                return 0;
-
-        if ((b = parse_boolean(expose)) < 0) {
-                log_error("Failed to parse SYSTEMD_EXPOSE udev property for device %s: %s", sysfs, expose);
-                return 0;
-        }
-
-        if (!b)
-                return 0;
 
         /* Check whether this entry is even relevant for us. */
         dn = udev_device_get_devnode(dev);
@@ -365,6 +353,11 @@ static int device_enumerate(Manager *m) {
                         goto fail;
                 }
 
+                if (udev_monitor_filter_add_match_tag(m->udev_monitor, "systemd") < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
                 if (udev_monitor_enable_receiving(m->udev_monitor) < 0) {
                         r = -EIO;
                         goto fail;
@@ -383,6 +376,10 @@ static int device_enumerate(Manager *m) {
 
         if (!(e = udev_enumerate_new(m->udev))) {
                 r = -ENOMEM;
+                goto fail;
+        }
+        if (udev_enumerate_add_match_tag(e, "systemd") < 0) {
+                r = -EIO;
                 goto fail;
         }
 

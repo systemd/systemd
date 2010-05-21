@@ -7,10 +7,10 @@
 
 ACTION!="add|change", GOTO="systemd_end"
 
-KERNEL=="tty[0-9]|tty1[0-2]", ENV{SYSTEMD_EXPOSE}="1"
-KERNEL=="ttyS*", ENV{SYSTEMD_EXPOSE}="1"
+KERNEL=="tty[0-9]|tty1[0-2]", TAG="systemd"
+KERNEL=="ttyS*", TAG="systemd"
 
-SUBSYSTEM=="block", ENV{SYSTEMD_EXPOSE}="1"
+SUBSYSTEM=="block", TAG="systemd"
 
 # We need a hardware independent way to identify network devices. We
 # use the /sys/subsystem path for this. Current vanilla kernels don't
@@ -23,6 +23,6 @@ SUBSYSTEM=="block", ENV{SYSTEMD_EXPOSE}="1"
 #
 # http://git.kernel.org/?p=linux/hotplug/udev.git;a=blob;f=libudev/libudev-enumerate.c;h=da831449dcaf5e936a14409e8e68ab12d30a98e2;hb=HEAD#l742
 
-SUBSYSTEM=="net", KERNEL!="lo", ENV{SYSTEMD_EXPOSE}="1", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/%k"
+SUBSYSTEM=="net", KERNEL!="lo", TAG="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/%k"
 
 LABEL="systemd_end"

@@ -92,7 +92,7 @@ AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers n
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
-PKG_CHECK_MODULES(UDEV, [ libudev ])
+PKG_CHECK_MODULES(UDEV, [ libudev >= 154 ])
 AC_SUBST(UDEV_CFLAGS)
 AC_SUBST(UDEV_LIBS)
 
