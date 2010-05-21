@@ -46,8 +46,9 @@
 
    - uuidd    DONE
    - nscd     DONE
+   - dbus     DONE
    - rpcbind (/var/run/rpcbind.sock!)
-   - dbus
+   - avahi-daemon (/var/run/avahi-daemon/socket)
    - rsyslog
    - cups
    - ssh      CLASSIC
@@ -55,13 +56,14 @@
    - apache/samba
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
-   - avahi-daemon (/var/run/avahi-daemon/socket)
    - distccd
 
 * teach dbus to talk to systemd when autospawning services
 
 * Figure out which signal handlers we actually have to reset in the
   forked off child
+
+* loopback-setup is borked for ipv6
 
 Regularly:
 

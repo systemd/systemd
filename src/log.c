@@ -312,31 +312,49 @@ static int log_dispatch(
         const char*file,
         int line,
         const char *func,
-        const char *buffer) {
+        char *buffer) {
 
-        int r;
+        int r = 0;
 
-        if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
-            log_target == LOG_TARGET_SYSLOG) {
+        do {
+                char *e;
+                int k;
 
-                if ((r = write_to_syslog(level, file, line, func, buffer)) < 0) {
-                        log_close_syslog();
-                        log_open_kmsg();
-                } else if (r > 0)
-                        return r;
-        }
+                buffer += strspn(buffer, NEWLINE);
 
-        if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
-            log_target == LOG_TARGET_KMSG) {
+                if (buffer[0] == 0)
+                        break;
 
-                if ((r = write_to_kmsg(level, file, line, func, buffer)) < 0) {
-                        log_close_kmsg();
-                        log_open_console();
-                } else if (r > 0)
-                        return r;
-        }
+                if ((e = strpbrk(buffer, NEWLINE)))
+                        *(e++) = 0;
 
-        return write_to_console(level, file, line, func, buffer);
+                if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                    log_target == LOG_TARGET_SYSLOG) {
+
+                        if ((r = write_to_syslog(level, file, line, func, buffer)) < 0) {
+                                log_close_syslog();
+                                log_open_kmsg();
+                        } else if (r > 0)
+                                r++;
+                }
+
+                if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                    log_target == LOG_TARGET_KMSG) {
+
+                        if ((r = write_to_kmsg(level, file, line, func, buffer)) < 0) {
+                                log_close_kmsg();
+                                log_open_console();
+                        } else if (r > 0)
+                                r++;
+                }
+
+                if ((k = write_to_console(level, file, line, func, buffer)) < 0)
+                        return k;
+
+                buffer = e;
+        } while (buffer);
+
+        return r;
 }
 
 int log_meta(
