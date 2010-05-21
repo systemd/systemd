@@ -169,7 +169,7 @@ int sd_is_socket(int fd, int type, int listening) {
                 if (l != sizeof(accepting))
                         return -EINVAL;
 
-                if (!accepting == !listening)
+                if (!accepting != !listening)
                         return 0;
         }
 
