@@ -47,9 +47,9 @@
    - uuidd    DONE
    - nscd     DONE
    - dbus     DONE
+   - rsyslog  DONE
    - rpcbind (/var/run/rpcbind.sock!)
    - avahi-daemon (/var/run/avahi-daemon/socket)
-   - rsyslog
    - cups
    - ssh      CLASSIC
    - postfix, saslauthd

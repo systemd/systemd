@@ -73,24 +73,26 @@ int sd_listen_fds(int unset_environment);
 int sd_is_fifo(int fd, const char *path);
 
 /* Helper call for identifying a passed file descriptor. Returns 1 if
- * the file descriptor is a socket of the specified type (SOCK_DGRAM,
- * SOCK_STREAM, ...), 0 otherwise. If type is 0 a socket type check
- * will not be done and the call only verifies if the file descriptor
- * refers to a socket. If listening is > 0 it is verified that the
- * socket is in listening mode. (i.e. listen() has been called) If
- * listening is == 0 it is verified that the socket is not in
- * listening mode. If listening is < 0 no listening mode check is
- * done. Returns a negative errno style error code on failure. */
-int sd_is_socket(int fd, int type, int listening);
+ * the file descriptor is a socket of the specified family (AF_INET,
+ * ...) and type (SOCK_DGRAM, SOCK_STREAM, ...), 0 otherwise. If
+ * family is 0 a socket family check will not be done. If type is 0 a
+ * socket type check will not be done and the call only verifies if
+ * the file descriptor refers to a socket. If listening is > 0 it is
+ * verified that the socket is in listening mode. (i.e. listen() has
+ * been called) If listening is == 0 it is verified that the socket is
+ * not in listening mode. If listening is < 0 no listening mode check
+ * is done. Returns a negative errno style error code on failure. */
+int sd_is_socket(int fd, int family, int type, int listening);
 
 /* Helper call for identifying a passed file descriptor. Returns 1 if
- * the file descriptor is an Internet socket (either AF_INET or
- * AF_INET6) of the specified type (SOCK_DGRAM, SOCK_STREAM, ...), 0
- * otherwise. If type is 0 a socket type check will not be done. If
- * port is 0 a socket port check will not be done. The listening flag
- * is used the same way as in sd_is_socket(). Returns a negative errno
- * style error code on failure. */
-int sd_is_socket_inet(int fd, int type, int listening, uint16_t port);
+ * the file descriptor is an Internet socket, of the specified family
+ * (either AF_INET or AF_INET6) of the specified type (SOCK_DGRAM,
+ * SOCK_STREAM, ...), 0 otherwise. If version is 0 a protocol version
+ * check is not done. If type is 0 a socket type check will not be
+ * done. If port is 0 a socket port check will not be done. The
+ * listening flag is used the same way as in sd_is_socket(). Returns a
+ * negative errno style error code on failure. */
+int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port);
 
 /* Helper call for identifying a passed file descriptor. Returns 1 if
  * the file descriptor is an AF_UNIX socket of the specified type

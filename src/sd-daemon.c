@@ -133,7 +133,7 @@ int sd_is_fifo(int fd, const char *path) {
         return 1;
 }
 
-int sd_is_socket(int fd, int type, int listening) {
+static int sd_is_socket_internal(int fd, int type, int listening) {
         struct stat st_fd;
 
         if (fd < 0 || type < 0)
@@ -176,18 +176,51 @@ int sd_is_socket(int fd, int type, int listening) {
         return 1;
 }
 
-int sd_is_socket_inet(int fd, int type, int listening, uint16_t port) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_in in4;
-                struct sockaddr_in6 in6;
-                struct sockaddr_un un;
-                struct sockaddr_storage storage;
-        } sockaddr;
+union sockaddr_union {
+        struct sockaddr sa;
+        struct sockaddr_in in4;
+        struct sockaddr_in6 in6;
+        struct sockaddr_un un;
+        struct sockaddr_storage storage;
+};
+
+int sd_is_socket(int fd, int family, int type, int listening) {
+        int r;
+
+        if (family < 0)
+                return -EINVAL;
+
+        if ((r = sd_is_socket_internal(fd, type, listening)) <= 0)
+                return r;
+
+        if (family > 0) {
+                union sockaddr_union sockaddr;
+                socklen_t l;
+
+                memset(&sockaddr, 0, sizeof(sockaddr));
+                l = sizeof(sockaddr);
+
+                if (getsockname(fd, &sockaddr.sa, &l) < 0)
+                        return -errno;
+
+                if (l < sizeof(sa_family_t))
+                        return -EINVAL;
+
+                return sockaddr.sa.sa_family == family;
+        }
+
+        return 1;
+}
+
+int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port) {
+        union sockaddr_union sockaddr;
         socklen_t l;
         int r;
 
-        if ((r = sd_is_socket(fd, type, listening)) <= 0)
+        if (family != 0 && family != AF_INET && family != AF_INET6)
+                return -EINVAL;
+
+        if ((r = sd_is_socket_internal(fd, type, listening)) <= 0)
                 return r;
 
         memset(&sockaddr, 0, sizeof(sockaddr));
@@ -196,12 +229,16 @@ int sd_is_socket_inet(int fd, int type, int listening, uint16_t port) {
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
 
-        if (l < sizeof(struct sockaddr))
+        if (l < sizeof(sa_family_t))
                 return -EINVAL;
 
         if (sockaddr.sa.sa_family != AF_INET &&
             sockaddr.sa.sa_family != AF_INET6)
                 return 0;
+
+        if (family > 0)
+                if (sockaddr.sa.sa_family != family)
+                        return 0;
 
         if (port > 0) {
                 if (sockaddr.sa.sa_family == AF_INET) {
@@ -221,17 +258,11 @@ int sd_is_socket_inet(int fd, int type, int listening, uint16_t port) {
 }
 
 int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_in in4;
-                struct sockaddr_in6 in6;
-                struct sockaddr_un un;
-                struct sockaddr_storage storage;
-        } sockaddr;
+        union sockaddr_union sockaddr;
         socklen_t l;
         int r;
 
-        if ((r = sd_is_socket(fd, type, listening)) <= 0)
+        if ((r = sd_is_socket_internal(fd, type, listening)) <= 0)
                 return r;
 
         memset(&sockaddr, 0, sizeof(sockaddr));

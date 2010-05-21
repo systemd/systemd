@@ -428,7 +428,7 @@ static int server_init(Server *s, unsigned n_sockets) {
 
                 fd = SD_LISTEN_FDS_START+i;
 
-                if ((r = sd_is_socket(fd, SOCK_STREAM, 1)) < 0) {
+                if ((r = sd_is_socket(fd, AF_UNSPEC, SOCK_STREAM, 1)) < 0) {
                         log_error("Failed to determine file descriptor type: %s", strerror(-r));
                         goto fail;
                 }
