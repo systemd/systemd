@@ -783,7 +783,11 @@ int exec_spawn(ExecCommand *command,
 
                 /* child */
 
-                reset_all_signal_handlers();
+                /* We reset exactly these two signals, since they are
+                 * the only ones we set to SIG_IGN in the main
+                 * daemon. All others */
+                default_signals(SIGNALS_CRASH_HANLDER,
+                                SIGNALS_IGNORE, -1);
 
                 if (sigemptyset(&ss) < 0 ||
                     sigprocmask(SIG_SETMASK, &ss, NULL) < 0) {

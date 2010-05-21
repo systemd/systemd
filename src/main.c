@@ -165,12 +165,7 @@ static void install_crash_handler(void) {
         sa.sa_handler = crash;
         sa.sa_flags = SA_NODEFER;
 
-        assert_se(sigaction(SIGSEGV, &sa, NULL) == 0);
-        assert_se(sigaction(SIGILL, &sa, NULL) == 0);
-        assert_se(sigaction(SIGFPE, &sa, NULL) == 0);
-        assert_se(sigaction(SIGBUS, &sa, NULL) == 0);
-        assert_se(sigaction(SIGQUIT, &sa, NULL) == 0);
-        assert_se(sigaction(SIGABRT, &sa, NULL) == 0);
+        sigaction_many(&sa, SIGNALS_CRASH_HANLDER, -1);
 }
 
 static int make_null_stdio(void) {
@@ -569,8 +564,7 @@ int main(int argc, char *argv[]) {
         assert_se(reset_all_signal_handlers() == 0);
 
         /* If we are init, we can block sigkill. Yay. */
-        ignore_signal(SIGKILL);
-        ignore_signal(SIGPIPE);
+        ignore_signals(SIGNALS_IGNORE, -1);
 
         if (running_as != MANAGER_SESSION)
                 if (parse_proc_cmdline() < 0)

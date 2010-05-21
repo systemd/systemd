@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
 
 typedef uint64_t usec_t;
 
@@ -223,7 +224,9 @@ int release_terminal(void);
 
 int flush_fd(int fd);
 
-int ignore_signal(int sig);
+int ignore_signals(int sig, ...);
+int default_signals(int sig, ...);
+int sigaction_many(const struct sigaction *sa, ...);
 
 int close_pipe(int p[]);
 

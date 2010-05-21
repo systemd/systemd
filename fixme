@@ -23,8 +23,6 @@
 
 * reinvestigate random seed, hwclock
 
-* introduce serialized mode
-
 * "disabled" load state?
 
 * uid are 32bit
@@ -62,8 +60,6 @@
   forked off child
 
 * Add code to systemctl to wait for an operation to finish
-
-* update to new libudev/tags
 
 Regularly:
 
