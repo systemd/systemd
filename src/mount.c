@@ -936,7 +936,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_REMOUNTING_SIGKILL:
         case MOUNT_REMOUNTING_SIGTERM:
 
-                if (success && m->from_proc_self_mountinfo)
+                if (success)
                         mount_enter_mounted(m, true);
                 else if (m->from_proc_self_mountinfo)
                         mount_enter_mounted(m, false);
