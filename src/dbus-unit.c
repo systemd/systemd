@@ -281,6 +281,9 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                 int r;
                 char *path;
 
+                if (job_type == JOB_START && u->meta.only_by_dependency)
+                        return bus_send_error_reply(m, message, NULL, -EPERM);
+
                 if (!dbus_message_get_args(
                                     message,
                                     &error,

@@ -593,7 +593,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
-                "%s\tGC Check Good: %s\n",
+                "%s\tGC Check Good: %s\n"
+                "%s\tOnly By Dependency: %s\n",
                 prefix, u->meta.id,
                 prefix, unit_description(u),
                 prefix, strna(u->meta.instance),
@@ -603,7 +604,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp)),
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp)),
-                prefix, yes_no(unit_check_gc(u)));
+                prefix, yes_no(unit_check_gc(u)),
+                prefix, yes_no(u->meta.only_by_dependency));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);

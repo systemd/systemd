@@ -1268,6 +1268,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Unit"    },
                 { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Unit"    },
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
+                { "OnlyByDependency",       config_parse_bool,            &u->meta.only_by_dependency,                     "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },

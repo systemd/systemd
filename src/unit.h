@@ -136,6 +136,9 @@ struct Meta {
         UnitLoadState load_state;
         Unit *merged_into;
 
+        /* Refuse manual starting, allow starting only indirectly via dependency. */
+        bool only_by_dependency;
+
         char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
         char *instance;
 
