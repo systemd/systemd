@@ -9,3 +9,4 @@
 
 [Unit]
 Description=Shutdown
+OnlyByDependency=yes

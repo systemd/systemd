@@ -63,6 +63,8 @@
 
 * Add code to systemctl to wait for an operation to finish
 
+* kmod-setup.c
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()

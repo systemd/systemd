@@ -8,6 +8,7 @@
 [Unit]
 Description=Kill All Processes
 After=shutdown.target
+OnlyByDependency=yes
 
 [Service]
 Type=finish
