@@ -56,11 +56,6 @@
 
 * teach dbus to talk to systemd when autospawning services
 
-* Figure out which signal handlers we actually have to reset in the
-  forked off child
-
-* Add code to systemctl to wait for an operation to finish
-
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()

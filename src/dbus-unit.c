@@ -421,8 +421,11 @@ void bus_unit_send_removed_signal(Unit *u) {
 
         assert(u);
 
-        if (set_isempty(u->meta.manager->subscribed) || !u->meta.sent_dbus_new_signal)
+        if (set_isempty(u->meta.manager->subscribed))
                 return;
+
+        if (!u->meta.sent_dbus_new_signal)
+                bus_unit_send_change_signal(u);
 
         if (!(p = unit_dbus_path(u)))
                 goto oom;

@@ -108,6 +108,7 @@ struct Job {
         bool override:1;
         bool in_dbus_queue:1;
         bool sent_dbus_new_signal:1;
+        bool failed:1;
 };
 
 Job* job_new(Manager *m, JobType type, Unit *unit);

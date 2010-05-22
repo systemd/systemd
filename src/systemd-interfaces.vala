@@ -71,7 +71,7 @@ public interface Manager : DBus.Object {
         public abstract signal void unit_new(string id, ObjectPath path);
         public abstract signal void unit_removed(string id, ObjectPath path);
         public abstract signal void job_new(uint32 id, ObjectPath path);
-        public abstract signal void job_removed(uint32 id, ObjectPath path);
+        public abstract signal void job_removed(uint32 id, ObjectPath path, bool success);
 }
 
 [DBus (name = "org.freedesktop.systemd1.Unit")]

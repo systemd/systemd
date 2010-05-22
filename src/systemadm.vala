@@ -728,7 +728,7 @@ public class MainWindow : Window {
                 } while (unit_model.iter_next(ref iter));
         }
 
-        public void on_job_removed(uint32 id, ObjectPath path) {
+        public void on_job_removed(uint32 id, ObjectPath path, bool success) {
                 TreeIter iter;
                 if (!(job_model.get_iter_first(out iter)))
                         return;

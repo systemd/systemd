@@ -197,14 +197,18 @@ oom:
         log_error("Failed to allocate job change signal.");
 }
 
-void bus_job_send_removed_signal(Job *j) {
+void bus_job_send_removed_signal(Job *j, bool success) {
         char *p = NULL;
         DBusMessage *m = NULL;
+        dbus_bool_t b = success;
 
         assert(j);
 
-        if (set_isempty(j->manager->subscribed) || !j->sent_dbus_new_signal)
+        if (set_isempty(j->manager->subscribed))
                 return;
+
+        if (!j->sent_dbus_new_signal)
+                bus_job_send_change_signal(j);
 
         if (!(p = job_dbus_path(j)))
                 goto oom;
@@ -215,6 +219,7 @@ void bus_job_send_removed_signal(Job *j) {
         if (!dbus_message_append_args(m,
                                       DBUS_TYPE_UINT32, &j->id,
                                       DBUS_TYPE_OBJECT_PATH, &p,
+                                      DBUS_TYPE_BOOLEAN, &b,
                                       DBUS_TYPE_INVALID))
                 goto oom;
 

@@ -56,7 +56,7 @@ void job_free(Job *j) {
 
         /* Detach from next 'bigger' objects */
         if (j->installed) {
-                bus_job_send_removed_signal(j);
+                bus_job_send_removed_signal(j, !j->failed);
 
                 if (j->unit->meta.job == j) {
                         j->unit->meta.job = NULL;
@@ -476,6 +476,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 return 0;
         }
 
+        j->failed = !success;
         u = j->unit;
         t = j->type;
         job_free(j);

@@ -24,7 +24,11 @@ static string type = null;
 static bool all = false;
 static bool replace = false;
 static bool session = false;
-static Connection bus = null;
+static bool block = false;
+static Connection? bus = null;
+static List<ObjectPath> jobs = null;
+static MainLoop main_loop = null;
+static int exit_code = 0;
 
 public static int job_info_compare(void* key1, void* key2) {
         Manager.JobInfo *j1 = (Manager.JobInfo*) key1;
@@ -44,11 +48,11 @@ public static int unit_info_compare(void* key1, void* key2) {
         return Posix.strcmp(u1->id, u2->id);
 }
 
-public void on_unit_changed(Unit u) {
+public void monitor_on_unit_changed(Unit u) {
         stdout.printf("Unit %s changed.\n", u.id);
 }
 
-public void on_unit_new(string id, ObjectPath path) {
+public void monitor_on_unit_new(string id, ObjectPath path) {
         stdout.printf("Unit %s added.\n", id);
 
         Unit u = bus.get_object(
@@ -56,17 +60,17 @@ public void on_unit_new(string id, ObjectPath path) {
                         path,
                         "org.freedesktop.systemd1.Unit") as Unit;
 
-        u.changed += on_unit_changed;
+        u.changed += monitor_on_unit_changed;
 
         /* FIXME: We leak memory here */
         u.ref();
 }
 
-public void on_job_changed(Job j) {
+public void monitor_on_job_changed(Job j) {
         stdout.printf("Job %u changed.\n", j.id);
 }
 
-public void on_job_new(uint32 id, ObjectPath path) {
+public void monitor_on_job_new(uint32 id, ObjectPath path) {
         stdout.printf("Job %u added.\n", id);
 
         Job j = bus.get_object(
@@ -74,18 +78,34 @@ public void on_job_new(uint32 id, ObjectPath path) {
                         path,
                         "org.freedesktop.systemd1.Job") as Job;
 
-        j.changed += on_job_changed;
+        j.changed += monitor_on_job_changed;
 
         /* FIXME: We leak memory here */
         j.ref();
 }
 
-public void on_unit_removed(string id, ObjectPath path) {
+public void monitor_on_unit_removed(string id, ObjectPath path) {
         stdout.printf("Unit %s removed.\n", id);
 }
 
-public void on_job_removed(uint32 id, ObjectPath path) {
-        stdout.printf("Job %u removed.\n", id);
+public void monitor_on_job_removed(uint32 id, ObjectPath path, bool success) {
+        stdout.printf("Job %u removed (success=%i).\n", id, (int) success);
+}
+
+public void block_on_job_removed(uint32 id, ObjectPath path, bool success) {
+
+        for (unowned List<ObjectPath> i = jobs; i != null; i = i.next)
+                if (i.data == path) {
+                        jobs.remove_link(i);
+                        break;
+                }
+
+        if (jobs == null) {
+                if (!success)
+                        exit_code = 1;
+
+                main_loop.quit();
+        }
 }
 
 static const OptionEntry entries[] = {
@@ -94,11 +114,11 @@ static const OptionEntry entries[] = {
         { "replace", 0,   0,                   OptionArg.NONE,   out replace, "When installing a new job, replace existing conflicting ones", null },
         { "session", 0,   0,                   OptionArg.NONE,   out session, "Connect to session bus", null },
         { "system",  0,   OptionFlags.REVERSE, OptionArg.NONE,   out session, "Connect to system bus", null },
+        { "block",   0,   0,                   OptionArg.NONE,   out block,   "Wait until the operation finished", null },
         { null }
 };
 
 int main (string[] args) {
-
         OptionContext context = new OptionContext("[COMMAND [ARGUMENT...]]");
         context.add_main_entries(entries, null);
         context.set_description(
@@ -226,6 +246,9 @@ int main (string[] args) {
                                 return 1;
                         }
 
+                        if (block)
+                                manager.subscribe();
+
                         for (int i = 2; i < args.length; i++) {
 
                                 ObjectPath p = manager.load_unit(args[i]);
@@ -237,14 +260,19 @@ int main (string[] args) {
 
                                 string mode = replace ? "replace" : "fail";
 
+                                ObjectPath j = null;
+
                                 if (args[1] == "start")
-                                        u.start(mode);
+                                        j = u.start(mode);
                                 else if (args[1] == "stop")
-                                        u.stop(mode);
+                                        j = u.stop(mode);
                                 else if (args[1] == "restart")
-                                        u.restart(mode);
+                                        j = u.restart(mode);
                                 else if (args[1] == "reload")
-                                        u.reload(mode);
+                                        j = u.reload(mode);
+
+                                if (block)
+                                        jobs.append(j);
                         }
 
                 } else if (args[1] == "isolate") {
@@ -261,19 +289,24 @@ int main (string[] args) {
                                         p,
                                         "org.freedesktop.systemd1.Unit") as Unit;
 
-                        u.start("isolate");
+                        ObjectPath j = u.start("isolate");
+
+                        if (block) {
+                                manager.subscribe();
+                                jobs.append(j);
+                        }
 
                 } else if (args[1] == "monitor") {
 
                         manager.subscribe();
 
-                        manager.unit_new += on_unit_new;
-                        manager.unit_removed += on_unit_removed;
-                        manager.job_new += on_job_new;
-                        manager.job_removed += on_job_removed;
+                        manager.unit_new += monitor_on_unit_new;
+                        manager.unit_removed += monitor_on_unit_removed;
+                        manager.job_new += monitor_on_job_new;
+                        manager.job_removed += monitor_on_job_removed;
 
-                        MainLoop l = new MainLoop();
-                        l.run();
+                        main_loop = new MainLoop();
+                        main_loop.run();
 
                 } else if (args[1] == "dump")
                         stdout.puts(manager.dump());
@@ -313,9 +346,17 @@ int main (string[] args) {
                         return 1;
                 }
 
+                if (jobs != null && block) {
+                        manager.job_removed += block_on_job_removed;
+
+                        main_loop = new MainLoop();
+                        main_loop.run();
+                }
+
         } catch (DBus.Error e) {
                 stderr.printf("%s\n".printf(e.message));
+                return 1;
         }
 
-        return 0;
+        return exit_code;
 }

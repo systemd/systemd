@@ -81,6 +81,7 @@
         "  <signal name=\"JobRemoved\">"                                \
         "   <arg name=\"id\" type=\"u\"/>"                              \
         "   <arg name=\"job\" type=\"o\"/>"                             \
+        "   <arg name=\"success\" type=\"b\"/>"                         \
         "  </signal>"                                                   \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>"     \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>"   \
