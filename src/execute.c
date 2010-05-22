@@ -783,10 +783,12 @@ int exec_spawn(ExecCommand *command,
 
                 /* child */
 
-                /* We reset exactly these two signals, since they are
-                 * the only ones we set to SIG_IGN in the main
-                 * daemon. All others */
-                default_signals(SIGNALS_CRASH_HANLDER,
+                /* We reset exactly these signals, since they are the
+                 * only ones we set to SIG_IGN in the main daemon. All
+                 * others we leave untouched because we set them to
+                 * SIG_DFL or a valid handler initially, both of which
+                 * will be demoted to SIG_DFL. */
+                default_signals(SIGNALS_CRASH_HANDLER,
                                 SIGNALS_IGNORE, -1);
 
                 if (sigemptyset(&ss) < 0 ||

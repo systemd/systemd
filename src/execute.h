@@ -42,7 +42,7 @@ struct CGroupBonding;
 #define LOGGER_SOCKET "/org/freedesktop/systemd1/logger"
 
 /* This doesn't really belong here, but I couldn't find a better place to put this. */
-#define SIGNALS_CRASH_HANLDER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
+#define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGKILL,SIGPIPE
 
 typedef enum ExecInput {

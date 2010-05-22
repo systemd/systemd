@@ -165,7 +165,7 @@ static void install_crash_handler(void) {
         sa.sa_handler = crash;
         sa.sa_flags = SA_NODEFER;
 
-        sigaction_many(&sa, SIGNALS_CRASH_HANLDER, -1);
+        sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
 }
 
 static int make_null_stdio(void) {
