@@ -283,15 +283,33 @@ static int manager_find_paths(Manager *m) {
                 }
         }
 
+        if (m->unit_path)
+                if (!strv_path_canonicalize(m->unit_path))
+                        return -ENOMEM;
+
+        if (m->sysvinit_path)
+                if (!strv_path_canonicalize(m->sysvinit_path))
+                        return -ENOMEM;
+
+        if (m->sysvrcnd_path)
+                if (!strv_path_canonicalize(m->sysvrcnd_path))
+                        return -ENOMEM;
+
         strv_uniq(m->unit_path);
         strv_uniq(m->sysvinit_path);
         strv_uniq(m->sysvrcnd_path);
 
-        assert(!strv_isempty(m->unit_path));
-        if (!(t = strv_join(m->unit_path, "\n\t")))
-                return -ENOMEM;
-        log_debug("Looking for unit files in:\n\t%s", t);
-        free(t);
+        if (!strv_isempty(m->unit_path)) {
+
+                if (!(t = strv_join(m->unit_path, "\n\t")))
+                        return -ENOMEM;
+                log_debug("Looking for unit files in:\n\t%s", t);
+                free(t);
+        } else {
+                log_debug("Ignoring unit files.");
+                strv_free(m->unit_path);
+                m->unit_path = NULL;
+        }
 
         if (!strv_isempty(m->sysvinit_path)) {
 
@@ -300,8 +318,11 @@ static int manager_find_paths(Manager *m) {
 
                 log_debug("Looking for SysV init scripts in:\n\t%s", t);
                 free(t);
-        } else
+        } else {
                 log_debug("Ignoring SysV init scripts.");
+                strv_free(m->sysvinit_path);
+                m->sysvinit_path = NULL;
+        }
 
         if (!strv_isempty(m->sysvrcnd_path)) {
 
@@ -310,8 +331,11 @@ static int manager_find_paths(Manager *m) {
 
                 log_debug("Looking for SysV rcN.d links in:\n\t%s", t);
                 free(t);
-        } else
+        } else {
                 log_debug("Ignoring SysV rcN.d links.");
+                strv_free(m->sysvrcnd_path);
+                m->sysvrcnd_path = NULL;
+        }
 
         return 0;
 }

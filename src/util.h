@@ -138,7 +138,9 @@ bool is_path(const char *p);
 bool path_is_absolute(const char *p);
 char *path_make_absolute(const char *p, const char *prefix);
 char *path_make_absolute_cwd(const char *p);
+
 char **strv_path_make_absolute_cwd(char **l);
+char **strv_path_canonicalize(char **l);
 
 int reset_all_signal_handlers(void);
 

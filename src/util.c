@@ -652,6 +652,51 @@ char **strv_path_make_absolute_cwd(char **l) {
         return l;
 }
 
+char **strv_path_canonicalize(char **l) {
+        char **s;
+        unsigned k = 0;
+        bool enomem = false;
+
+        if (strv_isempty(l))
+                return l;
+
+        /* Goes through every item in the string list and canonicalize
+         * the path. This works in place and won't rollback any
+         * changes on failure. */
+
+        STRV_FOREACH(s, l) {
+                char *t, *u;
+
+                t = path_make_absolute_cwd(*s);
+                free(*s);
+
+                if (!t) {
+                        enomem = true;
+                        continue;
+                }
+
+                errno = 0;
+                u = canonicalize_file_name(t);
+                free(t);
+
+                if (!u) {
+                        if (errno == ENOMEM || !errno)
+                                enomem = true;
+
+                        continue;
+                }
+
+                l[k++] = u;
+        }
+
+        l[k] = NULL;
+
+        if (enomem)
+                return NULL;
+
+        return l;
+}
+
 int reset_all_signal_handlers(void) {
         int sig;
 
