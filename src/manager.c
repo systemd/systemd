@@ -163,6 +163,16 @@ static char** session_dirs(void) {
         } else if (home) {
                 if (asprintf(&data_home, "%s/.local/share/systemd/session", home) < 0)
                         goto fail;
+
+                /* There is really no need for two unit dirs in $HOME,
+                 * except to be fully compliant with the XDG spec. We
+                 * now try to link the two dirs, so that we can
+                 * minimize disk seeks a little. Further down we'll
+                 * then filter out this link, if it is actually is
+                 * one. */
+
+                mkdir_parents(data_home, 0777);
+                symlink("../../../.config/systemd/session", data_home);
         }
 
         if ((e = getenv("XDG_DATA_DIRS")))
