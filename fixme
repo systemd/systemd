@@ -56,6 +56,14 @@
 
 * teach dbus to talk to systemd when autospawning services
 
+* regnerate unit/sysv search paths on daemon reload
+
+* write utmp record a la upstart for processes
+
+* run PAM session stuff
+
+* tcpwrap
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()

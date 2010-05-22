@@ -89,8 +89,13 @@ dist_systemunit_DATA = \
 	units/dev-mqueue.mount \
 	units/proc-sys-fs-binfmt_misc.automount \
 	units/proc-sys-fs-binfmt_misc.mount \
+	units/sys-fs-fuse-connections.automount \
+	units/sys-fs-fuse-connections.mount \
 	units/sys-kernel-debug.automount \
 	units/sys-kernel-debug.mount \
+	units/sys-kernel-security.automount \
+	units/sys-kernel-security.mount \
+	units/var-lock.mount \
 	units/var-run.mount
 
 systemunit_DATA = \
@@ -475,11 +480,18 @@ install-data-hook:
 		rm -f getty.target && \
 		$(LN_S) $(systemunitdir)/getty.target getty.target )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
-		rm -f dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount && \
+		rm -f dev-hugepages.automount \
+			dev-mqueue.automount \
+			proc-sys-fs-binfmt_misc.automount \
+			sys-kernel-debug.automount \
+			sys-fs-fuse-connections.automount \
+			sys-kernel-security.automount && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
-		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount )
+		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
+		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
+		$(LN_S) ../sys-fs-fuse-connections.automount sys-fs-fuse-connections.automount )
 if TARGET_FEDORA
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
 		rm -f prefdm.service && \
