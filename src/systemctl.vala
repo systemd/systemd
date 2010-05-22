@@ -128,16 +128,17 @@ int main (string[] args) {
                         "  clear-jobs                      Cancel all jobs\n" +
                         "  load [NAME...]                  Load one or more units\n" +
                         "  cancel [JOB...]                 Cancel one or more jobs\n" +
-                        "  start [NAME...]                 Start on or more units\n" +
-                        "  stop [NAME...]                  Stop on or more units\n" +
-                        "  enter [NAME]                    Start one unit and stop all others\n" +
-                        "  restart [NAME...]               Restart on or more units\n" +
-                        "  reload [NAME...]                Reload on or more units\n" +
+                        "  start [NAME...]                 Start one or more units\n" +
+                        "  stop [NAME...]                  Stop one or more units\n" +
+                        "  restart [NAME...]               Restart one or more units\n" +
+                        "  reload [NAME...]                Reload one or more units\n" +
+                        "  isolate [NAME]                  Start one unit and stop all others\n" +
                         "  monitor                         Monitor unit/job changes\n" +
                         "  dump                            Dump server status\n" +
                         "  snapshot [NAME]                 Create a snapshot\n" +
                         "  daemon-reload                   Reload daemon configuration\n" +
                         "  daemon-reexecute                Reexecute daemon\n" +
+                        "  daemon-exit                     Ask the daemon to quit\n" +
                         "  show-environment                Dump environment\n" +
                         "  set-environment [NAME=VALUE...] Set one or more environment variables\n" +
                         "  unset-environment [NAME...]     Unset one or more environment variables\n");
@@ -299,6 +300,15 @@ int main (string[] args) {
                 } else if (args[1] == "monitor") {
 
                         manager.subscribe();
+
+                        var unit_list = manager.list_units();
+
+                        foreach (var i in unit_list) {
+                                monitor_on_unit_new(i.id, i.unit_path);
+
+                                if (i.job_id != 0)
+                                        monitor_on_job_new(i.job_id, i.job_path);
+                        }
 
                         manager.unit_new += monitor_on_unit_new;
                         manager.unit_removed += monitor_on_unit_removed;
