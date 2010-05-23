@@ -25,29 +25,34 @@
 #include "dbus-execute.h"
 #include "dbus-service.h"
 
-static const char introspection[] =
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-        "<node>"
-        BUS_UNIT_INTERFACE
-        BUS_PROPERTIES_INTERFACE
-        " <interface name=\"org.freedesktop.systemd1.Service\">"
-        "  <property name=\"Type\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"Restart\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"PIDFile\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>"
-        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>"
-        BUS_EXEC_CONTEXT_INTERFACE
-        "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>"
-        "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>"
-        "  <property name=\"ValidNoProcess\" type=\"b\" access=\"read\"/>"
-        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"MainPID\" type=\"u\" access=\"read\"/>"
-        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>"
-        "  <property name=\"SysVPath\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"BusName\" type=\"s\" access=\"read\"/>"
-        " </interface>"
-        BUS_INTROSPECTABLE_INTERFACE
-        "</node>";
+#define BUS_SERVICE_INTERFACE                                           \
+        " <interface name=\"org.freedesktop.systemd1.Service\">\n"      \
+        "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Restart\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"PIDFile\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_EXEC_CONTEXT_INTERFACE                                      \
+        "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"ValidNoProcess\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"MainPID\" type=\"u\" access=\"read\"/>\n"   \
+        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"SysVPath\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
+        " </interface>\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        BUS_UNIT_INTERFACE                                              \
+        BUS_SERVICE_INTERFACE                                           \
+        BUS_PROPERTIES_INTERFACE                                        \
+        BUS_INTROSPECTABLE_INTERFACE                                    \
+        "</node>\n"
+
+const char bus_service_interface[] = BUS_SERVICE_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);
@@ -74,5 +79,5 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusMessage *message) {
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, introspection, properties);
+        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
 }

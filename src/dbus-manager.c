@@ -26,77 +26,82 @@
 #include "dbus-manager.h"
 #include "strv.h"
 
+#define BUS_MANAGER_INTERFACE                                           \
+        " <interface name=\"org.freedesktop.systemd1.Manager\">\n"      \
+        "  <method name=\"GetUnit\">\n"                                 \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <method name=\"LoadUnit\">\n"                                \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetJob\">\n"                                  \
+        "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"ClearJobs\"/>\n"                              \
+        "  <method name=\"ListUnits\">\n"                               \
+        "   <arg name=\"units\" type=\"a(sssssouso)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"ListJobs\">\n"                                \
+        "   <arg name=\"jobs\" type=\"a(usssoo)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"Subscribe\"/>\n"                              \
+        "  <method name=\"Unsubscribe\"/>\n"                            \
+        "  <method name=\"Dump\"/>\n"                                   \
+        "  <method name=\"CreateSnapshot\">\n"                          \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg nane=\"cleanup\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <method name=\"Reload\"/>\n"                                 \
+        "  <method name=\"Reexecute\"/>\n"                              \
+        "  <method name=\"Exit\"/>\n"                                   \
+        "  <method name=\"SetEnvironment\">\n"                          \
+        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnsetEnvironment\">\n"                        \
+        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
+        "  </method>\n"                                                 \
+        "  <signal name=\"UnitNew\">\n"                                 \
+        "   <arg name=\"id\" type=\"s\"/>\n"                            \
+        "   <arg name=\"unit\" type=\"o\"/>\n"                          \
+        "  </signal>\n"                                                 \
+        "  <signal name=\"UnitRemoved\">\n"                             \
+        "   <arg name=\"id\" type=\"s\"/>\n"                            \
+        "   <arg name=\"unit\" type=\"o\"/>\n"                          \
+        "  </signal>\n"                                                 \
+        "  <signal name=\"JobNew\">\n"                                  \
+        "   <arg name=\"id\" type=\"u\"/>\n"                            \
+        "   <arg name=\"job\" type=\"o\"/>\n"                           \
+        "  </signal>\n"                                                 \
+        "  <signal name=\"JobRemoved\">\n"                              \
+        "   <arg name=\"id\" type=\"u\"/>\n"                            \
+        "   <arg name=\"job\" type=\"o\"/>\n"                           \
+        "   <arg name=\"success\" type=\"b\"/>\n"                       \
+        "  </signal>"                                                   \
+        "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"BootTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"LogLevel\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
+        "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>\n"     \
+        "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
+        " </interface>\n"
+
 #define INTROSPECTION_BEGIN                                             \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>"                                                        \
-        " <interface name=\"org.freedesktop.systemd1.Manager\">"        \
-        "  <method name=\"GetUnit\">"                                   \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>"           \
-        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>"          \
-        "  </method>"                                                   \
-        "  <method name=\"LoadUnit\">"                                  \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>"           \
-        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>"          \
-        "  </method>"                                                   \
-        "  <method name=\"GetJob\">"                                    \
-        "   <arg name=\"id\" type=\"u\" direction=\"in\"/>"             \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"           \
-        "  </method>"                                                   \
-        "  <method name=\"ClearJobs\"/>"                                \
-        "  <method name=\"ListUnits\">"                                 \
-        "   <arg name=\"units\" type=\"a(sssssouso)\" direction=\"out\"/>" \
-        "  </method>"                                                   \
-        "  <method name=\"ListJobs\">"                                  \
-        "   <arg name=\"jobs\" type=\"a(usssoo)\" direction=\"out\"/>"  \
-        "  </method>"                                                   \
-        "  <method name=\"Subscribe\"/>"                                \
-        "  <method name=\"Unsubscribe\"/>"                              \
-        "  <method name=\"Dump\"/>"                                     \
-        "  <method name=\"CreateSnapshot\">"                            \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>"           \
-        "   <arg nane=\"cleanup\" type=\"b\" direction=\"in\"/>"        \
-        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>"          \
-        "  </method>"                                                   \
-        "  <method name=\"Reload\"/>"                                   \
-        "  <method name=\"Reexecute\"/>"                                \
-        "  <method name=\"Exit\"/>"                                     \
-        "  <method name=\"SetEnvironment\">"                            \
-        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>"         \
-        "  </method>"                                                   \
-        "  <method name=\"UnsetEnvironment\">"                          \
-        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>"         \
-        "  </method>"                                                   \
-        "  <signal name=\"UnitNew\">"                                   \
-        "   <arg name=\"id\" type=\"s\"/>"                              \
-        "   <arg name=\"unit\" type=\"o\"/>"                            \
-        "  </signal>"                                                   \
-        "  <signal name=\"UnitRemoved\">"                               \
-        "   <arg name=\"id\" type=\"s\"/>"                              \
-        "   <arg name=\"unit\" type=\"o\"/>"                            \
-        "  </signal>"                                                   \
-        "  <signal name=\"JobNew\">"                                    \
-        "   <arg name=\"id\" type=\"u\"/>"                              \
-        "   <arg name=\"job\" type=\"o\"/>"                             \
-        "  </signal>"                                                   \
-        "  <signal name=\"JobRemoved\">"                                \
-        "   <arg name=\"id\" type=\"u\"/>"                              \
-        "   <arg name=\"job\" type=\"o\"/>"                             \
-        "   <arg name=\"success\" type=\"b\"/>"                         \
-        "  </signal>"                                                   \
-        "  <property name=\"Version\" type=\"s\" access=\"read\"/>"     \
-        "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>"   \
-        "  <property name=\"BootTimestamp\" type=\"t\" access=\"read\"/>" \
-        "  <property name=\"LogLevel\" type=\"s\" access=\"read\"/>"    \
-        "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>"   \
-        "  <property name=\"NNames\" type=\"u\" access=\"read\"/>"      \
-        "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>"       \
-        "  <property name=\"Environment\" type=\"as\" access=\"read\"/>" \
-        " </interface>"                                                 \
+        "<node>\n"                                                      \
+        BUS_MANAGER_INTERFACE                                           \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE
 
 #define INTROSPECTION_END                                               \
-        "</node>"
+        "</node>\n"
+
+const char bus_manager_interface[] = BUS_MANAGER_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
 

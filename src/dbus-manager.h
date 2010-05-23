@@ -26,4 +26,6 @@
 
 extern const DBusObjectPathVTable bus_manager_vtable;
 
+extern const char bus_manager_interface[];
+
 #endif

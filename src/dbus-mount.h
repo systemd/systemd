@@ -28,4 +28,6 @@
 
 DBusHandlerResult bus_mount_message_handler(Unit *u, DBusMessage *message);
 
+extern const char bus_mount_interface[];
+
 #endif

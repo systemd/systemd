@@ -32,6 +32,34 @@
 #include "dbus-unit.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
+#include "dbus-service.h"
+#include "dbus-socket.h"
+#include "dbus-target.h"
+#include "dbus-device.h"
+#include "dbus-mount.h"
+#include "dbus-automount.h"
+#include "dbus-snapshot.h"
+#include "dbus-swap.h"
+
+static const char bus_properties_interface[] = BUS_PROPERTIES_INTERFACE;
+static const char bus_introspectable_interface[] = BUS_INTROSPECTABLE_INTERFACE;
+
+const char *const bus_interface_table[] = {
+        "org.freedesktop.DBus.Properties",     bus_properties_interface,
+        "org.freedesktop.DBus.Introspectable", bus_introspectable_interface,
+        "org.freedesktop.systemd1.Manager",    bus_manager_interface,
+        "org.freedesktop.systemd1.Job",        bus_job_interface,
+        "org.freedesktop.systemd1.Unit",       bus_unit_interface,
+        "org.freedesktop.systemd1.Service",    bus_service_interface,
+        "org.freedesktop.systemd1.Socket",     bus_socket_interface,
+        "org.freedesktop.systemd1.Target",     bus_target_interface,
+        "org.freedesktop.systemd1.Device",     bus_device_interface,
+        "org.freedesktop.systemd1.Mount",      bus_mount_interface,
+        "org.freedesktop.systemd1.Automount",  bus_automount_interface,
+        "org.freedesktop.systemd1.Snapshot",   bus_snapshot_interface,
+        "org.freedesktop.systemd1.Swap",       bus_swap_interface,
+        NULL
+};
 
 static void api_bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus status, void *data)  {
         Manager *m = data;

@@ -45,7 +45,8 @@ static enum {
         ACTION_RUN,
         ACTION_HELP,
         ACTION_TEST,
-        ACTION_DUMP_CONFIGURATION_ITEMS
+        ACTION_DUMP_CONFIGURATION_ITEMS,
+        ACTION_DONE
 } action = ACTION_RUN;
 
 static char *default_unit = NULL;
@@ -347,7 +348,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_CONFIRM_SPAWN,
-                ARG_DESERIALIZE
+                ARG_DESERIALIZE,
+                ARG_INTROSPECT
         };
 
         static const struct option options[] = {
@@ -360,6 +362,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
                 { "confirm-spawn",            no_argument,       NULL, ARG_CONFIRM_SPAWN            },
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
+                { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { NULL,                       0,                 NULL, 0                            }
         };
 
@@ -444,6 +447,27 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_INTROSPECT: {
+                        const char * const * i = NULL;
+
+                        for (i = bus_interface_table; *i; i += 2)
+                                if (!optarg || streq(i[0], optarg)) {
+                                        fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
+                                              "<node>\n", stdout);
+                                        fputs(i[1], stdout);
+                                        fputs("</node>\n", stdout);
+
+                                        if (optarg)
+                                                break;
+                                }
+
+                        if (!i[0] && optarg)
+                                log_error("Unknown interface %s.", optarg);
+
+                        action = ACTION_DONE;
+                        break;
+                }
+
                 case 'h':
                         action = ACTION_HELP;
                         break;
@@ -478,7 +502,8 @@ static int help(void) {
                "     --running-as=AS             Set running as (init, system, session)\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
-               "     --confirm-spawn             Ask for confirmation when spawning processes\n",
+               "     --confirm-spawn             Ask for confirmation when spawning processes\n"
+               "     --introspect[=INTERFACE]    Extract D-Bus interface data\n",
                __progname);
 
         return 0;
@@ -580,6 +605,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);
+                retval = 0;
+                goto finish;
+        } else if (action == ACTION_DONE) {
                 retval = 0;
                 goto finish;
         }

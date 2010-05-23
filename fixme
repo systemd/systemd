@@ -64,6 +64,8 @@
 
 * tcpwrap
 
+* introduce exit.target for session instances
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()

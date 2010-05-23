@@ -25,25 +25,30 @@
 #include "dbus-socket.h"
 #include "dbus-execute.h"
 
-static const char introspection[] =
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-        "<node>"
-        BUS_UNIT_INTERFACE
-        BUS_PROPERTIES_INTERFACE
-        " <interface name=\"org.freedesktop.systemd1.Socket\">"
-        "  <property name=\"BindIPv6Only\" type=\"b\" access=\"read\"/>"
-        "  <property name=\"Backlog\" type=\"u\" access=\"read\"/>"
-        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>"
-        BUS_EXEC_CONTEXT_INTERFACE
-        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>"
-        "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>"
-        "  <property name=\"SocketMode\" type=\"u\" access=\"read\"/>"
-        "  <property name=\"Accept\" type=\"b\" access=\"read\"/>"
-        " </interface>"
-        BUS_INTROSPECTABLE_INTERFACE
-        "</node>";
+#define BUS_SOCKET_INTERFACE                                            \
+        " <interface name=\"org.freedesktop.systemd1.Socket\">\n"       \
+        "  <property name=\"BindIPv6Only\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"Backlog\" type=\"u\" access=\"read\"/>\n"   \
+        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_EXEC_CONTEXT_INTERFACE                                      \
+        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"SocketMode\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"Accept\" type=\"b\" access=\"read\"/>\n"    \
+        " </interface>\n"                                               \
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        BUS_UNIT_INTERFACE                                              \
+        BUS_SOCKET_INTERFACE                                            \
+        BUS_PROPERTIES_INTERFACE                                        \
+        BUS_INTROSPECTABLE_INTERFACE                                    \
+        "</node>\n"
+
+const char bus_socket_interface[] = BUS_SOCKET_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 
@@ -64,5 +69,5 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusMessage *message) {
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, introspection, properties);
+        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
 }

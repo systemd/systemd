@@ -28,4 +28,6 @@
 
 DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusMessage *message);
 
+extern const char bus_snapshot_interface[];
+
 #endif

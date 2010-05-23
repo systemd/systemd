@@ -37,24 +37,24 @@ typedef struct BusProperty {
 } BusProperty;
 
 #define BUS_PROPERTIES_INTERFACE                                        \
-        " <interface name=\"org.freedesktop.DBus.Properties\">"         \
-        "  <method name=\"Get\">"                                       \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>"      \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>"       \
-        "   <arg name=\"value\" direction=\"out\" type=\"v\"/>"         \
-        "  </method>"                                                   \
-        "  <method name=\"GetAll\">"                                    \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>"      \
-        "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>" \
-        "  </method>"                                                   \
-        " </interface>"
+        " <interface name=\"org.freedesktop.DBus.Properties\">\n"         \
+        "  <method name=\"Get\">\n"                                       \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"      \
+        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"       \
+        "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"         \
+        "  </method>\n"                                                   \
+        "  <method name=\"GetAll\">\n"                                    \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"      \
+        "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
+        "  </method>\n"                                                   \
+        " </interface>\n"
 
 #define BUS_INTROSPECTABLE_INTERFACE                                    \
-        " <interface name=\"org.freedesktop.DBus.Introspectable\">"     \
-        "  <method name=\"Introspect\">"                                \
-        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>"          \
-        "  </method>"                                                   \
-        " </interface>"
+        " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"     \
+        "  <method name=\"Introspect\">\n"                                \
+        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"          \
+        "  </method>\n"                                                   \
+        " </interface>\n"
 
 int bus_init_system(Manager *m);
 int bus_init_api(Manager *m);
@@ -103,5 +103,7 @@ int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *prope
         }
 
 int bus_parse_strv(DBusMessage *m, char ***_l);
+
+extern const char * const bus_interface_table[];
 
 #endif

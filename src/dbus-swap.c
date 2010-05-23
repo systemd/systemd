@@ -25,17 +25,22 @@
 #include "dbus-unit.h"
 #include "dbus-swap.h"
 
-static const char introspection[] =
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-        "<node>"
-        BUS_UNIT_INTERFACE
-        BUS_PROPERTIES_INTERFACE
-        " <interface name=\"org.freedesktop.systemd1.Swap\">"
-        "  <property name=\"What\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"Priority\" type=\"i\" access=\"read\"/>"
-        " </interface>"
-        BUS_INTROSPECTABLE_INTERFACE
-        "</node>";
+#define BUS_SWAP_INTERFACE                                              \
+        " <interface name=\"org.freedesktop.systemd1.Swap\">\n"         \
+        "  <property name=\"What\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
+        " </interface>\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        BUS_UNIT_INTERFACE                                              \
+        BUS_SWAP_INTERFACE                                              \
+        BUS_PROPERTIES_INTERFACE                                        \
+        BUS_INTROSPECTABLE_INTERFACE                                    \
+        "</node>\n"
+
+const char bus_swap_interface[] = BUS_SWAP_INTERFACE;
 
 static int bus_swap_append_priority(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Swap *s = data;
@@ -69,5 +74,5 @@ DBusHandlerResult bus_swap_message_handler(Unit *u, DBusMessage *message) {
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, introspection, properties);
+        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
 }

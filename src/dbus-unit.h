@@ -27,54 +27,54 @@
 #include "manager.h"
 
 #define BUS_UNIT_INTERFACE \
-        " <interface name=\"org.freedesktop.systemd1.Unit\">"           \
-        "  <method name=\"Start\">"                                     \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"           \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"           \
-        "  </method>"                                                   \
-        "  <method name=\"Stop\">"                                      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"           \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"           \
-        "  </method>"                                                   \
-        "  <method name=\"Restart\">"                                   \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"           \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"           \
-        "  </method>"                                                   \
-        "  <method name=\"Reload\">"                                    \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"           \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"           \
-        "  </method>"                                                   \
-        "  <signal name=\"Changed\"/>"                                  \
-        "  <property name=\"Id\" type=\"s\" access=\"read\"/>"          \
-        "  <property name=\"Names\" type=\"as\" access=\"read\"/>"      \
-        "  <property name=\"Requires\" type=\"as\" access=\"read\"/>"   \
-        "  <property name=\"RequiresOverridable\" type=\"as\" access=\"read\"/>" \
-        "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>"  \
-        "  <property name=\"RequisiteOverridable\" type=\"as\" access=\"read\"/>" \
-        "  <property name=\"Wants\" type=\"as\" access=\"read\"/>"      \
-        "  <property name=\"RequiredBy\" type=\"as\" access=\"read\"/>" \
-        "  <property name=\"RequiredByOverridable\" type=\"as\" access=\"read\"/>" \
-        "  <property name=\"WantedBy\" type=\"as\" access=\"read\"/>"   \
-        "  <property name=\"Conflicts\" type=\"as\" access=\"read\"/>"  \
-        "  <property name=\"Before\" type=\"as\" access=\"read\"/>"     \
-        "  <property name=\"After\" type=\"as\" access=\"read\"/>"      \
-        "  <property name=\"Description\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>"   \
-        "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"SubState\" type=\"s\" access=\"read\"/>"    \
-        "  <property name=\"FragmentPath\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"InactiveExitTimestamp\" type=\"t\" access=\"read\"/>" \
-        "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>" \
-        "  <property name=\"ActiveExitTimestamp\" type=\"t\" access=\"read\"/>" \
-        "  <property name=\"InactiveEnterTimestamp\" type=\"t\" access=\"read\"/>" \
-        "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>"   \
-        "  <property name=\"CanStart\" type=\"b\" access=\"read\"/>"    \
-        "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>"      \
-        "  <property name=\"RecursiveStop\" type=\"b\" access=\"read\"/>" \
-        "  <property name=\"StopWhenUneeded\" type=\"b\" access=\"read\"/>" \
-        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>" \
-        " </interface>"
+        " <interface name=\"org.freedesktop.systemd1.Unit\">\n"         \
+        "  <method name=\"Start\">\n"                                   \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"Stop\">\n"                                    \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"Restart\">\n"                                 \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"Reload\">\n"                                  \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <signal name=\"Changed\"/>\n"                                \
+        "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
+        "  <property name=\"Names\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"Requires\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"RequiresOverridable\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"RequisiteOverridable\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"Wants\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"RequiredBy\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"RequiredByOverridable\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"WantedBy\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"Conflicts\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"Before\" type=\"as\" access=\"read\"/>\n"   \
+        "  <property name=\"After\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"Description\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"SubState\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"FragmentPath\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"InactiveExitTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"ActiveExitTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"InactiveEnterTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"CanStart\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>\n"    \
+        "  <property name=\"RecursiveStop\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"StopWhenUneeded\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
+        " </interface>\n"
 
 #define BUS_UNIT_PROPERTIES \
         { "org.freedesktop.systemd1.Unit", "Id",                   bus_property_append_string,     "s",    u->meta.id                        }, \
@@ -124,5 +124,7 @@ void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);
 
 extern const DBusObjectPathVTable bus_unit_vtable;
+
+extern const char bus_unit_interface[];
 
 #endif

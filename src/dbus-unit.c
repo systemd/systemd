@@ -25,6 +25,8 @@
 #include "log.h"
 #include "dbus-unit.h"
 
+const char bus_unit_interface[] = BUS_UNIT_INTERFACE;
+
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         char *t;
         Iterator j;

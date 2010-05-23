@@ -22,17 +22,22 @@
 #include "dbus-unit.h"
 #include "dbus-snapshot.h"
 
-static const char introspection[] =
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-        "<node>"
-        BUS_UNIT_INTERFACE
-        BUS_PROPERTIES_INTERFACE
-        " <interface name=\"org.freedesktop.systemd1.Snapshot\">"
-        "  <method name=\"Remove\"/>"
-        "  <property name=\"Cleanup\" type=\"b\" access=\"read\"/>"
-        " </interface>"
-        BUS_INTROSPECTABLE_INTERFACE
-        "</node>";
+#define BUS_SNAPSHOT_INTERFACE                                          \
+        " <interface name=\"org.freedesktop.systemd1.Snapshot\">\n"     \
+        "  <method name=\"Remove\"/>\n"                                 \
+        "  <property name=\"Cleanup\" type=\"b\" access=\"read\"/>\n"   \
+        " </interface>\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        BUS_UNIT_INTERFACE                                              \
+        BUS_SNAPSHOT_INTERFACE                                          \
+        BUS_PROPERTIES_INTERFACE                                        \
+        BUS_INTROSPECTABLE_INTERFACE                                    \
+        "</node>\n"
+
+const char bus_snapshot_interface[] = BUS_SNAPSHOT_INTERFACE;
 
 DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusMessage *message) {
         const BusProperty properties[] = {
@@ -54,7 +59,7 @@ DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusMessage *message) {
                         goto oom;
 
         } else
-                return bus_default_message_handler(u->meta.manager, message, introspection, properties);
+                return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
 
         if (reply) {
                 if (!dbus_connection_send(u->meta.manager->api_bus, reply, NULL))

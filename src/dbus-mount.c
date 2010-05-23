@@ -25,23 +25,28 @@
 #include "dbus-mount.h"
 #include "dbus-execute.h"
 
-static const char introspection[] =
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-        "<node>"
-        BUS_UNIT_INTERFACE
-        BUS_PROPERTIES_INTERFACE
-        " <interface name=\"org.freedesktop.systemd1.Mount\">"
-        "  <property name=\"Where\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"What\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"Options\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"Type\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>"
-        BUS_EXEC_CONTEXT_INTERFACE
-        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>"
-        " </interface>"
-        BUS_INTROSPECTABLE_INTERFACE
-        "</node>";
+#define BUS_MOUNT_INTERFACE                                             \
+        " <interface name=\"org.freedesktop.systemd1.Mount\">\n"        \
+        "  <property name=\"Where\" type=\"s\" access=\"read\"/>\n"     \
+        "  <property name=\"What\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Options\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_EXEC_CONTEXT_INTERFACE                                      \
+        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
+        " </interface>\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        BUS_UNIT_INTERFACE                                              \
+        BUS_MOUNT_INTERFACE                                             \
+        BUS_PROPERTIES_INTERFACE                                        \
+        BUS_INTROSPECTABLE_INTERFACE                                    \
+        "</node>\n"
+
+const char bus_mount_interface[] = BUS_MOUNT_INTERFACE;
 
 static int bus_mount_append_what(Manager *n, DBusMessageIter *i, const char *property, void *data) {
         Mount *m = data;
@@ -130,5 +135,5 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusMessage *message) {
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, introspection, properties);
+        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
 }

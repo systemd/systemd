@@ -27,23 +27,23 @@
 #include "manager.h"
 
 #define BUS_EXEC_CONTEXT_INTERFACE                                      \
-        "  <property name=\"Environment\" type=\"as\" access=\"read\"/>" \
-        "  <property name=\"UMask\" type=\"u\" access=\"read\"/>"       \
-        "  <property name=\"WorkingDirectory\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"RootDirectory\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"CPUSchedulingResetOnFork\" type=\"b\" access=\"read\"/>" \
-        "  <property name=\"NonBlocking\" type=\"b\" access=\"read\"/>" \
-        "  <property name=\"StandardInput\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"StandardOutput\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"StandardError\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"TTYPath\" type=\"s\" access=\"read\"/>"     \
-        "  <property name=\"SyslogPriority\" type=\"i\" access=\"read\"/>" \
-        "  <property name=\"SyslogIdentifier\" type=\"s\" access=\"read\"/>" \
-        "  <property name=\"SecureBits\" type=\"i\" access=\"read\"/>"  \
-        "  <property name=\"CapabilityBoundingSetDrop\" type=\"t\" access=\"read\"/>" \
-        "  <property name=\"User\" type=\"s\" access=\"read\"/>"        \
-        "  <property name=\"Group\" type=\"s\" access=\"read\"/>"       \
-        "  <property name=\"SupplementaryGroups\" type=\"as\" access=\"read\"/>"
+        "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"UMask\" type=\"u\" access=\"read\"/>\n"     \
+        "  <property name=\"WorkingDirectory\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"RootDirectory\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"CPUSchedulingResetOnFork\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"NonBlocking\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"StandardInput\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"StandardOutput\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"StandardError\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"TTYPath\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"SyslogPriority\" type=\"i\" access=\"read\"/>\n" \
+        "  <property name=\"SyslogIdentifier\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"SecureBits\" type=\"i\" access=\"read\"/>\n" \
+        "  <property name=\"CapabilityBoundingSetDrop\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"User\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Group\" type=\"s\" access=\"read\"/>\n"     \
+        "  <property name=\"SupplementaryGroups\" type=\"as\" access=\"read\"/>\n"
 
 #define BUS_EXEC_CONTEXT_PROPERTIES(interface, context)                 \
         { interface, "Environment",                   bus_property_append_strv,   "as",    (context).environment                   }, \

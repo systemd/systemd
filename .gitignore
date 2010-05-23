@@ -1,3 +1,4 @@
+org.freedesktop.systemd1.*.xml
 test-ns
 test-loopback
 systemd-cgroups-agent

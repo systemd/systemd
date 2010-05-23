@@ -28,4 +28,6 @@
 
 DBusHandlerResult bus_automount_message_handler(Unit *u, DBusMessage *message);
 
+extern const char bus_automount_interface[];
+
 #endif

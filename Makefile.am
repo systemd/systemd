@@ -23,6 +23,7 @@ udevrulesdir=@udevrulesdir@
 pkgsysconfdir=$(sysconfdir)/systemd
 systemunitdir=$(pkgdatadir)/system
 sessionunitdir=$(pkgdatadir)/session
+interfacedir=$(datadir)/dbus-1/interfaces
 
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
@@ -63,6 +64,19 @@ dist_dbuspolicy_DATA = \
 
 dist_udevrules_DATA = \
 	src/99-systemd.rules
+
+interface_DATA = \
+	org.freedesktop.systemd1.Manager.xml \
+	org.freedesktop.systemd1.Job.xml \
+	org.freedesktop.systemd1.Unit.xml \
+	org.freedesktop.systemd1.Service.xml \
+	org.freedesktop.systemd1.Socket.xml \
+	org.freedesktop.systemd1.Target.xml \
+	org.freedesktop.systemd1.Device.xml \
+	org.freedesktop.systemd1.Mount.xml \
+	org.freedesktop.systemd1.Automount.xml \
+	org.freedesktop.systemd1.Snapshot.xml \
+	org.freedesktop.systemd1.Swap.xml
 
 dist_systemunit_DATA = \
 	units/emergency.service \
@@ -425,6 +439,11 @@ CLEANFILES += \
 	man/systemd.service.html \
 	man/systemd.special.html.in
 endif
+
+org.freedesktop.systemd1.%.xml: systemd
+	$(AM_V_GEN)./systemd --introspect=${@:.xml=} > $@
+
+CLEANFILES += $(interface_DATA)
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
