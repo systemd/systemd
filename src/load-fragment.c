@@ -1002,6 +1002,72 @@ static int config_parse_mount_flags(
         return 0;
 }
 
+static int config_parse_timer(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Timer *t = data;
+        usec_t u;
+        int r;
+        TimerValue *v;
+        TimerBase b;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((b = timer_base_from_string(lvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse timer base: %s", filename, line, lvalue);
+                return -EINVAL;
+        }
+
+        if ((r = parse_usec(rvalue, &u)) < 0) {
+                log_error("[%s:%u] Failed to parse timer value: %s", filename, line, rvalue);
+                return r;
+        }
+
+        if (!(v = new0(TimerValue, 1)))
+                return -ENOMEM;
+
+        v->base = b;
+        v->value = u;
+
+        LIST_PREPEND(TimerValue, value, t->values, v);
+
+        return 0;
+}
+
+static int config_parse_timer_unit(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Timer *t = data;
+        int r;
+
+        if (endswith(rvalue, ".timer")) {
+                log_error("[%s:%u] Unit cannot be of type timer: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &t->unit)) < 0) {
+                log_error("[%s:%u] Failed to load unit: %s", filename, line, rvalue);
+                return r;
+        }
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -1161,6 +1227,8 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_path_strv,        "PATH [...]" },
                 { config_parse_mount_flags,      "MOUNTFLAG [...]" },
                 { config_parse_description,      "DESCRIPTION" },
+                { config_parse_timer,            "TIMER" },
+                { config_parse_timer_unit,       "NAME" },
         };
 
         assert(f);
@@ -1320,6 +1388,13 @@ static int load_from_path(Unit *u, const char *path) {
 
                 { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap" },
                 { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap" },
+
+                { "OnActive",               config_parse_timer,           &u->timer,                                       "Timer" },
+                { "OnBoot",                 config_parse_timer,           &u->timer,                                       "Timer" },
+                { "OnStartup",              config_parse_timer,           &u->timer,                                       "Timer" },
+                { "OnUnitActive",           config_parse_timer,           &u->timer,                                       "Timer" },
+                { "OnUnitInactive",         config_parse_timer,           &u->timer,                                       "Timer" },
+                { "Unit",                   config_parse_timer_unit,      &u->timer,                                       "Timer" },
 
                 { NULL, NULL, NULL, NULL }
         };

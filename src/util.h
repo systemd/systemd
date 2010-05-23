@@ -32,6 +32,11 @@
 
 typedef uint64_t usec_t;
 
+typedef struct timestamp {
+        usec_t realtime;
+        usec_t monotonic;
+} timestamp;
+
 #define MSEC_PER_SEC  1000ULL
 #define USEC_PER_SEC  1000000ULL
 #define USEC_PER_MSEC 1000ULL
@@ -49,8 +54,11 @@ typedef uint64_t usec_t;
 #define NEWLINE "\n\r"
 
 #define FORMAT_TIMESTAMP_MAX 64
+#define FORMAT_TIMESPAN_MAX 64
 
 usec_t now(clockid_t clock);
+
+timestamp* timestamp_get(timestamp *ts);
 
 usec_t timespec_load(const struct timespec *ts);
 struct timespec *timespec_store(struct timespec *ts, usec_t u);
@@ -181,6 +189,7 @@ bool ignore_file(const char *filename);
 bool chars_intersect(const char *a, const char *b);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
+char *format_timespan(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);
 

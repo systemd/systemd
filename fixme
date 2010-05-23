@@ -66,6 +66,8 @@
 
 * introduce exit.target for session instances
 
+* use _PATH_XXX
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()

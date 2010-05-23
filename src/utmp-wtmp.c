@@ -89,7 +89,7 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
         return r;
 }
 
-static void init_entry(struct utmpx *store, usec_t timestamp) {
+static void init_entry(struct utmpx *store, usec_t t) {
         struct utsname uts;
 
         assert(store);
@@ -97,11 +97,11 @@ static void init_entry(struct utmpx *store, usec_t timestamp) {
         zero(*store);
         zero(uts);
 
-        if (timestamp <= 0)
-                timestamp = now(CLOCK_REALTIME);
+        if (t <= 0)
+                t = now(CLOCK_REALTIME);
 
-        store->ut_tv.tv_sec = timestamp / USEC_PER_SEC;
-        store->ut_tv.tv_usec = timestamp % USEC_PER_SEC;
+        store->ut_tv.tv_sec = t / USEC_PER_SEC;
+        store->ut_tv.tv_usec = t % USEC_PER_SEC;
 
         if (uname(&uts) >= 0)
                 strncpy(store->ut_host, uts.release, sizeof(store->ut_host));
@@ -162,10 +162,10 @@ static int write_entry_both(const struct utmpx *store) {
         return r;
 }
 
-int utmp_put_shutdown(usec_t timestamp) {
+int utmp_put_shutdown(usec_t t) {
         struct utmpx store;
 
-        init_entry(&store, timestamp);
+        init_entry(&store, t);
 
         store.ut_type = RUN_LVL;
         strncpy(store.ut_user, "shutdown", sizeof(store.ut_user));
@@ -173,10 +173,10 @@ int utmp_put_shutdown(usec_t timestamp) {
         return write_entry_both(&store);
 }
 
-int utmp_put_reboot(usec_t timestamp) {
+int utmp_put_reboot(usec_t t) {
         struct utmpx store;
 
-        init_entry(&store, timestamp);
+        init_entry(&store, t);
 
         store.ut_type = BOOT_TIME;
         strncpy(store.ut_user, "reboot", sizeof(store.ut_user));
@@ -184,7 +184,7 @@ int utmp_put_reboot(usec_t timestamp) {
         return write_entry_both(&store);
 }
 
-int utmp_put_runlevel(usec_t timestamp, int runlevel, int previous) {
+int utmp_put_runlevel(usec_t t, int runlevel, int previous) {
         struct utmpx store;
         int r;
 
@@ -204,7 +204,7 @@ int utmp_put_runlevel(usec_t timestamp, int runlevel, int previous) {
                         return 0;
         }
 
-        init_entry(&store, timestamp);
+        init_entry(&store, t);
 
         store.ut_type = RUN_LVL;
         store.ut_pid = (runlevel & 0xFF) | ((previous & 0xFF) << 8);

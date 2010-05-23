@@ -600,10 +600,10 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(u->meta.instance),
                 prefix, unit_load_state_to_string(u->meta.load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
-                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.inactive_exit_timestamp)),
-                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp)),
-                prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp)),
-                prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp)),
+                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.inactive_exit_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_check_gc(u)),
                 prefix, yes_no(u->meta.only_by_dependency));
 
@@ -930,7 +930,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         bool unexpected = false;
-        usec_t ts;
+        timestamp ts;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -943,7 +943,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
          * this function will be called too and the utmp code below
          * relies on that! */
 
-        ts = now(CLOCK_REALTIME);
+        timestamp_get(&ts);
 
         if (os == UNIT_INACTIVE && ns != UNIT_INACTIVE)
                 u->meta.inactive_exit_timestamp = ts;
@@ -954,6 +954,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 u->meta.active_enter_timestamp = ts;
         else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
                 u->meta.active_exit_timestamp = ts;
+
+        timer_unit_notify(u, ns);
 
         if (u->meta.job) {
 

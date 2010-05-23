@@ -361,7 +361,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         if (!(m = new0(Manager, 1)))
                 return -ENOMEM;
 
-        m->boot_timestamp = now(CLOCK_REALTIME);
+        timestamp_get(&m->startup_timestamp);
 
         m->running_as = running_as;
         m->confirm_spawn = confirm_spawn;
@@ -2101,7 +2101,7 @@ void manager_write_utmp_reboot(Manager *m) {
         if (!manager_utmp_good(m))
                 return;
 
-        if ((r = utmp_put_reboot(m->boot_timestamp)) < 0) {
+        if ((r = utmp_put_reboot(m->startup_timestamp.realtime)) < 0) {
 
                 if (r != -ENOENT && r != -EROFS)
                         log_warning("Failed to write utmp/wtmp: %s", strerror(-r));

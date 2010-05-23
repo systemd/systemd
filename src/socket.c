@@ -1189,6 +1189,9 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         assert(s);
         assert(fd >= 0);
 
+        if (s->state != SOCKET_LISTENING)
+                return;
+
         log_debug("Incoming traffic on %s", u->meta.id);
 
         if (events != EPOLLIN) {

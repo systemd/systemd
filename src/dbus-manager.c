@@ -171,7 +171,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
         const BusProperty properties[] = {
                 { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s", PACKAGE_STRING     },
                 { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s", &m->running_as     },
-                { "org.freedesktop.systemd1.Manager", "BootTimestamp", bus_property_append_uint64,    "t", &m->boot_timestamp },
+                { "org.freedesktop.systemd1.Manager", "BootTimestamp", bus_property_append_uint64,    "t", &m->startup_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s", NULL               },
                 { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
                 { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u", NULL               },

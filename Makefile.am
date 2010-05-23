@@ -71,6 +71,7 @@ interface_DATA = \
 	org.freedesktop.systemd1.Unit.xml \
 	org.freedesktop.systemd1.Service.xml \
 	org.freedesktop.systemd1.Socket.xml \
+	org.freedesktop.systemd1.Timer.xml \
 	org.freedesktop.systemd1.Target.xml \
 	org.freedesktop.systemd1.Device.xml \
 	org.freedesktop.systemd1.Mount.xml \
@@ -196,6 +197,7 @@ COMMON_SOURCES = \
         src/dbus-job.c \
 	src/dbus-service.c \
 	src/dbus-socket.c \
+	src/dbus-timer.c \
 	src/dbus-target.c \
 	src/dbus-mount.c \
 	src/dbus-automount.c \
