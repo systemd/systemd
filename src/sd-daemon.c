@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/fcntl.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -41,7 +42,7 @@ int sd_listen_fds(int unset_environment) {
 #ifdef DISABLE_SYSTEMD
         return 0;
 #else
-        int r;
+        int r, fd;
         const char *e;
         char *p = NULL;
         unsigned long l;
@@ -86,6 +87,24 @@ int sd_listen_fds(int unset_environment) {
         if (!p || *p) {
                 r = -EINVAL;
                 goto finish;
+        }
+
+
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) l; fd ++) {
+                int flags;
+
+                if ((flags = fcntl(fd, F_GETFD)) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (flags & FD_CLOEXEC)
+                        continue;
+
+                if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
         }
 
         r = (int) l;
