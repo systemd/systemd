@@ -1,3 +1,20 @@
+Summary of changes from v154 to v155
+============================================
+
+Kay Sievers (11):
+      reset process priority before executing RUN+=
+      configure.ac: version bump
+      rules: SUSE - delete device-mapper rules
+      libudev: add O_CLOEXEC
+      use default mode of 0600 for nodes if gid == 0
+      udevd: create standard symlinks and handle /lib/udev/devices
+      update NEWS README
+      fix tests and allow MODE=000
+      create static nodes provided by kernel modules to allow module autoloading
+      update NEWS
+      man: directly use 'refentry'
+
+
 Summary of changes from v153 to v154
 ============================================
 
