@@ -50,6 +50,7 @@
         <refsynopsisdiv>
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
+                <filename>@SPECIAL_DBUS_SERVICE@</filename>,
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
                 <filename>emergency.service</filename>,
@@ -80,6 +81,7 @@
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>syslog.target</filename>,
+                <filename>@SPECIAL_SYSLOG_SERVICE@</filename>,
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
                 <filename>systemd-logger.service</filename>,
@@ -131,6 +133,17 @@
                                         should be aliased (symlinked)
                                         to
                                         <filename>reboot.target</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>@SPECIAL_DBUS_SERVICE@</filename></term>
+                                <listitem>
+                                        <para>A special unit for the
+                                        D-Bus system bus. As soon as
+                                        this service is fully started
+                                        up systemd will connect to it
+                                        and register its
+                                        service.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -571,6 +584,23 @@
                                         (or a socket unit that
                                         activates this
                                         service).</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>@SPECIAL_SYSLOG_SERVICE@</filename></term>
+                                <listitem>
+                                        <para>A special unit for the
+                                        syslog daemon. As soon as
+                                        this service is fully started
+                                        up systemd will connect to it
+                                        and use it for logging if it
+                                        has been configured for
+                                        that.</para>
+                                        <para>Applications should
+                                        generally not depend on this
+                                        service, and depend on
+                                        <filename>syslog.target</filename>
+                                        instead.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
