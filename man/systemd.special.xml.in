@@ -57,6 +57,7 @@
                 <filename>halt.target</filename>,
                 <filename>kbrequest.target</filename>,
                 <filename>local-fs.target</filename>,
+                <filename>mail-transfer-agent.target</filename>,
                 <filename>multi-user.target</filename>,
                 <filename>network.target</filename>,
                 <filename>nss-lookup.target</filename>,
@@ -246,6 +247,29 @@
                                         referring to the
                                         <literal>$local_fs</literal>
                                         facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>mail-transfer-agent.target</filename></term>
+                                <listitem>
+                                        <para>The mail transfer agent
+                                        (MTA) service. Usually this
+                                        should pull in all units
+                                        necessary for
+                                        sending/receiving mails on the
+                                        local host.</para>
+
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After for this target unit to
+                                        all SysV init script service
+                                        units with an LSB header
+                                        referring to the
+                                        <literal>$mail-transfer-argent</literal>
+                                        or
+                                        <literal>$mail-transport-agent</literal>
+                                        facilities, for compatibility
+                                        with Debian.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

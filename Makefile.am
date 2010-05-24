@@ -87,6 +87,7 @@ dist_systemunit_DATA = \
 	units/local-fs.target \
 	units/network.target \
 	units/nss-lookup.target \
+	units/mail-transfer-agent.target \
 	units/poweroff.target \
 	units/reboot.target \
 	units/remote-fs.target \
