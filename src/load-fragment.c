@@ -213,6 +213,8 @@ static int config_parse_listen(
                         free(p);
                         return -ENOMEM;
                 }
+
+                path_kill_slashes(p->path);
         } else {
                 p->type = SOCKET_SOCKET;
 
@@ -449,6 +451,8 @@ static int config_parse_exec(
 
         nce->argv = n;
         nce->path = path;
+
+        path_kill_slashes(nce->path);
 
         exec_command_append_list(e, nce);
 
@@ -1068,6 +1072,77 @@ static int config_parse_timer_unit(
         return 0;
 }
 
+static int config_parse_path_spec(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Path *p = data;
+        PathSpec *s;
+        PathType b;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((b = path_type_from_string(lvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse path type: %s", filename, line, lvalue);
+                return -EINVAL;
+        }
+
+        if (!path_is_absolute(rvalue)) {
+                log_error("[%s:%u] Path is not absolute: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
+        if (!(s = new0(PathSpec, 1)))
+                return -ENOMEM;
+
+        if (!(s->path = strdup(rvalue))) {
+                free(s);
+                return -ENOMEM;
+        }
+
+        path_kill_slashes(s->path);
+
+        s->type = b;
+        s->inotify_fd = -1;
+
+        LIST_PREPEND(PathSpec, spec, p->specs, s);
+
+        return 0;
+}
+
+static int config_parse_path_unit(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Path *t = data;
+        int r;
+
+        if (endswith(rvalue, ".path")) {
+                log_error("[%s:%u] Unit cannot be of type path: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &t->unit)) < 0) {
+                log_error("[%s:%u] Failed to load unit: %s", filename, line, rvalue);
+                return r;
+        }
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -1269,7 +1344,8 @@ static int load_from_path(Unit *u, const char *path) {
                 [UNIT_MOUNT]     = "Mount",
                 [UNIT_AUTOMOUNT] = "Automount",
                 [UNIT_SNAPSHOT]  = "Snapshot",
-                [UNIT_SWAP]      = "Swap"
+                [UNIT_SWAP]      = "Swap",
+                [UNIT_PATH]      = "Path"
         };
 
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
@@ -1386,15 +1462,20 @@ static int load_from_path(Unit *u, const char *path) {
 
                 { "Where",                  config_parse_path,            &u->automount.where,                             "Automount" },
 
-                { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap" },
-                { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap" },
+                { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap"    },
+                { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap"    },
 
-                { "OnActive",               config_parse_timer,           &u->timer,                                       "Timer" },
-                { "OnBoot",                 config_parse_timer,           &u->timer,                                       "Timer" },
-                { "OnStartup",              config_parse_timer,           &u->timer,                                       "Timer" },
-                { "OnUnitActive",           config_parse_timer,           &u->timer,                                       "Timer" },
-                { "OnUnitInactive",         config_parse_timer,           &u->timer,                                       "Timer" },
-                { "Unit",                   config_parse_timer_unit,      &u->timer,                                       "Timer" },
+                { "OnActive",               config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnBoot",                 config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnStartup",              config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnUnitActive",           config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnUnitInactive",         config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "Unit",                   config_parse_timer_unit,      &u->timer,                                       "Timer"   },
+
+                { "PathExists",             config_parse_path_spec,       &u->path,                                        "Path"    },
+                { "PathChanged",            config_parse_path_spec,       &u->path,                                        "Path"    },
+                { "DirectoryNotEmpty",      config_parse_path_spec,       &u->path,                                        "Path"    },
+                { "Unit",                   config_parse_path_unit,       &u->path,                                        "Path"    },
 
                 { NULL, NULL, NULL, NULL }
         };

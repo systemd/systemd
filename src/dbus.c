@@ -41,6 +41,7 @@
 #include "dbus-snapshot.h"
 #include "dbus-swap.h"
 #include "dbus-timer.h"
+#include "dbus-path.h"
 
 static const char bus_properties_interface[] = BUS_PROPERTIES_INTERFACE;
 static const char bus_introspectable_interface[] = BUS_INTROSPECTABLE_INTERFACE;
@@ -60,6 +61,7 @@ const char *const bus_interface_table[] = {
         "org.freedesktop.systemd1.Snapshot",   bus_snapshot_interface,
         "org.freedesktop.systemd1.Swap",       bus_swap_interface,
         "org.freedesktop.systemd1.Timer",      bus_timer_interface,
+        "org.freedesktop.systemd1.Path",       bus_path_interface,
         NULL
 };
 

@@ -48,7 +48,8 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_MOUNT] = &mount_vtable,
         [UNIT_AUTOMOUNT] = &automount_vtable,
         [UNIT_SNAPSHOT] = &snapshot_vtable,
-        [UNIT_SWAP] = &swap_vtable
+        [UNIT_SWAP] = &swap_vtable,
+        [UNIT_PATH] = &path_vtable
 };
 
 Unit *unit_new(Manager *m) {
@@ -956,6 +957,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 u->meta.active_exit_timestamp = ts;
 
         timer_unit_notify(u, ns);
+        path_unit_notify(u, ns);
 
         if (u->meta.job) {
 

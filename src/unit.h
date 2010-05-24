@@ -62,6 +62,7 @@ enum UnitType {
         UNIT_SNAPSHOT,
         UNIT_TIMER,
         UNIT_SWAP,
+        UNIT_PATH,
         _UNIT_TYPE_MAX,
         _UNIT_TYPE_INVALID = -1
 };
@@ -201,6 +202,7 @@ struct Meta {
 #include "automount.h"
 #include "snapshot.h"
 #include "swap.h"
+#include "path.h"
 
 union Unit {
         Meta meta;
@@ -213,6 +215,7 @@ union Unit {
         Automount automount;
         Snapshot snapshot;
         Swap swap;
+        Path path;
 };
 
 struct UnitVTable {
@@ -344,6 +347,7 @@ DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);
 DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(SWAP, Swap);
+DEFINE_CAST(PATH, Path);
 
 Unit *unit_new(Manager *m);
 void unit_free(Unit *u);

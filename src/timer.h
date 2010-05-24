@@ -61,11 +61,9 @@ struct Timer {
         Meta meta;
 
         LIST_HEAD(TimerValue, values);
-
-        TimerState state, deserialized_state;
-
         usec_t next_elapse;
 
+        TimerState state, deserialized_state;
         Unit *unit;
 
         Watch timer_watch;

@@ -77,7 +77,8 @@ interface_DATA = \
 	org.freedesktop.systemd1.Mount.xml \
 	org.freedesktop.systemd1.Automount.xml \
 	org.freedesktop.systemd1.Snapshot.xml \
-	org.freedesktop.systemd1.Swap.xml
+	org.freedesktop.systemd1.Swap.xml \
+	org.freedesktop.systemd1.Path.xml
 
 dist_systemunit_DATA = \
 	units/emergency.service \
@@ -189,6 +190,7 @@ COMMON_SOURCES = \
         src/snapshot.c \
         src/socket.c \
         src/timer.c \
+	src/path.c \
         src/load-dropin.c \
         src/execute.c \
         src/dbus.c \
@@ -205,6 +207,7 @@ COMMON_SOURCES = \
 	src/dbus-snapshot.c \
 	src/dbus-device.c \
 	src/dbus-execute.c \
+	src/dbus-path.c \
 	src/cgroup.c \
 	src/mount-setup.c \
 	src/hostname-setup.c \

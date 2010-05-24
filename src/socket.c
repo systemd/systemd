@@ -58,7 +58,6 @@ static void socket_init(Unit *u) {
         assert(u);
         assert(u->meta.load_state == UNIT_STUB);
 
-        s->timer_watch.type = WATCH_INVALID;
         s->backlog = SOMAXCONN;
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->directory_mode = 0755;

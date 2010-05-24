@@ -337,6 +337,8 @@ int config_parse_path(
         if (!(n = strdup(rvalue)))
                 return -ENOMEM;
 
+        path_kill_slashes(n);
+
         free(*s);
         *s = n;
 
@@ -440,6 +442,8 @@ int config_parse_path_strv(
                         r = -EINVAL;
                         goto fail;
                 }
+
+                path_kill_slashes(n[k]);
 
                 k++;
         }

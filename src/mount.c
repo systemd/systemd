@@ -167,6 +167,19 @@ static int mount_add_swap_links(Mount *m) {
         return 0;
 }
 
+static int mount_add_path_links(Mount *m) {
+        Meta *other;
+        int r;
+
+        assert(m);
+
+        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_PATH])
+                if ((r = path_add_one_mount_link((Path*) other, m)) < 0)
+                        return r;
+
+        return 0;
+}
+
 static int mount_add_automount_links(Mount *m) {
         Meta *other;
         int r;
@@ -339,6 +352,9 @@ static int mount_load(Unit *u) {
                         return r;
 
                 if ((r = mount_add_swap_links(m)) < 0)
+                        return r;
+
+                if ((r = mount_add_path_links(m)) < 0)
                         return r;
 
                 if ((r = mount_add_automount_links(m)) < 0)

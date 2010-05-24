@@ -41,7 +41,6 @@ static void timer_init(Unit *u) {
         assert(u->meta.load_state == UNIT_STUB);
 
         t->next_elapse = (usec_t) -1;
-        t->timer_watch.type = WATCH_INVALID;
 }
 
 static void timer_done(Unit *u) {
@@ -274,8 +273,12 @@ static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
 
         assert(t);
-        assert(t->state == TIMER_DEAD);
+        assert(t->state == TIMER_DEAD || t->state == TIMER_MAINTAINANCE);
 
+        if (t->unit->meta.load_state != UNIT_LOADED)
+                return -ENOENT;
+
+        t->failure = false;
         timer_enter_waiting(t, true);
         return 0;
 }
@@ -373,9 +376,12 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
                 if (!p)
                         continue;
 
+                if (p->meta.load_state != UNIT_LOADED)
+                        continue;
+
                 t = TIMER(p);
 
-                if (t->meta.load_state != UNIT_LOADED)
+                if (t->unit != u)
                         continue;
 
                 /* Reenable all timers that depend on unit state */

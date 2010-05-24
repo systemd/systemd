@@ -62,9 +62,7 @@ typedef enum SocketType {
         _SOCKET_FIFO_INVALID = -1
 } SocketType;
 
-typedef struct SocketPort SocketPort;
-
-struct SocketPort {
+typedef struct SocketPort {
         SocketType type;
         int fd;
 
@@ -72,8 +70,8 @@ struct SocketPort {
         char *path;
         Watch fd_watch;
 
-        LIST_FIELDS(SocketPort, port);
-};
+        LIST_FIELDS(struct SocketPort, port);
+} SocketPort;
 
 struct Socket {
         Meta meta;
