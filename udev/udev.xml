@@ -1,677 +1,673 @@
 <?xml version='1.0'?>
-<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<article>
-  <section>
+<refentry id="udev">
+  <refentryinfo>
     <title>udev</title>
-    <refentry>
-      <refentryinfo>
-        <title>udev</title>
-        <productname>udev</productname>
-      </refentryinfo>
-
-      <refmeta>
-        <refentrytitle>udev</refentrytitle>
-        <manvolnum>7</manvolnum>
-      </refmeta>
-
-      <refnamediv>
-        <refname>udev</refname>
-        <refpurpose>Linux dynamic device management</refpurpose>
-      </refnamediv>
-
-      <refsect1><title>DESCRIPTION</title>
-        <para>udev supplies the system software with device events, manages permissions
-        of device nodes and may create additional symlinks in the <filename>/dev</filename>
-        directory, or renames network interfaces. The kernel usually just assigns unpredictable
-        device names based on the order of discovery. Meaningful symlinks or network device
-        names provide a way to reliably identify devices based on their properties or
-        current configuration.</para>
-
-        <para>The udev daemon <citerefentry><refentrytitle>udevd</refentrytitle>
-        <manvolnum>8</manvolnum></citerefentry> receives device uevents directly from
-        the kernel whenever a device is added or removed from the system, or it changes its
-        state. When udev receives a device event, it matches its configured set of rules
-        against various device attributes to identify the device. Rules that match, may
-        provide additional device information to be stored in the udev database, or information
-        to be used to create meaningful symlink names.</para>
-
-        <para>All device information udev processes, is stored in the udev database and
-        sent out to possible event subscribers. Access to all stored data and the event
-        sources are provided by the library libudev.</para>
-      </refsect1>
-
-      <refsect1><title>CONFIGURATION</title>
-        <para>udev configuration files are placed in <filename>/etc/udev/</filename>
-        and <filename>/lib/udev/</filename>. All empty lines, or lines beginning with
-        '#' will be ignored.</para>
-
-        <refsect2><title>Configuration file</title>
-          <para>udev expects its main configuration file at <filename>/etc/udev/udev.conf</filename>.
-          It consists of a set of variables allowing the user to override default udev values.
-          The following variables can be set:</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>udev_root</option></term>
-              <listitem>
-                <para>Specifies where to place the device nodes in the filesystem.
-                The default value is <filename>/dev</filename>.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>udev_log</option></term>
-              <listitem>
-                <para>The logging priority. Valid values are the numerical syslog priorities
-                or their textual representations: <option>err</option>, <option>info</option>
-                and <option>debug</option>.</para>
-              </listitem>
-            </varlistentry>
-          </variablelist>
-        </refsect2>
-
-        <refsect2><title>Rules files</title>
-          <para>The udev rules are read from the files located in the
-          default rules directory <filename>/lib/udev/rules.d/</filename>,
-          the custom rules directory <filename>/etc/udev/rules.d/</filename>
-          and the temporary rules directory <filename>/dev/.udev/rules.d/</filename>.
-          All rule files are sorted and processed in lexical order, regardless
-          in which of these directories they live.</para>
-
-          <para>Rule files are required to have a unique name, duplicate file names
-          are ignored. Files in <filename>/etc/udev/rules.d/</filename> have precedence
-          over files with the same name in <filename>/lib/udev/rules.d/</filename>. This
-          can be used to ignore a default rules file if needed.</para>
-
-          <para>Every line in the rules file contains at least one key value pair.
-          There are two kind of keys, match and assignment keys.
-          If all match keys are matching against its value, the rule gets applied and the
-          assign keys get the specified value assigned.</para>
-
-          <para>A matching rule may rename a network interface, add symlinks
-          pointing to the device node, or run a specified program as part of
-          the event handling.</para>
-
-          <para>A rule consists of a list of one or more key value pairs separated by
-          a comma. Each key has a distinct operation, depending on the used operator. Valid
-          operators are:</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>==</option></term>
-              <listitem>
-                <para>Compare for equality.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>!=</option></term>
-              <listitem>
-                <para>Compare for inequality.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>=</option></term>
-              <listitem>
-                <para>Assign a value to a key. Keys that represent a list, are reset
-                and only this single value is assigned.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>+=</option></term>
-              <listitem>
-                <para>Add the value to a key that holds a list of entries.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>:=</option></term>
-              <listitem>
-                <para>Assign  a  value  to  a key finally; disallow any later changes,
-                which may be used to prevent changes by any later rules.</para>
-              </listitem>
-            </varlistentry>
-          </variablelist>
-
-          <para>The following key names can be used to match against device properties.
-          Some of the keys also match against properties of the parent devices in sysfs,
-          not only the device that has generated the event. If multiple keys that match
-          a parent device are specified in a single rule, all these keys must match at
-          one and the same parent device.</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>ACTION</option></term>
-              <listitem>
-                <para>Match the name of the event action.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>DEVPATH</option></term>
-              <listitem>
-                <para>Match the devpath of the event device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>KERNEL</option></term>
-              <listitem>
-                <para>Match the name of the event device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>NAME</option></term>
-              <listitem>
-                <para>Match the name of the node or network interface. It can
-                be used once the NAME key has been set in one of the preceding
-                rules.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>SYMLINK</option></term>
-              <listitem>
-                <para>Match the name of a symlink targeting the node. It can
-                be used once a SYMLINK key has been set in one of the preceding
-                rules. There may be multiple symlinks; only one needs to match.
-                </para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>SUBSYSTEM</option></term>
-              <listitem>
-                <para>Match the subsystem of the event device.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>DRIVER</option></term>
-              <listitem>
-                <para>Match the driver name of the event device. Only set for devices
-                which are bound to a driver at the time the event is generated.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>ATTR{<replaceable>filename</replaceable>}</option></term>
-              <listitem>
-                <para>Match sysfs attribute values of the event device. Trailing
-                whitespace in the attribute values is ignored, if the specified match
-                value does not contain trailing whitespace itself.
-                </para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>KERNELS</option></term>
-              <listitem>
-                <para>Search the devpath upwards for a matching device name.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>SUBSYSTEMS</option></term>
-              <listitem>
-                <para>Search the devpath upwards for a matching device subsystem name.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>DRIVERS</option></term>
-              <listitem>
-                <para>Search the devpath upwards for a matching device driver name.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>ATTRS{<replaceable>filename</replaceable>}</option></term>
-              <listitem>
-                <para>Search the devpath upwards for a device with matching sysfs attribute values.
-                If multiple <option>ATTRS</option> matches are specified, all of them
-                must match on the same device. Trailing whitespace in the attribute values is ignored,
-                if the specified match value does not contain trailing whitespace itself.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>ENV{<replaceable>key</replaceable>}</option></term>
-              <listitem>
-                <para>Match against a device property value.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>TAG</option></term>
-              <listitem>
-                <para>Match against a device tag.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>TEST{<replaceable>octal mode mask</replaceable>}</option></term>
-              <listitem>
-                <para>Test the existence of a file. An octal mode mask can be specified
-                if needed.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>PROGRAM</option></term>
-              <listitem>
-                <para>Execute a program. The key is true, if the program returns
-                successfully. The device properties are made available to the
-                executed program in the environment. The program's output printed to
-                stdout, is available in the RESULT key.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>RESULT</option></term>
-              <listitem>
-                <para>Match the returned string of the last PROGRAM call. This key can
-                be used in the same or in any later rule after a PROGRAM call.</para>
-              </listitem>
-            </varlistentry>
-          </variablelist>
-
-          <para>Most of the fields support a shell style pattern matching. The following
-          pattern characters are supported:</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>*</option></term>
-              <listitem>
-                <para>Matches zero, or any number of characters.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>?</option></term>
-              <listitem>
-                <para>Matches any single character.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>[]</option></term>
-              <listitem>
-                <para>Matches any single character specified within the brackets. For
-                example, the pattern string 'tty[SR]' would match either 'ttyS' or 'ttyR'.
-                Ranges are also supported within this match with the '-' character.
-                For example, to match on the range of all digits, the pattern [0-9] would
-                be used. If the first character following the '[' is a '!', any characters
-                not enclosed are matched.</para>
-              </listitem>
-            </varlistentry>
-          </variablelist>
-
-          <para>The following keys can get values assigned:</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>NAME</option></term>
-              <listitem>
-                <para>The name, a network interface should be renamed to. Or as
-                a temporary workaraound, the name a device node should be named.
-                Usually the kernel provides the defined node name, or even creates
-                and removes the node before udev even receives any event. Changing
-                the node name from the kernel's default creates inconsistencies
-                and is not supported. If the kernel and NAME specify different names,
-                an error will be logged. Udev is only expected to handle device node
-                permissions and to create additional symlinks, not to change
-                kernel-provided device node names. Instead of renaming a device node,
-                SYMLINK should be used. Symlink names must never conflict with
-                device node names, it will result in unpredictable behavior.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>SYMLINK</option></term>
-              <listitem>
-                <para>The name of a symlink targeting the node. Every matching rule will add
-                this value to the list of symlinks to be created. Multiple symlinks may be
-                specified by separating the names by the space character. In case multiple
-                devices claim the same name, the link will always point to the device with
-                the highest link_priority. If the current device goes away, the links will
-                be re-evaluated and the device with the next highest link_priority will own
-                the link. If no link_priority is specified, the order of the devices, and
-                which one of them will own the link, is undefined. Claiming the same name for
-                a symlink, which is or might be used for a device node, may result in
-                unexpected behavior and is not supported.
-                </para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>OWNER, GROUP, MODE</option></term>
-              <listitem>
-                <para>The permissions for the device node. Every specified value overwrites
-                the compiled-in default value.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>ATTR{<replaceable>key</replaceable>}</option></term>
-              <listitem>
-                <para>The value that should be written to a sysfs attribute of the
-                event device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>ENV{<replaceable>key</replaceable>}</option></term>
-              <listitem>
-                <para>Set a device property value. Property names with a leading '.'
-                are not stored in the database or exported to external tool or events.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>TAG</option></term>
-              <listitem>
-                <para>Attach a tag to a device. This is used to filter events for users
-                of libudev's monitor functionality, or to enumerate a group of tagged
-                devices. The implementation can only work efficiently if only a few
-                tags are attached to a device. It is only meant to be used in
-                contexts with specific device filter requirements, and not as a
-                general-purpose flag. Excessive use might result in inefficient event
-                handling.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>RUN</option></term>
-              <listitem>
-                <para>Add a program to the list of programs to be executed for a specific
-                device. This can only be used for very short running tasks. Running an
-                event process for a long period of time may block all further events for
-                this or a dependent device. Long running tasks need to be immediately
-                detached from the event process itself. If the option
-                <option>RUN{<replaceable>fail_event_on_error</replaceable>}</option> is
-                specified, and the executed program returns non-zero, the event will be
-                marked as failed for a possible later handling.</para>
-                <para>If no absolute path is given, the program is expected to live in
-                <filename>/lib/udev</filename>, otherwise the absolute path must be
-                specified. Program name and arguments are separated by spaces. Single quotes
-                can be used to specify arguments with spaces.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>LABEL</option></term>
-              <listitem>
-                <para>Named label where a GOTO can jump to.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>GOTO</option></term>
-              <listitem>
-                <para>Jumps to the next LABEL with a matching name</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>IMPORT{<replaceable>type</replaceable>}</option></term>
-              <listitem>
-                <para>Import a set of variables as device properties,
-                depending on <replaceable>type</replaceable>:</para>
-                <variablelist>
-                  <varlistentry>
-                    <term><option>program</option></term>
-                    <listitem>
-                      <para>Execute an external program specified as the assigned value and
-                      import its output, which must be in environment key
-                      format. Path specification, command/argument separation,
-                      and quoting work like in <option>RUN</option>.</para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
-                    <term><option>file</option></term>
-                    <listitem>
-                      <para>Import a text file specified as the assigned value, which must be in
-                      environment key format.</para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
-                    <term><option>db</option></term>
-                    <listitem>
-                      <para>Import a single property specified as the assigned value from the
-                      current device database. This works only if the database is already populated
-                      by an earlier event.</para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
-                    <term><option>parent</option></term>
-                    <listitem>
-                      <para>Import the stored keys from the parent device by reading
-                      the database entry of the parent device. The value assigned to
-                      <option>IMPORT{parent}</option> is used as a filter of key names
-                      to import (with the same shell-style pattern matching used for
-                      comparisons).</para>
-                    </listitem>
-                  </varlistentry>
-                </variablelist>
-                <para>If no option is given, udev will choose between <option>program</option>
-                and <option>file</option> based on the executable bit of the file
-                permissions.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>WAIT_FOR</option></term>
-              <listitem>
-                <para>Wait for a file to become available or until a 10
-                seconds timeout expires.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>OPTIONS</option></term>
-              <listitem>
-                <para>Rule and device options:</para>
-                <variablelist>
-                  <varlistentry>
-                    <term><option>link_priority=<replaceable>value</replaceable></option></term>
-                    <listitem>
-                      <para>Specify the priority of the created symlinks. Devices with higher
-                      priorities overwrite existing symlinks of other devices. The default is 0.</para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
-                    <term><option>event_timeout=</option></term>
-                    <listitem>
-                      <para>Number of seconds an event will wait for operations to finish, before it
-                      will terminate itself.</para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
-                    <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
-                    <listitem>
-                      <para>Usually control and other possibly unsafe characters are replaced
-                      in strings used for device naming. The mode of replacement can be specified
-                      with this option.</para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
-                    <term><option>watch</option></term>
-                    <listitem>
-                      <para>Watch the device node with inotify, when closed after being opened for
-                      writing, a change uevent will be synthesised.</para>
-                    </listitem>
-                  </varlistentry>
-                </variablelist>
-              </listitem>
-            </varlistentry>
-          </variablelist>
-
-          <para>The <option>NAME</option>, <option>SYMLINK</option>, <option>PROGRAM</option>,
-          <option>OWNER</option>, <option>GROUP</option>, <option>MODE</option>  and  <option>RUN</option>
-          fields support simple printf-like string substitutions. The <option>RUN</option>
-          format chars gets applied after all rules have been processed, right before the program
-          is executed. It allows the use of device properties set by earlier matching
-          rules. For all other fields, substitutions are applied while the individual rule is
-          being processed. The available substitutions are:</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>$kernel</option>, <option>%k</option></term>
-              <listitem>
-                <para>The kernel name for this device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$number</option>, <option>%n</option></term>
-              <listitem>
-                <para>The kernel number for this device. For example, 'sda3' has
-                kernel number of '3'</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$devpath</option>, <option>%p</option></term>
-              <listitem>
-                <para>The devpath of the device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$id</option>, <option>%b</option></term>
-              <listitem>
-                <para>The name of the device matched while searching the devpath upwards for
-                  <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option> and <option>ATTRS</option>.
-                </para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$driver</option></term>
-              <listitem>
-                <para>The driver name of the device matched while searching the devpath upwards for
-                  <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option> and <option>ATTRS</option>.
-                </para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$attr{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
-              <listitem>
-                <para>The value of a sysfs attribute found at the device, where
-                all keys of the rule have matched. If the matching device does not have
-                such an attribute, follow the chain of parent devices and use the value
-                of the first attribute that matches.
-                If the attribute is a symlink, the last element of the symlink target is
-                returned as the value.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$env{<replaceable>key</replaceable>}</option>, <option>%E{<replaceable>key</replaceable>}</option></term>
-              <listitem>
-                <para>A device property value.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$major</option>, <option>%M</option></term>
-              <listitem>
-                <para>The kernel major number for the device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$minor</option>, <option>%m</option></term>
-              <listitem>
-                <para>The kernel minor number for the device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$result</option>, <option>%c</option></term>
-              <listitem>
-                <para>The string returned by the external program requested with PROGRAM.
-                A single part of the string, separated by a space character may be selected
-                by specifying the part number as an attribute: <option>%c{N}</option>.
-                If the number is followed by the '+' char this part plus all remaining parts
-                of the result string are substituted: <option>%c{N+}</option></para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$parent</option>, <option>%P</option></term>
-              <listitem>
-                <para>The node name of the parent device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$name</option></term>
-              <listitem>
-                <para>The current name of the device node. If not changed by a rule, it is the
-                name of the kernel device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$links</option></term>
-              <listitem>
-                <para>The current list of symlinks, separated by a space character. The value is
-                only set if an earlier rule assigned a value, or during a remove events.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$root</option>, <option>%r</option></term>
-              <listitem>
-                <para>The udev_root value.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$sys</option>, <option>%S</option></term>
-              <listitem>
-                <para>The sysfs mount point.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$tempnode</option>, <option>%N</option></term>
-              <listitem>
-                <para>The name of a created temporary device node to provide access to
-                the device from a external program before the real node is created.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>%%</option></term>
-              <listitem>
-              <para>The '%' character itself.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>$$</option></term>
-              <listitem>
-              <para>The '$' character itself.</para>
-              </listitem>
-            </varlistentry>
-          </variablelist>
-        </refsect2>
-      </refsect1>
-
-      <refsect1><title>AUTHOR</title>
-        <para>Written by Greg Kroah-Hartman <email>greg@kroah.com</email> and
-        Kay Sievers <email>kay.sievers@vrfy.org</email>. With much help from
-        Dan Stekloff and many others.</para>
-      </refsect1>
-
-      <refsect1>
-        <title>SEE ALSO</title>
-        <para><citerefentry>
-            <refentrytitle>udevd</refentrytitle><manvolnum>8</manvolnum>
-          </citerefentry>, 
-          <citerefentry>
-            <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
-        </citerefentry></para>
-      </refsect1>
-    </refentry>
-  </section>
-</article>
+    <productname>udev</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>udev</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>udev</refname>
+    <refpurpose>Linux dynamic device management</refpurpose>
+  </refnamediv>
+
+  <refsect1><title>Description</title>
+    <para>udev supplies the system software with device events, manages permissions
+    of device nodes and may create additional symlinks in the <filename>/dev</filename>
+    directory, or renames network interfaces. The kernel usually just assigns unpredictable
+    device names based on the order of discovery. Meaningful symlinks or network device
+    names provide a way to reliably identify devices based on their properties or
+    current configuration.</para>
+
+    <para>The udev daemon <citerefentry><refentrytitle>udevd</refentrytitle>
+    <manvolnum>8</manvolnum></citerefentry> receives device uevents directly from
+    the kernel whenever a device is added or removed from the system, or it changes its
+    state. When udev receives a device event, it matches its configured set of rules
+    against various device attributes to identify the device. Rules that match, may
+    provide additional device information to be stored in the udev database, or information
+    to be used to create meaningful symlink names.</para>
+
+    <para>All device information udev processes, is stored in the udev database and
+    sent out to possible event subscribers. Access to all stored data and the event
+    sources are provided by the library libudev.</para>
+  </refsect1>
+
+  <refsect1><title>Configuration</title>
+    <para>udev configuration files are placed in <filename>/etc/udev/</filename>
+    and <filename>/lib/udev/</filename>. All empty lines, or lines beginning with
+    '#' will be ignored.</para>
+
+    <refsect2><title>Configuration file</title>
+      <para>udev expects its main configuration file at <filename>/etc/udev/udev.conf</filename>.
+      It consists of a set of variables allowing the user to override default udev values.
+      The following variables can be set:</para>
+      <variablelist>
+        <varlistentry>
+          <term><option>udev_root</option></term>
+          <listitem>
+            <para>Specifies where to place the device nodes in the filesystem.
+            The default value is <filename>/dev</filename>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>udev_log</option></term>
+          <listitem>
+            <para>The logging priority. Valid values are the numerical syslog priorities
+            or their textual representations: <option>err</option>, <option>info</option>
+            and <option>debug</option>.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2><title>Rules files</title>
+      <para>The udev rules are read from the files located in the
+      default rules directory <filename>/lib/udev/rules.d/</filename>,
+      the custom rules directory <filename>/etc/udev/rules.d/</filename>
+      and the temporary rules directory <filename>/dev/.udev/rules.d/</filename>.
+      All rule files are sorted and processed in lexical order, regardless
+      in which of these directories they live.</para>
+
+      <para>Rule files are required to have a unique name, duplicate file names
+      are ignored. Files in <filename>/etc/udev/rules.d/</filename> have precedence
+      over files with the same name in <filename>/lib/udev/rules.d/</filename>. This
+      can be used to ignore a default rules file if needed.</para>
+
+      <para>Every line in the rules file contains at least one key value pair.
+      There are two kind of keys, match and assignment keys.
+      If all match keys are matching against its value, the rule gets applied and the
+      assign keys get the specified value assigned.</para>
+
+      <para>A matching rule may rename a network interface, add symlinks
+      pointing to the device node, or run a specified program as part of
+      the event handling.</para>
+
+      <para>A rule consists of a list of one or more key value pairs separated by
+      a comma. Each key has a distinct operation, depending on the used operator. Valid
+      operators are:</para>
+      <variablelist>
+        <varlistentry>
+          <term><option>==</option></term>
+          <listitem>
+            <para>Compare for equality.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>!=</option></term>
+          <listitem>
+            <para>Compare for inequality.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>=</option></term>
+          <listitem>
+            <para>Assign a value to a key. Keys that represent a list, are reset
+            and only this single value is assigned.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>+=</option></term>
+          <listitem>
+            <para>Add the value to a key that holds a list of entries.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>:=</option></term>
+          <listitem>
+            <para>Assign  a  value  to  a key finally; disallow any later changes,
+            which may be used to prevent changes by any later rules.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>The following key names can be used to match against device properties.
+      Some of the keys also match against properties of the parent devices in sysfs,
+      not only the device that has generated the event. If multiple keys that match
+      a parent device are specified in a single rule, all these keys must match at
+      one and the same parent device.</para>
+      <variablelist>
+        <varlistentry>
+          <term><option>ACTION</option></term>
+          <listitem>
+            <para>Match the name of the event action.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>DEVPATH</option></term>
+          <listitem>
+            <para>Match the devpath of the event device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>KERNEL</option></term>
+          <listitem>
+            <para>Match the name of the event device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>NAME</option></term>
+          <listitem>
+            <para>Match the name of the node or network interface. It can
+            be used once the NAME key has been set in one of the preceding
+            rules.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>SYMLINK</option></term>
+          <listitem>
+            <para>Match the name of a symlink targeting the node. It can
+            be used once a SYMLINK key has been set in one of the preceding
+            rules. There may be multiple symlinks; only one needs to match.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>SUBSYSTEM</option></term>
+          <listitem>
+            <para>Match the subsystem of the event device.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>DRIVER</option></term>
+          <listitem>
+            <para>Match the driver name of the event device. Only set for devices
+            which are bound to a driver at the time the event is generated.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>ATTR{<replaceable>filename</replaceable>}</option></term>
+          <listitem>
+            <para>Match sysfs attribute values of the event device. Trailing
+            whitespace in the attribute values is ignored, if the specified match
+            value does not contain trailing whitespace itself.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>KERNELS</option></term>
+          <listitem>
+            <para>Search the devpath upwards for a matching device name.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>SUBSYSTEMS</option></term>
+          <listitem>
+            <para>Search the devpath upwards for a matching device subsystem name.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>DRIVERS</option></term>
+          <listitem>
+            <para>Search the devpath upwards for a matching device driver name.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>ATTRS{<replaceable>filename</replaceable>}</option></term>
+          <listitem>
+            <para>Search the devpath upwards for a device with matching sysfs attribute values.
+            If multiple <option>ATTRS</option> matches are specified, all of them
+            must match on the same device. Trailing whitespace in the attribute values is ignored,
+            if the specified match value does not contain trailing whitespace itself.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>ENV{<replaceable>key</replaceable>}</option></term>
+          <listitem>
+            <para>Match against a device property value.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>TAG</option></term>
+          <listitem>
+            <para>Match against a device tag.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>TEST{<replaceable>octal mode mask</replaceable>}</option></term>
+          <listitem>
+            <para>Test the existence of a file. An octal mode mask can be specified
+            if needed.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>PROGRAM</option></term>
+          <listitem>
+            <para>Execute a program. The key is true, if the program returns
+            successfully. The device properties are made available to the
+            executed program in the environment. The program's output printed to
+            stdout, is available in the RESULT key.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>RESULT</option></term>
+          <listitem>
+            <para>Match the returned string of the last PROGRAM call. This key can
+            be used in the same or in any later rule after a PROGRAM call.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>Most of the fields support a shell style pattern matching. The following
+      pattern characters are supported:</para>
+      <variablelist>
+        <varlistentry>
+          <term><option>*</option></term>
+          <listitem>
+            <para>Matches zero, or any number of characters.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>?</option></term>
+          <listitem>
+            <para>Matches any single character.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>[]</option></term>
+          <listitem>
+            <para>Matches any single character specified within the brackets. For
+            example, the pattern string 'tty[SR]' would match either 'ttyS' or 'ttyR'.
+            Ranges are also supported within this match with the '-' character.
+            For example, to match on the range of all digits, the pattern [0-9] would
+            be used. If the first character following the '[' is a '!', any characters
+            not enclosed are matched.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>The following keys can get values assigned:</para>
+      <variablelist>
+        <varlistentry>
+          <term><option>NAME</option></term>
+          <listitem>
+            <para>The name, a network interface should be renamed to. Or as
+            a temporary workaraound, the name a device node should be named.
+            Usually the kernel provides the defined node name, or even creates
+            and removes the node before udev even receives any event. Changing
+            the node name from the kernel's default creates inconsistencies
+            and is not supported. If the kernel and NAME specify different names,
+            an error will be logged. Udev is only expected to handle device node
+            permissions and to create additional symlinks, not to change
+            kernel-provided device node names. Instead of renaming a device node,
+            SYMLINK should be used. Symlink names must never conflict with
+            device node names, it will result in unpredictable behavior.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>SYMLINK</option></term>
+          <listitem>
+            <para>The name of a symlink targeting the node. Every matching rule will add
+            this value to the list of symlinks to be created. Multiple symlinks may be
+            specified by separating the names by the space character. In case multiple
+            devices claim the same name, the link will always point to the device with
+            the highest link_priority. If the current device goes away, the links will
+            be re-evaluated and the device with the next highest link_priority will own
+            the link. If no link_priority is specified, the order of the devices, and
+            which one of them will own the link, is undefined. Claiming the same name for
+            a symlink, which is or might be used for a device node, may result in
+            unexpected behavior and is not supported.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>OWNER, GROUP, MODE</option></term>
+          <listitem>
+            <para>The permissions for the device node. Every specified value overwrites
+            the compiled-in default value.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>ATTR{<replaceable>key</replaceable>}</option></term>
+          <listitem>
+            <para>The value that should be written to a sysfs attribute of the
+            event device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>ENV{<replaceable>key</replaceable>}</option></term>
+          <listitem>
+            <para>Set a device property value. Property names with a leading '.'
+            are not stored in the database or exported to external tool or events.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>TAG</option></term>
+          <listitem>
+            <para>Attach a tag to a device. This is used to filter events for users
+            of libudev's monitor functionality, or to enumerate a group of tagged
+            devices. The implementation can only work efficiently if only a few
+            tags are attached to a device. It is only meant to be used in
+            contexts with specific device filter requirements, and not as a
+            general-purpose flag. Excessive use might result in inefficient event
+            handling.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>RUN</option></term>
+          <listitem>
+            <para>Add a program to the list of programs to be executed for a specific
+            device. This can only be used for very short running tasks. Running an
+            event process for a long period of time may block all further events for
+            this or a dependent device. Long running tasks need to be immediately
+            detached from the event process itself. If the option
+            <option>RUN{<replaceable>fail_event_on_error</replaceable>}</option> is
+            specified, and the executed program returns non-zero, the event will be
+            marked as failed for a possible later handling.</para>
+            <para>If no absolute path is given, the program is expected to live in
+            <filename>/lib/udev</filename>, otherwise the absolute path must be
+            specified. Program name and arguments are separated by spaces. Single quotes
+            can be used to specify arguments with spaces.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>LABEL</option></term>
+          <listitem>
+            <para>Named label where a GOTO can jump to.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>GOTO</option></term>
+          <listitem>
+            <para>Jumps to the next LABEL with a matching name</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>IMPORT{<replaceable>type</replaceable>}</option></term>
+          <listitem>
+            <para>Import a set of variables as device properties,
+            depending on <replaceable>type</replaceable>:</para>
+            <variablelist>
+              <varlistentry>
+                <term><option>program</option></term>
+                <listitem>
+                  <para>Execute an external program specified as the assigned value and
+                  import its output, which must be in environment key
+                  format. Path specification, command/argument separation,
+                  and quoting work like in <option>RUN</option>.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><option>file</option></term>
+                <listitem>
+                  <para>Import a text file specified as the assigned value, which must be in
+                  environment key format.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><option>db</option></term>
+                <listitem>
+                  <para>Import a single property specified as the assigned value from the
+                  current device database. This works only if the database is already populated
+                  by an earlier event.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><option>parent</option></term>
+                <listitem>
+                  <para>Import the stored keys from the parent device by reading
+                  the database entry of the parent device. The value assigned to
+                  <option>IMPORT{parent}</option> is used as a filter of key names
+                  to import (with the same shell-style pattern matching used for
+                  comparisons).</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+            <para>If no option is given, udev will choose between <option>program</option>
+            and <option>file</option> based on the executable bit of the file
+            permissions.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>WAIT_FOR</option></term>
+          <listitem>
+            <para>Wait for a file to become available or until a 10
+            seconds timeout expires.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>OPTIONS</option></term>
+          <listitem>
+            <para>Rule and device options:</para>
+            <variablelist>
+              <varlistentry>
+                <term><option>link_priority=<replaceable>value</replaceable></option></term>
+                <listitem>
+                  <para>Specify the priority of the created symlinks. Devices with higher
+                  priorities overwrite existing symlinks of other devices. The default is 0.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><option>event_timeout=</option></term>
+                <listitem>
+                  <para>Number of seconds an event will wait for operations to finish, before it
+                  will terminate itself.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
+                <listitem>
+                  <para>Usually control and other possibly unsafe characters are replaced
+                  in strings used for device naming. The mode of replacement can be specified
+                  with this option.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><option>watch</option></term>
+                <listitem>
+                  <para>Watch the device node with inotify, when closed after being opened for
+                  writing, a change uevent will be synthesised.</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>The <option>NAME</option>, <option>SYMLINK</option>, <option>PROGRAM</option>,
+      <option>OWNER</option>, <option>GROUP</option>, <option>MODE</option>  and  <option>RUN</option>
+      fields support simple printf-like string substitutions. The <option>RUN</option>
+      format chars gets applied after all rules have been processed, right before the program
+      is executed. It allows the use of device properties set by earlier matching
+      rules. For all other fields, substitutions are applied while the individual rule is
+      being processed. The available substitutions are:</para>
+      <variablelist>
+        <varlistentry>
+          <term><option>$kernel</option>, <option>%k</option></term>
+          <listitem>
+            <para>The kernel name for this device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$number</option>, <option>%n</option></term>
+          <listitem>
+            <para>The kernel number for this device. For example, 'sda3' has
+            kernel number of '3'</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$devpath</option>, <option>%p</option></term>
+          <listitem>
+            <para>The devpath of the device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$id</option>, <option>%b</option></term>
+          <listitem>
+            <para>The name of the device matched while searching the devpath upwards for
+              <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option> and <option>ATTRS</option>.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$driver</option></term>
+          <listitem>
+            <para>The driver name of the device matched while searching the devpath upwards for
+              <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option> and <option>ATTRS</option>.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$attr{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
+          <listitem>
+            <para>The value of a sysfs attribute found at the device, where
+            all keys of the rule have matched. If the matching device does not have
+            such an attribute, follow the chain of parent devices and use the value
+            of the first attribute that matches.
+            If the attribute is a symlink, the last element of the symlink target is
+            returned as the value.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$env{<replaceable>key</replaceable>}</option>, <option>%E{<replaceable>key</replaceable>}</option></term>
+          <listitem>
+            <para>A device property value.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$major</option>, <option>%M</option></term>
+          <listitem>
+            <para>The kernel major number for the device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$minor</option>, <option>%m</option></term>
+          <listitem>
+            <para>The kernel minor number for the device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$result</option>, <option>%c</option></term>
+          <listitem>
+            <para>The string returned by the external program requested with PROGRAM.
+            A single part of the string, separated by a space character may be selected
+            by specifying the part number as an attribute: <option>%c{N}</option>.
+            If the number is followed by the '+' char this part plus all remaining parts
+            of the result string are substituted: <option>%c{N+}</option></para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$parent</option>, <option>%P</option></term>
+          <listitem>
+            <para>The node name of the parent device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$name</option></term>
+          <listitem>
+            <para>The current name of the device node. If not changed by a rule, it is the
+            name of the kernel device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$links</option></term>
+          <listitem>
+            <para>The current list of symlinks, separated by a space character. The value is
+            only set if an earlier rule assigned a value, or during a remove events.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$root</option>, <option>%r</option></term>
+          <listitem>
+            <para>The udev_root value.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$sys</option>, <option>%S</option></term>
+          <listitem>
+            <para>The sysfs mount point.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$tempnode</option>, <option>%N</option></term>
+          <listitem>
+            <para>The name of a created temporary device node to provide access to
+            the device from a external program before the real node is created.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>%%</option></term>
+          <listitem>
+          <para>The '%' character itself.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>$$</option></term>
+          <listitem>
+          <para>The '$' character itself.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1><title>Author</title>
+    <para>Written by Greg Kroah-Hartman <email>greg@kroah.com</email> and
+    Kay Sievers <email>kay.sievers@vrfy.org</email>. With much help from
+    Dan Stekloff and many others.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><citerefentry>
+        <refentrytitle>udevd</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>, 
+      <citerefentry>
+        <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
+    </citerefentry></para>
+  </refsect1>
+</refentry>

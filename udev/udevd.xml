@@ -1,119 +1,115 @@
 <?xml version='1.0'?>
-<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<article>
-  <section>
+<refentry id="udevd">
+  <refentryinfo>
     <title>udevd</title>
-    <refentry>
-      <refentryinfo>
-        <title>udevd</title>
-        <productname>udev</productname>
-      </refentryinfo>
+    <productname>udev</productname>
+  </refentryinfo>
 
-      <refmeta>
-        <refentrytitle>udevd</refentrytitle>
-        <manvolnum>8</manvolnum>
-        <refmiscinfo class="version"></refmiscinfo>
-      </refmeta>
+  <refmeta>
+    <refentrytitle>udevd</refentrytitle>
+    <manvolnum>8</manvolnum>
+    <refmiscinfo class="version"></refmiscinfo>
+  </refmeta>
 
-      <refnamediv>
-        <refname>udevd</refname><refpurpose>event managing daemon</refpurpose>
-      </refnamediv>
+  <refnamediv>
+    <refname>udevd</refname><refpurpose>event managing daemon</refpurpose>
+  </refnamediv>
 
-      <refsynopsisdiv>
-        <cmdsynopsis>
-          <command>udevd</command>
-          <arg><option>--daemon</option></arg>
-          <arg><option>--debug-trace</option></arg>
-          <arg><option>--debug</option></arg>
-          <arg><option>--version</option></arg>
-          <arg><option>--resolve-names=early|late|never</option></arg>
-          <arg><option>--help</option></arg>
-        </cmdsynopsis>
-      </refsynopsisdiv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>udevd</command>
+      <arg><option>--daemon</option></arg>
+      <arg><option>--debug-trace</option></arg>
+      <arg><option>--debug</option></arg>
+      <arg><option>--version</option></arg>
+      <arg><option>--resolve-names=early|late|never</option></arg>
+      <arg><option>--help</option></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
 
-      <refsect1><title>DESCRIPTION</title>
-        <para>udevd listens to kernel uevents and passes the incoming events to
-        udev. It ensures the correct event order and takes care, that events for child
-        devices are delayed until the parent event has finished the device handling.
-        The behavior of the running daemon can be changed with
-        <command>udevadm control</command>.</para>
-      </refsect1>
+  <refsect1><title>Description</title>
+    <para>udevd listens to kernel uevents and passes the incoming events to
+    udev. It ensures the correct event order and takes care, that events for child
+    devices are delayed until the parent event has finished the device handling.
+    The behavior of the running daemon can be changed with
+    <command>udevadm control</command>.</para>
+  </refsect1>
 
-      <refsect1><title>OPTIONS</title>
-        <variablelist>
-          <varlistentry>
-            <term><option>--daemon</option></term>
-            <listitem>
-              <para>Detach and run in the background.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>--debug-trace</option></term>
-            <listitem>
-              <para>Run all events completely serialized. This may be useful if udev triggers
-              actions or loads kernel modules which cause problems and a slow but continuous
-              operation is needed, where no events are processed in parallel.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>--debug</option></term>
-            <listitem>
-              <para>Print debug messages to stderr.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>--resolve-names</option></term>
-            <listitem>
-              <para>Specify when udevd should resolve names of users and groups.
-              When set to <option>early</option> (the default) names will be
-              resolved when the rules are parsed.  When set to
-              <option>late</option> names will be resolved for every event.
-              When set to <option>never</option> names will never be resolved
-              and all devices will be owned by root.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>--version</option></term>
-            <listitem>
-              <para>Print version number.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>--help</option></term>
-            <listitem>
-              <para>Print help text.</para>
-            </listitem>
-          </varlistentry>
-        </variablelist>
-      </refsect1>
+  <refsect1><title>Options</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--daemon</option></term>
+        <listitem>
+          <para>Detach and run in the background.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--debug-trace</option></term>
+        <listitem>
+          <para>Run all events completely serialized. This may be useful if udev triggers
+          actions or loads kernel modules which cause problems and a slow but continuous
+          operation is needed, where no events are processed in parallel.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--debug</option></term>
+        <listitem>
+          <para>Print debug messages to stderr.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--resolve-names</option></term>
+        <listitem>
+          <para>Specify when udevd should resolve names of users and groups.
+          When set to <option>early</option> (the default) names will be
+          resolved when the rules are parsed.  When set to
+          <option>late</option> names will be resolved for every event.
+          When set to <option>never</option> names will never be resolved
+          and all devices will be owned by root.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--version</option></term>
+        <listitem>
+          <para>Print version number.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--help</option></term>
+        <listitem>
+          <para>Print help text.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
 
-      <refsect1><title>ENVIRONMENT</title>
-        <variablelist>
-          <varlistentry>
-            <term><option>UDEV_LOG</option></term>
-            <listitem>
-              <para>Overrides the syslog priority specified in the config file.</para>
-            </listitem>
-          </varlistentry>
-        </variablelist>
-     </refsect1>
+  <refsect1><title>Environment</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>UDEV_LOG</option></term>
+        <listitem>
+          <para>Overrides the syslog priority specified in the config file.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+ </refsect1>
 
-      <refsect1><title>AUTHOR</title>
-        <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email>.</para>
-      </refsect1>
+  <refsect1><title>Author</title>
+    <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email>.</para>
+  </refsect1>
 
-      <refsect1>
-        <title>SEE ALSO</title>
-        <para><citerefentry>
-            <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-          </citerefentry>, 
-          <citerefentry>
-            <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
-        </citerefentry></para>
-      </refsect1>
-    </refentry>
-  </section>
-</article>
+  <refsect1>
+    <title>See Also</title>
+    <para><citerefentry>
+        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+      </citerefentry>, 
+      <citerefentry>
+        <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
+    </citerefentry></para>
+  </refsect1>
+</refentry>

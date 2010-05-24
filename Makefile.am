@@ -156,7 +156,7 @@ EXTRA_DIST += \
 	udev/udevd.xml
 
 %.7 %.8 : %.xml
-	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+	$(AM_V_GEN)$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 # ------------------------------------------------------------------------------
 # udev tests
