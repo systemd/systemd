@@ -109,6 +109,7 @@ struct Watch {
 #define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Debian's $mail-{transport|transfer-agent */
 #define SPECIAL_BASIC_TARGET "basic.target"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
+#define SPECIAL_EXIT_SERVICE "exit.service"
 
 #ifndef SPECIAL_DBUS_SERVICE
 #define SPECIAL_DBUS_SERVICE "dbus.service"

@@ -1,0 +1,8 @@
+[Unit]
+Description=Exit
+Requires=shutdown.target
+After=shutdown.target
+
+[Service]
+Type=finish
+ExecStart=@SYSTEMCTL@ --session daemon-exit

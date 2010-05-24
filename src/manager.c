@@ -1791,11 +1791,13 @@ static int manager_dispatch_sigchld(Manager *m) {
         return 0;
 }
 
-static void manager_start_target(Manager *m, const char *name) {
+static int manager_start_target(Manager *m, const char *name) {
         int r;
 
         if ((r = manager_add_job_by_name(m, JOB_START, name, JOB_REPLACE, true, NULL)) < 0)
                 log_error("Failed to enqueue %s job: %s", name, strerror(-r));
+
+        return r;
 }
 
 static int manager_process_signal_fd(Manager *m) {
@@ -1824,14 +1826,14 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 case SIGTERM:
-                        if (m->running_as == MANAGER_INIT)
+                        if (m->running_as == MANAGER_INIT) {
                                 /* This is for compatibility with the
                                  * original sysvinit */
                                 m->exit_code = MANAGER_REEXECUTE;
-                        else
-                                m->exit_code = MANAGER_EXIT;
+                                break;
+                        }
 
-                        return 0;
+                        /* Fall through */
 
                 case SIGINT:
                         if (m->running_as == MANAGER_INIT) {
@@ -1839,8 +1841,13 @@ static int manager_process_signal_fd(Manager *m) {
                                 break;
                         }
 
-                        m->exit_code = MANAGER_EXIT;
-                        return 0;
+                        /* Run the exit target if there is one, if not, just exit. */
+                        if (manager_start_target(m, SPECIAL_EXIT_SERVICE) < 0) {
+                                m->exit_code = MANAGER_EXIT;
+                                return 0;
+                        }
+
+                        break;
 
                 case SIGWINCH:
                         if (m->running_as == MANAGER_INIT)

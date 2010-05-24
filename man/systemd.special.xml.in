@@ -53,6 +53,7 @@
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
                 <filename>emergency.service</filename>,
+                <filename>exit.service</filename>,
                 <filename>graphical.target</filename>,
                 <filename>halt.target</filename>,
                 <filename>kbrequest.target</filename>,
@@ -635,6 +636,35 @@
                 <filename>shutdown.target</filename>,
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>.</para>
+
+                <para>In addition the following special unit is
+                understood only when systemd runs as service instance:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>exit.service</filename></term>
+                                <listitem>
+                                        <para>A special service unit
+                                        for shutting down the
+                                        session.</para>
+
+                                        <para>Applications wanting to
+                                        terminate the session should
+                                        start this unit. If systemd
+                                        receives SIGTERM or SIGINT
+                                        when running as session daemon
+                                        it will start this
+                                        unit.</para>
+
+                                        <para>Normally, this pulls in
+                                        <filename>shutdown.target</filename>
+                                        which in turn should be
+                                        conflicted by all units that
+                                        want to be shut down on
+                                        session exit.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
         </refsect1>
 
         <refsect1>

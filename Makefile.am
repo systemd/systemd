@@ -128,7 +128,8 @@ dist_sessionunit_DATA = \
 	units/session/default.target
 
 sessionunit_DATA = \
-	units/session/remote-fs.target
+	units/session/remote-fs.target \
+	units/session/exit.service
 
 EXTRA_DIST = \
 	units/basic.target.m4 \
@@ -139,6 +140,7 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
+	units/session/exit.service.in \
 	LICENSE \
 	README \
 	DISTRO_PORTING
@@ -359,6 +361,8 @@ SED_PROCESS = \
 	$(SED)  -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
+		-e 's,@SPECIAL_DBUS_SERVICE\@,$(SPECIAL_DBUS_SERVICE),g' \
+		-e 's,@SYSTEMCTL\@,$(bindir)/systemctl,g' \
 		< $< > $@
 
 units/%: units/%.in Makefile
@@ -391,6 +395,7 @@ CLEANFILES = \
 	units/multi-user.target \
 	units/remote-fs.target \
 	units/session/remote-fs.target \
+	units/session/exit.service \
 	man/systemd.special.7 \
 	man/systemd.special.html
 
