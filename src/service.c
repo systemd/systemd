@@ -191,13 +191,19 @@ static char *sysv_translate_name(const char *name) {
 static int sysv_translate_facility(const char *name, char **_r) {
 
         static const char * const table[] = {
+                /* LSB defined facilities */
                 "$local_fs",  SPECIAL_LOCAL_FS_TARGET,
                 "$network",   SPECIAL_NETWORK_TARGET,
                 "$named",     SPECIAL_NSS_LOOKUP_TARGET,
                 "$portmap",   SPECIAL_RPCBIND_TARGET,
                 "$remote_fs", SPECIAL_REMOTE_FS_TARGET,
                 "$syslog",    SPECIAL_SYSLOG_TARGET,
-                "$time",      SPECIAL_RTC_SET_TARGET
+                "$time",      SPECIAL_RTC_SET_TARGET,
+
+                /* Debian extensions */
+                "$mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "$mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "$x-display-manager",    SPECIAL_DISPLAY_MANAGER_TARGET,
         };
 
         unsigned i;
