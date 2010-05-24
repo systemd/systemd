@@ -51,6 +51,7 @@
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
                 <filename>default.target</filename>,
+                <filename>display-manager.service</filename>,
                 <filename>emergency.service</filename>,
                 <filename>graphical.target</filename>,
                 <filename>halt.target</filename>,
@@ -145,6 +146,26 @@
                                         overriden with the
                                         <varname>systemd.default=</varname>
                                         kernel command line option.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>display-manager.service</filename></term>
+                                <listitem>
+                                        <para>The display manager
+                                        service. Usually this should
+                                        be aliased (symlinked) to
+                                        <filename>gdm.service</filename>
+                                        or a similar display manager
+                                        service.</para>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After for this target unit to
+                                        all SysV init script service
+                                        units with an LSB header
+                                        referring to the
+                                        <literal>$x-display-manager</literal>
+                                        facility, for compatibility
+                                        with Debian.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

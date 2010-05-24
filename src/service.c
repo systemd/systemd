@@ -203,7 +203,7 @@ static int sysv_translate_facility(const char *name, char **_r) {
                 /* Debian extensions */
                 "$mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
                 "$mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "$x-display-manager",    SPECIAL_DISPLAY_MANAGER_TARGET,
+                "$x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE
         };
 
         unsigned i;

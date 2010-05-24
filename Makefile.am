@@ -517,9 +517,12 @@ install-data-hook:
 		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
 		$(LN_S) ../sys-fs-fuse-connections.automount sys-fs-fuse-connections.automount )
 if TARGET_FEDORA
+	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
-		rm -f prefdm.service && \
-		$(LN_S) $(systemunitdir)/prefdm.service prefdm.service )
+		rm -f display-manager.service && \
+		$(LN_S) ../display-manager.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f rc-local.service && \
 		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
