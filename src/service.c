@@ -599,6 +599,19 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 u->meta.description = d;
 
+                        } else if (startswith_no_case(t, "X-Interactive:")) {
+                                int b;
+
+                                if ((b = parse_boolean(strstrip(t+14))) < 0) {
+                                        log_warning("[%s:%u] Couldn't parse interactive flag. Ignoring.", path, line);
+                                        continue;
+                                }
+
+                                if (b)
+                                        s->exec_context.std_input = EXEC_INPUT_TTY;
+                                else
+                                        s->exec_context.std_input = EXEC_INPUT_NULL;
+
                         } else if (state == LSB_DESCRIPTION) {
 
                                 if (startswith(l, "#\t") || startswith(l, "#  ")) {
