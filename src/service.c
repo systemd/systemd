@@ -379,7 +379,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                         /* Try to parse Red Hat style chkconfig headers */
 
-                        if (startswith(t, "chkconfig:")) {
+                        if (startswith_no_case(t, "chkconfig:")) {
                                 int start_priority;
                                 char runlevels[16], *k;
 
@@ -416,7 +416,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith(t, "description:")) {
+                        } else if (startswith_no_case(t, "description:")) {
 
                                 size_t k = strlen(t);
                                 char *d;
@@ -434,7 +434,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 free(u->meta.description);
                                 u->meta.description = d;
 
-                        } else if (startswith(t, "pidfile:")) {
+                        } else if (startswith_no_case(t, "pidfile:")) {
 
                                 char *fn;
 
@@ -479,7 +479,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                 } else if (state == LSB || state == LSB_DESCRIPTION) {
 
-                        if (startswith(t, "Provides:")) {
+                        if (startswith_no_case(t, "Provides:")) {
                                 char *i, *w;
                                 size_t z;
 
@@ -515,10 +515,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                 }
 
-                        } else if (startswith(t, "Required-Start:") ||
-                                   startswith(t, "Should-Start:") ||
-                                   startswith(t, "X-Start-Before:") ||
-                                   startswith(t, "X-Start-After:")) {
+                        } else if (startswith_no_case(t, "Required-Start:") ||
+                                   startswith_no_case(t, "Should-Start:") ||
+                                   startswith_no_case(t, "X-Start-Before:") ||
+                                   startswith_no_case(t, "X-Start-After:")) {
                                 char *i, *w;
                                 size_t z;
 
@@ -541,13 +541,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        r = unit_add_dependency_by_name(u, startswith(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
+                                        r = unit_add_dependency_by_name(u, startswith_no_case(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
                                         free(m);
 
                                         if (r < 0)
                                                 goto finish;
                                 }
-                        } else if (startswith(t, "Default-Start:")) {
+                        } else if (startswith_no_case(t, "Default-Start:")) {
                                 char *k, *d;
 
                                 state = LSB;
@@ -564,7 +564,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith(t, "Description:")) {
+                        } else if (startswith_no_case(t, "Description:")) {
                                 char *d;
 
                                 state = LSB_DESCRIPTION;
@@ -577,7 +577,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 free(u->meta.description);
                                 u->meta.description = d;
 
-                        } else if (startswith(t, "Short-Description:") &&
+                        } else if (startswith_no_case(t, "Short-Description:") &&
                                    !u->meta.description) {
                                 char *d;
 
