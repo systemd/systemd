@@ -516,7 +516,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 }
 
                         } else if (startswith(t, "Required-Start:") ||
-                                   startswith(t, "Should-Start:")) {
+                                   startswith(t, "Should-Start:") ||
+                                   startswith(t, "X-Start-Before:") ||
+                                   startswith(t, "X-Start-After:")) {
                                 char *i, *w;
                                 size_t z;
 
@@ -539,7 +541,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        r = unit_add_dependency_by_name(u, UNIT_AFTER, m, NULL, true);
+                                        r = unit_add_dependency_by_name(u, startswith(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
                                         free(m);
 
                                         if (r < 0)
