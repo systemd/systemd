@@ -313,7 +313,7 @@
                                         all SysV init script service
                                         units with an LSB header
                                         referring to the
-                                        <literal>$remote-fs</literal>
+                                        <literal>$remote_fs</literal>
                                         facility.</para>
                                 </listitem>
                         </varlistentry>
