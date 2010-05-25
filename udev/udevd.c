@@ -883,7 +883,7 @@ static void static_dev_create_links(struct udev *udev, DIR *dir)
 	};
 	static const struct stdlinks stdlinks[] = {
 		{ "core", "/proc/kcore" },
-		{ "fd", "/proc/fd" },
+		{ "fd", "/proc/self/fd" },
 		{ "stdin", "/proc/self/fd/0" },
 		{ "stdout", "/proc/self/fd/1" },
 		{ "stderr", "/proc/self/fd/2" },
