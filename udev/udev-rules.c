@@ -321,11 +321,10 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 			const char *tk_ptr = (char *)token;
 			unsigned int idx = (tk_ptr - tks_ptr) / sizeof(struct token);
 
-			dbg(rules->udev, "* RULE %s:%u, token: %u, count: %u, label: '%s', flags: 0x%02x\n",
+			dbg(rules->udev, "* RULE %s:%u, token: %u, count: %u, label: '%s'\n",
 			    &rules->buf[token->rule.filename_off], token->rule.filename_line,
 			    idx, token->rule.token_count,
-			    &rules->buf[token->rule.label_off],
-			    token->rule.flags);
+			    &rules->buf[token->rule.label_off]);
 			break;
 		}
 	case TK_M_ACTION:
