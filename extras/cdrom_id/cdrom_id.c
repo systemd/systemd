@@ -810,14 +810,14 @@ print:
 		printf("ID_CDROM_MEDIA_SESSION_NEXT=%d\n", cd_media_session_next);
 	if (cd_media_session_count > 0)
 		printf("ID_CDROM_MEDIA_SESSION_COUNT=%d\n", cd_media_session_count);
+	if (cd_media_session_count > 1 && cd_media_session_last_offset > 0)
+		printf("ID_CDROM_MEDIA_SESSION_LAST_OFFSET=%llu\n", cd_media_session_last_offset);
 	if (cd_media_track_count > 0)
 		printf("ID_CDROM_MEDIA_TRACK_COUNT=%d\n", cd_media_track_count);
 	if (cd_media_track_count_audio > 0)
 		printf("ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=%d\n", cd_media_track_count_audio);
 	if (cd_media_track_count_data > 0)
 		printf("ID_CDROM_MEDIA_TRACK_COUNT_DATA=%d\n", cd_media_track_count_data);
-	if (cd_media_session_last_offset > 0)
-		printf("ID_CDROM_MEDIA_SESSION_LAST_OFFSET=%llu\n", cd_media_session_last_offset);
 exit:
 	if (fd >= 0)
 		close(fd);
