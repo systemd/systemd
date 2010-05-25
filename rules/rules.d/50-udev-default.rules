@@ -104,8 +104,9 @@ KERNEL=="rfkill",		MODE="0644"
 # CPU
 KERNEL=="cpu[0-9]*",		MODE="0444"
 
-# miscellaneous
-KERNEL=="fuse",			MODE="0666", OPTIONS+="static_node=fuse"
+KERNEL=="fuse",			MODE="0666", OPTIONS+="static_node=fuse" \
+  RUN+="/bin/mount -t fusectl fusectl /sys/fs/fuse/connections"
+
 SUBSYSTEM=="rtc", DRIVERS=="rtc_cmos", SYMLINK+="rtc"
 KERNEL=="mmtimer",		MODE="0644"
 KERNEL=="rflash[0-9]*",		MODE="0400"
