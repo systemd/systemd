@@ -1,3 +1,16 @@
+Summary of changes from v155 to v156
+============================================
+
+Bryan Kadzban (1):
+      udevd: fix typo /proc/fd -> /proc/self/fd
+
+Kay Sievers (4):
+      configure.ac: version bump
+      cdrom_id: do not export ID_CDROM_MEDIA_SESSION_LAST_OFFSET= for single session media
+      rules: optical drives - use ID_CDROM_MEDIA_TRACK_COUNT_DATA
+      libudev: fix udev_queue_get_seqnum_sequence_is_finished() with empty queue file
+
+
 Summary of changes from v154 to v155
 ============================================
 
