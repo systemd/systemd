@@ -299,7 +299,7 @@ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
 	if (queue_file == NULL)
 		return 1;
 
-	while (1) {
+	for (;;) {
 		unsigned long long int seqnum;
 		ssize_t devpath_len;
 
@@ -348,7 +348,7 @@ out:
 int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 					       unsigned long long int start, unsigned long long int end)
 {
-	unsigned long long int seqnum = 0;
+	unsigned long long int seqnum;
 	ssize_t devpath_len;
 	int unfinished;
 	FILE *queue_file;
@@ -368,20 +368,33 @@ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 		fclose(queue_file);
 		return -EOVERFLOW;
 	}
-	unfinished = (end - start) + 1;
 
-	while (unfinished > 0) {
+	/*
+	 * we might start with 0, and handle the initial seqnum
+	 * only when we find an entry in the queue file
+	 **/
+	unfinished = end - start;
+
+	do {
 		if (udev_queue_read_seqnum(queue_file, &seqnum) < 0)
 			break;
 		devpath_len = udev_queue_skip_devpath(queue_file);
 		if (devpath_len < 0)
 			break;
 
+		/*
+		 * we might start with an empty or re-build queue file, where
+		 * the initial seqnum is not recorded as finished
+		 */
+		if (start == seqnum && devpath_len > 0)
+			unfinished++;
+
 		if (devpath_len == 0) {
 			if (seqnum >= start && seqnum <= end)
 				unfinished--;
 		}
-	}
+	} while (unfinished > 0);
+
 	fclose(queue_file);
 
 	return (unfinished == 0);
