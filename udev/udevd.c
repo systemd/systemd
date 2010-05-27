@@ -1023,7 +1023,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	/* make sure std{in,out,err} fd's are in a sane state */
+	/* make sure std{in,out,err} fds are in a sane state */
 	fd = open("/dev/null", O_RDWR);
 	if (fd < 0) {
 		fprintf(stderr, "cannot open /dev/null\n");
@@ -1034,7 +1034,6 @@ int main(int argc, char *argv[])
 	if (write(STDERR_FILENO, 0, 0) < 0)
 		dup2(fd, STDERR_FILENO);
 
-	/* init control socket, bind() ensures, that only one udevd instance is running */
 	udev_ctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
 	if (udev_ctrl == NULL) {
 		fprintf(stderr, "error initializing control socket");
@@ -1148,7 +1147,6 @@ int main(int argc, char *argv[])
 		fclose(f);
 	}
 
-	/* redirect std{out,err} */
 	if (!debug) {
 		dup2(fd, STDIN_FILENO);
 		dup2(fd, STDOUT_FILENO);
@@ -1157,7 +1155,7 @@ int main(int argc, char *argv[])
 	if (fd > STDERR_FILENO)
 		close(fd);
 
-	/* set scheduling priority for the daemon */
+	/* set scheduling priority for the main daemon process */
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
 
 	chdir("/");
