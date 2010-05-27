@@ -2,12 +2,12 @@
 
 ACTION=="remove", GOTO="drivers_end"
 
-DRIVER!="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe -b $env{MODALIAS}"
-SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD", RUN+="/sbin/modprobe -b tifm_sd"
-SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN+="/sbin/modprobe -b tifm_ms"
-SUBSYSTEM=="memstick", RUN+="/sbin/modprobe -b --all ms_block mspro_block"
-SUBSYSTEM=="i2o", RUN+="/sbin/modprobe -b i2o_block"
-SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe -b sg"
-SUBSYSTEM=="module", KERNEL=="parport_pc", RUN+="/sbin/modprobe -b ppdev"
+DRIVER!="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe -bv $env{MODALIAS}"
+SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD", RUN+="/sbin/modprobe -bv tifm_sd"
+SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN+="/sbin/modprobe -bv tifm_ms"
+SUBSYSTEM=="memstick", RUN+="/sbin/modprobe -bv --all ms_block mspro_block"
+SUBSYSTEM=="i2o", RUN+="/sbin/modprobe -bv i2o_block"
+SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe -bv sg"
+SUBSYSTEM=="module", KERNEL=="parport_pc", RUN+="/sbin/modprobe -bv ppdev"
 
 LABEL="drivers_end"
