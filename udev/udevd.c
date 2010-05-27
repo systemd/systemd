@@ -69,7 +69,6 @@ static void log_fn(struct udev *udev, int priority,
 	}
 }
 
-static bool debug_trace;
 static struct udev_rules *rules;
 static struct udev_queue_export *udev_queue_export;
 static struct udev_ctrl *udev_ctrl;
@@ -952,16 +951,15 @@ int main(int argc, char *argv[])
 	int fd;
 	FILE *f;
 	sigset_t mask;
-	const char *value;
 	int daemonize = false;
 	int resolve_names = 1;
 	static const struct option options[] = {
 		{ "daemon", no_argument, NULL, 'd' },
-		{ "debug-trace", no_argument, NULL, 't' },
 		{ "debug", no_argument, NULL, 'D' },
+		{ "children-max", required_argument, NULL, 'c' },
+		{ "resolve-names", required_argument, NULL, 'N' },
 		{ "help", no_argument, NULL, 'h' },
 		{ "version", no_argument, NULL, 'V' },
-		{ "resolve-names", required_argument, NULL, 'N' },
 		{}
 	};
 	int rc = 1;
@@ -986,8 +984,8 @@ int main(int argc, char *argv[])
 		case 'd':
 			daemonize = true;
 			break;
-		case 't':
-			debug_trace = true;
+		case 'c':
+			children_max = strtoul(optarg, NULL, 10);
 			break;
 		case 'D':
 			debug = true;
@@ -1008,7 +1006,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'h':
-			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--debug] "
+			printf("Usage: udevd [--help] [--daemon] [--children-max] [--debug] "
 			       "[--resolve-names=early|late|never] [--version]\n");
 			goto exit;
 		case 'V':
@@ -1151,7 +1149,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* redirect std{out,err} */
-	if (!debug && !debug_trace) {
+	if (!debug) {
 		dup2(fd, STDIN_FILENO);
 		dup2(fd, STDOUT_FILENO);
 		dup2(fd, STDERR_FILENO);
@@ -1175,23 +1173,22 @@ int main(int argc, char *argv[])
 		close(fd);
 	}
 
-	/* in trace mode run one event after the other */
-	if (debug_trace) {
-		children_max = 1;
-	} else {
-		int memsize = mem_size_mb();
+	if (children_max <= 0) {
+		const char *value = getenv("UDEVD_CHILDREN_MAX");
 
-		if (memsize > 0)
-			children_max = 128 + (memsize / 8);
-		else
-			children_max = 128;
+		if (value) {
+			children_max = strtoul(value, NULL, 10);
+		} else {
+			int memsize = mem_size_mb();
+
+			/* set value depending on the amount of RAM */
+			if (memsize > 0)
+				children_max = 128 + (memsize / 8);
+			else
+				children_max = 128;
+		}
 	}
-
-	/* possibly overwrite maximum limit of executed events */
-	value = getenv("UDEVD_MAX_CHILDREN");
-	if (value)
-		children_max = strtoul(value, NULL, 10);
-	info(udev, "initialize children_max to %u\n", children_max);
+	info(udev, "set children_max to %u\n", children_max);
 
 	static_dev_create(udev);
 	static_dev_create_from_modules(udev);

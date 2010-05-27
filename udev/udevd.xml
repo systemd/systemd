@@ -23,7 +23,7 @@
     <cmdsynopsis>
       <command>udevd</command>
       <arg><option>--daemon</option></arg>
-      <arg><option>--debug-trace</option></arg>
+      <arg><option>--children-max</option></arg>
       <arg><option>--debug</option></arg>
       <arg><option>--version</option></arg>
       <arg><option>--resolve-names=early|late|never</option></arg>
@@ -48,11 +48,9 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><option>--debug-trace</option></term>
+        <term><option>--children-max</option></term>
         <listitem>
-          <para>Run all events completely serialized. This may be useful if udev triggers
-          actions or loads kernel modules which cause problems and a slow but continuous
-          operation is needed, where no events are processed in parallel.
+          <para>Limit the number of parallel executed events.
           </para>
         </listitem>
       </varlistentry>
