@@ -536,7 +536,7 @@ static void events_start(struct udev *udev)
 
 static void worker_returned(void)
 {
-	while (1) {
+	for (;;) {
 		struct worker_message msg;
 		ssize_t size;
 		struct udev_list_node *loop;
@@ -709,7 +709,7 @@ static void handle_signal(struct udev *udev, int signo)
 		udev_exit = true;
 		break;
 	case SIGCHLD:
-		while (1) {
+		for (;;) {
 			pid_t pid;
 			int status;
 			struct udev_list_node *loop, *tmp;
@@ -975,7 +975,7 @@ int main(int argc, char *argv[])
 	info(udev, "version %s\n", VERSION);
 	udev_selinux_init(udev);
 
-	while (1) {
+	for (;;) {
 		int option;
 
 		option = getopt_long(argc, argv, "dDthV", options, NULL);

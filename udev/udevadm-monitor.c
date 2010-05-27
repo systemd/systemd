@@ -92,7 +92,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	udev_list_init(&subsystem_match_list);
 	udev_list_init(&tag_match_list);
-	while (1) {
+	for (;;) {
 		option = getopt_long(argc, argv, "pekus:t:h", options, NULL);
 		if (option == -1)
 			break;

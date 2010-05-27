@@ -84,7 +84,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	sigaddset(&mask, SIGALRM);
 	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
-	while (1) {
+	for (;;) {
 		int option;
 		int seconds;
 
@@ -181,7 +181,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 
-	while (1) {
+	for (;;) {
 		struct stat statbuf;
 		const struct timespec duration = { 0 , 1000 * 1000 * 1000 / LOOP_PER_SECOND };
 

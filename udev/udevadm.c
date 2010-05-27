@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
 	udev_set_log_fn(udev, log_fn);
 	udev_selinux_init(udev);
 
-	while (1) {
+	for (;;) {
 		int option;
 
 		option = getopt_long(argc, argv, "+dhV", options, NULL);

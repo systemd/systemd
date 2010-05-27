@@ -122,7 +122,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		goto exit;
 	}
 
-	while (1) {
+	for (;;) {
 		int option;
 		const char *key;
 		const char *val;

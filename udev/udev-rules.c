@@ -894,7 +894,7 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
 		return -1;
 	*key = linepos;
 
-	while (1) {
+	for (;;) {
 		linepos++;
 		if (linepos[0] == '\0')
 			return -1;
@@ -1180,7 +1180,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 	rule_tmp.rule.rule.filename_line = lineno;
 
 	linepos = line;
-	while (1) {
+	for (;;) {
 		char *key;
 		char *value;
 		enum operation_type op;
@@ -1707,7 +1707,7 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 		return -1;
 	}
 
-	while (1) {
+	for (;;) {
 		struct dirent *dent;
 
 		dent = readdir(dir);
@@ -1940,7 +1940,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 
 			split = &rules->buf[token->key.value_off];
 			len = strlen(val);
-			while (1) {
+			for (;;) {
 				const char *next;
 
 				next = strchr(split, '|');
@@ -2182,7 +2182,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				/* loop over parents */
 				event->dev_parent = event->dev;
-				while (1) {
+				for (;;) {
 					struct token *key;
 
 					dbg(event->udev, "parent: '%s'\n", udev_device_get_syspath(event->dev_parent));

@@ -66,7 +66,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 	if (uctrl == NULL)
 		return 2;
 
-	while (1) {
+	for (;;) {
 		int option;
 		int i;
 		char *endp;

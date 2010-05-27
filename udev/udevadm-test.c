@@ -50,7 +50,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 
 	info(udev, "version %s\n", VERSION);
 
-	while (1) {
+	for (;;) {
 		int option;
 
 		option = getopt_long(argc, argv, "a:s:fh", options, NULL);

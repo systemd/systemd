@@ -243,7 +243,7 @@ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue)
 	if (queue_file == NULL)
 		return 0;
 
-	while (1) {
+	for (;;) {
 		unsigned long long int seqnum;
 		ssize_t devpath_len;
 
@@ -435,7 +435,7 @@ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev
 	if (queue_file == NULL)
 		return NULL;
 
-	while (1) {
+	for (;;) {
 		char syspath[UTIL_PATH_SIZE];
 		char *s;
 		size_t l;

@@ -238,7 +238,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		QUERY_ALL,
 	} query = QUERY_NONE;
 
-	while (1) {
+	for (;;) {
 		int option;
 		struct stat statbuf;
 

@@ -111,7 +111,7 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
 	s = dest;
 	l = size;
 
-	while (1) {
+	for (;;) {
 		enum subst_type type = SUBST_UNKNOWN;
 		char attrbuf[UTIL_PATH_SIZE];
 		char *attr = NULL;

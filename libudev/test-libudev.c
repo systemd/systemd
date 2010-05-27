@@ -242,7 +242,7 @@ static int test_monitor(struct udev *udev)
 	fd = udev_monitor_get_fd(udev_monitor);
 	FD_ZERO(&readfds);
 
-	while (1) {
+	for (;;) {
 		struct udev_device *device;
 		int fdcount;
 
@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
 	udev_set_log_fn(udev, log_fn);
 	printf("set log: %p\n", log_fn);
 
-	while (1) {
+	for (;;) {
 		int option;
 
 		option = getopt_long(argc, argv, "+dhV", options, NULL);
