@@ -315,7 +315,7 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><option>--max-childs=</option><replaceable>value</replaceable></term>
+          <term><option>--children-max=</option><replaceable>value</replaceable></term>
           <listitem>
             <para>Set the maximum number of events, udevd will handle at the
             same time.</para>

@@ -32,8 +32,7 @@ enum udev_ctrl_msg_type {
 	UDEV_CTRL_START_EXEC_QUEUE,
 	UDEV_CTRL_RELOAD_RULES,
 	UDEV_CTRL_SET_ENV,
-	UDEV_CTRL_SET_MAX_CHILDS,
-	UDEV_CTRL_SET_MAX_CHILDS_RUNNING,
+	UDEV_CTRL_SET_CHILDREN_MAX,
 	UDEV_CTRL_SETTLE,
 };
 
@@ -185,9 +184,9 @@ int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key)
 	return ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key);
 }
 
-int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count)
+int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_SET_MAX_CHILDS, count, NULL);
+	return ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, count, NULL);
 }
 
 int udev_ctrl_send_settle(struct udev_ctrl *uctrl)
@@ -306,9 +305,9 @@ const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg)
 	return NULL;
 }
 
-int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg)
+int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SET_MAX_CHILDS)
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SET_CHILDREN_MAX)
 		return ctrl_msg->ctrl_msg_wire.intval;
 	return -1;
 }

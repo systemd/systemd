@@ -35,7 +35,7 @@ static void print_help(void)
 		"  --start-exec-queue       execute events, flush queue\n"
 		"  --reload-rules           reloads the rules files\n"
 		"  --property=<KEY>=<value> set a global property for all events\n"
-		"  --max-childs=<N>         maximum number of childs\n"
+		"  --children-max=<N>       maximum number of children\n"
 		"  --help                   print this help text\n\n");
 }
 
@@ -52,7 +52,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		{ "reload-rules", no_argument, NULL, 'R' },
 		{ "property", required_argument, NULL, 'p' },
 		{ "env", required_argument, NULL, 'p' },
-		{ "max-childs", required_argument, NULL, 'm' },
+		{ "children-max", required_argument, NULL, 'm' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
@@ -121,7 +121,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 				fprintf(stderr, "invalid number '%s'\n", optarg);
 				goto exit;
 			}
-			if (udev_ctrl_send_set_max_childs(uctrl, i) < 0)
+			if (udev_ctrl_send_set_children_max(uctrl, i) < 0)
 				rc = 2;
 			else
 				rc = 0;

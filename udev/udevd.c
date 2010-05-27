@@ -78,8 +78,8 @@ static int worker_watch[2];
 static pid_t settle_pid;
 static bool stop_exec_queue;
 static bool reload_config;
-static int max_childs;
-static int childs;
+static int children;
+static int children_max;
 static sigset_t orig_sigmask;
 static struct udev_list_node event_list;
 static struct udev_list_node worker_list;
@@ -205,7 +205,7 @@ static void worker_unref(struct worker *worker)
 
 	udev_list_node_remove(&worker->node);
 	udev_monitor_unref(worker->monitor);
-	childs--;
+	children--;
 	info(worker->udev, "worker [%u] cleaned up\n", worker->pid);
 	free(worker);
 }
@@ -355,7 +355,7 @@ static void worker_new(struct event *event)
 		worker->event = event;
 		event->state = EVENT_RUNNING;
 		udev_list_node_append(&worker->node, &worker_list);
-		childs++;
+		children++;
 		info(event->udev, "seq %llu forked new worker [%u]\n", udev_device_get_seqnum(event->dev), pid);
 		break;
 	}
@@ -386,8 +386,8 @@ static void event_run(struct event *event, bool force)
 		return;
 	}
 
-	if (!force && childs >= max_childs) {
-		info(event->udev, "maximum number (%i) of childs reached\n", childs);
+	if (!force && children >= children_max) {
+		info(event->udev, "maximum number (%i) of children reached\n", children);
 		return;
 	}
 
@@ -431,10 +431,10 @@ static void worker_kill(struct udev *udev, int retain)
 	struct udev_list_node *loop;
 	int max;
 
-	if (childs <= retain)
+	if (children <= retain)
 		return;
 
-	max = childs - retain;
+	max = children - retain;
 
 	udev_list_node_foreach(loop, &worker_list) {
 		struct worker *worker = node_to_worker(loop);
@@ -625,10 +625,10 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 		worker_kill(udev, 0);
 	}
 
-	i = udev_ctrl_get_set_max_childs(ctrl_msg);
+	i = udev_ctrl_get_set_children_max(ctrl_msg);
 	if (i >= 0) {
-		info(udev, "udevd message (SET_MAX_CHILDS) received, max_childs=%i\n", i);
-		max_childs = i;
+		info(udev, "udevd message (SET_MAX_CHILDREN) received, children_max=%i\n", i);
+		children_max = i;
 	}
 
 	settle_pid = udev_ctrl_get_settle(ctrl_msg);
@@ -1177,21 +1177,21 @@ int main(int argc, char *argv[])
 
 	/* in trace mode run one event after the other */
 	if (debug_trace) {
-		max_childs = 1;
+		children_max = 1;
 	} else {
 		int memsize = mem_size_mb();
 
 		if (memsize > 0)
-			max_childs = 128 + (memsize / 8);
+			children_max = 128 + (memsize / 8);
 		else
-			max_childs = 128;
+			children_max = 128;
 	}
 
 	/* possibly overwrite maximum limit of executed events */
-	value = getenv("UDEVD_MAX_CHILDS");
+	value = getenv("UDEVD_MAX_CHILDREN");
 	if (value)
-		max_childs = strtoul(value, NULL, 10);
-	info(udev, "initialize max_childs to %u\n", max_childs);
+		children_max = strtoul(value, NULL, 10);
+	info(udev, "initialize children_max to %u\n", children_max);
 
 	static_dev_create(udev);
 	static_dev_create_from_modules(udev);
@@ -1205,7 +1205,7 @@ int main(int argc, char *argv[])
 		int timeout;
 
 		/* set timeout to kill idle workers */
-		if (udev_list_is_empty(&event_list) && childs > 2)
+		if (udev_list_is_empty(&event_list) && children > 2)
 			timeout = 3 * 1000;
 		else
 			timeout = -1;

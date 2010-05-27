@@ -127,7 +127,7 @@ int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl);
 int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl);
 int udev_ctrl_send_settle(struct udev_ctrl *uctrl);
 int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key);
-int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count);
+int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count);
 struct udev_ctrl_msg;
 struct udev_ctrl_msg *udev_ctrl_msg(struct udev_ctrl *uctrl);
 struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl);
@@ -139,7 +139,7 @@ int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg);
 pid_t udev_ctrl_get_settle(struct udev_ctrl_msg *ctrl_msg);
 const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
+int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
 
 /* libudev-list.c */
 struct udev_list_node {

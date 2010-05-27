@@ -454,7 +454,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 			if (errpipe[READ_END] > 0)
 				close(errpipe[READ_END]);
 
-			/* return the childs stdout string */
+			/* return the child's stdout string */
 			if (result) {
 				result[respos] = '\0';
 				dbg(udev, "result='%s'\n", result);
