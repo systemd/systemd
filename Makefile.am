@@ -94,7 +94,6 @@ install-data-local:
 
 EXTRA_DIST += \
 	rules/packages \
-	rules/redhat \
 	rules/suse \
 	rules/gentoo
 
