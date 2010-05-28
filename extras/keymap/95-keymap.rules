@@ -53,7 +53,7 @@ GOTO="keyboard_end"
 LABEL="keyboard_vendorcheck"
 
 ENV{DMI_VENDOR}=="Dell*", RUN+="keymap $name dell"
-ENV{DMI_VENDOR}=="Dell*", ATTR{[dmi/id]product_name}=="Inspiron 1011", RUN+="keymap $name 0x84 wlan"
+ENV{DMI_VENDOR}=="Dell*", ATTR{[dmi/id]product_name}=="Inspiron 1011|Inspiron 1210", RUN+="keymap $name 0x84 wlan"
 
 ENV{DMI_VENDOR}=="Compaq*", ATTR{[dmi/id]product_name}=="*E500*|*Evo N*", RUN+="keymap $name compaq-e_evo"
 
