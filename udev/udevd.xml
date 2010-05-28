@@ -23,19 +23,23 @@
     <cmdsynopsis>
       <command>udevd</command>
       <arg><option>--daemon</option></arg>
-      <arg><option>--children-max</option></arg>
       <arg><option>--debug</option></arg>
-      <arg><option>--version</option></arg>
+      <arg><option>--children-max=</option></arg>
+      <arg><option>--exec-delay=</option></arg>
       <arg><option>--resolve-names=early|late|never</option></arg>
+      <arg><option>--version</option></arg>
       <arg><option>--help</option></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
-    <para>udevd listens to kernel uevents and passes the incoming events to
-    udev. It ensures the correct event order and takes care, that events for child
-    devices are delayed until the parent event has finished the device handling.
-    The behavior of the running daemon can be changed with
+    <para>udevd listens to kernel uevents and executes the instructions specified
+    in rules. On startup the content of the directory
+    <filename>/lib/udev/devices</filename> is copied to <filename>/dev</filename>.
+    If kernel modules specify static device nodes, these nodes are created
+    even wihtout a corresponding kernel device, to allow on-demand loading of kernel
+    modules. Matching permissions specified in udev rules are applied to these
+    static device nodes. The behavior of the running daemon can be changed with
     <command>udevadm control</command>.</para>
   </refsect1>
 
@@ -48,20 +52,28 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><option>--children-max</option></term>
-        <listitem>
-          <para>Limit the number of parallel executed events.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><option>--debug</option></term>
         <listitem>
           <para>Print debug messages to stderr.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><option>--resolve-names</option></term>
+        <term><option>--children-max=</option></term>
+        <listitem>
+          <para>Limit the number of parallel executed events.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--exec-delay=</option></term>
+        <listitem>
+          <para>Number of seconds to delay the execution of RUN instructions.
+          This might be useful when debugging system crashes during coldplug
+          cause by loading non-working kernel modules.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--resolve-names=</option></term>
         <listitem>
           <para>Specify when udevd should resolve names of users and groups.
           When set to <option>early</option> (the default) names will be

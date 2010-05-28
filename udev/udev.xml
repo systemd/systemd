@@ -490,6 +490,16 @@
                 </listitem>
               </varlistentry>
               <varlistentry>
+                <term><option>static_node=</option></term>
+                <listitem>
+                  <para>Apply the permissions specified in this rule to a static device node with
+                  the specified name. Static device nodes might be provided by kernel modules,
+                  or copied from <filename>/lib/udev/devices</filename>. These nodes might not have
+                  a corresponding kernel device at the time udevd is started, and allow to trigger
+                  automatic kernel module on-demand loading.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
                 <term><option>watch</option></term>
                 <listitem>
                   <para>Watch the device node with inotify, when closed after being opened for
