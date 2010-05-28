@@ -2,6 +2,16 @@ udev 157
 ========
 Bugfixes.
 
+The option --debug-trace and the environemnt variable UDEVD_MAX_CHILDS=
+was removed from udevd.
+
+Udevd now parses the kernel commandline for the following variables:
+  udev.log-priority=<syslog priority>
+  udev.children-max=<maximum number of workers>
+  udev.exec-delay=<seconds to delay the execution of RUN=>
+to help debuging coldplug setups where the loading of a kernel
+module crashes the system.
+
 udev 156
 ========
 Bugfixes.
