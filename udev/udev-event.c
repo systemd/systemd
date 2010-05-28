@@ -681,6 +681,10 @@ int udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
 
 			udev_event_apply_format(event, cmd, program, sizeof(program));
 			envp = udev_device_get_properties_envp(event->dev);
+			if (event->exec_delay > 0) {
+				info(event->udev, "delay execution of '%s'\n", program);
+				sleep(event->exec_delay);
+			}
 			if (util_run_program(event->udev, program, envp, NULL, 0, NULL, sigmask, true) != 0) {
 				if (udev_list_entry_get_flags(list_entry))
 					err = -1;

@@ -79,6 +79,7 @@ static bool stop_exec_queue;
 static bool reload_config;
 static int children;
 static int children_max;
+static int exec_delay;
 static sigset_t orig_sigmask;
 static struct udev_list_node event_list;
 static struct udev_list_node worker_list;
@@ -285,6 +286,9 @@ static void worker_new(struct event *event)
 			/* set timeout to prevent hanging processes */
 			alarm(UDEV_EVENT_TIMEOUT);
 
+			if (exec_delay > 0)
+				udev_event->exec_delay = exec_delay;
+
 			/* apply rules, create node, symlinks */
 			err = udev_event_execute_rules(udev_event, rules);
 
@@ -386,7 +390,8 @@ static void event_run(struct event *event, bool force)
 	}
 
 	if (!force && children >= children_max) {
-		info(event->udev, "maximum number (%i) of children reached\n", children);
+		if (children_max > 1)
+			info(event->udev, "maximum number (%i) of children reached\n", children);
 		return;
 	}
 
@@ -957,6 +962,7 @@ int main(int argc, char *argv[])
 		{ "daemon", no_argument, NULL, 'd' },
 		{ "debug", no_argument, NULL, 'D' },
 		{ "children-max", required_argument, NULL, 'c' },
+		{ "exec-delay", required_argument, NULL, 'e' },
 		{ "resolve-names", required_argument, NULL, 'N' },
 		{ "help", no_argument, NULL, 'h' },
 		{ "version", no_argument, NULL, 'V' },
@@ -976,7 +982,7 @@ int main(int argc, char *argv[])
 	for (;;) {
 		int option;
 
-		option = getopt_long(argc, argv, "dDthV", options, NULL);
+		option = getopt_long(argc, argv, "cdeDthV", options, NULL);
 		if (option == -1)
 			break;
 
@@ -985,7 +991,10 @@ int main(int argc, char *argv[])
 			daemonize = true;
 			break;
 		case 'c':
-			children_max = strtoul(optarg, NULL, 10);
+			children_max = strtoul(optarg, NULL, 0);
+			break;
+		case 'e':
+			exec_delay = strtoul(optarg, NULL, 0);
 			break;
 		case 'D':
 			debug = true;
@@ -1006,8 +1015,15 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'h':
-			printf("Usage: udevd [--help] [--daemon] [--children-max] [--debug] "
-			       "[--resolve-names=early|late|never] [--version]\n");
+			printf("Usage: udevd OPTIONS\n"
+			       "  --daemon\n"
+			       "  --debug\n"
+			       "  --children-max=<maximum number of workers>\n"
+			       "  --exec-delay=<seconds to wait before executing RUN=>\n"
+			       "  --resolve-names=early|late|never\n" 
+			       "  --version\n"
+			       "  --help\n"
+			       "\n");
 			goto exit;
 		case 'V':
 			printf("%s\n", VERSION);
@@ -1021,6 +1037,40 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "root privileges required\n");
 		err(udev, "root privileges required\n");
 		goto exit;
+	}
+
+	/*
+	 * read the kernel commandline, in case we need to get into debug mode
+	 *   udev.log-priority=<level>              syslog priority
+	 *   udev.children-max=<number of workers>  events are fully serialized if set to 1
+	 *
+	 */
+	f = fopen("/proc/cmdline", "r");
+	if (f != NULL) {
+		char cmdline[4096];
+
+		if (fgets(cmdline, sizeof(cmdline), f) != NULL) {
+			char *pos;
+
+			pos = strstr(cmdline, "udev.log-priority=");
+			if (pos != NULL) {
+				pos += strlen("udev.log-priority=");
+				udev_set_log_priority(udev, util_log_priority(pos));
+			}
+
+			pos = strstr(cmdline, "udev.children-max=");
+			if (pos != NULL) {
+				pos += strlen("udev.children-max=");
+				children_max = strtoul(pos, NULL, 0);
+			}
+
+			pos = strstr(cmdline, "udev.exec-delay=");
+			if (pos != NULL) {
+				pos += strlen("udev.exec-delay=");
+				exec_delay = strtoul(pos, NULL, 0);
+			}
+		}
+		fclose(f);
 	}
 
 	/* make sure std{in,out,err} fds are in a sane state */
@@ -1172,19 +1222,13 @@ int main(int argc, char *argv[])
 	}
 
 	if (children_max <= 0) {
-		const char *value = getenv("UDEVD_CHILDREN_MAX");
+		int memsize = mem_size_mb();
 
-		if (value) {
-			children_max = strtoul(value, NULL, 10);
-		} else {
-			int memsize = mem_size_mb();
-
-			/* set value depending on the amount of RAM */
-			if (memsize > 0)
-				children_max = 128 + (memsize / 8);
-			else
-				children_max = 128;
-		}
+		/* set value depending on the amount of RAM */
+		if (memsize > 0)
+			children_max = 128 + (memsize / 8);
+		else
+			children_max = 128;
 	}
 	info(udev, "set children_max to %u\n", children_max);
 

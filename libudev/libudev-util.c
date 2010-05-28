@@ -87,13 +87,13 @@ int util_log_priority(const char *priority)
 	int prio;
 
 	prio = strtol(priority, &endptr, 10);
-	if (endptr[0] == '\0')
+	if (endptr[0] == '\0' || isspace(endptr[0]))
 		return prio;
 	if (strncmp(priority, "err", 3) == 0)
 		return LOG_ERR;
-	if (strcmp(priority, "info") == 0)
+	if (strncmp(priority, "info", 4) == 0)
 		return LOG_INFO;
-	if (strcmp(priority, "debug") == 0)
+	if (strncmp(priority, "debug", 5) == 0)
 		return LOG_DEBUG;
 	return 0;
 }

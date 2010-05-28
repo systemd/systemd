@@ -43,6 +43,7 @@ struct udev_event {
 	uid_t uid;
 	gid_t gid;
 	struct udev_list_node run_list;
+	int exec_delay;
 	bool group_final;
 	bool owner_final;
 	bool mode_final;
