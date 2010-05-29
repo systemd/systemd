@@ -60,8 +60,7 @@
       <varlistentry>
         <term><option>--children-max=</option></term>
         <listitem>
-          <para>Limit the number of parallel executed events.
-          </para>
+          <para>Limit the number of parallel executed events.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -101,9 +100,34 @@
   <refsect1><title>Environment</title>
     <variablelist>
       <varlistentry>
-        <term><option>UDEV_LOG</option></term>
+        <term><varname>UDEV_LOG=</varname></term>
         <listitem>
-          <para>Overrides the syslog priority specified in the config file.</para>
+          <para>Set the logging priority.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+ </refsect1>
+
+  <refsect1><title>Kernel command line</title>
+    <variablelist>
+      <varlistentry>
+        <term><varname>udev.log-priority=</varname></term>
+        <listitem>
+          <para>Set the logging priority.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>udev.children-max=</varname></term>
+        <listitem>
+          <para>Limit the number of parallel executed events.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>udev.exec-delay=</varname></term>
+        <listitem>
+          <para>Number of seconds to delay the execution of RUN instructions.
+          This might be useful when debugging system crashes during coldplug
+          cause by loading non-working kernel modules.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -117,8 +141,7 @@
     <title>See Also</title>
     <para><citerefentry>
         <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-      </citerefentry>, 
-      <citerefentry>
+      </citerefentry>, <citerefentry>
         <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
     </citerefentry></para>
   </refsect1>
