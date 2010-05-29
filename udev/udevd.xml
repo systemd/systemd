@@ -33,13 +33,16 @@
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
-    <para>udevd listens to kernel uevents and executes the instructions specified
-    in rules. On startup the content of the directory
-    <filename>/lib/udev/devices</filename> is copied to <filename>/dev</filename>.
-    If kernel modules specify static device nodes, these nodes are created
-    even wihtout a corresponding kernel device, to allow on-demand loading of kernel
-    modules. Matching permissions specified in udev rules are applied to these
-    static device nodes. The behavior of the running daemon can be changed with
+    <para>udevd listens to kernel uevents. For every event, udevd executes matching
+    instructions specified in udev rules. See <citerefentry>
+        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+      </citerefentry>.</para>
+    <para>On startup the content of the directory <filename>/lib/udev/devices</filename>
+    is copied to <filename>/dev</filename>. If kernel modules specify static device
+    nodes, these nodes are created even wihtout a corresponding kernel device, to
+    allow on-demand loading of kernel modules. Matching permissions specified in udev
+    rules are applied to these static device nodes.</para>
+    <para>The behavior of the running daemon can be changed with
     <command>udevadm control</command>.</para>
   </refsect1>
 
