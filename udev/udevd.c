@@ -1033,12 +1033,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (getuid() != 0) {
-		fprintf(stderr, "root privileges required\n");
-		err(udev, "root privileges required\n");
-		goto exit;
-	}
-
 	/*
 	 * read the kernel commandline, in case we need to get into debug mode
 	 *   udev.log-priority=<level>              syslog priority
@@ -1073,7 +1067,17 @@ int main(int argc, char *argv[])
 		fclose(f);
 	}
 
-	/* make sure std{in,out,err} fds are in a sane state */
+	if (getuid() != 0) {
+		fprintf(stderr, "root privileges required\n");
+		err(udev, "root privileges required\n");
+		goto exit;
+	}
+
+	/* set umask before creating any file/directory */
+	chdir("/");
+	umask(022);
+
+	/* before opening new files, make sure std{in,out,err} fds are in a sane state */
 	fd = open("/dev/null", O_RDWR);
 	if (fd < 0) {
 		fprintf(stderr, "cannot open /dev/null\n");
@@ -1174,6 +1178,14 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
+	if (!debug) {
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
+	}
+	if (fd > STDERR_FILENO)
+		close(fd);
+
 	if (daemonize) {
 		pid_t pid;
 
@@ -1191,26 +1203,16 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* set scheduling priority for the main daemon process */
+	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
+
+	setsid();
+
 	f = fopen("/dev/kmsg", "w");
 	if (f != NULL) {
 		fprintf(f, "<6>udev: starting version " VERSION "\n");
 		fclose(f);
 	}
-
-	if (!debug) {
-		dup2(fd, STDIN_FILENO);
-		dup2(fd, STDOUT_FILENO);
-		dup2(fd, STDERR_FILENO);
-	}
-	if (fd > STDERR_FILENO)
-		close(fd);
-
-	/* set scheduling priority for the main daemon process */
-	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
-
-	chdir("/");
-	umask(022);
-	setsid();
 
 	/* OOM_DISABLE == -17 */
 	fd = open("/proc/self/oom_adj", O_RDWR);
