@@ -12,6 +12,9 @@ Udevd now parses the kernel commandline for the following variables:
 to help debuging coldplug setups where the loading of a kernel
 module crashes the system.
 
+The subdirectory in the source tree rules/packages has been renamed to
+rules/arch, anc contains only architecture specific rules now.
+
 udev 156
 ========
 Bugfixes.
