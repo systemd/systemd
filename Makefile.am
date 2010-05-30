@@ -91,6 +91,7 @@ UNINSTALL_EXEC_HOOKS = libudev-uninstall-move-hook
 # ------------------------------------------------------------------------------
 install-data-local:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
+	-mkdir -p $(DESTDIR)$(libexecdir)/devices
 
 EXTRA_DIST += \
 	rules/packages \
