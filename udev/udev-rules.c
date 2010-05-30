@@ -143,6 +143,7 @@ enum token_type {
 	TK_M_IMPORT_FILE,		/* val */
 	TK_M_IMPORT_PROG,		/* val */
 	TK_M_IMPORT_DB,			/* val */
+	TK_M_IMPORT_CMDLINE,		/* val */
 	TK_M_IMPORT_PARENT,		/* val */
 	TK_M_RESULT,			/* val */
 	TK_M_MAX,
@@ -276,6 +277,7 @@ static const char *token_str(enum token_type type)
 		[TK_M_IMPORT_FILE] =		"M IMPORT_FILE",
 		[TK_M_IMPORT_PROG] =		"M IMPORT_PROG",
 		[TK_M_IMPORT_DB] =		"M IMPORT_DB",
+		[TK_M_IMPORT_CMDLINE] =		"M IMPORT_CMDLINE",
 		[TK_M_IMPORT_PARENT] =		"M IMPORT_PARENT",
 		[TK_M_RESULT] =			"M RESULT",
 		[TK_M_MAX] =			"M MAX",
@@ -342,6 +344,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_M_IMPORT_FILE:
 	case TK_M_IMPORT_PROG:
 	case TK_M_IMPORT_DB:
+	case TK_M_IMPORT_CMDLINE:
 	case TK_M_IMPORT_PARENT:
 	case TK_M_RESULT:
 	case TK_A_NAME:
@@ -1010,6 +1013,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_M_IMPORT_FILE:
 	case TK_M_IMPORT_PROG:
 	case TK_M_IMPORT_DB:
+	case TK_M_IMPORT_CMDLINE:
 	case TK_M_IMPORT_PARENT:
 	case TK_M_RESULT:
 	case TK_A_OWNER:
@@ -1402,6 +1406,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else if (attr != NULL && strstr(attr, "db")) {
 				dbg(rules->udev, "IMPORT will include db values\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_DB, op, value, NULL);
+			} else if (attr != NULL && strstr(attr, "cmdline")) {
+				dbg(rules->udev, "IMPORT will include db values\n");
+				rule_add_key(&rule_tmp, TK_M_IMPORT_CMDLINE, op, value, NULL);
 			} else if (attr != NULL && strstr(attr, "parent")) {
 				dbg(rules->udev, "IMPORT will include the parent values\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_PARENT, op, value, NULL);
@@ -2327,6 +2334,47 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
 				}
+				break;
+			}
+		case TK_M_IMPORT_CMDLINE:
+			{
+				FILE *f;
+				bool imported = false;
+
+				f = fopen("/proc/cmdline", "r");
+				if (f != NULL) {
+					char cmdline[4096];
+
+					if (fgets(cmdline, sizeof(cmdline), f) != NULL) {
+						const char *key = &rules->buf[cur->key.value_off];
+						char *pos;
+
+						pos = strstr(cmdline, key);
+						if (pos != NULL) {
+							struct udev_list_entry *entry;
+
+							pos += strlen(key);
+							if (pos[0] == '\0' || isspace(pos[0])) {
+								/* we import simple flags as 'FLAG=1' */
+								entry = udev_device_add_property(event->dev, key, "1");
+								udev_list_entry_set_flags(entry, 1);
+								imported = true;
+							} else if (pos[0] == '=') {
+								const char *value = &pos[1];
+
+								while (pos[0] != '\0' && !isspace(pos[0]))
+									pos++;
+								pos[0] = '\0';
+								entry = udev_device_add_property(event->dev, key, value);
+								udev_list_entry_set_flags(entry, 1);
+								imported = true;
+							}
+						}
+					}
+					fclose(f);
+				}
+				if (!imported && cur->key.op != OP_NOMATCH)
+					goto nomatch;
 				break;
 			}
 		case TK_M_IMPORT_PARENT:

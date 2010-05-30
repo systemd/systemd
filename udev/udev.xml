@@ -438,6 +438,13 @@
                 </listitem>
               </varlistentry>
               <varlistentry>
+                <term><option>cmdline</option></term>
+                <listitem>
+                  <para>Import a single property from the kernel commandline. For simple flags
+                  the value of the property will be set to '1'.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
                 <term><option>parent</option></term>
                 <listitem>
                   <para>Import the stored keys from the parent device by reading
