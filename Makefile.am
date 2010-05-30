@@ -94,8 +94,8 @@ install-data-local:
 	-mkdir -p $(DESTDIR)$(libexecdir)/devices
 
 EXTRA_DIST += \
-	rules/packages \
-	rules/suse \
+	rules/arch \
+	rules/misc \
 	rules/gentoo
 
 udevrulesdir = $(libexecdir)/rules.d
