@@ -2360,8 +2360,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 								udev_list_entry_set_flags(entry, 1);
 								imported = true;
 							} else if (pos[0] == '=') {
-								const char *value = &pos[1];
+								const char *value;
 
+								pos++;
+								value = pos;
 								while (pos[0] != '\0' && !isspace(pos[0]))
 									pos++;
 								pos[0] = '\0';
