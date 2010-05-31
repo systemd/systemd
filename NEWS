@@ -5,7 +5,7 @@ Bugfixes.
 The option --debug-trace and the environemnt variable UDEVD_MAX_CHILDS=
 was removed from udevd.
 
-Udevd now parses the kernel commandline for the following variables:
+Udevd now checks the kernel commandline for the following variables:
   udev.log-priority=<syslog priority>
   udev.children-max=<maximum number of workers>
   udev.exec-delay=<seconds to delay the execution of RUN=>
