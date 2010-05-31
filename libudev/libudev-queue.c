@@ -28,9 +28,9 @@
  * SECTION:libudev-queue
  * @short_description: access to currently active events
  *
- * The udev daemon processes event asynchronously. All events which do not have
- * interdependencies are run in parallel. This exports the current state of the
- * event processing queue, and the currently event sequence numbers from the kernel
+ * The udev daemon processes events asynchronously. All events which do not have
+ * interdependencies run in parallel. This exports the current state of the
+ * event processing queue, and the current event sequence numbers from the kernel
  * and the udev daemon.
  */
 
