@@ -45,7 +45,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src
 
 rootbin_PROGRAMS = \
-	systemd
+	systemd \
 	systemctl
 
 if HAVE_GTK
