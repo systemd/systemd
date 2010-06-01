@@ -17,7 +17,9 @@ After=basic.target
 Conflicts=shutdown.target
 
 [Service]
+Environment=TERM=linux
 Type=simple
 ExecStart=GETTY %I
 Restart=restart-always
 RestartSec=0
+KillMode=process-group
