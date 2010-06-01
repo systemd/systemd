@@ -159,6 +159,13 @@ dist_systemunit_DATA += \
 	units/fedora/sysinit.service
 endif
 
+if TARGET_SUSE
+dist_systemunit_DATA += \
+	units/suse/halt.service \
+	units/suse/poweroff.service \
+	units/suse/reboot.service
+endif
+
 if TARGET_GENTOO
 dist_systemunit_DATA += \
 	units/gentoo/halt.service \
