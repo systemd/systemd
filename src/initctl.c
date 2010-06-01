@@ -96,7 +96,7 @@ static void change_runlevel(Server *s, int runlevel) {
         const char *target;
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        const char *path, *replace = "isolate";
+        const char *replace = "replace";
 
         assert(s);
 
@@ -109,44 +109,19 @@ static void change_runlevel(Server *s, int runlevel) {
 
         log_debug("Running request %s", target);
 
-        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "LoadUnit"))) {
+        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnit"))) {
                 log_error("Could not allocate message.");
                 goto finish;
         }
 
         if (!dbus_message_append_args(m,
                                       DBUS_TYPE_STRING, &target,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not attach group information to signal message.");
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(s->bus, m, -1, &error))) {
-                log_error("Failed to get unit path: %s", error.message);
-                goto finish;
-        }
-
-        if (!dbus_message_get_args(reply, &error,
-                                   DBUS_TYPE_OBJECT_PATH, &path,
-                                   DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse unit path: %s", error.message);
-                goto finish;
-        }
-
-        dbus_message_unref(m);
-        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Unit", "Start"))) {
-                log_error("Could not allocate message.");
-                goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
                                       DBUS_TYPE_STRING, &replace,
                                       DBUS_TYPE_INVALID)) {
-                log_error("Could not attach group information to signal message.");
+                log_error("Could not attach target and flag information to signal message.");
                 goto finish;
         }
 
-        dbus_message_unref(reply);
         if (!(reply = dbus_connection_send_with_reply_and_block(s->bus, m, -1, &error))) {
                 log_error("Failed to start unit: %s", error.message);
                 goto finish;

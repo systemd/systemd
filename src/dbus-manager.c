@@ -36,6 +36,26 @@
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
+        "  <method name=\"StartUnit\">\n"                               \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"StopUnit\">\n"                                \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReloadUnit\">\n"                              \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"RestartUnit\">\n"                             \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
@@ -184,6 +204,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
         DBusError error;
         DBusMessage *reply = NULL;
         char * path = NULL;
+        JobType job_type = _JOB_TYPE_INVALID;
 
         assert(connection);
         assert(message);
@@ -248,7 +269,15 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_INVALID))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnit"))
+                job_type = JOB_START;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StopUnit"))
+                job_type = JOB_STOP;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadUnit"))
+                job_type = JOB_RELOAD;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "RestartUnit"))
+                job_type = JOB_RESTART;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
                 uint32_t id;
                 Job *j;
 
@@ -297,7 +326,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
 
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                         char *u_path, *j_path;
-                        const char *description, *load_state, *active_state, *sub_state, *job_type;
+                        const char *description, *load_state, *active_state, *sub_state, *sjob_type;
                         DBusMessageIter sub2;
                         uint32_t job_id;
 
@@ -323,11 +352,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                         goto oom;
                                 }
 
-                                job_type = job_type_to_string(u->meta.job->type);
+                                sjob_type = job_type_to_string(u->meta.job->type);
                         } else {
                                 job_id = 0;
                                 j_path = u_path;
-                                job_type = "";
+                                sjob_type = "";
                         }
 
                         if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &u->meta.id) ||
@@ -337,7 +366,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sub_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &u_path) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &job_id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &job_type) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sjob_type) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &j_path)) {
                                 free(u_path);
                                 if (u->meta.job)
@@ -635,6 +664,46 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
 
         } else
                 return bus_default_message_handler(m, message, NULL, properties);
+
+
+        if (job_type != _JOB_TYPE_INVALID) {
+                const char *name, *smode;
+                JobMode mode;
+                Job *j;
+                Unit *u;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_STRING, &smode,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, message, &error, -EINVAL);
+
+                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID)
+                        return bus_send_error_reply(m, message, NULL, -EINVAL);
+
+                if ((r = manager_load_unit(m, name, NULL, &u)) < 0)
+                        return bus_send_error_reply(m, message, NULL, r);
+
+                if (job_type == JOB_START && u->meta.only_by_dependency)
+                        return bus_send_error_reply(m, message, NULL, -EPERM);
+
+                if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
+                        return bus_send_error_reply(m, message, NULL, r);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                if (!(path = job_dbus_path(j)))
+                        goto oom;
+
+                if (!dbus_message_append_args(
+                                    reply,
+                                    DBUS_TYPE_OBJECT_PATH, &path,
+                                    DBUS_TYPE_INVALID))
+                        goto oom;
+        }
 
         free(path);
 

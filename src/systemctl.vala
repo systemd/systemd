@@ -252,25 +252,17 @@ int main (string[] args) {
 
                         for (int i = 2; i < args.length; i++) {
 
-                                ObjectPath p = manager.load_unit(args[i]);
-
-                                Unit u = bus.get_object(
-                                                "org.freedesktop.systemd1",
-                                                p,
-                                                "org.freedesktop.systemd1.Unit") as Unit;
-
                                 string mode = replace ? "replace" : "fail";
-
                                 ObjectPath j = null;
 
                                 if (args[1] == "start")
-                                        j = u.start(mode);
+                                        j = manager.start_unit(args[i], mode);
                                 else if (args[1] == "stop")
-                                        j = u.stop(mode);
+                                        j = manager.stop_unit(args[i], mode);
                                 else if (args[1] == "restart")
-                                        j = u.restart(mode);
+                                        j = manager.restart_unit(args[i], mode);
                                 else if (args[1] == "reload")
-                                        j = u.reload(mode);
+                                        j = manager.reload_unit(args[i], mode);
 
                                 if (block)
                                         jobs.append(j);
@@ -283,14 +275,7 @@ int main (string[] args) {
                                 return 1;
                         }
 
-                        ObjectPath p = manager.load_unit(args[2]);
-
-                        Unit u = bus.get_object(
-                                        "org.freedesktop.systemd1",
-                                        p,
-                                        "org.freedesktop.systemd1.Unit") as Unit;
-
-                        ObjectPath j = u.start("isolate");
+                        ObjectPath j = manager.start_unit(args[2], "isolate");
 
                         if (block) {
                                 manager.subscribe();

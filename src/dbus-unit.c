@@ -260,6 +260,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
         Manager *m = u->meta.manager;
         DBusError error;
         JobType job_type = _JOB_TYPE_INVALID;
+        char *path = NULL;
 
         dbus_error_init(&error);
 
@@ -281,7 +282,6 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                 JobMode mode;
                 Job *j;
                 int r;
-                char *path;
 
                 if (job_type == JOB_START && u->meta.only_by_dependency)
                         return bus_send_error_reply(m, message, NULL, -EPERM);
@@ -312,6 +312,8 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                         goto oom;
         }
 
+        free(path);
+
         if (reply) {
                 if (!dbus_connection_send(m->api_bus, reply, NULL))
                         goto oom;
@@ -322,6 +324,8 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
+        free(path);
+
         if (reply)
                 dbus_message_unref(reply);
 

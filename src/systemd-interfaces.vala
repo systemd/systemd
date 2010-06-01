@@ -52,6 +52,11 @@ public interface Manager : DBus.Object {
         public abstract ObjectPath load_unit(string name) throws DBus.Error;
         public abstract ObjectPath get_job(uint32 id) throws DBus.Error;
 
+        public abstract ObjectPath start_unit(string name, string mode) throws DBus.Error;
+        public abstract ObjectPath stop_unit(string name, string mode) throws DBus.Error;
+        public abstract ObjectPath reload_unit(string name, string mode) throws DBus.Error;
+        public abstract ObjectPath restart_unit(string name, string mode) throws DBus.Error;
+
         public abstract void clear_jobs() throws DBus.Error;
 
         public abstract void subscribe() throws DBus.Error;
