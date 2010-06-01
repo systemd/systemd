@@ -269,6 +269,12 @@ AC_ARG_WITH([udevrulesdir],
         [with_udevrulesdir=/lib/udev/rules.d])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 
+AC_ARG_WITH([rootdir],
+        AS_HELP_STRING([--with-rootdir=DIR], [Root directory for files necessary for boot]),
+        [],
+        [with_rootdir=/])
+AC_SUBST([rootdir], [$with_rootdir])
+
 AC_OUTPUT([Makefile])
 
 echo "
@@ -280,5 +286,7 @@ echo "
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
         D-Bus service:           ${SPECIAL_DBUS_SERVICE}
         Gtk:                     ${have_gtk}
+        prefix:                  ${prefix}
+        root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}
 "

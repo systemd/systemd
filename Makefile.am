@@ -17,13 +17,21 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
+# Dirs of external packages
 dbuspolicydir=$(sysconfdir)/dbus-1/system.d
 udevrulesdir=@udevrulesdir@
-
-pkgsysconfdir=$(sysconfdir)/systemd
-systemunitdir=$(pkgdatadir)/system
-sessionunitdir=$(pkgdatadir)/session
 interfacedir=$(datadir)/dbus-1/interfaces
+
+# Our own, non-special dirs
+pkgsysconfdir=$(sysconfdir)/systemd
+sessionunitdir=$(pkgdatadir)/session
+
+# And these are the special ones for /
+rootdir=@rootdir@
+rootsbindir=$(rootdir)/sbin
+rootbindir=$(rootdir)/bin
+rootlibexecdir=$(rootdir)/lib/systemd
+systemunitdir=$(rootdir)/lib/systemd/system
 
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
@@ -33,22 +41,22 @@ AM_CPPFLAGS = \
 	-DSYSTEM_SYSVRCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
 	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
-	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\" \
-	-DSYSTEMD_BINARY_PATH=\"$(sbindir)/systemd\" \
+	-DCGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
+	-DSYSTEMD_BINARY_PATH=\"$(rootsbindir)/systemd\" \
 	-I $(top_srcdir)/src
 
-sbin_PROGRAMS = \
+rootsbin_PROGRAMS = \
 	systemd
 
-bin_PROGRAMS = \
+rootbin_PROGRAMS = \
 	systemctl
 
 if HAVE_GTK
-bin_PROGRAMS += \
+bin_PROGRAMS = \
 	systemadm
 endif
 
-pkglibexec_PROGRAMS = \
+rootlibexec_PROGRAMS = \
 	systemd-logger \
 	systemd-cgroups-agent \
 	systemd-initctl
@@ -477,10 +485,10 @@ install-data-hook:
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target && \
-		$(LN_S) ../system/shutdown.target shutdown.target && \
-		$(LN_S) ../system/sockets.target sockets.target && \
-		$(LN_S) ../system/local-fs.target local-fs.target && \
-		$(LN_S) ../system/swap.target swap.target )
+		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
+		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \
+		$(LN_S) $(systemunitdir)/local-fs.target local-fs.target && \
+		$(LN_S) $(systemunitdir)/swap.target swap.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel0.target runlevel1.target runlevel6.target && \
 		$(LN_S) poweroff.target runlevel0.target && \
@@ -512,14 +520,12 @@ install-data-hook:
 			dev-mqueue.automount \
 			proc-sys-fs-binfmt_misc.automount \
 			sys-kernel-debug.automount \
-			sys-fs-fuse-connections.automount \
 			sys-kernel-security.automount && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
-		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
-		$(LN_S) ../sys-fs-fuse-connections.automount sys-fs-fuse-connections.automount )
+		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount )
 if TARGET_FEDORA
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
@@ -546,4 +552,5 @@ if TARGET_GENTOO
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
-	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)
+	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
+	--with-rootdir=$$dc_install_base/$(rootdir)
