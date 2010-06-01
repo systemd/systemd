@@ -106,8 +106,6 @@ dist_systemunit_DATA = \
 	units/dev-mqueue.mount \
 	units/proc-sys-fs-binfmt_misc.automount \
 	units/proc-sys-fs-binfmt_misc.mount \
-	units/sys-fs-fuse-connections.automount \
-	units/sys-fs-fuse-connections.mount \
 	units/sys-kernel-debug.automount \
 	units/sys-kernel-debug.mount \
 	units/sys-kernel-security.automount \
