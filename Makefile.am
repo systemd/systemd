@@ -28,7 +28,6 @@ sessionunitdir=$(pkgdatadir)/session
 
 # And these are the special ones for /
 rootdir=@rootdir@
-rootsbindir=$(rootdir)/sbin
 rootbindir=$(rootdir)/bin
 rootlibexecdir=$(rootdir)/lib/systemd
 systemunitdir=$(rootdir)/lib/systemd/system
@@ -42,13 +41,11 @@ AM_CPPFLAGS = \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
 	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
 	-DCGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
-	-DSYSTEMD_BINARY_PATH=\"$(rootsbindir)/systemd\" \
+	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
 	-I $(top_srcdir)/src
 
-rootsbin_PROGRAMS = \
-	systemd
-
 rootbin_PROGRAMS = \
+	systemd
 	systemctl
 
 if HAVE_GTK
