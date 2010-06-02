@@ -343,10 +343,10 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection  *connection, DBu
 
         dbus_error_init(&error);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
+        /* log_debug("Got D-Bus request: %s.%s() on %s", */
+        /*           dbus_message_get_interface(message), */
+        /*           dbus_message_get_member(message), */
+        /*           dbus_message_get_path(message)); */
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! API D-Bus connection terminated.");
