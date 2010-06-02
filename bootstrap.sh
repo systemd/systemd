@@ -65,7 +65,7 @@ else
     run_versioned automake "$AM_VERSION" --copy --foreign --add-missing
 
     if [ "x$1" != "xac" ]; then
-        CFLAGS="$CFLAGS -g -O0" ./configure --sysconfdir=/etc --localstatedir=/var "$@"
+        CFLAGS="$CFLAGS -g -O0" ./configure --sysconfdir=/etc --localstatedir=/var --with-rootdir= "$@"
         make clean
     fi
 fi
