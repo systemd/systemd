@@ -64,6 +64,8 @@
 
 * tcpwrap
 
+* use setproctitle() when forking, before exec() (waiting for (PR_SET_PROCTITLE_AREA to enter the kernel)
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
