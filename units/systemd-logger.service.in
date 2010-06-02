@@ -12,5 +12,5 @@ Description=systemd Logging Daemon
 After=@SPECIAL_SYSLOG_SERVICE@
 
 [Service]
-ExecStart=@pkglibexecdir@/systemd-logger
+ExecStart=@rootlibexecdir@/systemd-logger
 Type=simple

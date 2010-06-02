@@ -368,11 +368,10 @@ systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(SED)  -e 's,@libexecdir\@,$(libexecdir),g' \
-		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
+	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		-e 's,@SPECIAL_DBUS_SERVICE\@,$(SPECIAL_DBUS_SERVICE),g' \
-		-e 's,@SYSTEMCTL\@,$(bindir)/systemctl,g' \
+		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		< $< > $@
 
 units/%: units/%.in Makefile
