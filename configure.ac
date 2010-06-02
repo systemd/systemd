@@ -275,7 +275,8 @@ AC_ARG_WITH([rootdir],
         [with_rootdir=${ac_default_prefix}])
 AC_SUBST([rootdir], [$with_rootdir])
 
-AC_OUTPUT([Makefile])
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
 
 echo "
         $PACKAGE_NAME $VERSION
