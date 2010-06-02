@@ -1262,7 +1262,7 @@ finish:
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         int r;
-        char *device, *path, *options, *fstype, *d, *p;
+        char *device, *path, *options, *options2, *fstype, *d, *p, *o;
 
         assert(m);
 
@@ -1271,7 +1271,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         for (;;) {
                 int k;
 
-                device = path = options = fstype = d = p = NULL;
+                device = path = options = options2 = fstype = d = p = o = NULL;
 
                 if ((k = fscanf(m->proc_self_mountinfo,
                                 "%*s "       /* (1) mount id */
@@ -1284,16 +1284,23 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                                 "- "         /* (8) seperator */
                                 "%ms "       /* (9) file system type */
                                 "%ms"        /* (10) mount source */
+                                "%ms"        /* (11) mount options 2 */
                                 "%*[^\n]",   /* some rubbish at the end */
                                 &path,
                                 &options,
                                 &fstype,
-                                &device)) != 4) {
+                                &device,
+                                &options2)) != 5) {
 
                         if (k == EOF)
                                 break;
 
                         r = -EBADMSG;
+                        goto finish;
+                }
+
+                if (asprintf(&o, "%s,%s", options, options2) < 0) {
+                        r = -ENOMEM;
                         goto finish;
                 }
 
@@ -1303,15 +1310,17 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         goto finish;
                 }
 
-                if ((r = mount_add_one(m, d, p, options, fstype, true, set_flags)) < 0)
+                if ((r = mount_add_one(m, d, p, o, fstype, true, set_flags)) < 0)
                         goto finish;
 
                 free(device);
                 free(path);
                 free(options);
+                free(options2);
                 free(fstype);
                 free(d);
                 free(p);
+                free(o);
         }
 
         r = 0;
@@ -1320,9 +1329,11 @@ finish:
         free(device);
         free(path);
         free(options);
+        free(options2);
         free(fstype);
         free(d);
         free(p);
+        free(o);
 
         return r;
 }
