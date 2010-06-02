@@ -12,8 +12,7 @@ Description=Emergency Shell
 
 [Service]
 ExecStart=/bin/sh
-Type=simple
 StandardInput=tty
 Restart=restart-always
 RestartSec=0
-KillMode=process
+KillMode=process-group

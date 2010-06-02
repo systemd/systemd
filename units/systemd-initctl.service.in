@@ -12,4 +12,3 @@ Description=systemd /dev/initctl Compatibility Daemon
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-initctl
-Type=simple

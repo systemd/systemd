@@ -14,4 +14,3 @@ Conflicts=shutdown.target
 
 [Service]
 ExecStart=/etc/init.d/xdm start
-Type=simple

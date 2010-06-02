@@ -56,8 +56,8 @@ typedef enum ServiceRestart {
 } ServiceRestart;
 
 typedef enum ServiceType {
-        SERVICE_FORKING,  /* forks by itself (i.e. traditional daemons) */
         SERVICE_SIMPLE,   /* we fork and go on right-away (i.e. modern socket activated daemons) */
+        SERVICE_FORKING,  /* forks by itself (i.e. traditional daemons) */
         SERVICE_FINISH,   /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
         SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
         _SERVICE_TYPE_MAX,

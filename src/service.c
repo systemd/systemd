@@ -340,9 +340,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 goto finish;
         }
 
-        s->type = SERVICE_FORKING;
-        s->restart = SERVICE_ONCE;
-
         free(s->sysv_path);
         if (!(s->sysv_path = strdup(path))) {
                 r = -ENOMEM;
@@ -650,8 +647,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 s->timeout_usec = 0;
 
         /* Special setting for all SysV services */
+        s->type = SERVICE_FORKING;
         s->valid_no_process = true;
         s->kill_mode = KILL_PROCESS_GROUP;
+        s->restart = SERVICE_ONCE;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;

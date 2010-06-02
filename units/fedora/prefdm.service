@@ -14,4 +14,3 @@ Conflicts=shutdown.target
 
 [Service]
 ExecStart=/etc/X11/prefdm -nodaemon
-Type=simple
