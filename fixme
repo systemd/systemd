@@ -64,10 +64,6 @@
 
 * tcpwrap
 
-* dbus intzerface files und so weiter müssen NICHT nach prefixdir
-
-* fix den kram mit rootdir..
-
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
