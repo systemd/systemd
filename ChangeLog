@@ -1,3 +1,42 @@
+Summary of changes from v156 to v157
+============================================
+
+Harald Hoyer (1):
+      40-redhat.rules: removed file
+
+Jerone Young (3):
+      Fix wlan key on Inspirion 1210
+      Fix wlan key on Inspiron 910
+      Fix wlan key on Inspiron 1010 & 1110
+
+Kay Sievers (25):
+      configure.ac: version bump
+      Makefile.am: silent build mkdir
+      rules: mount fuse control filesystem
+      fix compilation with --enable-debug
+      while (1) -> for (;;)
+      childs -> children
+      udevd: replace --debug-trace with --children-max
+      udevd: fix comments
+      rules: add -v to modprobe calls to be able see what will be loaded
+      udevd:  read debug settings from kernel commandline
+      update NEWS
+      rules: delete pilot rules and remove redhat directory
+      man: add static device nodes and udevd debug options
+      man: add kernel command line parameters
+      man: udevd - update intro
+      rules: rename packages -> arch
+      rules: SUSE - move last distro rule to package
+      rules: add misc/30-kernel-compat.rules
+      make: mkdir /lib/udev/devices/
+      make: fix rules/ subdir names
+      udevd: set umask before creating files/directories
+      add IMPORT{cmdline}
+      IMPORT{cmdline}: start at first char after '='
+      libudev: doc - fix typo
+      update NEWS
+
+
 Summary of changes from v155 to v156
 ============================================
 
