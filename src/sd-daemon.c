@@ -89,7 +89,6 @@ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) l; fd ++) {
                 int flags;
 
