@@ -87,17 +87,21 @@ if test "x$enable_extras" = xyes; then
 	PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
 	AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
 
-	AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
-	AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
-	AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
+	if test "x$cross_compiling" = "xno" ; then
+		AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
+		AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
+		AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
+	fi
 	AC_ARG_WITH(pci-ids-path,
-		AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file]),
+		[AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
 		[PCI_DATABASE=${withval}],
 		[if test -n "$pciids" ; then
 			PCI_DATABASE="$pciids"
 		else
 			AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
 		fi])
+	AC_MSG_CHECKING([for PCI database location])
+	AC_MSG_RESULT([$PCI_DATABASE])
 	AC_SUBST(PCI_DATABASE)
 
 	AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
