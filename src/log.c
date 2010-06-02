@@ -368,7 +368,7 @@ int log_meta(
         int saved_errno, r;
         va_list ap;
 
-        if (_likely(LOG_PRI(level) > log_max_level))
+        if (_likely_(LOG_PRI(level) > log_max_level))
                 return 0;
 
         saved_errno = errno;

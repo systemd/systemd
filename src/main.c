@@ -58,7 +58,7 @@ static int crash_chvt = -1;
 static bool confirm_spawn = false;
 static FILE* serialization = NULL;
 
-_noreturn static void freeze(void) {
+_noreturn_ static void freeze(void) {
         for (;;)
                 pause();
 }
@@ -66,7 +66,7 @@ _noreturn static void freeze(void) {
 static void nop_handler(int sig) {
 }
 
-_noreturn static void crash(int sig) {
+_noreturn_ static void crash(int sig) {
 
         if (!dump_core)
                 log_error("Caught <%s>, not dumping core.", strsignal(sig));

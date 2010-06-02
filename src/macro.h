@@ -25,19 +25,19 @@
 #include <assert.h>
 #include <sys/types.h>
 
-#define _printf_attr(a,b) __attribute__ ((format (printf, a, b)))
-#define _sentinel __attribute__ ((sentinel))
-#define _noreturn __attribute__((noreturn))
-#define _unused __attribute__ ((unused))
-#define _destructor __attribute__ ((destructor))
-#define _pure __attribute__ ((pure))
-#define _const __attribute__ ((const))
-#define _deprecated __attribute__ ((deprecated))
-#define _packed __attribute__ ((packed))
-#define _malloc __attribute__ ((malloc))
-#define _weak __attribute__ ((weak))
-#define _likely(x) (__builtin_expect(!!(x),1))
-#define _unlikely(x) (__builtin_expect(!!(x),0))
+#define _printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
+#define _sentinel_ __attribute__ ((sentinel))
+#define _noreturn_ __attribute__((noreturn))
+#define _unused_ __attribute__ ((unused))
+#define _destructor_ __attribute__ ((destructor))
+#define _pure_ __attribute__ ((pure))
+#define _const_ __attribute__ ((const))
+#define _deprecated_ __attribute__ ((deprecated))
+#define _packed_ __attribute__ ((packed))
+#define _malloc_ __attribute__ ((malloc))
+#define _weak_ __attribute__ ((weak))
+#define _likely_(x) (__builtin_expect(!!(x),1))
+#define _unlikely_(x) (__builtin_expect(!!(x),0))
 
 /* Rounds up */
 static inline size_t ALIGN(size_t l) {
@@ -70,7 +70,7 @@ static inline size_t ALIGN(size_t l) {
 
 #define assert_se(expr)                                                 \
         do {                                                            \
-                if (_unlikely(!(expr)))                                 \
+                if (_unlikely_(!(expr)))                                \
                         log_assert(__FILE__, __LINE__, __PRETTY_FUNCTION__, \
                                    "Assertion '%s' failed at %s:%u, function %s(). Aborting.", \
                                    #expr , __FILE__, __LINE__, __PRETTY_FUNCTION__); \

@@ -59,13 +59,13 @@ int log_meta(
         const char*file,
         int line,
         const char *func,
-        const char *format, ...) _printf_attr(5,6);
+        const char *format, ...) _printf_attr_(5,6);
 
-_noreturn void log_assert(
+_noreturn_ void log_assert(
         const char*file,
         int line,
         const char *func,
-        const char *format, ...) _printf_attr(4,5);
+        const char *format, ...) _printf_attr_(4,5);
 
 #define log_debug(...)   log_meta(LOG_DEBUG,   __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_info(...)    log_meta(LOG_INFO,    __FILE__, __LINE__, __func__, __VA_ARGS__)
