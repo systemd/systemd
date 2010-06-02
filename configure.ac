@@ -272,7 +272,7 @@ AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_ARG_WITH([rootdir],
         AS_HELP_STRING([--with-rootdir=DIR], [Root directory for files necessary for boot]),
         [],
-        [with_rootdir=/])
+        [with_rootdir=${ac_default_prefix}])
 AC_SUBST([rootdir], [$with_rootdir])
 
 AC_OUTPUT([Makefile])
