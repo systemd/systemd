@@ -246,7 +246,7 @@ int swap_add_one(
                 bool from_proc_swaps) {
         Unit *u = NULL;
         char *e = NULL, *w = NULL;
-        bool delete;
+        bool delete = false;
         int r;
         SwapParameters *p;
 
