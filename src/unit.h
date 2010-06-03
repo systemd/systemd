@@ -185,6 +185,10 @@ struct Meta {
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 
+        /* When deserializing, temporarily store the job type for this
+         * unit here, if there was a job scheduled */
+        JobType deserialized_job;
+
         bool in_load_queue:1;
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
@@ -436,6 +440,8 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 
 int unit_add_node_link(Unit *u, const char *what, bool wants);
+
+int unit_coldplug(Unit *u);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);

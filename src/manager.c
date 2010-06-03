@@ -625,9 +625,8 @@ int manager_coldplug(Manager *m) {
                 if (u->meta.id != k)
                         continue;
 
-                if (UNIT_VTABLE(u)->coldplug)
-                        if ((q = UNIT_VTABLE(u)->coldplug(u)) < 0)
-                                r = q;
+                if ((q = unit_coldplug(u)) < 0)
+                        r = q;
         }
 
         return r;

@@ -67,6 +67,7 @@ Unit *unit_new(Manager *m) {
 
         u->meta.manager = m;
         u->meta.type = _UNIT_TYPE_INVALID;
+        u->meta.deserialized_job = _JOB_TYPE_INVALID;
 
         return u;
 }
@@ -1794,6 +1795,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
         if ((r = UNIT_VTABLE(u)->serialize(u, f, fds)) < 0)
                 return r;
 
+        if (u->meta.job)
+                unit_serialize_item(u, f, "job", job_type_to_string(u->meta.job->type));
+
         /* End marker */
         fputc('\n', f);
         return 0;
@@ -1860,6 +1864,17 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else
                         v = l+k;
 
+                if (streq(l, "job")) {
+                        JobType type;
+
+                        if ((type = job_type_from_string(v)) < 0)
+                                log_debug("Failed to parse job type value %s", v);
+                        else
+                                u->meta.deserialized_job = type;
+
+                        continue;
+                }
+
                 if ((r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds)) < 0)
                         return r;
         }
@@ -1898,6 +1913,25 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (wants)
                 if ((r = unit_add_dependency(device, UNIT_WANTS, u, false)) < 0)
                         return r;
+
+        return 0;
+}
+
+int unit_coldplug(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (UNIT_VTABLE(u)->coldplug)
+                if ((r = UNIT_VTABLE(u)->coldplug(u)) < 0)
+                        return r;
+
+        if (u->meta.deserialized_job >= 0) {
+                if ((r = manager_add_job(u->meta.manager, u->meta.deserialized_job, u, JOB_FAIL, false, NULL)) < 0)
+                        return r;
+
+                u->meta.deserialized_job = _JOB_TYPE_INVALID;
+        }
 
         return 0;
 }
