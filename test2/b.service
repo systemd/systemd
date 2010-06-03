@@ -1,3 +1,6 @@
-[Meta]
+[Unit]
 Description=B
 Wants=f.service
+
+[Service]
+ExecStart=/bin/true
