@@ -288,7 +288,7 @@ test_engine_LDADD = $(systemd_LDADD)
 
 test_job_type_SOURCES = \
 	$(COMMON_SOURCES) \
-	src/test-engine.c
+	src/test-job-type.c
 
 test_job_type_CPPFLAGS = $(systemd_CPPFLAGS)
 test_job_type_LDADD = $(systemd_LDADD)
