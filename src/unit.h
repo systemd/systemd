@@ -187,7 +187,7 @@ struct Meta {
 
         /* When deserializing, temporarily store the job type for this
          * unit here, if there was a job scheduled */
-        JobType deserialized_job;
+        int deserialized_job; /* This is actually of type JobType */
 
         bool in_load_queue:1;
         bool in_dbus_queue:1;
