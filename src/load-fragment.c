@@ -1366,7 +1366,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
                 { "StandardInput",          config_parse_input,           &(context).std_input,                            section   }, \
                 { "StandardOutput",         config_parse_output,          &(context).std_output,                           section   }, \
-                { "StandardError",          config_parse_output,          &(context).std_output,                           section   }, \
+                { "StandardError",          config_parse_output,          &(context).std_error,                            section   }, \
                 { "TTYPath",                config_parse_path,            &(context).tty_path,                             section   }, \
                 { "SyslogIdentifier",       config_parse_string,          &(context).syslog_identifier,                    section   }, \
                 { "SyslogFacility",         config_parse_facility,        &(context).syslog_priority,                      section   }, \
