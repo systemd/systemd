@@ -357,6 +357,27 @@ static int log_dispatch(
         return r;
 }
 
+int log_dump_internal(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        char *buffer) {
+
+        int saved_errno, r;
+
+        /* This modifies the buffer... */
+
+        if (_likely_(LOG_PRI(level) > log_max_level))
+                return 0;
+
+        saved_errno = errno;
+        r = log_dispatch(level, file, line, func, buffer);
+        errno = saved_errno;
+
+        return r;
+}
+
 int log_meta(
         int level,
         const char*file,

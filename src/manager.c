@@ -1891,10 +1891,32 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
                 }
 
-                case SIGUSR2:
-                        manager_dump_units(m, stdout, "\t");
-                        manager_dump_jobs(m, stdout, "\t");
+                case SIGUSR2: {
+                        FILE *f;
+                        char *dump = NULL;
+                        size_t size;
+
+                        if (!(f = open_memstream(&dump, &size))) {
+                                log_warning("Failed to allocate memory stream.");
+                                break;
+                        }
+
+                        manager_dump_units(m, f, "\t");
+                        manager_dump_jobs(m, f, "\t");
+
+                        if (ferror(f)) {
+                                fclose(f);
+                                free(dump);
+                                log_warning("Failed to write status stream");
+                                break;
+                        }
+
+                        fclose(f);
+                        log_dump(LOG_INFO, dump);
+                        free(dump);
+
                         break;
+                }
 
                 case SIGHUP:
                         m->exit_code = MANAGER_RELOAD;
