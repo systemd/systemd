@@ -384,6 +384,8 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection  *connection, DBu
                         int r;
                         Unit *u;
 
+                        log_debug("Got D-Bus activation request for %s", name);
+
                         r = manager_load_unit(m, name, NULL, &u);
 
                         if (r >= 0 && u->meta.only_by_dependency)
