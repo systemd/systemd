@@ -443,7 +443,7 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
         return true;
 }
 
-bool socket_address_is(const SocketAddress *a, const char *s) {
+bool socket_address_is(const SocketAddress *a, const char *s, int type) {
         struct SocketAddress b;
 
         assert(a);
@@ -451,6 +451,8 @@ bool socket_address_is(const SocketAddress *a, const char *s) {
 
         if (socket_address_parse(&b, s) < 0)
                 return false;
+
+        b.type = type;
 
         return socket_address_equal(a, &b);
 }

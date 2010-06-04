@@ -72,7 +72,7 @@ int socket_address_listen(
                 mode_t socket_mode,
                 int *ret);
 
-bool socket_address_is(const SocketAddress *a, const char *s);
+bool socket_address_is(const SocketAddress *a, const char *s, int type);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b);
 

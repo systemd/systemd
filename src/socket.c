@@ -1067,7 +1067,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         if ((r = socket_address_print(&p->address, &t)) < 0)
                                 return r;
 
-                        unit_serialize_item_format(u, f, "socket", "%i %s", copy, t);
+                        unit_serialize_item_format(u, f, "socket", "%i %i %s", copy, p->address.type, t);
                         free(t);
                 } else {
                         assert(p->type == SOCKET_FIFO);
@@ -1145,15 +1145,15 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 }
 
         } else if (streq(key, "socket")) {
-                int fd, skip = 0;
+                int fd, type, skip = 0;
                 SocketPort *p;
 
-                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                if (sscanf(value, "%i %i %n", &fd, &type, &skip) < 2 || fd < 0 || type < 0 || !fdset_contains(fds, fd))
                         log_debug("Failed to parse socket value %s", value);
                 else {
 
                         LIST_FOREACH(port, p, s->ports)
-                                if (socket_address_is(&p->address, value+skip))
+                                if (socket_address_is(&p->address, value+skip, type))
                                         break;
 
                         if (p) {
