@@ -969,56 +969,54 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                          * failed previously due to EAGAIN. */
                         job_add_to_run_queue(u->meta.job);
 
-                else {
-                        assert(u->meta.job->state == JOB_RUNNING);
 
-                        /* Let's check whether this state change
-                         * constitutes a finished job, or maybe
-                         * cotradicts a running job and hence needs to
-                         * invalidate jobs. */
+                /* Let's check whether this state change constitutes a
+                 * finished job, or maybe cotradicts a running job and
+                 * hence needs to invalidate jobs. */
 
-                        switch (u->meta.job->type) {
+                switch (u->meta.job->type) {
 
-                        case JOB_START:
-                        case JOB_VERIFY_ACTIVE:
+                case JOB_START:
+                case JOB_VERIFY_ACTIVE:
 
-                                if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                                        job_finish_and_invalidate(u->meta.job, true);
-                                else if (ns != UNIT_ACTIVATING) {
-                                        unexpected = true;
-                                        job_finish_and_invalidate(u->meta.job, false);
-                                }
+                        if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
+                                job_finish_and_invalidate(u->meta.job, true);
+                        else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
+                                unexpected = true;
+                                job_finish_and_invalidate(u->meta.job, false);
+                        }
 
-                                break;
+                        break;
 
-                        case JOB_RELOAD:
-                        case JOB_RELOAD_OR_START:
+                case JOB_RELOAD:
+                case JOB_RELOAD_OR_START:
 
+                        if (u->meta.job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
                                         job_finish_and_invalidate(u->meta.job, true);
                                 else if (ns != UNIT_ACTIVATING && ns != UNIT_ACTIVE_RELOADING) {
                                         unexpected = true;
                                         job_finish_and_invalidate(u->meta.job, false);
                                 }
-
-                                break;
-
-                        case JOB_STOP:
-                        case JOB_RESTART:
-                        case JOB_TRY_RESTART:
-
-                                if (ns == UNIT_INACTIVE)
-                                        job_finish_and_invalidate(u->meta.job, true);
-                                else if (ns != UNIT_DEACTIVATING) {
-                                        unexpected = true;
-                                        job_finish_and_invalidate(u->meta.job, false);
-                                }
-
-                                break;
-
-                        default:
-                                assert_not_reached("Job type unknown");
                         }
+
+                        break;
+
+                case JOB_STOP:
+                case JOB_RESTART:
+                case JOB_TRY_RESTART:
+
+                        if (ns == UNIT_INACTIVE)
+                                job_finish_and_invalidate(u->meta.job, true);
+                        else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
+                                unexpected = true;
+                                job_finish_and_invalidate(u->meta.job, false);
+                        }
+
+                        break;
+
+                default:
+                        assert_not_reached("Job type unknown");
                 }
         }
 
