@@ -319,6 +319,10 @@ void unit_free(Unit *u) {
 
         bus_unit_send_removed_signal(u);
 
+        if (u->meta.load_state != UNIT_STUB)
+                if (UNIT_VTABLE(u)->done)
+                        UNIT_VTABLE(u)->done(u);
+
         /* Detach from next 'bigger' objects */
         SET_FOREACH(t, u->meta.names, i)
                 hashmap_remove_value(u->meta.manager->units, t, u);
@@ -343,10 +347,6 @@ void unit_free(Unit *u) {
         /* Free data and next 'smaller' objects */
         if (u->meta.job)
                 job_free(u->meta.job);
-
-        if (u->meta.load_state != UNIT_STUB)
-                if (UNIT_VTABLE(u)->done)
-                        UNIT_VTABLE(u)->done(u);
 
         cgroup_bonding_free_list(u->meta.cgroup_bondings);
 
