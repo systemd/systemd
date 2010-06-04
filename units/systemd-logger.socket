@@ -9,6 +9,7 @@
 
 [Unit]
 Description=systemd Logging Socket
+After=sysinit.target
 
 [Socket]
 ListenStream=@/org/freedesktop/systemd1/logger

@@ -80,6 +80,7 @@
                 <filename>sigpwr.target</filename>,
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>,
+                <filename>sysinit.target</filename>,
                 <filename>syslog.target</filename>,
                 <filename>@SPECIAL_SYSLOG_SERVICE@</filename>,
                 <filename>systemd-initctl.service</filename>,
@@ -111,16 +112,15 @@
                                         target unit to all SysV
                                         service units configured for
                                         runlevel 1 to 5.</para>
-                                        <para>systemd automatically
-                                        adds dependencies of the types
-                                        Wants and After for all
-                                        SysV service units configured
-                                        for runlevels that are not 0
-                                        to 6 to this target unit.
-                                        This covers the special
-                                        boot-up runlevels some
-                                        distributions have, such as S
-                                        or b.</para>
+                                        <para>Usually this should pull
+                                        in all sockets, mount points,
+                                        swap devices and other basic
+                                        initialization necessary for
+                                        the general purpose
+                                        daemons. Most normal daemon
+                                        should have dependencies of
+                                        type After and Requires on
+                                        this unit.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -584,6 +584,23 @@
                                         (or a socket unit that
                                         activates this
                                         service).</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>sysinit.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        covering early boot-up scripts.</para>
+                                        <para>systemd automatically
+                                        adds dependencies of the types
+                                        Wants and After for all
+                                        SysV service units configured
+                                        for runlevels that are not 0
+                                        to 6 to this target unit.
+                                        This covers the special
+                                        boot-up runlevels some
+                                        distributions have, such as S
+                                        or b.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

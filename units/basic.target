@@ -5,9 +5,10 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
-[Unit]
-Description=Debug File System Automount Point
-Before=sysinit.target
+# See systemd.special(7) for details
 
-[Automount]
-Where=/sys/kernel/debug
+[Unit]
+Description=Basic System
+Requires=sysinit.target local-fs.target swap.target sockets.target
+After=sysinit.target local-fs.target swap.target sockets.target
+OnlyByDependency=yes

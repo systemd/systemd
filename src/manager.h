@@ -108,6 +108,7 @@ struct Watch {
 #define SPECIAL_DISPLAY_MANAGER_SERVICE "display-manager.service"       /* Debian's $x-display-manager */
 #define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Debian's $mail-{transport|transfer-agent */
 #define SPECIAL_BASIC_TARGET "basic.target"
+#define SPECIAL_SYSINIT_TARGET "sysinit.target"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
 #define SPECIAL_EXIT_SERVICE "exit.service"
 

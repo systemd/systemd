@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Security File System Automount Point
-Before=basic.target
+Before=sysinit.target
 
 [Automount]
 Where=/sys/kernel/security

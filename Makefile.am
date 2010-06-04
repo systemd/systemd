@@ -87,6 +87,7 @@ interface_DATA = \
 
 dist_systemunit_DATA = \
 	units/emergency.service \
+	units/basic.target \
 	units/getty.target \
 	units/halt.target \
 	units/local-fs.target \
@@ -119,7 +120,7 @@ dist_systemunit_DATA = \
 	units/var-run.mount
 
 systemunit_DATA = \
-	units/basic.target \
+	units/sysinit.target \
 	units/getty@.service \
 	units/graphical.target \
 	units/multi-user.target \
@@ -135,7 +136,7 @@ sessionunit_DATA = \
 	units/session/exit.service
 
 EXTRA_DIST = \
-	units/basic.target.m4 \
+	units/sysinit.target.m4 \
 	units/getty@.service.m4 \
 	units/graphical.target.m4 \
 	units/multi-user.target.m4 \
@@ -398,7 +399,7 @@ CLEANFILES = \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/syslog.target \
-	units/basic.target \
+	units/sysinit.target \
 	units/getty@.service \
 	units/graphical.target \
 	units/multi-user.target \
@@ -470,7 +471,7 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
-		$(DESTDIR)$(systemunitdir)/basic.target.wants \
+		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
@@ -516,9 +517,10 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
-		rm -f getty.target && \
-		$(LN_S) $(systemunitdir)/getty.target getty.target )
-	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
+		rm -f getty.target remote-fs.target && \
+		$(LN_S) $(systemunitdir)/getty.target getty.target && \
+		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \
 			proc-sys-fs-binfmt_misc.automount \

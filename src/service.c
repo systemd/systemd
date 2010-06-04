@@ -58,10 +58,10 @@ static const struct {
         { "rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
 
         /* SUSE style boot.d */
-        { "boot.d", SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
+        { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_BASIC },
 
         /* Debian style rcS.d */
-        { "rcS.d",  SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
+        { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_BASIC },
 };
 
 #define RUNLEVELS_UP "12345"

@@ -8,9 +8,7 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Basic System
-Requires=local-fs.target swap.target sockets.target
-After=local-fs.target swap.target sockets.target
+Description=Systemd Initialization
 Conflicts=emergency.service
 OnlyByDependency=yes
 m4_dnl
