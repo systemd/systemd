@@ -1963,14 +1963,18 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         break;
 
                 case SERVICE_START:
-                        assert(s->type == SERVICE_FINISH);
+                        if (s->type == SERVICE_FINISH) {
+                                /* This was our main goal, so let's go on */
+                                if (success)
+                                        service_enter_start_post(s);
+                                else
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                break;
+                        } else {
+                                assert(s->type == SERVICE_DBUS);
 
-                        /* This was our main goal, so let's go on */
-                        if (success)
-                                service_enter_start_post(s);
-                        else
-                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
-                        break;
+                                /* Fall through */
+                        }
 
                 case SERVICE_RUNNING:
                         service_enter_running(s, success);
