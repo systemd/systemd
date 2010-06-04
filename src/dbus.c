@@ -589,6 +589,95 @@ oom:
         return -ENOMEM;
 }
 
+static void query_name_list_pending_cb(DBusPendingCall *pending, void *userdata) {
+        DBusMessage *reply;
+        DBusError error;
+        Manager *m = userdata;
+
+        assert(m);
+
+        dbus_error_init(&error);
+
+        assert_se(reply = dbus_pending_call_steal_reply(pending));
+
+        switch (dbus_message_get_type(reply)) {
+
+        case DBUS_MESSAGE_TYPE_ERROR:
+
+                assert_se(dbus_set_error_from_message(&error, reply));
+                log_warning("ListNames() failed: %s", error.message);
+                break;
+
+        case DBUS_MESSAGE_TYPE_METHOD_RETURN: {
+                int r;
+                char **l;
+
+                if ((r = bus_parse_strv(reply, &l)) < 0)
+                        log_warning("Failed to parse ListNames() reply: %s", strerror(-r));
+                else {
+                        char **t;
+
+                        STRV_FOREACH(t, l)
+                                /* This is a bit hacky, we say the
+                                 * owner of the name is the name
+                                 * itself, because we don't want the
+                                 * extra traffic to figure out the
+                                 * real owner. */
+                                manager_dispatch_bus_name_owner_changed(m, *t, NULL, *t);
+
+                        strv_free(l);
+                }
+
+                break;
+        }
+
+        default:
+                assert_not_reached("Invalid reply message");
+        }
+
+        dbus_message_unref(reply);
+        dbus_error_free(&error);
+}
+
+static int query_name_list(Manager *m) {
+        DBusMessage *message = NULL;
+        DBusPendingCall *pending = NULL;
+
+        /* Asks for the currently installed bus names */
+
+        if (!(message = dbus_message_new_method_call(
+                              DBUS_SERVICE_DBUS,
+                              DBUS_PATH_DBUS,
+                              DBUS_INTERFACE_DBUS,
+                              "ListNames")))
+                goto oom;
+
+        if (!dbus_connection_send_with_reply(m->api_bus, message, &pending, -1))
+                goto oom;
+
+        if (!dbus_pending_call_set_notify(pending, query_name_list_pending_cb, m, NULL))
+                goto oom;
+
+        dbus_message_unref(message);
+        dbus_pending_call_unref(pending);
+
+        /* We simple ask for the list and don't wait for it. Sooner or
+         * later we'll get it. */
+
+        return 0;
+
+oom:
+        if (pending) {
+                dbus_pending_call_cancel(pending);
+                dbus_pending_call_unref(pending);
+        }
+
+        if (message)
+                dbus_message_unref(message);
+
+        return -ENOMEM;
+}
+
 static int bus_setup_loop(Manager *m, DBusConnection *bus) {
         assert(m);
         assert(bus);
@@ -731,6 +820,11 @@ int bus_init_api(Manager *m) {
         }
 
         if ((r = request_name(m)) < 0) {
+                bus_done_api(m);
+                return r;
+        }
+
+        if ((r = query_name_list(m)) < 0) {
                 bus_done_api(m);
                 return r;
         }
