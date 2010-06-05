@@ -735,6 +735,7 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 				syspath_add(udev_enumerate, udev_device_get_syspath(dev));
 				udev_device_unref(dev);
 			}
+			closedir(dir);
 		}
 	} else {
 		util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
