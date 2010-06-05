@@ -323,9 +323,14 @@ void unit_free(Unit *u) {
                 if (UNIT_VTABLE(u)->done)
                         UNIT_VTABLE(u)->done(u);
 
-        /* Detach from next 'bigger' objects */
         SET_FOREACH(t, u->meta.names, i)
                 hashmap_remove_value(u->meta.manager->units, t, u);
+
+        if (u->meta.job)
+                job_free(u->meta.job);
+
+        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
+                bidi_set_free(u, u->meta.dependencies[d]);
 
         if (u->meta.type != _UNIT_TYPE_INVALID)
                 LIST_REMOVE(Meta, units_per_type, u->meta.manager->units_per_type[u->meta.type], &u->meta);
@@ -344,14 +349,7 @@ void unit_free(Unit *u) {
                 u->meta.manager->n_in_gc_queue--;
         }
 
-        /* Free data and next 'smaller' objects */
-        if (u->meta.job)
-                job_free(u->meta.job);
-
         cgroup_bonding_free_list(u->meta.cgroup_bondings);
-
-        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
-                bidi_set_free(u, u->meta.dependencies[d]);
 
         free(u->meta.description);
         free(u->meta.fragment_path);

@@ -543,13 +543,24 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
         assert(m);
 
-        manager_dispatch_cleanup_queue(m);
-
         while ((j = hashmap_first(m->transaction_jobs)))
                 job_free(j);
 
         while ((u = hashmap_first(m->units)))
                 unit_free(u);
+
+        manager_dispatch_cleanup_queue(m);
+
+        assert(!m->load_queue);
+        assert(!m->run_queue);
+        assert(!m->dbus_unit_queue);
+        assert(!m->dbus_job_queue);
+        assert(!m->cleanup_queue);
+        assert(!m->gc_queue);
+
+        assert(hashmap_isempty(m->transaction_jobs));
+        assert(hashmap_isempty(m->jobs));
+        assert(hashmap_isempty(m->units));
 }
 
 void manager_free(Manager *m) {
