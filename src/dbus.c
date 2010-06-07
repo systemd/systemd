@@ -397,6 +397,8 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection  *connection, DBu
                         if (r < 0) {
                                 const char *id, *text;
 
+                                log_warning("D-Bus activation failed for %s: %s", name, strerror(-r));
+
                                 if (!(reply = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure")))
                                         goto oom;
 
