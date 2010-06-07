@@ -40,7 +40,7 @@
 typedef enum RunlevelType {
         RUNLEVEL_UP,
         RUNLEVEL_DOWN,
-        RUNLEVEL_BASIC
+        RUNLEVEL_SYSINIT
 } RunlevelType;
 
 static const struct {
@@ -58,10 +58,10 @@ static const struct {
         { "rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
 
         /* SUSE style boot.d */
-        { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_BASIC },
+        { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 
         /* Debian style rcS.d */
-        { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_BASIC },
+        { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 };
 
 #define RUNLEVELS_UP "12345"
@@ -2268,7 +2268,7 @@ static int service_enumerate(Manager *m) {
                                 }
 
                                 if (de->d_name[0] == 'S' &&
-                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_BASIC))
+                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT))
                                         SERVICE(service)->sysv_start_priority =
                                                 MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
 
@@ -2287,7 +2287,9 @@ static int service_enumerate(Manager *m) {
                                         if ((r = unit_add_dependency(service, UNIT_BEFORE, runlevel_target, true)) < 0)
                                                 goto finish;
 
-                                } else if (de->d_name[0] == 'K' && rcnd_table[i].type == RUNLEVEL_DOWN) {
+                                } else if (de->d_name[0] == 'K' &&
+                                           (rcnd_table[i].type == RUNLEVEL_DOWN ||
+                                            rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
                                         Unit *shutdown_target;
 
                                         /* We honour K links only for
@@ -2299,7 +2301,12 @@ static int service_enumerate(Manager *m) {
                                          * really distuingish here
                                          * between the runlevels 0 and
                                          * 6 and just add them to the
-                                         * special shutdown target. */
+                                         * special shutdown target. On
+                                         * SUSE the boot.d/ runlevel
+                                         * is also used for shutdown,
+                                         * so we add links for that
+                                         * too to the shutdown
+                                         * target.*/
 
                                         if ((r = manager_load_unit(m, SPECIAL_SHUTDOWN_TARGET, NULL, &shutdown_target)) < 0)
                                                 goto finish;
