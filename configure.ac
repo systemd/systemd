@@ -236,13 +236,13 @@ AC_ARG_WITH([sysvrcd-path],
         [])
 
 AC_ARG_WITH([dbus-service],
-        [AS_HELP_STRING([--with-dbus-service=PATH],
+        [AS_HELP_STRING([--with-dbus-service=UNIT],
                 [Specify the name of the special DBus service @<:@default=based on distro@:>@])],
         [SPECIAL_DBUS_SERVICE="$withval"],
         [])
 
 AC_ARG_WITH([syslog-service],
-        [AS_HELP_STRING([--with-syslog-service=PATH],
+        [AS_HELP_STRING([--with-syslog-service=UNIT],
                 [Specify the name of the special syslog service @<:@default=based on distro@:>@])],
         [SPECIAL_SYSLOG_SERVICE="$withval"],
         [])
@@ -263,28 +263,41 @@ AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$SPECIAL_DBUS_SERVICE"], [D-Bus service name])
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 
-dbuspolicydir=`pkg-config --variable=sysconfdir dbus-1`/dbus-1/system.d
-AC_SUBST([dbuspolicydir], [$dbuspolicydir])
+AC_ARG_WITH([dbuspolicydir],
+        AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
+        [],
+        [with_dbuspolicydir=`pkg-config --variable=sysconfdir dbus-1`/dbus-1/system.d])
 
-dbussessionservicedir=`pkg-config --variable=session_bus_services_dir dbus-1`
-AC_SUBST([dbussessionservicedir], [$dbussessionservicedir])
+AC_ARG_WITH([dbussessionservicedir],
+        AS_HELP_STRING([--with-dbussessionservicedir=DIR], [D-Bus session service directory]),
+        [],
+        [with_dbussessionservicedir=`pkg-config --variable=session_bus_services_dir dbus-1`])
 
-dbussystemservicedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../system-services
-AC_SUBST([dbussystemservicedir], [$dbussystemservicedir])
+AC_ARG_WITH([dbussystemservicedir],
+        AS_HELP_STRING([--with-dbussystemservicedir=DIR], [D-Bus system service directory]),
+        [],
+        [with_dbussystemservicedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../system-services])
 
-dbusinterfacedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../interfaces
-AC_SUBST([dbusinterfacedir], [$dbusinterfacedir])
+AC_ARG_WITH([dbusinterfacedir],
+        AS_HELP_STRING([--with-dbusinterfacedir=DIR], [D-Bus interface directory]),
+        [],
+        [with_dbusinterfacedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../interfaces])
 
 AC_ARG_WITH([udevrulesdir],
         AS_HELP_STRING([--with-udevrulesdir=DIR], [Diectory for udev rules]),
         [],
         [with_udevrulesdir=/lib/udev/rules.d])
-AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 
 AC_ARG_WITH([rootdir],
         AS_HELP_STRING([--with-rootdir=DIR], [Root directory for files necessary for boot]),
         [],
         [with_rootdir=${ac_default_prefix}])
+
+AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
+AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
+AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
+AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
+AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_SUBST([rootdir], [$with_rootdir])
 
 AC_CONFIG_FILES([Makefile])
@@ -302,8 +315,8 @@ echo "
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}
-        dbus policy dir:         ${dbuspolicydir}
-        dbus session dir:        ${dbussessionservicedir}
-        dbus system dir:         ${dbussystemservicedir}
-        dbus interfaces dir:     ${dbusinterfacedir}
+        dbus policy dir:         ${with_dbuspolicydir}
+        dbus session dir:        ${with_dbussessionservicedir}
+        dbus system dir:         ${with_dbussystemservicedir}
+        dbus interfaces dir:     ${with_dbusinterfacedir}
 "

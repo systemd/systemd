@@ -565,5 +565,9 @@ if TARGET_GENTOO
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
+	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
+	--with-dbussessionservicedir=$$dc_install_base/$(dbussessionservicedir) \
+	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
+	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
 	--with-rootdir=$$dc_install_base/$(rootdir)
