@@ -18,9 +18,11 @@
 ACLOCAL_AMFLAGS = -I m4
 
 # Dirs of external packages
-dbuspolicydir=$(sysconfdir)/dbus-1/system.d
+dbuspolicydir=@dbuspolicydir@
+dbussessionservicedir=@dbussessionservicedir@
+dbussystemservicedir=@dbussystemservicedir@
+dbusinterfacedir=@dbusinterfacedir@
 udevrulesdir=@udevrulesdir@
-interfacedir=$(datadir)/dbus-1/interfaces
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -67,10 +69,13 @@ noinst_PROGRAMS = \
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf
 
+dist_dbussystemservice_DATA = \
+	src/org.freedesktop.systemd1.service
+
 dist_udevrules_DATA = \
 	src/99-systemd.rules
 
-interface_DATA = \
+dbusinterface_DATA = \
 	org.freedesktop.systemd1.Manager.xml \
 	org.freedesktop.systemd1.Job.xml \
 	org.freedesktop.systemd1.Unit.xml \
@@ -464,7 +469,7 @@ endif
 org.freedesktop.systemd1.%.xml: systemd
 	$(AM_V_GEN)./systemd --introspect=${@:.xml=} > $@
 
-CLEANFILES += $(interface_DATA)
+CLEANFILES += $(dbusinterface_DATA)
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
@@ -531,6 +536,9 @@ install-data-hook:
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
 		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount )
+	( cd $(DESTDIR)$(dbussessionservicedir) && \
+		rm -f org.freedesktop.systemd1.service && \
+		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
 if TARGET_FEDORA
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \

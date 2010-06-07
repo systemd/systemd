@@ -263,6 +263,18 @@ AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$SPECIAL_DBUS_SERVICE"], [D-Bus service name])
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 
+dbuspolicydir=`pkg-config --variable=sysconfdir dbus-1`/dbus-1/system.d
+AC_SUBST([dbuspolicydir], [$dbuspolicydir])
+
+dbussessionservicedir=`pkg-config --variable=session_bus_services_dir dbus-1`
+AC_SUBST([dbussessionservicedir], [$dbussessionservicedir])
+
+dbussystemservicedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../system-services
+AC_SUBST([dbussystemservicedir], [$dbussystemservicedir])
+
+dbusinterfacedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../interfaces
+AC_SUBST([dbusinterfacedir], [$dbusinterfacedir])
+
 AC_ARG_WITH([udevrulesdir],
         AS_HELP_STRING([--with-udevrulesdir=DIR], [Diectory for udev rules]),
         [],
@@ -290,4 +302,8 @@ echo "
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}
+        dbus policy dir:         ${dbuspolicydir}
+        dbus session dir:        ${dbussessionservicedir}
+        dbus system dir:         ${dbussystemservicedir}
+        dbus interfaces dir:     ${dbusinterfacedir}
 "
