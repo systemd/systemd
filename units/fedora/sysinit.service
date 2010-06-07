@@ -8,6 +8,8 @@
 [Unit]
 Description=System Initialization
 Before=local-fs.target remote-fs.target swap.target sockets.target
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 ExecStart=/etc/rc.d/rc.sysinit
