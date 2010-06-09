@@ -162,6 +162,12 @@ int log_open(void) {
          * the fs. If we don't use /dev/kmsg we still keep it open,
          * because there is no reason to close it. */
 
+        if (log_target == LOG_TARGET_NULL) {
+                log_close_syslog();
+                log_close_console();
+                return 0;
+        }
+
         if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
             log_target == LOG_TARGET_SYSLOG)
                 if ((r = log_open_syslog()) >= 0) {
@@ -186,6 +192,7 @@ void log_set_target(LogTarget target) {
         assert(target < _LOG_TARGET_MAX);
 
         log_target = target;
+        log_open();
 }
 
 void log_set_max_level(int level) {
@@ -315,6 +322,9 @@ static int log_dispatch(
         char *buffer) {
 
         int r = 0;
+
+        if (log_target == LOG_TARGET_NULL)
+                return 0;
 
         do {
                 char *e;
@@ -475,6 +485,7 @@ static const char *const log_target_table[] = {
         [LOG_TARGET_SYSLOG] = "syslog",
         [LOG_TARGET_KMSG] = "kmsg",
         [LOG_TARGET_SYSLOG_OR_KMSG] = "syslog-or-kmsg",
+        [LOG_TARGET_NULL] = "null"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);

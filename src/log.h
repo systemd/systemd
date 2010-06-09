@@ -33,6 +33,7 @@ typedef enum LogTarget{
         LOG_TARGET_KMSG,
         LOG_TARGET_SYSLOG,
         LOG_TARGET_SYSLOG_OR_KMSG,
+        LOG_TARGET_NULL,
         _LOG_TARGET_MAX,
         _LOG_TARGET_INVALID = -1
 }  LogTarget;
