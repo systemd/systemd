@@ -233,8 +233,8 @@ static int parse_proc_cmdline_word(const char *word) {
                 "5",      SPECIAL_RUNLEVEL5_TARGET
         };
 
-        if (startswith(word, "systemd.default="))
-                return set_default_unit(word + 16);
+        if (startswith(word, "systemd.unit="))
+                return set_default_unit(word + 13);
 
         else if (startswith(word, "systemd.log_target=")) {
 
@@ -343,7 +343,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_LOG_LEVEL = 0x100,
                 ARG_LOG_TARGET,
-                ARG_DEFAULT,
+                ARG_UNIT,
                 ARG_RUNNING_AS,
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
@@ -355,7 +355,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "log-level",                required_argument, NULL, ARG_LOG_LEVEL                },
                 { "log-target",               required_argument, NULL, ARG_LOG_TARGET               },
-                { "default",                  required_argument, NULL, ARG_DEFAULT                  },
+                { "unit",                     required_argument, NULL, ARG_UNIT                     },
                 { "running-as",               required_argument, NULL, ARG_RUNNING_AS               },
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
                 { "help",                     no_argument,       NULL, 'h'                          },
@@ -392,7 +392,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_DEFAULT:
+                case ARG_UNIT:
 
                         if ((r = set_default_unit(optarg)) < 0) {
                                 log_error("Failed to set default unit %s: %s", optarg, strerror(-r));
