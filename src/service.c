@@ -1377,7 +1377,7 @@ static void service_enter_stop_post(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run stop-post executable: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop-post' task: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -1473,7 +1473,7 @@ static void service_enter_stop(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run stop executable: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop' task: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
 }
 
@@ -1518,7 +1518,7 @@ static void service_enter_start_post(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run start-post executable: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start-post' task: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_stop(s, false);
 }
 
@@ -1584,7 +1584,7 @@ static void service_enter_start(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run start exectuable: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start' task: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -1613,7 +1613,7 @@ static void service_enter_start_pre(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run start-pre executable: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start-pre' task: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_dead(s, false, true);
 }
 
@@ -1660,7 +1660,7 @@ static void service_enter_reload(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run reload executable: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'reload' task: %s", UNIT(s)->meta.id, strerror(-r));
         service_enter_stop(s, false);
 }
 
@@ -1690,7 +1690,7 @@ static void service_run_next(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run spawn next executable: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run spawn next task: %s", UNIT(s)->meta.id, strerror(-r));
 
         if (s->state == SERVICE_START_PRE)
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);

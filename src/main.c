@@ -284,7 +284,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 log_warning("Unknown kernel switch %s. Ignoring.", word);
 
                 log_info("Supported kernel switches:");
-                log_info("systemd.default=UNIT                     Default unit to start");
+                log_info("systemd.default_unit=UNIT                Default unit to start");
                 log_info("systemd.log_target=console|kmsg|syslog   Log target");
                 log_info("systemd.log_level=LEVEL                  Log level");
                 log_info("systemd.dump_core=0|1                    Dump core on crash");
