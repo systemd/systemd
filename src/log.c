@@ -192,7 +192,6 @@ void log_set_target(LogTarget target) {
         assert(target < _LOG_TARGET_MAX);
 
         log_target = target;
-        log_open();
 }
 
 void log_set_max_level(int level) {
