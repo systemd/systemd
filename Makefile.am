@@ -350,11 +350,17 @@ extras_gudev_libgudev_1_0_la_LDFLAGS = \
 	-export-dynamic -no-undefined \
 	-export-symbols-regex '^g_udev_.*'
 
+gudev-install-hook:
+	install -D -m 644 $(top_srcdir)/extras/gudev/gudev-1.0.vapi $(DESTDIR)$(prefix)/share/vala/vapi/gudev-1.0.vapi
+
+INSTALL_EXEC_HOOKS += gudev-install-hook
+
 EXTRA_DIST += \
 	extras/gudev/COPYING \
 	extras/gudev/gudevmarshal.list \
 	extras/gudev/gudevenumtypes.h.template \
-	extras/gudev/gudevenumtypes.c.template
+	extras/gudev/gudevenumtypes.c.template \
+	extras/gudev/gudev-1.0.vapi
 
 extras/gudev/gudevmarshal.h: extras/gudev/gudevmarshal.list
 	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
