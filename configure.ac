@@ -241,7 +241,7 @@ case $with_distro in
                 ;;
         suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
-                AC_DEFINE(TARGET_SUSE, [], [Target is OpenSUSE/SLE])
+                AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
                 M4_DISTRO_FLAG=-DTARGET_SUSE=1
                 ;;
         debian)

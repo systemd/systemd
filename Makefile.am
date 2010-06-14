@@ -465,20 +465,20 @@ endif
 if HAVE_XSLTPROC
 XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+	$(XSLTPROC) -o $@ --nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 XSLTPROC_PROCESS_MAN_IN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $< && \
+	$(XSLTPROC) -o ${@:.in=} --nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
+	$(XSLTPROC) -o $@ --nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
 
 XSLTPROC_PROCESS_HTML_IN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
+	$(XSLTPROC) -o ${@:.in=} --nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
 man/%.5: man/%.xml
