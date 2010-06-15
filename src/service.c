@@ -936,6 +936,9 @@ static int service_load_pid_file(Service *s) {
         if ((unsigned long) (pid_t) p != p)
                 return -ERANGE;
 
+        if (p <= 1)
+                return -ERANGE;
+
         if (kill((pid_t) p, 0) < 0 && errno != EPERM) {
                 log_warning("PID %llu read from file %s does not exist. Your service or init script might be broken.",
                             (unsigned long long) p, s->pid_file);
