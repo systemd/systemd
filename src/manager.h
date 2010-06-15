@@ -82,6 +82,7 @@ struct Watch {
 #include "list.h"
 #include "set.h"
 #include "dbus.h"
+#include "path-lookup.h"
 
 #define SPECIAL_DEFAULT_TARGET "default.target"
 
@@ -176,9 +177,7 @@ struct Manager {
 
         unsigned n_snapshots;
 
-        char **unit_path;
-        char **sysvinit_path;
-        char **sysvrcnd_path;
+        LookupPaths lookup_paths;
 
         char **environment;
 

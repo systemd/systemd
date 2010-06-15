@@ -79,7 +79,7 @@ int unit_load_dropin(Unit *u) {
                 char *path;
                 char **p;
 
-                STRV_FOREACH(p, u->meta.manager->unit_path) {
+                STRV_FOREACH(p, u->meta.manager->lookup_paths.unit_path) {
 
                         if (asprintf(&path, "%s/%s.wants", *p, t) < 0)
                                 return -ENOMEM;

@@ -52,6 +52,7 @@
 #include "dbus-unit.h"
 #include "dbus-job.h"
 #include "missing.h"
+#include "path-lookup.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -122,240 +123,6 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
-static char** session_dirs(void) {
-        const char *home, *e;
-        char *config_home = NULL, *data_home = NULL;
-        char **config_dirs = NULL, **data_dirs = NULL;
-        char **r = NULL, **t;
-
-        /* Implement the mechanisms defined in
-         *
-         * http://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html
-         *
-         * We look in both the config and the data dirs because we
-         * want to encourage that distributors ship their unit files
-         * as data, and allow overriding as configuration.
-         */
-
-        home = getenv("HOME");
-
-        if ((e = getenv("XDG_CONFIG_HOME"))) {
-                if (asprintf(&config_home, "%s/systemd/session", e) < 0)
-                        goto fail;
-
-        } else if (home) {
-                if (asprintf(&config_home, "%s/.config/systemd/session", home) < 0)
-                        goto fail;
-        }
-
-        if ((e = getenv("XDG_CONFIG_DIRS")))
-                if (!(config_dirs = strv_split(e, ":")))
-                        goto fail;
-
-        /* We don't treat /etc/xdg/systemd here as the spec
-         * suggests because we assume that that is a link to
-         * /etc/systemd/ anyway. */
-
-        if ((e = getenv("XDG_DATA_HOME"))) {
-                if (asprintf(&data_home, "%s/systemd/session", e) < 0)
-                        goto fail;
-
-        } else if (home) {
-                if (asprintf(&data_home, "%s/.local/share/systemd/session", home) < 0)
-                        goto fail;
-
-                /* There is really no need for two unit dirs in $HOME,
-                 * except to be fully compliant with the XDG spec. We
-                 * now try to link the two dirs, so that we can
-                 * minimize disk seeks a little. Further down we'll
-                 * then filter out this link, if it is actually is
-                 * one. */
-
-                mkdir_parents(data_home, 0777);
-                symlink("../../../.config/systemd/session", data_home);
-        }
-
-        if ((e = getenv("XDG_DATA_DIRS")))
-                data_dirs = strv_split(e, ":");
-        else
-                data_dirs = strv_new("/usr/local/share", "/usr/share", NULL);
-
-        if (!data_dirs)
-                goto fail;
-
-        /* Now merge everything we found. */
-        if (config_home) {
-                if (!(t = strv_append(r, config_home)))
-                        goto fail;
-                strv_free(r);
-                r = t;
-        }
-
-        if (!(t = strv_merge_concat(r, config_dirs, "/systemd/session")))
-                goto finish;
-        strv_free(r);
-        r = t;
-
-        if (!(t = strv_append(r, SESSION_CONFIG_UNIT_PATH)))
-                goto fail;
-        strv_free(r);
-        r = t;
-
-        if (data_home) {
-                if (!(t = strv_append(r, data_home)))
-                        goto fail;
-                strv_free(r);
-                r = t;
-        }
-
-        if (!(t = strv_merge_concat(r, data_dirs, "/systemd/session")))
-                goto fail;
-        strv_free(r);
-        r = t;
-
-        if (!(t = strv_append(r, SESSION_DATA_UNIT_PATH)))
-                goto fail;
-        strv_free(r);
-        r = t;
-
-        if (!strv_path_make_absolute_cwd(r))
-            goto fail;
-
-finish:
-        free(config_home);
-        strv_free(config_dirs);
-        free(data_home);
-        strv_free(data_dirs);
-
-        return r;
-
-fail:
-        strv_free(r);
-        r = NULL;
-        goto finish;
-}
-
-static int manager_find_paths(Manager *m) {
-        const char *e;
-        char *t;
-
-        assert(m);
-
-        /* Unset previous data, in case we are called on reload */
-        strv_free(m->unit_path);
-        strv_free(m->sysvinit_path);
-        strv_free(m->sysvrcnd_path);
-        m->unit_path = m->sysvinit_path = m->sysvrcnd_path = NULL;
-
-        /* First priority is whatever has been passed to us via env
-         * vars */
-        if ((e = getenv("SYSTEMD_UNIT_PATH")))
-                if (!(m->unit_path = split_path_and_make_absolute(e)))
-                        return -ENOMEM;
-
-        if (strv_isempty(m->unit_path)) {
-
-                /* Nothing is set, so let's figure something out. */
-                strv_free(m->unit_path);
-
-                if (m->running_as == MANAGER_SESSION) {
-                        if (!(m->unit_path = session_dirs()))
-                                return -ENOMEM;
-                } else
-                        if (!(m->unit_path = strv_new(
-                                              SYSTEM_CONFIG_UNIT_PATH,  /* /etc/systemd/system/ */
-                                              SYSTEM_DATA_UNIT_PATH,    /* /lib/systemd/system/ */
-                                              NULL)))
-                                return -ENOMEM;
-        }
-
-        if (m->running_as == MANAGER_INIT) {
-                /* /etc/init.d/ compatibility does not matter to users */
-
-                if ((e = getenv("SYSTEMD_SYSVINIT_PATH")))
-                        if (!(m->sysvinit_path = split_path_and_make_absolute(e)))
-                                return -ENOMEM;
-
-                if (strv_isempty(m->sysvinit_path)) {
-                        strv_free(m->sysvinit_path);
-
-                        if (!(m->sysvinit_path = strv_new(
-                                              SYSTEM_SYSVINIT_PATH,     /* /etc/init.d/ */
-                                              NULL)))
-                                return -ENOMEM;
-                }
-
-                if ((e = getenv("SYSTEMD_SYSVRCND_PATH")))
-                        if (!(m->sysvrcnd_path = split_path_and_make_absolute(e)))
-                                return -ENOMEM;
-
-                if (strv_isempty(m->sysvrcnd_path)) {
-                        strv_free(m->sysvrcnd_path);
-
-                        if (!(m->sysvrcnd_path = strv_new(
-                                              SYSTEM_SYSVRCND_PATH,     /* /etc/rcN.d/ */
-                                              NULL)))
-                                return -ENOMEM;
-                }
-        }
-
-        if (m->unit_path)
-                if (!strv_path_canonicalize(m->unit_path))
-                        return -ENOMEM;
-
-        if (m->sysvinit_path)
-                if (!strv_path_canonicalize(m->sysvinit_path))
-                        return -ENOMEM;
-
-        if (m->sysvrcnd_path)
-                if (!strv_path_canonicalize(m->sysvrcnd_path))
-                        return -ENOMEM;
-
-        strv_uniq(m->unit_path);
-        strv_uniq(m->sysvinit_path);
-        strv_uniq(m->sysvrcnd_path);
-
-        if (!strv_isempty(m->unit_path)) {
-
-                if (!(t = strv_join(m->unit_path, "\n\t")))
-                        return -ENOMEM;
-                log_debug("Looking for unit files in:\n\t%s", t);
-                free(t);
-        } else {
-                log_debug("Ignoring unit files.");
-                strv_free(m->unit_path);
-                m->unit_path = NULL;
-        }
-
-        if (!strv_isempty(m->sysvinit_path)) {
-
-                if (!(t = strv_join(m->sysvinit_path, "\n\t")))
-                        return -ENOMEM;
-
-                log_debug("Looking for SysV init scripts in:\n\t%s", t);
-                free(t);
-        } else {
-                log_debug("Ignoring SysV init scripts.");
-                strv_free(m->sysvinit_path);
-                m->sysvinit_path = NULL;
-        }
-
-        if (!strv_isempty(m->sysvrcnd_path)) {
-
-                if (!(t = strv_join(m->sysvrcnd_path, "\n\t")))
-                        return -ENOMEM;
-
-                log_debug("Looking for SysV rcN.d links in:\n\t%s", t);
-                free(t);
-        } else {
-                log_debug("Ignoring SysV rcN.d links.");
-                strv_free(m->sysvrcnd_path);
-                m->sysvrcnd_path = NULL;
-        }
-
-        return 0;
-}
-
 int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
@@ -401,7 +168,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
                 goto fail;
 
-        if ((r = manager_find_paths(m)) < 0)
+        if ((r = lookup_paths_init(&m->lookup_paths, m->running_as)) < 0)
                 goto fail;
 
         if ((r = manager_setup_signals(m)) < 0)
@@ -598,9 +365,7 @@ void manager_free(Manager *m) {
         if (m->signal_watch.fd >= 0)
                 close_nointr_nofail(m->signal_watch.fd);
 
-        strv_free(m->unit_path);
-        strv_free(m->sysvinit_path);
-        strv_free(m->sysvrcnd_path);
+        lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
 
         free(m->cgroup_controller);
@@ -2353,7 +2118,8 @@ int manager_reload(Manager *m) {
         manager_clear_jobs_and_units(m);
 
         /* Find new unit paths */
-        if ((q = manager_find_paths(m)) < 0)
+        lookup_paths_free(&m->lookup_paths);
+        if ((q = lookup_paths_init(&m->lookup_paths, m->running_as)) < 0)
                 r = q;
 
         /* First, enumerate what we can from all config files */

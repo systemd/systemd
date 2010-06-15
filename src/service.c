@@ -675,7 +675,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
             endswith(name, ".sh.service"))
                 return -ENOENT;
 
-        STRV_FOREACH(p, UNIT(s)->meta.manager->sysvinit_path) {
+        STRV_FOREACH(p, UNIT(s)->meta.manager->lookup_paths.sysvinit_path) {
                 char *path;
                 int r;
 
@@ -726,7 +726,7 @@ static int service_load_sysv(Service *s) {
         /* Load service data from SysV init scripts, preferably with
          * LSB headers ... */
 
-        if (strv_isempty(UNIT(s)->meta.manager->sysvinit_path))
+        if (strv_isempty(UNIT(s)->meta.manager->lookup_paths.sysvinit_path))
                 return 0;
 
         if ((t = UNIT(s)->meta.id))
@@ -2201,7 +2201,7 @@ static int service_enumerate(Manager *m) {
 
         assert(m);
 
-        STRV_FOREACH(p, m->sysvrcnd_path)
+        STRV_FOREACH(p, m->lookup_paths.sysvrcnd_path)
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
                         struct dirent *de;
 

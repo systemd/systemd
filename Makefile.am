@@ -199,6 +199,7 @@ COMMON_SOURCES = \
 	src/unit.c \
         src/job.c \
         src/manager.c \
+	src/path-lookup.c \
         src/load-fragment.c \
         src/service.c \
         src/automount.c \
