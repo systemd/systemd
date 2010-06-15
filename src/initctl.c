@@ -230,8 +230,10 @@ static void server_done(Server *s) {
         if (s->epoll_fd >= 0)
                 close_nointr_nofail(s->epoll_fd);
 
-        if (s->bus)
-                dbus_connection_unref(s->bus);
+        if (s->bus) {
+               dbus_connection_set_exit_on_disconnect(s->bus, FALSE);
+               dbus_connection_unref(s->bus);
+        }
 }
 
 static int server_init(Server *s, unsigned n_sockets) {
