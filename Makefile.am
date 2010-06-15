@@ -343,6 +343,13 @@ systemd_cgroups_agent_CPPFLAGS = \
 systemd_cgroups_agent_LDADD = \
 	$(DBUS_LIBS)
 
+systemctl_SOURCES = \
+	src/systemctl.c \
+	$(BASIC_SOURCES)
+
+systemctl_CPPFLAGS = $(AM_CPPFLAGS) $(DBUS_CFLAGS)
+systemctl_LDADD = $(DBUS_LIBS)
+
 VALAFLAGS = \
 	-g \
 	--save-temps \
@@ -357,13 +364,6 @@ endif
 VALA_CFLAGS = \
 	-Wno-unused-variable \
 	-Wno-unused-function
-
-systemctl_SOURCES = \
-	src/systemctl.vala \
-	src/systemd-interfaces.vala
-
-systemctl_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(VALA_CFLAGS)
-systemctl_LDADD = $(DBUSGLIB_LIBS)
 
 systemadm_SOURCES = \
 	src/systemadm.vala \
@@ -417,7 +417,6 @@ CLEANFILES = \
 if HAVE_VALAC
 CLEANFILES += \
 	src/systemd-interfaces.c \
-	src/systemctl.c \
 	src/systemadm.c
 endif
 
