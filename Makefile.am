@@ -50,8 +50,11 @@ rootbin_PROGRAMS = \
 	systemd \
 	systemctl
 
-if HAVE_GTK
 bin_PROGRAMS = \
+	systemd-install
+
+if HAVE_GTK
+bin_PROGRAMS += \
 	systemadm
 endif
 
@@ -275,8 +278,8 @@ systemd_SOURCES = \
 	$(COMMON_SOURCES) \
 	src/main.c
 
-systemd_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
+systemd_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
 	$(UDEV_CFLAGS) \
 	$(CGROUP_CFLAGS)
@@ -290,14 +293,14 @@ test_engine_SOURCES = \
 	$(COMMON_SOURCES) \
 	src/test-engine.c
 
-test_engine_CPPFLAGS = $(systemd_CPPFLAGS)
+test_engine_CFLAGS = $(systemd_CFLAGS)
 test_engine_LDADD = $(systemd_LDADD)
 
 test_job_type_SOURCES = \
 	$(COMMON_SOURCES) \
 	src/test-job-type.c
 
-test_job_type_CPPFLAGS = $(systemd_CPPFLAGS)
+test_job_type_CFLAGS = $(systemd_CFLAGS)
 test_job_type_LDADD = $(systemd_LDADD)
 
 test_ns_SOURCES = \
@@ -305,7 +308,7 @@ test_ns_SOURCES = \
 	src/test-ns.c \
 	src/namespace.c
 
-test_ns_CPPFLAGS = $(systemd_CPPFLAGS)
+test_ns_CFLAGS = $(systemd_CFLAGS)
 test_ns_LDADD = $(systemd_LDADD)
 
 test_loopback_SOURCES = \
@@ -313,7 +316,7 @@ test_loopback_SOURCES = \
 	src/test-loopback.c \
 	src/loopback-setup.c
 
-test_loopback_CPPFLAGS = $(systemd_CPPFLAGS)
+test_loopback_CFLAGS = $(systemd_CFLAGS)
 test_loopback_LDADD = $(systemd_LDADD)
 
 systemd_logger_SOURCES = \
@@ -326,8 +329,8 @@ systemd_initctl_SOURCES = \
 	src/initctl.c \
 	src/sd-daemon.c
 
-systemd_initctl_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
+systemd_initctl_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
 
 systemd_initctl_LDADD = \
@@ -337,8 +340,8 @@ systemd_cgroups_agent_SOURCES = \
 	$(BASIC_SOURCES) \
 	src/cgroups-agent.c
 
-systemd_cgroups_agent_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
+systemd_cgroups_agent_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
 
 systemd_cgroups_agent_LDADD = \
@@ -348,29 +351,36 @@ systemctl_SOURCES = \
 	src/systemctl.c \
 	$(BASIC_SOURCES)
 
-systemctl_CPPFLAGS = $(AM_CPPFLAGS) $(DBUS_CFLAGS)
+systemctl_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS)
 systemctl_LDADD = $(DBUS_LIBS)
 
-VALAFLAGS = \
-	-g \
-	--save-temps \
-	--pkg=dbus-glib-1 \
-	--pkg=posix
+systemd_install_SOURCES = \
+	src/install.c \
+	src/path-lookup.c \
+	$(BASIC_SOURCES)
 
-if HAVE_GTK
-VALAFLAGS += \
-	--pkg=gtk+-2.0
-endif
-
-VALA_CFLAGS = \
-	-Wno-unused-variable \
-	-Wno-unused-function
+# We don't really link here against D-Bus, however we indirectly include D-Bus header files
+systemd_install_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS)
 
 systemadm_SOURCES = \
 	src/systemadm.vala \
 	src/systemd-interfaces.vala
 
-systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS) $(VALA_CFLAGS)
+systemadm_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUSGLIB_CFLAGS) \
+	$(GTK_CFLAGS) \
+	-Wno-unused-variable \
+	-Wno-unused-function \
+	-Wno-shadow \
+	-Wno-format-nonliteral
+
+systemadm_VALAFLAGS = \
+	--pkg=dbus-glib-1 \
+	--pkg=posix \
+	--pkg=gtk+-2.0 \
+	-g
+
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
 SED_PROCESS = \

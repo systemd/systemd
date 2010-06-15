@@ -30,6 +30,28 @@
 
 #include "path-lookup.h"
 
+int session_config_home(char **config_home) {
+        const char *e;
+
+        if ((e = getenv("XDG_CONFIG_HOME"))) {
+                if (asprintf(config_home, "%s/systemd/session", e) < 0)
+                        return -ENOMEM;
+
+                return 1;
+        } else {
+                const char *home;
+
+                if ((home = getenv("HOME"))) {
+                        if (asprintf(config_home, "%s/.config/systemd/session", home) < 0)
+                                return -ENOMEM;
+
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
 static char** session_dirs(void) {
         const char *home, *e;
         char *config_home = NULL, *data_home = NULL;
@@ -45,16 +67,10 @@ static char** session_dirs(void) {
          * as data, and allow overriding as configuration.
          */
 
+        if (session_config_home(&config_home) < 0)
+                goto fail;
+
         home = getenv("HOME");
-
-        if ((e = getenv("XDG_CONFIG_HOME"))) {
-                if (asprintf(&config_home, "%s/systemd/session", e) < 0)
-                        goto fail;
-
-        } else if (home) {
-                if (asprintf(&config_home, "%s/.config/systemd/session", home) < 0)
-                        goto fail;
-        }
 
         if ((e = getenv("XDG_CONFIG_DIRS")))
                 if (!(config_dirs = strv_split(e, ":")))

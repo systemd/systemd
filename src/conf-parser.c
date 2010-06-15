@@ -40,6 +40,7 @@ static int next_assignment(
                 unsigned line,
                 const char *section,
                 const ConfigItem *t,
+                bool relaxed,
                 const char *lvalue,
                 const char *rvalue,
                 void *userdata) {
@@ -60,18 +61,21 @@ static int next_assignment(
                 if (t->section && !streq(section, t->section))
                         continue;
 
+                if (!t->parse)
+                        return 0;
+
                 return t->parse(filename, line, section, lvalue, rvalue, t->data, userdata);
         }
 
         /* Warn about unknown non-extension fields. */
-        if (!startswith(lvalue, "X-"))
+        if (!relaxed && !startswith(lvalue, "X-"))
                 log_info("[%s:%u] Unknown lvalue '%s' in section '%s'. Ignoring.", filename, line, lvalue, strna(section));
 
         return 0;
 }
 
 /* Parse a variable assignment line */
-static int parse_line(const char *filename, unsigned line, char **section, const char* const * sections, const ConfigItem *t, char *l, void *userdata) {
+static int parse_line(const char *filename, unsigned line, char **section, const char* const * sections, const ConfigItem *t, bool relaxed, char *l, void *userdata) {
         char *e;
 
         l = strstrip(l);
@@ -89,7 +93,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                 if (!(fn = file_in_same_dir(filename, strstrip(l+9))))
                         return -ENOMEM;
 
-                r = config_parse(fn, NULL, sections, t, userdata);
+                r = config_parse(fn, NULL, sections, t, relaxed, userdata);
                 free(fn);
 
                 return r;
@@ -110,17 +114,17 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                 if (!(n = strndup(l+1, k-2)))
                         return -ENOMEM;
 
-                if (sections && !strv_contains((char**) sections, n)) {
-                        log_error("[%s:%u] Unknown section '%s'.", filename, line, n);
-                        free(n);
-                        return -EBADMSG;
-                }
+                if (!relaxed && sections && !strv_contains((char**) sections, n))
+                        log_info("[%s:%u] Unknown section '%s'. Ignoring.", filename, line, n);
 
                 free(*section);
                 *section = n;
 
                 return 0;
         }
+
+        if (sections && !strv_contains((char**) sections, *section))
+                return 0;
 
         if (!(e = strchr(l, '='))) {
                 log_error("[%s:%u] Missing '='.", filename, line);
@@ -130,11 +134,11 @@ static int parse_line(const char *filename, unsigned line, char **section, const
         *e = 0;
         e++;
 
-        return next_assignment(filename, line, *section, t, strstrip(l), strstrip(e), userdata);
+        return next_assignment(filename, line, *section, t, relaxed, strstrip(l), strstrip(e), userdata);
 }
 
 /* Go through the file and parse each line */
-int config_parse(const char *filename, FILE *f, const char* const * sections, const ConfigItem *t, void *userdata) {
+int config_parse(const char *filename, FILE *f, const char* const * sections, const ConfigItem *t, bool relaxed, void *userdata) {
         unsigned line = 0;
         char *section = NULL;
         int r;
@@ -165,7 +169,7 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
                         goto finish;
                 }
 
-                if ((r = parse_line(filename, ++line, &section, sections, t, l, userdata)) < 0)
+                if ((r = parse_line(filename, ++line, &section, sections, t, relaxed, l, userdata)) < 0)
                         goto finish;
         }
 

@@ -30,6 +30,8 @@ typedef struct LookupPaths {
 
 #include "manager.h"
 
+int session_config_home(char **config_home);
+
 int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as);
 void lookup_paths_free(LookupPaths *p);
 

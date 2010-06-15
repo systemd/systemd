@@ -8,11 +8,6 @@
 
 * implicitly import "defaults" settings file into all types
 
-* write .service file install tool
-    [Install]
-    WantedBy=graphical.target
-    Names=prefdm.service
-
 * service startup should be delayed if the matching socket is being started
 
 * add #ifdefs for non-redhat builds in sysv parser

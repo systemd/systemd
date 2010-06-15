@@ -1471,12 +1471,17 @@ static int load_from_path(Unit *u, const char *path) {
                 { "DirectoryNotEmpty",      config_parse_path_spec,       &u->path,                                        "Path"    },
                 { "Unit",                   config_parse_path_unit,       &u->path,                                        "Path"    },
 
+                /* The [Install] section is ignored here. */
+                { "Alias",                  NULL,                         NULL,                                            "Install" },
+                { "WantedBy",               NULL,                         NULL,                                            "Install" },
+                { "Also",                   NULL,                         NULL,                                            "Install" },
+
                 { NULL, NULL, NULL, NULL }
         };
 
 #undef EXEC_CONTEXT_CONFIG_ITEMS
 
-        const char *sections[3];
+        const char *sections[4];
         int r;
         Set *symlink_names;
         FILE *f = NULL;
@@ -1494,7 +1499,8 @@ static int load_from_path(Unit *u, const char *path) {
 
         sections[0] = "Unit";
         sections[1] = section_table[u->meta.type];
-        sections[2] = NULL;
+        sections[2] = "Install";
+        sections[3] = NULL;
 
         if (!(symlink_names = set_new(string_hash_func, string_compare_func)))
                 return -ENOMEM;
@@ -1563,7 +1569,7 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         /* Now, parse the file contents */
-        if ((r = config_parse(filename, f, sections, items, u)) < 0)
+        if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
                 goto finish;
 
         free(u->meta.fragment_path);

@@ -1437,6 +1437,7 @@ int main(int argc, char*argv[]) {
         dbus_error_init(&error);
 
         log_set_target(LOG_TARGET_CONSOLE);
+        log_set_max_level(LOG_INFO);
         log_parse_environment();
 
         if ((r = parse_argv(argc, argv)) < 0)

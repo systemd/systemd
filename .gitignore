@@ -1,3 +1,4 @@
+systemd-install
 org.freedesktop.systemd1.*.xml
 test-ns
 test-loopback

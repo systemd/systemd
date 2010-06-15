@@ -23,6 +23,7 @@
 ***/
 
 #include <stdio.h>
+#include <stdbool.h>
 
 /* An abstract parser for simple, line based, shallow configuration
  * files consisting of variable assignments only. */
@@ -40,7 +41,7 @@ typedef struct ConfigItem {
 /* The configuration file parsing routine. Expects a table of
  * config_items in *t that is terminated by an item where lvalue is
  * NULL */
-int config_parse(const char *filename, FILE *f, const char* const * sections, const ConfigItem *t, void *userdata);
+int config_parse(const char *filename, FILE *f, const char* const *sections, const ConfigItem *t, bool relaxed, void *userdata);
 
 /* Generic parsers */
 int config_parse_int(const char *filename, unsigned line, const char *section, const char *lvalue, const char *rvalue, void *data, void *userdata);
