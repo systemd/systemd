@@ -447,13 +447,12 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-static int wait_for_jobs(DBusConnection *bus, Set *s) {
+static int enable_wait_for_jobs(DBusConnection *bus) {
         DBusError error;
         DBusMessage *m = NULL, *reply = NULL;
         int r;
 
         assert(bus);
-        assert(s);
 
         dbus_error_init(&error);
 
@@ -468,12 +467,6 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
         if (dbus_error_is_set(&error)) {
                 log_error("Failed to add match: %s", error.message);
                 r = -EIO;
-                goto finish;
-        }
-
-        if (!dbus_connection_add_filter(bus, wait_filter, s, NULL)) {
-                log_error("Failed to add filter.");
-                r = -ENOMEM;
                 goto finish;
         }
 
@@ -493,14 +486,10 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                 goto finish;
         }
 
-        while (!set_isempty(s) &&
-               dbus_connection_read_write_dispatch(bus, -1))
-                ;
-
         r = 0;
 
 finish:
-        /* This is slightly dirty, since we don't undo the filter or the matches. */
+        /* This is slightly dirty, since we don't undo the match registrations. */
 
         if (m)
                 dbus_message_unref(m);
@@ -509,6 +498,30 @@ finish:
                 dbus_message_unref(reply);
 
         dbus_error_free(&error);
+
+        return r;
+}
+
+static int wait_for_jobs(DBusConnection *bus, Set *s) {
+        int r;
+
+        assert(bus);
+        assert(s);
+
+        if (!dbus_connection_add_filter(bus, wait_filter, s, NULL)) {
+                log_error("Failed to add filter.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        while (!set_isempty(s) &&
+               dbus_connection_read_write_dispatch(bus, -1))
+                ;
+
+        r = 0;
+
+finish:
+        /* This is slightly dirty, since we don't undo the filter registration. */
 
         return r;
 }
@@ -531,6 +544,13 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                                            "RestartUnit";
 
         mode = arg_replace ? "replace" : "fail";
+
+        if (arg_block) {
+                if ((r = enable_wait_for_jobs(bus)) < 0) {
+                        log_error("Could not watch jobs: %s", strerror(-r));
+                        goto finish;
+                }
+        }
 
         for (i = 1; i < n; i++) {
 
@@ -627,6 +647,13 @@ static int isolate_unit(DBusConnection *bus, char **args, unsigned n) {
         Set *s = NULL;
 
         dbus_error_init(&error);
+
+        if (arg_block) {
+                if ((r = enable_wait_for_jobs(bus)) < 0) {
+                        log_error("Could not watch jobs: %s", strerror(-r));
+                        goto finish;
+                }
+        }
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
