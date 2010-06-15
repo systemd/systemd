@@ -241,6 +241,12 @@ static int manager_find_paths(Manager *m) {
 
         assert(m);
 
+        /* Unset previous data, in case we are called on reload */
+        strv_free(m->unit_path);
+        strv_free(m->sysvinit_path);
+        strv_free(m->sysvrcnd_path);
+        m->unit_path = m->sysvinit_path = m->sysvrcnd_path = NULL;
+
         /* First priority is whatever has been passed to us via env
          * vars */
         if ((e = getenv("SYSTEMD_UNIT_PATH")))
@@ -2345,6 +2351,10 @@ int manager_reload(Manager *m) {
 
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
+
+        /* Find new unit paths */
+        if ((q = manager_find_paths(m)) < 0)
+                r = q;
 
         /* First, enumerate what we can from all config files */
         if ((q = manager_enumerate(m)) < 0)

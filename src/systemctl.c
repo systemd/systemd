@@ -1397,7 +1397,6 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char*argv[]) {
 
-
         static const struct {
                 const char* verb;
                 const enum {
