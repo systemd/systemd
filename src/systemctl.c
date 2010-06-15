@@ -1343,7 +1343,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "replace",   no_argument,       NULL, ARG_REPLACE },
                 { "session",   no_argument,       NULL, ARG_SESSION },
                 { "system",    no_argument,       NULL, ARG_SYSTEM  },
-                { "block",     no_argument,       NULL, ARG_BLOCK   }
+                { "block",     no_argument,       NULL, ARG_BLOCK   },
+                { NULL,        0,                 NULL, 0           }
         };
 
         int c;
