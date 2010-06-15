@@ -37,23 +37,23 @@ typedef struct BusProperty {
 } BusProperty;
 
 #define BUS_PROPERTIES_INTERFACE                                        \
-        " <interface name=\"org.freedesktop.DBus.Properties\">\n"         \
-        "  <method name=\"Get\">\n"                                       \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"      \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"       \
-        "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"         \
-        "  </method>\n"                                                   \
-        "  <method name=\"GetAll\">\n"                                    \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"      \
+        " <interface name=\"org.freedesktop.DBus.Properties\">\n"       \
+        "  <method name=\"Get\">\n"                                     \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
+        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"       \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetAll\">\n"                                  \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
         "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
-        "  </method>\n"                                                   \
+        "  </method>\n"                                                 \
         " </interface>\n"
 
 #define BUS_INTROSPECTABLE_INTERFACE                                    \
-        " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"     \
-        "  <method name=\"Introspect\">\n"                                \
-        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"          \
-        "  </method>\n"                                                   \
+        " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"   \
+        "  <method name=\"Introspect\">\n"                              \
+        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
         " </interface>\n"
 
 int bus_init_system(Manager *m);

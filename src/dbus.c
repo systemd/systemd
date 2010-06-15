@@ -332,7 +332,7 @@ static void bus_toggle_timeout(DBusTimeout *timeout, void *data) {
                 log_error("Failed to rearm timer: %s", strerror(-r));
 }
 
-static DBusHandlerResult api_bus_message_filter(DBusConnection  *connection, DBusMessage  *message, void *data) {
+static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBusMessage *message, void *data) {
         Manager *m = data;
         DBusError error;
         DBusMessage *reply = NULL;
@@ -438,7 +438,7 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
-static DBusHandlerResult system_bus_message_filter(DBusConnection  *connection, DBusMessage  *message, void *data) {
+static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, DBusMessage *message, void *data) {
         Manager *m = data;
         DBusError error;
 
@@ -457,7 +457,7 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection  *connection, 
                 log_error("Warning! System D-Bus connection terminated.");
                 bus_done_system(m);
 
-        } if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
                 const char *cgroup;
 
                 if (!dbus_message_get_args(message, &error,
@@ -733,6 +733,7 @@ int bus_init_system(Manager *m) {
         dbus_bus_add_match(m->system_bus,
                            "type='signal',"
                            "interface='org.freedesktop.systemd1.Agent',"
+                           "member='Released',"
                            "path='/org/freedesktop/systemd1/agent'",
                            &error);
 
@@ -798,6 +799,7 @@ int bus_init_api(Manager *m) {
                            "type='signal',"
                            "sender='"DBUS_SERVICE_DBUS"',"
                            "interface='"DBUS_INTERFACE_DBUS"',"
+                           "member='NameOwnerChange',"
                            "path='"DBUS_PATH_DBUS"'",
                            &error);
 
@@ -813,6 +815,7 @@ int bus_init_api(Manager *m) {
                            "type='signal',"
                            "sender='"DBUS_SERVICE_DBUS"',"
                            "interface='org.freedesktop.systemd1.Activator',"
+                           "member='ActivationRequest',"
                            "path='"DBUS_PATH_DBUS"'",
                            &error);
 
