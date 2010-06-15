@@ -1160,7 +1160,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
          * reached by a symlink. The old string will be freed. */
 
         for (;;) {
-                char *target, *k, *name;
+                char *target, *name;
 
                 if (c++ >= FOLLOW_MAX)
                         return -ELOOP;
@@ -1189,17 +1189,11 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                         return -errno;
 
                 /* Hmm, so this is a symlink. Let's read the name, and follow it manually */
-                if ((r = readlink_malloc(*filename, &target)) < 0)
+                if ((r = readlink_and_make_absolute(*filename, &target)) < 0)
                         return r;
 
-                k = file_in_same_dir(*filename, target);
-                free(target);
-
-                if (!k)
-                        return -ENOMEM;
-
                 free(*filename);
-                *filename = k;
+                *filename = target;
         }
 
         if (!(f = fdopen(fd, "r"))) {
