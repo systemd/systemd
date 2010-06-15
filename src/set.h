@@ -34,6 +34,7 @@ typedef struct Set Set;
 
 Set *set_new(hash_func_t hash_func, compare_func_t compare_func);
 void set_free(Set* s);
+void set_free_free(Set *s);
 Set* set_copy(Set *s);
 int set_ensure_allocated(Set **s, hash_func_t hash_func, compare_func_t compare_func);
 

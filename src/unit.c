@@ -354,9 +354,7 @@ void unit_free(Unit *u) {
         free(u->meta.description);
         free(u->meta.fragment_path);
 
-        while ((t = set_steal_first(u->meta.names)))
-                free(t);
-        set_free(u->meta.names);
+        set_free_free(u->meta.names);
 
         free(u->meta.instance);
 
@@ -402,10 +400,7 @@ static void merge_names(Unit *u, Unit *other) {
 
         complete_move(&u->meta.names, &other->meta.names);
 
-        while ((t = set_steal_first(other->meta.names)))
-                free(t);
-
-        set_free(other->meta.names);
+        set_free_free(other->meta.names);
         other->meta.names = NULL;
         other->meta.id = NULL;
 

@@ -1483,7 +1483,6 @@ static int load_from_path(Unit *u, const char *path) {
 #undef EXEC_CONTEXT_CONFIG_ITEMS
 
         const char *sections[3];
-        char *k;
         int r;
         Set *symlink_names;
         FILE *f = NULL;
@@ -1581,10 +1580,7 @@ static int load_from_path(Unit *u, const char *path) {
         r = 0;
 
 finish:
-        while ((k = set_steal_first(symlink_names)))
-                free(k);
-
-        set_free(symlink_names);
+        set_free_free(symlink_names);
         free(filename);
 
         if (f)
