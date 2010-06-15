@@ -799,7 +799,7 @@ int bus_init_api(Manager *m) {
                            "type='signal',"
                            "sender='"DBUS_SERVICE_DBUS"',"
                            "interface='"DBUS_INTERFACE_DBUS"',"
-                           "member='NameOwnerChange',"
+                           "member='NameOwnerChanged',"
                            "path='"DBUS_PATH_DBUS"'",
                            &error);
 
