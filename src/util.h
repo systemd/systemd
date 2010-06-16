@@ -104,6 +104,7 @@ bool first_word(const char *s, const char *word);
 
 int close_nointr(int fd);
 void close_nointr_nofail(int fd);
+void close_many(const int fds[], unsigned n_fd);
 
 int parse_boolean(const char *v);
 int parse_usec(const char *t, usec_t *usec);
@@ -252,7 +253,7 @@ bool is_device_path(const char *path);
 
 int dir_is_empty(const char *path);
 
-extern char * __progname;
+void rename_process(const char name[8]);
 
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);

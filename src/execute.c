@@ -37,6 +37,10 @@
 #include <sys/mount.h>
 #include <linux/fs.h>
 
+#ifdef HAVE_PAM
+#include <security/pam_appl.h>
+#endif
+
 #include "execute.h"
 #include "strv.h"
 #include "macro.h"
@@ -720,6 +724,164 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
         return 0;
 }
 
+#ifdef HAVE_PAM
+
+static int null_conv(
+                int num_msg,
+                const struct pam_message **msg,
+                struct pam_response **resp,
+                void *appdata_ptr) {
+
+        /* We don't support conversations */
+
+        return PAM_CONV_ERR;
+}
+
+static int setup_pam(
+                const char *name,
+                const char *user,
+                const char *tty,
+                char ***pam_env,
+                int fds[], unsigned n_fds) {
+
+        static const struct pam_conv conv = {
+                .conv = null_conv,
+                .appdata_ptr = NULL
+        };
+
+        pam_handle_t *handle = NULL;
+        sigset_t ss, old_ss;
+        int pam_code = PAM_SUCCESS;
+        char **e = NULL;
+        bool close_session = false;
+        pid_t pam_pid = 0, parent_pid;
+
+        assert(name);
+        assert(user);
+        assert(pam_env);
+
+        /* We set up PAM in the parent process, then fork. The child
+         * will then stay around untill killed via PR_GET_PDEATHSIG or
+         * systemd via the cgroup logic. It will then remove the PAM
+         * session again. The parent process will exec() the actual
+         * daemon. We do things this way to ensure that the main PID
+         * of the daemon is the one we initially fork()ed. */
+
+        if ((pam_code = pam_start(name, user, &conv, &handle)) != PAM_SUCCESS) {
+                handle = NULL;
+                goto fail;
+        }
+
+        if (tty)
+                if ((pam_code = pam_set_item(handle, PAM_TTY, tty)) != PAM_SUCCESS)
+                        goto fail;
+
+        if ((pam_code = pam_acct_mgmt(handle, PAM_SILENT)) != PAM_SUCCESS)
+                goto fail;
+
+        if ((pam_code = pam_open_session(handle, PAM_SILENT)) != PAM_SUCCESS)
+                goto fail;
+
+        close_session = true;
+
+        if ((pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | PAM_SILENT)) != PAM_SUCCESS)
+                goto fail;
+
+        if ((!(e = pam_getenvlist(handle)))) {
+                pam_code = PAM_BUF_ERR;
+                goto fail;
+        }
+
+        /* Block SIGTERM, so that we know that it won't get lost in
+         * the child */
+        if (sigemptyset(&ss) < 0 ||
+            sigaddset(&ss, SIGTERM) < 0 ||
+            sigprocmask(SIG_BLOCK, &ss, &old_ss) < 0)
+                goto fail;
+
+        parent_pid = getpid();
+
+        if ((pam_pid = fork()) < 0)
+                goto fail;
+
+        if (pam_pid == 0) {
+                int sig;
+                int r = EXIT_PAM;
+
+                /* The child's job is to reset the PAM session on
+                 * termination */
+
+                /* This string must fit in 10 chars (i.e. the length
+                 * of "/sbin/init") */
+                rename_process("sd:pam");
+
+                /* Make sure we don't keep open the passed fds in this
+                child. We assume that otherwise only those fds are
+                open here that have been opened by PAM. */
+                close_many(fds, n_fds);
+
+                /* Wait until our parent died. This will most likely
+                 * not work since the kernel does not allow
+                 * unpriviliged paretns kill their priviliged children
+                 * this way. We rely on the control groups kill logic
+                 * to do the rest for us. */
+                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
+                        goto child_finish;
+
+                /* Check if our parent process might already have
+                 * died? */
+                if (getppid() == parent_pid) {
+                        if (sigwait(&ss, &sig) < 0)
+                                goto child_finish;
+
+                        assert(sig == SIGTERM);
+                }
+
+                /* Only if our parent died we'll end the session */
+                if (getppid() != parent_pid)
+                        if ((pam_code = pam_close_session(handle, PAM_DATA_SILENT)) != PAM_SUCCESS)
+                                goto child_finish;
+
+                r = 0;
+
+        child_finish:
+                pam_end(handle, pam_code | PAM_DATA_SILENT);
+                _exit(r);
+        }
+
+        /* If the child was forked off successfully it will do all the
+         * cleanups, so forget about the handle here. */
+        handle = NULL;
+
+        /* Unblock SIGSUR1 again in the parent */
+        if (sigprocmask(SIG_SETMASK, &old_ss, NULL) < 0)
+                goto fail;
+
+        /* We close the log explicitly here, since the PAM modules
+         * might have opened it, but we don't want this fd around. */
+        closelog();
+
+        return 0;
+
+fail:
+        if (handle) {
+                if (close_session)
+                        pam_code = pam_close_session(handle, PAM_DATA_SILENT);
+
+                pam_end(handle, pam_code | PAM_DATA_SILENT);
+        }
+
+        strv_free(e);
+
+        closelog();
+
+        if (pam_pid > 1)
+                kill(pam_pid, SIGTERM);
+
+        return EXIT_PAM;
+}
+#endif
+
 int exec_spawn(ExecCommand *command,
                char **argv,
                const ExecContext *context,
@@ -777,12 +939,16 @@ int exec_spawn(ExecCommand *command,
                 const char *username = NULL, *home = NULL;
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
-                char **our_env = NULL, **final_env = NULL;
+                char **our_env = NULL, **pam_env = NULL, **final_env = NULL;
                 unsigned n_env = 0;
                 int saved_stdout = -1, saved_stdin = -1;
                 bool keep_stdout = false, keep_stdin = false;
 
                 /* child */
+
+                /* This string must fit in 10 chars (i.e. the length
+                 * of "/sbin/init") */
+                rename_process("sd:exec");
 
                 /* We reset exactly these signals, since they are the
                  * only ones we set to SIG_IGN in the main daemon. All
@@ -928,6 +1094,25 @@ int exec_spawn(ExecCommand *command,
                                 }
                 }
 
+#ifdef HAVE_PAM
+                if (context->pam_name && username) {
+                        /* Make sure no fds leak into the PAM
+                         * supervisor process. We will call this later
+                         * on again to make sure that any fds leaked
+                         * by the PAM modules get closed before our
+                         * exec(). */
+                        if (close_all_fds(fds, n_fds) < 0) {
+                                r = EXIT_FDS;
+                                goto fail;
+                        }
+
+                        if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) < 0) {
+                                r = EXIT_PAM;
+                                goto fail;
+                        }
+                }
+#endif
+
                 if (apply_permissions)
                         if (enforce_groups(context, username, uid) < 0) {
                                 r = EXIT_GROUP;
@@ -1049,7 +1234,13 @@ int exec_spawn(ExecCommand *command,
 
                 assert(n_env <= 6);
 
-                if (!(final_env = strv_env_merge(environment, our_env, context->environment, NULL))) {
+                if (!(final_env = strv_env_merge(
+                                      4,
+                                      environment,
+                                      our_env,
+                                      context->environment,
+                                      pam_env,
+                                      NULL))) {
                         r = EXIT_MEMORY;
                         goto fail;
                 }
@@ -1060,6 +1251,7 @@ int exec_spawn(ExecCommand *command,
         fail:
                 strv_free(our_env);
                 strv_free(final_env);
+                strv_free(pam_env);
 
                 if (saved_stdin >= 0)
                         close_nointr_nofail(saved_stdin);
@@ -1132,6 +1324,9 @@ void exec_context_done(ExecContext *c) {
 
         strv_free(c->supplementary_groups);
         c->supplementary_groups = NULL;
+
+        free(c->pam_name);
+        c->pam_name = NULL;
 
         if (c->capabilities) {
                 cap_free(c->capabilities);
@@ -1331,6 +1526,9 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 strv_fprintf(f, c->supplementary_groups);
                 fputs("\n", f);
         }
+
+        if (c->pam_name)
+                fprintf(f, "%sPAMName: %s", prefix, c->pam_name);
 
         if (strv_length(c->read_write_dirs) > 0) {
                 fprintf(f, "%sReadWriteDirs:", prefix);
@@ -1612,6 +1810,9 @@ const char* exit_status_to_string(ExitStatus status) {
 
         case EXIT_TCPWRAP:
                 return "TCPWRAP";
+
+        case EXIT_PAM:
+                return "PAM";
 
         default:
                 return NULL;

@@ -116,6 +116,8 @@ struct ExecContext {
         char *group;
         char **supplementary_groups;
 
+        char *pam_name;
+
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 
@@ -182,7 +184,8 @@ typedef enum ExitStatus {
         EXIT_SETSID,   /* 220 */
         EXIT_CONFIRM,
         EXIT_STDERR,
-        EXIT_TCPWRAP
+        EXIT_TCPWRAP,
+        EXIT_PAM
 
 } ExitStatus;
 

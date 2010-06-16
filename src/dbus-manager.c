@@ -626,7 +626,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         return bus_send_error_reply(m, message, NULL, r);
                 }
 
-                e = strv_env_merge(m->environment, l, NULL);
+                e = strv_env_merge(2, m->environment, l);
                 strv_free(l);
 
                 if (!e)
@@ -650,7 +650,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         return bus_send_error_reply(m, message, NULL, r);
                 }
 
-                e = strv_env_delete(m->environment, l, NULL);
+                e = strv_env_delete(m->environment, 1, l);
                 strv_free(l);
 
                 if (!e)

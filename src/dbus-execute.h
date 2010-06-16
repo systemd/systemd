@@ -44,7 +44,8 @@
         "  <property name=\"User\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Group\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"SupplementaryGroups\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"TCPWrapName\" type=\"s\" access=\"read\"/>\n"
+        "  <property name=\"TCPWrapName\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"PAMName\" type=\"s\" access=\"read\"/>\n"
 
 #define BUS_EXEC_CONTEXT_PROPERTIES(interface, context)                 \
         { interface, "Environment",                   bus_property_append_strv,   "as",    (context).environment                   }, \
@@ -73,7 +74,8 @@
         { interface, "User",                          bus_property_append_string, "s",     (context).user                          }, \
         { interface, "Group",                         bus_property_append_string, "s",     (context).group                         }, \
         { interface, "SupplementaryGroups",           bus_property_append_strv,   "as",    (context).supplementary_groups          }, \
-        { interface, "TCPWrapName",                   bus_property_append_string, "s",     (context).tcpwrap_name                  }
+        { interface, "TCPWrapName",                   bus_property_append_string, "s",     (context).tcpwrap_name                  }, \
+        { interface, "PAMName",                       bus_property_append_string, "s",     (context).pam_name                      }
 
 int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_input(Manager *m, DBusMessageIter *i, const char *property, void *data);

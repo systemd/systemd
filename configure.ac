@@ -111,26 +111,60 @@ AC_SUBST(CGROUP_LIBS)
 AC_ARG_ENABLE([tcpwrap],
         AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),
                 [case "${enableval}" in
-                        yes) tcpwrap=yes ;;
-                        no) tcpwrap=no ;;
+                        yes) have_tcpwrap=yes ;;
+                        no) have_tcpwrap=no ;;
                         *) AC_MSG_ERROR(bad value ${enableval} for --disable-tcpwrap) ;;
                 esac],
-                [tcpwrap=auto])
+                [have_tcpwrap=auto])
 
-if test "x${tcpwrap}" != xno ; then
+if test "x${have_tcpwrap}" != xno ; then
         ACX_LIBWRAP
         if test "x${LIBWRAP_LIBS}" = x ; then
-                if test "x$tcpwrap" = xyes ; then
-                        AC_MSG_ERROR([*** TCP wrappers support not found])
+                if test "x$have_tcpwrap" = xyes ; then
+                        AC_MSG_ERROR([*** TCP wrappers support not found.])
                 fi
         else
-                tcpwrap=yes
+                have_tcpwrap=yes
         fi
 else
-    LIBWRAP_LIBS=
+        LIBWRAP_LIBS=
 fi
-
 AC_SUBST(LIBWRAP_LIBS)
+
+AC_ARG_ENABLE([pam],
+        AS_HELP_STRING([--disable-pam],[Disable optional PAM support]),
+                [case "${enableval}" in
+                        yes) have_pam=yes ;;
+                        no) have_pam=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-pam) ;;
+                esac],
+                [have_pam=auto])
+
+if test "x${have_pam}" != xno ; then
+        AC_CHECK_HEADERS(
+                [security/pam_modules.h security/pam_modutil.h security/pam_ext.h],
+                [have_pam=yes],
+                [if test "x$have_pam" = xyes ; then
+                        AC_MSG_ERROR([*** PAM headers not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [pam],
+                [pam_syslog],
+                [have_pam=yes],
+                [if test "x$have_pam" = xyes ; then
+                        AC_MSG_ERROR([*** libpam not found.])
+                fi])
+
+        if test "x$have_pam" = xyes ; then
+                PAM_LIBS="-lpam -lpam_misc"
+                AC_DEFINE(HAVE_PAM, 1, [PAM available])
+        fi
+else
+        PAM_LIBS=
+fi
+AC_SUBST(PAM_LIBS)
+AM_CONDITIONAL([HAVE_PAM], [test "x$have_pam" != xno])
 
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
@@ -336,7 +370,8 @@ echo "
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
         D-Bus service:           ${SPECIAL_DBUS_SERVICE}
         Gtk:                     ${have_gtk}
-        tcpwrap:                 ${tcpwrap}
+        tcpwrap:                 ${have_tcpwrap}
+        PAM:                     ${have_pam}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}

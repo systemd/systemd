@@ -504,7 +504,7 @@ static int help(void) {
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
                "     --introspect[=INTERFACE]    Extract D-Bus interface data\n",
-               __progname);
+               program_invocation_short_name);
 
         return 0;
 }

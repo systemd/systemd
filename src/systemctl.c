@@ -1322,7 +1322,7 @@ static int help(void) {
                "  show-environment                Dump environment\n"
                "  set-environment [NAME=VALUE...] Set one or more environment variables\n"
                "  unset-environment [NAME...]     Unset one or more environment variables\n",
-               __progname);
+               program_invocation_short_name);
 
         return 0;
 }

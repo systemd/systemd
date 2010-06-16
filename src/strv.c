@@ -374,7 +374,9 @@ char **strv_remove(char **l, const char *s) {
 static int env_append(char **r, char ***k, char **a) {
         assert(r);
         assert(k);
-        assert(a);
+
+        if (!a)
+                return 0;
 
         /* Add the entries of a to *k unless they already exist in *r
          * in which case they are overriden instead. This assumes
@@ -400,38 +402,33 @@ static int env_append(char **r, char ***k, char **a) {
         return 0;
 }
 
-char **strv_env_merge(char **x, ...) {
+char **strv_env_merge(unsigned n_lists, ...) {
         size_t n = 0;
         char **l, **k, **r;
         va_list ap;
+        unsigned i;
 
         /* Merges an arbitrary number of environment sets */
 
-        if (x) {
-                n += strv_length(x);
-
-                va_start(ap, x);
-                while ((l = va_arg(ap, char**)))
-                        n += strv_length(l);
-                va_end(ap);
+        va_start(ap, n_lists);
+        for (i = 0; i < n_lists; i++) {
+                l = va_arg(ap, char**);
+                n += strv_length(l);
         }
-
+        va_end(ap);
 
         if (!(r = new(char*, n+1)))
                 return NULL;
 
         k = r;
 
-        if (x) {
-                if (env_append(r, &k, x) < 0)
+        va_start(ap, n_lists);
+        for (i = 0; i < n_lists; i++) {
+                l = va_arg(ap, char**);
+                if (env_append(r, &k, l) < 0)
                         goto fail;
-
-                va_start(ap, x);
-                while ((l = va_arg(ap, char**)))
-                        if (env_append(r, &k, l) < 0)
-                                goto fail;
-                va_end(ap);
         }
+        va_end(ap);
 
         *k = NULL;
 
@@ -472,7 +469,7 @@ static bool env_match(const char *t, const char *pattern) {
         return false;
 }
 
-char **strv_env_delete(char **x, ...) {
+char **strv_env_delete(char **x, unsigned n_lists, ...) {
         size_t n = 0, i = 0;
         char **l, **k, **r, **j;
         va_list ap;
@@ -486,12 +483,14 @@ char **strv_env_delete(char **x, ...) {
                 return NULL;
 
         STRV_FOREACH(k, x) {
-                va_start(ap, x);
+                va_start(ap, n_lists);
 
-                while ((l = va_arg(ap, char**)))
+                for (i = 0; i < n_lists; i++) {
+                        l = va_arg(ap, char**);
                         STRV_FOREACH(j, l)
                                 if (env_match(*k, *j))
                                         goto delete;
+                }
 
                 va_end(ap);
 

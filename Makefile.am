@@ -290,7 +290,8 @@ systemd_LDADD = \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS) \
 	$(CGROUP_LIBS) \
-	$(LIBWRAP_LIBS)
+	$(LIBWRAP_LIBS) \
+	$(PAM_LIBS)
 
 test_engine_SOURCES = \
 	$(COMMON_SOURCES) \

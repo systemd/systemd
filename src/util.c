@@ -43,6 +43,7 @@
 #include <sys/poll.h>
 #include <libgen.h>
 #include <ctype.h>
+#include <sys/prctl.h>
 
 #include "macro.h"
 #include "util.h"
@@ -220,6 +221,13 @@ void close_nointr_nofail(int fd) {
         assert_se(close_nointr(fd) == 0);
 
         errno = saved_errno;
+}
+
+void close_many(const int fds[], unsigned n_fd) {
+        unsigned i;
+
+        for (i = 0; i < n_fd; i++)
+                close_nointr_nofail(fds[i]);
 }
 
 int parse_boolean(const char *v) {
@@ -2159,6 +2167,19 @@ unsigned long long random_ull(void) {
 
 fallback:
         return random() * RAND_MAX + random();
+}
+
+void rename_process(const char name[8]) {
+        assert(name);
+
+        prctl(PR_SET_NAME, name);
+
+        /* This is a like a poor man's setproctitle(). The string
+         * passed should fit in 7 chars (i.e. the length of
+         * "systemd") */
+
+        if (program_invocation_name)
+                strncpy(program_invocation_name, name, strlen(program_invocation_name));
 }
 
 static const char *const ioprio_class_table[] = {

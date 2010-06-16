@@ -267,7 +267,7 @@ static int write_to_syslog(
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], header_time);
-        IOVEC_SET_STRING(iovec[2], __progname);
+        IOVEC_SET_STRING(iovec[2], program_invocation_short_name);
         IOVEC_SET_STRING(iovec[3], header_pid);
         IOVEC_SET_STRING(iovec[4], buffer);
 
@@ -302,7 +302,7 @@ static int write_to_kmsg(
 
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
-        IOVEC_SET_STRING(iovec[1], __progname);
+        IOVEC_SET_STRING(iovec[1], program_invocation_short_name);
         IOVEC_SET_STRING(iovec[2], header_pid);
         IOVEC_SET_STRING(iovec[3], buffer);
         IOVEC_SET_STRING(iovec[4], "\n");

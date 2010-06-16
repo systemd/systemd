@@ -51,14 +51,16 @@
 
 * write utmp record a la upstart for processes
 
-* run PAM session stuff
-
-* use setproctitle() when forking, before exec() (waiting for (PR_SET_PROCTITLE_AREA to enter the kernel)
-
 * follow property change dbus spec
+
+* pam module
+
+* selinux
 
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
 
 * check for strerror(r) instead of strerror(-r)
+
+* Use PR_SET_PROCTITLE_AREA if it becomes available in the kernel

@@ -69,7 +69,7 @@ static int help(void) {
                "  enable [NAME...]    Enable one or more units\n"
                "  disable [NAME...]   Disable one or more units\n"
                "  test [NAME...]      Test whether any of the specified units are enabled\n",
-               __progname);
+               program_invocation_short_name);
 
         return 0;
 }

@@ -109,7 +109,7 @@ static int manager_setup_notify(Manager *m) {
                 return -ENOMEM;
 
         ne[1] = NULL;
-        t = strv_env_merge(m->environment, ne, NULL);
+        t = strv_env_merge(2, m->environment, ne);
         free(ne[0]);
 
         if (!t)

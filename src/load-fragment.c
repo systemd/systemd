@@ -1392,7 +1392,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "InaccessibleDirectories",config_parse_path_strv,       &(context).inaccessible_dirs,                    section   }, \
                 { "PrivateTmp",             config_parse_bool,            &(context).private_tmp,                          section   }, \
                 { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }, \
-                { "TCPWrapName",            config_parse_string,          &(context).tcpwrap_name,                         section   }
+                { "TCPWrapName",            config_parse_string,          &(context).tcpwrap_name,                         section   }, \
+                { "PAMName",                config_parse_string,          &(context).pam_name,                             section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },

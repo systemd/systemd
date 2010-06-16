@@ -55,8 +55,8 @@ char **strv_split_quoted(const char *s) _malloc_;
 
 char *strv_join(char **l, const char *separator) _malloc_;
 
-char **strv_env_merge(char **x, ...) _sentinel_;
-char **strv_env_delete(char **x, ...) _sentinel_;
+char **strv_env_merge(unsigned n_lists, ...);
+char **strv_env_delete(char **x, unsigned n_lists, ...);
 
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)
