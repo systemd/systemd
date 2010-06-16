@@ -123,6 +123,7 @@ if test "x${have_tcpwrap}" != xno ; then
                 if test "x$have_tcpwrap" = xyes ; then
                         AC_MSG_ERROR([*** TCP wrappers support not found.])
                 fi
+                have_tcpwrap=no
         else
                 have_tcpwrap=yes
         fi
@@ -159,6 +160,8 @@ if test "x${have_pam}" != xno ; then
         if test "x$have_pam" = xyes ; then
                 PAM_LIBS="-lpam -lpam_misc"
                 AC_DEFINE(HAVE_PAM, 1, [PAM available])
+        else
+                have_pam=no
         fi
 else
         PAM_LIBS=
