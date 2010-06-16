@@ -43,7 +43,8 @@
         "  <property name=\"CapabilityBoundingSetDrop\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"User\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Group\" type=\"s\" access=\"read\"/>\n"     \
-        "  <property name=\"SupplementaryGroups\" type=\"as\" access=\"read\"/>\n"
+        "  <property name=\"SupplementaryGroups\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"TCPWrapName\" type=\"s\" access=\"read\"/>\n"
 
 #define BUS_EXEC_CONTEXT_PROPERTIES(interface, context)                 \
         { interface, "Environment",                   bus_property_append_strv,   "as",    (context).environment                   }, \
@@ -71,7 +72,8 @@
         { interface, "CapabilityBoundingSetDrop",     bus_property_append_uint64, "t",     &(context).capability_bounding_set_drop }, \
         { interface, "User",                          bus_property_append_string, "s",     (context).user                          }, \
         { interface, "Group",                         bus_property_append_string, "s",     (context).group                         }, \
-        { interface, "SupplementaryGroups",           bus_property_append_strv,   "as",    (context).supplementary_groups          }
+        { interface, "SupplementaryGroups",           bus_property_append_strv,   "as",    (context).supplementary_groups          }, \
+        { interface, "TCPWrapName",                   bus_property_append_string, "s",     (context).tcpwrap_name                  }
 
 int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_input(Manager *m, DBusMessageIter *i, const char *property, void *data);

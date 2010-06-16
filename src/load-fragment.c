@@ -1391,7 +1391,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ReadOnlyDirectories",    config_parse_path_strv,       &(context).read_only_dirs,                       section   }, \
                 { "InaccessibleDirectories",config_parse_path_strv,       &(context).inaccessible_dirs,                    section   }, \
                 { "PrivateTmp",             config_parse_bool,            &(context).private_tmp,                          section   }, \
-                { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }
+                { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }, \
+                { "TCPWrapName",            config_parse_string,          &(context).tcpwrap_name,                         section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },
@@ -1444,7 +1445,6 @@ static int load_from_path(Unit *u, const char *path) {
                 { "SocketMode",             config_parse_mode,            &u->socket.socket_mode,                          "Socket"  },
                 { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
                 { "Accept",                 config_parse_bool,            &u->socket.accept,                               "Socket"  },
-                { "TCPWrapName",            config_parse_string,          &u->socket.tcpwrap_name,                         "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 { "What",                   config_parse_string,          &u->mount.parameters_fragment.what,              "Mount"   },

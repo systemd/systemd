@@ -53,8 +53,6 @@
 
 * run PAM session stuff
 
-* tcpwrap
-
 * use setproctitle() when forking, before exec() (waiting for (PR_SET_PROCTITLE_AREA to enter the kernel)
 
 * follow property change dbus spec

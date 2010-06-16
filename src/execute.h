@@ -104,6 +104,8 @@ struct ExecContext {
         char *syslog_identifier;
         bool syslog_no_prefix;
 
+        char *tcpwrap_name;
+
         char *tty_path;
 
         /* Since resolving these names might might involve socket
@@ -179,7 +181,8 @@ typedef enum ExitStatus {
         EXIT_CGROUP,
         EXIT_SETSID,   /* 220 */
         EXIT_CONFIRM,
-        EXIT_STDERR
+        EXIT_STDERR,
+        EXIT_TCPWRAP
 
 } ExitStatus;
 
