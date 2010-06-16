@@ -108,6 +108,30 @@ PKG_CHECK_MODULES(CGROUP, [ libcgroup >= 0.36 ])
 AC_SUBST(CGROUP_CFLAGS)
 AC_SUBST(CGROUP_LIBS)
 
+AC_ARG_ENABLE([tcpwrap],
+        AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),
+                [case "${enableval}" in
+                        yes) tcpwrap=yes ;;
+                        no) tcpwrap=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-tcpwrap) ;;
+                esac],
+                [tcpwrap=auto])
+
+if test "x${tcpwrap}" != xno ; then
+        ACX_LIBWRAP
+        if test "x${LIBWRAP_LIBS}" = x ; then
+                if test "x$tcpwrap" = xyes ; then
+                        AC_MSG_ERROR([*** TCP wrappers support not found])
+                fi
+        else
+                tcpwrap=yes
+        fi
+else
+    LIBWRAP_LIBS=
+fi
+
+AC_SUBST(LIBWRAP_LIBS)
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -312,6 +336,7 @@ echo "
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
         D-Bus service:           ${SPECIAL_DBUS_SERVICE}
         Gtk:                     ${have_gtk}
+        tcpwrap:                 ${tcpwrap}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}

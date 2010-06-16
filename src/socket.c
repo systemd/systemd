@@ -36,6 +36,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "dbus-socket.h"
+#include "tcpwrap.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -106,6 +107,9 @@ static void socket_done(Unit *u) {
 
         free(s->bind_to_device);
         s->bind_to_device = NULL;
+
+        free(s->tcpwrap_name);
+        s->tcpwrap_name = NULL;
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -304,6 +308,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sBindToDevice: %s\n",
                         prefix, s->bind_to_device);
+
+        if (s->tcpwrap_name)
+                fprintf(f,
+                        "%sTCPWrapName: %s\n",
+                        prefix, s->tcpwrap_name);
 
         if (s->accept)
                 fprintf(f,
@@ -1212,6 +1221,12 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
 
                         break;
                 }
+
+                if (s->tcpwrap_name)
+                        if (!socket_tcpwrap(cfd, s->tcpwrap_name)) {
+                                close_nointr_nofail(cfd);
+                                return;
+                        }
         }
 
         socket_enter_running(s, cfd);

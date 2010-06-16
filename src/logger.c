@@ -36,6 +36,7 @@
 #include "log.h"
 #include "list.h"
 #include "sd-daemon.h"
+#include "tcpwrap.h"
 
 #define STREAM_BUFFER 2048
 #define STREAMS_MAX 256
@@ -336,6 +337,11 @@ static int stream_new(Server *s, int server_fd) {
 
         if (s->n_streams >= STREAMS_MAX) {
                 log_warning("Too many connections, refusing connection.");
+                close_nointr_nofail(fd);
+                return 0;
+        }
+
+        if (!socket_tcpwrap(fd, "systemd-logger")) {
                 close_nointr_nofail(fd);
                 return 0;
         }

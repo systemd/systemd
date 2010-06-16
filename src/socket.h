@@ -101,6 +101,8 @@ struct Socket {
         mode_t directory_mode;
         mode_t socket_mode;
 
+        char *tcpwrap_name;
+
         bool accept;
         unsigned n_accepted;
 

@@ -241,7 +241,8 @@ COMMON_SOURCES = \
 	src/specifier.c \
 	src/unit-name.c \
 	src/fdset.c \
-	src/namespace.c
+	src/namespace.c \
+	src/tcpwrap.c
 
 EXTRA_DIST += \
 	${COMMON_SOURCES:.c=.h} \
@@ -288,7 +289,8 @@ systemd_CFLAGS = \
 systemd_LDADD = \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS) \
-	$(CGROUP_LIBS)
+	$(CGROUP_LIBS) \
+	$(LIBWRAP_LIBS)
 
 test_engine_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -325,7 +327,11 @@ test_daemon_SOURCES = \
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \
 	src/logger.c \
-	src/sd-daemon.c
+	src/sd-daemon.c \
+	src/tcpwrap.c
+
+systemd_logger_LDADD = \
+	$(LIBWRAP_LIBS)
 
 systemd_initctl_SOURCES = \
 	$(BASIC_SOURCES) \

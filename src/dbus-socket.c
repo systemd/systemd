@@ -37,6 +37,7 @@
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"SocketMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Accept\" type=\"b\" access=\"read\"/>\n"    \
+        "  <property name=\"TCPWrapName\" type=\"s\" access=\"read\"/>\n" \
         " </interface>\n"                                               \
 
 #define INTROSPECTION                                                   \
@@ -66,6 +67,7 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusMessage *message) {
                 { "org.freedesktop.systemd1.Socket", "DirectoryMode", bus_property_append_mode,     "u", &u->socket.directory_mode },
                 { "org.freedesktop.systemd1.Socket", "SocketMode",    bus_property_append_mode,     "u", &u->socket.socket_mode },
                 { "org.freedesktop.systemd1.Socket", "Accept",        bus_property_append_bool,     "b", &u->socket.accept },
+                { "org.freedesktop.systemd1.Socket", "TCPWrapName",   bus_property_append_string,   "s", u->socket.tcpwrap_name },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
