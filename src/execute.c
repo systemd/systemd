@@ -914,19 +914,6 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                if (strv_length(context->read_write_dirs) > 0 ||
-                    strv_length(context->read_only_dirs) > 0 ||
-                    strv_length(context->inaccessible_dirs) > 0 ||
-                    context->mount_flags != MS_SHARED ||
-                    context->private_tmp)
-                        if ((r = setup_namespace(
-                                             context->read_write_dirs,
-                                             context->read_only_dirs,
-                                             context->inaccessible_dirs,
-                                             context->private_tmp,
-                                             context->mount_flags)) < 0)
-                                goto fail;
-
                 if (context->user) {
                         username = context->user;
                         if (get_user_creds(&username, &uid, &gid, &home) < 0) {
@@ -948,6 +935,19 @@ int exec_spawn(ExecCommand *command,
                         }
 
                 umask(context->umask);
+
+                if (strv_length(context->read_write_dirs) > 0 ||
+                    strv_length(context->read_only_dirs) > 0 ||
+                    strv_length(context->inaccessible_dirs) > 0 ||
+                    context->mount_flags != MS_SHARED ||
+                    context->private_tmp)
+                        if ((r = setup_namespace(
+                                             context->read_write_dirs,
+                                             context->read_only_dirs,
+                                             context->inaccessible_dirs,
+                                             context->private_tmp,
+                                             context->mount_flags)) < 0)
+                                goto fail;
 
                 if (apply_chroot) {
                         if (context->root_directory)
