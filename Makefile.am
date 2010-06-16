@@ -185,6 +185,15 @@ dist_systemunit_DATA += \
 	units/gentoo/xdm.service
 endif
 
+if TARGET_ARCH
+dist_systemunit_DATA += \
+	units/arch/sysinit.service \
+	units/arch/rc-local.service \
+	units/arch/halt.service \
+	units/arch/poweroff.service \
+	units/arch/reboot.service
+endif
+
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
 # list the .h files as dependencies if we want make dist to work.
