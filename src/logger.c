@@ -547,6 +547,10 @@ int main(int argc, char *argv[]) {
         if (server_init(&server, (unsigned) n) < 0)
                 return 3;
 
+        sd_notify(false,
+                  "READY=1\n"
+                  "STATUS=Processing requests...");
+
         for (;;) {
                 struct epoll_event event;
                 int k;
@@ -571,6 +575,9 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 fail:
+        sd_notify(false,
+                  "STATUS=Shutting down...");
+
         server_done(&server);
 
         log_info("systemd-logger stopped as pid %llu", (unsigned long long) getpid());

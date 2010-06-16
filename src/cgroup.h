@@ -76,4 +76,6 @@ int manager_shutdown_cgroup(Manager *m, bool delete);
 
 int cgroup_notify_empty(Manager *m, const char *group);
 
+Unit* cgroup_unit_by_pid(Manager *m, pid_t pid);
+
 #endif

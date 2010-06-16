@@ -1,3 +1,4 @@
+test-daemon
 systemd-install
 org.freedesktop.systemd1.*.xml
 test-ns

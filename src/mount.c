@@ -921,11 +921,13 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(m);
         assert(pid >= 0);
 
+        if (pid != m->control_pid)
+                return;
+
+        m->control_pid = 0;
+
         success = is_clean_exit(code, status);
         m->failure = m->failure || !success;
-
-        assert(m->control_pid == pid);
-        m->control_pid = 0;
 
         if (m->control_command) {
                 exec_status_fill(&m->control_command->exec_status, pid, code, status);

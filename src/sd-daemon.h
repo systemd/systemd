@@ -27,7 +27,12 @@
   SOFTWARE.
 ***/
 
+#include <sys/types.h>
 #include <inttypes.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Reference implementation of a few systemd related interfaces for
  * writing daemons. These interfaces are trivial to implement. To
@@ -110,5 +115,59 @@ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port
  * flag is used the same way as in sd_is_socket(). Returns a negative
  * errno style error code on failure. */
 int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length);
+
+/* Informs systemd about changed daemon state. This takes a numeber of
+ * newline seperated environment-style variable assignments in a
+ * string. The following strings are known:
+ *
+ *    READY=1      Tells systemd that daemon startup is finished (only
+ *                 relevant for services of Type=notify). The passed
+ *                 argument is a boolean "1" or "0". Since there is
+ *                 little value in signalling non-readiness the only
+ *                 value daemons should send is "READY=1".
+ *
+ *    STATUS=...   Passes a status string back to systemd that
+ *                 describes the daemon state. This is free-from and
+ *                 can be used for various purposes: general state
+ *                 feedback, fsck-like programs could pass completion
+ *                 percentages and failing programs could pass a human
+ *                 readable error message. Example: "STATUS=Completed
+ *                 66% of file system check..."
+ *
+ *    ERRNO=...    If a daemon fails, the errno-style error code,
+ *                 formatted as string. Example: "ERRNO=2" for ENOENT.
+ *
+ *    BUSERROR=... If a daemon fails, the D-Bus error-style error
+ *                 code. Example: "BUSERROR=org.freedesktop.DBus.Error.TimedOut"
+ *
+ *    MAINPID=...  The main pid of a daemon, in case systemd did not
+ *                 fork off the process itself. Example: "MAINPID=4711"
+ *
+ * See sd_notifyf() for more complete examples.
+ */
+int sd_notify(int unset_environment, const char *state);
+
+/* Similar to sd_send_state() but takes a format string.
+ *
+ * Example 1: A daemon could send the following after initialization:
+ *
+ * sd_notifyf(0, "READY=1\n"
+ *               "STATUS=Processing requests...\n"
+ *               "MAINPID=%lu",
+ *               (unsigned long) getpid());
+ *
+ * Example 2: A daemon could send the following shortly before
+ * exiting, on failure:
+ *
+ * sd_notifyf(0, "STATUS=Failed to start up: %s\n"
+ *               "ERRNO=%i",
+ *               strerror(errno),
+ *               errno);
+ */
+int sd_notifyf(int unset_environment, const char *format, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

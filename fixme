@@ -1,4 +1,4 @@
-* timer
+* calendar time support in timer
 
 * enforce max number of concurrent connection limit in sockets.
 
@@ -48,8 +48,6 @@
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
    - distccd
-
-* regnerate unit/sysv search paths on daemon reload
 
 * write utmp record a la upstart for processes
 

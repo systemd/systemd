@@ -1228,11 +1228,13 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
+        if (pid != s->control_pid)
+                return;
+
+        s->control_pid = 0;
+
         success = is_clean_exit(code, status);
         s->failure = s->failure || !success;
-
-        assert(s->control_pid == pid);
-        s->control_pid = 0;
 
         if (s->control_command)
                 exec_status_fill(&s->control_command->exec_status, pid, code, status);

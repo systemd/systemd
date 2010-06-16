@@ -67,7 +67,8 @@ noinst_PROGRAMS = \
 	test-engine \
 	test-job-type \
 	test-ns \
-	test-loopback
+	test-loopback \
+	test-daemon
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf
@@ -316,8 +317,10 @@ test_loopback_SOURCES = \
 	src/test-loopback.c \
 	src/loopback-setup.c
 
-test_loopback_CFLAGS = $(systemd_CFLAGS)
-test_loopback_LDADD = $(systemd_LDADD)
+test_daemon_SOURCES = \
+	$(BASIC_SOURCES) \
+	src/test-daemon.c \
+	src/sd-daemon.c
 
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \

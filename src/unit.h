@@ -285,6 +285,9 @@ struct UnitVTable {
          * ran empty */
         void (*cgroup_notify_empty)(Unit *u);
 
+        /* Called whenever a process of this unit sends us a message */
+        void (*notify_message)(Unit *u, char **tags);
+
         /* Called whenever a name thus Unit registered for comes or
          * goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);

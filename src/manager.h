@@ -56,6 +56,7 @@ typedef enum ManagerRunningAs {
 enum WatchType {
         WATCH_INVALID,
         WATCH_SIGNAL,
+        WATCH_NOTIFY,
         WATCH_FD,
         WATCH_TIMER,
         WATCH_MOUNT,
@@ -171,6 +172,7 @@ struct Manager {
 
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
+        Watch notify_watch;
         Watch signal_watch;
 
         int epoll_fd;
@@ -215,7 +217,6 @@ struct Manager {
         char *cgroup_hierarchy;
 
         usec_t gc_queue_timestamp;
-
         int gc_marker;
         unsigned n_in_gc_queue;
 

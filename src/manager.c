@@ -60,6 +60,67 @@
 /* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
 
+/* Where clients shall send notification messages to */
+#define NOTIFY_SOCKET "/org/freedesktop/systemd1/notify"
+
+static int manager_setup_notify(Manager *m) {
+        union {
+                struct sockaddr sa;
+                struct sockaddr_un un;
+        } sa;
+        struct epoll_event ev;
+        char *ne[2], **t;
+        int one = 1;
+
+        assert(m);
+
+        m->notify_watch.type = WATCH_NOTIFY;
+        if ((m->notify_watch.fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
+                log_error("Failed to allocate notification socket: %m");
+                return -errno;
+        }
+
+        zero(sa);
+        sa.sa.sa_family = AF_UNIX;
+
+        if (m->running_as == MANAGER_SESSION)
+                snprintf(sa.un.sun_path+1, sizeof(sa.un.sun_path)-1, NOTIFY_SOCKET "/%llu", random_ull());
+        else
+                strncpy(sa.un.sun_path+1, NOTIFY_SOCKET, sizeof(sa.un.sun_path)-1);
+
+        if (bind(m->notify_watch.fd, &sa.sa, sizeof(sa)) < 0) {
+                log_error("bind() failed: %m");
+                return -errno;
+        }
+
+        if (setsockopt(m->notify_watch.fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
+                log_error("SO_PASSCRED failed: %m");
+                return -errno;
+        }
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.ptr = &m->notify_watch;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev) < 0)
+                return -errno;
+
+        if (asprintf(&ne[0], "NOTIFY_SOCKET=@%s", sa.un.sun_path+1) < 0)
+                return -ENOMEM;
+
+        ne[1] = NULL;
+        t = strv_env_merge(m->environment, ne, NULL);
+        free(ne[0]);
+
+        if (!t)
+                return -ENOMEM;
+
+        strv_free(m->environment);
+        m->environment = t;
+
+        return 0;
+}
+
 static int enable_special_signals(Manager *m) {
         char fd;
 
@@ -175,6 +236,9 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
                 goto fail;
 
         if ((r = manager_setup_cgroup(m)) < 0)
+                goto fail;
+
+        if ((r = manager_setup_notify(m)) < 0)
                 goto fail;
 
         /* Try to connect to the busses, if possible. */
@@ -364,6 +428,8 @@ void manager_free(Manager *m) {
                 close_nointr_nofail(m->epoll_fd);
         if (m->signal_watch.fd >= 0)
                 close_nointr_nofail(m->signal_watch.fd);
+        if (m->notify_watch.fd >= 0)
+                close_nointr_nofail(m->notify_watch.fd);
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
@@ -1521,12 +1587,82 @@ unsigned manager_dispatch_dbus_queue(Manager *m) {
         return n;
 }
 
+static int manager_process_notify_fd(Manager *m) {
+        ssize_t n;
+
+        assert(m);
+
+        for (;;) {
+                char buf[4096];
+                struct msghdr msghdr;
+                struct iovec iovec;
+                struct ucred *ucred;
+                union {
+                        struct cmsghdr cmsghdr;
+                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+                } control;
+                Unit *u;
+                char **tags;
+
+                zero(iovec);
+                iovec.iov_base = buf;
+                iovec.iov_len = sizeof(buf)-1;
+
+                zero(control);
+                zero(msghdr);
+                msghdr.msg_iov = &iovec;
+                msghdr.msg_iovlen = 1;
+                msghdr.msg_control = &control;
+                msghdr.msg_controllen = sizeof(control);
+
+                if ((n = recvmsg(m->notify_watch.fd, &msghdr, MSG_DONTWAIT)) <= 0) {
+                        if (n >= 0)
+                                return -EIO;
+
+                        if (errno == EAGAIN)
+                                break;
+
+                        return -errno;
+                }
+
+                if (msghdr.msg_controllen < CMSG_LEN(sizeof(struct ucred)) ||
+                    control.cmsghdr.cmsg_level != SOL_SOCKET ||
+                    control.cmsghdr.cmsg_type != SCM_CREDENTIALS ||
+                    control.cmsghdr.cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
+                        log_warning("Received notify message without credentials. Ignoring.");
+                        continue;
+                }
+
+                ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
+
+                if (!(u = hashmap_get(m->watch_pids, UINT32_TO_PTR(ucred->pid))))
+                        if (!(u = cgroup_unit_by_pid(m, ucred->pid))) {
+                                log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
+                                continue;
+                        }
+
+                char_array_0(buf);
+                if (!(tags = strv_split(buf, "\n\r")))
+                        return -ENOMEM;
+
+                log_debug("Got notification message for unit %s", u->meta.id);
+
+                if (UNIT_VTABLE(u)->notify_message)
+                        UNIT_VTABLE(u)->notify_message(u, tags);
+
+                strv_free(tags);
+        }
+
+        return 0;
+}
+
 static int manager_dispatch_sigchld(Manager *m) {
         assert(m);
 
         for (;;) {
                 siginfo_t si;
                 Unit *u;
+                int r;
 
                 zero(si);
 
@@ -1555,6 +1691,17 @@ static int manager_dispatch_sigchld(Manager *m) {
                         free(name);
                 }
 
+                /* Let's flush any message the dying child might still
+                 * have queued for us. This ensures that the process
+                 * still exists in /proc so that we can figure out
+                 * which cgroup and hence unit it belongs to. */
+                if ((r = manager_process_notify_fd(m)) < 0)
+                        return r;
+
+                /* And now figure out the unit this belongs to */
+                if (!(u = hashmap_get(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
+                        u = cgroup_unit_by_pid(m, si.si_pid);
+
                 /* And now, we actually reap the zombie. */
                 if (waitid(P_PID, si.si_pid, &si, WEXITED) < 0) {
                         if (errno == EINTR)
@@ -1572,11 +1719,12 @@ static int manager_dispatch_sigchld(Manager *m) {
                           si.si_status,
                           strna(si.si_code == CLD_EXITED ? exit_status_to_string(si.si_status) : strsignal(si.si_status)));
 
-                if (!(u = hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
+                if (!u)
                         continue;
 
                 log_debug("Child %llu belongs to %s", (long long unsigned) si.si_pid, u->meta.id);
 
+                hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid));
                 UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
         }
 
@@ -1734,6 +1882,17 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                         return -EINVAL;
 
                 if ((r = manager_process_signal_fd(m)) < 0)
+                        return r;
+
+                break;
+
+        case WATCH_NOTIFY:
+
+                /* An incoming daemon notification event? */
+                if (ev->events != EPOLLIN)
+                        return -EINVAL;
+
+                if ((r = manager_process_notify_fd(m)) < 0)
                         return r;
 
                 break;

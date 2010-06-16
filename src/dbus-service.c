@@ -41,7 +41,8 @@
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"SysVPath\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
-        " </interface>\n"
+        "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
+       " </interface>\n"
 
 #define INTROSPECTION                                                   \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
@@ -76,6 +77,7 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusMessage *message) {
                 { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid },
                 { "org.freedesktop.systemd1.Service", "SysVPath",               bus_property_append_string, "s", u->service.sysv_path },
                 { "org.freedesktop.systemd1.Service", "BusName",                bus_property_append_string, "s", u->service.bus_name },
+                { "org.freedesktop.systemd1.Service", "StatusText",             bus_property_append_string, "s", u->service.status_text },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

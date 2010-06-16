@@ -535,6 +535,37 @@ int cgroup_notify_empty(Manager *m, const char *group) {
         return 0;
 }
 
+Unit* cgroup_unit_by_pid(Manager *m, pid_t pid) {
+        CGroupBonding *l, *b;
+        char *group = NULL;
+        int r;
+
+        assert(m);
+
+        if (pid <= 1)
+                return NULL;
+
+        if ((r = cgroup_get_current_controller_path(pid, m->cgroup_controller, &group)))
+                return NULL;
+
+        l = hashmap_get(m->cgroup_bondings, group);
+        free(group);
+
+        if (!l)
+                return NULL;
+
+        LIST_FOREACH(by_path, b, l) {
+
+                if (!b->unit)
+                        continue;
+
+                if (b->only_us)
+                        return b->unit;
+        }
+
+        return NULL;
+}
+
 CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *controller) {
         CGroupBonding *b;
 

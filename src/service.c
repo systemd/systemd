@@ -149,6 +149,9 @@ static void service_done(Unit *u) {
         free(s->sysv_runlevels);
         s->sysv_runlevels = NULL;
 
+        free(s->status_text);
+        s->status_text = NULL;
+
         exec_context_done(&s->exec_context);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
@@ -907,6 +910,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%sSysVRunLevels: %s\n",
                         prefix, s->sysv_runlevels);
 
+        if (s->status_text)
+                fprintf(f, "%sStatus Text: %s\n",
+                        prefix, s->status_text);
+
         free(p2);
 }
 
@@ -1120,7 +1127,9 @@ static int service_coldplug(Unit *u) {
 
                 if ((s->deserialized_state == SERVICE_START &&
                      (s->type == SERVICE_FORKING ||
-                      s->type == SERVICE_DBUS)) ||
+                      s->type == SERVICE_DBUS ||
+                      s->type == SERVICE_FINISH ||
+                      s->type == SERVICE_NOTIFY)) ||
                     s->deserialized_state == SERVICE_START_POST ||
                     s->deserialized_state == SERVICE_RUNNING ||
                     s->deserialized_state == SERVICE_RELOAD ||
@@ -1541,7 +1550,7 @@ static void service_enter_start(Service *s) {
 
         if ((r = service_spawn(s,
                                s->exec_command[SERVICE_EXEC_START],
-                               s->type == SERVICE_FORKING || s->type == SERVICE_DBUS,
+                               s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
                                true,
                                true,
                                true,
@@ -1569,13 +1578,15 @@ static void service_enter_start(Service *s) {
                 service_set_state(s, SERVICE_START);
 
         } else if (s->type == SERVICE_FINISH ||
-                   s->type == SERVICE_DBUS) {
+                   s->type == SERVICE_DBUS ||
+                   s->type == SERVICE_NOTIFY) {
 
                 /* For finishing services we wait until the start
                  * process exited, too, but it is our main process. */
 
                 /* For D-Bus services we know the main pid right away,
-                 * but wait for the bus name to appear on the bus. */
+                 * but wait for the bus name to appear on the
+                 * bus. Notify services are similar. */
 
                 s->main_pid = pid;
                 s->main_pid_known = true;
@@ -1946,7 +1957,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 exec_status_fill(&s->main_exec_status, pid, code, status);
                 s->main_pid = 0;
 
-                if (s->type == SERVICE_SIMPLE || s->type == SERVICE_FINISH) {
+                if (s->type != SERVICE_FORKING) {
                         assert(s->exec_command[SERVICE_EXEC_START]);
                         s->exec_command[SERVICE_EXEC_START]->exec_status = s->main_exec_status;
                 }
@@ -1974,7 +1985,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
                                 break;
                         } else {
-                                assert(s->type == SERVICE_DBUS);
+                                assert(s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY);
 
                                 /* Fall through */
                         }
@@ -2101,8 +2112,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 assert_not_reached("Uh, control process died at wrong time.");
                         }
                 }
-        } else
-                assert_not_reached("Got SIGCHLD for unkown PID");
+        }
 }
 
 static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
@@ -2192,6 +2202,57 @@ static void service_cgroup_notify_event(Unit *u) {
 
         default:
                 ;
+        }
+}
+
+static void service_notify_message(Unit *u, char **tags) {
+        Service *s = SERVICE(u);
+        const char *e;
+
+        assert(u);
+
+        log_debug("%s: Got message", u->meta.id);
+
+        /* Interpret MAINPID= */
+        if ((e = strv_find_prefix(tags, "MAINPID=")) &&
+            (s->state == SERVICE_START ||
+             s->state == SERVICE_START_POST ||
+             s->state == SERVICE_RUNNING ||
+             s->state == SERVICE_RELOAD)) {
+                unsigned long pid;
+
+                if (safe_atolu(e + 8, &pid) < 0 ||
+                    (unsigned long) (pid_t) pid != pid ||
+                    pid <= 1)
+                        log_warning("Failed to parse %s", e);
+                else {
+                        log_debug("%s: got %s", u->meta.id, e);
+                        s->main_pid = (pid_t) pid;
+                }
+        }
+
+        /* Interpret READY= */
+        if (s->type == SERVICE_NOTIFY &&
+            s->state == SERVICE_START &&
+            strv_find(tags, "READY=1")) {
+                log_debug("%s: got READY=1", u->meta.id);
+
+                service_enter_start_post(s);
+        }
+
+        /* Interpret STATUS= */
+        if ((e = strv_find_prefix(tags, "STATUS="))) {
+                char *t;
+
+                if (!(t = strdup(e+7))) {
+                        log_error("Failed to allocate string.");
+                        return;
+                }
+
+                log_debug("%s: got %s", u->meta.id, e);
+
+                free(s->status_text);
+                s->status_text = t;
         }
 }
 
@@ -2456,7 +2517,8 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_FORKING] = "forking",
         [SERVICE_SIMPLE] = "simple",
         [SERVICE_FINISH] = "finish",
-        [SERVICE_DBUS] = "dbus"
+        [SERVICE_DBUS] = "dbus",
+        [SERVICE_NOTIFY] = "notify"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
@@ -2502,6 +2564,7 @@ const UnitVTable service_vtable = {
         .timer_event = service_timer_event,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
+        .notify_message = service_notify_message,
 
         .bus_name_owner_change = service_bus_name_owner_change,
         .bus_query_pid_done = service_bus_query_pid_done,
