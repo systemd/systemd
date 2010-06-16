@@ -31,11 +31,22 @@
 char *strv_find(char **l, const char *name) {
         char **i;
 
-        assert(l);
         assert(name);
 
         STRV_FOREACH(i, l)
                 if (streq(*i, name))
+                        return *i;
+
+        return NULL;
+}
+
+char *strv_find_prefix(char **l, const char *name) {
+        char **i;
+
+        assert(name);
+
+        STRV_FOREACH(i, l)
+                if (startswith(*i, name))
                         return *i;
 
         return NULL;
