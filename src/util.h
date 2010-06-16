@@ -196,6 +196,8 @@ int make_stdio(int fd);
 
 bool is_clean_exit(int code, int status);
 
+unsigned long long random_ull(void);
+
 #define DEFINE_STRING_TABLE_LOOKUP(name,type)                           \
         const char *name##_to_string(type i) {                          \
                 if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \

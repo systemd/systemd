@@ -2141,6 +2141,26 @@ int dir_is_empty(const char *path) {
         return r;
 }
 
+unsigned long long random_ull(void) {
+        int fd;
+        uint64_t ull;
+        ssize_t r;
+
+        if ((fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0)
+                goto fallback;
+
+        r = loop_read(fd, &ull, sizeof(ull));
+        close_nointr_nofail(fd);
+
+        if (r != sizeof(ull))
+                goto fallback;
+
+        return ull;
+
+fallback:
+        return random() * RAND_MAX + random();
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
