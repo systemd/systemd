@@ -31,7 +31,7 @@ typedef enum PathState {
         PATH_DEAD,
         PATH_WAITING,
         PATH_RUNNING,
-        PATH_MAINTAINANCE,
+        PATH_MAINTENANCE,
         _PATH_STATE_MAX,
         _PATH_STATE_INVALID = -1
 } PathState;

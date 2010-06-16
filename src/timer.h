@@ -31,7 +31,7 @@ typedef enum TimerState {
         TIMER_WAITING,
         TIMER_RUNNING,
         TIMER_ELAPSED,
-        TIMER_MAINTAINANCE,
+        TIMER_MAINTENANCE,
         _TIMER_STATE_MAX,
         _TIMER_STATE_INVALID = -1
 } TimerState;

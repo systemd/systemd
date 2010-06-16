@@ -49,7 +49,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
         [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_MAINTAINANCE] = UNIT_INACTIVE,
+        [SOCKET_MAINTENANCE] = UNIT_INACTIVE,
 };
 
 static void socket_init(Unit *u) {
@@ -707,7 +707,7 @@ static void socket_enter_dead(Socket *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        socket_set_state(s, s->failure ? SOCKET_MAINTAINANCE : SOCKET_DEAD);
+        socket_set_state(s, s->failure ? SOCKET_MAINTENANCE : SOCKET_DEAD);
 }
 
 static void socket_enter_signal(Socket *s, SocketState state, bool success);
@@ -995,12 +995,12 @@ static int socket_start(Unit *u) {
                 /* If the service is alredy actvie we cannot start the
                  * socket */
                 if (s->service->state != SERVICE_DEAD &&
-                    s->service->state != SERVICE_MAINTAINANCE &&
+                    s->service->state != SERVICE_MAINTENANCE &&
                     s->service->state != SERVICE_AUTO_RESTART)
                         return -EBUSY;
         }
 
-        assert(s->state == SOCKET_DEAD || s->state == SOCKET_MAINTAINANCE);
+        assert(s->state == SOCKET_DEAD || s->state == SOCKET_MAINTENANCE);
 
         s->failure = false;
         socket_enter_start_pre(s);
@@ -1331,7 +1331,7 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_FINAL_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering maintainance mode.", u->meta.id);
+                log_warning("%s still around after SIGKILL (2). Entering maintenance mode.", u->meta.id);
                 socket_enter_dead(s, false);
                 break;
 
@@ -1395,7 +1395,7 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = "stop-post",
         [SOCKET_FINAL_SIGTERM] = "final-sigterm",
         [SOCKET_FINAL_SIGKILL] = "final-sigkill",
-        [SOCKET_MAINTAINANCE] = "maintainance"
+        [SOCKET_MAINTENANCE] = "maintenance"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);

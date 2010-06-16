@@ -37,7 +37,7 @@
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,
         [SWAP_ACTIVE] = UNIT_ACTIVE,
-        [SWAP_MAINTAINANCE] = UNIT_INACTIVE
+        [SWAP_MAINTENANCE] = UNIT_INACTIVE
 };
 
 static void swap_init(Unit *u) {
@@ -382,7 +382,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 static void swap_enter_dead(Swap *s, bool success) {
         assert(s);
 
-        swap_set_state(s, success ? SWAP_MAINTAINANCE : SWAP_DEAD);
+        swap_set_state(s, success ? SWAP_MAINTENANCE : SWAP_DEAD);
 }
 
 static int swap_start(Unit *u) {
@@ -391,7 +391,7 @@ static int swap_start(Unit *u) {
         int r;
 
         assert(s);
-        assert(s->state == SWAP_DEAD || s->state == SWAP_MAINTAINANCE);
+        assert(s->state == SWAP_DEAD || s->state == SWAP_MAINTENANCE);
 
         if (s->from_fragment)
                 priority = s->parameters_fragment.priority;
@@ -527,7 +527,7 @@ static void swap_shutdown(Manager *m) {
 static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = "dead",
         [SWAP_ACTIVE] = "active",
-        [SWAP_MAINTAINANCE] = "maintainance"
+        [SWAP_MAINTENANCE] = "maintenance"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);

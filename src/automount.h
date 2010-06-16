@@ -30,7 +30,7 @@ typedef enum AutomountState {
         AUTOMOUNT_DEAD,
         AUTOMOUNT_WAITING,
         AUTOMOUNT_RUNNING,
-        AUTOMOUNT_MAINTAINANCE,
+        AUTOMOUNT_MAINTENANCE,
         _AUTOMOUNT_STATE_MAX,
         _AUTOMOUNT_STATE_INVALID = -1
 } AutomountState;

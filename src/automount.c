@@ -40,7 +40,7 @@ static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
         [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
         [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
-        [AUTOMOUNT_MAINTAINANCE] = UNIT_INACTIVE,
+        [AUTOMOUNT_MAINTENANCE] = UNIT_INACTIVE,
 };
 
 static int open_dev_autofs(Manager *m);
@@ -264,7 +264,7 @@ static void automount_enter_dead(Automount *a, bool success) {
         if (!success)
                 a->failure = true;
 
-        automount_set_state(a, a->failure ? AUTOMOUNT_MAINTAINANCE : AUTOMOUNT_DEAD);
+        automount_set_state(a, a->failure ? AUTOMOUNT_MAINTENANCE : AUTOMOUNT_DEAD);
 }
 
 static int open_dev_autofs(Manager *m) {
@@ -562,7 +562,7 @@ static int automount_start(Unit *u) {
 
         assert(a);
 
-        assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_MAINTAINANCE);
+        assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_MAINTENANCE);
 
         if (path_is_mount_point(a->where)) {
                 log_error("Path %s is already a mount point, refusing start for %s", a->where, u->meta.id);
@@ -754,7 +754,7 @@ static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = "dead",
         [AUTOMOUNT_WAITING] = "waiting",
         [AUTOMOUNT_RUNNING] = "running",
-        [AUTOMOUNT_MAINTAINANCE] = "maintainance"
+        [AUTOMOUNT_MAINTENANCE] = "maintenance"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);

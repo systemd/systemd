@@ -34,7 +34,7 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
         [PATH_WAITING] = UNIT_ACTIVE,
         [PATH_RUNNING] = UNIT_ACTIVE,
-        [PATH_MAINTAINANCE] = UNIT_INACTIVE
+        [PATH_MAINTENANCE] = UNIT_INACTIVE
 };
 
 static void path_done(Unit *u) {
@@ -290,7 +290,7 @@ static void path_enter_dead(Path *p, bool success) {
         if (!success)
                 p->failure = true;
 
-        path_set_state(p, p->failure ? PATH_MAINTAINANCE : PATH_DEAD);
+        path_set_state(p, p->failure ? PATH_MAINTENANCE : PATH_DEAD);
 }
 
 static void path_enter_running(Path *p) {
@@ -363,7 +363,7 @@ static int path_start(Unit *u) {
         Path *p = PATH(u);
 
         assert(p);
-        assert(p->state == PATH_DEAD || p->state == PATH_MAINTAINANCE);
+        assert(p->state == PATH_DEAD || p->state == PATH_MAINTENANCE);
 
         if (p->unit->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
@@ -540,7 +540,7 @@ static const char* const path_state_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = "dead",
         [PATH_WAITING] = "waiting",
         [PATH_RUNNING] = "running",
-        [PATH_MAINTAINANCE] = "maintainance"
+        [PATH_MAINTENANCE] = "maintenance"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);

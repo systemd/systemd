@@ -30,7 +30,7 @@ typedef struct Swap Swap;
 typedef enum SwapState {
         SWAP_DEAD,
         SWAP_ACTIVE,
-        SWAP_MAINTAINANCE,
+        SWAP_MAINTENANCE,
         _SWAP_STATE_MAX,
         _SWAP_STATE_INVALID = -1
 } SwapState;
