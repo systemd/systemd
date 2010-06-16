@@ -31,7 +31,8 @@
 
 static const char * const kmod_table[] = {
         "autofs4", "/sys/class/misc/autofs",
-        "ipv6",    "/sys/module/ipv6"
+        "ipv6",    "/sys/module/ipv6",
+        "unix",    "/proc/net/unix"
 };
 
 int kmod_setup(void) {
