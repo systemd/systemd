@@ -284,7 +284,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 log_warning("Unknown kernel switch %s. Ignoring.", word);
 
                 log_info("Supported kernel switches:");
-                log_info("systemd.default_unit=UNIT                Default unit to start");
+                log_info("systemd.unit=UNIT                        Default unit to start");
                 log_info("systemd.log_target=console|kmsg|syslog   Log target");
                 log_info("systemd.log_level=LEVEL                  Log level");
                 log_info("systemd.dump_core=0|1                    Dump core on crash");
@@ -496,7 +496,7 @@ static int help(void) {
 
         printf("%s [options]\n\n"
                "  -h --help                      Show this help\n"
-               "     --default=UNIT              Set default unit\n"
+               "     --unit=UNIT                 Set default unit\n"
                "     --log-level=LEVEL           Set log level\n"
                "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg)\n"
                "     --running-as=AS             Set running as (init, system, session)\n"
