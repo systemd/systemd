@@ -70,12 +70,7 @@ int cgroup_bonding_realize(CGroupBonding *b) {
                 goto fail;
         }
 
-        if (b->inherit)
-                r = cgroup_create_cgroup_from_parent(b->cgroup, true);
-        else
-                r = cgroup_create_cgroup(b->cgroup, true);
-
-        if (r != 0) {
+        if ((r = cgroup_create_cgroup(b->cgroup, true)) != 0) {
                 r = translate_error(r, errno);
                 goto fail;
         }

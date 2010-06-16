@@ -48,9 +48,6 @@ struct CGroupBonding {
 
         /* When our tasks are the only ones in this group */
         bool only_us:1;
-
-        /* Inherit parameters from parent group */
-        bool inherit:1;
 };
 
 int cgroup_bonding_realize(CGroupBonding *b);
