@@ -48,7 +48,8 @@ AM_CPPFLAGS = \
 
 rootbin_PROGRAMS = \
 	systemd \
-	systemctl
+	systemctl \
+	systemd-notify
 
 bin_PROGRAMS = \
 	systemd-install
@@ -372,6 +373,11 @@ systemctl_SOURCES = \
 
 systemctl_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS)
 systemctl_LDADD = $(DBUS_LIBS)
+
+systemd_notify_SOURCES = \
+	src/notify.c \
+	src/sd-daemon.c \
+	$(BASIC_SOURCES)
 
 systemd_install_SOURCES = \
 	src/install.c \
