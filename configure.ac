@@ -48,14 +48,12 @@ AC_PROG_GCC_TRADITIONAL
 AC_USE_SYSTEM_EXTENSIONS
 
 CC_CHECK_CFLAGS_APPEND([ \
+        -pipe \
         -Wall \
         -W \
         -Wextra \
-        -pipe \
-        -Wno-long-long \
         -Winline \
         -Wvla \
-        -Wno-overlength-strings \
         -Wundef \
         -Wformat=2 \
         -Wlogical-op \
@@ -78,12 +76,15 @@ CC_CHECK_CFLAGS_APPEND([ \
         -Wcast-align \
         -Wstrict-aliasing=2 \
         -Wwrite-strings \
+        -Wno-long-long \
+        -Wno-overlength-strings \
         -Wno-unused-parameter \
-        -ffast-math \
+        -Wno-missing-field-initializers \
         -Wp,-D_FORTIFY_SOURCE=2 \
+        -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
-        -Wno-missing-field-initializers])
+        -fno-strict-aliasing])
 
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])

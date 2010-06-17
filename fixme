@@ -69,6 +69,12 @@
 
 * convenience library
 
+* install must understand templates
+
+* shutdown must be able to do wall
+
+* upstart/initctl fallback in systemctl
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
