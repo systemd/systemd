@@ -246,6 +246,16 @@ static int parse_proc_cmdline_word(const char *word) {
                 if (log_set_max_level_from_string(word + 18) < 0)
                         log_warning("Failed to parse log level %s. Ignoring.", word + 18);
 
+        } else if (startswith(word, "systemd.log_color=")) {
+
+                if (log_show_color_from_string(word + 18) < 0)
+                        log_warning("Failed to parse log color setting %s. Ignoring.", word + 18);
+
+        } else if (startswith(word, "systemd.log_location=")) {
+
+                if (log_show_location_from_string(word + 21) < 0)
+                        log_warning("Failed to parse log location setting %s. Ignoring.", word + 21);
+
         } else if (startswith(word, "systemd.dump_core=")) {
                 int r;
 
@@ -283,14 +293,17 @@ static int parse_proc_cmdline_word(const char *word) {
 
                 log_warning("Unknown kernel switch %s. Ignoring.", word);
 
-                log_info("Supported kernel switches:");
-                log_info("systemd.unit=UNIT                        Default unit to start");
-                log_info("systemd.log_target=console|kmsg|syslog   Log target");
-                log_info("systemd.log_level=LEVEL                  Log level");
-                log_info("systemd.dump_core=0|1                    Dump core on crash");
-                log_info("systemd.crash_shell=0|1                  On crash run shell");
-                log_info("systemd.crash_chvt=N                     Change to VT #N on crash");
-                log_info("systemd.confirm_spawn=0|1                Confirm every process spawn");
+                log_info("Supported kernel switches:\n"
+                         "systemd.unit=UNIT                        Default unit to start\n"
+                         "systemd.log_target=console|kmsg|syslog|  Log target\n"
+                         "                   syslog-org-kmsg|null\n"
+                         "systemd.log_level=LEVEL                  Log level\n"
+                         "systemd.log_color=0|1                    Highlight important log messages\n"
+                         "systemd.log_location=0|1                 Include code location in log messages\n"
+                         "systemd.dump_core=0|1                    Dump core on crash\n"
+                         "systemd.crash_shell=0|1                  On crash run shell\n"
+                         "systemd.crash_chvt=N                     Change to VT #N on crash\n"
+                         "systemd.confirm_spawn=0|1                Confirm every process spawn");
 
         } else {
                 unsigned i;
@@ -343,6 +356,8 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_LOG_LEVEL = 0x100,
                 ARG_LOG_TARGET,
+                ARG_LOG_COLOR,
+                ARG_LOG_LOCATION,
                 ARG_UNIT,
                 ARG_RUNNING_AS,
                 ARG_TEST,
@@ -355,6 +370,8 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "log-level",                required_argument, NULL, ARG_LOG_LEVEL                },
                 { "log-target",               required_argument, NULL, ARG_LOG_TARGET               },
+                { "log-color",                optional_argument, NULL, ARG_LOG_COLOR                },
+                { "log-location",             optional_argument, NULL, ARG_LOG_LOCATION             },
                 { "unit",                     required_argument, NULL, ARG_UNIT                     },
                 { "running-as",               required_argument, NULL, ARG_RUNNING_AS               },
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
@@ -387,6 +404,24 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if ((r = log_set_target_from_string(optarg)) < 0) {
                                 log_error("Failed to parse log target %s.", optarg);
+                                return r;
+                        }
+
+                        break;
+
+                case ARG_LOG_COLOR:
+
+                        if ((r = log_show_color_from_string(optarg)) < 0) {
+                                log_error("Failed to parse log color setting %s.", optarg);
+                                return r;
+                        }
+
+                        break;
+
+                case ARG_LOG_LOCATION:
+
+                        if ((r = log_show_location_from_string(optarg)) < 0) {
+                                log_error("Failed to parse log location setting %s.", optarg);
                                 return r;
                         }
 
@@ -495,15 +530,18 @@ static int parse_argv(int argc, char *argv[]) {
 static int help(void) {
 
         printf("%s [options]\n\n"
+               "Starts up and maintains the system or a session.\n\n"
                "  -h --help                      Show this help\n"
                "     --unit=UNIT                 Set default unit\n"
-               "     --log-level=LEVEL           Set log level\n"
-               "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg)\n"
                "     --running-as=AS             Set running as (init, system, session)\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
-               "     --introspect[=INTERFACE]    Extract D-Bus interface data\n",
+               "     --introspect[=INTERFACE]    Extract D-Bus interface data\n"
+               "     --log-level=LEVEL           Set log level\n"
+               "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
+               "     --log-color[=0|1]           Highlight import log messages\n"
+               "     --log-location[=0|1]        Include code location in log messages\n",
                program_invocation_short_name);
 
         return 0;
@@ -571,11 +609,17 @@ int main(int argc, char *argv[]) {
         FDSet *fds = NULL;
         bool reexecute = false;
 
+        log_show_color(true);
+        log_show_location(false);
+        log_set_max_level(LOG_DEBUG);
+
         if (getpid() == 1) {
                 running_as = MANAGER_INIT;
                 log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
-        } else
+        } else {
                 running_as = MANAGER_SESSION;
+                log_set_target(LOG_TARGET_CONSOLE);
+        }
 
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
                 goto finish;

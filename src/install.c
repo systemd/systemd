@@ -60,6 +60,7 @@ Hashmap *will_install = NULL, *have_installed = NULL;
 static int help(void) {
 
         printf("%s [options]\n\n"
+               "Install init system units.\n\n"
                "  -h --help        Show this help\n"
                "     --force       Override existing links\n"
                "     --system      Install into system\n"
@@ -532,8 +533,6 @@ int main(int argc, char *argv[]) {
 
         zero(paths);
 
-        log_set_target(LOG_TARGET_CONSOLE);
-        log_set_max_level(LOG_INFO);
         log_parse_environment();
 
         if ((r = parse_argv(argc, argv)) < 0)

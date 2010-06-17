@@ -23,6 +23,7 @@
 ***/
 
 #include <syslog.h>
+#include <stdbool.h>
 
 #include "macro.h"
 
@@ -43,6 +44,12 @@ void log_set_max_level(int level);
 
 int log_set_target_from_string(const char *e);
 int log_set_max_level_from_string(const char *e);
+
+void log_show_color(bool b);
+void log_show_location(bool b);
+
+int log_show_color_from_string(const char *e);
+int log_show_location_from_string(const char *e);
 
 LogTarget log_get_target(void);
 int log_get_max_level(void);

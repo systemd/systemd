@@ -35,11 +35,14 @@
 #define LOG_BUFFER_MAX 1024
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
-static int log_max_level = LOG_DEBUG;
+static int log_max_level = LOG_INFO;
 
 static int console_fd = STDERR_FILENO;
 static int syslog_fd = -1;
 static int kmsg_fd = -1;
+
+static bool show_color = false;
+static bool show_location = false;
 
 /* Akin to glibc's __abort_msg; which is private and we hance cannot
  * use here. */
@@ -218,10 +221,11 @@ static int write_to_console(
         snprintf(location, sizeof(location), "(%s:%u) ", file, line);
         char_array_0(location);
 
-        highlight = LOG_PRI(level) <= LOG_ERR;
+        highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         zero(iovec);
-        IOVEC_SET_STRING(iovec[n++], location);
+        if (show_location)
+                IOVEC_SET_STRING(iovec[n++], location);
         if (highlight)
                 IOVEC_SET_STRING(iovec[n++], "\x1B[1;31m");
         IOVEC_SET_STRING(iovec[n++], buffer);
@@ -469,6 +473,15 @@ void log_parse_environment(void) {
         if ((e = getenv("SYSTEMD_LOG_LEVEL")))
                 if (log_set_max_level_from_string(e) < 0)
                         log_warning("Failed to parse log level %s. Ignoring.", e);
+
+        if ((e = getenv("SYSTEMD_SHOW_COLOR")))
+                if (log_show_color_from_string(e) < 0)
+                        log_warning("Failed to parse bool %s. Ignoring.", e);
+
+        if ((e = getenv("SYSTEMD_SHOW_LOCATION"))) {
+                if (log_show_location_from_string(e) < 0)
+                        log_warning("Failed to parse bool %s. Ignoring.", e);
+        }
 }
 
 LogTarget log_get_target(void) {
@@ -477,6 +490,34 @@ LogTarget log_get_target(void) {
 
 int log_get_max_level(void) {
         return log_max_level;
+}
+
+void log_show_color(bool b) {
+        show_color = b;
+}
+
+void log_show_location(bool b) {
+        show_location = b;
+}
+
+int log_show_color_from_string(const char *e) {
+        int t;
+
+        if ((t = parse_boolean(e)) < 0)
+                return -EINVAL;
+
+        log_show_color(t);
+        return 0;
+}
+
+int log_show_location_from_string(const char *e) {
+        int t;
+
+        if ((t = parse_boolean(e)) < 0)
+                return -EINVAL;
+
+        log_show_location(t);
+        return 0;
 }
 
 static const char *const log_target_table[] = {
