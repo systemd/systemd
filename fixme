@@ -67,8 +67,6 @@
 
 * systemd-sysvinit as package
 
-* docdir für sd-daemon.[ch]
-
 * convenience library
 
 Regularly:

@@ -195,6 +195,11 @@ dist_systemunit_DATA += \
 	units/arch/reboot.service
 endif
 
+dist_doc_DATA = \
+	README \
+	src/sd-daemon.h \
+	src/sd-daemon.c
+
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
 # list the .h files as dependencies if we want make dist to work.
