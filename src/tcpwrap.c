@@ -21,6 +21,8 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 #ifdef HAVE_LIBWRAP
 #include <tcpd.h>
