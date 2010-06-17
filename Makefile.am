@@ -369,6 +369,7 @@ systemd_cgroups_agent_LDADD = \
 
 systemctl_SOURCES = \
 	src/systemctl.c \
+	src/utmp-wtmp.c \
 	$(BASIC_SOURCES)
 
 systemctl_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS)

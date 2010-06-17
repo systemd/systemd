@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/reboot.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <stdbool.h>
@@ -34,12 +35,49 @@
 #include "util.h"
 #include "macro.h"
 #include "set.h"
+#include "utmp-wtmp.h"
 
 static const char *arg_type = NULL;
 static bool arg_all = false;
 static bool arg_replace = false;
 static bool arg_session = false;
 static bool arg_block = false;
+static bool arg_immediate = false;
+static bool arg_no_wtmp = false;
+static bool arg_no_sync = false;
+static bool arg_dry = false;
+static char **arg_wall = NULL;
+enum action {
+        ACTION_INVALID,
+        ACTION_SYSTEMCTL,
+        ACTION_HALT,
+        ACTION_POWEROFF,
+        ACTION_REBOOT,
+        ACTION_RUNLEVEL1,
+        ACTION_RUNLEVEL2,
+        ACTION_RUNLEVEL3,
+        ACTION_RUNLEVEL4,
+        ACTION_RUNLEVEL5,
+        ACTION_RESCUE,
+        ACTION_RELOAD,
+        ACTION_REEXEC,
+        ACTION_RUNLEVEL,
+        _ACTION_MAX
+} arg_action = ACTION_SYSTEMCTL;
+
+static bool error_is_no_service(DBusError *error) {
+
+        if (!dbus_error_is_set(error))
+                return false;
+
+        if (dbus_error_has_name(error, DBUS_ERROR_NAME_HAS_NO_OWNER))
+                return true;
+
+        if (dbus_error_has_name(error, DBUS_ERROR_SERVICE_UNKNOWN))
+                return true;
+
+        return startswith(error->name, "org.freedesktop.DBus.Error.Spawn.");
+}
 
 static int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, bool next) {
 
@@ -76,6 +114,7 @@ static int columns(void) {
                 parsed_columns = 80;
 
         return parsed_columns;
+
 }
 
 static int list_units(DBusConnection *bus, char **args, unsigned n) {
@@ -526,107 +565,86 @@ finish:
         return r;
 }
 
-static int start_unit(DBusConnection *bus, char **args, unsigned n) {
+static int start_unit_one(
+                DBusConnection *bus,
+                const char *method,
+                const char *name,
+                const char *mode,
+                Set *s) {
+
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
-        unsigned i;
-        const char *method, *mode;
-        char *p = NULL;
-        Set *s = NULL;
+
+        assert(bus);
+        assert(method);
+        assert(name);
+        assert(mode);
+        assert(!arg_block || s);
 
         dbus_error_init(&error);
 
-        method =
-                streq(args[0], "start")  ? "StartUnit" :
-                streq(args[0], "stop")   ? "StopUnit" :
-                streq(args[0], "reload") ? "ReloadUnit" :
-                                           "RestartUnit";
-
-        mode = arg_replace ? "replace" : "fail";
-
-        if (arg_block) {
-                if ((r = enable_wait_for_jobs(bus)) < 0) {
-                        log_error("Could not watch jobs: %s", strerror(-r));
-                        goto finish;
-                }
+        if (!(m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              "/org/freedesktop/systemd1",
+                              "org.freedesktop.systemd1.Manager",
+                              method))) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
         }
 
-        for (i = 1; i < n; i++) {
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &name,
+                                      DBUS_TYPE_STRING, &mode,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
 
-                if (!(m = dbus_message_new_method_call(
-                                      "org.freedesktop.systemd1",
-                                      "/org/freedesktop/systemd1",
-                                      "org.freedesktop.systemd1.Manager",
-                                      method))) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+
+                if (arg_action != ACTION_SYSTEMCTL && error_is_no_service(&error)) {
+                        /* There's always a fallback possible for
+                         * legacy actions. */
+                        r = 0;
                         goto finish;
                 }
 
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[i],
-                                              DBUS_TYPE_STRING, &mode,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                log_error("Failed to issue method call: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
 
-                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+        if (arg_block) {
+                const char *path;
+                char *p;
+
+                if (!dbus_message_get_args(reply, &error,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse reply: %s", error.message);
                         r = -EIO;
                         goto finish;
                 }
 
-                if (arg_block) {
-                        const char *path;
-
-                        if (!dbus_message_get_args(reply, &error,
-                                                   DBUS_TYPE_OBJECT_PATH, &path,
-                                                   DBUS_TYPE_INVALID)) {
-                                log_error("Failed to parse reply: %s", error.message);
-                                r = -EIO;
-                                goto finish;
-                        }
-
-                        if (!s)
-                                if (!(s = set_new(string_hash_func, string_compare_func))) {
-                                        log_error("Failed to allocate set.");
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
-
-                        if (!(p = strdup(path))) {
-                                log_error("Failed to duplicate path.");
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        if ((r = set_put(s, p)) < 0) {
-                                log_error("Failed to add path to set.");
-                                goto finish;
-                        }
-                        p = NULL;
+                if (!(p = strdup(path))) {
+                        log_error("Failed to duplicate path.");
+                        r = -ENOMEM;
+                        goto finish;
                 }
 
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-
-                m = reply = NULL;
+                if ((r = set_put(s, p)) < 0) {
+                        free(p);
+                        log_error("Failed to add path to set.");
+                        goto finish;
+                }
         }
 
-        if (arg_block)
-                r = wait_for_jobs(bus, s);
-        else
-                r = 0;
+        r = 1;
 
 finish:
-        free(p);
-
-        if (s)
-                set_free_free(s);
-
         if (m)
                 dbus_message_unref(m);
 
@@ -638,95 +656,76 @@ finish:
         return r;
 }
 
-static int isolate_unit(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+static int start_unit(DBusConnection *bus, char **args, unsigned n) {
+
+        static const char * const table[_ACTION_MAX] = {
+                [ACTION_HALT] = "halt.target",
+                [ACTION_POWEROFF] = "poweroff.target",
+                [ACTION_REBOOT] = "reboot.target",
+                [ACTION_RUNLEVEL1] = "runlevel1.target",
+                [ACTION_RUNLEVEL2] = "runlevel2.target",
+                [ACTION_RUNLEVEL3] = "runlevel3.target",
+                [ACTION_RUNLEVEL4] = "runlevel4.target",
+                [ACTION_RUNLEVEL5] = "runlevel5.target",
+                [ACTION_RESCUE] = "rescue.target"
+        };
+
         int r;
-        const char *mode = "isolate";
-        char *p = NULL;
+        unsigned i;
+        const char *method, *mode;
         Set *s = NULL;
 
-        dbus_error_init(&error);
+        if (arg_action == ACTION_SYSTEMCTL) {
+                method =
+                        streq(args[0], "start")   ? "StartUnit" :
+                        streq(args[0], "stop")    ? "StopUnit" :
+                        streq(args[0], "reload")  ? "ReloadUnit" :
+                        streq(args[0], "restart") ? "RestartUnit" :
+                                     /* isolate */  "StartUnit";
 
-        if (arg_block) {
-                if ((r = enable_wait_for_jobs(bus)) < 0) {
-                        log_error("Could not watch jobs: %s", strerror(-r));
-                        goto finish;
+                mode =
+                        streq(args[0], "isolate") ? "isolate" :
+                                      arg_replace ? "replace" :
+                                                    "fail";
+
+                if (arg_block) {
+                        if ((r = enable_wait_for_jobs(bus)) < 0) {
+                                log_error("Could not watch jobs: %s", strerror(-r));
+                                goto finish;
+                        }
+
+                        if (!(s = set_new(string_hash_func, string_compare_func))) {
+                                log_error("Failed to allocate set.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
                 }
+        } else {
+                assert(arg_action < ELEMENTSOF(table));
+                assert(table[arg_action]);
+
+                method = "StartUnit";
+                mode = arg_action == ACTION_RESCUE ? "isolate" : "replace";
         }
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "StartUnit"))) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
+        r = 0;
+
+        if (arg_action == ACTION_SYSTEMCTL) {
+                for (i = 1; i < n; i++)
+                        if ((r = start_unit_one(bus, method, args[i], mode, s)) < 0)
+                                goto finish;
+
+                if (arg_block)
+                        r = wait_for_jobs(bus, s);
+
+        } else {
+                if ((r = start_unit_one(bus, method, table[arg_action], mode, s)) <= 0)
+                        goto finish;
         }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &args[1],
-                                      DBUS_TYPE_STRING, &mode,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
-                r = -EIO;
-                goto finish;
-        }
-
-        if (arg_block) {
-                const char *path;
-
-                if (!dbus_message_get_args(reply, &error,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
-                        r = -EIO;
-                        goto finish;
-                }
-
-                if (!(s = set_new(string_hash_func, string_compare_func))) {
-                        log_error("Failed to allocate set.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if (!(p = strdup(path))) {
-                        log_error("Failed to duplicate path.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if ((r = set_put(s, p)) < 0) {
-                        log_error("Failed to add path to set.");
-                        goto finish;
-                }
-                p = NULL;
-
-                r = wait_for_jobs(bus, s);
-
-        } else
-                r = 0;
 
 finish:
-        free(p);
-
         if (s)
                 set_free_free(s);
-
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
@@ -1110,11 +1109,19 @@ static int clear_jobs(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
-        method =
-                streq(args[0], "clear-jobs")    ? "ClearJobs" :
-                streq(args[0], "daemon-reload") ? "Reload" :
-                streq(args[0], "daemon-reexec") ? "Reexecute" :
-                                                  "Exit";
+        if (arg_action == ACTION_RELOAD)
+                method = "Reload";
+        else if (arg_action == ACTION_REEXEC)
+                method = "Reexecute";
+        else {
+                assert(arg_action == ACTION_SYSTEMCTL);
+
+                method =
+                        streq(args[0], "clear-jobs")    ? "ClearJobs" :
+                        streq(args[0], "daemon-reload") ? "Reload" :
+                        streq(args[0], "daemon-reexec") ? "Reexecute" :
+                                                          "Exit";
+        }
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -1126,12 +1133,20 @@ static int clear_jobs(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+
+                if (arg_action != ACTION_SYSTEMCTL && error_is_no_service(&error)) {
+                        /* There's always a fallback possible for
+                         * legacy actions. */
+                        r = 0;
+                        goto finish;
+                }
+
                 log_error("Failed to issue method call: %s", error.message);
                 r = -EIO;
                 goto finish;
         }
 
-        r = 0;
+        r = 1;
 
 finish:
         if (m)
@@ -1292,9 +1307,10 @@ finish:
         return r;
 }
 
-static int help(void) {
+static int systemctl_help(void) {
 
         printf("%s [options]\n\n"
+               "Send control commands to the init system.\n\n"
                "  -h --help      Show this help\n"
                "  -t --type=TYPE List only units of a particular type\n"
                "  -a --all       Show all units, including dead ones\n"
@@ -1327,13 +1343,75 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int halt_help(void) {
+
+        printf("%s [options]\n\n"
+               "%s the system.\n\n"
+               "     --help      Show this help\n"
+               "     --halt      Halt the machine\n"
+               "  -p --poweroff  Switch off the machine\n"
+               "     --reboot    Reboot the machine\n"
+               "  -f --force     Force immediate reboot/halt/power-off\n"
+               "  -w --wtmp-only Don't reboot/halt/power-off, just write wtmp record\n"
+               "  -d --no-wtmp   Don't write wtmp record\n"
+               "  -n --no-sync   Don't sync before reboot/halt/power-off\n",
+               program_invocation_short_name,
+               arg_action == ACTION_REBOOT   ? "Reboot" :
+               arg_action == ACTION_POWEROFF ? "Power off" :
+                                               "Halt");
+
+        return 0;
+}
+
+static int shutdown_help(void) {
+
+        printf("%s [options] [TIME] [WALL...]\n\n"
+               "Shut down the system.\n\n"
+               "     --help      Show this help\n"
+               "  -H --halt      Halt the machine\n"
+               "  -P --poweroff  Power-off the machine\n"
+               "  -r --reboot    Reboot the machine\n"
+               "  -h             Equivalent to --poweroff, overriden by --halt\n"
+               "  -k             Don't reboot/halt/power-off, just send warnings\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int telinit_help(void) {
+
+        printf("%s [options]\n\n"
+               "Send control commands to the init system.\n\n"
+               "     --help      Show this help\n\n"
+               "Commands:\n"
+               "  0              Power-off the machine\n"
+               "  6              Reboot the machine\n"
+               "  1, 2, 3, 4, 5  Start runlevelX.target unit\n"
+               "  s, S           Start the rescue.target unit\n"
+               "  q, Q           Ask systemd to reload its configuration\n"
+               "  u, U           Ask systemd to reexecute itself\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int runlevel_help(void) {
+
+        printf("%s [options]\n\n"
+               "Prints the previous and current runlevel of the init system.\n\n"
+               "     --help      Show this help\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_REPLACE = 0x100,
                 ARG_SESSION,
                 ARG_SYSTEM,
-                ARG_BLOCK,
+                ARG_BLOCK
         };
 
         static const struct option options[] = {
@@ -1349,7 +1427,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         int c;
 
-        assert(argc >= 1);
+        assert(argc >= 0);
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "hta", options, NULL)) >= 0) {
@@ -1357,7 +1435,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
+                        systemctl_help();
                         return 0;
 
                 case 't':
@@ -1396,7 +1474,328 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char*argv[]) {
+static int halt_parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_HELP = 0x100,
+                ARG_HALT,
+                ARG_REBOOT
+        };
+
+        static const struct option options[] = {
+                { "help",      no_argument,       NULL, ARG_HELP    },
+                { "halt",      no_argument,       NULL, ARG_HALT    },
+                { "poweroff",  no_argument,       NULL, 'p'         },
+                { "reboot",    no_argument,       NULL, ARG_REBOOT  },
+                { "force",     no_argument,       NULL, 'f'         },
+                { "wtmp-only", no_argument,       NULL, 'w'         },
+                { "no-wtmp",   no_argument,       NULL, 'd'         },
+                { "no-sync",   no_argument,       NULL, 'n'         },
+                { NULL,        0,                 NULL, 0           }
+        };
+
+        int c, runlevel;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        if (utmp_get_runlevel(&runlevel, NULL) >= 0)
+                if (runlevel == '0' || runlevel == '6')
+                        arg_immediate = true;
+
+        while ((c = getopt_long(argc, argv, "pfwdnih", options, NULL)) >= 0) {
+                switch (c) {
+
+                case ARG_HELP:
+                        halt_help();
+                        return 0;
+
+                case ARG_HALT:
+                        arg_action = ACTION_HALT;
+                        break;
+
+                case 'p':
+                        arg_action = ACTION_POWEROFF;
+                        break;
+
+                case ARG_REBOOT:
+                        arg_action = ACTION_REBOOT;
+                        break;
+
+                case 'f':
+                        arg_immediate = true;
+                        break;
+
+                case 'w':
+                        arg_dry = true;
+                        break;
+
+                case 'd':
+                        arg_no_wtmp = true;
+                        break;
+
+                case 'n':
+                        arg_no_sync = true;
+                        break;
+
+                case 'i':
+                case 'h':
+                        /* Compatibility nops */
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        if (optind < argc) {
+                log_error("Too many arguments.");
+                return -EINVAL;
+        }
+
+        return 1;
+}
+
+static int shutdown_parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_HELP = 0x100,
+        };
+
+        static const struct option options[] = {
+                { "help",      no_argument,       NULL, ARG_HELP    },
+                { "halt",      no_argument,       NULL, 'H'         },
+                { "poweroff",  no_argument,       NULL, 'P'         },
+                { "reboot",    no_argument,       NULL, 'r'         },
+                { NULL,        0,                 NULL, 0           }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "HPrhkt:a", options, NULL)) >= 0) {
+                switch (c) {
+
+                case ARG_HELP:
+                        shutdown_help();
+                        return 0;
+
+                case 'H':
+                        arg_action = ACTION_HALT;
+                        break;
+
+                case 'P':
+                        arg_action = ACTION_POWEROFF;
+                        break;
+
+                case 'r':
+                        arg_action = ACTION_REBOOT;
+                        break;
+
+                case 'h':
+                        if (arg_action != ACTION_HALT)
+                                arg_action = ACTION_POWEROFF;
+                        break;
+
+                case 'k':
+                        arg_dry = true;
+                        break;
+
+                case 't':
+                case 'a':
+                        /* Compatibility nops */
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        /* We ignore the time argument */
+        if (argc > optind + 1)
+                arg_wall = argv + optind + 1;
+
+        optind = argc;
+
+        return 1;
+
+}
+
+static int telinit_parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_HELP = 0x100,
+        };
+
+        static const struct option options[] = {
+                { "help",      no_argument,       NULL, ARG_HELP    },
+                { NULL,        0,                 NULL, 0           }
+        };
+
+        static const struct {
+                char from;
+                enum action to;
+        } table[] = {
+                { '0', ACTION_POWEROFF },
+                { '6', ACTION_REBOOT },
+                { '1', ACTION_RUNLEVEL1 },
+                { '2', ACTION_RUNLEVEL2 },
+                { '3', ACTION_RUNLEVEL3 },
+                { '4', ACTION_RUNLEVEL4 },
+                { '5', ACTION_RUNLEVEL5 },
+                { 's', ACTION_RESCUE },
+                { 'S', ACTION_RESCUE },
+                { 'q', ACTION_RELOAD },
+                { 'Q', ACTION_RELOAD },
+                { 'u', ACTION_REEXEC },
+                { 'U', ACTION_REEXEC }
+        };
+
+        unsigned i;
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0) {
+                switch (c) {
+
+                case ARG_HELP:
+                        telinit_help();
+                        return 0;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        if (optind >= argc) {
+                log_error("Argument missing.");
+                return -EINVAL;
+        }
+
+        if (optind + 1 < argc) {
+                log_error("Too many arguments.");
+                return -EINVAL;
+        }
+
+        if (strlen(argv[optind]) != 1) {
+                log_error("Expected single character argument.");
+                return -EINVAL;
+        }
+
+        for (i = 0; i < ELEMENTSOF(table); i++)
+                if (table[i].from == argv[optind][0])
+                        break;
+
+        if (i >= ELEMENTSOF(table)) {
+                log_error("Unknown command %s.", argv[optind]);
+                return -EINVAL;
+        }
+
+        arg_action = table[i].to;
+
+        optind ++;
+
+        return 1;
+}
+
+static int runlevel_parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_HELP = 0x100,
+        };
+
+        static const struct option options[] = {
+                { "help",      no_argument,       NULL, ARG_HELP    },
+                { NULL,        0,                 NULL, 0           }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0) {
+                switch (c) {
+
+                case ARG_HELP:
+                        runlevel_help();
+                        return 0;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        if (optind < argc) {
+                log_error("Too many arguments.");
+                return -EINVAL;
+        }
+
+        return 1;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        assert(argc >= 0);
+        assert(argv);
+
+        if (program_invocation_short_name) {
+
+                if (strstr(program_invocation_short_name, "halt")) {
+                        arg_action = ACTION_HALT;
+                        return halt_parse_argv(argc, argv);
+                } else if (strstr(program_invocation_short_name, "poweroff")) {
+                        arg_action = ACTION_POWEROFF;
+                        return halt_parse_argv(argc, argv);
+                } else if (strstr(program_invocation_short_name, "reboot")) {
+                        arg_action = ACTION_REBOOT;
+                        return halt_parse_argv(argc, argv);
+                } else if (strstr(program_invocation_short_name, "shutdown")) {
+                        arg_action = ACTION_POWEROFF;
+                        return shutdown_parse_argv(argc, argv);
+                } else if (strstr(program_invocation_short_name, "init")) {
+                        arg_action = ACTION_INVALID;
+                        return telinit_parse_argv(argc, argv);
+                } else if (strstr(program_invocation_short_name, "runlevel")) {
+                        arg_action = ACTION_RUNLEVEL;
+                        return runlevel_parse_argv(argc, argv);
+                }
+        }
+
+        arg_action = ACTION_SYSTEMCTL;
+        return systemctl_parse_argv(argc, argv);
+}
+
+static int talk_upstart(DBusConnection *bus) {
+        log_error("Talking upstart");
+        return 0;
+}
+
+static int talk_initctl(void) {
+        log_error("Talking initctl");
+        return 0;
+}
+
+static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
 
         static const struct {
                 const char* verb;
@@ -1417,7 +1816,7 @@ int main(int argc, char*argv[]) {
                 { "stop",              MORE,  2, start_unit      },
                 { "reload",            MORE,  2, start_unit      },
                 { "restart",           MORE,  2, start_unit      },
-                { "isolate",           EQUAL, 2, isolate_unit    },
+                { "isolate",           EQUAL, 2, start_unit      },
                 { "monitor",           EQUAL, 1, monitor         },
                 { "dump",              EQUAL, 1, dump            },
                 { "snapshot",          LESS,  2, snapshot        },
@@ -1429,23 +1828,12 @@ int main(int argc, char*argv[]) {
                 { "unset-environment", MORE,  2, set_environment },
         };
 
-        int r, retval = 1, left;
+        int left;
         unsigned i;
-        DBusConnection *bus = NULL;
-        DBusError error;
 
-        dbus_error_init(&error);
-
-        log_set_target(LOG_TARGET_CONSOLE);
-        log_set_max_level(LOG_INFO);
-        log_parse_environment();
-
-        if ((r = parse_argv(argc, argv)) < 0)
-                goto finish;
-        else if (r == 0) {
-                retval = 0;
-                goto finish;
-        }
+        assert(bus);
+        assert(argc >= 0);
+        assert(argv);
 
         left = argc - optind;
 
@@ -1459,7 +1847,7 @@ int main(int argc, char*argv[]) {
 
                 if (i >= ELEMENTSOF(verbs)) {
                         log_error("Unknown operation %s", argv[optind]);
-                        goto finish;
+                        return -EINVAL;
                 }
         }
 
@@ -1468,7 +1856,7 @@ int main(int argc, char*argv[]) {
         case EQUAL:
                 if (left != verbs[i].argc) {
                         log_error("Invalid number of arguments.");
-                        goto finish;
+                        return -EINVAL;
                 }
 
                 break;
@@ -1476,7 +1864,7 @@ int main(int argc, char*argv[]) {
         case MORE:
                 if (left < verbs[i].argc) {
                         log_error("Too few arguments.");
-                        goto finish;
+                        return -EINVAL;
                 }
 
                 break;
@@ -1484,7 +1872,7 @@ int main(int argc, char*argv[]) {
         case LESS:
                 if (left > verbs[i].argc) {
                         log_error("Too many arguments.");
-                        goto finish;
+                        return -EINVAL;
                 }
 
                 break;
@@ -1493,19 +1881,177 @@ int main(int argc, char*argv[]) {
                 assert_not_reached("Unknown comparison operator.");
         }
 
-        if (!(bus = dbus_bus_get(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error))) {
-                log_error("Failed to get D-Bus connection: %s", error.message);
+        return verbs[i].dispatch(bus, argv + optind, left);
+}
+
+static int reload_with_fallback(DBusConnection *bus) {
+        int r;
+
+        if (bus) {
+                /* First, try systemd via D-Bus. */
+                if ((r = clear_jobs(bus, NULL, 0)) > 0)
+                        return 0;
+        }
+
+        /* Nothing else worked, so let's try signals */
+        assert(arg_action == ACTION_RELOAD || arg_action == ACTION_REEXEC);
+
+        if (kill(1, arg_action == ACTION_RELOAD ? SIGHUP : SIGTERM) < 0) {
+                log_error("kill() failed: %m");
+                return -errno;
+        }
+
+        return 0;
+}
+
+static int start_with_fallback(DBusConnection *bus) {
+        int r;
+
+        if (bus) {
+                /* First, try systemd via D-Bus. */
+                if ((r = start_unit(bus, NULL, 0)) > 0)
+                        return 0;
+
+                /* Hmm, talking to systemd via D-Bus didn't work. Then
+                 * let's try to talk to Upstart via D-Bus. */
+                if ((r = talk_upstart(bus)) > 0)
+                        return 0;
+        }
+
+        /* Nothing else worked, so let's try
+         * /dev/initctl */
+        return talk_initctl();
+}
+
+static int halt_main(DBusConnection *bus) {
+        int r;
+
+        if (!arg_immediate)
+                return start_with_fallback(bus);
+
+        if (!arg_no_wtmp)
+                if ((r = utmp_put_shutdown(0)) < 0)
+                        log_warning("Failed to write utmp record: %s", strerror(-r));
+
+        if (!arg_no_sync)
+                sync();
+
+        if (arg_dry)
+                return 0;
+
+        /* Make sure C-A-D is handled by the kernel from this
+         * point on... */
+        reboot(RB_ENABLE_CAD);
+
+        switch (arg_action) {
+
+        case ACTION_HALT:
+                log_info("Halting");
+                reboot(RB_HALT_SYSTEM);
+                break;
+
+        case ACTION_POWEROFF:
+                log_info("Powering off");
+                reboot(RB_POWER_OFF);
+                break;
+
+        case ACTION_REBOOT:
+                log_info("Rebooting");
+                reboot(RB_AUTOBOOT);
+                break;
+
+        default:
+                assert_not_reached("Unknown halt action.");
+        }
+
+        /* We should never reach this. */
+        return -ENOSYS;
+}
+
+static int runlevel_main(void) {
+        int r, runlevel, previous;
+
+        if ((r = utmp_get_runlevel(&runlevel, &previous)) < 0) {
+                printf("unknown");
+                return r;
+        }
+
+        printf("%c %c\n",
+               previous <= 0 ? 'N' : previous,
+               runlevel <= 0 ? 'N' : runlevel);
+
+        return 0;
+}
+
+int main(int argc, char*argv[]) {
+        int r, retval = 1;
+        DBusConnection *bus = NULL;
+        DBusError error;
+
+        dbus_error_init(&error);
+
+        log_parse_environment();
+
+        if ((r = parse_argv(argc, argv)) < 0)
+                goto finish;
+        else if (r == 0) {
+                retval = 0;
                 goto finish;
         }
 
-        dbus_connection_set_exit_on_disconnect(bus, FALSE);
+        /* /sbin/runlevel doesn't need to communicate via D-Bus, so
+         * let's shortcut this */
+        if (arg_action == ACTION_RUNLEVEL) {
+                retval = runlevel_main() < 0;
+                goto finish;
+        }
 
-        retval = verbs[i].dispatch(bus, argv + optind, left) < 0;
+        if ((bus = dbus_bus_get(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error)))
+                dbus_connection_set_exit_on_disconnect(bus, FALSE);
+
+        switch (arg_action) {
+
+        case ACTION_SYSTEMCTL: {
+
+                if (!bus) {
+                        log_error("Failed to get D-Bus connection: %s", error.message);
+                        goto finish;
+                }
+
+                retval = systemctl_main(bus, argc, argv) < 0;
+                break;
+        }
+
+        case ACTION_HALT:
+        case ACTION_POWEROFF:
+        case ACTION_REBOOT:
+                retval = halt_main(bus) < 0;
+                break;
+
+        case ACTION_RUNLEVEL1:
+        case ACTION_RUNLEVEL2:
+        case ACTION_RUNLEVEL3:
+        case ACTION_RUNLEVEL4:
+        case ACTION_RUNLEVEL5:
+        case ACTION_RESCUE:
+                retval = start_with_fallback(bus) < 0;
+                break;
+
+        case ACTION_RELOAD:
+        case ACTION_REEXEC:
+                retval = reload_with_fallback(bus) < 0;
+                break;
+
+        default:
+                assert_not_reached("Unknown action");
+        }
 
 finish:
 
         if (bus)
                 dbus_connection_unref(bus);
+
+        dbus_error_free(&error);
 
         dbus_shutdown();
 

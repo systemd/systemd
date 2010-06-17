@@ -57,6 +57,20 @@
 
 * selinux
 
+* User= and friends needs to understand %i and similar replacements
+
+* EnvironmentFile=
+
+* make systemd bus activatable
+
+* pin /cgroup/systemd
+
+* systemd-sysvinit as package
+
+* docdir für sd-daemon.[ch]
+
+* __attribute__ for sd_notifyf
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
