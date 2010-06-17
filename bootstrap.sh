@@ -59,6 +59,7 @@ else
     rm -rf autom4te.cache
     rm -f config.cache
 
+    libtoolize -c --force
     run_versioned aclocal "$AM_VERSION" -I m4
     run_versioned autoconf "$AC_VERSION" -Wall
     run_versioned autoheader "$AC_VERSION"

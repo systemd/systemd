@@ -200,10 +200,15 @@ dist_doc_DATA = \
 	src/sd-daemon.h \
 	src/sd-daemon.c
 
+noinst_LTLIBRARIES = \
+	libsystemd-basic.la \
+	libsystemd-core.la
+
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
 # list the .h files as dependencies if we want make dist to work.
-BASIC_SOURCES = \
+
+libsystemd_basic_la_SOURCES = \
         src/util.c \
         src/hashmap.c \
         src/set.c \
@@ -213,8 +218,7 @@ BASIC_SOURCES = \
         src/log.c \
         src/ratelimit.c
 
-COMMON_SOURCES = \
-	$(BASIC_SOURCES) \
+libsystemd_core_la_SOURCES = \
 	src/unit.c \
         src/job.c \
         src/manager.c \
@@ -259,8 +263,23 @@ COMMON_SOURCES = \
 	src/namespace.c \
 	src/tcpwrap.c
 
+libsystemd_core_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	$(UDEV_CFLAGS) \
+	$(CGROUP_CFLAGS)
+
+libsystemd_core_la_LIBADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS) \
+	$(UDEV_LIBS) \
+	$(CGROUP_LIBS) \
+	$(LIBWRAP_LIBS) \
+	$(PAM_LIBS)
+
 EXTRA_DIST += \
-	${COMMON_SOURCES:.c=.h} \
+	${libsystemd_basic_la_SOURCES:.c=.h} \
+	${libsystemd_core_la_SOURCES:.c=.h} \
 	src/macro.h \
 	src/ioprio.h \
 	src/missing.h \
@@ -292,7 +311,6 @@ EXTRA_DIST += \
 	man/systemd.special.html.in
 
 systemd_SOURCES = \
-	$(COMMON_SOURCES) \
 	src/main.c
 
 systemd_CFLAGS = \
@@ -302,55 +320,50 @@ systemd_CFLAGS = \
 	$(CGROUP_CFLAGS)
 
 systemd_LDADD = \
-	$(DBUS_LIBS) \
-	$(UDEV_LIBS) \
-	$(CGROUP_LIBS) \
-	$(LIBWRAP_LIBS) \
-	$(PAM_LIBS)
+	libsystemd-core.la
 
 test_engine_SOURCES = \
-	$(COMMON_SOURCES) \
 	src/test-engine.c
 
 test_engine_CFLAGS = $(systemd_CFLAGS)
 test_engine_LDADD = $(systemd_LDADD)
 
 test_job_type_SOURCES = \
-	$(COMMON_SOURCES) \
 	src/test-job-type.c
 
 test_job_type_CFLAGS = $(systemd_CFLAGS)
 test_job_type_LDADD = $(systemd_LDADD)
 
 test_ns_SOURCES = \
-	$(BASIC_SOURCES) \
-	src/test-ns.c \
-	src/namespace.c
+	src/test-ns.c
 
 test_ns_CFLAGS = $(systemd_CFLAGS)
 test_ns_LDADD = $(systemd_LDADD)
 
 test_loopback_SOURCES = \
-	$(BASIC_SOURCES) \
 	src/test-loopback.c \
 	src/loopback-setup.c
 
+test_loopback_LDADD = \
+	libsystemd-basic.la
+
 test_daemon_SOURCES = \
-	$(BASIC_SOURCES) \
 	src/test-daemon.c \
 	src/sd-daemon.c
 
+test_daemon_LDADD = \
+	libsystemd-basic.la
+
 systemd_logger_SOURCES = \
-	$(BASIC_SOURCES) \
 	src/logger.c \
 	src/sd-daemon.c \
 	src/tcpwrap.c
 
 systemd_logger_LDADD = \
+	libsystemd-basic.la \
 	$(LIBWRAP_LIBS)
 
 systemd_initctl_SOURCES = \
-	$(BASIC_SOURCES) \
 	src/initctl.c \
 	src/sd-daemon.c
 
@@ -359,10 +372,10 @@ systemd_initctl_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_initctl_LDADD = \
+	libsystemd-basic.la \
 	$(DBUS_LIBS)
 
 systemd_cgroups_agent_SOURCES = \
-	$(BASIC_SOURCES) \
 	src/cgroups-agent.c
 
 systemd_cgroups_agent_CFLAGS = \
@@ -370,28 +383,39 @@ systemd_cgroups_agent_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_cgroups_agent_LDADD = \
+	libsystemd-basic.la \
 	$(DBUS_LIBS)
 
 systemctl_SOURCES = \
 	src/systemctl.c \
-	src/utmp-wtmp.c \
-	$(BASIC_SOURCES)
+	src/utmp-wtmp.c
 
-systemctl_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS)
-systemctl_LDADD = $(DBUS_LIBS)
+systemctl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemctl_LDADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS)
 
 systemd_notify_SOURCES = \
 	src/notify.c \
-	src/sd-daemon.c \
-	$(BASIC_SOURCES)
+	src/sd-daemon.c
+
+systemd_notify_LDADD = \
+	libsystemd-basic.la
 
 systemd_install_SOURCES = \
 	src/install.c \
-	src/path-lookup.c \
-	$(BASIC_SOURCES)
+	src/path-lookup.c
+
+systemd_install_LDADD = \
+	libsystemd-basic.la
 
 # We don't really link here against D-Bus, however we indirectly include D-Bus header files
-systemd_install_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS)
+systemd_install_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
 
 systemadm_SOURCES = \
 	src/systemadm.vala \
@@ -412,7 +436,9 @@ systemadm_VALAFLAGS = \
 	--pkg=gtk+-2.0 \
 	-g
 
-systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
+systemadm_LDADD = \
+	$(DBUSGLIB_LIBS) \
+	$(GTK_LIBS)
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \

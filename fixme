@@ -67,8 +67,6 @@
 
 * systemd-sysvinit as package
 
-* convenience library
-
 * install must understand templates
 
 * shutdown must be able to do wall
