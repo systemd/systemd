@@ -41,6 +41,12 @@ extern "C" {
  * algorithms described here, if they do not want to include these two
  * source files. */
 
+#ifdef __GNUC__
+#define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
+#else
+#define _sd_printf_attr_(a,b)
+#endif
+
 /*
   Log levels for usage on stderr:
 
@@ -170,7 +176,7 @@ int sd_notify(int unset_environment, const char *state);
  *               strerror(errno),
  *               errno);
  */
-int sd_notifyf(int unset_environment, const char *format, ...);
+int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_attr_(2,3);
 
 #ifdef __cplusplus
 }

@@ -69,8 +69,6 @@
 
 * docdir für sd-daemon.[ch]
 
-* __attribute__ for sd_notifyf
-
 * convenience library
 
 Regularly:
