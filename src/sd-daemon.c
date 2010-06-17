@@ -344,10 +344,8 @@ int sd_notify(int unset_environment, const char *state) {
                 goto finish;
         }
 
-        if (!(e = getenv("NOTIFY_SOCKET"))) {
-                r = 0;
-                goto finish;
-        }
+        if (!(e = getenv("NOTIFY_SOCKET")))
+                return 0;
 
         /* Must be an abstract socket, or an absolute path */
         if ((e[0] != '@' && e[0] != '/') || e[1] == 0) {
@@ -394,7 +392,7 @@ int sd_notify(int unset_environment, const char *state) {
                 goto finish;
         }
 
-        r = 0;
+        r = 1;
 
 finish:
         if (unset_environment)

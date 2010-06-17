@@ -126,9 +126,9 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
  *                 little value in signalling non-readiness the only
  *                 value daemons should send is "READY=1".
  *
- *    STATUS=...   Passes a status string back to systemd that
- *                 describes the daemon state. This is free-from and
- *                 can be used for various purposes: general state
+ *    STATUS=...   Passes a single-line status string back to systemd
+ *                 that describes the daemon state. This is free-from
+ *                 and can be used for various purposes: general state
  *                 feedback, fsck-like programs could pass completion
  *                 percentages and failing programs could pass a human
  *                 readable error message. Example: "STATUS=Completed
@@ -142,6 +142,12 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
  *
  *    MAINPID=...  The main pid of a daemon, in case systemd did not
  *                 fork off the process itself. Example: "MAINPID=4711"
+ *
+ * Daemons can choose to send additional variables.
+ *
+ * Returns a negative errno-style error code on failure. Returns > 0
+ * if systemd could be notified, 0 if it couldn't possibly because
+ * systemd is not running.
  *
  * See sd_notifyf() for more complete examples.
  */
