@@ -125,6 +125,35 @@ static void service_unwatch_main_pid(Service *s) {
         s->main_pid = 0;
 }
 
+static int service_set_main_pid(Service *s, pid_t pid) {
+        assert(s);
+
+        if (pid <= 1)
+                return -EINVAL;
+
+        if (pid == getpid())
+                return -EINVAL;
+
+        s->main_pid = pid;
+        s->main_pid_known = true;
+
+        return 0;
+}
+
+static int service_set_control_pid(Service *s, pid_t pid) {
+        assert(s);
+
+        if (pid <= 1)
+                return -EINVAL;
+
+        if (pid == getpid())
+                return -EINVAL;
+
+        s->control_pid = pid;
+
+        return 0;
+}
+
 static void service_close_socket_fd(Service *s) {
         assert(s);
 
@@ -919,8 +948,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int service_load_pid_file(Service *s) {
         char *k;
-        unsigned long p;
         int r;
+        pid_t pid;
 
         assert(s);
 
@@ -935,29 +964,24 @@ static int service_load_pid_file(Service *s) {
         if ((r = read_one_line_file(s->pid_file, &k)) < 0)
                 return r;
 
-        if ((r = safe_atolu(k, &p)) < 0) {
-                free(k);
+        r = parse_pid(k, &pid);
+        free(k);
+
+        if (r < 0)
                 return r;
-        }
 
-        if ((unsigned long) (pid_t) p != p)
-                return -ERANGE;
-
-        if (p <= 1)
-                return -ERANGE;
-
-        if (kill((pid_t) p, 0) < 0 && errno != EPERM) {
-                log_warning("PID %llu read from file %s does not exist. Your service or init script might be broken.",
-                            (unsigned long long) p, s->pid_file);
+        if (kill(pid, 0) < 0 && errno != EPERM) {
+                log_warning("PID %lu read from file %s does not exist. Your service or init script might be broken.",
+                            (unsigned long) pid, s->pid_file);
                 return -ESRCH;
         }
 
-        if ((r = unit_watch_pid(UNIT(s), (pid_t) p)) < 0)
-                /* FIXME: we need to do something here */
+        if ((r = service_set_main_pid(s, pid)) < 0)
                 return r;
 
-        s->main_pid = (pid_t) p;
-        s->main_pid_known = true;
+        if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
+                /* FIXME: we need to do something here */
+                return r;
 
         return 0;
 }
@@ -1460,6 +1484,8 @@ fail:
 
 static void service_enter_stop(Service *s, bool success) {
         int r;
+        pid_t pid;
+
         assert(s);
 
         if (!success)
@@ -1475,9 +1501,10 @@ static void service_enter_stop(Service *s, bool success) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
-                                       &s->control_pid)) < 0)
+                                       &pid)) < 0)
                         goto fail;
 
+                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_STOP);
         } else
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, true);
@@ -1507,6 +1534,7 @@ static void service_enter_running(Service *s, bool success) {
 
 static void service_enter_start_post(Service *s) {
         int r;
+        pid_t pid;
         assert(s);
 
         service_unwatch_control_pid(s);
@@ -1519,10 +1547,10 @@ static void service_enter_start_post(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
-                                       &s->control_pid)) < 0)
+                                       &pid)) < 0)
                         goto fail;
 
-
+                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_START_POST);
         } else
                 service_enter_running(s, true);
@@ -1561,9 +1589,7 @@ static void service_enter_start(Service *s) {
                 /* For simple services we immediately start
                  * the START_POST binaries. */
 
-                s->main_pid = pid;
-                s->main_pid_known = true;
-
+                service_set_main_pid(s, pid);
                 service_enter_start_post(s);
 
         } else  if (s->type == SERVICE_FORKING) {
@@ -1571,10 +1597,10 @@ static void service_enter_start(Service *s) {
                 /* For forking services we wait until the start
                  * process exited. */
 
-                s->control_pid = pid;
-
                 s->control_command_id = SERVICE_EXEC_START;
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
+
+                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_START);
 
         } else if (s->type == SERVICE_FINISH ||
@@ -1588,9 +1614,7 @@ static void service_enter_start(Service *s) {
                  * but wait for the bus name to appear on the
                  * bus. Notify services are similar. */
 
-                s->main_pid = pid;
-                s->main_pid_known = true;
-
+                service_set_main_pid(s, pid);
                 service_set_state(s, SERVICE_START);
         } else
                 assert_not_reached("Unknown service type");
@@ -1604,6 +1628,7 @@ fail:
 
 static void service_enter_start_pre(Service *s) {
         int r;
+        pid_t pid;
 
         assert(s);
 
@@ -1617,9 +1642,10 @@ static void service_enter_start_pre(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
-                                       &s->control_pid)) < 0)
+                                       &pid)) < 0)
                         goto fail;
 
+                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_START_PRE);
         } else
                 service_enter_start(s);
@@ -1651,6 +1677,7 @@ fail:
 
 static void service_enter_reload(Service *s) {
         int r;
+        pid_t pid;
 
         assert(s);
 
@@ -1664,9 +1691,10 @@ static void service_enter_reload(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
-                                       &s->control_pid)) < 0)
+                                       &pid)) < 0)
                         goto fail;
 
+                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_RELOAD);
         } else
                 service_enter_running(s, true);
@@ -1680,6 +1708,7 @@ fail:
 
 static void service_run_next(Service *s, bool success) {
         int r;
+        pid_t pid;
 
         assert(s);
         assert(s->control_command);
@@ -1698,9 +1727,10 @@ static void service_run_next(Service *s, bool success) {
                                false,
                                !s->permissions_start_only,
                                !s->root_directory_start_only,
-                               &s->control_pid)) < 0)
+                               &pid)) < 0)
                 goto fail;
 
+        service_set_control_pid(s, pid);
         return;
 
 fail:
@@ -1819,10 +1849,10 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "failure", yes_no(s->failure));
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", "%u", (unsigned) (s->control_pid));
+                unit_serialize_item_format(u, f, "control-pid", "%lu", (unsigned long) s->control_pid);
 
-        if (s->main_pid > 0)
-                unit_serialize_item_format(u, f, "main-pid", "%u", (unsigned) (s->main_pid));
+        if (s->main_pid_known && s->main_pid > 0)
+                unit_serialize_item_format(u, f, "main-pid", "%lu", (unsigned long) s->main_pid);
 
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
 
@@ -1868,19 +1898,19 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else
                         s->failure = b || s->failure;
         } else if (streq(key, "control-pid")) {
-                unsigned pid;
+                pid_t pid;
 
-                if ((r = safe_atou(value, &pid)) < 0 || pid <= 0)
+                if ((r = parse_pid(value, &pid)) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
-                        s->control_pid = (pid_t) pid;
+                        service_set_control_pid(s, pid);
         } else if (streq(key, "main-pid")) {
-                unsigned pid;
+                pid_t pid;
 
-                if ((r = safe_atou(value, &pid)) < 0 || pid <= 0)
+                if ((r = parse_pid(value, &pid)) < 0)
                         log_debug("Failed to parse main-pid value %s", value);
                 else
-                        s->main_pid = (pid_t) pid;
+                        service_set_main_pid(s, (pid_t) pid);
         } else if (streq(key, "main-pid-known")) {
                 int b;
 
@@ -2219,15 +2249,13 @@ static void service_notify_message(Unit *u, char **tags) {
              s->state == SERVICE_START_POST ||
              s->state == SERVICE_RUNNING ||
              s->state == SERVICE_RELOAD)) {
-                unsigned long pid;
+                pid_t pid;
 
-                if (safe_atolu(e + 8, &pid) < 0 ||
-                    (unsigned long) (pid_t) pid != pid ||
-                    pid <= 1)
+                if (parse_pid(e + 8, &pid) < 0)
                         log_warning("Failed to parse %s", e);
                 else {
                         log_debug("%s: got %s", u->meta.id, e);
-                        s->main_pid = (pid_t) pid;
+                        service_set_main_pid(s, pid);
                 }
         }
 
@@ -2460,7 +2488,7 @@ static void service_bus_query_pid_done(
              s->state == SERVICE_START_POST ||
              s->state == SERVICE_RUNNING ||
              s->state == SERVICE_RELOAD))
-                s->main_pid = pid;
+                service_set_main_pid(s, pid);
 }
 
 int service_set_socket_fd(Service *s, int fd) {

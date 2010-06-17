@@ -1047,7 +1047,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item_format(u, f, "n-accepted", "%u", s->n_accepted);
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", "%u", (unsigned) s->control_pid);
+                unit_serialize_item_format(u, f, "control-pid", "%lu", (unsigned long) s->control_pid);
 
         if (s->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", socket_exec_command_to_string(s->control_command_id));
@@ -1110,12 +1110,12 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 else
                         s->n_accepted += k;
         } else if (streq(key, "control-pid")) {
-                unsigned pid;
+                pid_t pid;
 
-                if ((r = safe_atou(value, &pid)) < 0 || pid <= 0)
+                if ((r = parse_pid(value, &pid)) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
-                        s->control_pid = (pid_t) pid;
+                        s->control_pid = pid;
         } else if (streq(key, "control-command")) {
                 SocketExecCommand id;
 

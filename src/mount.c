@@ -839,7 +839,7 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "failure", yes_no(m->failure));
 
         if (m->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", "%u", (unsigned) m->control_pid);
+                unit_serialize_item_format(u, f, "control-pid", "%lu", (unsigned long) m->control_pid);
 
         if (m->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", mount_exec_command_to_string(m->control_command_id));
@@ -872,12 +872,12 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                         m->failure = b || m->failure;
 
         } else if (streq(key, "control-pid")) {
-                unsigned pid;
+                pid_t pid;
 
-                if ((r = safe_atou(value, &pid)) < 0 || pid <= 0)
+                if ((r = parse_pid(value, &pid)) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
-                        m->control_pid = (pid_t) pid;
+                        m->control_pid = pid;
         } else if (streq(key, "control-command")) {
                 MountExecCommand id;
 
