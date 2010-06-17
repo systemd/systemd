@@ -80,6 +80,7 @@ CC_CHECK_CFLAGS_APPEND([ \
         -Wno-overlength-strings \
         -Wno-unused-parameter \
         -Wno-missing-field-initializers \
+        -Wno-unused-result \
         -Wp,-D_FORTIFY_SOURCE=2 \
         -ffast-math \
         -fno-common \

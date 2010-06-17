@@ -96,7 +96,7 @@ static char** session_dirs(void) {
                  * one. */
 
                 mkdir_parents(data_home, 0777);
-                symlink("../../../.config/systemd/session", data_home);
+                (void) symlink("../../../.config/systemd/session", data_home);
         }
 
         if ((e = getenv("XDG_DATA_DIRS")))
