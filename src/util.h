@@ -256,6 +256,8 @@ int dir_is_empty(const char *path);
 
 void rename_process(const char name[8]);
 
+void sigset_add_many(sigset_t *ss, ...);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

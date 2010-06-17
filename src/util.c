@@ -2205,6 +2205,18 @@ void rename_process(const char name[8]) {
                 strncpy(program_invocation_name, name, strlen(program_invocation_name));
 }
 
+void sigset_add_many(sigset_t *ss, ...) {
+        va_list ap;
+        int sig;
+
+        assert(ss);
+
+        va_start(ap, ss);
+        while ((sig = va_arg(ap, int)) > 0)
+                assert_se(sigaddset(ss, sig) == 0);
+        va_end(ap);
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

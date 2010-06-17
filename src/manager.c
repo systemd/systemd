@@ -157,14 +157,23 @@ static int manager_setup_signals(Manager *m) {
         assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
         assert_se(sigemptyset(&mask) == 0);
-        assert_se(sigaddset(&mask, SIGCHLD) == 0);
-        assert_se(sigaddset(&mask, SIGTERM) == 0);
-        assert_se(sigaddset(&mask, SIGHUP) == 0);
-        assert_se(sigaddset(&mask, SIGUSR1) == 0);
-        assert_se(sigaddset(&mask, SIGUSR2) == 0);
-        assert_se(sigaddset(&mask, SIGINT) == 0);   /* Kernel sends us this on control-alt-del */
-        assert_se(sigaddset(&mask, SIGWINCH) == 0); /* Kernel sends us this on kbrequest (alt-arrowup) */
-        assert_se(sigaddset(&mask, SIGPWR) == 0);   /* Some kernel drivers and upsd send us this on power failure */
+
+        sigset_add_many(&mask,
+                        SIGCHLD,     /* Child died */
+                        SIGTERM,     /* Reexecute daemon */
+                        SIGHUP,      /* Reload configuration */
+                        SIGUSR1,     /* systemd/upstart: reconnect to D-Bus */
+                        SIGUSR2,     /* systemd: dump status */
+                        SIGINT,      /* Kernel sends us this on control-alt-del */
+                        SIGWINCH,    /* Kernel sends us this on kbrequest (alt-arrowup) */
+                        SIGPWR,      /* Some kernel drivers and upsd send us this on power failure */
+                        SIGRTMIN+0,  /* systemd: start default.target */
+                        SIGRTMIN+1,  /* systemd: start rescue.target */
+                        SIGRTMIN+2,  /* systemd: isolate emergency.target */
+                        SIGRTMIN+3,  /* systemd: start halt.target */
+                        SIGRTMIN+4,  /* systemd: start poweroff.target */
+                        SIGRTMIN+5,  /* systemd: start reboot.target */
+                        -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         m->signal_watch.type = WATCH_SIGNAL;
@@ -1731,10 +1740,10 @@ static int manager_dispatch_sigchld(Manager *m) {
         return 0;
 }
 
-static int manager_start_target(Manager *m, const char *name) {
+static int manager_start_target(Manager *m, const char *name, JobMode mode) {
         int r;
 
-        if ((r = manager_add_job_by_name(m, JOB_START, name, JOB_REPLACE, true, NULL)) < 0)
+        if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, NULL)) < 0)
                 log_error("Failed to enqueue %s job: %s", name, strerror(-r));
 
         return r;
@@ -1777,12 +1786,12 @@ static int manager_process_signal_fd(Manager *m) {
 
                 case SIGINT:
                         if (m->running_as == MANAGER_INIT) {
-                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET);
+                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE);
                                 break;
                         }
 
                         /* Run the exit target if there is one, if not, just exit. */
-                        if (manager_start_target(m, SPECIAL_EXIT_SERVICE) < 0) {
+                        if (manager_start_target(m, SPECIAL_EXIT_SERVICE, JOB_REPLACE) < 0) {
                                 m->exit_code = MANAGER_EXIT;
                                 return 0;
                         }
@@ -1791,14 +1800,14 @@ static int manager_process_signal_fd(Manager *m) {
 
                 case SIGWINCH:
                         if (m->running_as == MANAGER_INIT)
-                                manager_start_target(m, SPECIAL_KBREQUEST_TARGET);
+                                manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
                         break;
 
                 case SIGPWR:
                         if (m->running_as == MANAGER_INIT)
-                                manager_start_target(m, SPECIAL_SIGPWR_TARGET);
+                                manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
                         break;
@@ -1816,7 +1825,7 @@ static int manager_process_signal_fd(Manager *m) {
 
                         if (!u || !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u))) {
                                 log_info("Loading D-Bus service...");
-                                manager_start_target(m, SPECIAL_DBUS_SERVICE);
+                                manager_start_target(m, SPECIAL_DBUS_SERVICE, JOB_REPLACE);
                         }
 
                         break;
@@ -1853,8 +1862,25 @@ static int manager_process_signal_fd(Manager *m) {
                         m->exit_code = MANAGER_RELOAD;
                         break;
 
-                default:
+                default: {
+                        static const char * const table[] = {
+                                [0] = SPECIAL_DEFAULT_TARGET,
+                                [1] = SPECIAL_RESCUE_TARGET,
+                                [2] = SPECIAL_EMERGENCY_SERVICE,
+                                [3] = SPECIAL_HALT_TARGET,
+                                [4] = SPECIAL_POWEROFF_TARGET,
+                                [5] = SPECIAL_REBOOT_TARGET
+                        };
+
+                        if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
+                            (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(table)) {
+                                manager_start_target(m, table[sfsi.ssi_signo - SIGRTMIN],
+                                                     sfsi.ssi_signo == 2 ? JOB_ISOLATE : JOB_REPLACE);
+                                break;
+                        }
+
                         log_info("Got unhandled signal <%s>.", strsignal(sfsi.ssi_signo));
+                }
                 }
         }
 
