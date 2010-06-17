@@ -241,6 +241,29 @@ int parse_boolean(const char *v) {
         return -EINVAL;
 }
 
+int parse_pid(const char *s, pid_t* ret_pid) {
+        unsigned long ul;
+        pid_t pid;
+        int r;
+
+        assert(s);
+        assert(ret_pid);
+
+        if ((r = safe_atolu(s, &ul)) < 0)
+                return r;
+
+        pid = (pid_t) ul;
+
+        if ((unsigned long) pid != ul)
+                return -ERANGE;
+
+        if (pid <= 0)
+                return -ERANGE;
+
+        *ret_pid = pid;
+        return 0;
+}
+
 int safe_atou(const char *s, unsigned *ret_u) {
         char *x = NULL;
         unsigned long l;
