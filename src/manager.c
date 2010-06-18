@@ -1656,7 +1656,8 @@ static int manager_process_notify_fd(Manager *m) {
                                 continue;
                         }
 
-                char_array_0(buf);
+                assert((size_t) n < sizeof(buf));
+                buf[n] = 0;
                 if (!(tags = strv_split(buf, "\n\r")))
                         return -ENOMEM;
 
