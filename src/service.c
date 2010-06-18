@@ -127,6 +127,8 @@ static void service_unwatch_main_pid(Service *s) {
 }
 
 static int service_set_main_pid(Service *s, pid_t pid) {
+        pid_t ppid;
+
         assert(s);
 
         if (pid <= 1)
@@ -134,23 +136,13 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 
         if (pid == getpid())
                 return -EINVAL;
+
+        if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid())
+                log_warning("%s: Supervising process %lu which is not our child. We'll most likely not notice when it exits.",
+                            s->meta.id, (unsigned long) pid);
 
         s->main_pid = pid;
         s->main_pid_known = true;
-
-        return 0;
-}
-
-static int service_set_control_pid(Service *s, pid_t pid) {
-        assert(s);
-
-        if (pid <= 1)
-                return -EINVAL;
-
-        if (pid == getpid())
-                return -EINVAL;
-
-        s->control_pid = pid;
 
         return 0;
 }
@@ -1485,7 +1477,6 @@ fail:
 
 static void service_enter_stop(Service *s, bool success) {
         int r;
-        pid_t pid;
 
         assert(s);
 
@@ -1502,10 +1493,9 @@ static void service_enter_stop(Service *s, bool success) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
-                                       &pid)) < 0)
+                                       &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_STOP);
         } else
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, true);
@@ -1535,7 +1525,6 @@ static void service_enter_running(Service *s, bool success) {
 
 static void service_enter_start_post(Service *s) {
         int r;
-        pid_t pid;
         assert(s);
 
         service_unwatch_control_pid(s);
@@ -1548,10 +1537,9 @@ static void service_enter_start_post(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
-                                       &pid)) < 0)
+                                       &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_START_POST);
         } else
                 service_enter_running(s, true);
@@ -1601,7 +1589,7 @@ static void service_enter_start(Service *s) {
                 s->control_command_id = SERVICE_EXEC_START;
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
 
-                service_set_control_pid(s, pid);
+                s->control_pid = pid;
                 service_set_state(s, SERVICE_START);
 
         } else if (s->type == SERVICE_FINISH ||
@@ -1629,7 +1617,6 @@ fail:
 
 static void service_enter_start_pre(Service *s) {
         int r;
-        pid_t pid;
 
         assert(s);
 
@@ -1643,10 +1630,9 @@ static void service_enter_start_pre(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
-                                       &pid)) < 0)
+                                       &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_START_PRE);
         } else
                 service_enter_start(s);
@@ -1678,7 +1664,6 @@ fail:
 
 static void service_enter_reload(Service *s) {
         int r;
-        pid_t pid;
 
         assert(s);
 
@@ -1692,10 +1677,9 @@ static void service_enter_reload(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
-                                       &pid)) < 0)
+                                       &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_control_pid(s, pid);
                 service_set_state(s, SERVICE_RELOAD);
         } else
                 service_enter_running(s, true);
@@ -1709,7 +1693,6 @@ fail:
 
 static void service_run_next(Service *s, bool success) {
         int r;
-        pid_t pid;
 
         assert(s);
         assert(s->control_command);
@@ -1728,10 +1711,9 @@ static void service_run_next(Service *s, bool success) {
                                false,
                                !s->permissions_start_only,
                                !s->root_directory_start_only,
-                               &pid)) < 0)
+                               &s->control_pid)) < 0)
                 goto fail;
 
-        service_set_control_pid(s, pid);
         return;
 
 fail:
@@ -1904,7 +1886,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if ((r = parse_pid(value, &pid)) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
-                        service_set_control_pid(s, pid);
+                        s->control_pid = pid;
         } else if (streq(key, "main-pid")) {
                 pid_t pid;
 

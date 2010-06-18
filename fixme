@@ -65,8 +65,6 @@
 
 * discuss NOTIFY_SOCKET, make it configurable? security implications?
 
-* when reading pid for watching, verify we are parent
-
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
