@@ -55,8 +55,6 @@
 
 * selinux
 
-* User= and friends needs to understand %i and similar replacements
-
 * make systemd bus activatable
 
 * systemd-sysvinit as package
