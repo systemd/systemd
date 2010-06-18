@@ -1741,10 +1741,8 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (argc > optind && !streq(argv[optind], "now")) {
-                log_error("Expected 'now' argument.");
-                return -EINVAL;
-        }
+        if (argc > optind && !streq(argv[optind], "now"))
+                log_warning("First argument '%s' isn't 'now'. Ignoring.", argv[optind]);
 
         /* We ignore the time argument */
         if (argc > optind + 1)
