@@ -412,19 +412,25 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LOG_COLOR:
 
-                        if ((r = log_show_color_from_string(optarg)) < 0) {
-                                log_error("Failed to parse log color setting %s.", optarg);
-                                return r;
-                        }
+                        if (optarg) {
+                                if ((r = log_show_color_from_string(optarg)) < 0) {
+                                        log_error("Failed to parse log color setting %s.", optarg);
+                                        return r;
+                                }
+                        } else
+                                log_show_color(true);
 
                         break;
 
                 case ARG_LOG_LOCATION:
 
-                        if ((r = log_show_location_from_string(optarg)) < 0) {
-                                log_error("Failed to parse log location setting %s.", optarg);
-                                return r;
-                        }
+                        if (optarg) {
+                                if ((r = log_show_location_from_string(optarg)) < 0) {
+                                        log_error("Failed to parse log location setting %s.", optarg);
+                                        return r;
+                                }
+                        } else
+                                log_show_location(true);
 
                         break;
 
