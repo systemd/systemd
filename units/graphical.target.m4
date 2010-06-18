@@ -20,3 +20,9 @@ Names=runlevel5.target
 m4_ifdef(`TARGET_SUSE',
 Names=runlevel5.target
 )m4_dnl
+
+[Install]
+Alias=default.target
+m4_ifdef(`TARGET_FEDORA',
+Alias=runlevel5.target
+)m4_dnl

@@ -23,3 +23,11 @@ ExecStart=GETTY %I
 Restart=restart-always
 RestartSec=0
 KillMode=process-group
+
+[Install]
+Alias=getty.target.wants/getty@tty1.service
+Alias=getty.target.wants/getty@tty2.service
+Alias=getty.target.wants/getty@tty3.service
+Alias=getty.target.wants/getty@tty4.service
+Alias=getty.target.wants/getty@tty5.service
+Alias=getty.target.wants/getty@tty6.service

@@ -11,3 +11,6 @@
 Description=Halt
 Requires=halt.service
 After=halt.service
+
+[Install]
+Alias=ctrl-alt-del.target

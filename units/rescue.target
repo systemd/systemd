@@ -12,3 +12,6 @@ Description=Rescue Prompt
 Requires=basic.target
 After=basic.target
 Names=runlevel1.target
+
+[Install]
+Alias=kbrequest.target

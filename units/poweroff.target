@@ -12,3 +12,6 @@ Description=Power-Off
 Names=runlevel0.target
 Requires=poweroff.service
 After=poweroff.service
+
+[Install]
+Alias=ctrl-alt-del.target

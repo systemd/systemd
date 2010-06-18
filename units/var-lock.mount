@@ -13,3 +13,6 @@ Before=local-fs.target
 What=tmpfs
 Where=/var/lock
 Type=tmpfs
+
+[Install]
+WantedBy=local-fs.target

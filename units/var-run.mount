@@ -13,3 +13,6 @@ Before=local-fs.target
 What=tmpfs
 Where=/var/run
 Type=tmpfs
+
+[Install]
+WantedBy=local-fs.target
