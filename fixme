@@ -59,8 +59,6 @@
 
 * User= and friends needs to understand %i and similar replacements
 
-* EnvironmentFile=
-
 * make systemd bus activatable
 
 * pin /cgroup/systemd
@@ -70,6 +68,14 @@
 * install must understand templates
 
 * upstart fallback in systemctl
+
+* abstract namespace dbus socket
+
+* /sbin/shutdown argv[2..] message
+
+* exec /sbin/telinit from init
+
+* discuss NOTIFY_SOCKET, make it configurable? security implications?
 
 Regularly:
 

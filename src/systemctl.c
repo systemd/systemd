@@ -1893,12 +1893,7 @@ static int parse_argv(int argc, char *argv[]) {
         return systemctl_parse_argv(argc, argv);
 }
 
-static int talk_upstart(DBusConnection *bus) {
-        log_error("Talking upstart");
-        return 0;
-}
-
-static int talk_initctl(void) {
+static int action_to_runlevel(void) {
 
         static const char table[_ACTION_MAX] = {
                 [ACTION_HALT] =      '0',
@@ -1911,26 +1906,114 @@ static int talk_initctl(void) {
                 [ACTION_RESCUE] =    '1'
         };
 
+        assert(arg_action < _ACTION_MAX);
+
+        return table[arg_action];
+}
+
+static int talk_upstart(DBusConnection *bus) {
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        int previous, rl, r;
+        char
+                env1_buf[] = "RUNLEVEL=X",
+                env2_buf[] = "PREVLEVEL=X";
+        char *env1 = env1_buf, *env2 = env2_buf;
+        const char *emit = "runlevel";
+        dbus_bool_t b_false = FALSE;
+        DBusMessageIter iter, sub;
+
+        dbus_error_init(&error);
+
+        if (!(rl = action_to_runlevel()))
+                return 0;
+
+        if (utmp_get_runlevel(&previous, NULL) < 0)
+                previous = 'N';
+
+        if (!(m = dbus_message_new_method_call(
+                              "com.ubuntu.Upstart",
+                              "/com/ubuntu/Upstart",
+                              "com.ubuntu.Upstart0_6",
+                              "EmitEvent"))) {
+
+                log_error("Could not allocate message.");
+                return -ENOMEM;
+        }
+
+        dbus_message_iter_init_append(m, &iter);
+
+        env1_buf[sizeof(env1_buf)-2] = rl;
+        env2_buf[sizeof(env2_buf)-2] = previous;
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &emit) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "s", &sub) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &env1) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &env2) ||
+            !dbus_message_iter_close_container(&iter, &sub) ||
+            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &b_false)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+
+                if (error_is_no_service(&error)) {
+                        r = 0;
+                        goto finish;
+                }
+
+                log_error("Failed to issue method call: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 1;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int talk_initctl(void) {
         struct init_request request;
         int r, fd;
+        char rl;
 
-        if (!table[arg_action])
+        if (!(rl = action_to_runlevel()))
                 return 0;
 
         zero(request);
         request.magic = INIT_MAGIC;
         request.sleeptime = 0;
         request.cmd = INIT_CMD_RUNLVL;
-        request.runlevel = table[arg_action];
+        request.runlevel = rl;
 
-        if ((fd = open(INIT_FIFO, O_WRONLY|O_NDELAY|O_CLOEXEC|O_NOCTTY)) < 0)
+        if ((fd = open(INIT_FIFO, O_WRONLY|O_NDELAY|O_CLOEXEC|O_NOCTTY)) < 0) {
+
+                if (errno == ENOENT)
+                        return 0;
+
+                log_error("Failed to open "INIT_FIFO": %m");
                 return -errno;
+        }
 
+        errno = 0;
         r = loop_write(fd, &request, sizeof(request), false) != sizeof(request);
         close_nointr_nofail(fd);
 
-        if (r < 0)
+        if (r < 0) {
+                log_error("Failed to write to "INIT_FIFO": %m");
                 return errno ? -errno : -EIO;
+        }
 
         return 1;
 }
@@ -2068,7 +2151,11 @@ static int start_with_fallback(DBusConnection *bus) {
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
-        return talk_initctl();
+        if ((r = talk_initctl()) != 0)
+                return 0;
+
+        log_error("Failed to talk to init daemon.");
+        return -EIO;
 }
 
 static int halt_main(DBusConnection *bus) {
