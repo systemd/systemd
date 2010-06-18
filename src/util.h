@@ -258,6 +258,10 @@ void rename_process(const char name[8]);
 
 void sigset_add_many(sigset_t *ss, ...);
 
+char* gethostname_malloc(void);
+char* getlogname_malloc(void);
+char *getttyname_malloc(void);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

@@ -53,7 +53,6 @@ enum action {
         ACTION_HALT,
         ACTION_POWEROFF,
         ACTION_REBOOT,
-        ACTION_RUNLEVEL1,
         ACTION_RUNLEVEL2,
         ACTION_RUNLEVEL3,
         ACTION_RUNLEVEL4,
@@ -115,6 +114,20 @@ static int columns(void) {
 
         return parsed_columns;
 
+}
+
+static void warn_wall(void) {
+        static const char *table[_ACTION_MAX] = {
+                [ACTION_HALT]     = "The system is going down for system halt NOW!",
+                [ACTION_REBOOT]   = "The system is going down for reboot NOW!",
+                [ACTION_POWEROFF] = "The system is going down for power-off NOW!",
+                [ACTION_RESCUE]   = "The system is going down to rescue mode NOW!"
+        };
+
+        if (!table[arg_action])
+                return;
+
+        utmp_wall(table[arg_action]);
 }
 
 static int list_units(DBusConnection *bus, char **args, unsigned n) {
@@ -662,7 +675,6 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 [ACTION_HALT] = "halt.target",
                 [ACTION_POWEROFF] = "poweroff.target",
                 [ACTION_REBOOT] = "reboot.target",
-                [ACTION_RUNLEVEL1] = "runlevel1.target",
                 [ACTION_RUNLEVEL2] = "runlevel2.target",
                 [ACTION_RUNLEVEL3] = "runlevel3.target",
                 [ACTION_RUNLEVEL4] = "runlevel4.target",
@@ -1648,7 +1660,7 @@ static int telinit_parse_argv(int argc, char *argv[]) {
         } table[] = {
                 { '0', ACTION_POWEROFF },
                 { '6', ACTION_REBOOT },
-                { '1', ACTION_RUNLEVEL1 },
+                { '1', ACTION_RESCUE },
                 { '2', ACTION_RUNLEVEL2 },
                 { '3', ACTION_RUNLEVEL3 },
                 { '4', ACTION_RUNLEVEL4 },
@@ -1907,6 +1919,8 @@ static int reload_with_fallback(DBusConnection *bus) {
 static int start_with_fallback(DBusConnection *bus) {
         int r;
 
+        warn_wall();
+
         if (bus) {
                 /* First, try systemd via D-Bus. */
                 if ((r = start_unit(bus, NULL, 0)) > 0)
@@ -1928,6 +1942,8 @@ static int halt_main(DBusConnection *bus) {
 
         if (!arg_immediate)
                 return start_with_fallback(bus);
+
+        warn_wall();
 
         if (!arg_no_wtmp)
                 if ((r = utmp_put_shutdown(0)) < 0)
@@ -2028,7 +2044,6 @@ int main(int argc, char*argv[]) {
                 retval = halt_main(bus) < 0;
                 break;
 
-        case ACTION_RUNLEVEL1:
         case ACTION_RUNLEVEL2:
         case ACTION_RUNLEVEL3:
         case ACTION_RUNLEVEL4:

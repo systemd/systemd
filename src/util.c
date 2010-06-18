@@ -44,6 +44,8 @@
 #include <libgen.h>
 #include <ctype.h>
 #include <sys/prctl.h>
+#include <sys/utsname.h>
+#include <pwd.h>
 
 #include "macro.h"
 #include "util.h"
@@ -2215,6 +2217,68 @@ void sigset_add_many(sigset_t *ss, ...) {
         while ((sig = va_arg(ap, int)) > 0)
                 assert_se(sigaddset(ss, sig) == 0);
         va_end(ap);
+}
+
+char* gethostname_malloc(void) {
+        struct utsname u;
+
+        assert_se(uname(&u) >= 0);
+
+        if (u.nodename[0])
+                return strdup(u.nodename);
+
+        return strdup(u.sysname);
+}
+
+char* getlogname_malloc(void) {
+        uid_t uid;
+        long bufsize;
+        char *buf, *name;
+        struct passwd pwbuf, *pw = NULL;
+        struct stat st;
+
+        if (isatty(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
+                uid = st.st_uid;
+        else
+                uid = getuid();
+
+        /* Shortcut things to avoid NSS lookups */
+        if (uid == 0)
+                return strdup("root");
+
+        if ((bufsize = sysconf(_SC_GETPW_R_SIZE_MAX)) <= 0)
+                bufsize = 4096;
+
+        if (!(buf = malloc(bufsize)))
+                return NULL;
+
+        if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw) {
+                name = strdup(pw->pw_name);
+                free(buf);
+                return name;
+        }
+
+        free(buf);
+
+        if (asprintf(&name, "%lu", (unsigned long) uid) < 0)
+                return NULL;
+
+        return name;
+}
+
+char *getttyname_malloc(void) {
+        char path[PATH_MAX], *p;
+
+        if (ttyname_r(STDIN_FILENO, path, sizeof(path)) < 0)
+                return strdup("unknown");
+
+        char_array_0(path);
+
+        p = path;
+        if (startswith(path, "/dev/"))
+                p += 5;
+
+        return strdup(p);
 }
 
 static const char *const ioprio_class_table[] = {
