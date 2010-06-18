@@ -197,6 +197,7 @@ static int manager_setup_signals(Manager *m) {
 int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
+        char *p;
 
         assert(_m);
         assert(running_as >= 0);
@@ -211,6 +212,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         m->confirm_spawn = confirm_spawn;
         m->name_data_slot = -1;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
+        m->pin_cgroupfs_fd = -1;
 
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
@@ -255,6 +257,14 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         if ((r = bus_init_system(m)) < 0 ||
             (r = bus_init_api(m)) < 0)
                 goto fail;
+
+        if (asprintf(&p, "%s/%s", m->cgroup_mount_point, m->cgroup_hierarchy) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        m->pin_cgroupfs_fd = open(p, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
+        free(p);
 
         *_m = m;
         return 0;
@@ -446,8 +456,12 @@ void manager_free(Manager *m) {
 
         free(m->cgroup_controller);
         free(m->cgroup_hierarchy);
+        free(m->cgroup_mount_point);
 
         hashmap_free(m->cgroup_bondings);
+
+        if (m->pin_cgroupfs_fd >= 0)
+                close_nointr_nofail(m->pin_cgroupfs_fd);
 
         free(m);
 }

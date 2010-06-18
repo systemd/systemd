@@ -407,7 +407,7 @@ finish:
 }
 
 int manager_setup_cgroup(Manager *m) {
-        char *mp, *cp;
+        char *cp;
         int r;
         pid_t pid;
         char suffix[32];
@@ -423,15 +423,15 @@ int manager_setup_cgroup(Manager *m) {
         if (!(m->cgroup_controller = strdup("name=systemd")))
                 return -ENOMEM;
 
-        if ((r = cgroup_get_subsys_mount_point(m->cgroup_controller, &mp)))
+        free(m->cgroup_mount_point);
+        m->cgroup_mount_point = NULL;
+        if ((r = cgroup_get_subsys_mount_point(m->cgroup_controller, &m->cgroup_mount_point)))
                 return translate_error(r, errno);
 
         pid = getpid();
 
-        if ((r = cgroup_get_current_controller_path(pid, m->cgroup_controller, &cp))) {
-                free(mp);
+        if ((r = cgroup_get_current_controller_path(pid, m->cgroup_controller, &cp)))
                 return translate_error(r, errno);
-        }
 
         snprintf(suffix, sizeof(suffix), "/systemd-%u", (unsigned) pid);
         char_array_0(suffix);
@@ -448,23 +448,19 @@ int manager_setup_cgroup(Manager *m) {
                 r = asprintf(&m->cgroup_hierarchy, "%s%s", streq(cp, "/") ? "" : cp, suffix);
                 free(cp);
 
-                if (r < 0) {
-                        free(mp);
+                if (r < 0)
                         return -ENOMEM;
-                }
         }
 
         log_debug("Using cgroup controller <%s>, hierarchy mounted at <%s>, using root group <%s>.",
                   m->cgroup_controller,
-                  mp,
+                  m->cgroup_mount_point,
                   m->cgroup_hierarchy);
 
-        if ((r = install_release_agent(m, mp)) < 0)
+        if ((r = install_release_agent(m, m->cgroup_mount_point)) < 0)
                 log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
         else
                 log_debug("Installed release agent, or already installed.");
-
-        free(mp);
 
         if ((r = create_hierarchy_cgroup(m)) < 0)
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));

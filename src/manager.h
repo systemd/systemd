@@ -167,11 +167,16 @@ struct Manager {
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
         char *cgroup_controller;
+        char *cgroup_mount_point;
         char *cgroup_hierarchy;
 
         usec_t gc_queue_timestamp;
         int gc_marker;
         unsigned n_in_gc_queue;
+
+        /* Make sure the user cannot accidentaly unmount our cgroup
+         * file system */
+        int pin_cgroupfs_fd;
 
         /* Flags */
         ManagerRunningAs running_as;

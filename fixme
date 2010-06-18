@@ -61,13 +61,9 @@
 
 * make systemd bus activatable
 
-* pin /cgroup/systemd
-
 * systemd-sysvinit as package
 
 * install must understand templates
-
-* upstart fallback in systemctl
 
 * abstract namespace dbus socket
 
