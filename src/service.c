@@ -1376,9 +1376,6 @@ static int cgroup_good(Service *s) {
 
         assert(s);
 
-        if (s->valid_no_process)
-                return -EAGAIN;
-
         if ((r = cgroup_bonding_is_empty_list(UNIT(s)->meta.cgroup_bondings)) < 0)
                 return r;
 

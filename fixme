@@ -61,6 +61,10 @@
 
 * abstract namespace dbus socket
 
+* patch /etc/init.d/functions with:
+
+  if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
