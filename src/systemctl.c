@@ -39,6 +39,7 @@
 #include "utmp-wtmp.h"
 #include "special.h"
 #include "initreq.h"
+#include "strv.h"
 
 static const char *arg_type = NULL;
 static bool arg_all = false;
@@ -138,6 +139,23 @@ static void warn_wall(enum action action) {
 
         if (arg_no_wall)
                 return;
+
+        if (arg_wall) {
+                char *p;
+
+                if (!(p = strv_join(arg_wall, " "))) {
+                        log_error("Failed to join strings.");
+                        return;
+                }
+
+                if (*p) {
+                        utmp_wall(p);
+                        free(p);
+                        return;
+                }
+
+                free(p);
+        }
 
         if (!table[action])
                 return;
