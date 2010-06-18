@@ -291,7 +291,7 @@ finish:
 int utmp_wall(const char *message) {
         struct utmpx *u;
         char date[26];
-        char *text, *hn, *un, *tty;
+        char *text = NULL, *hn = NULL, *un = NULL, *tty = NULL;
         int r;
         time_t t;
 
