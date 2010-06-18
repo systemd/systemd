@@ -1964,7 +1964,7 @@ int close_pipe(int p[]) {
         return a < 0 ? a : b;
 }
 
-ssize_t loop_read(int fd, void *buf, size_t nbytes) {
+ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
         uint8_t *p;
         ssize_t n = 0;
 
@@ -1978,10 +1978,10 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes) {
 
                 if ((k = read(fd, p, nbytes)) <= 0) {
 
-                        if (errno == EINTR)
+                        if (k < 0 && errno == EINTR)
                                 continue;
 
-                        if (errno == EAGAIN) {
+                        if (k < 0 && errno == EAGAIN && do_poll) {
                                 struct pollfd pollfd;
 
                                 zero(pollfd);
@@ -1996,6 +1996,54 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes) {
                                 }
 
                                 if (pollfd.revents != POLLIN)
+                                        return n > 0 ? n : -EIO;
+
+                                continue;
+                        }
+
+                        return n > 0 ? n : (k < 0 ? -errno : 0);
+                }
+
+                p += k;
+                nbytes -= k;
+                n += k;
+        }
+
+        return n;
+}
+
+ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
+        const uint8_t *p;
+        ssize_t n = 0;
+
+        assert(fd >= 0);
+        assert(buf);
+
+        p = buf;
+
+        while (nbytes > 0) {
+                ssize_t k;
+
+                if ((k = write(fd, p, nbytes)) <= 0) {
+
+                        if (k < 0 && errno == EINTR)
+                                continue;
+
+                        if (k < 0 && errno == EAGAIN && do_poll) {
+                                struct pollfd pollfd;
+
+                                zero(pollfd);
+                                pollfd.fd = fd;
+                                pollfd.events = POLLOUT;
+
+                                if (poll(&pollfd, 1, -1) < 0) {
+                                        if (errno == EINTR)
+                                                continue;
+
+                                        return n > 0 ? n : -errno;
+                                }
+
+                                if (pollfd.revents != POLLOUT)
                                         return n > 0 ? n : -EIO;
 
                                 continue;
@@ -2182,7 +2230,7 @@ unsigned long long random_ull(void) {
         if ((fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0)
                 goto fallback;
 
-        r = loop_read(fd, &ull, sizeof(ull));
+        r = loop_read(fd, &ull, sizeof(ull), true);
         close_nointr_nofail(fd);
 
         if (r != sizeof(ull))

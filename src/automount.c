@@ -708,7 +708,7 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 goto fail;
         }
 
-        if ((l = loop_read(a->pipe_fd, &packet, sizeof(packet))) != sizeof(packet)) {
+        if ((l = loop_read(a->pipe_fd, &packet, sizeof(packet), true)) != sizeof(packet)) {
                 log_error("Invalid read from pipe: %s", l < 0 ? strerror(-l) : "short read");
                 goto fail;
         }

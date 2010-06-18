@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <dbus/dbus.h>
 
@@ -37,6 +38,7 @@
 #include "set.h"
 #include "utmp-wtmp.h"
 #include "special.h"
+#include "initreq.h"
 
 static const char *arg_type = NULL;
 static bool arg_all = false;
@@ -1897,8 +1899,40 @@ static int talk_upstart(DBusConnection *bus) {
 }
 
 static int talk_initctl(void) {
-        log_error("Talking initctl");
-        return 0;
+
+        static const char table[_ACTION_MAX] = {
+                [ACTION_HALT] =      '0',
+                [ACTION_POWEROFF] =  '0',
+                [ACTION_REBOOT] =    '6',
+                [ACTION_RUNLEVEL2] = '2',
+                [ACTION_RUNLEVEL3] = '3',
+                [ACTION_RUNLEVEL4] = '4',
+                [ACTION_RUNLEVEL5] = '5',
+                [ACTION_RESCUE] =    '1'
+        };
+
+        struct init_request request;
+        int r, fd;
+
+        if (!table[arg_action])
+                return 0;
+
+        zero(request);
+        request.magic = INIT_MAGIC;
+        request.sleeptime = 0;
+        request.cmd = INIT_CMD_RUNLVL;
+        request.runlevel = table[arg_action];
+
+        if ((fd = open(INIT_FIFO, O_WRONLY|O_NDELAY|O_CLOEXEC|O_NOCTTY)) < 0)
+                return -errno;
+
+        r = loop_write(fd, &request, sizeof(request), false) != sizeof(request);
+        close_nointr_nofail(fd);
+
+        if (r < 0)
+                return errno ? -errno : -EIO;
+
+        return 1;
 }
 
 static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
@@ -2148,6 +2182,7 @@ int main(int argc, char*argv[]) {
         case ACTION_RUNLEVEL5:
         case ACTION_RESCUE:
         case ACTION_EMERGENCY:
+        case ACTION_DEFAULT:
                 retval = start_with_fallback(bus) < 0;
                 break;
 
@@ -2156,6 +2191,8 @@ int main(int argc, char*argv[]) {
                 retval = reload_with_fallback(bus) < 0;
                 break;
 
+        case ACTION_INVALID:
+        case ACTION_RUNLEVEL:
         default:
                 assert_not_reached("Unknown action");
         }

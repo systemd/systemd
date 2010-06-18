@@ -69,9 +69,7 @@
 
 * install must understand templates
 
-* shutdown must be able to do wall
-
-* upstart/initctl fallback in systemctl
+* upstart fallback in systemctl
 
 Regularly:
 
