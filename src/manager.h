@@ -125,6 +125,8 @@ struct Manager {
 
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
+        char *notify_socket;
+
         Watch notify_watch;
         Watch signal_watch;
 

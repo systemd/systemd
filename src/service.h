@@ -76,11 +76,21 @@ typedef enum ServiceExecCommand {
         _SERVICE_EXEC_COMMAND_INVALID = -1
 } ServiceExecCommand;
 
+typedef enum NotifyAccess {
+        NOTIFY_NONE,
+        NOTIFY_ALL,
+        NOTIFY_MAIN,
+        _NOTIFY_ACCESS_MAX,
+        _NOTIFY_ACCESS_INVALID = -1
+} NotifyAccess;
+
 struct Service {
         Meta meta;
 
         ServiceType type;
         ServiceRestart restart;
+
+        NotifyAccess notify_access;
 
         /* If set we'll read the main daemon PID from this file */
         char *pid_file;
@@ -146,5 +156,8 @@ ServiceType service_type_from_string(const char *s);
 
 const char* service_exec_command_to_string(ServiceExecCommand i);
 ServiceExecCommand service_exec_command_from_string(const char *s);
+
+const char* notify_access_to_string(NotifyAccess i);
+NotifyAccess notify_access_from_string(const char *s);
 
 #endif

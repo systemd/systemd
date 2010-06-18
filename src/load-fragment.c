@@ -1204,6 +1204,8 @@ finish:
         return r;
 }
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -1360,6 +1362,9 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_description,      "DESCRIPTION" },
                 { config_parse_timer,            "TIMER" },
                 { config_parse_timer_unit,       "NAME" },
+                { config_parse_path_spec,        "PATH" },
+                { config_parse_path_unit,        "UNIT" },
+                { config_parse_notify_access,    "ACCESS" }
         };
 
         assert(f);
@@ -1491,6 +1496,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "KillMode",               config_parse_kill_mode,       &u->service.kill_mode,                           "Service" },
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
                 { "BusName",                config_parse_string,          &u->service.bus_name,                            "Service" },
+                { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },

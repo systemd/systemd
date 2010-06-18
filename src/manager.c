@@ -70,7 +70,6 @@ static int manager_setup_notify(Manager *m) {
                 struct sockaddr_un un;
         } sa;
         struct epoll_event ev;
-        char *ne[2], **t;
         int one = 1;
 
         assert(m);
@@ -106,18 +105,8 @@ static int manager_setup_notify(Manager *m) {
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev) < 0)
                 return -errno;
 
-        if (asprintf(&ne[0], "NOTIFY_SOCKET=@%s", sa.un.sun_path+1) < 0)
+        if (!(m->notify_socket = strdup(sa.un.sun_path+1)))
                 return -ENOMEM;
-
-        ne[1] = NULL;
-        t = strv_env_merge(2, m->environment, ne);
-        free(ne[0]);
-
-        if (!t)
-                return -ENOMEM;
-
-        strv_free(m->environment);
-        m->environment = t;
 
         return 0;
 }
@@ -450,6 +439,8 @@ void manager_free(Manager *m) {
                 close_nointr_nofail(m->signal_watch.fd);
         if (m->notify_watch.fd >= 0)
                 close_nointr_nofail(m->notify_watch.fd);
+
+        free(m->notify_socket);
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
@@ -1672,7 +1663,7 @@ static int manager_process_notify_fd(Manager *m) {
                 log_debug("Got notification message for unit %s", u->meta.id);
 
                 if (UNIT_VTABLE(u)->notify_message)
-                        UNIT_VTABLE(u)->notify_message(u, tags);
+                        UNIT_VTABLE(u)->notify_message(u, ucred->pid, tags);
 
                 strv_free(tags);
         }

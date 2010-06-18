@@ -850,6 +850,9 @@ static int service_load(Unit *u) {
                         if ((r = unit_watch_bus_name(u, s->bus_name)) < 0)
                             return r;
                 }
+
+                if (s->type == SERVICE_NOTIFY && s->notify_access == NOTIFY_NONE)
+                        s->notify_access = NOTIFY_MAIN;
         }
 
         return service_verify(s);
@@ -873,13 +876,15 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sValidNoProcess: %s\n"
                 "%sKillMode: %s\n"
-                "%sType: %s\n",
+                "%sType: %s\n"
+                "%sNotifyAccess: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->valid_no_process),
                 prefix, kill_mode_to_string(s->kill_mode),
-                prefix, service_type_to_string(s->type));
+                prefix, service_type_to_string(s->type),
+                prefix, notify_access_to_string(s->notify_access));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -1245,13 +1250,14 @@ static int service_spawn(
                 bool pass_fds,
                 bool apply_permissions,
                 bool apply_chroot,
+                bool set_notify_socket,
                 pid_t *_pid) {
 
         pid_t pid;
         int r;
         int *fds = NULL;
         unsigned n_fds = 0;
-        char **argv;
+        char **argv = NULL, **env = NULL;
 
         assert(s);
         assert(c);
@@ -1276,11 +1282,29 @@ static int service_spawn(
                 goto fail;
         }
 
+        if (set_notify_socket) {
+                char *t;
+
+                if (asprintf(&t, "NOTIFY_SOCKET=@%s", s->meta.manager->notify_socket) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                env = strv_env_set(s->meta.manager->environment, t);
+                free(t);
+
+                if (!env) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        } else
+                env = s->meta.manager->environment;
+
         r = exec_spawn(c,
                        argv,
                        &s->exec_context,
                        fds, n_fds,
-                       s->meta.manager->environment,
+                       env,
                        apply_permissions,
                        apply_chroot,
                        UNIT(s)->meta.manager->confirm_spawn,
@@ -1288,6 +1312,12 @@ static int service_spawn(
                        &pid);
 
         strv_free(argv);
+        argv = NULL;
+
+        if (set_notify_socket)
+                strv_free(env);
+        env = NULL;
+
         if (r < 0)
                 goto fail;
 
@@ -1308,6 +1338,11 @@ static int service_spawn(
 
 fail:
         free(fds);
+
+        strv_free(argv);
+
+        if (set_notify_socket)
+                strv_free(env);
 
         if (timeout)
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
@@ -1395,6 +1430,7 @@ static void service_enter_stop_post(Service *s, bool success) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1493,6 +1529,7 @@ static void service_enter_stop(Service *s, bool success) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1537,6 +1574,7 @@ static void service_enter_start_post(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1571,6 +1609,7 @@ static void service_enter_start(Service *s) {
                                true,
                                true,
                                true,
+                               s->notify_access != NOTIFY_NONE,
                                &pid)) < 0)
                 goto fail;
 
@@ -1630,6 +1669,7 @@ static void service_enter_start_pre(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1677,6 +1717,7 @@ static void service_enter_reload(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1711,6 +1752,7 @@ static void service_run_next(Service *s, bool success) {
                                false,
                                !s->permissions_start_only,
                                !s->root_directory_start_only,
+                               false,
                                &s->control_pid)) < 0)
                 goto fail;
 
@@ -2218,11 +2260,23 @@ static void service_cgroup_notify_event(Unit *u) {
         }
 }
 
-static void service_notify_message(Unit *u, char **tags) {
+static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         Service *s = SERVICE(u);
         const char *e;
 
         assert(u);
+
+        if (s->notify_access == NOTIFY_NONE) {
+                log_warning("%s: Got notification message from PID %lu, but reception is disabled.",
+                            u->meta.id, (unsigned long) pid);
+                return;
+        }
+
+        if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
+                log_warning("%s: Got notification message from PID %lu, but reception only permitted for PID %lu",
+                            u->meta.id, (unsigned long) pid, (unsigned long) s->main_pid);
+                return;
+        }
 
         log_debug("%s: Got message", u->meta.id);
 
@@ -2232,7 +2286,6 @@ static void service_notify_message(Unit *u, char **tags) {
              s->state == SERVICE_START_POST ||
              s->state == SERVICE_RUNNING ||
              s->state == SERVICE_RELOAD)) {
-                pid_t pid;
 
                 if (parse_pid(e + 8, &pid) < 0)
                         log_warning("Failed to parse %s", e);
@@ -2544,6 +2597,14 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
+
+static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
+        [NOTIFY_NONE] = "none",
+        [NOTIFY_MAIN] = "main",
+        [NOTIFY_ALL] = "all"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 const UnitVTable service_vtable = {
         .suffix = ".service",

@@ -63,8 +63,6 @@
 
 * abstract namespace dbus socket
 
-* discuss NOTIFY_SOCKET, make it configurable? security implications?
-
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
