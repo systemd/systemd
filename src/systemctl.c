@@ -1465,7 +1465,7 @@ static int halt_help(void) {
 
 static int shutdown_help(void) {
 
-        printf("%s [options] [IGNORED] [WALL...]\n\n"
+        printf("%s [options] [now] [WALL...]\n\n"
                "Shut down the system.\n\n"
                "     --help      Show this help\n"
                "  -H --halt      Halt the machine\n"
@@ -1739,6 +1739,11 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         log_error("Unknown option code %c", c);
                         return -EINVAL;
                 }
+        }
+
+        if (argc > optind && !streq(argv[optind], "now")) {
+                log_error("Expected 'now' argument.");
+                return -EINVAL;
         }
 
         /* We ignore the time argument */
