@@ -39,7 +39,7 @@
 #include "log.h"
 #include "list.h"
 #include "initreq.h"
-#include "manager.h"
+#include "special.h"
 #include "sd-daemon.h"
 
 #define SERVER_FD_MAX 16
@@ -72,15 +72,15 @@ static const char *translate_runlevel(int runlevel) {
                 const int runlevel;
                 const char *special;
         } table[] = {
-                { '0', SPECIAL_RUNLEVEL0_TARGET },
-                { '1', SPECIAL_RUNLEVEL1_TARGET },
-                { 's', SPECIAL_RUNLEVEL1_TARGET },
-                { 'S', SPECIAL_RUNLEVEL1_TARGET },
+                { '0', SPECIAL_POWEROFF_TARGET },
+                { '1', SPECIAL_RESCUE_TARGET },
+                { 's', SPECIAL_RESCUE_TARGET },
+                { 'S', SPECIAL_RESCUE_TARGET },
                 { '2', SPECIAL_RUNLEVEL2_TARGET },
                 { '3', SPECIAL_RUNLEVEL3_TARGET },
                 { '4', SPECIAL_RUNLEVEL4_TARGET },
                 { '5', SPECIAL_RUNLEVEL5_TARGET },
-                { '6', SPECIAL_RUNLEVEL6_TARGET },
+                { '6', SPECIAL_REBOOT_TARGET },
         };
 
         unsigned i;

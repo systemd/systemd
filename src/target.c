@@ -27,6 +27,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "dbus-target.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD] = UNIT_INACTIVE,
@@ -147,9 +148,9 @@ int target_get_runlevel(Target *t) {
                 { SPECIAL_RUNLEVEL4_TARGET, '4' },
                 { SPECIAL_RUNLEVEL3_TARGET, '3' },
                 { SPECIAL_RUNLEVEL2_TARGET, '2' },
-                { SPECIAL_RUNLEVEL1_TARGET, '1' },
-                { SPECIAL_RUNLEVEL0_TARGET, '0' },
-                { SPECIAL_RUNLEVEL6_TARGET, '6' },
+                { SPECIAL_RESCUE_TARGET,    '1' },
+                { SPECIAL_POWEROFF_TARGET,  '0' },
+                { SPECIAL_REBOOT_TARGET,    '6' },
         };
 
         unsigned i;

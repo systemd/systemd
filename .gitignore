@@ -19,6 +19,9 @@ systemadm
 *~
 *.tar.gz
 *.o
+*.lo
+*.a
+*.la
 .deps/
 Makefile.in
 aclocal.m4
@@ -37,3 +40,6 @@ missing
 stamp-*
 *.stamp
 Makefile
+ltmain.sh
+*.tar.bz2
+libtool

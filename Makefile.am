@@ -287,7 +287,8 @@ EXTRA_DIST += \
 	src/securebits.h \
 	src/linux/auto_dev-ioctl.h \
 	src/initreq.h \
-	src/sd-daemon.h
+	src/sd-daemon.h \
+	src/special.h
 
 dist_man_MANS = \
 	man/systemd.unit.5 \

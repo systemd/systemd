@@ -53,6 +53,7 @@
 #include "dbus-job.h"
 #include "missing.h"
 #include "path-lookup.h"
+#include "special.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16

@@ -40,6 +40,7 @@
 #include "kmod-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
+#include "special.h"
 
 static enum {
         ACTION_RUN,
@@ -222,11 +223,11 @@ static int set_default_unit(const char *u) {
 static int parse_proc_cmdline_word(const char *word) {
 
         static const char * const rlmap[] = {
-                "single", SPECIAL_RUNLEVEL1_TARGET,
-                "-s",     SPECIAL_RUNLEVEL1_TARGET,
-                "s",      SPECIAL_RUNLEVEL1_TARGET,
-                "S",      SPECIAL_RUNLEVEL1_TARGET,
-                "1",      SPECIAL_RUNLEVEL1_TARGET,
+                "single", SPECIAL_RESCUE_TARGET,
+                "-s",     SPECIAL_RESCUE_TARGET,
+                "s",      SPECIAL_RESCUE_TARGET,
+                "S",      SPECIAL_RESCUE_TARGET,
+                "1",      SPECIAL_RESCUE_TARGET,
                 "2",      SPECIAL_RUNLEVEL2_TARGET,
                 "3",      SPECIAL_RUNLEVEL3_TARGET,
                 "4",      SPECIAL_RUNLEVEL4_TARGET,

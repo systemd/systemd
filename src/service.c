@@ -32,6 +32,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "dbus-service.h"
+#include "special.h"
 
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
@@ -49,13 +50,13 @@ static const struct {
         const RunlevelType type;
 } rcnd_table[] = {
         /* Standard SysV runlevels */
-        { "rc0.d",  SPECIAL_RUNLEVEL0_TARGET, RUNLEVEL_DOWN },
-        { "rc1.d",  SPECIAL_RUNLEVEL1_TARGET, RUNLEVEL_UP },
+        { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
+        { "rc1.d",  SPECIAL_RESCUE_TARGET,    RUNLEVEL_UP },
         { "rc2.d",  SPECIAL_RUNLEVEL2_TARGET, RUNLEVEL_UP },
         { "rc3.d",  SPECIAL_RUNLEVEL3_TARGET, RUNLEVEL_UP },
         { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
-        { "rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
+        { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN },
 
         /* SUSE style boot.d */
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },

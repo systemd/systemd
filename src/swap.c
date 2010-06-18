@@ -33,6 +33,7 @@
 #include "load-dropin.h"
 #include "unit-name.h"
 #include "dbus-swap.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,

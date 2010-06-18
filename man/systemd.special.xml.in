@@ -69,13 +69,10 @@
                 <filename>rescue.target</filename>,
                 <filename>rpcbind.target</filename>,
                 <filename>rtc-set.target</filename>,
-                <filename>runlevel0.target</filename>,
-                <filename>runlevel1.target</filename>,
                 <filename>runlevel2.target</filename>,
                 <filename>runlevel3.target</filename>,
                 <filename>runlevel4.target</filename>,
                 <filename>runlevel5.target</filename>,
-                <filename>runlevel6.target</filename>
                 <filename>shutdown.target</filename>,
                 <filename>sigpwr.target</filename>,
                 <filename>sockets.target</filename>,
@@ -415,32 +412,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>runlevel0.target</filename></term>
-                                <listitem>
-                                        <para>This is a target that is
-                                        called whever the SysV
-                                        compatibility code asks for
-                                        runlevel 0. This is an alias
-                                        for
-                                        <filename>poweroff.target</filename>,
-                                        for compatibility with
-                                        SysV.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>runlevel1.target</filename></term>
-                                <listitem>
-                                        <para>This is a target that is
-                                        called whever the SysV
-                                        compatibility code asks for
-                                        runlevel 1. This is an alias
-                                        for
-                                        <filename>rescue.target</filename>,
-                                        for compatibility with
-                                        SysV.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>runlevel2.target</filename></term>
                                 <listitem>
                                         <para>This is a target that is
@@ -492,19 +463,6 @@
                                         <filename>multi-user.target</filename>
                                         or
                                         <filename>graphical.target</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>runlevel6.target</filename></term>
-                                <listitem>
-                                        <para>This is a target that is
-                                        called whever the SysV
-                                        compatibility code asks for
-                                        runlevel 6. This is an alias
-                                        for
-                                        <filename>reboot.target</filename>,
-                                        for compatibility with
-                                        SysV.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

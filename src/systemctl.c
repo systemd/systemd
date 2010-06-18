@@ -36,6 +36,7 @@
 #include "macro.h"
 #include "set.h"
 #include "utmp-wtmp.h"
+#include "special.h"
 
 static const char *arg_type = NULL;
 static bool arg_all = false;
@@ -45,6 +46,7 @@ static bool arg_block = false;
 static bool arg_immediate = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_sync = false;
+static bool arg_no_wall = false;
 static bool arg_dry = false;
 static char **arg_wall = NULL;
 enum action {
@@ -58,6 +60,8 @@ enum action {
         ACTION_RUNLEVEL4,
         ACTION_RUNLEVEL5,
         ACTION_RESCUE,
+        ACTION_EMERGENCY,
+        ACTION_DEFAULT,
         ACTION_RELOAD,
         ACTION_REEXEC,
         ACTION_RUNLEVEL,
@@ -65,6 +69,8 @@ enum action {
 } arg_action = ACTION_SYSTEMCTL;
 
 static bool error_is_no_service(DBusError *error) {
+
+        assert(error);
 
         if (!dbus_error_is_set(error))
                 return false;
@@ -79,6 +85,9 @@ static bool error_is_no_service(DBusError *error) {
 }
 
 static int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, bool next) {
+
+        assert(iter);
+        assert(data);
 
         if (dbus_message_iter_get_arg_type(iter) != type)
                 return -EIO;
@@ -116,18 +125,22 @@ static int columns(void) {
 
 }
 
-static void warn_wall(void) {
+static void warn_wall(enum action action) {
         static const char *table[_ACTION_MAX] = {
-                [ACTION_HALT]     = "The system is going down for system halt NOW!",
-                [ACTION_REBOOT]   = "The system is going down for reboot NOW!",
-                [ACTION_POWEROFF] = "The system is going down for power-off NOW!",
-                [ACTION_RESCUE]   = "The system is going down to rescue mode NOW!"
+                [ACTION_HALT]      = "The system is going down for system halt NOW!",
+                [ACTION_REBOOT]    = "The system is going down for reboot NOW!",
+                [ACTION_POWEROFF]  = "The system is going down for power-off NOW!",
+                [ACTION_RESCUE]    = "The system is going down to rescue mode NOW!",
+                [ACTION_EMERGENCY] = "The system is going down to emergency mode NOW!"
         };
 
-        if (!table[arg_action])
+        if (arg_no_wall)
                 return;
 
-        utmp_wall(table[arg_action]);
+        if (!table[action])
+                return;
+
+        utmp_wall(table[action]);
 }
 
 static int list_units(DBusConnection *bus, char **args, unsigned n) {
@@ -138,6 +151,8 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
         unsigned k = 0;
 
         dbus_error_init(&error);
+
+        assert(bus);
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -247,6 +262,8 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
+        assert(bus);
+
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
                               "/org/freedesktop/systemd1",
@@ -326,6 +343,9 @@ static int load_unit(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
+        assert(bus);
+        assert(args);
+
         for (i = 1; i < n; i++) {
 
                 if (!(m = dbus_message_new_method_call(
@@ -379,6 +399,9 @@ static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
         unsigned i;
 
         dbus_error_init(&error);
+
+        assert(bus);
+        assert(args);
 
         for (i = 1; i < n; i++) {
                 unsigned id;
@@ -669,77 +692,114 @@ finish:
         return r;
 }
 
+static enum action verb_to_action(const char *verb) {
+        if (streq(verb, "halt"))
+                return ACTION_HALT;
+        else if (streq(verb, "poweroff"))
+                return ACTION_POWEROFF;
+        else if (streq(verb, "reboot"))
+                return ACTION_REBOOT;
+        else if (streq(verb, "rescue"))
+                return ACTION_RESCUE;
+        else if (streq(verb, "emergency"))
+                return ACTION_EMERGENCY;
+        else if (streq(verb, "default"))
+                return ACTION_DEFAULT;
+        else
+                return ACTION_INVALID;
+}
+
 static int start_unit(DBusConnection *bus, char **args, unsigned n) {
 
         static const char * const table[_ACTION_MAX] = {
-                [ACTION_HALT] = "halt.target",
-                [ACTION_POWEROFF] = "poweroff.target",
-                [ACTION_REBOOT] = "reboot.target",
-                [ACTION_RUNLEVEL2] = "runlevel2.target",
-                [ACTION_RUNLEVEL3] = "runlevel3.target",
-                [ACTION_RUNLEVEL4] = "runlevel4.target",
-                [ACTION_RUNLEVEL5] = "runlevel5.target",
-                [ACTION_RESCUE] = "rescue.target"
+                [ACTION_HALT] = SPECIAL_HALT_TARGET,
+                [ACTION_POWEROFF] = SPECIAL_POWEROFF_TARGET,
+                [ACTION_REBOOT] = SPECIAL_REBOOT_TARGET,
+                [ACTION_RUNLEVEL2] = SPECIAL_RUNLEVEL2_TARGET,
+                [ACTION_RUNLEVEL3] = SPECIAL_RUNLEVEL3_TARGET,
+                [ACTION_RUNLEVEL4] = SPECIAL_RUNLEVEL4_TARGET,
+                [ACTION_RUNLEVEL5] = SPECIAL_RUNLEVEL5_TARGET,
+                [ACTION_RESCUE] = SPECIAL_RESCUE_TARGET,
+                [ACTION_EMERGENCY] = SPECIAL_EMERGENCY_SERVICE,
+                [ACTION_DEFAULT] = SPECIAL_DEFAULT_TARGET
         };
 
         int r;
         unsigned i;
-        const char *method, *mode;
+        const char *method, *mode, *one_name;
         Set *s = NULL;
+
+        assert(bus);
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 method =
-                        streq(args[0], "start")   ? "StartUnit" :
                         streq(args[0], "stop")    ? "StopUnit" :
                         streq(args[0], "reload")  ? "ReloadUnit" :
                         streq(args[0], "restart") ? "RestartUnit" :
-                                     /* isolate */  "StartUnit";
+                                                    "StartUnit";
 
                 mode =
-                        streq(args[0], "isolate") ? "isolate" :
-                                      arg_replace ? "replace" :
-                                                    "fail";
+                        (streq(args[0], "isolate") ||
+                         streq(args[0], "rescue")  ||
+                         streq(args[0], "emergency")) ? "isolate" :
+                                          arg_replace ? "replace" :
+                                                        "fail";
 
-                if (arg_block) {
-                        if ((r = enable_wait_for_jobs(bus)) < 0) {
-                                log_error("Could not watch jobs: %s", strerror(-r));
-                                goto finish;
-                        }
+                one_name = table[verb_to_action(args[0])];
 
-                        if (!(s = set_new(string_hash_func, string_compare_func))) {
-                                log_error("Failed to allocate set.");
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-                }
         } else {
                 assert(arg_action < ELEMENTSOF(table));
                 assert(table[arg_action]);
 
                 method = "StartUnit";
-                mode = arg_action == ACTION_RESCUE ? "isolate" : "replace";
+
+                mode = (arg_action == ACTION_EMERGENCY ||
+                        arg_action == ACTION_RESCUE) ? "isolate" : "replace";
+
+                one_name = table[arg_action];
+        }
+
+        if (arg_block) {
+                if ((r = enable_wait_for_jobs(bus)) < 0) {
+                        log_error("Could not watch jobs: %s", strerror(-r));
+                        goto finish;
+                }
+
+                if (!(s = set_new(string_hash_func, string_compare_func))) {
+                        log_error("Failed to allocate set.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
         }
 
         r = 0;
 
-        if (arg_action == ACTION_SYSTEMCTL) {
+        if (one_name) {
+                if ((r = start_unit_one(bus, method, one_name, mode, s)) <= 0)
+                        goto finish;
+        } else {
                 for (i = 1; i < n; i++)
                         if ((r = start_unit_one(bus, method, args[i], mode, s)) < 0)
                                 goto finish;
-
-                if (arg_block)
-                        r = wait_for_jobs(bus, s);
-
-        } else {
-                if ((r = start_unit_one(bus, method, table[arg_action], mode, s)) <= 0)
-                        goto finish;
         }
+
+        if (arg_block)
+                r = wait_for_jobs(bus, s);
 
 finish:
         if (s)
                 set_free_free(s);
 
         return r;
+}
+
+static int start_special(DBusConnection *bus, char **args, unsigned n) {
+        assert(bus);
+        assert(args);
+
+        warn_wall(verb_to_action(args[0]));
+
+        return start_unit(bus, args, n);
 }
 
 static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage *message, void *data) {
@@ -1322,14 +1382,15 @@ finish:
 static int systemctl_help(void) {
 
         printf("%s [options]\n\n"
-               "Send control commands to the init system.\n\n"
+               "Send control commands to the init daemon.\n\n"
                "  -h --help      Show this help\n"
                "  -t --type=TYPE List only units of a particular type\n"
                "  -a --all       Show all units, including dead ones\n"
                "     --replace   When installing a new job, replace existing conflicting ones\n"
                "     --system    Connect to system bus\n"
                "     --session   Connect to session bus\n"
-               "     --block     Wait until operation finished\n\n"
+               "     --block     Wait until operation finished\n"
+               "     --no-wall   Don't send wall message before reboot/halt/power-off\n\n"
                "Commands:\n"
                "  list-units                      List units\n"
                "  list-jobs                       List jobs\n"
@@ -1344,12 +1405,18 @@ static int systemctl_help(void) {
                "  monitor                         Monitor unit/job changes\n"
                "  dump                            Dump server status\n"
                "  snapshot [NAME]                 Create a snapshot\n"
-               "  daemon-reload                   Reload daemon configuration\n"
-               "  daemon-reexecute                Reexecute daemon\n"
-               "  daemon-exit                     Ask the daemon to quit\n"
+               "  daemon-reload                   Reload init daemon configuration\n"
+               "  daemon-reexecute                Reexecute init daemon\n"
+               "  daemon-exit                     Ask the init daemon to quit\n"
                "  show-environment                Dump environment\n"
                "  set-environment [NAME=VALUE...] Set one or more environment variables\n"
-               "  unset-environment [NAME...]     Unset one or more environment variables\n",
+               "  unset-environment [NAME...]     Unset one or more environment variables\n"
+               "  halt                            Shut down and halt the system\n"
+               "  reboot                          Shut down and reboot the system\n"
+               "  poweroff                        Shut down and power off the system\n"
+               "  default                         Enter default mode\n"
+               "  rescue                          Enter rescue mode\n"
+               "  emergency                       Enter emergency mode\n",
                program_invocation_short_name);
 
         return 0;
@@ -1366,7 +1433,8 @@ static int halt_help(void) {
                "  -f --force     Force immediate reboot/halt/power-off\n"
                "  -w --wtmp-only Don't reboot/halt/power-off, just write wtmp record\n"
                "  -d --no-wtmp   Don't write wtmp record\n"
-               "  -n --no-sync   Don't sync before reboot/halt/power-off\n",
+               "  -n --no-sync   Don't sync before reboot/halt/power-off\n"
+               "     --no-wall   Don't send wall message before reboot/halt/power-off\n",
                program_invocation_short_name,
                arg_action == ACTION_REBOOT   ? "Reboot" :
                arg_action == ACTION_POWEROFF ? "Power off" :
@@ -1377,14 +1445,15 @@ static int halt_help(void) {
 
 static int shutdown_help(void) {
 
-        printf("%s [options] [TIME] [WALL...]\n\n"
+        printf("%s [options] [IGNORED] [WALL...]\n\n"
                "Shut down the system.\n\n"
                "     --help      Show this help\n"
                "  -H --halt      Halt the machine\n"
                "  -P --poweroff  Power-off the machine\n"
                "  -r --reboot    Reboot the machine\n"
                "  -h             Equivalent to --poweroff, overriden by --halt\n"
-               "  -k             Don't reboot/halt/power-off, just send warnings\n",
+               "  -k             Don't reboot/halt/power-off, just send warnings\n"
+               "     --no-wall   Don't send wall message before reboot/halt/power-off\n",
                program_invocation_short_name);
 
         return 0;
@@ -1393,15 +1462,16 @@ static int shutdown_help(void) {
 static int telinit_help(void) {
 
         printf("%s [options]\n\n"
-               "Send control commands to the init system.\n\n"
-               "     --help      Show this help\n\n"
+               "Send control commands to the init daemon.\n\n"
+               "     --help      Show this help\n"
+               "     --no-wall   Don't send wall message before reboot/halt/power-off\n\n"
                "Commands:\n"
                "  0              Power-off the machine\n"
                "  6              Reboot the machine\n"
-               "  1, 2, 3, 4, 5  Start runlevelX.target unit\n"
-               "  s, S           Start the rescue.target unit\n"
-               "  q, Q           Ask systemd to reload its configuration\n"
-               "  u, U           Ask systemd to reexecute itself\n",
+               "  2, 3, 4, 5     Start runlevelX.target unit\n"
+               "  1, s, S        Enter rescue mode\n"
+               "  q, Q           Reload init daemon configuration\n"
+               "  u, U           Reexecute init daemon\n",
                program_invocation_short_name);
 
         return 0;
@@ -1423,7 +1493,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_REPLACE = 0x100,
                 ARG_SESSION,
                 ARG_SYSTEM,
-                ARG_BLOCK
+                ARG_BLOCK,
+                ARG_NO_WALL
         };
 
         static const struct option options[] = {
@@ -1434,6 +1505,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "session",   no_argument,       NULL, ARG_SESSION },
                 { "system",    no_argument,       NULL, ARG_SYSTEM  },
                 { "block",     no_argument,       NULL, ARG_BLOCK   },
+                { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
                 { NULL,        0,                 NULL, 0           }
         };
 
@@ -1474,6 +1546,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_block = true;
                         break;
 
+                case ARG_NO_WALL:
+                        arg_no_wall = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1491,7 +1567,8 @@ static int halt_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_HELP = 0x100,
                 ARG_HALT,
-                ARG_REBOOT
+                ARG_REBOOT,
+                ARG_NO_WALL
         };
 
         static const struct option options[] = {
@@ -1503,6 +1580,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 { "wtmp-only", no_argument,       NULL, 'w'         },
                 { "no-wtmp",   no_argument,       NULL, 'd'         },
                 { "no-sync",   no_argument,       NULL, 'n'         },
+                { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
                 { NULL,        0,                 NULL, 0           }
         };
 
@@ -1550,6 +1628,10 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         arg_no_sync = true;
                         break;
 
+                case ARG_NO_WALL:
+                        arg_no_wall = true;
+                        break;
+
                 case 'i':
                 case 'h':
                         /* Compatibility nops */
@@ -1576,6 +1658,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_HELP = 0x100,
+                ARG_NO_WALL
         };
 
         static const struct option options[] = {
@@ -1583,6 +1666,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 { "halt",      no_argument,       NULL, 'H'         },
                 { "poweroff",  no_argument,       NULL, 'P'         },
                 { "reboot",    no_argument,       NULL, 'r'         },
+                { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
                 { NULL,        0,                 NULL, 0           }
         };
 
@@ -1619,6 +1703,10 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         arg_dry = true;
                         break;
 
+                case ARG_NO_WALL:
+                        arg_no_wall = true;
+                        break;
+
                 case 't':
                 case 'a':
                         /* Compatibility nops */
@@ -1647,10 +1735,12 @@ static int telinit_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_HELP = 0x100,
+                ARG_NO_WALL
         };
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, ARG_HELP    },
+                { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
                 { NULL,        0,                 NULL, 0           }
         };
 
@@ -1685,6 +1775,10 @@ static int telinit_parse_argv(int argc, char *argv[]) {
                 case ARG_HELP:
                         telinit_help();
                         return 0;
+
+                case ARG_NO_WALL:
+                        arg_no_wall = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -1838,6 +1932,12 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "show-environment",  EQUAL, 1, show_enviroment },
                 { "set-environment",   MORE,  2, set_environment },
                 { "unset-environment", MORE,  2, set_environment },
+                { "halt",              EQUAL, 1, start_special   },
+                { "poweroff",          EQUAL, 1, start_special   },
+                { "reboot",            EQUAL, 1, start_special   },
+                { "default",           EQUAL, 1, start_special   },
+                { "rescue",            EQUAL, 1, start_special   },
+                { "emergency",         EQUAL, 1, start_special   },
         };
 
         int left;
@@ -1919,7 +2019,7 @@ static int reload_with_fallback(DBusConnection *bus) {
 static int start_with_fallback(DBusConnection *bus) {
         int r;
 
-        warn_wall();
+        warn_wall(arg_action);
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
@@ -1942,8 +2042,6 @@ static int halt_main(DBusConnection *bus) {
 
         if (!arg_immediate)
                 return start_with_fallback(bus);
-
-        warn_wall();
 
         if (!arg_no_wtmp)
                 if ((r = utmp_put_shutdown(0)) < 0)
@@ -2049,6 +2147,7 @@ int main(int argc, char*argv[]) {
         case ACTION_RUNLEVEL4:
         case ACTION_RUNLEVEL5:
         case ACTION_RESCUE:
+        case ACTION_EMERGENCY:
                 retval = start_with_fallback(bus) < 0;
                 break;
 
