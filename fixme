@@ -28,8 +28,6 @@
 
 * iCalendar semantics for the timer stuff (RFC2445)
 
-* provide sysv-like command line utilities
-
 * ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
 
@@ -63,13 +61,11 @@
 
 * systemd-sysvinit as package
 
-* install must understand templates
-
 * abstract namespace dbus socket
 
-* /sbin/shutdown argv[2..] message
-
 * discuss NOTIFY_SOCKET, make it configurable? security implications?
+
+* when reading pid for watching, verify we are parent
 
 Regularly:
 

@@ -181,9 +181,6 @@ static bool unit_name_valid(const char *name) {
         /* This is a minimal version of unit_name_valid() from
          * unit-name.c */
 
-        if (strchr(name, '/'))
-                return false;
-
         if (!*name)
                 return false;
 
@@ -386,6 +383,9 @@ static int install_info_symlink_alias(InstallInfo *i, const char *config_path) {
 
                 if ((r = create_symlink(i->path, alias_path)) != 0)
                         goto finish;
+
+                if (arg_action == ACTION_DISABLE)
+                        rmdir_parents(alias_path, config_path);
         }
 
         r = 0;
@@ -422,15 +422,8 @@ static int install_info_symlink_wants(InstallInfo *i, const char *config_path) {
                 if ((r = create_symlink(i->path, alias_path)) != 0)
                         goto finish;
 
-                if (arg_action == ACTION_DISABLE) {
-                        char *t;
-
-                        /* Try to remove .wants dir if we don't need it anymore */
-                        if (asprintf(&t, "%s/%s.wants", config_path, *s) >= 0) {
-                                rmdir(t);
-                                free(t);
-                        }
-                }
+                if (arg_action == ACTION_DISABLE)
+                        rmdir_parents(alias_path, config_path);
         }
 
         r = 0;
