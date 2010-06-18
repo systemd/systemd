@@ -154,7 +154,7 @@ static int config_parse_names(
         return 0;
 }
 
-static int config_parse_description(
+static int config_parse_string_printf(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -164,23 +164,24 @@ static int config_parse_description(
                 void *userdata) {
 
         Unit *u = userdata;
+        char **s = data;
         char *k;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(s);
+        assert(u);
 
         if (!(k = unit_full_printf(u, rvalue)))
                 return -ENOMEM;
 
-        free(u->meta.description);
-
+        free(*s);
         if (*k)
-                u->meta.description = k;
+                *s = k;
         else {
                 free(k);
-                u->meta.description = NULL;
+                *s = NULL;
         }
 
         return 0;
@@ -1359,7 +1360,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_usec,             "SECONDS" },
                 { config_parse_path_strv,        "PATH [...]" },
                 { config_parse_mount_flags,      "MOUNTFLAG [...]" },
-                { config_parse_description,      "DESCRIPTION" },
+                { config_parse_string_printf,    "STRING" },
                 { config_parse_timer,            "TIMER" },
                 { config_parse_timer_unit,       "NAME" },
                 { config_parse_path_spec,        "PATH" },
@@ -1412,8 +1413,8 @@ static int load_from_path(Unit *u, const char *path) {
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
                 { "WorkingDirectory",       config_parse_path,            &(context).working_directory,                    section   }, \
                 { "RootDirectory",          config_parse_path,            &(context).root_directory,                       section   }, \
-                { "User",                   config_parse_string,          &(context).user,                                 section   }, \
-                { "Group",                  config_parse_string,          &(context).group,                                section   }, \
+                { "User",                   config_parse_string_printf,   &(context).user,                                 section   }, \
+                { "Group",                  config_parse_string_printf,   &(context).group,                                section   }, \
                 { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                 section   }, \
                 { "Nice",                   config_parse_nice,            &(context),                                      section   }, \
                 { "OOMAdjust",              config_parse_oom_adjust,      &(context),                                      section   }, \
@@ -1430,7 +1431,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "StandardOutput",         config_parse_output,          &(context).std_output,                           section   }, \
                 { "StandardError",          config_parse_output,          &(context).std_error,                            section   }, \
                 { "TTYPath",                config_parse_path,            &(context).tty_path,                             section   }, \
-                { "SyslogIdentifier",       config_parse_string,          &(context).syslog_identifier,                    section   }, \
+                { "SyslogIdentifier",       config_parse_string_printf,   &(context).syslog_identifier,                    section   }, \
                 { "SyslogFacility",         config_parse_facility,        &(context).syslog_priority,                      section   }, \
                 { "SyslogLevel",            config_parse_level,           &(context).syslog_priority,                      section   }, \
                 { "SyslogNoPrefix",         config_parse_bool,            &(context).syslog_no_prefix,                     section   }, \
@@ -1460,12 +1461,12 @@ static int load_from_path(Unit *u, const char *path) {
                 { "InaccessibleDirectories",config_parse_path_strv,       &(context).inaccessible_dirs,                    section   }, \
                 { "PrivateTmp",             config_parse_bool,            &(context).private_tmp,                          section   }, \
                 { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }, \
-                { "TCPWrapName",            config_parse_string,          &(context).tcpwrap_name,                         section   }, \
-                { "PAMName",                config_parse_string,          &(context).pam_name,                             section   }
+                { "TCPWrapName",            config_parse_string_printf,   &(context).tcpwrap_name,                         section   }, \
+                { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },
-                { "Description",            config_parse_description,     u,                                               "Unit"    },
+                { "Description",            config_parse_string_printf,   &u->meta.description,                            "Unit"    },
                 { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                      "Unit"    },
                 { "RequiresOverridable",    config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES_OVERRIDABLE),          "Unit"    },
                 { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                     "Unit"    },
@@ -1495,7 +1496,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
                 { "KillMode",               config_parse_kill_mode,       &u->service.kill_mode,                           "Service" },
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
-                { "BusName",                config_parse_string,          &u->service.bus_name,                            "Service" },
+                { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
                 { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 

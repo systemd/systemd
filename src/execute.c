@@ -1517,9 +1517,9 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->user)
-                fprintf(f, "%sUser: %s", prefix, c->user);
+                fprintf(f, "%sUser: %s\n", prefix, c->user);
         if (c->group)
-                fprintf(f, "%sGroup: %s", prefix, c->group);
+                fprintf(f, "%sGroup: %s\n", prefix, c->group);
 
         if (strv_length(c->supplementary_groups) > 0) {
                 fprintf(f, "%sSupplementaryGroups:", prefix);
@@ -1528,7 +1528,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->pam_name)
-                fprintf(f, "%sPAMName: %s", prefix, c->pam_name);
+                fprintf(f, "%sPAMName: %s\n", prefix, c->pam_name);
 
         if (strv_length(c->read_write_dirs) > 0) {
                 fprintf(f, "%sReadWriteDirs:", prefix);
