@@ -73,8 +73,6 @@
 
 * /sbin/shutdown argv[2..] message
 
-* exec /sbin/telinit from init
-
 * discuss NOTIFY_SOCKET, make it configurable? security implications?
 
 Regularly:

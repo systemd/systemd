@@ -610,6 +610,16 @@ int main(int argc, char *argv[]) {
         FDSet *fds = NULL;
         bool reexecute = false;
 
+        if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
+                /* This is compatbility support for SysV, where
+                 * calling init as a user is identical to telinit. */
+
+                errno = -ENOENT;
+                execv(SYSTEMCTL_BINARY_PATH, argv);
+                log_error("Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
+                return 1;
+        }
+
         log_show_color(true);
         log_show_location(false);
         log_set_max_level(LOG_DEBUG);

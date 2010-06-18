@@ -44,6 +44,7 @@ AM_CPPFLAGS = \
 	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
 	-DCGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
+	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-I $(top_srcdir)/src
 
 rootbin_PROGRAMS = \
