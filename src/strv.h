@@ -58,6 +58,8 @@ char *strv_join(char **l, const char *separator) _malloc_;
 char **strv_env_merge(unsigned n_lists, ...);
 char **strv_env_delete(char **x, unsigned n_lists, ...);
 
+char **strv_env_set(char **x, const char *p);
+
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)
 

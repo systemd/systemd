@@ -40,6 +40,9 @@
 #include "missing.h"
 #include "unit-name.h"
 
+#define COMMENTS "#;\n"
+#define LINE_MAX 4096
+
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
         static int function(                                            \
                         const char *filename,                           \
@@ -1143,6 +1146,64 @@ static int config_parse_path_unit(
         return 0;
 }
 
+static int config_parse_env_file(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        FILE *f;
+        int r;
+        char ***env = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!(f = fopen(rvalue, "re"))) {
+                log_error("[%s:%u] Failed to open environment file '%s': %m", filename, line, rvalue);
+                return -errno;
+        }
+
+        while (!feof(f)) {
+                char l[LINE_MAX], *p;
+                char **t;
+
+                if (!fgets(l, sizeof(l), f)) {
+                        if (feof(f))
+                                break;
+
+                        r = -errno;
+                        log_error("[%s:%u] Failed to read environment file '%s': %m", filename, line, rvalue);
+                        goto finish;
+                }
+
+                p = strstrip(l);
+
+                if (!*p)
+                        continue;
+
+                if (strchr(COMMENTS, *p))
+                        continue;
+
+                t = strv_env_set(*env, p);
+                strv_free(*env);
+                *env = t;
+        }
+
+        r = 0;
+
+finish:
+        if (f)
+                fclose(f);
+
+        return r;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -1272,6 +1333,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_cpu_sched_prio,   "CPUSCHEDPRIO" },
                 { config_parse_cpu_affinity,     "CPUAFFINITY" },
                 { config_parse_mode,             "MODE" },
+                { config_parse_env_file,         "FILE" },
                 { config_parse_output,           "OUTPUT" },
                 { config_parse_input,            "INPUT" },
                 { config_parse_facility,         "FACILITY" },
@@ -1358,6 +1420,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "CPUAffinity",            config_parse_cpu_affinity,    &(context),                                      section   }, \
                 { "UMask",                  config_parse_mode,            &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
+                { "EnvironmentFile",        config_parse_env_file,        &(context).environment,                          section   }, \
                 { "StandardInput",          config_parse_input,           &(context).std_input,                            section   }, \
                 { "StandardOutput",         config_parse_output,          &(context).std_output,                           section   }, \
                 { "StandardError",          config_parse_output,          &(context).std_error,                            section   }, \

@@ -511,3 +511,31 @@ char **strv_env_delete(char **x, unsigned n_lists, ...) {
 
         return r;
 }
+
+char **strv_env_set(char **x, const char *p) {
+
+        char **k, **r;
+
+        if (!(r = new(char*, strv_length(x)+2)))
+                return NULL;
+
+        k = r;
+        if (env_append(r, &k, x) < 0)
+                goto fail;
+
+        if (!(*(k++) = strdup(p)))
+                goto fail;
+
+        *k = NULL;
+
+        return r;
+
+fail:
+        for (k--; k >= r; k--)
+                free(*k);
+
+        free(r);
+
+        return NULL;
+
+}
