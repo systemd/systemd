@@ -103,6 +103,8 @@ struct Socket {
 
         bool accept;
         unsigned n_accepted;
+        unsigned n_connections;
+        unsigned max_connections;
 
         bool failure;
         Watch timer_watch;
@@ -117,6 +119,9 @@ void socket_notify_service_dead(Socket *s);
 /* Called from the mount code figure out if a mount is a dependency of
  * any of the sockets of this socket */
 int socket_add_one_mount_link(Socket *s, Mount *m);
+
+/* Called from the service code when a per-connection service ended */
+void socket_connection_unref(Socket *s);
 
 extern const UnitVTable socket_vtable;
 

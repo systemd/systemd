@@ -137,13 +137,14 @@ struct Service {
         RateLimit ratelimit;
 
         int socket_fd;
+        struct Socket *socket;
 
         Watch timer_watch;
 };
 
 extern const UnitVTable service_vtable;
 
-int service_set_socket_fd(Service *s, int fd);
+int service_set_socket_fd(Service *s, int fd, struct Socket *socket);
 
 const char* service_state_to_string(ServiceState i);
 ServiceState service_state_from_string(const char *s);

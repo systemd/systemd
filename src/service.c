@@ -157,6 +157,16 @@ static void service_close_socket_fd(Service *s) {
         s->socket_fd = -1;
 }
 
+static void service_connection_unref(Service *s) {
+        assert(s);
+
+        if (!s->socket)
+                return;
+
+        socket_connection_unref(s->socket);
+        s->socket = NULL;
+}
+
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -190,6 +200,7 @@ static void service_done(Unit *u) {
         }
 
         service_close_socket_fd(s);
+        service_connection_unref(s);
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -800,6 +811,11 @@ static int service_verify(Service *s) {
                 return -EINVAL;
         }
 
+        if (s->exec_command[SERVICE_EXEC_START]->command_next) {
+                log_error("%s has more than one ExecStart setting. Refusing.", UNIT(s)->meta.id);
+                return -EINVAL;
+        }
+
         if (s->type == SERVICE_DBUS && !s->bus_name) {
                 log_error("%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->meta.id);
                 return -EINVAL;
@@ -993,6 +1009,9 @@ static int service_get_sockets(Service *s, Set **_set) {
         assert(s);
         assert(_set);
 
+        if (s->socket_fd >= 0)
+                return 0;
+
         /* Collects all Socket objects that belong to this
          * service. Note that a service might have multiple sockets
          * via multiple names. */
@@ -1037,6 +1056,9 @@ static int service_notify_sockets_dead(Service *s) {
         int r;
 
         assert(s);
+
+        if (s->socket_fd >= 0)
+                return 0;
 
         /* Notifies all our sockets when we die */
         if ((r = service_get_sockets(s, &set)) < 0)
@@ -1107,8 +1129,19 @@ static void service_set_state(Service *s, ServiceState state) {
 
         if (state != SERVICE_START_PRE &&
             state != SERVICE_START &&
-            !(state == SERVICE_DEAD && UNIT(s)->meta.job))
+            state != SERVICE_START_POST &&
+            state != SERVICE_RUNNING &&
+            state != SERVICE_RELOAD &&
+            state != SERVICE_STOP &&
+            state != SERVICE_STOP_SIGTERM &&
+            state != SERVICE_STOP_SIGKILL &&
+            state != SERVICE_STOP_POST &&
+            state != SERVICE_FINAL_SIGTERM &&
+            state != SERVICE_FINAL_SIGKILL &&
+            !(state == SERVICE_DEAD && UNIT(s)->meta.job)) {
                 service_close_socket_fd(s);
+                service_connection_unref(s);
+        }
 
         if (old_state != state)
                 log_debug("%s changed %s -> %s", UNIT(s)->meta.id, service_state_to_string(old_state), service_state_to_string(state));
@@ -1194,6 +1227,9 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         assert(fds);
         assert(n_fds);
 
+        if (s->socket_fd >= 0)
+                return 0;
+
         if ((r = service_get_sockets(s, &set)) < 0)
                 return r;
 
@@ -1255,7 +1291,7 @@ static int service_spawn(
 
         pid_t pid;
         int r;
-        int *fds = NULL;
+        int *fds = NULL, *fdsbuf = NULL;
         unsigned n_fds = 0;
         char **argv = NULL, **env = NULL;
 
@@ -1263,12 +1299,20 @@ static int service_spawn(
         assert(c);
         assert(_pid);
 
-        if (pass_fds) {
+        if (pass_fds ||
+            s->exec_context.std_input == EXEC_INPUT_SOCKET ||
+            s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
+            s->exec_context.std_error == EXEC_OUTPUT_SOCKET) {
+
                 if (s->socket_fd >= 0) {
                         fds = &s->socket_fd;
                         n_fds = 1;
-                } else if ((r = service_collect_fds(s, &fds, &n_fds)) < 0)
-                        goto fail;
+                } else {
+                        if ((r = service_collect_fds(s, &fdsbuf, &n_fds)) < 0)
+                                goto fail;
+
+                        fds = fdsbuf;
+                }
         }
 
         if (timeout && s->timeout_usec) {
@@ -1321,12 +1365,8 @@ static int service_spawn(
         if (r < 0)
                 goto fail;
 
-        if (fds) {
-                if (s->socket_fd >= 0)
-                        service_close_socket_fd(s);
-                else
-                        free(fds);
-        }
+        if (fdsbuf)
+                free(fdsbuf);
 
         if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
                 /* FIXME: we need to do something here */
@@ -1756,7 +1796,7 @@ static void service_run_next(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run spawn next task: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run next task: %s", UNIT(s)->meta.id, strerror(-r));
 
         if (s->state == SERVICE_START_PRE)
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
@@ -2524,7 +2564,7 @@ static void service_bus_query_pid_done(
                 service_set_main_pid(s, pid);
 }
 
-int service_set_socket_fd(Service *s, int fd) {
+int service_set_socket_fd(Service *s, int fd, Socket *sock) {
         assert(s);
         assert(fd >= 0);
 
@@ -2543,6 +2583,8 @@ int service_set_socket_fd(Service *s, int fd) {
 
         s->socket_fd = fd;
         s->got_socket_fd = true;
+        s->socket = sock;
+
         return 0;
 }
 

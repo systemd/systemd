@@ -1,7 +1,5 @@
 * calendar time support in timer
 
-* enforce max number of concurrent connection limit in sockets.
-
 * complete dbus exposure
 
 * make conf parser work more like .desktop parsers
@@ -51,19 +49,19 @@
 
 * follow property change dbus spec
 
+* make systemd bus activatable (?)
+
 * pam module
 
 * selinux
 
-* make systemd bus activatable
+External:
 
 * systemd-sysvinit as package
 
 * patch /etc/init.d/functions with:
 
   if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
-
-* remove MANAGER_SYSTEM
 
 Regularly:
 

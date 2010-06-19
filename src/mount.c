@@ -645,7 +645,7 @@ static void mount_enter_unmounting(Mount *m, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run umount exectuable: %s", UNIT(m)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'umount' task: %s", UNIT(m)->meta.id, strerror(-r));
         mount_enter_mounted(m, false);
 }
 
@@ -688,7 +688,7 @@ static void mount_enter_mounting(Mount *m) {
         return;
 
 fail:
-        log_warning("%s failed to run mount exectuable: %s", UNIT(m)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'mount' task: %s", UNIT(m)->meta.id, strerror(-r));
         mount_enter_dead(m, false);
 }
 

@@ -63,6 +63,8 @@ static void socket_init(Unit *u) {
         s->directory_mode = 0755;
         s->socket_mode = 0666;
 
+        s->max_connections = 64;
+
         exec_context_init(&s->exec_context);
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
@@ -81,6 +83,7 @@ static void socket_unwatch_control_pid(Socket *s) {
 static void socket_done(Unit *u) {
         Socket *s = SOCKET(u);
         SocketPort *p;
+        Meta *i;
 
         assert(s);
 
@@ -108,6 +111,14 @@ static void socket_done(Unit *u) {
         s->bind_to_device = NULL;
 
         unit_unwatch_timer(u, &s->timer_watch);
+
+        /* Make sure no service instance refers to us anymore. */
+        LIST_FOREACH(units_per_type, i, u->meta.manager->units_per_type[UNIT_SERVICE]) {
+                Service *service = (Service *) i;
+
+                if (service->socket == s)
+                        service->socket = NULL;
+        }
 }
 
 static bool have_non_accept_socket(Socket *s) {
@@ -138,6 +149,11 @@ static int socket_verify(Socket *s) {
 
         if (!s->ports) {
                 log_error("%s lacks Listen setting. Refusing.", UNIT(s)->meta.id);
+                return -EINVAL;
+        }
+
+        if (s->accept && s->max_connections <= 0) {
+                log_error("%s's MaxConnection setting too small. Refusing.", UNIT(s)->meta.id);
                 return -EINVAL;
         }
 
@@ -307,8 +323,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->accept)
                 fprintf(f,
-                        "%sAccepted: %u\n",
-                        prefix, s->n_accepted);
+                        "%sAccepted: %u\n"
+                        "%sNConnections: %u\n"
+                        "%sMaxConnections: %u\n",
+                        prefix, s->n_accepted,
+                        prefix, s->n_connections,
+                        prefix, s->max_connections);
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -734,7 +754,7 @@ static void socket_enter_stop_post(Socket *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run stop-post executable: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop-post' task: %s", s->meta.id, strerror(-r));
         socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
 }
 
@@ -809,7 +829,7 @@ static void socket_enter_stop_pre(Socket *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run stop-pre executable: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop-pre' task: %s", s->meta.id, strerror(-r));
         socket_enter_stop_post(s, false);
 }
 
@@ -844,7 +864,7 @@ static void socket_enter_start_post(Socket *s) {
 
         if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST])) {
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0) {
-                        log_warning("%s failed to run start-post executable: %s", s->meta.id, strerror(-r));
+                        log_warning("%s failed to run 'start-post' task: %s", s->meta.id, strerror(-r));
                         goto fail;
                 }
 
@@ -877,7 +897,7 @@ static void socket_enter_start_pre(Socket *s) {
         return;
 
 fail:
-        log_warning("%s failed to run start-pre exectuable: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start-pre' task: %s", s->meta.id, strerror(-r));
         socket_enter_dead(s, false);
 }
 
@@ -894,6 +914,12 @@ static void socket_enter_running(Socket *s, int cfd) {
         } else {
                 Unit *u;
                 char *prefix, *instance, *name;
+
+                if (s->n_connections >= s->max_connections) {
+                        log_warning("Too many incoming connections (%u)", s->n_connections);
+                        close_nointr_nofail(cfd);
+                        return;
+                }
 
                 if ((r = instance_from_socket(cfd, s->n_accepted++, &instance)) < 0)
                         goto fail;
@@ -919,10 +945,12 @@ static void socket_enter_running(Socket *s, int cfd) {
                 if (r < 0)
                         goto fail;
 
-                if ((r = service_set_socket_fd(SERVICE(u), cfd)) < 0)
+                if ((r = service_set_socket_fd(SERVICE(u), cfd, s)) < 0)
                         goto fail;
 
                 cfd = -1;
+
+                s->n_connections ++;
 
                 if ((r = manager_add_job(u->meta.manager, JOB_START, u, JOB_REPLACE, true, NULL)) < 0)
                         goto fail;
@@ -958,7 +986,7 @@ static void socket_run_next(Socket *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run spawn next executable: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run next task: %s", s->meta.id, strerror(-r));
 
         if (s->state == SOCKET_START_POST)
                 socket_enter_stop_pre(s, false);
@@ -1181,6 +1209,14 @@ static const char *socket_sub_state_to_string(Unit *u) {
         return socket_state_to_string(SOCKET(u)->state);
 }
 
+static bool socket_check_gc(Unit *u) {
+        Socket *s = SOCKET(u);
+
+        assert(u);
+
+        return s->n_connections > 0;
+}
+
 static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         Socket *s = SOCKET(u);
         int cfd = -1;
@@ -1375,12 +1411,29 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
 void socket_notify_service_dead(Socket *s) {
         assert(s);
 
-        /* The service is dead. Dang. */
+        /* The service is dead. Dang!
+         *
+         * This is strictly for one-instance-for-all-connections
+         * services. */
 
         if (s->state == SOCKET_RUNNING) {
                 log_debug("%s got notified about service death.", s->meta.id);
                 socket_enter_listening(s);
         }
+}
+
+void socket_connection_unref(Socket *s) {
+        assert(s);
+
+        /* The service is dead. Yay!
+         *
+         * This is strictly for one-onstance-per-connection
+         * services. */
+
+        assert(s->n_connections > 0);
+        s->n_connections--;
+
+        log_debug("%s: One connection closed, %u left.", s->meta.id, s->n_connections);
 }
 
 static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
@@ -1428,6 +1481,8 @@ const UnitVTable socket_vtable = {
 
         .active_state = socket_active_state,
         .sub_state_to_string = socket_sub_state_to_string,
+
+        .check_gc = socket_check_gc,
 
         .fd_event = socket_fd_event,
         .sigchld_event = socket_sigchld_event,
