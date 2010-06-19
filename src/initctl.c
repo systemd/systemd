@@ -296,7 +296,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 s->n_fifos ++;
         }
 
-        if (!(s->bus = dbus_bus_get(DBUS_BUS_SYSTEM, &error))) {
+        if (!(s->bus = dbus_connection_open("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
                 log_error("Failed to get D-Bus connection: %s", error.message);
                 goto fail;
         }
