@@ -18,8 +18,6 @@
 
 * "disabled" load state?
 
-* uid are 32bit
-
 * %m in printf() instead of strerror();
 
 * gc: don't reap broken services

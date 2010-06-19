@@ -904,13 +904,13 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->control_pid > 0)
                 fprintf(f,
-                        "%sControl PID: %llu\n",
-                        prefix, (unsigned long long) s->control_pid);
+                        "%sControl PID: %lu\n",
+                        prefix, (unsigned long) s->control_pid);
 
         if (s->main_pid > 0)
                 fprintf(f,
-                        "%sMain PID: %llu\n",
-                        prefix, (unsigned long long) s->main_pid);
+                        "%sMain PID: %lu\n",
+                        prefix, (unsigned long) s->main_pid);
 
         if (s->pid_file)
                 fprintf(f,

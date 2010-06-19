@@ -505,8 +505,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (m->control_pid > 0)
                 fprintf(f,
-                        "%sControl PID: %llu\n",
-                        prefix, (unsigned long long) m->control_pid);
+                        "%sControl PID: %lu\n",
+                        prefix, (unsigned long) m->control_pid);
 
         exec_context_dump(&m->exec_context, f, prefix);
 }

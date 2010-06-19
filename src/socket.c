@@ -313,8 +313,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->control_pid > 0)
                 fprintf(f,
-                        "%sControl PID: %llu\n",
-                        prefix, (unsigned long long) s->control_pid);
+                        "%sControl PID: %lu\n",
+                        prefix, (unsigned long) s->control_pid);
 
         if (s->bind_to_device)
                 fprintf(f,
@@ -447,10 +447,10 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                         return -errno;
 
                 if (asprintf(&r,
-                             "%u-%llu-%llu",
+                             "%u-%lu-%lu",
                              nr,
-                             (unsigned long long) ucred.pid,
-                             (unsigned long long) ucred.uid) < 0)
+                             (unsigned long) ucred.pid,
+                             (unsigned long) ucred.uid) < 0)
                         return -ENOMEM;
 
                 break;

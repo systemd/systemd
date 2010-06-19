@@ -265,7 +265,7 @@ static int write_to_syslog(
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
                 return -EINVAL;
 
-        snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) getpid());
+        snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) getpid());
         char_array_0(header_pid);
 
         zero(iovec);
@@ -301,7 +301,7 @@ static int write_to_kmsg(
         snprintf(header_priority, sizeof(header_priority), "<%i>", LOG_PRI(level));
         char_array_0(header_priority);
 
-        snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) getpid());
+        snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) getpid());
         char_array_0(header_pid);
 
         zero(iovec);

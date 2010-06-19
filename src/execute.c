@@ -1213,7 +1213,7 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (n_fds > 0)
-                        if (asprintf(our_env + n_env++, "LISTEN_PID=%llu", (unsigned long long) getpid()) < 0 ||
+                        if (asprintf(our_env + n_env++, "LISTEN_PID=%lu", (unsigned long) getpid()) < 0 ||
                             asprintf(our_env + n_env++, "LISTEN_FDS=%u", n_fds) < 0) {
                                 r = EXIT_MEMORY;
                                 goto fail;
@@ -1270,7 +1270,7 @@ int exec_spawn(ExecCommand *command,
         if (cgroup_bondings)
                 cgroup_bonding_install_list(cgroup_bondings, pid);
 
-        log_debug("Forked %s as %llu", command->path, (unsigned long long) pid);
+        log_debug("Forked %s as %lu", command->path, (unsigned long) pid);
 
         command->exec_status.pid = pid;
         command->exec_status.start_timestamp = now(CLOCK_REALTIME);
@@ -1572,8 +1572,8 @@ void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
                 return;
 
         fprintf(f,
-                "%sPID: %llu\n",
-                prefix, (unsigned long long) s->pid);
+                "%sPID: %lu\n",
+                prefix, (unsigned long) s->pid);
 
         if (s->start_timestamp > 0)
                 fprintf(f,

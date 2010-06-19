@@ -1701,7 +1701,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                         char *name = NULL;
 
                         get_process_name(si.si_pid, &name);
-                        log_debug("Got SIGCHLD for process %llu (%s)", (unsigned long long) si.si_pid, strna(name));
+                        log_debug("Got SIGCHLD for process %lu (%s)", (unsigned long) si.si_pid, strna(name));
                         free(name);
                 }
 
@@ -1727,8 +1727,8 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (si.si_code != CLD_EXITED && si.si_code != CLD_KILLED && si.si_code != CLD_DUMPED)
                         continue;
 
-                log_debug("Child %llu died (code=%s, status=%i/%s)",
-                          (long long unsigned) si.si_pid,
+                log_debug("Child %lu died (code=%s, status=%i/%s)",
+                          (long unsigned) si.si_pid,
                           sigchld_code_to_string(si.si_code),
                           si.si_status,
                           strna(si.si_code == CLD_EXITED ? exit_status_to_string(si.si_status) : strsignal(si.si_status)));

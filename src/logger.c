@@ -143,7 +143,7 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
                         return -EINVAL;
         }
 
-        snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) s->pid);
+        snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) s->pid);
         char_array_0(header_pid);
 
         zero(iovec);
@@ -538,7 +538,7 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
 
-        log_info("systemd-logger running as pid %llu", (unsigned long long) getpid());
+        log_info("systemd-logger running as pid %lu", (unsigned long) getpid());
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
@@ -586,7 +586,7 @@ fail:
 
         server_done(&server);
 
-        log_info("systemd-logger stopped as pid %llu", (unsigned long long) getpid());
+        log_info("systemd-logger stopped as pid %lu", (unsigned long) getpid());
 
         return r;
 }

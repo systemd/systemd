@@ -446,12 +446,12 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
         FILE *f;
         char fn[132], line[256], *p;
-        long long unsigned ppid;
+        long unsigned ppid;
 
         assert(pid >= 0);
         assert(_ppid);
 
-        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%llu/stat", (unsigned long long) pid) < (int) (sizeof(fn)-1));
+        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
         fn[sizeof(fn)-1] = 0;
 
         if (!(f = fopen(fn, "r")))
@@ -476,11 +476,11 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 
         if (sscanf(p, " "
                    "%*c "  /* state */
-                   "%llu ", /* ppid */
+                   "%lu ", /* ppid */
                    &ppid) != 1)
                 return -EIO;
 
-        if ((long long unsigned) (pid_t) ppid != ppid)
+        if ((long unsigned) (pid_t) ppid != ppid)
                 return -ERANGE;
 
         *_ppid = (pid_t) ppid;
@@ -552,7 +552,7 @@ int get_process_name(pid_t pid, char **name) {
         assert(pid >= 1);
         assert(name);
 
-        if (asprintf(&p, "/proc/%llu/comm", (unsigned long long) pid) < 0)
+        if (asprintf(&p, "/proc/%lu/comm", (unsigned long) pid) < 0)
                 return -ENOMEM;
 
         r = read_one_line_file(p, name);
