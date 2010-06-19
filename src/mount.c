@@ -303,6 +303,11 @@ static int mount_verify(Mount *m) {
                 return -EBADMSG;
         }
 
+        if (m->exec_context.pam_name && m->kill_mode != KILL_CONTROL_GROUP) {
+                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", m->meta.id);
+                return -EINVAL;
+        }
+
         return 0;
 }
 

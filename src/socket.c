@@ -153,7 +153,12 @@ static int socket_verify(Socket *s) {
         }
 
         if (s->accept && s->max_connections <= 0) {
-                log_error("%s's MaxConnection setting too small. Refusing.", UNIT(s)->meta.id);
+                log_error("%s's MaxConnection setting too small. Refusing.", s->meta.id);
+                return -EINVAL;
+        }
+
+        if (s->exec_context.pam_name && s->kill_mode != KILL_CONTROL_GROUP) {
+                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
                 return -EINVAL;
         }
 

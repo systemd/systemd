@@ -817,7 +817,12 @@ static int service_verify(Service *s) {
         }
 
         if (s->type == SERVICE_DBUS && !s->bus_name) {
-                log_error("%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->meta.id);
+                log_error("%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", s->meta.id);
+                return -EINVAL;
+        }
+
+        if (s->exec_context.pam_name && s->kill_mode != KILL_CONTROL_GROUP) {
+                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
                 return -EINVAL;
         }
 
