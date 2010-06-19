@@ -58,7 +58,7 @@ const char bus_service_interface[] = BUS_SERVICE_INTERFACE;
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);
 
-DBusHandlerResult bus_service_message_handler(Unit *u, DBusMessage *message) {
+DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connection, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Service", "Type",                   bus_service_append_type,    "s", &u->service.type },
@@ -81,5 +81,5 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusMessage *message) {
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, connection, message, INTROSPECTION, properties);
 }

@@ -41,12 +41,12 @@
 
 const char bus_path_interface[] = BUS_PATH_INTERFACE;
 
-DBusHandlerResult bus_path_message_handler(Unit *u, DBusMessage *message) {
+DBusHandlerResult bus_path_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Path", "Unit", bus_property_append_string, "s", &u->path.unit->meta.id },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
 }

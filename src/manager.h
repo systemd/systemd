@@ -154,6 +154,9 @@ struct Manager {
 
         /* Data specific to the D-Bus subsystem */
         DBusConnection *api_bus, *system_bus;
+        DBusServer *private_bus;
+        Set *bus_connections, *bus_connections_for_dispatch;
+
         Set *subscribed;
         DBusMessage *queued_message; /* This is used during reloading:
                                       * before the reload we queue the
@@ -187,9 +190,6 @@ struct Manager {
         bool dispatching_load_queue:1;
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
-
-        bool request_api_bus_dispatch:1;
-        bool request_system_bus_dispatch:1;
 
         bool utmp_reboot_written:1;
 

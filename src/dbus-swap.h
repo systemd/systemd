@@ -27,7 +27,7 @@
 
 #include "unit.h"
 
-DBusHandlerResult bus_swap_message_handler(Unit *u, DBusMessage *message);
+DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_swap_interface[];
 

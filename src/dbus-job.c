@@ -78,7 +78,7 @@ static int bus_job_append_unit(Manager *m, DBusMessageIter *i, const char *prope
         return 0;
 }
 
-static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusMessage *message) {
+static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusConnection *connection, DBusMessage *message) {
         const BusProperty properties[] = {
                 { "org.freedesktop.systemd1.Job", "Id",      bus_property_append_uint32, "u",    &j->id    },
                 { "org.freedesktop.systemd1.Job", "State",   bus_job_append_state,       "s",    &j->state },
@@ -88,7 +88,6 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusMessage *message) 
         };
 
         DBusMessage *reply = NULL;
-        Manager *m = j->manager;
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Job", "Cancel")) {
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -97,10 +96,10 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusMessage *message) 
                 job_free(j);
 
         } else
-                return bus_default_message_handler(j->manager, message, INTROSPECTION, properties);
+                return bus_default_message_handler(j->manager, connection, message, INTROSPECTION, properties);
 
         if (reply) {
-                if (!dbus_connection_send(m->api_bus, reply, NULL))
+                if (!dbus_connection_send(connection, reply, NULL))
                         goto oom;
 
                 dbus_message_unref(reply);
@@ -115,7 +114,7 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
-static DBusHandlerResult bus_job_message_handler(DBusConnection  *connection, DBusMessage  *message, void *data) {
+static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBusMessage  *message, void *data) {
         Manager *m = data;
         Job *j;
         int r;
@@ -137,10 +136,10 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection  *connection, DB
                 if (r == -ENOENT)
                         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
-                return bus_send_error_reply(m, message, NULL, r);
+                return bus_send_error_reply(m, connection, message, NULL, r);
         }
 
-        return bus_job_message_dispatch(j, message);
+        return bus_job_message_dispatch(j, connection, message);
 }
 
 const DBusObjectPathVTable bus_job_vtable = {
@@ -183,7 +182,7 @@ void bus_job_send_change_signal(Job *j) {
                         goto oom;
         }
 
-        if (!dbus_connection_send(j->manager->api_bus, m, NULL))
+        if (bus_broadcast(j->manager, m) < 0)
                 goto oom;
 
         free(p);
@@ -228,7 +227,7 @@ void bus_job_send_removed_signal(Job *j, bool success) {
                                       DBUS_TYPE_INVALID))
                 goto oom;
 
-        if (!dbus_connection_send(j->manager->api_bus, m, NULL))
+        if (bus_broadcast(j->manager, m) < 0)
                 goto oom;
 
         free(p);

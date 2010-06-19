@@ -52,7 +52,7 @@ const char bus_socket_interface[] = BUS_SOCKET_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 
-DBusHandlerResult bus_socket_message_handler(Unit *u, DBusMessage *message) {
+DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Socket", "BindIPv6Only",  bus_socket_append_bind_ipv6_only, "s", &u->socket.bind_ipv6_only },
@@ -69,5 +69,5 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusMessage *message) {
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
 }

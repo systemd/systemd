@@ -41,12 +41,12 @@
 
 const char bus_timer_interface[] = BUS_TIMER_INTERFACE;
 
-DBusHandlerResult bus_timer_message_handler(Unit *u, DBusMessage *message) {
+DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Timer", "Unit", bus_property_append_string, "s", &u->timer.unit->meta.id },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
 }

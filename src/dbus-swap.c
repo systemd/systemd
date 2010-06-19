@@ -66,7 +66,7 @@ static int bus_swap_append_priority(Manager *m, DBusMessageIter *i, const char *
         return 0;
 }
 
-DBusHandlerResult bus_swap_message_handler(Unit *u, DBusMessage *message) {
+DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Swap", "What",     bus_property_append_string, "s", u->swap.what },
@@ -74,5 +74,5 @@ DBusHandlerResult bus_swap_message_handler(Unit *u, DBusMessage *message) {
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
 }

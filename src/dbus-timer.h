@@ -26,7 +26,7 @@
 
 #include "unit.h"
 
-DBusHandlerResult bus_timer_message_handler(Unit *u, DBusMessage *message);
+DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_timer_interface[];
 

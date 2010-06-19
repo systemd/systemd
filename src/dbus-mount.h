@@ -26,7 +26,7 @@
 
 #include "unit.h"
 
-DBusHandlerResult bus_mount_message_handler(Unit *u, DBusMessage *message);
+DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_mount_interface[];
 

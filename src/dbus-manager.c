@@ -185,7 +185,7 @@ static int bus_manager_append_n_jobs(Manager *m, DBusMessageIter *i, const char 
         return 0;
 }
 
-static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusMessage *message, void *data) {
+static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection, DBusMessage *message, void *data) {
         Manager *m = data;
 
         const BusProperty properties[] = {
@@ -226,10 +226,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     &error,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if (!(u = manager_get_unit(m, name)))
-                        return bus_send_error_reply(m, message, NULL, -ENOENT);
+                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -252,10 +252,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     &error,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if ((r = manager_load_unit(m, name, NULL, &u)) < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -286,10 +286,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     &error,
                                     DBUS_TYPE_UINT32, &id,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if (!(j = manager_get_job(m, id)))
-                        return bus_send_error_reply(m, message, NULL, -ENOENT);
+                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -449,7 +449,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 r = set_put(m->subscribed, client);
 
                 if (r < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -458,7 +458,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 char *client;
 
                 if (!(client = set_remove(m->subscribed, (char*) dbus_message_get_sender(message))))
-                        return bus_send_error_reply(m, message, NULL, -ENOENT);
+                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
 
                 free(client);
 
@@ -504,13 +504,13 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_BOOLEAN, &cleanup,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if (name && name[0] == 0)
                         name = NULL;
 
                 if ((r = snapshot_create(m, name, cleanup, &s)) < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -609,7 +609,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
 
                 if (m->running_as == MANAGER_INIT)
-                        return bus_send_error_reply(m, message, NULL, -ENOTSUP);
+                        return bus_send_error_reply(m, connection, message, NULL, -ENOTSUP);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -623,7 +623,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         if (r == -ENOMEM)
                                 goto oom;
 
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
                 }
 
                 e = strv_env_merge(2, m->environment, l);
@@ -647,7 +647,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         if (r == -ENOMEM)
                                 goto oom;
 
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
                 }
 
                 e = strv_env_delete(m->environment, 1, l);
@@ -663,7 +663,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 m->environment = e;
 
         } else
-                return bus_default_message_handler(m, message, NULL, properties);
+                return bus_default_message_handler(m, connection, message, NULL, properties);
 
 
         if (job_type != _JOB_TYPE_INVALID) {
@@ -678,19 +678,19 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_STRING, &smode,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID)
-                        return bus_send_error_reply(m, message, NULL, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, NULL, -EINVAL);
 
                 if ((r = manager_load_unit(m, name, NULL, &u)) < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
 
                 if (job_type == JOB_START && u->meta.only_by_dependency)
-                        return bus_send_error_reply(m, message, NULL, -EPERM);
+                        return bus_send_error_reply(m, connection, message, NULL, -EPERM);
 
                 if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;

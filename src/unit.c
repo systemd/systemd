@@ -1030,8 +1030,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         /* The bus just might have become available,
                          * hence try to connect to it, if we aren't
                          * yet connected. */
-                        bus_init_system(u->meta.manager);
-                        bus_init_api(u->meta.manager);
+                        bus_init(u->meta.manager);
                 }
 
                 if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))

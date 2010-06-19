@@ -26,7 +26,7 @@
 
 #include "unit.h"
 
-DBusHandlerResult bus_service_message_handler(Unit *u, DBusMessage *message);
+DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_service_interface[];
 

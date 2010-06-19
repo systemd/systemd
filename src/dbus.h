@@ -56,10 +56,8 @@ typedef struct BusProperty {
         "  </method>\n"                                                 \
         " </interface>\n"
 
-int bus_init_system(Manager *m);
-int bus_init_api(Manager *m);
-void bus_done_system(Manager *m);
-void bus_done_api(Manager *m);
+int bus_init(Manager *m);
+void bus_done(Manager *m);
 
 unsigned bus_dispatch(Manager *m);
 
@@ -68,9 +66,10 @@ void bus_timeout_event(Manager *m, Watch *w, int events);
 
 int bus_query_pid(Manager *m, const char *name);
 
-DBusHandlerResult bus_default_message_handler(Manager *m, DBusMessage *message, const char* introspection, const BusProperty *properties);
+DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBusMessage *message, const char* introspection, const BusProperty *properties);
+DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessage *message, DBusError *bus_error, int error);
 
-DBusHandlerResult bus_send_error_reply(Manager *m, DBusMessage *message, DBusError *bus_error, int error);
+int bus_broadcast(Manager *m, DBusMessage *message);
 
 int bus_property_append_string(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_strv(Manager *m, DBusMessageIter *i, const char *property, void *data);

@@ -1751,7 +1751,6 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         optind = argc;
 
         return 1;
-
 }
 
 static int telinit_parse_argv(int argc, char *argv[]) {
@@ -2262,7 +2261,13 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        if ((bus = dbus_bus_get(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error)))
+        /* If we are root, then let's not go via the bus */
+        if (geteuid() == 0 && !arg_session)
+                bus = dbus_connection_open("unix:abstract=/org/freedesktop/systemd1/private", &error);
+        else
+                bus = dbus_bus_get(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error);
+
+        if (bus)
                 dbus_connection_set_exit_on_disconnect(bus, FALSE);
 
         switch (arg_action) {

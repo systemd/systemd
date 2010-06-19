@@ -59,11 +59,11 @@
 
 * systemd-sysvinit as package
 
-* abstract namespace dbus socket
-
 * patch /etc/init.d/functions with:
 
   if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
+
+* remove MANAGER_SYSTEM
 
 Regularly:
 

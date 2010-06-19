@@ -37,11 +37,11 @@
 
 const char bus_target_interface[] = BUS_TARGET_INTERFACE;
 
-DBusHandlerResult bus_target_message_handler(Unit *u, DBusMessage *message) {
+DBusHandlerResult bus_target_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
 }

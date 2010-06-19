@@ -243,8 +243,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
                 goto fail;
 
         /* Try to connect to the busses, if possible. */
-        if ((r = bus_init_system(m)) < 0 ||
-            (r = bus_init_api(m)) < 0)
+        if ((r = bus_init(m)) < 0)
                 goto fail;
 
         if (asprintf(&p, "%s/%s", m->cgroup_mount_point, m->cgroup_hierarchy) < 0) {
@@ -424,8 +423,7 @@ void manager_free(Manager *m) {
          * around */
         manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
-        bus_done_api(m);
-        bus_done_system(m);
+        bus_done(m);
 
         hashmap_free(m->units);
         hashmap_free(m->jobs);
@@ -1826,8 +1824,7 @@ static int manager_process_signal_fd(Manager *m) {
 
                         if (!u || UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
                                 log_info("Trying to reconnect to bus...");
-                                bus_init_system(m);
-                                bus_init_api(m);
+                                bus_init(m);
                         }
 
                         if (!u || !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u))) {
