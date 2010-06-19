@@ -271,7 +271,7 @@ static unsigned manager_dispatch_cleanup_queue(Manager *m) {
         while ((meta = m->cleanup_queue)) {
                 assert(meta->in_cleanup_queue);
 
-                unit_free(UNIT(meta));
+                unit_free((Unit*) meta);
                 n++;
         }
 
@@ -361,7 +361,7 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
         while ((meta = m->gc_queue)) {
                 assert(meta->in_gc_queue);
 
-                unit_gc_sweep(UNIT(meta), gc_marker);
+                unit_gc_sweep((Unit*) meta, gc_marker);
 
                 LIST_REMOVE(Meta, gc_queue, m->gc_queue, meta);
                 meta->in_gc_queue = false;
@@ -372,7 +372,7 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
                     meta->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
                         log_debug("Collecting %s", meta->id);
                         meta->gc_marker = gc_marker + GC_OFFSET_BAD;
-                        unit_add_to_cleanup_queue(UNIT(meta));
+                        unit_add_to_cleanup_queue((Unit*) meta);
                 }
         }
 
@@ -1439,7 +1439,7 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         while ((meta = m->load_queue)) {
                 assert(meta->in_load_queue);
 
-                unit_load(UNIT(meta));
+                unit_load((Unit*) meta);
                 n++;
         }
 
@@ -1585,7 +1585,7 @@ unsigned manager_dispatch_dbus_queue(Manager *m) {
         while ((meta = m->dbus_unit_queue)) {
                 assert(meta->in_dbus_queue);
 
-                bus_unit_send_change_signal(UNIT(meta));
+                bus_unit_send_change_signal((Unit*) meta);
                 n++;
         }
 

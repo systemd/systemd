@@ -336,14 +336,14 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 /* For casting a unit into the various unit types */
 #define DEFINE_CAST(UPPERCASE, MixedCase)                               \
         static inline MixedCase* UPPERCASE(Unit *u) {                   \
-                if (!u || u->meta.type != UNIT_##UPPERCASE)             \
+                if (_unlikely_(!u || u->meta.type != UNIT_##UPPERCASE)) \
                         return NULL;                                    \
                                                                         \
                 return (MixedCase*) u;                                  \
         }
 
 /* For casting the various unit types into a unit */
-#define UNIT(u) ((Unit*) (u))
+#define UNIT(u) ((Unit*) (&(u)->meta))
 
 DEFINE_CAST(SOCKET, Socket);
 DEFINE_CAST(TIMER, Timer);
