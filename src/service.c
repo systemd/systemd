@@ -279,7 +279,7 @@ static int sysv_fix_order(Service *s) {
         /* For each pair of services where at least one lacks a LSB
          * header, we use the start priority value to order things. */
 
-        LIST_FOREACH(units_per_type, other, UNIT(s)->meta.manager->units_per_type[UNIT_SERVICE]) {
+        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_SERVICE]) {
                 Service *t;
                 UnitDependency d;
 
@@ -711,7 +711,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
             endswith(name, ".sh.service"))
                 return -ENOENT;
 
-        STRV_FOREACH(p, UNIT(s)->meta.manager->lookup_paths.sysvinit_path) {
+        STRV_FOREACH(p, s->meta.manager->lookup_paths.sysvinit_path) {
                 char *path;
                 int r;
 
@@ -723,7 +723,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
                 r = service_load_sysv_path(s, path);
 
-                if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
+                if (r >= 0 && s->meta.load_state == UNIT_STUB) {
                         /* Try Debian style xxx.sh source'able init scripts */
                         strcat(path, ".sh");
                         r = service_load_sysv_path(s, path);
@@ -731,7 +731,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
                 free(path);
 
-                if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
+                if (r >= 0 && s->meta.load_state == UNIT_STUB) {
                         /* Try SUSE style boot.xxx init scripts */
 
                         if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
@@ -745,7 +745,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 if (r < 0)
                         return r;
 
-                if ((UNIT(s)->meta.load_state != UNIT_STUB))
+                if ((s->meta.load_state != UNIT_STUB))
                         break;
         }
 
@@ -762,22 +762,22 @@ static int service_load_sysv(Service *s) {
         /* Load service data from SysV init scripts, preferably with
          * LSB headers ... */
 
-        if (strv_isempty(UNIT(s)->meta.manager->lookup_paths.sysvinit_path))
+        if (strv_isempty(s->meta.manager->lookup_paths.sysvinit_path))
                 return 0;
 
-        if ((t = UNIT(s)->meta.id))
+        if ((t = s->meta.id))
                 if ((r = service_load_sysv_name(s, t)) < 0)
                         return r;
 
-        if (UNIT(s)->meta.load_state == UNIT_STUB)
-                SET_FOREACH(t, UNIT(s)->meta.names, i) {
-                        if (t == UNIT(s)->meta.id)
+        if (s->meta.load_state == UNIT_STUB)
+                SET_FOREACH(t, s->meta.names, i) {
+                        if (t == s->meta.id)
                                 continue;
 
                         if ((r == service_load_sysv_name(s, t)) < 0)
                                 return r;
 
-                        if (UNIT(s)->meta.load_state != UNIT_STUB)
+                        if (s->meta.load_state != UNIT_STUB)
                                 break;
                 }
 
@@ -803,16 +803,16 @@ static int service_add_bus_name(Service *s) {
 static int service_verify(Service *s) {
         assert(s);
 
-        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+        if (s->meta.load_state != UNIT_LOADED)
                 return 0;
 
         if (!s->exec_command[SERVICE_EXEC_START]) {
-                log_error("%s lacks ExecStart setting. Refusing.", UNIT(s)->meta.id);
+                log_error("%s lacks ExecStart setting. Refusing.", s->meta.id);
                 return -EINVAL;
         }
 
         if (s->exec_command[SERVICE_EXEC_START]->command_next) {
-                log_error("%s has more than one ExecStart setting. Refusing.", UNIT(s)->meta.id);
+                log_error("%s has more than one ExecStart setting. Refusing.", s->meta.id);
                 return -EINVAL;
         }
 
@@ -1019,7 +1019,7 @@ static int service_get_sockets(Service *s, Set **_set) {
         if (!(set = set_new(NULL, NULL)))
                 return -ENOMEM;
 
-        SET_FOREACH(t, UNIT(s)->meta.names, i) {
+        SET_FOREACH(t, s->meta.names, i) {
                 char *k;
                 Unit *p;
 
@@ -1031,7 +1031,7 @@ static int service_get_sockets(Service *s, Set **_set) {
                         goto fail;
                 }
 
-                p = manager_get_unit(UNIT(s)->meta.manager, k);
+                p = manager_get_unit(s->meta.manager, k);
                 free(k);
 
                 if (!p)
@@ -1138,13 +1138,13 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP_POST &&
             state != SERVICE_FINAL_SIGTERM &&
             state != SERVICE_FINAL_SIGKILL &&
-            !(state == SERVICE_DEAD && UNIT(s)->meta.job)) {
+            !(state == SERVICE_DEAD && s->meta.job)) {
                 service_close_socket_fd(s);
                 service_connection_unref(s);
         }
 
         if (old_state != state)
-                log_debug("%s changed %s -> %s", UNIT(s)->meta.id, service_state_to_string(old_state), service_state_to_string(state));
+                log_debug("%s changed %s -> %s", s->meta.id, service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -1351,8 +1351,8 @@ static int service_spawn(
                        env,
                        apply_permissions,
                        apply_chroot,
-                       UNIT(s)->meta.manager->confirm_spawn,
-                       UNIT(s)->meta.cgroup_bondings,
+                       s->meta.manager->confirm_spawn,
+                       s->meta.cgroup_bondings,
                        &pid);
 
         strv_free(argv);
@@ -1416,7 +1416,7 @@ static int cgroup_good(Service *s) {
 
         assert(s);
 
-        if ((r = cgroup_bonding_is_empty_list(UNIT(s)->meta.cgroup_bondings)) < 0)
+        if ((r = cgroup_bonding_is_empty_list(s->meta.cgroup_bondings)) < 0)
                 return r;
 
         return !r;
@@ -1444,7 +1444,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
         return;
 
 fail:
-        log_warning("%s failed to run install restart timer: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run install restart timer: %s", s->meta.id, strerror(-r));
         service_enter_dead(s, false, false);
 }
 
@@ -1479,7 +1479,7 @@ static void service_enter_stop_post(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'stop-post' task: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop-post' task: %s", s->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -1497,7 +1497,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
 
                 if (s->kill_mode == KILL_CONTROL_GROUP) {
 
-                        if ((r = cgroup_bonding_kill_list(UNIT(s)->meta.cgroup_bondings, sig)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
                                         goto fail;
                         } else
@@ -1540,7 +1540,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to kill processes: %s", s->meta.id, strerror(-r));
 
         if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
                 service_enter_stop_post(s, false);
@@ -1577,7 +1577,7 @@ static void service_enter_stop(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'stop' task: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop' task: %s", s->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
 }
 
@@ -1622,7 +1622,7 @@ static void service_enter_start_post(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'start-post' task: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start-post' task: %s", s->meta.id, strerror(-r));
         service_enter_stop(s, false);
 }
 
@@ -1687,7 +1687,7 @@ static void service_enter_start(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'start' task: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start' task: %s", s->meta.id, strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -1717,7 +1717,7 @@ static void service_enter_start_pre(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'start-pre' task: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start-pre' task: %s", s->meta.id, strerror(-r));
         service_enter_dead(s, false, true);
 }
 
@@ -1727,15 +1727,15 @@ static void service_enter_restart(Service *s) {
 
         service_enter_dead(s, true, false);
 
-        if ((r = manager_add_job(UNIT(s)->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL)) < 0)
+        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL)) < 0)
                 goto fail;
 
-        log_debug("%s scheduled restart job.", UNIT(s)->meta.id);
+        log_debug("%s scheduled restart job.", s->meta.id);
         return;
 
 fail:
 
-        log_warning("%s failed to schedule restart job: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to schedule restart job: %s", s->meta.id, strerror(-r));
         service_enter_dead(s, false, false);
 }
 
@@ -1765,7 +1765,7 @@ static void service_enter_reload(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'reload' task: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'reload' task: %s", s->meta.id, strerror(-r));
         service_enter_stop(s, false);
 }
 
@@ -1796,7 +1796,7 @@ static void service_run_next(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run next task: %s", UNIT(s)->meta.id, strerror(-r));
+        log_warning("%s failed to run next task: %s", s->meta.id, strerror(-r));
 
         if (s->state == SERVICE_START_PRE)
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
@@ -2167,7 +2167,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                          * executed. */
 
                                         if ((r = service_load_pid_file(s)) < 0)
-                                                log_warning("%s: failed to load PID file %s: %s", UNIT(s)->meta.id, s->pid_file, strerror(-r));
+                                                log_warning("%s: failed to load PID file %s: %s", s->meta.id, s->pid_file, strerror(-r));
                                 }
 
                                 /* Fall through */
@@ -2572,7 +2572,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
          * service for a stream socket and the socket needs to be
          * configured. */
 
-        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+        if (s->meta.load_state != UNIT_LOADED)
                 return -EINVAL;
 
         if (s->socket_fd >= 0)

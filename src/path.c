@@ -91,7 +91,7 @@ static int path_add_mount_links(Path *p) {
 static int path_verify(Path *p) {
         assert(p);
 
-        if (UNIT(p)->meta.load_state != UNIT_LOADED)
+        if (p->meta.load_state != UNIT_LOADED)
                 return 0;
 
         if (!p->specs) {
@@ -297,7 +297,7 @@ static void path_enter_running(Path *p) {
         int r;
         assert(p);
 
-        if ((r = manager_add_job(UNIT(p)->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, NULL)) < 0)
+        if ((r = manager_add_job(p->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, NULL)) < 0)
                 goto fail;
 
         path_set_state(p, PATH_RUNNING);

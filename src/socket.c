@@ -144,11 +144,11 @@ static bool have_non_accept_socket(Socket *s) {
 static int socket_verify(Socket *s) {
         assert(s);
 
-        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+        if (s->meta.load_state != UNIT_LOADED)
                 return 0;
 
         if (!s->ports) {
-                log_error("%s lacks Listen setting. Refusing.", UNIT(s)->meta.id);
+                log_error("%s lacks Listen setting. Refusing.", s->meta.id);
                 return -EINVAL;
         }
 
@@ -699,8 +699,8 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        s->meta.manager->environment,
                        true,
                        true,
-                       UNIT(s)->meta.manager->confirm_spawn,
-                       UNIT(s)->meta.cgroup_bondings,
+                       s->meta.manager->confirm_spawn,
+                       s->meta.cgroup_bondings,
                        &pid);
 
         strv_free(argv);
@@ -772,7 +772,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
 
                 if (s->kill_mode == KILL_CONTROL_GROUP) {
 
-                        if ((r = cgroup_bonding_kill_list(UNIT(s)->meta.cgroup_bondings, sig)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
                                         goto fail;
                         } else
@@ -907,7 +907,7 @@ static void socket_enter_running(Socket *s, int cfd) {
         assert(s);
 
         if (cfd < 0) {
-                if ((r = manager_add_job(UNIT(s)->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, NULL)) < 0)
+                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, NULL)) < 0)
                         goto fail;
 
                 socket_set_state(s, SOCKET_RUNNING);
@@ -924,7 +924,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 if ((r = instance_from_socket(cfd, s->n_accepted++, &instance)) < 0)
                         goto fail;
 
-                if (!(prefix = unit_name_to_prefix(UNIT(s)->meta.id))) {
+                if (!(prefix = unit_name_to_prefix(s->meta.id))) {
                         free(instance);
                         r = -ENOMEM;
                         goto fail;
@@ -939,7 +939,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         goto fail;
                 }
 
-                r = manager_load_unit(UNIT(s)->meta.manager, name, NULL, &u);
+                r = manager_load_unit(s->meta.manager, name, NULL, &u);
                 free(name);
 
                 if (r < 0)

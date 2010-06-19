@@ -43,7 +43,7 @@ static void target_set_state(Target *t, TargetState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          UNIT(t)->meta.id,
+                          t->meta.id,
                           target_state_to_string(old_state),
                           target_state_to_string(state));
 

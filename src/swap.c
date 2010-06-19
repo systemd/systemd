@@ -127,7 +127,7 @@ static int swap_verify(Swap *s) {
         bool b;
         char *e;
 
-        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+        if (s->meta.load_state != UNIT_LOADED)
                   return 0;
 
         if (!(e = unit_name_from_path(s->what, ".swap")))
@@ -137,7 +137,7 @@ static int swap_verify(Swap *s) {
         free(e);
 
         if (!b) {
-                log_error("%s: Value of \"What\" and unit name do not match, not loading.\n", UNIT(s)->meta.id);
+                log_error("%s: Value of \"What\" and unit name do not match, not loading.\n", s->meta.id);
                 return -EINVAL;
         }
 
@@ -320,7 +320,7 @@ static void swap_set_state(Swap *s, SwapState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          UNIT(s)->meta.id,
+                          s->meta.id,
                           swap_state_to_string(old_state),
                           swap_state_to_string(state));
 

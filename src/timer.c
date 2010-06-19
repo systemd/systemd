@@ -60,7 +60,7 @@ static void timer_done(Unit *u) {
 static int timer_verify(Timer *t) {
         assert(t);
 
-        if (UNIT(t)->meta.load_state != UNIT_LOADED)
+        if (t->meta.load_state != UNIT_LOADED)
                 return 0;
 
         if (!t->values) {
@@ -258,7 +258,7 @@ static void timer_enter_running(Timer *t) {
         int r;
         assert(t);
 
-        if ((r = manager_add_job(UNIT(t)->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, NULL)) < 0)
+        if ((r = manager_add_job(t->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, NULL)) < 0)
                 goto fail;
 
         timer_set_state(t, TIMER_RUNNING);

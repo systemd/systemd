@@ -87,8 +87,8 @@ static void unmount_autofs(Automount *a) {
         /* If we reload/reexecute things we keep the mount point
          * around */
         if (a->where &&
-            (UNIT(a)->meta.manager->exit_code != MANAGER_RELOAD &&
-             UNIT(a)->meta.manager->exit_code != MANAGER_REEXECUTE))
+            (a->meta.manager->exit_code != MANAGER_RELOAD &&
+             a->meta.manager->exit_code != MANAGER_REEXECUTE))
                 repeat_unmout(a->where);
 }
 
@@ -150,7 +150,7 @@ static int automount_verify(Automount *a) {
         char *e;
         assert(a);
 
-        if (UNIT(a)->meta.load_state != UNIT_LOADED)
+        if (a->meta.load_state != UNIT_LOADED)
                 return 0;
 
         if (!(e = unit_name_from_path(a->where, ".automount")))
@@ -160,7 +160,7 @@ static int automount_verify(Automount *a) {
         free(e);
 
         if (!b) {
-                log_error("%s's Where setting doesn't match unit name. Refusing.", UNIT(a)->meta.id);
+                log_error("%s's Where setting doesn't match unit name. Refusing.", a->meta.id);
                 return -EINVAL;
         }
 
@@ -212,7 +212,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          UNIT(a)->meta.id,
+                          a->meta.id,
                           automount_state_to_string(old_state),
                           automount_state_to_string(state));
 
@@ -403,7 +403,7 @@ int automount_send_ready(Automount *a, int status) {
         if (set_isempty(a->tokens))
                 return 0;
 
-        if ((ioctl_fd = open_ioctl_fd(UNIT(a)->meta.manager->dev_autofs_fd, a->where, a->dev_id)) < 0) {
+        if ((ioctl_fd = open_ioctl_fd(a->meta.manager->dev_autofs_fd, a->where, a->dev_id)) < 0) {
                 r = ioctl_fd;
                 goto fail;
         }
@@ -422,7 +422,7 @@ int automount_send_ready(Automount *a, int status) {
                  * if you pass a positive status code here, the kernel will
                  * freeze! Yay! */
 
-                if ((k = autofs_send_ready(UNIT(a)->meta.manager->dev_autofs_fd,
+                if ((k = autofs_send_ready(a->meta.manager->dev_autofs_fd,
                                            ioctl_fd,
                                            token,
                                            status)) < 0)
@@ -452,7 +452,7 @@ static void automount_enter_waiting(Automount *a) {
         if (a->tokens)
                 set_clear(a->tokens);
 
-        if ((dev_autofs_fd = open_dev_autofs(UNIT(a)->meta.manager)) < 0) {
+        if ((dev_autofs_fd = open_dev_autofs(a->meta.manager)) < 0) {
                 r = dev_autofs_fd;
                 goto fail;
         }
@@ -545,7 +545,7 @@ static void automount_enter_runnning(Automount *a) {
 
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
                 log_info("%s's automount point already active?", a->meta.id);
-        else if ((r = manager_add_job(UNIT(a)->meta.manager, JOB_START, UNIT(a->mount), JOB_REPLACE, true, NULL)) < 0) {
+        else if ((r = manager_add_job(a->meta.manager, JOB_START, UNIT(a->mount), JOB_REPLACE, true, NULL)) < 0) {
                 log_warning("%s failed to queue mount startup job: %s", a->meta.id, strerror(-r));
                 goto fail;
         }

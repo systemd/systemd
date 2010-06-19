@@ -40,7 +40,7 @@ static void snapshot_set_state(Snapshot *s, SnapshotState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          UNIT(s)->meta.id,
+                          s->meta.id,
                           snapshot_state_to_string(old_state),
                           snapshot_state_to_string(state));
 

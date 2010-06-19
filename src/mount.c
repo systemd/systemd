@@ -251,7 +251,7 @@ static int mount_add_target_links(Mount *m) {
         else
                 target = SPECIAL_LOCAL_FS_TARGET;
 
-        if ((r = manager_load_unit(UNIT(m)->meta.manager, target, NULL, &tu)) < 0)
+        if ((r = manager_load_unit(m->meta.manager, target, NULL, &tu)) < 0)
                 return r;
 
         if (automount && m->meta.manager->running_as == MANAGER_SYSTEM) {
@@ -294,12 +294,12 @@ static int mount_verify(Mount *m) {
         free(e);
 
         if (!b) {
-                log_error("%s's Where setting doesn't match unit name. Refusing.", UNIT(m)->meta.id);
+                log_error("%s's Where setting doesn't match unit name. Refusing.", m->meta.id);
                 return -EINVAL;
         }
 
         if (m->meta.fragment_path && !m->parameters_fragment.what) {
-                log_error("%s's What setting is missing. Refusing.", UNIT(m)->meta.id);
+                log_error("%s's What setting is missing. Refusing.", m->meta.id);
                 return -EBADMSG;
         }
 
@@ -420,7 +420,7 @@ static void mount_set_state(Mount *m, MountState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          UNIT(m)->meta.id,
+                          m->meta.id,
                           mount_state_to_string(old_state),
                           mount_state_to_string(state));
 
@@ -529,8 +529,8 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             m->meta.manager->environment,
                             true,
                             true,
-                            UNIT(m)->meta.manager->confirm_spawn,
-                            UNIT(m)->meta.cgroup_bondings,
+                            m->meta.manager->confirm_spawn,
+                            m->meta.cgroup_bondings,
                             &pid)) < 0)
                 goto fail;
 
@@ -582,7 +582,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
 
                 if (m->kill_mode == KILL_CONTROL_GROUP) {
 
-                        if ((r = cgroup_bonding_kill_list(UNIT(m)->meta.cgroup_bondings, sig)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(m->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
                                         goto fail;
                         } else
@@ -609,7 +609,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", UNIT(m)->meta.id, strerror(-r));
+        log_warning("%s failed to kill processes: %s", m->meta.id, strerror(-r));
 
         if (state == MOUNT_REMOUNTING_SIGTERM || state == MOUNT_REMOUNTING_SIGKILL)
                 mount_enter_mounted(m, false);
@@ -645,7 +645,7 @@ static void mount_enter_unmounting(Mount *m, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'umount' task: %s", UNIT(m)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'umount' task: %s", m->meta.id, strerror(-r));
         mount_enter_mounted(m, false);
 }
 
@@ -688,7 +688,7 @@ static void mount_enter_mounting(Mount *m) {
         return;
 
 fail:
-        log_warning("%s failed to run 'mount' task: %s", UNIT(m)->meta.id, strerror(-r));
+        log_warning("%s failed to run 'mount' task: %s", m->meta.id, strerror(-r));
         mount_enter_dead(m, false);
 }
 
