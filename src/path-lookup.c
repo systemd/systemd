@@ -187,7 +187,7 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                                 return -ENOMEM;
         }
 
-        if (running_as == MANAGER_INIT) {
+        if (running_as == MANAGER_SYSTEM) {
                 /* /etc/init.d/ compatibility does not matter to users */
 
                 if ((e = getenv("SYSTEMD_SYSVINIT_PATH")))

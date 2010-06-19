@@ -761,7 +761,7 @@ static int bus_init_system(Manager *m) {
         if (m->system_bus)
                 return 0;
 
-        if (m->running_as != MANAGER_SESSION && m->api_bus)
+        if (m->running_as == MANAGER_SYSTEM && m->api_bus)
                 m->system_bus = m->api_bus;
         else {
                 if (!(m->system_bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error))) {
@@ -819,7 +819,7 @@ static int bus_init_api(Manager *m) {
         if (m->api_bus)
                 return 0;
 
-        if (m->running_as != MANAGER_SESSION && m->system_bus)
+        if (m->running_as == MANAGER_SYSTEM && m->system_bus)
                 m->api_bus = m->system_bus;
         else {
                 if (!(m->api_bus = dbus_bus_get_private(m->running_as == MANAGER_SESSION ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error))) {
@@ -914,7 +914,7 @@ static int bus_init_private(Manager *m) {
                 return 0;
 
         /* We want the private bus only when running as init */
-        if (m->running_as != MANAGER_INIT)
+        if (m->running_as != MANAGER_SYSTEM)
                 return 0;
 
         if (!(m->private_bus = dbus_server_listen("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
@@ -1348,11 +1348,11 @@ int bus_broadcast(Manager *m, DBusMessage *message) {
         assert(message);
 
         SET_FOREACH(c, m->bus_connections_for_dispatch, i)
-                if (c != m->system_bus || m->running_as != MANAGER_SESSION)
+                if (c != m->system_bus || m->running_as == MANAGER_SYSTEM)
                         oom = !dbus_connection_send(c, message, NULL);
 
         SET_FOREACH(c, m->bus_connections, i)
-                if (c != m->system_bus || m->running_as != MANAGER_SESSION)
+                if (c != m->system_bus || m->running_as == MANAGER_SYSTEM)
                         oom = !dbus_connection_send(c, message, NULL);
 
         return oom ? -ENOMEM : 0;

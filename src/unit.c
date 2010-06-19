@@ -542,7 +542,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET, NULL, true)) < 0)
                 return r;
 
-        if (u->meta.manager->running_as != MANAGER_SESSION)
+        if (u->meta.manager->running_as == MANAGER_SYSTEM)
                 if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET, NULL, true)) < 0)
                         return r;
 

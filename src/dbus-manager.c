@@ -608,7 +608,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
 
-                if (m->running_as == MANAGER_INIT)
+                if (m->running_as == MANAGER_SYSTEM)
                         return bus_send_error_reply(m, connection, message, NULL, -ENOTSUP);
 
                 if (!(reply = dbus_message_new_method_return(message)))

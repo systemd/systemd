@@ -116,7 +116,7 @@ static int swap_add_target_links(Swap *s) {
         if ((r = manager_load_unit(s->meta.manager, SPECIAL_SWAP_TARGET, NULL, &tu)) < 0)
                 return r;
 
-        if (!p->noauto && p->handle && s->meta.manager->running_as != MANAGER_SESSION)
+        if (!p->noauto && p->handle && s->meta.manager->running_as == MANAGER_SYSTEM)
                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
                         return r;
 
@@ -180,9 +180,7 @@ static int swap_load(Unit *u) {
                         if ((r = unit_set_description(u, s->what)) < 0)
                                 return r;
 
-                if ((r = unit_add_node_link(u, s->what,
-                                            (u->meta.manager->running_as == MANAGER_INIT ||
-                                             u->meta.manager->running_as == MANAGER_SYSTEM))) < 0)
+                if ((r = unit_add_node_link(u, s->what, u->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
                         return r;
 
                 if ((r = swap_add_mount_links(s)) < 0)

@@ -177,7 +177,7 @@ static int manager_setup_signals(Manager *m) {
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_watch.fd, &ev) < 0)
                 return -errno;
 
-        if (m->running_as == MANAGER_INIT)
+        if (m->running_as == MANAGER_SYSTEM)
                 return enable_special_signals(m);
 
         return 0;
@@ -1780,7 +1780,7 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 case SIGTERM:
-                        if (m->running_as == MANAGER_INIT) {
+                        if (m->running_as == MANAGER_SYSTEM) {
                                 /* This is for compatibility with the
                                  * original sysvinit */
                                 m->exit_code = MANAGER_REEXECUTE;
@@ -1790,7 +1790,7 @@ static int manager_process_signal_fd(Manager *m) {
                         /* Fall through */
 
                 case SIGINT:
-                        if (m->running_as == MANAGER_INIT) {
+                        if (m->running_as == MANAGER_SYSTEM) {
                                 manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE);
                                 break;
                         }
@@ -1804,14 +1804,14 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 case SIGWINCH:
-                        if (m->running_as == MANAGER_INIT)
+                        if (m->running_as == MANAGER_SYSTEM)
                                 manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
                         break;
 
                 case SIGPWR:
-                        if (m->running_as == MANAGER_INIT)
+                        if (m->running_as == MANAGER_SYSTEM)
                                 manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
@@ -2105,7 +2105,7 @@ void manager_write_utmp_reboot(Manager *m) {
         if (m->utmp_reboot_written)
                 return;
 
-        if (m->running_as != MANAGER_INIT)
+        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         if (!manager_utmp_good(m))
@@ -2131,7 +2131,7 @@ void manager_write_utmp_runlevel(Manager *m, Unit *u) {
         if (u->meta.type != UNIT_TARGET)
                 return;
 
-        if (m->running_as != MANAGER_INIT)
+        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         if (!manager_utmp_good(m))
@@ -2337,7 +2337,6 @@ finish:
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
-        [MANAGER_INIT] = "init",
         [MANAGER_SYSTEM] = "system",
         [MANAGER_SESSION] = "session"
 };

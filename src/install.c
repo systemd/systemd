@@ -535,7 +535,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((r = lookup_paths_init(&paths, arg_where == WHERE_SYSTEM ? MANAGER_INIT : MANAGER_SESSION)) < 0) {
+        if ((r = lookup_paths_init(&paths, arg_where == WHERE_SYSTEM ? MANAGER_SYSTEM : MANAGER_SESSION)) < 0) {
                 log_error("Failed to determine lookup paths: %s", strerror(-r));
                 goto finish;
         }

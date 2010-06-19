@@ -526,7 +526,7 @@ static int parse_argv(int argc, char *argv[]) {
          * ignore and unconditionally read from
          * /proc/cmdline. However, we need to ignore those arguments
          * here. */
-        if (running_as != MANAGER_INIT && optind < argc) {
+        if (running_as != MANAGER_SYSTEM && optind < argc) {
                 log_error("Excess arguments.");
                 return -EINVAL;
         }
@@ -540,7 +540,7 @@ static int help(void) {
                "Starts up and maintains the system or a session.\n\n"
                "  -h --help                      Show this help\n"
                "     --unit=UNIT                 Set default unit\n"
-               "     --running-as=AS             Set running as (init, system, session)\n"
+               "     --running-as=AS             Set running as (system, session)\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
@@ -631,7 +631,7 @@ int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
 
         if (getpid() == 1) {
-                running_as = MANAGER_INIT;
+                running_as = MANAGER_SYSTEM;
                 log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         } else {
                 running_as = MANAGER_SESSION;
@@ -653,7 +653,7 @@ int main(int argc, char *argv[]) {
         /* If we are init, we can block sigkill. Yay. */
         ignore_signals(SIGNALS_IGNORE, -1);
 
-        if (running_as != MANAGER_SESSION)
+        if (running_as == MANAGER_SYSTEM)
                 if (parse_proc_cmdline() < 0)
                         goto finish;
 
@@ -690,12 +690,12 @@ int main(int argc, char *argv[]) {
         /* Set up PATH unless it is already set */
         setenv("PATH",
                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-               running_as == MANAGER_INIT);
+               running_as == MANAGER_SYSTEM);
 
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
 
-        if (running_as != MANAGER_SESSION) {
+        if (running_as == MANAGER_SYSTEM) {
                 /* Become a session leader if we aren't one yet. */
                 setsid();
 
@@ -708,7 +708,7 @@ int main(int argc, char *argv[]) {
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
-        if (running_as != MANAGER_SESSION && action == ACTION_RUN) {
+        if (running_as == MANAGER_SYSTEM && action == ACTION_RUN) {
                 console_setup(getpid() == 1 && !serialization);
                 make_null_stdio();
         }
@@ -723,7 +723,7 @@ int main(int argc, char *argv[]) {
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
-        if (running_as == MANAGER_INIT) {
+        if (running_as == MANAGER_SYSTEM) {
                 kmod_setup();
                 hostname_setup();
                 loopback_setup();

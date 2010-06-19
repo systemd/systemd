@@ -254,7 +254,7 @@ static int mount_add_target_links(Mount *m) {
         if ((r = manager_load_unit(UNIT(m)->meta.manager, target, NULL, &tu)) < 0)
                 return r;
 
-        if (automount && m->meta.manager->running_as != MANAGER_SESSION) {
+        if (automount && m->meta.manager->running_as == MANAGER_SYSTEM) {
                 Unit *am;
 
                 if ((r = unit_load_related_unit(UNIT(m), ".automount", &am)) < 0)
@@ -268,7 +268,7 @@ static int mount_add_target_links(Mount *m) {
         } else {
 
                 if (!noauto && handle)
-                        if (user || m->meta.manager->running_as != MANAGER_SESSION)
+                        if (user || m->meta.manager->running_as == MANAGER_SYSTEM)
                                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
                                         return r;
 
@@ -341,9 +341,7 @@ static int mount_load(Unit *u) {
                         what = m->parameters_proc_self_mountinfo.what;
 
                 if (what)
-                        if ((r = unit_add_node_link(u, what,
-                                                    (u->meta.manager->running_as == MANAGER_INIT ||
-                                                     u->meta.manager->running_as == MANAGER_SYSTEM))) < 0)
+                        if ((r = unit_add_node_link(u, what, u->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
                                 return r;
 
                 if ((r = mount_add_mount_links(m)) < 0)

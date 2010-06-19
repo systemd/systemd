@@ -46,9 +46,8 @@ typedef enum ManagerExitCode {
 } ManagerExitCode;
 
 typedef enum ManagerRunningAs {
-        MANAGER_INIT,      /* root and pid=1 */
-        MANAGER_SYSTEM,    /* root and pid!=1 */
-        MANAGER_SESSION,   /* non-root, for a session */
+        MANAGER_SYSTEM,
+        MANAGER_SESSION,
         _MANAGER_RUNNING_AS_MAX,
         _MANAGER_RUNNING_AS_INVALID = -1
 } ManagerRunningAs;
