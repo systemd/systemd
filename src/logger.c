@@ -535,6 +535,16 @@ int main(int argc, char *argv[]) {
         Server server;
         int r = 3, n;
 
+        if (getppid() != 1) {
+                log_error("This program should be invoked by init only.");
+                return 1;
+        }
+
+        if (argc > 1) {
+                log_error("This program does not take arguments.");
+                return 1;
+        }
+
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
 
