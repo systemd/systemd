@@ -29,6 +29,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/socket.h>
 
 #include <dbus/dbus.h>
 
@@ -101,6 +102,32 @@ static int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *da
                 return -EIO;
 
         return 0;
+}
+
+static int bus_check_peercred(DBusConnection *c) {
+        int fd;
+        struct ucred ucred;
+        socklen_t l;
+
+        assert(c);
+
+        assert_se(dbus_connection_get_unix_fd(c, &fd));
+
+        l = sizeof(struct ucred);
+        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0) {
+                log_error("SO_PEERCRED failed: %m");
+                return -errno;
+        }
+
+        if (l != sizeof(struct ucred)) {
+                log_error("SO_PEERCRED returned wrong size.");
+                return -E2BIG;
+        }
+
+        if (ucred.uid != 0)
+                return -EPERM;
+
+        return 1;
 }
 
 static int columns(void) {
@@ -1931,7 +1958,7 @@ static int action_to_runlevel(void) {
         return table[arg_action];
 }
 
-static int talk_upstart(DBusConnection *bus) {
+static int talk_upstart(void) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int previous, rl, r;
@@ -1942,6 +1969,7 @@ static int talk_upstart(DBusConnection *bus) {
         const char *emit = "runlevel";
         dbus_bool_t b_false = FALSE;
         DBusMessageIter iter, sub;
+        DBusConnection *bus;
 
         dbus_error_init(&error);
 
@@ -1951,6 +1979,22 @@ static int talk_upstart(DBusConnection *bus) {
         if (utmp_get_runlevel(&previous, NULL) < 0)
                 previous = 'N';
 
+        if (!(bus = dbus_connection_open("unix:abstract=/com/ubuntu/upstart", &error))) {
+                if (dbus_error_has_name(&error, DBUS_ERROR_NO_SERVER)) {
+                        r = 0;
+                        goto finish;
+                }
+
+                log_error("Failed to connect to Upstart bus: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
+
+        if ((r = bus_check_peercred(bus)) < 0) {
+                log_error("Failed to verify owner of bus.");
+                goto finish;
+        }
+
         if (!(m = dbus_message_new_method_call(
                               "com.ubuntu.Upstart",
                               "/com/ubuntu/Upstart",
@@ -1958,7 +2002,8 @@ static int talk_upstart(DBusConnection *bus) {
                               "EmitEvent"))) {
 
                 log_error("Could not allocate message.");
-                return -ENOMEM;
+                r = -ENOMEM;
+                goto finish;
         }
 
         dbus_message_iter_init_append(m, &iter);
@@ -1997,6 +2042,9 @@ finish:
 
         if (reply)
                 dbus_message_unref(reply);
+
+        if (bus)
+                dbus_connection_unref(bus);
 
         dbus_error_free(&error);
 
@@ -2165,7 +2213,7 @@ static int start_with_fallback(DBusConnection *bus) {
 
                 /* Hmm, talking to systemd via D-Bus didn't work. Then
                  * let's try to talk to Upstart via D-Bus. */
-                if ((r = talk_upstart(bus)) > 0)
+                if ((r = talk_upstart()) > 0)
                         return 0;
         }
 
@@ -2262,9 +2310,14 @@ int main(int argc, char*argv[]) {
         }
 
         /* If we are root, then let's not go via the bus */
-        if (geteuid() == 0 && !arg_session)
+        if (geteuid() == 0 && !arg_session) {
                 bus = dbus_connection_open("unix:abstract=/org/freedesktop/systemd1/private", &error);
-        else
+
+                if (bus && bus_check_peercred(bus) < 0) {
+                        log_error("Failed to verify owner of bus.");
+                        goto finish;
+                }
+        } else
                 bus = dbus_bus_get(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error);
 
         if (bus)
