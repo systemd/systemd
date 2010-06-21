@@ -426,3 +426,23 @@ int sd_notifyf(int unset_environment, const char *format, ...) {
         return r;
 #endif
 }
+
+int sd_booted(void) {
+#if defined(DISABLE_SYSTEMD) || !defined(__linux__)
+        return 0;
+#else
+
+        struct stat a, b;
+
+        /* We simply test whether the systemd cgroup hierarchy is
+         * mounted */
+
+        if (lstat("/cgroup", &a) < 0)
+                return 0;
+
+        if (lstat("/cgroup/systemd", &b) < 0)
+                return 0;
+
+        return a.st_dev != b.st_dev;
+#endif
+}
