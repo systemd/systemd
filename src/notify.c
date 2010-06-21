@@ -35,6 +35,7 @@
 static bool arg_ready = false;
 static pid_t arg_pid = 0;
 static const char *arg_status = NULL;
+static bool arg_booted = false;
 
 static int help(void) {
 
@@ -43,7 +44,8 @@ static int help(void) {
                "  -h --help         Show this help\n"
                "     --ready        Inform the init system about service start-up completion\n"
                "     --pid[=PID]    Set main pid of daemon\n"
-               "     --status=TEXT  Set status text\n",
+               "     --status=TEXT  Set status text\n"
+               "     --booted       Returns 0 if the system was booted up with systemd, non-zero otherwise\n",
                program_invocation_short_name);
 
         return 0;
@@ -54,7 +56,8 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_READY = 0x100,
                 ARG_PID,
-                ARG_STATUS
+                ARG_STATUS,
+                ARG_BOOTED
         };
 
         static const struct option options[] = {
@@ -62,6 +65,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "ready",     no_argument,       NULL, ARG_READY   },
                 { "pid",       optional_argument, NULL, ARG_PID     },
                 { "status",    required_argument, NULL, ARG_STATUS  },
+                { "booted",    no_argument,       NULL, ARG_BOOTED  },
                 { NULL,        0,                 NULL, 0           }
         };
 
@@ -98,6 +102,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_status = optarg;
                         break;
 
+                case ARG_BOOTED:
+                        arg_booted = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -122,6 +130,9 @@ int main(int argc, char* argv[]) {
                 retval = r < 0;
                 goto finish;
         }
+
+        if (arg_booted)
+                return sd_booted() <= 0;
 
         if (arg_ready)
                 our_env[i++] = (char*) "READY=1";
