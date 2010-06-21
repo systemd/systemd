@@ -168,7 +168,7 @@ EXTRA_DIST = \
 	LICENSE \
 	README \
 	DISTRO_PORTING \
-	src/systemd.pc.in
+	systemd.pc.in
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
@@ -540,7 +540,8 @@ CLEANFILES = \
 	units/session/remote-fs.target \
 	units/session/exit.service \
 	man/systemd.special.7 \
-	man/systemd.special.html
+	man/systemd.special.html \
+	systemd.pc
 
 if HAVE_VALAC
 CLEANFILES += \
