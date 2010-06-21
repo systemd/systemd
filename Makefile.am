@@ -23,6 +23,8 @@ dbussessionservicedir=@dbussessionservicedir@
 dbussystemservicedir=@dbussystemservicedir@
 dbusinterfacedir=@dbusinterfacedir@
 udevrulesdir=@udevrulesdir@
+pamlibdir=@pamlibdir@
+pkgconfigdatadir=$(datadir)/pkgconfig
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -45,6 +47,7 @@ AM_CPPFLAGS = \
 	-DCGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
+	-DRUNTIME_DIR=\"$(localstatedir)/run\" \
 	-I $(top_srcdir)/src
 
 rootbin_PROGRAMS = \
@@ -70,7 +73,13 @@ noinst_PROGRAMS = \
 	test-job-type \
 	test-ns \
 	test-loopback \
-	test-daemon
+	test-daemon \
+	test-cgroup
+
+if HAVE_PAM
+pamlib_LTLIBRARIES = \
+	pam_systemd.la
+endif
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf
@@ -158,7 +167,8 @@ EXTRA_DIST = \
 	units/session/exit.service.in \
 	LICENSE \
 	README \
-	DISTRO_PORTING
+	DISTRO_PORTING \
+	src/systemd.pc.in
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
@@ -200,6 +210,9 @@ dist_doc_DATA = \
 	README \
 	src/sd-daemon.h \
 	src/sd-daemon.c
+
+pkgconfigdata_DATA = \
+	systemd.pc
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
@@ -262,7 +275,8 @@ libsystemd_core_la_SOURCES = \
 	src/unit-name.c \
 	src/fdset.c \
 	src/namespace.c \
-	src/tcpwrap.c
+	src/tcpwrap.c \
+	src/cgroup-util.c
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -356,6 +370,18 @@ test_daemon_SOURCES = \
 test_daemon_LDADD = \
 	libsystemd-basic.la
 
+test_cgroup_SOURCES = \
+	src/test-cgroup.c \
+	src/cgroup-util.c
+
+test_cgroup_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(CGROUP_CFLAGS)
+
+test_cgroup_LDADD = \
+	libsystemd-basic.la \
+	$(CGROUP_LIBS)
+
 systemd_logger_SOURCES = \
 	src/logger.c \
 	src/sd-daemon.c \
@@ -442,18 +468,50 @@ systemadm_LDADD = \
 	$(DBUSGLIB_LIBS) \
 	$(GTK_LIBS)
 
+pam_systemd_la_SOURCES = \
+	src/pam-module.c \
+	src/cgroup-util.c \
+	src/sd-daemon.c
+
+pam_systemd_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(CGROUP_CFLAGS) \
+	-fvisibility=hidden
+
+pam_systemd_la_LDFLAGS = \
+	-module \
+	-export-dynamic \
+	-avoid-version \
+	-shared \
+	-export-symbols-regex '^pam_sm_.*'
+
+pam_systemd_la_LIBADD = \
+	libsystemd-basic.la \
+	$(PAM_LIBS) \
+	$(CGROUP_LIBS)
+
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		-e 's,@SPECIAL_DBUS_SERVICE\@,$(SPECIAL_DBUS_SERVICE),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
+		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
+		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
+		-e 's,@systemunitdir\@,$(systemunitdir),g' \
+		-e 's,@PACKAGE_VERSION\@,$(PACKAGE_VERSION),g' \
+		-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
+		-e 's,@PACKAGE_URL\@,$(PACKAGE_URL),g' \
+		-e 's,@prefix\@,$(prefix),g' \
 		< $< > $@
 
 units/%: units/%.in Makefile
 	$(SED_PROCESS)
 
 man/%: man/%.in Makefile
+	$(SED_PROCESS)
+
+%.pc: %.pc.in Makefile
 	$(SED_PROCESS)
 
 M4_PROCESS_SYSTEM = \
@@ -639,4 +697,5 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
 	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
+	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-rootdir=$$dc_install_base/$(rootdir)

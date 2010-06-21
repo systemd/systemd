@@ -32,7 +32,6 @@
 #include <sys/reboot.h>
 #include <sys/ioctl.h>
 #include <linux/kd.h>
-#include <libcgroup.h>
 #include <termios.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -421,7 +420,8 @@ void manager_free(Manager *m) {
 
         /* If we reexecute ourselves, we keep the root cgroup
          * around */
-        manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
+        if (m->exit_code != MANAGER_REEXECUTE)
+                manager_shutdown_cgroup(m);
 
         bus_done(m);
 

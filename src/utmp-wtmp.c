@@ -296,11 +296,13 @@ int utmp_wall(const char *message) {
         time_t t;
 
         if (!(hn = gethostname_malloc()) ||
-            !(un = getlogname_malloc()) ||
-            !(tty = getttyname_malloc())) {
+            !(un = getlogname_malloc())) {
                 r = -ENOMEM;
                 goto finish;
         }
+
+        if ((r = getttyname_malloc(&tty)) < 0)
+                goto finish;
 
         time(&t);
         assert_se(ctime_r(&t, date));

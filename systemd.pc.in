@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=${prefix}
+systemdsystemunitdir=@systemunitdir@
+systemdsessionunitdir=@pkgdatadir@/session
+systemdsystemconfdir=@pkgsysconfdir@/system
+systemdsessionconfdir=@pkgsysconfdir@/session
+
+Name: systemd
+Description: systemd System and Session Manager
+URL: @PACKAGE_URL@
+Version: @PACKAGE_VERSION@

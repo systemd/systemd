@@ -352,7 +352,12 @@ AC_ARG_WITH([dbusinterfacedir],
 AC_ARG_WITH([udevrulesdir],
         AS_HELP_STRING([--with-udevrulesdir=DIR], [Diectory for udev rules]),
         [],
-        [with_udevrulesdir=/lib/udev/rules.d])
+        [with_udevrulesdir=`pkg-config --variable=udevdir udev`/rules.d])
+
+AC_ARG_WITH([pamlibdir],
+        AS_HELP_STRING([--with-pamlibdir=DIR], [Diectory for PAM modules]),
+        [],
+        [with_pamlibdir=/lib/`$CC -print-multi-os-directory`/security])
 
 AC_ARG_WITH([rootdir],
         AS_HELP_STRING([--with-rootdir=DIR], [Root directory for files necessary for boot]),
@@ -364,6 +369,7 @@ AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
 AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
+AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([rootdir], [$with_rootdir])
 
 AC_CONFIG_FILES([Makefile])
@@ -383,6 +389,7 @@ echo "
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}
+        pam modules dir:         ${with_pamlibdir}
         dbus policy dir:         ${with_dbuspolicydir}
         dbus session dir:        ${with_dbussessionservicedir}
         dbus system dir:         ${with_dbussystemservicedir}

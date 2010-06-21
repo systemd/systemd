@@ -846,6 +846,28 @@ char *file_in_same_dir(const char *path, const char *filename) {
         return r;
 }
 
+int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        struct stat st;
+
+        if (mkdir(path, mode) >= 0)
+                if (chmod_and_chown(path, mode, uid, gid) < 0)
+                        return -errno;
+
+        if (lstat(path, &st) < 0)
+                return -errno;
+
+        if ((st.st_mode & 0777) != mode ||
+            st.st_uid != uid ||
+            st.st_gid != gid ||
+            !S_ISDIR(st.st_mode)) {
+                errno = EEXIST;
+                return -errno;
+        }
+
+        return 0;
+}
+
+
 int mkdir_parents(const char *path, mode_t mode) {
         const char *p, *e;
 
@@ -2325,6 +2347,18 @@ char* gethostname_malloc(void) {
         return strdup(u.sysname);
 }
 
+int getmachineid_malloc(char **b) {
+        int r;
+
+        assert(b);
+
+        if ((r = read_one_line_file("/var/lib/dbus/machine-id", b)) < 0)
+                return r;
+
+        strstrip(*b);
+        return 0;
+}
+
 char* getlogname_malloc(void) {
         uid_t uid;
         long bufsize;
@@ -2361,11 +2395,13 @@ char* getlogname_malloc(void) {
         return name;
 }
 
-char *getttyname_malloc(void) {
-        char path[PATH_MAX], *p;
+int getttyname_malloc(char **r) {
+        char path[PATH_MAX], *p, *c;
+
+        assert(r);
 
         if (ttyname_r(STDIN_FILENO, path, sizeof(path)) < 0)
-                return strdup("unknown");
+                return -errno;
 
         char_array_0(path);
 
@@ -2373,7 +2409,132 @@ char *getttyname_malloc(void) {
         if (startswith(path, "/dev/"))
                 p += 5;
 
-        return strdup(p);
+        if (!(c = strdup(p)))
+                return -ENOMEM;
+
+        *r = c;
+        return 0;
+}
+
+static int rm_rf_children(int fd, bool only_dirs) {
+        DIR *d;
+        int ret = 0;
+
+        assert(fd >= 0);
+
+        /* This returns the first error we run into, but nevertheless
+         * tries to go on */
+
+        if (!(d = fdopendir(fd))) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        for (;;) {
+                struct dirent buf, *de;
+                bool is_dir;
+                int r;
+
+                if ((r = readdir_r(d, &buf, &de)) != 0) {
+                        if (ret == 0)
+                                ret = -r;
+                        break;
+                }
+
+                if (!de)
+                        break;
+
+                if (streq(de->d_name, ".") || streq(de->d_name, ".."))
+                        continue;
+
+                if (de->d_type == DT_UNKNOWN) {
+                        struct stat st;
+
+                        if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                if (ret == 0)
+                                        ret = -errno;
+                                continue;
+                        }
+
+                        is_dir = S_ISDIR(st.st_mode);
+                } else
+                        is_dir = de->d_type == DT_DIR;
+
+                if (is_dir) {
+                        int subdir_fd;
+
+                        if ((subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC)) < 0) {
+                                if (ret == 0)
+                                        ret = -errno;
+                                continue;
+                        }
+
+                        if ((r = rm_rf_children(subdir_fd, only_dirs)) < 0) {
+                                if (ret == 0)
+                                        ret = r;
+                        }
+
+                        if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
+                                if (ret == 0)
+                                        ret = -errno;
+                        }
+                } else  if (!only_dirs) {
+
+                        if (unlinkat(fd, de->d_name, 0) < 0) {
+                                if (ret == 0)
+                                        ret = -errno;
+                        }
+                }
+        }
+
+        closedir(d);
+
+        return ret;
+}
+
+int rm_rf(const char *path, bool only_dirs, bool delete_root) {
+        int fd;
+        int r;
+
+        assert(path);
+
+        if ((fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC)) < 0) {
+
+                if (errno != ENOTDIR)
+                        return -errno;
+
+                if (delete_root && !only_dirs)
+                        if (unlink(path) < 0)
+                                return -errno;
+
+                return 0;
+        }
+
+        r = rm_rf_children(fd, only_dirs);
+
+        if (delete_root)
+                if (rmdir(path) < 0) {
+                        if (r == 0)
+                                r = -errno;
+                }
+
+        return r;
+}
+
+int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        assert(path);
+
+        /* Under the assumption that we are running privileged we
+         * first change the access mode and only then hand out
+         * ownership to avoid a window where access is too open. */
+
+        if (chmod(path, mode) < 0)
+                return -errno;
+
+        if (chown(path, uid, gid) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static const char *const ioprio_class_table[] = {

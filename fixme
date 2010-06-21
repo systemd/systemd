@@ -1,28 +1,16 @@
-* calendar time support in timer
+* calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
 
 * complete dbus exposure
 
-* make conf parser work more like .desktop parsers
-
 * implicitly import "defaults" settings file into all types
 
-* service startup should be delayed if the matching socket is being started
-
-* add #ifdefs for non-redhat builds in sysv parser
-
 * add #ifdefs for non-sysv builds
-
-* bootchart hookup
 
 * reinvestigate random seed, hwclock
 
 * "disabled" load state?
 
-* %m in printf() instead of strerror();
-
 * gc: don't reap broken services
-
-* iCalendar semantics for the timer stuff (RFC2445)
 
 * ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
@@ -47,10 +35,6 @@
 
 * follow property change dbus spec
 
-* make systemd bus activatable (?)
-
-* pam module
-
 * selinux
 
 External:
@@ -68,3 +52,5 @@ Regularly:
 * check for strerror(r) instead of strerror(-r)
 
 * Use PR_SET_PROCTITLE_AREA if it becomes available in the kernel
+
+* %m in printf() instead of strerror();

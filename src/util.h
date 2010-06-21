@@ -160,6 +160,7 @@ char *delete_chars(char *s, const char *bad);
 char *truncate_nl(char *s);
 
 char *file_in_same_dir(const char *path, const char *filename);
+int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int mkdir_parents(const char *path, mode_t mode);
 int mkdir_p(const char *path, mode_t mode);
 
@@ -263,7 +264,12 @@ void sigset_add_many(sigset_t *ss, ...);
 
 char* gethostname_malloc(void);
 char* getlogname_malloc(void);
-char *getttyname_malloc(void);
+int getttyname_malloc(char **r);
+int getmachineid_malloc(char **r);
+
+int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
+
+int rm_rf(const char *path, bool only_dirs, bool delete_root);
 
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);

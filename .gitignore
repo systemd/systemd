@@ -1,3 +1,6 @@
+systemd.pc
+test-cgroup
+.libs/
 systemd-notify
 test-daemon
 systemd-install
