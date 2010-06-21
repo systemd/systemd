@@ -1,9 +1,4 @@
-/*  -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
- *
- * scsi_id.h
- *
- * General defines and such for scsi_id
- *
+/*
  * Copyright (C) IBM Corp. 2003
  *
  *	This program is free software; you can redistribute it and/or modify it

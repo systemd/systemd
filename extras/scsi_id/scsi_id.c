@@ -1,9 +1,4 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
- *
- * scsi_id.c
- *
- * Main section of the scsi_id program
- *
+/*
  * Copyright (C) IBM Corp. 2003
  * Copyright (C) SUSE Linux Products GmbH, 2006
  *

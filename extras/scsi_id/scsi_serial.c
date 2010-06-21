@@ -1,9 +1,4 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
- *
- * scsi_serial.c
- *
- * Code related to requesting and getting an id from a scsi device
- *
+/*
  * Copyright (C) IBM Corp. 2003
  *
  * Author:

@@ -1,5 +1,4 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
- *
+/*
  * ata_id - reads product/serial number from ATA drives
  *
  * Copyright (C) 2005-2008 Kay Sievers <kay.sievers@vrfy.org>
