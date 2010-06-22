@@ -613,8 +613,8 @@ install-data-hook:
 		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd
-	$(MKDIR_P) -m 0755 $(DESTDIR)/cgroup/systemd || \
-		echo "Don't forget to create /cgroup/systemd! Couldn't create it for you, continuing anyway."
+	$(MKDIR_P) -m 0755 $(DESTDIR)/cgroup || \
+		echo "Don't forget to create /cgroup! Couldn't create it for you, continuing anyway."
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f session && \
 		$(LN_S) $(pkgsysconfdir)/session session )
@@ -670,6 +670,8 @@ install-data-hook:
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
 if TARGET_FEDORA
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH)
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
@@ -682,7 +684,7 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
-	( cd $(DESTDIR)/etc/init.d && \
+	( cd $(DESTDIR)$(SYSTEM_SYSVINIT_PATH) && \
 		$(LN_S) halt reboot > /dev/null 2>&1 || true )
 endif
 if TARGET_GENTOO
