@@ -165,9 +165,6 @@ EXTRA_DIST = \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
 	units/session/exit.service.in \
-	LICENSE \
-	README \
-	DISTRO_PORTING \
 	systemd.pc.in
 
 if TARGET_FEDORA
@@ -208,6 +205,8 @@ endif
 
 dist_doc_DATA = \
 	README \
+	LICENSE \
+	DISTRO_PORTING \
 	src/sd-daemon.h \
 	src/sd-daemon.c
 
