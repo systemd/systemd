@@ -1587,13 +1587,16 @@ fail:
 }
 
 static void service_enter_running(Service *s, bool success) {
+        int main_pid_ok, cgroup_ok;
         assert(s);
 
         if (!success)
                 s->failure = true;
 
-        if (main_pid_good(s) != 0 &&
-            cgroup_good(s) != 0 &&
+        main_pid_ok = main_pid_good(s);
+        cgroup_ok = cgroup_good(s);
+
+        if ((main_pid_ok > 0 || (main_pid_ok < 0 && cgroup_ok != 0)) &&
             (s->bus_name_good || s->type != SERVICE_DBUS))
                 service_set_state(s, SERVICE_RUNNING);
         else if (s->valid_no_process)
