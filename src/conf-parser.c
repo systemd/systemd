@@ -50,7 +50,7 @@ static int next_assignment(
         assert(lvalue);
         assert(rvalue);
 
-        for (; t->parse; t++) {
+        for (; t->parse || t->lvalue; t++) {
 
                 if (t->lvalue && !streq(lvalue, t->lvalue))
                         continue;
