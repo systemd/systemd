@@ -1,0 +1,316 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.special">
+
+        <refentryinfo>
+                <title>daemon</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>daemon</refentrytitle>
+                <manvolnum>7</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>daemon</refname>
+                <refpurpose>Writing and Packaging System Daemons</refpurpose>
+        </refnamediv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A daemon is a service process that runs in the
+                background and supervises the system or provides
+                functionality to other processes. Traditionally,
+                daemons are implemented following a scheme originating
+                in SysV Unix. Modern daemons should follow a simpler
+                yet more powerful scheme here called "new-style"
+                daemons, as implemented by systemd. </para>
+
+                <refsect2>
+                        <title>SysV Daemons</title>
+
+                        <para>When a traditional SysV daemon
+                        starts, it should execute the following steps
+                        as part of the initialization. Note that these
+                        steps are unnecessary for new-style daemons,
+                        and should only be implemented if compatbility
+                        with SysV is essential.</para>
+
+                        <orderedlist>
+                                <listitem><para>Close all open file
+                                descriptors except STDIN, STDOUT,
+                                STDERR (i.e. the first three file
+                                descriptors 0, 1, 2). This ensures
+                                that no accidentally passed file
+                                descriptor stays around in the daemon
+                                process. On Linux this is best
+                                implemented by iterating through
+                                <filename>/proc/self/fd</filename>,
+                                with a fallback of iterating from file
+                                descriptor 3 to the value returned by
+                                getrlimit() for
+                                RLIMIT_NOFILE.</para></listitem>
+
+                                <listitem><para>Reset all signal
+                                handlers to their default. This is
+                                best done by iterating through the
+                                available signals up to the limit of
+                                _NSIG and resetting them to
+                                SIG_DFL.</para></listitem>
+
+                                <listitem><para>Reset the signal mask
+                                using sigprocmask().</para></listitem>
+
+                                <listitem><para>Call fork(),
+                                to create a background
+                                process.</para></listitem>
+
+                                <listitem><para>In the child, call
+                                setsid() to detach from any terminal
+                                and create an independent
+                                session.</para></listitem>
+
+                                <listitem><para>In the child, call
+                                fork() again, to ensure the daemon can
+                                never re-aquire a terminal
+                                again.</para></listitem>
+
+                                <listitem><para>Call exit() in the
+                                first child, so that only the second
+                                child (the actual daemon process)
+                                stays around. This ensures that the
+                                daemon process is reparented to
+                                init/PID 1, as all daemons should
+                                be.</para></listitem>
+
+                                <listitem><para>In the daemon process,
+                                connect <filename>/dev/null</filename>
+                                to STDIN, STDOUT,
+                                STDERR.</para></listitem>
+
+                                <listitem><para>In the daemon process,
+                                reset the umask to 0, so that the file
+                                modes passed to open(), mkdir() and
+                                suchlike directly control the access
+                                mode of the created files and
+                                directories.</para></listitem>
+
+                                <listitem><para>In the daemon process,
+                                change the current directory to the
+                                root directory (/), in order to avoid
+                                that the daemon involuntarily
+                                blocks mount points from being
+                                unmounted.</para></listitem>
+
+                                <listitem><para>In the daemon process,
+                                drop privileges, if possible and
+                                applicable.</para></listitem>
+
+                                <listitem><para>From the daemon
+                                process notify the original process
+                                started that initialization is
+                                complete. This can be implemented via
+                                an unnamed pipe or similar
+                                communication channel that is created
+                                before the first fork() and available
+                                in both processes.</para></listitem>
+
+                                <listitem><para>Call exit() in the
+                                original process. The process that
+                                invoked the daemon must be able to
+                                rely that this exit() happens after
+                                initialization is complete and all
+                                external communication channels
+                                established and
+                                accessible.</para></listitem>
+                        </orderedlist>
+
+                        <para>The BSD daemon() function should not be
+                        used, as it does only a subset of these steps.</para>
+
+                        <para>A daemon that needs to provide
+                        compatibility with SysV systems should
+                        implement the scheme pointed out
+                        above. However, it is recommended to make this
+                        behaviour optional and configurable via a
+                        command line argument, to ease debugging as
+                        well as to simplify integration into systems
+                        using systemd.</para>
+                </refsect2>
+
+                <refsect2>
+                        <title>New-Style Daemons</title>
+
+                        <para>Modern services for Linux should be
+                        implemented as new-style daemons. This makes it
+                        easier to supervise and control them at
+                        runtime and simplifies their
+                        implementation.</para>
+
+                        <para>For developing a new-style daemon none
+                        of the initialization steps recommended for
+                        SysV daemons need to be implemented. New-style
+                        init systems such as systemd make all of them
+                        redundant. Moreover, since some of these steps
+                        interfere with process monitoring, file
+                        descriptor passing and other functionality of
+                        the init system it is recommended not to
+                        execute them when run as new-style
+                        service.</para>
+
+                        <para>It is recommended for new-style daemons
+                        to implement the following:</para>
+
+                        <orderedlist>
+                                <listitem><para>If SIGTERM is
+                                received, shut down the daemon and
+                                exit cleanly.</para></listitem>
+
+                                <listitem><para>If SIGHUP is received,
+                                reload the configuration files, if
+                                this applies.</para></listitem>
+
+                                <listitem><para>Provide a correct exit
+                                code from the main daemon process, as
+                                this is used by the init system to
+                                detect service errors and problems. It
+                                is recommended to follow the exit code
+                                scheme as defined in LSB
+                                recommendations for SysV init scripts
+                                (http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html).</para></listitem>
+
+                                <listitem><para>As much as possible,
+                                rely on systemd's functionality to
+                                limit the accces of the daemon to
+                                files, services and other
+                                resources. i.e. rely on systemd's
+                                resource limit control instead of
+                                implementing your own, rely on
+                                systemd's privilege dropping code
+                                instead of implementing it in the
+                                daemon, and similar.</para></listitem>
+
+                                <listitem><para>If possible and
+                                applicable expose the daemon's control
+                                interface via the D-Bus IPC system and
+                                grab a bus name as last step of
+                                initialization.</para></listitem>
+
+                                <listitem><para>If D-Bus is used, make
+                                your daemon bus-activatable, via
+                                supplying a D-Bus service activation
+                                configuration file. This has multiple
+                                advantages: your daemon may be started
+                                lazily on-demand; it may be started in
+                                parallel to other daemons requiring it
+                                -- which maximizes parallelization and
+                                boot-up speed; your daemon can be
+                                restarted on failure, without losing
+                                any bus requests, as the bus queues
+                                requests for activatable
+                                services.</para></listitem>
+
+                                <listitem><para>If your daemon
+                                provides services to other local
+                                processes or remote clients via a
+                                socket, it should be made
+                                socket-activatable following the
+                                scheme pointed out below. Like D-Bus
+                                activation this enables on-demand
+                                starting of services as well as it
+                                allows improved parallization of
+                                service start-up. Also, for state-less
+                                protocols (such as syslog, DNS) a
+                                daemon implementing socket-based
+                                activation can be restarted without
+                                losing a single
+                                request.</para></listitem>
+
+                                <listitem><para>If applicable a daemon
+                                should notify the init system about
+                                startup completion or status
+                                updates via the sd_notify()
+                                interface.</para></listitem>
+
+                                <listitem><para>Instead of using the
+                                syslog() call to log directly to the
+                                system logger, a new-style daemon may
+                                choose to simply log to STDERR via
+                                fprintf(), which is then forwarded to
+                                syslog by the init system. If log
+                                priorities are necessary these can be
+                                encoded by prefixing individual log
+                                lines with strings like "&lt;4&gt;"
+                                (for log priority 4 "WARNING" in the
+                                syslog priority scheme), following a
+                                similar style as the Linux kernel's
+                                printk() priority system. In fact, using
+                                this style of logging also enables the
+                                init system to optionally direct all
+                                application logging to the kernel log
+                                buffer (kmsg), as accessible via
+                                dmesg.</para></listitem>
+
+                        </orderedlist>
+                </refsect2>
+
+                <refsect2>
+                        <title>Bus Activation</title>
+                </refsect2>
+
+                <refsect2>
+                        <title>Socket Activation</title>
+                </refsect2>
+
+                <refsect2>
+                        <title>Writing Service Files</title>
+                </refsect2>
+
+                <refsect2>
+                        <title>Installing Service Files</title>
+                </refsect2>
+
+        </refsect1>
+
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

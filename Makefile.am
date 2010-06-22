@@ -307,14 +307,16 @@ EXTRA_DIST += \
 
 dist_man_MANS = \
 	man/systemd.unit.5 \
-	man/systemd.service.5
+	man/systemd.service.5 \
+	man/daemon.7
 
 nodist_man_MANS = \
 	man/systemd.special.7
 
 dist_noinst_DATA = \
 	man/systemd.unit.html \
-	man/systemd.service.html
+	man/systemd.service.html \
+	man/daemon.html
 
 nodist_noinst_DATA = \
 	man/systemd.special.html
@@ -324,7 +326,8 @@ EXTRA_DIST += \
 	man/systemd.service.xml \
 	man/systemd.special.xml.in \
 	man/systemd.special.7.in \
-	man/systemd.special.html.in
+	man/systemd.special.html.in \
+	man/daemon.xml
 
 systemd_SOURCES = \
 	src/main.c
