@@ -1453,7 +1453,7 @@ static int systemctl_help(void) {
                "  dump                            Dump server status\n"
                "  snapshot [NAME]                 Create a snapshot\n"
                "  daemon-reload                   Reload init daemon configuration\n"
-               "  daemon-reexecute                Reexecute init daemon\n"
+               "  daemon-reexec                   Reexecute init daemon\n"
                "  daemon-exit                     Ask the init daemon to quit\n"
                "  show-environment                Dump environment\n"
                "  set-environment [NAME=VALUE...] Set one or more environment variables\n"
