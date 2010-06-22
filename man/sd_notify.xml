@@ -1,0 +1,277 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_notify">
+
+        <refentryinfo>
+                <title>sd_notify</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_notify</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_notify</refname>
+                <refname>sd_notifyf</refname>
+                <refpurpose>Notify init system about start-up completion and other daemon status changes</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include "sd-daemon.h"</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_notify</function></funcdef>
+                                <paramdef>int <parameter>unset_environment</parameter></paramdef>
+                                <paramdef>const char *<parameter>state</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_notifyf</function></funcdef>
+                                <paramdef>int <parameter>unset_environment</parameter></paramdef>
+                                <paramdef>const char *<parameter>format</parameter></paramdef>
+                                <paramdef>...</paramdef>
+                        </funcprototype>
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+                <para><function>sd_notify()</function> shall be called
+                by a daemon to notify the init system about status
+                changes. It can be used to send arbitrary information,
+                encoded in an environment-block-like string. Most
+                importantly it can be used for start-up completion
+                notification.</para>
+
+                <para>If the <parameter>unset_environment</parameter>
+                parameter is non-zero <function>sd_notify()</function>
+                will unset the <varname>$NOTIFY_SOCKET</varname>
+                environment variable before returning (regardless
+                whether the function call itself succeeded or
+                not). Further calls to
+                <function>sd_notify()</function> will then fail, but
+                the variable is no longer inherited by child
+                processes.</para>
+
+                <para>The <parameter>state</parameter> parameter
+                should contain an newline-seperated list of variable
+                assignments, similar in style to an environment
+                block. A trailing newline is implied if none is
+                specified. The string may contain any kind of variable
+                assignments, but the following shall be considered
+                well-known:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>READY=1</term>
+
+                                <listitem><para>Tells the init system
+                                that daemon startup is finished. This
+                                is only used by systemd if the service
+                                definition file has Type=notify
+                                set. The passed argument is a boolean
+                                "1" or "0". Since there is little
+                                value in signalling non-readiness the
+                                only value daemons should send is
+                                "READY=1".</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>STATUS=...</term>
+
+                                <listitem><para>Passes a single-line
+                                status string back to the init system
+                                that describes the daemon state. This
+                                is free-from and can be used for
+                                various purposes: general state
+                                feedback, fsck-like programs could
+                                pass completion percentages and
+                                failing programs could pass a human
+                                readable error message. Example:
+                                "STATUS=Completed 66% of file system
+                                check..."</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>ERRNO=...</term>
+
+                                <listitem><para>If a daemon fails, the
+                                errno-style error code, formatted as
+                                string. Example: "ERRNO=2" for
+                                ENOENT.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>BUSERROR=...</term>
+
+                                <listitem><para>If a daemon fails, the
+                                D-Bus error-style error code. Example:
+                                "BUSERROR=org.freedesktop.DBus.Error.TimedOut"</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>MAINPID=...</term>
+
+                                <listitem><para>The main pid of the
+                                daemon, in case the init system did
+                                not fork off the process
+                                itself. Example:
+                                "MAINPID=4711"</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <para>It is recommened to prefix variable names that
+                are not shown in the list above with
+                <varname>X_</varname> to avoid namespace
+                clashes.</para>
+
+                <para>Note that systemd will accept status data sent
+                from a daemon only if the
+                <varname>NotifyAccess=</varname> option is correctly
+                set in the service definition file. See
+                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details.</para>
+
+                <para><function>sd_notifyf()</function> is similar to
+                <function>sd_notifyf()</function> but takes a
+                <function>printf()</function>-like format string plus
+                arguments.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>On failure, these calls return a negative
+                errno-style error code. If
+                <varname>$NOTIFY_SOCKET</varname> was not set and
+                hence no status data could be sent 0 is returned. If
+                the status was sent these functions return with a
+                positive return value. In order to support both init
+                systems that implement this scheme and those which
+                don't it is generally recommended to ignore the return
+                value of this call.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>These functions are provided by the reference
+                implementation of APIs for new-style daemons and
+                distributed with the systemd package. The algorithms
+                they implement are simple, and can easily be
+                reimplemented in daemons if it is important to support
+                this interface without using the reference
+                implementation.</para>
+
+                <para>Internally, these functions send a single
+                datagram with the state string as payload to the
+                AF_UNIX socket referenced in the
+                <varname>$NOTIFY_SOCKET</varname> environment
+                variable. If the first character of
+                <varname>$NOTIFY_SOCKET</varname> is @ the string is
+                understood as Linux abstract namespace socket. The
+                datagram is accompanied by the process credentials of
+                the sending daemon, using SCM_CREDENTIALS.</para>
+
+                <para>For details about the algorithm check the
+                liberally licensed reference implementation sources:
+                <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.c"/>
+                resp. <ulink
+                url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.h"/></para>
+
+                <para><function>sd_notify()</function> and
+                <function>sd_notifyf()</function> are implemented in
+                the reference implementation's drop-in
+                <filename>sd-daemon.c</filename> and
+                <filename>sd-daemon.h</filename> files. It is
+                recommended that applications consuming these APIs
+                copy the implementation into their source tree. For
+                more details about the reference implementation see
+                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+
+                <para>If -DDISABLE_SYSTEMD is set during compilation
+                this function will always return 0 and otherwise
+                become a NOP.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Examples</title>
+
+                <example>
+                        <title>Start-up Notification</title>
+
+                        <para>When a daemon finished starting up, it
+                        might issue the following call call to notify
+                        the init system:</para>
+
+                        <programlisting>sd_notify(0, "READY=1");</programlisting>
+                </example>
+
+                <example>
+                        <title>Extended Start-up Notification</title>
+
+                        <para>A daemon could send the following after
+                        completing initialization:</para>
+
+                        <programlisting>sd_notifyf(0, "READY=1\n"
+              "STATUS=Processing requests...\n"
+              "MAINPID=%lu",
+              (unsigned long) getpid());</programlisting>
+                </example>
+
+                <example>
+                        <title>Error Cause Notification</title>
+
+                        <para>A daemon could send the following shortly before exiting, on failure</para>
+
+                        <programlisting>sd_notifyf(0, "STATUS=Failed to start up: %s\n"
+              "ERRNO=%i",
+              strerror(errno),
+              errno);</programlisting>
+                </example>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

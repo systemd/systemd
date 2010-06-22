@@ -1,0 +1,122 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_booted">
+
+        <refentryinfo>
+                <title>sd_booted</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_booted</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_booted</refname>
+                <refpurpose>Test whether the system is running the systemd init system.</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include "sd-daemon.h"</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_booted</function></funcdef>
+                                <paramdef>void</paramdef>
+                        </funcprototype>
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+                <para><function>sd_booted()</function> checks whether
+                the system was booted up using the systemd init system.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>On failure, this call returns a negative
+                errno-style error code. If the system was booted up
+                with systemd as init system this call returns a
+                postive return value, zero otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>This function is provided by the reference
+                implementation of APIs for new-style daemons and
+                distributed with the systemd package. The algorithm it
+                implements is simple, and can easily be reimplemented
+                in daemons if it is important to support this
+                interface without using the reference
+                implementation.</para>
+
+                <para>Internally, this function checks whether the
+                <filename>/cgroup/systemd</filename> virtual file
+                system is mounted, by comparing the st_dev value of
+                the <function>stat()</function> data of
+                <filename>/cgroup</filename> and
+                <filename>/cgroup/systemd</filename>.</para>
+
+                <para>For details about the algorithm check the
+                liberally licensed reference implementation sources:
+                <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.c"/>
+                resp. <ulink
+                url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.h"/></para>
+
+                <para><function>sd_booted()</function> is implemented
+                in the reference implementation's drop-in
+                <filename>sd-daemon.c</filename> and
+                <filename>sd-daemon.h</filename> files. It is
+                recommended that applications consuming these APIs
+                copy the implementation into their source tree. For
+                more details about the reference implementation see
+                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+
+                <para>If -DDISABLE_SYSTEMD is set during compilation
+                this function will always return 0 and otherwise
+                become a NOP.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

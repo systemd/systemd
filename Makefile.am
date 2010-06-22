@@ -307,7 +307,13 @@ EXTRA_DIST += \
 dist_man_MANS = \
 	man/systemd.unit.5 \
 	man/systemd.service.5 \
-	man/daemon.7
+	man/daemon.7 \
+	man/systemd.8 \
+	man/sd_notify.3 \
+	man/sd_booted.3 \
+	man/sd_listen_fds.3 \
+	man/sd_is_fifo.3 \
+	man/sd-daemon.7
 
 nodist_man_MANS = \
 	man/systemd.special.7
@@ -315,7 +321,13 @@ nodist_man_MANS = \
 dist_noinst_DATA = \
 	man/systemd.unit.html \
 	man/systemd.service.html \
-	man/daemon.html
+	man/daemon.html \
+	man/systemd.html \
+	man/sd_notify.html \
+	man/sd_booted.html \
+	man/sd_listen_fds.html \
+	man/sd_is_fifo.html \
+	man/sd-daemon.html
 
 nodist_noinst_DATA = \
 	man/systemd.special.html
@@ -326,7 +338,13 @@ EXTRA_DIST += \
 	man/systemd.special.xml.in \
 	man/systemd.special.7.in \
 	man/systemd.special.html.in \
-	man/daemon.xml
+	man/daemon.xml \
+	man/systemd.xml \
+	man/sd_notify.xml \
+	man/sd_booted.xml \
+	man/sd_listen_fds.xml \
+	man/sd_is_fifo.xml \
+	man/sd-daemon.xml
 
 systemd_SOURCES = \
 	src/main.c
@@ -570,6 +588,12 @@ XSLTPROC_PROCESS_HTML_IN = \
 	$(XSLTPROC) -o ${@:.in=} --nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
+man/%.3: man/%.xml
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.3.in: man/%.xml.in
+	$(XSLTPROC_PROCESS_MAN)
+
 man/%.5: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
@@ -580,6 +604,12 @@ man/%.7: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.7.in: man/%.xml.in
+	$(XSLTPROC_PROCESS_MAN_IN)
+
+man/%.8: man/%.xml
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.8.in: man/%.xml.in
 	$(XSLTPROC_PROCESS_MAN_IN)
 
 man/%.html: man/%.xml

@@ -76,7 +76,7 @@ extern "C" {
 /*
   Log levels for usage on stderr:
 
-          fprintf(stderr, SD_NOTICE "Hello World!");
+          fprintf(stderr, SD_NOTICE "Hello World!\n");
 
   This is similar to printk() usage in the kernel.
 */
@@ -158,9 +158,9 @@ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port
 int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) _sd_hidden_;
 
 /*
-  Informs systemd about changed daemon state. This takes a numeber of
+  Informs systemd about changed daemon state. This takes a number of
   newline seperated environment-style variable assignments in a
-  string. The following strings are known:
+  string. The following variables are known:
 
      READY=1      Tells systemd that daemon startup is finished (only
                   relevant for services of Type=notify). The passed
@@ -185,7 +185,8 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
      MAINPID=...  The main pid of a daemon, in case systemd did not
                   fork off the process itself. Example: "MAINPID=4711"
 
-  Daemons can choose to send additional variables.
+  Daemons can choose to send additional variables. However, it is
+  recommened to prefix variable names not listed above with X_.
 
   Returns a negative errno-style error code on failure. Returns > 0
   if systemd could be notified, 0 if it couldn't possibly because

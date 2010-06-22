@@ -16,8 +16,10 @@ systemd-logger
 systemctl
 systemadm
 .dirstamp
+*.3
 *.5
 *.7
+*.8
 *.html
 *~
 *.tar.gz
@@ -45,4 +47,6 @@ stamp-*
 Makefile
 ltmain.sh
 *.tar.bz2
+*.tar.gz
+*.tar.xz
 libtool

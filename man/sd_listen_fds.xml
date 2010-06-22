@@ -1,0 +1,178 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_listen_fds">
+
+        <refentryinfo>
+                <title>sd_listen_fds</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_listen_fds</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_listen_fds</refname>
+                <refpurpose>Check for file descriptors passed by the init system.</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include "sd-daemon.h"</funcsynopsisinfo>
+
+                        <funcsynopsisinfo>#define SD_LISTEN_FDS_START 3</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_listen_fds</function></funcdef>
+                                <paramdef>int <parameter>unset_environment</parameter></paramdef>
+                        </funcprototype>
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><function>sd_listen_fds()</function> shall be
+                called by a daemon to check for file descriptors
+                passed by the init system as part of the socket-based
+                activation logic.</para>
+
+                <para>If the <parameter>unset_environment</parameter>
+                parameter is non-zero
+                <function>sd_listen_fds()</function> will unset the
+                <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
+                environment variables before returning (regardless
+                whether the function call itself succeeded or
+                not). Further calls to
+                <function>sd_listen_fds()</function> will then fail,
+                but the variables are no longer inherited by child
+                processes.</para>
+
+                <para>If a daemon receives more than one file
+                descriptor, they will be passed in the same order as
+                configured in the systemd socket definition
+                file. Nonetheless it is recommended to verify the
+                correct socket types before using them. To simplify
+                this checking the functions
+                <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>sd_is_socket</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>sd_is_socket_inet</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>sd_is_socket_unix</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                are provided. In order to maximize flexibility it is
+                recommened to make these checks as loose as possible
+                without allowing incorrect setups. i.e. often the
+                actual port number a socket is bound to matters little
+                for the service to work, hence it should not be
+                verified. On the other hand, whether a socket is a
+                datagram or stream socket matters a lot for the most
+                common program logics and should hence be
+                checked.</para>
+
+                <para>This function call will set the FD_CLOEXEC flag
+                for all passed file descriptors to avoid further
+                inheritance to children of the calling process.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>On failure, this call returns a negative
+                errno-style error code. If
+                <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
+                was not set or not correctly set for this daemon and
+                hence no file descriptors received 0 is
+                returned. Otherwise the number of file descriptors
+                passed is returned, the application may find them
+                starting with file descriptor SD_LISTEN_FDS_START,
+                i.e. file descriptor 3.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>This function is provided by the reference
+                implementation of APIs for new-style daemons and
+                distributed with the systemd package. The algorithm it
+                implements is simple, and can easily be reimplemented
+                in daemons if it is important to support this
+                interface without using the reference
+                implementation.</para>
+
+                <para>Internally, this function checks whether the
+                <varname>$LISTEN_PID</varname> environment variable
+                equals the daemon PID. If not, it returns
+                immediately. Otherwise it parses the number passed in
+                the <varname>$LISTEN_FDS</varname> environment
+                variable, then sets the FD_CLOEXEC flag for the parsed
+                number of file descriptors starting from
+                SD_LISTEN_FDS_START. Finally it returns the parsed
+                number.</para>
+
+                <para>For details about the algorithm check the
+                liberally licensed reference implementation sources:
+                <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.c"/>
+                resp. <ulink
+                url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.h"/></para>
+
+                <para><function>sd_listen_fds()</function> is
+                implemented in the reference implementation's drop-in
+                <filename>sd-daemon.c</filename> and
+                <filename>sd-daemon.h</filename> files. It is
+                recommended that applications consuming these APIs
+                copy the implementation into their source tree. For
+                more details about the reference implementation see
+                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+
+                <para>If -DDISABLE_SYSTEMD is set during compilation
+                this function will always return 0 and otherwise
+                become a NOP.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+
+                <para>
+                        <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_is_socket</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_is_socket_inet</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_is_socket_unix</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
