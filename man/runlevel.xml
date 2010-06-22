@@ -1,0 +1,149 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd">
+
+        <refentryinfo>
+                <title>runlevel</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>runlevel</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>runlevel</refname>
+                <refpurpose>Print previous and current SysV runlevel</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>runlevel <arg choice="opt" rep="repeat">options</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>runlevel</command> prints the previous
+                and current SysV runlevel if they are known.</para>
+
+                <para>The two runlevel characters are seperated by a
+                single space character. If a runlevel cannot be
+                determined N is printed instead. If neither can be
+                determined the word "unknown" is printed.</para>
+
+                <para>Unless overriden in the environment this will
+                check the utmp database for recent runlevel
+                changes.</para>
+
+                <para>The following option is understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>--help</term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>If one or both runlevels could be determined, 0
+                is returned, a non-zero failure code otherwise.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Environment</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>$RUNLEVEL</varname></term>
+
+                                <listitem><para>If
+                                <varname>$RUNLEVEL</varname> is set,
+                                <command>runlevel</command> will print
+                                this value as current runlevel and
+                                ignore utmp.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$PREVLEVEL</varname></term>
+
+                                <listitem><para>If
+                                <varname>$PREVLEVEL</varname> is set
+                                <command>runlevel</command> will print
+                                this value as previous runlevel and
+                                ignore utmp.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Files</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>/var/run/utmp</varname></term>
+
+                                <listitem><para>The utmp database
+                                <command>runlevel</command> reads the
+                                previous and current runlevel
+                                from.</para></listitem>
+
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>This is a legacy call available for compatbility
+                only. It should not be used anymore, as the concept of
+                runlevels is obselete.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                </para>
+        </refsect1>
+
+</refentry>

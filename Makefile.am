@@ -313,7 +313,9 @@ dist_man_MANS = \
 	man/sd_booted.3 \
 	man/sd_listen_fds.3 \
 	man/sd_is_fifo.3 \
-	man/sd-daemon.7
+	man/sd-daemon.7 \
+	man/runlevel.8 \
+	man/systemd-install.1
 
 nodist_man_MANS = \
 	man/systemd.special.7
@@ -327,7 +329,9 @@ dist_noinst_DATA = \
 	man/sd_booted.html \
 	man/sd_listen_fds.html \
 	man/sd_is_fifo.html \
-	man/sd-daemon.html
+	man/sd-daemon.html \
+	man/runlevel.html \
+	man/systemd-install.html
 
 nodist_noinst_DATA = \
 	man/systemd.special.html
@@ -344,7 +348,9 @@ EXTRA_DIST += \
 	man/sd_booted.xml \
 	man/sd_listen_fds.xml \
 	man/sd_is_fifo.xml \
-	man/sd-daemon.xml
+	man/sd-daemon.xml \
+	man/runlevel.xml \
+	man/systemd-install.xml
 
 systemd_SOURCES = \
 	src/main.c
@@ -592,6 +598,12 @@ man/%.3: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.3.in: man/%.xml.in
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.1: man/%.xml
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.1.in: man/%.xml.in
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.5: man/%.xml

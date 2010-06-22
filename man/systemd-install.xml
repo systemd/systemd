@@ -1,0 +1,165 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd">
+
+        <refentryinfo>
+                <title>systemd-install</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-install</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-install</refname>
+                <refpurpose>Enable or disable a systemd unit
+                definition file</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <option>enable</option> <arg choice="opt" rep="repeat">name</arg></command>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <option>disable</option> <arg choice="opt" rep="repeat">name</arg></command>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <option>test</option> <arg choice="opt" rep="repeat">name</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-install</command> enables or
+                disables systemd units, or checks whether they are
+                enabled.</para>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>--help</term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>--force</term>
+
+                                <listitem><para>Enable/disable a
+                                service even if it conflicts
+                                with/contradicts another service. This
+                                might have the effect of disabling
+                                another service that was
+                                enabled.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>--system</term>
+
+                                <listitem><para>Enable/disable a
+                                system service.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>--session</term>
+
+                                <listitem><para>Enable/disable a
+                                session service for the calling
+                                user.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>--global</term>
+
+                                <listitem><para>Enable/disable a
+                                session service for all
+                                users.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <para>The following verbs are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>enable</term>
+
+                                <listitem><para>Enable a unit. This
+                                will create a number of symlinks as
+                                encoded in the [Install] section of a
+                                unit file.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>disable</term>
+
+                                <listitem><para>Disable a unit. This
+                                will removed a number of symlinks as
+                                encoded in the [Install] section of a
+                                unit file.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>test</term>
+
+                                <listitem><para>Checks whether any of
+                                the units specified are
+                                installed. This will check for the
+                                existance of a number of symlinks as
+                                encoded in the [Install] section of a
+                                unit file.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
