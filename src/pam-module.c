@@ -97,15 +97,29 @@ static int open_file_and_lock(const char *fn) {
         if ((fd = open(fn, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_CREAT, 0600)) < 0)
                 return -errno;
 
+        /* The BSD socket semantics are a lot nicer than those of
+         * POSIX locks. Which is why we use flock() here. BSD locking
+         * does not work across NFS which however is not needed here
+         * as the filesystems in question should be local, and only
+         * locally accessible, and most likely even tmpfs. */
+
         if (flock(fd, LOCK_EX) < 0)
                 return -errno;
 
         return fd;
 }
 
-static uint64_t get_session_id(void) {
+enum {
+        SESSION_ID_AUDIT = 'a',
+        SESSION_ID_COUNTER = 'c',
+        SESSION_ID_RANDOM = 'r'
+};
+
+static uint64_t get_session_id(int *mode) {
         char *s;
         int fd;
+
+        assert(mode);
 
         /* First attempt: let's use the session ID of the audit
          * system, if it is available. */
@@ -116,8 +130,10 @@ static uint64_t get_session_id(void) {
                 r = safe_atou32(s, &u);
                 free(s);
 
-                if (r >= 0 && u != (uint32_t) -1)
+                if (r >= 0 && u != (uint32_t) -1) {
+                        *mode = SESSION_ID_AUDIT;
                         return (uint64_t) u;
+                }
         }
 
         /* Second attempt, use our own counter. */
@@ -149,9 +165,13 @@ static uint64_t get_session_id(void) {
 
                 close_nointr_nofail(fd);
 
-                if (r >= 0)
+                if (r >= 0) {
+                        *mode = SESSION_ID_COUNTER;
                         return counter;
+                }
         }
+
+        *mode = SESSION_ID_RANDOM;
 
         /* Last attempt, pick a random value */
         return (uint64_t) random_ull();
@@ -283,11 +303,20 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
                 /* Reuse or create XDG session ID */
                 if (!(id = pam_getenv(handle, "XDG_SESSION_ID"))) {
+                        int mode;
 
-                        if (asprintf(&buf, "%llu", (unsigned long long) get_session_id()) < 0) {
+                        if (asprintf(&buf, "%llux", (unsigned long long) get_session_id(&mode)) < 0) {
                                 r = PAM_BUF_ERR;
                                 goto finish;
                         }
+
+                        /* To avoid id clashes we add the session id
+                         * source to our session ids. Note that the
+                         * session id source might change during
+                         * runtime, because a filesystem became
+                         * writable or the system reconfigured. */
+                        buf[strlen(buf)-1] =
+                                mode != SESSION_ID_AUDIT ? (char) mode : 0;
 
                         if ((r = pam_misc_setenv(handle, "XDG_SESSION_ID", buf, 0)) != PAM_SUCCESS) {
                                 pam_syslog(handle, LOG_ERR, "Failed to set session id.");
