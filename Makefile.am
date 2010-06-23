@@ -576,22 +576,26 @@ CLEANFILES += \
 endif
 
 if HAVE_XSLTPROC
+XSLTPROC_FLAGS = \
+	--nonet \
+	--param funcsynopsis.style "'ansi'"
+
 XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ --nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 XSLTPROC_PROCESS_MAN_IN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} --nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $< && \
+	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ --nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
+	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
 
 XSLTPROC_PROCESS_HTML_IN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} --nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
+	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
 man/%.3: man/%.xml
@@ -635,7 +639,15 @@ CLEANFILES += \
 	man/systemd.special.7.in \
 	man/systemd.unit.html \
 	man/systemd.service.html \
-	man/systemd.special.html.in
+	man/systemd.special.html.in \
+	man/daemon.html \
+	man/runlevel.html \
+	man/sd_booted.html \
+	man/sd-daemon.html \
+	man/sd_is_fifo.html \
+	man/sd_listen_fds.html \
+	man/sd_notify.html \
+	man/systemd.html
 endif
 
 org.freedesktop.systemd1.%.xml: systemd
