@@ -217,7 +217,7 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path) {
          * SIGKILL */
 
         for (i = 0; i < 10; i++) {
-int sig, r;
+                int sig, r;
 
                 if (i <= 0)
                         sig = SIGTERM;

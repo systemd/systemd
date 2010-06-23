@@ -49,7 +49,7 @@ extern "C" {
   - Detection of systemd boots
 
   You may compile this with -DDISABLE_SYSTEMD to disable systemd
-  support. This make all those calls NOPs that are directly related to
+  support. This makes all those calls NOPs that are directly related to
   systemd (i.e. only sd_is_xxx() will stay useful).
 
   Since this is drop-in code we don't want any of our symbols to be
