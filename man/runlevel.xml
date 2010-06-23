@@ -134,15 +134,15 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>This is a legacy call available for compatbility
+                <para>This is a legacy command available for compatibility
                 only. It should not be used anymore, as the concept of
-                runlevels is obselete.</para>
+                runlevels is obsolete.</para>
         </refsect1>
 
         <refsect1>
                 <title>See Also</title>
                 <para>
-                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
