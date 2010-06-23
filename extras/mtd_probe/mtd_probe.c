@@ -1,7 +1,4 @@
 /*
- * mtd_probe.c
- * This file is part of mtd_probe
- *
  * Copyright (C) 2010 - Maxim Levitsky
  *
  * mtd_probe is free software; you can redistribute it and/or modify
@@ -16,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with mtd_probe; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, 
+ * Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
  */
 #include "mtd_probe.h"
@@ -29,8 +26,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-int main(int argc, char** argv) {
-
+int main(int argc, char** argv)
+{
 	if (argc != 2) {
 		printf("usage: mtd_probe /dev/mtd[n]\n");
 		return 1;

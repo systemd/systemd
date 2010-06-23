@@ -1,7 +1,4 @@
 /*
- * mtd_probe.h
- * This file is part of mtd_probe
- *
  * Copyright (C) 2010 - Maxim Levitsky
  *
  * mtd_probe is free software; you can redistribute it and/or modify
@@ -19,6 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, 
  * Boston, MA  02110-1301  USA
  */
+
 #include <mtd/mtd-user.h>
 
 /* Full oob structure as written on the flash */

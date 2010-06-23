@@ -1,7 +1,4 @@
 /*
- * probe_smartmedia.c
- * This file is part of mtd_probe
- *
  * Copyright (C) 2010 - Maxim Levitsky
  *
  * mtd_probe is free software; you can redistribute it and/or modify
@@ -23,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mtd/mtd-user.h>
-
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -37,9 +34,10 @@ static const uint8_t cis_signature[] = {
 };
 
 
-void probe_smart_media(int mtd_fd, mtd_info_t* info) {
-
+void probe_smart_media(int mtd_fd, mtd_info_t* info)
+{
 	char* cis_buffer = malloc(SM_SECTOR_SIZE);
+
 	if (!cis_buffer)
 		return;
 
