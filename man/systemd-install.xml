@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd">
+<refentry id="systemd-install">
 
         <refentryinfo>
                 <title>systemd-install</title>
@@ -50,13 +50,13 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <option>enable</option> <arg choice="opt" rep="repeat">name</arg></command>
+                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <arg choice="plain">enable</arg> <arg choice="opt" rep="repeat">name</arg></command>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <option>disable</option> <arg choice="opt" rep="repeat">name</arg></command>
+                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <arg choice="plain">disable</arg> <arg choice="opt" rep="repeat">name</arg></command>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <option>test</option> <arg choice="opt" rep="repeat">name</arg></command>
+                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <arg choice="plain">test</arg> <arg choice="opt" rep="repeat">name</arg></command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -66,19 +66,23 @@
                 <para><command>systemd-install</command> enables or
                 disables systemd units, or checks whether they are
                 enabled.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
 
                 <para>The following options are understood:</para>
 
                 <variablelist>
                         <varlistentry>
-                                <term>--help</term>
+                                <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>--force</term>
+                                <term><option>--force</option></term>
 
                                 <listitem><para>Enable/disable a
                                 service even if it conflicts
@@ -89,14 +93,14 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>--system</term>
+                                <term><option>--system</option></term>
 
                                 <listitem><para>Enable/disable a
                                 system service.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>--session</term>
+                                <term><option>--session</option></term>
 
                                 <listitem><para>Enable/disable a
                                 session service for the calling
@@ -104,7 +108,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>--global</term>
+                                <term><option>--global</option></term>
 
                                 <listitem><para>Enable/disable a
                                 session service for all
@@ -116,7 +120,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term>enable</term>
+                                <term><command>enable</command></term>
 
                                 <listitem><para>Enable a unit. This
                                 will create a number of symlinks as
@@ -125,7 +129,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>disable</term>
+                                <term><command>disable</command></term>
 
                                 <listitem><para>Disable a unit. This
                                 will removed a number of symlinks as
@@ -134,7 +138,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>test</term>
+                                <term><command>test</command></term>
 
                                 <listitem><para>Checks whether any of
                                 the units specified are

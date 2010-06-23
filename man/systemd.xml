@@ -47,10 +47,212 @@
                 <refpurpose>systemd System and Session Manager</refpurpose>
         </refnamediv>
 
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd <arg choice="opt" rep="repeat">options</arg></command>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>init <arg choice="opt" rep="repeat">options</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
         <refsect1>
                 <title>Description</title>
 
-                <para>Systemd is awesome.</para>
+                <para>systemd is a system and session manager for
+                Linux operating systems. When run as first process on
+                boot (as PID 1) it may act as init system that brings
+                up and maintains userspace.</para>
+
+                <para>For compatibility with SysV if systemd is called
+                as <command>init</command> and a PID that is not
+                1 it will execute <command>telinit</command> and pass
+                all command line arguments unmodified. That means
+                <command>init</command> and <command>telinit</command>
+                are mostly equivalent when invoked from normal login sessions. See
+                <citerefentry><refentrytitle>telinit</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                for more information.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>-h</option> | <option>--help</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--unit=</option></term>
+
+                                <listitem><para>Set default unit to
+                                activate on startup. If not specified
+                                defaults to
+                                <filename>default.target</filename>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--running-as=</option></term>
+
+                                <listitem><para>Tell systemd to run in
+                                a particular mode. Argument is one of
+                                <option>system</option>,
+                                <option>session</option>. Normally it
+                                should not be necessary to pass this
+                                option, as systemd automatically
+                                detects the mode it is started
+                                in. This call is hence of little use
+                                except for
+                                debugging.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--test</option></term>
+
+                                <listitem><para>Determine startup
+                                sequence, dump it and exit. This is an
+                                option useful for debugging
+                                only.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--dump-configuration-items</option></term>
+
+                                <listitem><para>Dump understood unit
+                                configuration items. This outputs a
+                                terse list of configuration items
+                                understood in unit definition
+                                files.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--confirm-spawn</option></term>
+
+                                <listitem><para>Ask for confirmation when spawning processes.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--introspect=</option></term>
+
+                                <listitem><para>Extract D-Bus
+                                interface introspection data. This is
+                                mostly useful at build ot install time
+                                to generate data suitable for the
+                                D-Bus interfaces
+                                repository. Optionally the interface
+                                name for the introspection data may be
+                                specified. If omitted the
+                                introspection data for all interfaces
+                                is dumped.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--log-level=</option></term>
+
+                                <listitem><para>Set log level. As
+                                argument this accepts a numerical log
+                                level or the well-known <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                symbolic names (lowercase):
+                                <option>emerg</option>,
+                                <option>alert</option>,
+                                <option>crit</option>,
+                                <option>err</option>,
+                                <option>warning</option>,
+                                <option>notice</option>,
+                                <option>info</option>,
+                                <option>debug</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--log-target=</option></term>
+
+                                <listitem><para>Set log
+                                target. Argument must be one of
+                                <option>console</option>,
+                                <option>syslog</option>,
+                                <option>kmsg</option>,
+                                <option>syslog-or-kmsg</option>,
+                                <option>null</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--log-color=</option></term>
+
+                                <listitem><para>Highlight important
+                                log messages. Argument is a boolean
+                                value. If the argument is omitted it
+                                defaults to
+                                <option>true</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--log-location=</option></term>
+
+                                <listitem><para>Include code location
+                                in log messages. This is mostly
+                                relevant for debugging
+                                purposes. Argument is a boolean
+                                value. If the argument is omitted
+                                it defaults to
+                                <option>true</option>.</para></listitem>
+                        </varlistentry>
+
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Sockets and FIFOs</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>@/org/freedesktop/systemd1/notify</filename></term>
+
+                                <listitem><para>Daemon status
+                                notification socket. This is an AF_UNIX
+                                datagram socket in the Linux abstract
+                                namespace, and is used to implement
+                                the daemon notification logic as
+                                implemented by
+                                <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>@/org/freedesktop/systemd1/logger</filename></term>
+
+                                <listitem><para>Used internally by the
+                                <filename>systemd-logger.service</filename>
+                                unit to connect STDOUT and/or STDERR
+                                of spawned processes to
+                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                or the kernel log buffer. This is an
+                                AF_UNIX stream socket in the Linux
+                                abstract namespace.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>@/org/freedesktop/systemd1/private</filename></term>
+
+                                <listitem><para>Used internally as
+                                communication channel between
+                                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                and the systemd process. This is an
+                                AF_UNIX stream socket in the Linux
+                                abstract namespace. This interface is
+                                private to systemd and should not be
+                                used in external
+                                projects.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/dev/initctl</filename></term>
+
+                                <listitem><para>Limited compatibility
+                                support for the SysV client interface,
+                                as implemented by the
+                                <filename>systemd-initctl.service</filename>
+                                unit. This is a named pipe in the file
+                                system. This interface is obsolete and
+                                should not be used in new
+                                applications.</para></listitem>
+                        </varlistentry>
+                </variablelist>
         </refsect1>
 
 

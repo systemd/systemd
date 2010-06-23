@@ -67,12 +67,16 @@
                 <para>Unless overriden in the environment this will
                 check the utmp database for recent runlevel
                 changes.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
 
                 <para>The following option is understood:</para>
 
                 <variablelist>
                         <varlistentry>
-                                <term>--help</term>
+                                <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>

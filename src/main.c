@@ -547,7 +547,7 @@ static int help(void) {
                "     --introspect[=INTERFACE]    Extract D-Bus interface data\n"
                "     --log-level=LEVEL           Set log level\n"
                "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
-               "     --log-color[=0|1]           Highlight import log messages\n"
+               "     --log-color[=0|1]           Highlight important log messages\n"
                "     --log-location[=0|1]        Include code location in log messages\n",
                program_invocation_short_name);
 
