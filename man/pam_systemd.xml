@@ -1,0 +1,296 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="pam_systemd">
+
+        <refentryinfo>
+                <title>pam_systemd</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>pam_systemd</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>pam_systemd</refname>
+                <refpurpose>Register user sessions in the systemd control group hierarchy</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>pam_systemd.so</command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>pam_systemd</command> registers user
+                sessions in the systemd control group
+                hierarchy.</para>
+
+                <para>On login, this module ensures the following:</para>
+
+                <orderedlist>
+                        <listitem><para>If it does not exist yet the
+                        user runtime directory
+                        <filename>/var/run/user/$USER</filename> is
+                        created and its ownership changed to the user
+                        that is logging in.</para></listitem>
+
+                        <listitem><para>If
+                        <option>create-session=1</option> is set the
+                        <varname>$XDG_SESSION_ID</varname> environment
+                        variable is initialized. If auditing is
+                        available and
+                        <command>pam_loginuid.so</command> run before
+                        this module (which es recommended), the
+                        variable is initialized from the auditing
+                        session id
+                        (<filename>/proc/self/sessionid</filename>). Otherwise
+                        an independent session counter is
+                        used.</para></listitem>
+
+                        <listitem><para>If
+                        <option>create-session=1</option> is set a new
+                        control group
+                        <filename>/user/$USER/$XDG_SESSION_ID</filename>
+                        is created and the login process moved into
+                        it.</para></listitem>
+
+                        <listitem><para>If
+                        <option>create-session=0</option> is set a new
+                        control group
+                        <filename>/user/$USER/no-session</filename>
+                        is created and the login process moved into
+                        it.</para></listitem>
+
+                </orderedlist>
+
+                <para>On logout, this module ensures the following:</para>
+
+                <orderedlist>
+                        <listitem><para>If
+                        <varname>$XDG_SESSION_ID</varname> is set and
+                        <option>kill-session=1</option> specified, all
+                        remaining processes in the
+                        <filename>/user/$USER/$XDG_SESSION_ID</filename>
+                        control group are killed and the control group
+                        removed.</para></listitem>
+
+                        <listitem><para>If
+                        <varname>$XDG_SESSION_ID</varname> is set and
+                        <option>kill-session=0</option> specified, all
+                        remaining processes in the
+                        <filename>/user/$USER/$XDG_SESSION_ID</filename>
+                        control group are migrated to
+                        <filename>/user/$USER/no-session</filename> and
+                        the original control group
+                        removed.</para></listitem>
+
+                        <listitem><para>If
+                        <option>kill-user=1</option> is specified, and
+                        no other user session control group remains
+                        except
+                        <filename>/user/$USER/no-session</filename>
+                        all remaining processes in the
+                        <filename>/user/$USER</filename> hierarchy
+                        are killed and the control group removed.</para></listitem>
+
+                        <listitem><para>If
+                        <option>kill-user=0</option> is specified, and
+                        no process remains in the
+                        <filename>/user/$USER</filename> hierarchy the
+                        control group is removed.</para></listitem>
+
+                        <listitem><para>If the
+                        <filename>/user/$USER</filename> control group
+                        was removed the
+                        <varname>$XDG_RUNTIME_DIR</varname> directory
+                        and all its contents are
+                        removed, too.</para></listitem>
+                </orderedlist>
+
+                <para>If the system was not booted up with systemd as
+                init system this module does nothing and immediately
+                returns PAM_SUCCESS.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>create-session=</option></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true, a new session is
+                                created: the
+                                <varname>$XDG_SESSION_ID</varname>
+                                environment variable is set and the
+                                login process moved to the
+                                <filename>/user/$USER/$XDG_SESSION_ID</filename>
+                                control group. It is recommended that
+                                all services that are directly created
+                                on the user's behalf set this
+                                option. Only for services that shall
+                                automatically be terminated when the
+                                user logs out completely otherwise,
+                                <varname>create-session=0</varname>
+                                should be set.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>kill-session=</option></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true, all processes
+                                created by the user during his session
+                                and from his session will be
+                                terminated when he logs out from his
+                                session.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>kill-user=</option></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true, all processes
+                                created by the user during his session
+                                and from his session will be
+                                terminated after he logged out
+                                completely. This is a weaker version
+                                of <option>kill-session=1</option> and is
+                                more friendly for users logged in more
+                                than once as their processes are
+                                terminated only on their complete
+                                logout.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <para>Note that setting <varname>kill-user=1</varname>
+                or even <varname>kill-session=1</varname> will break
+                tools like
+                <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Module Types Provided</title>
+
+                <para>Only <option>session</option> is provided.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Environment</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>$XDG_SESSION_ID</varname></term>
+
+                                <listitem><para>A session identifier,
+                                suitable to be used in file names. The
+                                string itself should be considered
+                                opaque, although often it is just the
+                                audit session ID as reported by
+                                <filename>/proc/self/sessionid</filename>. Each
+                                ID will be assigned only once during
+                                machine uptime. It may hence be used
+                                to uniquely label files or other
+                                resources of this
+                                session.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_RUNTIME_DIR</varname></term>
+
+                                <listitem><para>Path to a user-private
+                                user-writable directory that is bound
+                                to the user login time on the
+                                machine. It is automatically created
+                                the first time a user logs in and
+                                removed on his final logout. If a user
+                                logs in twice at the same time, both
+                                sessions will see the same
+                                <varname>$XDG_RUNTIME_DIR</varname>
+                                and the same contents. If a user logs
+                                in once, then logs out again, and logs
+                                in again, the directory contents will
+                                have been lost in between, but
+                                applications should not rely on this
+                                behaviour and must be able to deal with
+                                stale files. To store session-private
+                                data in this directory the user should
+                                include the value of <varname>$XDG_SESSION_ID</varname>
+                                in the filename. This directory shall
+                                be used for runtime file system
+                                objects such as AF_UNIX sockets,
+                                FIFOs, PID files and similar. It is
+                                guaranteed that this directory is
+                                local and offers the greatest possible
+                                file system feature set the
+                                operating system
+                                provides.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+
+                <programlisting>#%PAM-1.0
+auth       required     pam_unix.so
+auth       required     pam_nologin.so
+account    required     pam_unix.so
+password   required     pam_unix.so
+session    required     pam_unix.so
+session    required     pam_loginuid.so
+session    required     pam_systemd.so create-session=1 kill-user=1</programlisting>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pam_loginuid</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

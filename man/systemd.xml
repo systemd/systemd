@@ -39,7 +39,7 @@
 
         <refmeta>
                 <refentrytitle>systemd</refentrytitle>
-                <manvolnum>8</manvolnum>
+                <manvolnum>1</manvolnum>
         </refmeta>
 
         <refnamediv>
@@ -49,10 +49,10 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd <arg choice="opt" rep="repeat">options</arg></command>
+                        <command>systemd <arg choice="opt" rep="repeat">OPTIONS</arg></command>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>init <arg choice="opt" rep="repeat">options</arg></command>
+                        <command>init <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg></command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -81,7 +81,8 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-h</option> | <option>--help</option></term>
+                                <term><option>-h</option></term>
+                                <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
@@ -195,6 +196,28 @@
 
                 </variablelist>
         </refsect1>
+
+        <refsect1>
+                <title>Directories</title>
+        </refsect1>
+
+        <refsect1>
+                <title>Signal</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>SIGTERM</filename></term>
+
+                                <listitem><para>systemd serializes its
+                                state, reexecutes itself and
+                                deserializes the saved state
+                                again. This is mostly equivalent to
+                                <command>systemctl
+                                daemon-reexec</command>.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
 
         <refsect1>
                 <title>Sockets and FIFOs</title>

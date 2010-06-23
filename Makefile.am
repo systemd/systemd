@@ -308,14 +308,18 @@ dist_man_MANS = \
 	man/systemd.unit.5 \
 	man/systemd.service.5 \
 	man/daemon.7 \
-	man/systemd.8 \
+	man/systemd.1 \
 	man/sd_notify.3 \
 	man/sd_booted.3 \
 	man/sd_listen_fds.3 \
 	man/sd_is_fifo.3 \
 	man/sd-daemon.7 \
 	man/runlevel.8 \
-	man/systemd-install.1
+	man/telinit.8 \
+	man/halt.8 \
+	man/shutdown.8 \
+	man/systemd-install.1 \
+	man/pam_systemd.8
 
 nodist_man_MANS = \
 	man/systemd.special.7
@@ -331,7 +335,11 @@ dist_noinst_DATA = \
 	man/sd_is_fifo.html \
 	man/sd-daemon.html \
 	man/runlevel.html \
-	man/systemd-install.html
+	man/telinit.html \
+	man/halt.html \
+	man/shutdown.html \
+	man/systemd-install.html \
+	man/pam_systemd.html
 
 nodist_noinst_DATA = \
 	man/systemd.special.html
@@ -350,7 +358,11 @@ EXTRA_DIST += \
 	man/sd_is_fifo.xml \
 	man/sd-daemon.xml \
 	man/runlevel.xml \
-	man/systemd-install.xml
+	man/telinit.xml \
+	man/halt.xml \
+	man/shutdown.xml \
+	man/systemd-install.xml \
+	man/pam_systemd.xml
 
 systemd_SOURCES = \
 	src/main.c

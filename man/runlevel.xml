@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd">
+<refentry id="runlevel">
 
         <refentryinfo>
                 <title>runlevel</title>
@@ -146,6 +146,7 @@
         <refsect1>
                 <title>See Also</title>
                 <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>

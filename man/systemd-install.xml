@@ -50,13 +50,13 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <arg choice="plain">enable</arg> <arg choice="opt" rep="repeat">name</arg></command>
+                        <command>systemd-install <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">enable</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <arg choice="plain">disable</arg> <arg choice="opt" rep="repeat">name</arg></command>
+                        <command>systemd-install <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">disable</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-install <arg choice="opt" rep="repeat">options</arg> <arg choice="plain">test</arg> <arg choice="opt" rep="repeat">name</arg></command>
+                        <command>systemd-install <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">test</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -116,7 +116,7 @@
                         </varlistentry>
                 </variablelist>
 
-                <para>The following verbs are understood:</para>
+                <para>The following commands are understood:</para>
 
                 <variablelist>
                         <varlistentry>
@@ -161,6 +161,7 @@
         <refsect1>
                 <title>See Also</title>
                 <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
