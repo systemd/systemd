@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <signal.h>
 
+#include "macro.h"
+
 typedef uint64_t usec_t;
 
 typedef struct timestamp {
@@ -112,6 +114,16 @@ int parse_pid(const char *s, pid_t* ret_pid);
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
+
+static inline int safe_atou32(const char *s, uint32_t *ret_u) {
+        assert_cc(sizeof(uint32_t) == sizeof(unsigned));
+        return safe_atou(s, (unsigned*) ret_u);
+}
+
+static inline int safe_atoi32(const char *s, int32_t *ret_u) {
+        assert_cc(sizeof(int32_t) == sizeof(int));
+        return safe_atoi(s, (int*) ret_u);
+}
 
 int safe_atolu(const char *s, unsigned long *ret_u);
 int safe_atoli(const char *s, long int *ret_i);

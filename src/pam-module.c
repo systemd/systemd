@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <pwd.h>
+#include <endian.h>
 
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
@@ -102,39 +103,59 @@ static int open_file_and_lock(const char *fn) {
         return fd;
 }
 
-static uint32_t combine32(unsigned long long u) {
-        uint32_t r = 0;
-        unsigned i;
+static uint64_t get_session_id(void) {
+        char *s;
+        int fd;
 
-        for (i = 0; i < sizeof(u)/4; i ++)
-                r ^= (uint32_t) ((u >> (i*32)) & 0xFFFFFFFFULL);
+        /* First attempt: let's use the session ID of the audit
+         * system, if it is available. */
+        if (read_one_line_file("/proc/self/sessionid", &s) >= 0) {
+                uint32_t u;
+                int r;
 
-        return r;
+                r = safe_atou32(s, &u);
+                free(s);
+
+                if (r >= 0 && u != (uint32_t) -1)
+                        return (uint64_t) u;
+        }
+
+        /* Second attempt, use our own counter. */
+        if ((fd = open_file_and_lock(RUNTIME_DIR "/user/.pam-systemd-session")) >= 0) {
+                uint64_t counter;
+                ssize_t r;
+
+                /* We do a bit of endianess swapping here, just to be
+                 * sure. /var should be machine specific anyway, and
+                 * /var/run even mounted from tmpfs, so this
+                 * byteswapping should really not be necessary. But
+                 * then again, you never know, so let's avoid any
+                 * risk. */
+
+                if (loop_read(fd, &counter, sizeof(counter), false) != sizeof(counter))
+                        counter = 1;
+                else
+                        counter = le64toh(counter) + 1;
+
+                if (lseek(fd, 0, SEEK_SET) == 0) {
+                        uint64_t swapped = htole64(counter);
+
+                        r = loop_write(fd, &swapped, sizeof(swapped), false);
+
+                        if (r != sizeof(swapped))
+                                r = -EIO;
+                } else
+                        r = -errno;
+
+                close_nointr_nofail(fd);
+
+                if (r >= 0)
+                        return counter;
+        }
+
+        /* Last attempt, pick a random value */
+        return (uint64_t) random_ull();
 }
-
-static char *generate_session_cookie(void) {
-        char *machine;
-        char *cookie;
-        unsigned long long r;
-        usec_t u;
-        int k;
-
-        if (getmachineid_malloc(&machine) < 0)
-                if (!(machine = gethostname_malloc()))
-                        return NULL;
-
-        r = random_ull();
-        u = now(CLOCK_REALTIME);
-
-        k = asprintf(&cookie, "%s-%lu-%lu",
-                     machine,
-                     (unsigned long) combine32(r),
-                     (unsigned long) combine32((unsigned long long) u));
-        free(machine);
-
-        return k < 0 ? NULL : cookie;
-}
-
 static int get_user_data(
                 pam_handle_t *handle,
                 const char **ret_username,
@@ -258,28 +279,29 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         buf = NULL;
 
         if (create_session) {
-                const char *cookie;
+                const char *id;
 
                 /* Reuse or create XDG session ID */
-                if (!(cookie = pam_getenv(handle, "XDG_SESSION_COOKIE"))) {
-                        if (!(buf = generate_session_cookie())) {
+                if (!(id = pam_getenv(handle, "XDG_SESSION_ID"))) {
+
+                        if (asprintf(&buf, "%llu", (unsigned long long) get_session_id()) < 0) {
                                 r = PAM_BUF_ERR;
                                 goto finish;
                         }
 
-                        if ((r = pam_misc_setenv(handle, "XDG_SESSION_COOKIE", buf, 0)) != PAM_SUCCESS) {
-                                pam_syslog(handle, LOG_ERR, "Failed to set cookie.");
+                        if ((r = pam_misc_setenv(handle, "XDG_SESSION_ID", buf, 0)) != PAM_SUCCESS) {
+                                pam_syslog(handle, LOG_ERR, "Failed to set session id.");
                                 goto finish;
                         }
 
-                        if (!(cookie = pam_getenv(handle, "XDG_SESSION_COOKIE"))) {
-                                pam_syslog(handle, LOG_ERR, "Failed to get cookie.");
+                        if (!(id = pam_getenv(handle, "XDG_SESSION_ID"))) {
+                                pam_syslog(handle, LOG_ERR, "Failed to get session id.");
                                 r = PAM_SESSION_ERR;
                                 goto finish;
                         }
                 }
 
-                r = asprintf(&buf, "/user/%s/%s", username, cookie);
+                r = asprintf(&buf, "/user/%s/%s", username, id);
         } else
                 r = asprintf(&buf, "/user/%s/no-session", username);
 
@@ -353,7 +375,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         bool kill_user = false;
         int lock_fd = -1, r;
         char *session_path = NULL, *nosession_path = NULL, *user_path = NULL;
-        const char *cookie;
+        const char *id;
         struct passwd *pw;
 
         assert(handle);
@@ -379,22 +401,18 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 goto finish;
         }
 
-        if ((cookie = pam_getenv(handle, "XDG_SESSION_COOKIE"))) {
+        if ((id = pam_getenv(handle, "XDG_SESSION_ID"))) {
 
-                if (asprintf(&session_path, "/user/%s/%s", username, cookie) < 0 ||
+                if (asprintf(&session_path, "/user/%s/%s", username, id) < 0 ||
                     asprintf(&nosession_path, "/user/%s/no-session", username) < 0) {
                         r = PAM_BUF_ERR;
                         goto finish;
                 }
 
                 if (kill_session)  {
-                        pam_syslog(handle, LOG_INFO, "KILLING ENTER");
-
                         /* Kill processes in session cgroup */
                         if ((r = cg_kill_recursive_and_wait("name=systemd", session_path)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to kill session cgroup: %s", strerror(-r));
-
-                        pam_syslog(handle, LOG_INFO, "KILLING EXIT");
 
                 } else  {
                         /* Migrate processes from session to
