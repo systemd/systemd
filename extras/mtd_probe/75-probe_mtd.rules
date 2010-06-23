@@ -1,0 +1,10 @@
+#probe mtd devices for FTL
+
+ACTION!="add", GOTO="mtd_probe_end"
+
+KERNEL=="mtd*ro", IMPORT{program}="mtd_probe $tempnode"
+KERNEL=="mtd*ro", ENV{MTD_FTL}=="smartmedia", RUN+="/sbin/modprobe sm_ftl"
+
+
+LABEL="mtd_probe_end"
+

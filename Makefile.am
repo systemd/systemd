@@ -467,6 +467,21 @@ dist_udevrules_DATA += \
 libexec_PROGRAMS += extras/mobile-action-modeswitch/mobile-action-modeswitch
 
 # ------------------------------------------------------------------------------
+# mtd_probe - autoloads FTL module for mtd devices
+# ------------------------------------------------------------------------------
+extras_mtd_probe_mtd_probe_SOURCES =  \
+							extras/mtd_probe/mtd_probe.c \
+							extras/mtd_probe/mtd_probe.h \
+							extras/mtd_probe/probe_smartmedia.c
+
+extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
+
+dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
+
+libexec_PROGRAMS += extras/mtd_probe/mtd_probe
+ 
+
+# ------------------------------------------------------------------------------
 # keymap - map custom hardware's multimedia keys
 # ------------------------------------------------------------------------------
 extras_keymap_keymap_SOURCES = extras/keymap/keymap.c
