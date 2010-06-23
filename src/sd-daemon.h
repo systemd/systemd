@@ -63,6 +63,8 @@ extern "C" {
 
   This should compile on non-Linux systems, too, but with the
   exception of the sd_is_xxx() calls all functions will become NOPs.
+
+  See sd-daemon(7) for more information.
 */
 
 #if __GNUC__ >= 4
@@ -104,6 +106,8 @@ extern "C" {
   sure they are not passed on to child processes. If FD_CLOEXEC shall
   not be set, the caller needs to unset it after this call for all file
   descriptors that are used.
+
+  See sd_listen_fds(3) for more information.
 */
 int sd_listen_fds(int unset_environment) _sd_hidden_;
 
@@ -114,6 +118,8 @@ int sd_listen_fds(int unset_environment) _sd_hidden_;
   not be done and the call only verifies if the file descriptor
   refers to a FIFO. Returns a negative errno style error code on
   failure.
+
+  See sd_is_fifo(3) for more information.
 */
 int sd_is_fifo(int fd, const char *path) _sd_hidden_;
 
@@ -128,6 +134,8 @@ int sd_is_fifo(int fd, const char *path) _sd_hidden_;
   been called) If listening is == 0 it is verified that the socket is
   not in listening mode. If listening is < 0 no listening mode check
   is done. Returns a negative errno style error code on failure.
+
+  See sd_is_socket(3) for more information.
 */
 int sd_is_socket(int fd, int family, int type, int listening) _sd_hidden_;
 
@@ -140,6 +148,8 @@ int sd_is_socket(int fd, int family, int type, int listening) _sd_hidden_;
   done. If port is 0 a socket port check will not be done. The
   listening flag is used the same way as in sd_is_socket(). Returns a
   negative errno style error code on failure.
+
+  See sd_is_socket_inet(3) for more information.
 */
 int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port) _sd_hidden_;
 
@@ -154,6 +164,8 @@ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port
   socket path in path (including the initial 0 byte). The listening
   flag is used the same way as in sd_is_socket(). Returns a negative
   errno style error code on failure.
+
+  See sd_is_socket_unix(3) for more information.
 */
 int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) _sd_hidden_;
 
@@ -198,6 +210,8 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
      sd_notify(0, "READY=1");
 
   See sd_notifyf() for more complete examples.
+
+  See sd_notify(3) for more information.
 */
 int sd_notify(int unset_environment, const char *state) _sd_hidden_;
 
@@ -218,6 +232,8 @@ int sd_notify(int unset_environment, const char *state) _sd_hidden_;
                    "ERRNO=%i",
                    strerror(errno),
                    errno);
+
+  See sd_notifyf(3) for more information.
 */
 int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_attr_(2,3) _sd_hidden_;
 
@@ -229,6 +245,8 @@ int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_attr_(
   note that this function checks whether the system, not the user
   session is controlled by systemd. However the functions above work
   for both session and system services.
+
+  See sd_booted(3) for more information.
 */
 int sd_booted(void) _sd_hidden_;
 
