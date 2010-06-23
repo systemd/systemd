@@ -1428,7 +1428,7 @@ finish:
 
 static int systemctl_help(void) {
 
-        printf("%s [options]\n\n"
+        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to the init daemon.\n\n"
                "  -h --help      Show this help\n"
                "  -t --type=TYPE List only units of a particular type\n"
@@ -1437,7 +1437,7 @@ static int systemctl_help(void) {
                "     --system    Connect to system bus\n"
                "     --session   Connect to session bus\n"
                "     --block     Wait until operation finished\n"
-               "     --no-wall   Don't send wall message before reboot/halt/power-off\n\n"
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n\n"
                "Commands:\n"
                "  list-units                      List units\n"
                "  list-jobs                       List jobs\n"
@@ -1459,8 +1459,8 @@ static int systemctl_help(void) {
                "  set-environment [NAME=VALUE...] Set one or more environment variables\n"
                "  unset-environment [NAME...]     Unset one or more environment variables\n"
                "  halt                            Shut down and halt the system\n"
+               "  poweroff                        Shut down and power-off the system\n"
                "  reboot                          Shut down and reboot the system\n"
-               "  poweroff                        Shut down and power off the system\n"
                "  default                         Enter default mode\n"
                "  rescue                          Enter rescue mode\n"
                "  emergency                       Enter emergency mode\n",
@@ -1471,17 +1471,17 @@ static int systemctl_help(void) {
 
 static int halt_help(void) {
 
-        printf("%s [options]\n\n"
+        printf("%s [OPTIONS...]\n\n"
                "%s the system.\n\n"
                "     --help      Show this help\n"
                "     --halt      Halt the machine\n"
                "  -p --poweroff  Switch off the machine\n"
                "     --reboot    Reboot the machine\n"
-               "  -f --force     Force immediate reboot/halt/power-off\n"
-               "  -w --wtmp-only Don't reboot/halt/power-off, just write wtmp record\n"
+               "  -f --force     Force immediate halt/power-off/reboot\n"
+               "  -w --wtmp-only Don't halt/power-off/reboot, just write wtmp record\n"
                "  -d --no-wtmp   Don't write wtmp record\n"
-               "  -n --no-sync   Don't sync before reboot/halt/power-off\n"
-               "     --no-wall   Don't send wall message before reboot/halt/power-off\n",
+               "  -n --no-sync   Don't sync before halt/power-off/reboot\n"
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n",
                program_invocation_short_name,
                arg_action == ACTION_REBOOT   ? "Reboot" :
                arg_action == ACTION_POWEROFF ? "Power off" :
@@ -1492,15 +1492,15 @@ static int halt_help(void) {
 
 static int shutdown_help(void) {
 
-        printf("%s [options] [now] [WALL...]\n\n"
+        printf("%s [OPTIONS...] [now] [WALL...]\n\n"
                "Shut down the system.\n\n"
                "     --help      Show this help\n"
                "  -H --halt      Halt the machine\n"
                "  -P --poweroff  Power-off the machine\n"
                "  -r --reboot    Reboot the machine\n"
                "  -h             Equivalent to --poweroff, overriden by --halt\n"
-               "  -k             Don't reboot/halt/power-off, just send warnings\n"
-               "     --no-wall   Don't send wall message before reboot/halt/power-off\n",
+               "  -k             Don't halt/power-off/reboot, just send warnings\n"
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n",
                program_invocation_short_name);
 
         return 0;
@@ -1508,10 +1508,10 @@ static int shutdown_help(void) {
 
 static int telinit_help(void) {
 
-        printf("%s [options]\n\n"
+        printf("%s [OPTIONS...] {COMMAND}\n\n"
                "Send control commands to the init daemon.\n\n"
                "     --help      Show this help\n"
-               "     --no-wall   Don't send wall message before reboot/halt/power-off\n\n"
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n\n"
                "Commands:\n"
                "  0              Power-off the machine\n"
                "  6              Reboot the machine\n"
@@ -1526,7 +1526,7 @@ static int telinit_help(void) {
 
 static int runlevel_help(void) {
 
-        printf("%s [options]\n\n"
+        printf("%s [OPTIONS...]\n\n"
                "Prints the previous and current runlevel of the init system.\n\n"
                "     --help      Show this help\n",
                program_invocation_short_name);

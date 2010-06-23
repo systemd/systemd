@@ -39,7 +39,7 @@ static bool arg_booted = false;
 
 static int help(void) {
 
-        printf("%s [options] [VARIABLE=VALUE...]\n\n"
+        printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n\n"
                "Notify the init system about service status updates.\n\n"
                "  -h --help         Show this help\n"
                "     --ready        Inform the init system about service start-up completion\n"

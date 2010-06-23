@@ -59,13 +59,13 @@ Hashmap *will_install = NULL, *have_installed = NULL;
 
 static int help(void) {
 
-        printf("%s [options]\n\n"
+        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Install init system units.\n\n"
                "  -h --help        Show this help\n"
                "     --force       Override existing links\n"
                "     --system      Install into system\n"
                "     --session     Install into session\n"
-               "     --global      Install into all sessions\n"
+               "     --global      Install into all sessions\n\n"
                "Commands:\n"
                "  enable [NAME...]    Enable one or more units\n"
                "  disable [NAME...]   Disable one or more units\n"

@@ -536,7 +536,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int help(void) {
 
-        printf("%s [options]\n\n"
+        printf("%s [OPTIONS...]\n\n"
                "Starts up and maintains the system or a session.\n\n"
                "  -h --help                      Show this help\n"
                "     --unit=UNIT                 Set default unit\n"
