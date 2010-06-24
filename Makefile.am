@@ -95,8 +95,7 @@ install-data-local:
 
 EXTRA_DIST += \
 	rules/arch \
-	rules/misc \
-	rules/gentoo
+	rules/misc
 
 udevrulesdir = $(libexecdir)/rules.d
 dist_udevrules_DATA = \
