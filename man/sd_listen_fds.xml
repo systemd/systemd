@@ -96,8 +96,7 @@
                 for the service to work, hence it should not be
                 verified. On the other hand, whether a socket is a
                 datagram or stream socket matters a lot for the most
-                common program logics and should hence be
-                checked.</para>
+                common program logics and should be checked.</para>
 
                 <para>This function call will set the FD_CLOEXEC flag
                 for all passed file descriptors to avoid further
@@ -111,9 +110,9 @@
                 errno-style error code. If
                 <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
                 was not set or not correctly set for this daemon and
-                hence no file descriptors received 0 is
+                hence no file descriptors received, 0 is
                 returned. Otherwise the number of file descriptors
-                passed is returned, the application may find them
+                passed is returned. The application may find them
                 starting with file descriptor SD_LISTEN_FDS_START,
                 i.e. file descriptor 3.</para>
         </refsect1>

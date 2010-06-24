@@ -104,7 +104,7 @@
                                 definition file has Type=notify
                                 set. The passed argument is a boolean
                                 "1" or "0". Since there is little
-                                value in signalling non-readiness the
+                                value in signalling non-readiness, the
                                 only value daemons should send is
                                 "READY=1".</para></listitem>
                         </varlistentry>
@@ -115,7 +115,7 @@
                                 <listitem><para>Passes a single-line
                                 status string back to the init system
                                 that describes the daemon state. This
-                                is free-from and can be used for
+                                is free-form and can be used for
                                 various purposes: general state
                                 feedback, fsck-like programs could
                                 pass completion percentages and
@@ -177,11 +177,11 @@
                 <para>On failure, these calls return a negative
                 errno-style error code. If
                 <varname>$NOTIFY_SOCKET</varname> was not set and
-                hence no status data could be sent 0 is returned. If
+                hence no status data could be sent, 0 is returned. If
                 the status was sent these functions return with a
-                positive return value. In order to support both init
+                positive return value. In order to support both, init
                 systems that implement this scheme and those which
-                don't it is generally recommended to ignore the return
+                don't, it is generally recommended to ignore the return
                 value of this call.</para>
         </refsect1>
 

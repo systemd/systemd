@@ -94,14 +94,14 @@
                                         daemon process. This is the
                                         behaviour of traditional UNIX
                                         daemons. If this setting is
-                                        used it is recommended to also
+                                        used, it is recommended to also
                                         use the
                                         <varname>PIDFile=</varname>
                                         option, so that systemd can
                                         identify the main process of
-                                        the daemon. systemd will start
-                                        follow-up units as soon as the
-                                        parent process exited.</para>
+                                        the daemon. systemd will proceed
+                                        starting follow-up units as soon
+                                        as the parent process exits.</para>
 
                                         <para>If set to
                                         <literal>simple</literal> (the
@@ -110,12 +110,12 @@
                                         configured with
                                         <varname>ExecStart=</varname>
                                         is the main process of the
-                                        daemon. In this mode
+                                        daemon. In this mode,
                                         communication channels must be
                                         available before the daemon is
-                                        started up, as systemd will
-                                        immediately start follow-up
-                                        units.</para>
+                                        started up (sockets set up by systemd),
+                                        as systemd will immediately proceed
+                                        starting follow-up units.</para>
 
                                         <para>Behaviour of
                                         <literal>finish</literal> is
@@ -136,9 +136,9 @@
                                         the daemon acquires a name on
                                         the D-Bus bus, as configured
                                         by
-                                        <varname>BusName=</varname>. Follow-up
-                                        units will be started after
-                                        the name has been
+                                        <varname>BusName=</varname>. Systemd will
+                                        proceed starting follow-up
+                                        units after the D-Bus bus name has been
                                         acquired.</para>
                                 </listitem>
                         </varlistentry>
@@ -170,8 +170,8 @@
                         <varlistentry>
                                 <term><varname>BusName=</varname></term>
                                 <listitem>
-                                        <para>Takes a D-Bus bus name
-                                        that this service is reachable
+                                        <para>Takes a D-Bus bus name,
+                                        where this service is reachable
                                         as. This option is mandatory
                                         for services where
                                         <varname>Type=</varname> is

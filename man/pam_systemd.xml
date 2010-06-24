@@ -63,19 +63,19 @@
                 <para>On login, this module ensures the following:</para>
 
                 <orderedlist>
-                        <listitem><para>If it does not exist yet the
+                        <listitem><para>If it does not exist yet, the
                         user runtime directory
                         <filename>/var/run/user/$USER</filename> is
                         created and its ownership changed to the user
                         that is logging in.</para></listitem>
 
                         <listitem><para>If
-                        <option>create-session=1</option> is set the
+                        <option>create-session=1</option> is set, the
                         <varname>$XDG_SESSION_ID</varname> environment
                         variable is initialized. If auditing is
                         available and
                         <command>pam_loginuid.so</command> run before
-                        this module (which es recommended), the
+                        this module (which is highly recommended), the
                         variable is initialized from the auditing
                         session id
                         (<filename>/proc/self/sessionid</filename>). Otherwise
@@ -83,14 +83,14 @@
                         used.</para></listitem>
 
                         <listitem><para>If
-                        <option>create-session=1</option> is set a new
+                        <option>create-session=1</option> is set, a new
                         control group
                         <filename>/user/$USER/$XDG_SESSION_ID</filename>
                         is created and the login process moved into
                         it.</para></listitem>
 
                         <listitem><para>If
-                        <option>create-session=0</option> is set a new
+                        <option>create-session=0</option> is set, a new
                         control group
                         <filename>/user/$USER/no-session</filename>
                         is created and the login process moved into
@@ -107,7 +107,7 @@
                         remaining processes in the
                         <filename>/user/$USER/$XDG_SESSION_ID</filename>
                         control group are killed and the control group
-                        removed.</para></listitem>
+                        is removed.</para></listitem>
 
                         <listitem><para>If
                         <varname>$XDG_SESSION_ID</varname> is set and
@@ -116,17 +116,17 @@
                         <filename>/user/$USER/$XDG_SESSION_ID</filename>
                         control group are migrated to
                         <filename>/user/$USER/no-session</filename> and
-                        the original control group
+                        the original control group is
                         removed.</para></listitem>
 
                         <listitem><para>If
                         <option>kill-user=1</option> is specified, and
-                        no other user session control group remains
+                        no other user session control group remains,
                         except
-                        <filename>/user/$USER/no-session</filename>
+                        <filename>/user/$USER/no-session</filename>,
                         all remaining processes in the
                         <filename>/user/$USER</filename> hierarchy
-                        are killed and the control group removed.</para></listitem>
+                        are killed and the control group is removed.</para></listitem>
 
                         <listitem><para>If
                         <option>kill-user=0</option> is specified, and
@@ -143,7 +143,7 @@
                 </orderedlist>
 
                 <para>If the system was not booted up with systemd as
-                init system this module does nothing and immediately
+                init system, this module does nothing and immediately
                 returns PAM_SUCCESS.</para>
 
         </refsect1>
@@ -165,11 +165,11 @@
                                 login process moved to the
                                 <filename>/user/$USER/$XDG_SESSION_ID</filename>
                                 control group. It is recommended that
-                                all services that are directly created
+                                all services which are directly created
                                 on the user's behalf set this
                                 option. Only for services that shall
                                 automatically be terminated when the
-                                user logs out completely otherwise,
+                                user logs out completely, otherwise
                                 <varname>create-session=0</varname>
                                 should be set.</para></listitem>
                         </varlistentry>
@@ -196,7 +196,7 @@
                                 completely. This is a weaker version
                                 of <option>kill-session=1</option> and is
                                 more friendly for users logged in more
-                                than once as their processes are
+                                than once, as their processes are
                                 terminated only on their complete
                                 logout.</para></listitem>
                         </varlistentry>

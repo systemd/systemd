@@ -62,12 +62,12 @@
 
                 <para>systemd is a system and session manager for
                 Linux operating systems. When run as first process on
-                boot (as PID 1) it may act as init system that brings
-                up and maintains userspace.</para>
+                boot (as PID 1), it acts as init system that brings
+                up and maintains userspace services.</para>
 
-                <para>For compatibility with SysV if systemd is called
+                <para>For compatibility with SysV, if systemd is called
                 as <command>init</command> and a PID that is not
-                1 it will execute <command>telinit</command> and pass
+                1, it will execute <command>telinit</command> and pass
                 all command line arguments unmodified. That means
                 <command>init</command> and <command>telinit</command>
                 are mostly equivalent when invoked from normal login sessions. See
@@ -142,7 +142,7 @@
                                 D-Bus interfaces
                                 repository. Optionally the interface
                                 name for the introspection data may be
-                                specified. If omitted the
+                                specified. If omitted, the
                                 introspection data for all interfaces
                                 is dumped.</para></listitem>
                         </varlistentry>
@@ -220,8 +220,8 @@
                                 --variable=systemdsystemconfdir</command>
                                 returns the path of the system
                                 configuration directory. Packages
-                                should alter this directory only with
-                                the
+                                should alter the content of these directories
+                                only with the
                                 <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 tool.</para></listitem>
                         </varlistentry>
@@ -261,7 +261,7 @@
                                 SysV init script directory varies
                                 between distributions. If systemd
                                 cannot find a native unit file for a
-                                requested service it will look for a
+                                requested service, it will look for a
                                 SysV init script of the same name
                                 (with the
                                 <filename>.service</filename> suffix

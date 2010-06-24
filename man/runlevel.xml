@@ -61,10 +61,10 @@
 
                 <para>The two runlevel characters are seperated by a
                 single space character. If a runlevel cannot be
-                determined N is printed instead. If neither can be
-                determined the word "unknown" is printed.</para>
+                determined, N is printed instead. If neither can be
+                determined, the word "unknown" is printed.</para>
 
-                <para>Unless overridden in the environment this will
+                <para>Unless overridden in the environment, this will
                 check the utmp database for recent runlevel
                 changes.</para>
         </refsect1>

@@ -178,7 +178,7 @@
                                 cannot be used to reload unit
                                 configuration. Use the
                                 <command>daemon-reload</command>
-                                command for that. All in all this
+                                command for that. All in all, this
                                 command is of little use except for
                                 debugging.</para>
                                 <para>This command should not be
@@ -276,11 +276,11 @@
                                 <term><command>snapshot [NAME]</command></term>
 
                                 <listitem><para>Create a snapshot. If
-                                a snapshot name is specified the new
+                                a snapshot name is specified, the new
                                 snapshot will be named after it. If
                                 none is specified an automatic
                                 snapshot name is generated. In either
-                                case the snapshot name used is printed
+                                case, the snapshot name used is printed
                                 to STDOUT.</para>
 
                                 <para>A snapshot refers to a saved
@@ -308,8 +308,8 @@
                                 configuration. This will reload all
                                 unit files and recreate the entire
                                 dependency tree. While the daemon is
-                                reloaded all sockets systemd listens
-                                on on behalf of user configuration will
+                                reloaded, all sockets systemd listens
+                                on on behalf of user configuration, will
                                 stay accessible.</para> <para>This
                                 command should not be confused with
                                 the <command>load</command> or

@@ -141,7 +141,7 @@
                 daemons become NOPs when -DDISABLE_SYSTEMD is set
                 during compilation. In addition, if
                 <filename>sd-daemon.c</filename> is compiled on
-                non-Linux systems they become NOPs, too.</para>
+                non-Linux systems they become NOPs.</para>
         </refsect1>
 
         <refsect1>

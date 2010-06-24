@@ -94,8 +94,8 @@
 
                 <para><function>sd_is_fifo()</function> may be called
                 to check whether the specified file descriptor refers
-                to a FIFO or pipe. It the <parameter>path</parameter>
-                parameter is not NULL it is checked whether the FIFO
+                to a FIFO or pipe. If the <parameter>path</parameter>
+                parameter is not NULL, it is checked whether the FIFO
                 is bound to the specified file system path.</para>
 
                 <para><function>sd_is_socket()</function> may be
@@ -193,7 +193,7 @@
                         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        </para>
+                </para>
         </refsect1>
 
 </refentry>
