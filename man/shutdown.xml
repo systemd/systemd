@@ -112,7 +112,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--k</option></term>
+                                <term><option>-k</option></term>
 
                                 <listitem><para>Don't halt, power-off,
                                 reboot, just write wall
