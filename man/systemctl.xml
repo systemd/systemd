@@ -102,7 +102,7 @@
                                 <term><option>--replace</option></term>
 
                                 <listitem><para>If the requested
-                                operation conflicts with an exisiting
+                                operation conflicts with an existing
                                 unfinished operation, replace the
                                 existing operation by the requested
                                 operation. If this is not specified

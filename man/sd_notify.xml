@@ -153,7 +153,7 @@
                         </varlistentry>
                 </variablelist>
 
-                <para>It is recommened to prefix variable names that
+                <para>It is recommended to prefix variable names that
                 are not shown in the list above with
                 <varname>X_</varname> to avoid namespace
                 clashes.</para>

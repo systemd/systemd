@@ -149,7 +149,7 @@
                                 <listitem><para>Checks whether any of
                                 the units specified are
                                 installed. This will check for the
-                                existance of a number of symlinks as
+                                existence of a number of symlinks as
                                 encoded in the [Install] section of a
                                 unit file.</para></listitem>
                         </varlistentry>

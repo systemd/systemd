@@ -64,7 +64,7 @@
 
                 <para>A unit configuration file encodes information
                 about a service, a socket, a device, a mount point, an
-                automount point, a swap file or patition, a start-up
+                automount point, a swap file or partition, a start-up
                 target, a file system path or a timer controlled and
                 supervised by <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The syntax is inspired by XDG
                 <filename>.desktop</filename> files, which are in turn

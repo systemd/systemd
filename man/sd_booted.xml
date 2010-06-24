@@ -70,7 +70,7 @@
                 <para>On failure, this call returns a negative
                 errno-style error code. If the system was booted up
                 with systemd as init system this call returns a
-                postive return value, zero otherwise.</para>
+                positive return value, zero otherwise.</para>
         </refsect1>
 
         <refsect1>

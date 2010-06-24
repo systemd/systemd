@@ -90,7 +90,7 @@
                 <citerefentry><refentrytitle>sd_is_socket_inet</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_is_socket_unix</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 are provided. In order to maximize flexibility it is
-                recommened to make these checks as loose as possible
+                recommended to make these checks as loose as possible
                 without allowing incorrect setups. i.e. often the
                 actual port number a socket is bound to matters little
                 for the service to work, hence it should not be

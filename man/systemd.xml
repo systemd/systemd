@@ -137,7 +137,7 @@
 
                                 <listitem><para>Extract D-Bus
                                 interface introspection data. This is
-                                mostly useful at build ot install time
+                                mostly useful at build at install time
                                 to generate data suitable for the
                                 D-Bus interfaces
                                 repository. Optionally the interface
@@ -459,7 +459,7 @@
                                 <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
                                 <listitem><para>systemd reads the
                                 log level from this environment
-                                variable. This can be overriden with
+                                variable. This can be overridden with
                                 <option>--log-level=</option>.</para></listitem>
                         </varlistentry>
 
@@ -467,7 +467,7 @@
                                 <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
                                 <listitem><para>systemd reads the
                                 log target from this environment
-                                variable. This can be overriden with
+                                variable. This can be overridden with
                                 <option>--log-target=</option>.</para></listitem>
                         </varlistentry>
 
@@ -475,7 +475,7 @@
                                 <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
                                 <listitem><para>Controls whether
                                 systemd highlights important log
-                                messages. This can be overriden with
+                                messages. This can be overridden with
                                 <option>--log-color=</option>.</para></listitem>
                         </varlistentry>
 
@@ -484,7 +484,7 @@
                                 <listitem><para>Controls whether
                                 systemd prints the code location along
                                 with log messages. This can be
-                                overriden with
+                                overridden with
                                 <option>--log-location=</option>.</para></listitem>
                         </varlistentry>
 

@@ -64,7 +64,7 @@
                 determined N is printed instead. If neither can be
                 determined the word "unknown" is printed.</para>
 
-                <para>Unless overriden in the environment this will
+                <para>Unless overridden in the environment this will
                 check the utmp database for recent runlevel
                 changes.</para>
         </refsect1>

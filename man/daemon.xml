@@ -65,7 +65,7 @@
                         starts, it should execute the following steps
                         as part of the initialization. Note that these
                         steps are unnecessary for new-style daemons,
-                        and should only be implemented if compatbility
+                        and should only be implemented if compatibility
                         with SysV is essential.</para>
 
                         <orderedlist>
@@ -213,7 +213,7 @@
 
                                 <listitem><para>As much as possible,
                                 rely on systemd's functionality to
-                                limit the accces of the daemon to
+                                limit the access of the daemon to
                                 files, services and other
                                 resources. i.e. rely on systemd's
                                 resource limit control instead of
@@ -250,7 +250,7 @@
                                 scheme pointed out below. Like D-Bus
                                 activation this enables on-demand
                                 starting of services as well as it
-                                allows improved parallization of
+                                allows improved parallelization of
                                 service start-up. Also, for state-less
                                 protocols (such as syslog, DNS) a
                                 daemon implementing socket-based
