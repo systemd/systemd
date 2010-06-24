@@ -1429,7 +1429,7 @@ finish:
 static int systemctl_help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to the init daemon.\n\n"
+               "Send control commands to the systemd manager.\n\n"
                "  -h --help      Show this help\n"
                "  -t --type=TYPE List only units of a particular type\n"
                "  -a --all       Show all units, including dead ones\n"
@@ -1452,9 +1452,9 @@ static int systemctl_help(void) {
                "  monitor                         Monitor unit/job changes\n"
                "  dump                            Dump server status\n"
                "  snapshot [NAME]                 Create a snapshot\n"
-               "  daemon-reload                   Reload init daemon configuration\n"
-               "  daemon-reexec                   Reexecute init daemon\n"
-               "  daemon-exit                     Ask the init daemon to quit\n"
+               "  daemon-reload                   Reload systemd manager configuration\n"
+               "  daemon-reexec                   Reexecute systemd manager\n"
+               "  daemon-exit                     Ask the systemd manager to quit\n"
                "  show-environment                Dump environment\n"
                "  set-environment [NAME=VALUE...] Set one or more environment variables\n"
                "  unset-environment [NAME...]     Unset one or more environment variables\n"
