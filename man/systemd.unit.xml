@@ -48,15 +48,15 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.service</filename></para>
-                <para><filename>systemd.socket</filename></para>
-                <para><filename>systemd.device</filename></para>
-                <para><filename>systemd.mount</filename></para>
-                <para><filename>systemd.automount</filename></para>
-                <para><filename>systemd.swap</filename></para>
-                <para><filename>systemd.target</filename></para>
-                <para><filename>systemd.path</filename></para>
-                <para><filename>systemd.timer</filename></para>
+                <para><filename>systemd.service</filename>,
+                <filename>systemd.socket</filename>,
+                <filename>systemd.device</filename>,
+                <filename>systemd.mount</filename>,
+                <filename>systemd.automount</filename>,
+                <filename>systemd.swap</filename>,
+                <filename>systemd.target</filename>,
+                <filename>systemd.path</filename>,
+                <filename>systemd.timer</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -66,15 +66,74 @@
                 about a service, a socket, a device, a mount point, an
                 automount point, a swap file or partition, a start-up
                 target, a file system path or a timer controlled and
-                supervised by <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The syntax is inspired by XDG
-                <filename>.desktop</filename> files, which are in turn
-                inspired by Microsoft Windows <filename>.ini</filename>
-                files.</para>
+                supervised by
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
+                syntax is inspired by <ulink
+                url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
+                Desktop Entry Specificiation</ulink> <filename>.desktop</filename> files, which are in turn
+                inspired by Microsoft Windows
+                <filename>.ini</filename> files.</para>
 
                 <para>This man pages lists the common configuration
                 options of the all unit types. These options need to
-                be configured either in the [Unit] resp. [Install]
+                be configured in the [Unit] resp. [Install]
                 section of the unit files.</para>
+
+                <para>In addition to the generic [Unit] and [Install]
+                sections described here each unit should have a
+                type-specific section, e.g. [Service] for a service
+                unit. See the respective man pages for more
+                information.</para>
+
+                <para>Unit files may contain additional options on top
+                of those listed here. If systemd encounters an unknown
+                option it will write a warning log message but
+                continue loading the unit. If an option is prefixed
+                with <option>X-</option> it is ignored completely by
+                systemd. Applications may use this to include
+                additional information in the unit files.</para>
+
+                <para>Boolean arguments used in unit files can be
+                written in various forms. For positive settings the
+                strings <option>1</option>, <option>yes</option>,
+                <option>true</option> and <option>on</option> are
+                equivalent. For negative settings the strings
+                <option>0</option>, <option>no</option>,
+                <option>false</option> and <option>off</option> are
+                equivalent.</para>
+
+                <para>Empty lines and lines starting with # or ; are
+                ignored. This may be used for commenting.</para>
+
+                <para>If a line starts with <option>.include</option>
+                followed by a file name the specified file will be
+                read as if its contents where listed in place of the
+                <option>.include</option> directive.</para>
+
+                <para>Along with a unit file
+                <filename>foo.service</filename> a directory
+                <filename>foo.service.wants/</filename> may exist. All
+                units symlinked from such a directory are implicitly
+                added as dependencies of type
+                <varname>Wanted=</varname> to the unit. This is useful
+                to hook units into the start-up of other units,
+                without having to modify their unit configuration
+                files. For details about the semantics of
+                <varname>Wanted=</varname> see below. The preferred
+                way to create symlinks in the
+                <filename>.wants/</filename> directory of a service is
+                with the
+                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                tool which reads information from the [Install]
+                section of unit files. (See below.)</para>
+
+                <para>Note that while systemd offers a flexible
+                dependency system between units it is recommended to
+                use this functionality only sparsely and instead rely
+                on techniques such as bus-based or socket-based
+                activation which makes dependencies implicit, which
+                both results in a simpler and more flexible
+                system.</para>
         </refsect1>
 
         <refsect1>
@@ -97,13 +156,23 @@
                                 that this option is different from the
                                 <varname>Alias=</varname> option from
                                 the [Install] section mentioned
-                                below. See below for details</para>
+                                below. See below for details.</para>
                                 </listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Description=</varname></term>
+                                <listitem><para>A free-form string
+                                describing the unit. This is intended for use
+                                in UIs wanting to show
+                                descriptive information along with the
+                                unit name.</para></listitem>
+                        </varlistentry>
+
                         <varlistentry>
                                 <term><varname>Requires=</varname></term>
 
-                                <listitem><para>Requirement
+                                <listitem><para>Configures requirement
                                 dependencies on other units. If this
                                 units get activated the units listed
                                 here will be activated as well. If one
@@ -112,9 +181,224 @@
                                 be deactivated. This option may be
                                 specified more than once, in which
                                 case requirement dependencies for all
-                                listed names are created.</para>
-                                </listitem>
+                                listed names are created. Note that
+                                requirement dependencies do not
+                                influence the order in which services
+                                are started or stopped. This has to be
+                                configured independently with the
+                                <varname>After=</varname> or
+                                <varname>Before=</varname> options. If
+                                a unit
+                                <filename>foo.service</filename>
+                                requires a unit
+                                <filename>bar.service</filename> as
+                                configured with
+                                <varname>Requires=</varname> and no
+                                ordering is configured with
+                                <varname>After=</varname> or
+                                <varname>Before=</varname>, then both
+                                units will be started simultaneously
+                                and without any delay between them if
+                                <filename>foo.service</filename> is
+                                activated. Often it is a better choice
+                                to use <varname>Wants=</varname>
+                                instead of
+                                <varname>Requires=</varname> in order
+                                to achieve a system that is more
+                                robust when dealing with failing
+                                services.</para></listitem>
                         </varlistentry>
+
+
+                        <varlistentry>
+                                <term><varname>RequiresOverridable=</varname></term>
+
+                                <listitem><para>Similar to
+                                <varname>Requires=</varname>.
+                                Dependencies listed in
+                                <varname>RequiresOverridable=</varname>
+                                which cannot be fulfilled or fail to
+                                start are ignored iff the startup was
+                                explicitly requested by the user. If
+                                the start-up was pulled in indirectly
+                                by some dependency or automatic
+                                start-up of units that is not
+                                requested by the user this dependency
+                                must be fulfilled and otherwise the
+                                transaction fails. Hence, this option
+                                may be used to configure dependencies
+                                that are normally honoured unless the
+                                user explicitly starts up the unit, in
+                                which case whether they failed or not
+                                is irrelevant.</para></listitem>
+
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>Requisite=</varname></term>
+                                <term><varname>RequisiteOverridable=</varname></term>
+
+                                <listitem><para>Similar to
+                                <varname>Requires=</varname>
+                                resp. <varname>RequiresOverridable=</varname>. However,
+                                if a unit listed here is not started
+                                already it will not be started and the
+                                transaction fails
+                                immediately.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Wants=</varname></term>
+
+                                <listitem><para>A weaker version of
+                                <varname>Requires=</varname>. A unit
+                                listed in this option will be started
+                                if the configuring unit is. However,
+                                it the listed unit fails to start up
+                                or cannot be added to the transaction
+                                this has no impact on the validity of
+                                the transaction as a whole. This is
+                                the recommended way to hook start-up
+                                of one unit to the start-up of another
+                                unit. Note that dependencies of this
+                                type may also be configured outside of
+                                the unit configuration file by
+                                adding a symlink to a
+                                <filename>.wants/</filename> directory
+                                accompanying the unit file. For
+                                details see above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Conflicts=</varname></term>
+
+                                <listitem><para>Configures negative
+                                requirement dependencies. If a unit
+                                that has a
+                                <varname>Conflicts=</varname> setting
+                                on another unit starting the former
+                                will stop the latter and vice
+                                versa. Note that this setting is
+                                independent of and orthogonal to the
+                                <varname>After=</varname> and
+                                <varname>Before=</varname> ordering
+                                dependencies.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Before=</varname></term>
+                                <term><varname>After=</varname></term>
+
+                                <listitem><para>Configures ordering
+                                dependencies between units. If a unit
+                                <filename>foo.service</filename>
+                                contains a setting
+                                <option>Before=bar.service</option>
+                                and both units are being started
+                                <filename>bar.service</filename>'s
+                                start-up is delayed until
+                                <filename>foo.service</filename> is
+                                started up. Note that this setting is
+                                independent of and orthogonal to the
+                                requirement dependencies as configured
+                                by <varname>Requires=</varname>. It is
+                                a common pattern to include a unit
+                                name in both the
+                                <varname>After=</varname> and
+                                <varname>Requires=</varname> option in
+                                which case the unit listed will be
+                                started before the unit that is
+                                configured with these options. This
+                                option may be specified more than
+                                once, in which case ordering
+                                dependencies for all listed names are
+                                created. <varname>After=</varname> is
+                                the inverse of
+                                <varname>Before=</varname>, i.e. while
+                                <varname>After=</varname> ensures that
+                                the configured unit is started after
+                                the listed unit finished starting up,
+                                <varname>Before=</varname> ensures the
+                                opposite, i.e.  that the configured
+                                unit is fully started up before the
+                                listed unit is started. Note that when
+                                two units with an ordering dependency
+                                between them are shut down, the
+                                inverse of of the start-up order is
+                                applied. i.e. if a unit is configured
+                                with <varname>After=</varname> on
+                                another unit, the former is stopped
+                                before the latter if both are shut
+                                down. If one unit with an ordering
+                                dependency on another unit is shut
+                                down while the latter is started up,
+                                the shut down is ordered before the
+                                start-up regardless whether the
+                                ordering dependency is actually of
+                                type <varname>After=</varname> or
+                                <varname>Before=</varname>. If two
+                                units have no ordering dependencies
+                                between them they are shut down
+                                resp. started up simultaneously, and
+                                no ordering takes
+                                place. </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RecursiveStop=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option> and
+                                the unit stops without this being
+                                requested by the user all units
+                                depending on it will be stopped as
+                                well. (e.g. if a service exits or
+                                crashes on its own behalf, units using
+                                it will be stopped) Note that normally
+                                if a unit stops without user request
+                                units depending on it will not be
+                                terminated. Only if the user requested
+                                shutdown of a unit all units depending
+                                on the unit will be shut down as well
+                                and at the same time. Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>StopWhenUnneeded=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                this unit will be stopped when it is
+                                no longer used. Note that in order to
+                                minimize the work to be executed
+                                systemd will by default not stop units
+                                unless they are conflicting with other
+                                units, or the user explicitly
+                                requested their shut down. If this
+                                option is set a unit will be
+                                automatically cleaned up if no other
+                                active unit requires it. Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>OnlyByDependency=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                this unit may only be activated
+                                indirectly. In this case explicit
+                                start-up requested by the user is
+                                denied, however if it is started as
+                                dependency of another unit start-up
+                                will succeed. This is mostly a safety
+                                feature to ensure that the user does
+                                not accidently activate units that are
+                                not intended to be activated
+                                explicitly. This option defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
                 <para>Unit file may include a [Install] section, which
@@ -123,7 +407,7 @@
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 during runtime. It is used exclusively by the
                 <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                during installation of a unit:</para>
+                tool during installation of a unit:</para>
 
                 <variablelist>
                         <varlistentry>
@@ -148,18 +432,52 @@
                                 unconditionally if the unit is
                                 loaded. The names from
                                 <varname>Alias=</varname> apply only
-                                if the unit is actually installed with
-                                the <command>systemd-install</command>
+                                if the unit has actually been
+                                installed with the
+                                <command>systemd-install</command>
                                 tool.  Also, if systemd searches for a
                                 unit, it will discover symlinked alias
-                                names, but not names configured only
-                                with <varname>Names=</varname>. It is
-                                a common pattern to list a name in both
-                                options. In this case, a unit will be
-                                active under all names if installed,
-                                but also if not installed but
-                                requested
-                                explicitly.</para></listitem>
+                                names as configured with
+                                <varname>Alias=</varname>, but not
+                                names configured with
+                                <varname>Names=</varname> only. It is
+                                a common pattern to list a name in
+                                both options. In this case, a unit
+                                will be active under all names if
+                                installed, but also if not installed
+                                but requested explicitly under its
+                                main name.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>WantedBy=</varname></term>
+
+                                <listitem><para>Installs a symlink in
+                                the <filename>.wants/</filename>
+                                subdirectory for a unit. This has the
+                                effect that when the listed unit name
+                                is activated the unit listing it is
+                                activated
+                                to. <command>WantedBy=foo.service</command>
+                                in a service
+                                <filename>bar.service</filename> is
+                                mostly equivalent to
+                                <command>Alias=foo.service.wants/bar.service</command>
+                                in the same file.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Also=</varname></term>
+
+                                <listitem><para>Additional units to
+                                install when this unit is
+                                installed. If the user requests
+                                installation of a unit with this
+                                option configured
+                                <command>systemd-install</command>
+                                will automatically install units
+                                listed in this option as
+                                well.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
