@@ -115,6 +115,15 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if (optind >= argc &&
+            !arg_ready &&
+            !arg_status &&
+            !arg_pid &&
+            !arg_booted) {
+                help();
+                return -EINVAL;
+        }
+
         return 1;
 }
 

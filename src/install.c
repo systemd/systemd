@@ -132,7 +132,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (optind >= argc) {
-                log_error("Missing verb.");
+                help();
                 return -EINVAL;
         }
 
@@ -143,7 +143,7 @@ static int parse_argv(int argc, char *argv[]) {
         else if (streq(argv[optind], "test"))
                 arg_action = ACTION_TEST;
         else {
-                log_error("Unknown verb %s", argv[optind]);
+                log_error("Unknown verb %s.", argv[optind]);
                 return -EINVAL;
         }
 

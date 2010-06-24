@@ -1839,7 +1839,7 @@ static int telinit_parse_argv(int argc, char *argv[]) {
         }
 
         if (optind >= argc) {
-                log_error("Argument missing.");
+                telinit_help();
                 return -EINVAL;
         }
 
