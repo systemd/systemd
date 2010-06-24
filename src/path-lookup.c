@@ -182,6 +182,8 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                 } else
                         if (!(p->unit_path = strv_new(
                                               SYSTEM_CONFIG_UNIT_PATH,  /* /etc/systemd/system/ */
+                                              "/usr/local/share/systemd/system",
+                                              "/usr/share/systemd/system",
                                               SYSTEM_DATA_UNIT_PATH,    /* /lib/systemd/system/ */
                                               NULL)))
                                 return -ENOMEM;
