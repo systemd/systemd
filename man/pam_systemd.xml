@@ -222,6 +222,8 @@
         <refsect1>
                 <title>Environment</title>
 
+                <para>The following environment variables are set for the processes of the user's session:</para>
+
                 <variablelist>
                         <varlistentry>
                                 <term><varname>$XDG_SESSION_ID</varname></term>
@@ -283,7 +285,7 @@ account    required     pam_unix.so
 password   required     pam_unix.so
 session    required     pam_unix.so
 session    required     pam_loginuid.so
-session    required     pam_systemd.so create-session=1 kill-user=1</programlisting>
+session    required     pam_systemd.so kill-user=1</programlisting>
         </refsect1>
 
         <refsect1>
