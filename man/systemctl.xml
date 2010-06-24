@@ -1,0 +1,458 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-install">
+
+        <refentryinfo>
+                <title>systemctl</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemctl</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemctl</refname>
+                <refpurpose>Control the systemd system and session manager</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemctl</command> may be used to
+                introspect and control the state of the
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                system and session manager.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>--help</option></term>
+                                <term><option>--h</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--type=</option></term>
+
+                                <listitem><para>When listing units,
+                                limit display to certain unit
+                                types. If not specified units of all
+                                types will be shown. The argument
+                                should be a unit type name such as
+                                <option>service</option>,
+                                <option>socket</option> and
+                                similar.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--all</option></term>
+
+                                <listitem><para>When listing units,
+                                show all units, regardless of their
+                                state, including inactive
+                                units.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--replace</option></term>
+
+                                <listitem><para>If the requested
+                                operation conflicts with an exisiting
+                                unfinished operation, replace the
+                                existing operation by the requested
+                                operation. If this is not specified
+                                the requested operation will
+                                fail.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--system</option></term>
+
+                                <listitem><para>Talk to the systemd
+                                system manager. (Default)</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--session</option></term>
+
+                                <listitem><para>Talk to the systemd
+                                session manager of the calling user.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--block</option></term>
+
+                                <listitem><para>Synchronously wait for
+                                the requested operation to
+                                finish.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-wall</option></term>
+
+                                <listitem><para>Don't send wall
+                                message before
+                                halt, power-off, reboot.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <para>The following commands are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><command>list-units</command></term>
+
+                                <listitem><para>List known units.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>list-jobs</command></term>
+
+                                <listitem><para>List jobs that are in progress.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>clear-jobs</command></term>
+
+                                <listitem><para>Cancel all jobs that are in progress.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>load [NAME...]</command></term>
+
+                                <listitem><para>Load one or more units
+                                specified on the command line. This
+                                will simply load their configuration
+                                from disk, but not start them. To
+                                start them you need to use the
+                                <command>start</command> command which
+                                will implicitly load a unit that has
+                                not been loaded yet. Note that systemd
+                                garbage collects loaded units that are
+                                not active or referenced by an active
+                                unit. This means that units loaded
+                                this way will usually not stay loaded
+                                for long. Also note that this command
+                                cannot be used to reload unit
+                                configuration. Use the
+                                <command>daemon-reload</command>
+                                command for that. All in all this
+                                command is of little use except for
+                                debugging.</para>
+                                <para>This command should not be
+                                confused with the
+                                <command>daemon-reload</command> or
+                                <command>reload</command>
+                                commands.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>cancel [JOB...]</command></term>
+
+                                <listitem><para>Cancel one or more
+                                jobs specified on the command line by
+                                their numeric job
+                                IDs.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>start [NAME...]</command></term>
+
+                                <listitem><para>Start one or more
+                                units specified on the command
+                                line.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>stop [NAME...]</command></term>
+
+                                <listitem><para>Stop one or more units
+                                specified on the command
+                                line.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>restart [NAME...]</command></term>
+
+                                <listitem><para>Restart one or more
+                                units specified on the command
+                                line.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>reload [NAME...]</command></term>
+
+                                <listitem><para>Asks all services
+                                whose units are listed on the command
+                                line to reload their
+                                configuration. Note that this will
+                                reload the daemon configuration
+                                itself, not the unit configuration
+                                file of systemd. If you want systemd
+                                to reload the configuration file of a
+                                unit use the
+                                <command>daemon-reload</command>
+                                command. In other words: for the
+                                example case of Apache, this will
+                                reload Apache's
+                                <filename>httpd.conf</filename> in the
+                                web server, not the
+                                <filename>apache.service</filename>
+                                systemd unit file. </para> <para>This
+                                command should not be confused with
+                                the <command>daemon-reload</command>
+                                or <command>load</command>
+                                commands.</para></listitem>
+
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>isolate [NAME]</command></term>
+
+                                <listitem><para>Start the unit
+                                specified on the command line and its
+                                dependencies and stop all
+                                others.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>monitor</command></term>
+
+                                <listitem><para>Monitor unit/job
+                                changes. This is mostly useful for
+                                debugging purposes and prints a line
+                                each time systemd loads or unloads a
+                                unit configuration file, or a unit
+                                property changes.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>dump</command></term>
+
+                                <listitem><para>Dump server
+                                status. This will output a (usually
+                                very long) human readable manager
+                                status dump. Its format is subject to
+                                change without notice and should not
+                                be parsed by
+                                applications.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>snapshot [NAME]</command></term>
+
+                                <listitem><para>Create a snapshot. If
+                                a snapshot name is specified the new
+                                snapshot will be named after it. If
+                                none is specified an automatic
+                                snapshot name is generated. In either
+                                case the snapshot name used is printed
+                                to STDOUT.</para>
+
+                                <para>A snapshot refers to a saved
+                                state of the systemd manager. It is
+                                implemented itself as unit that is
+                                generated dynamically with this
+                                command and has dependencies on all
+                                units active at the time. At a later
+                                time the user may return to this state
+                                by using the
+                                <command>isolate</command> command on
+                                the snapshot unit.</para></listitem>
+
+                                <para>Snapshots are only useful for
+                                saving and restoring which units are
+                                running or are stopped, they do not
+                                save/restore any other
+                                state. Snapshots are dynamic and lost
+                                on reboot.</para>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>daemon-reload</command></term>
+
+                                <listitem><para>Reload systemd manager
+                                configuration. This will reload all
+                                unit files and recreate the entire
+                                dependency tree. While the daemon is
+                                reloaded all sockets systemd listens
+                                on on behalf of user configuration will
+                                stay accessible.</para> <para>This
+                                command should not be confused with
+                                the <command>load</command> or
+                                <command>reload</command>
+                                commands.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>daemon-reexec</command></term>
+
+                                <listitem><para>Reexecute the systemd
+                                manager. This will serialize the
+                                manager state, reexecute the process
+                                and deserialize the state again. This
+                                command is of little use except for
+                                debugging and package
+                                upgrades. Sometimes it might be
+                                helpful as a heavy-weight
+                                <command>daemon-reload</command>. While
+                                the daemon is reexecuted all sockets
+                                systemd listens on on behalf of user
+                                configuration will stay
+                                accessible.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>daemon-exit</command></term>
+
+                                <listitem><para>Ask the systemd
+                                manager to quit. This is only
+                                supported for session managers
+                                (i.e. in conjunction with the
+                                <option>--session</option> option) and
+                                will fail otherwise.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>show-environment</command></term>
+
+                                <listitem><para>Dump the systemd
+                                manager environment block. The
+                                environment block will be dumped in
+                                straight-forward form suitable for
+                                sourcing into a shell script. This
+                                environment block will be passed to
+                                all processes the manager
+                                spawns.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>set-environment [NAME=VALUE...]</command></term>
+
+                                <listitem><para>Set one or more
+                                systemd manager environment variables,
+                                as specified on the command
+                                line.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>unset-environment [NAME...]</command></term>
+
+                                <listitem><para>Unset one or more
+                                systemd manager environment
+                                variables. If only a variable name is
+                                specified it will be removed
+                                regardless of its value. If a variable
+                                and a value are specified the variable
+                                is only removed if it has the
+                                specified value.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>halt</command></term>
+
+                                <listitem><para>Shut down and halt the
+                                system. This is mostly equivalent to
+                                <command>start halt.target</command>
+                                but also prints a wall message to all
+                                users.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>poweroff</command></term>
+
+                                <listitem><para>Shut down and
+                                power-off the system. This is mostly
+                                equivalent to <command>start
+                                poweroff.target</command> but also
+                                prints a wall message to all
+                                users.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>reboot</command></term>
+
+                                <listitem><para>Shut down and
+                                reboot the system. This is mostly
+                                equivalent to <command>start
+                                reboot.target</command> but also
+                                prints a wall message to all
+                                users.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>default</command></term>
+
+                                <listitem><para>Enter default
+                                mode. This is mostly equivalent to
+                                <command>start
+                                default.target</command>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>rescue</command></term>
+
+                                <listitem><para>Enter rescue
+                                mode. This is mostly equivalent to
+                                <command>isolate
+                                rescue.target</command> but also
+                                prints a wall message to all
+                                users.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>emergency</command></term>
+
+                                <listitem><para>Enter emergency
+                                mode. This is mostly equivalent to
+                                <command>isolate
+                                emergency.service</command> but also
+                                prints a wall message to all
+                                users.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

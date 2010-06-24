@@ -319,7 +319,9 @@ dist_man_MANS = \
 	man/halt.8 \
 	man/shutdown.8 \
 	man/systemd-install.1 \
-	man/pam_systemd.8
+	man/pam_systemd.8 \
+	man/systemadm.1 \
+	man/systemctl.1
 
 nodist_man_MANS = \
 	man/systemd.special.7
@@ -339,7 +341,9 @@ dist_noinst_DATA = \
 	man/halt.html \
 	man/shutdown.html \
 	man/systemd-install.html \
-	man/pam_systemd.html
+	man/pam_systemd.html \
+	man/systemadm.html \
+	man/systemctl.html
 
 nodist_noinst_DATA = \
 	man/systemd.special.html
@@ -362,7 +366,9 @@ EXTRA_DIST += \
 	man/halt.xml \
 	man/shutdown.xml \
 	man/systemd-install.xml \
-	man/pam_systemd.xml
+	man/pam_systemd.xml \
+	man/systemadm.xml \
+	man/systemctl.xml
 
 systemd_SOURCES = \
 	src/main.c

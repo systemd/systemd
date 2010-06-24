@@ -122,9 +122,9 @@
 
                                 <listitem><para>Dump understood unit
                                 configuration items. This outputs a
-                                terse list of configuration items
-                                understood in unit definition
-                                files.</para></listitem>
+                                terse but complete list of
+                                configuration items understood in unit
+                                definition files.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--confirm-spawn</option></term>
@@ -192,32 +192,362 @@
                                 it defaults to
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
-
-
                 </variablelist>
         </refsect1>
 
         <refsect1>
                 <title>Directories</title>
-        </refsect1>
-
-        <refsect1>
-                <title>Signal</title>
 
                 <variablelist>
                         <varlistentry>
-                                <term><filename>SIGTERM</filename></term>
+                                <term>System unit directories</term>
 
-                                <listitem><para>systemd serializes its
-                                state, reexecutes itself and
-                                deserializes the saved state
-                                again. This is mostly equivalent to
-                                <command>systemctl
-                                daemon-reexec</command>.</para></listitem>
+                                <listitem><para>The systemd system
+                                manager reads unit configuration from
+                                various directories. Packages that
+                                want to install unit files shall place
+                                them in the directory returned by
+                                <command>pkg-config systemd
+                                --variable=systemdsystemunitdir</command>. Other
+                                directories checked are
+                                <filename>/usr/local/share/systemd/system</filename>
+                                and
+                                <filename>/usr/share/systemd/system</filename>. User
+                                configuration always takes
+                                precedence. <command>pkg-config
+                                systemd
+                                --variable=systemdsystemconfdir</command>
+                                returns the path of the system
+                                configuration directory. Packages
+                                should alter this directory only with
+                                the
+                                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                tool.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>Session unit directories</term>
+
+                                <listitem><para>Similar rules apply
+                                for the session unit
+                                directories. However, here the <ulink
+                                url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+                                Base Directory specification</ulink>
+                                is followed to find
+                                units. Applications should place their
+                                unit files in the directory returned
+                                by <command>pkg-config systemd
+                                --variable=systemdsessionunitdir</command>. Global
+                                configuration is done in the
+                                directory reported by
+                                <command>pkg-config systemd
+                                --variable=systemdsessionconfdir</command>. The
+                                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                tool can handle both global (i.e. for
+                                all users) and private (for one user)
+                                enabling/disabling of
+                                units.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>SysV init scripts directory</term>
+
+                                <listitem><para>The location of the
+                                SysV init script directory varies
+                                between distributions. If systemd
+                                cannot find a native unit file for a
+                                requested service it will look for a
+                                SysV init script of the same name
+                                (with the
+                                <filename>.service</filename> suffix
+                                removed).</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>SysV runlevel link farm directory</term>
+
+                                <listitem><para>The location of the
+                                SysV runlevel link farm directory
+                                varies between distributions. systemd
+                                will take the link farm into account
+                                when figuring out whether a service
+                                shall be enabled. Note that a service
+                                unit with a native unit configuration
+                                file can be started by activating it
+                                in the SysV runlevel link
+                                farm.</para></listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>
 
+        <refsect1>
+                <title>Signals</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>SIGTERM</term>
+
+                                <listitem><para>Upon receiving this
+                                signal the systemd system manager
+                                serializes its state, reexecutes
+                                itself and deserializes the saved
+                                state again. This is mostly equivalent
+                                to <command>systemctl
+                                daemon-reexec</command>.</para>
+
+                                <para>systemd session managers will
+                                start the
+                                <filename>exit.target</filename> unit
+                                when this signal is received. This is
+                                mostly equivalent to
+                                <command>systemctl --session start
+                                exit.target</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGINT</term>
+
+                                <listitem><para>Upon receiving this
+                                signal the systemd system manager will
+                                start the
+                                <filename>ctrl-alt-del.target</filename> unit. This
+                                is mostly equivalent to
+                                <command>systemctl start
+                                ctl-alt-del.target</command>.</para>
+
+                                <para>systemd session managers
+                                treat this signal the same way as
+                                SIGTERM.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGWINCH</term>
+
+                                <listitem><para>When this signal is
+                                received the systemd system manager
+                                will start the
+                                <filename>kbrequest.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl start
+                                kbrequest.target</command>.</para>
+
+                                <para>This signal is ignored by
+                                systemd session
+                                managers.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGPWR</term>
+
+                                <listitem><para>When this signal is
+                                received the systemd manager
+                                will start the
+                                <filename>sigpwr.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl start
+                                sigpwr.target</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGUSR1</term>
+
+                                <listitem><para>When this signal is
+                                received the systemd manager will try
+                                to reconnect to the D-Bus
+                                bus.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGUSR2</term>
+
+                                <listitem><para>When this signal is
+                                received the systemd manager will log
+                                its complete state in human readable
+                                form. The data logged is the same as
+                                printed by <command>systemctl
+                                dump</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGHUP</term>
+
+                                <listitem><para>Reloads the complete
+                                daemon configuration. This is mostly
+                                equivalent to <command>systemctl
+                                daemon-reload</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+0</term>
+
+                                <listitem><para>Enters default mode, starts the
+                                <filename>default.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl start
+                                default.target</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+1</term>
+
+                                <listitem><para>Enters rescue mode,
+                                starts the
+                                <filename>rescue.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl isolate
+                                rescue.target</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+2</term>
+
+                                <listitem><para>Enters emergency mode,
+                                starts the
+                                <filename>emergency.service</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl isolate
+                                emergency.service</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+3</term>
+
+                                <listitem><para>Halts the machine,
+                                starts the
+                                <filename>halt.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl start
+                                halt.target</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+4</term>
+
+                                <listitem><para>Powers off the machine,
+                                starts the
+                                <filename>poweroff.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl start
+                                poweroff.target</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+5</term>
+
+                                <listitem><para>Reboots the machine,
+                                starts the
+                                <filename>reboot.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl start
+                                reboot.target</command>.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Environment</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
+                                <listitem><para>systemd reads the
+                                log level from this environment
+                                variable. This can be overriden with
+                                <option>--log-level=</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
+                                <listitem><para>systemd reads the
+                                log target from this environment
+                                variable. This can be overriden with
+                                <option>--log-target=</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
+                                <listitem><para>Controls whether
+                                systemd highlights important log
+                                messages. This can be overriden with
+                                <option>--log-color=</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
+                                <listitem><para>Controls whether
+                                systemd prints the code location along
+                                with log messages. This can be
+                                overriden with
+                                <option>--log-location=</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_CONFIG_HOME</varname></term>
+                                <term><varname>$XDG_CONFIG_DIRS</varname></term>
+                                <term><varname>$XDG_DATA_HOME</varname></term>
+                                <term><varname>$XDG_DATA_DIRS</varname></term>
+
+                                <listitem><para>The systemd session
+                                manager uses these variables in
+                                accordance to the <ulink
+                                url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+                                Base Directory specification</ulink>
+                                to find its configuration.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_UNIT_PATH</varname></term>
+
+                                <listitem><para>Controls where systemd
+                                looks for unit
+                                files.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_SYSVINIT_PATH</varname></term>
+
+                                <listitem><para>Controls where systemd
+                                looks for SysV init scripts.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_SYSVRCND_PATH</varname></term>
+
+                                <listitem><para>Controls where systemd
+                                looks for SysV init script runlevel link
+                                farms.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$LISTEN_PID</varname></term>
+                                <term><varname>$LISTEN_FDS</varname></term>
+
+                                <listitem><para>Set by systemd for
+                                supervised processes during
+                                socket-based activation. See
+                                <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for more information.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$NOTIFY_SOCKET</varname></term>
+
+                                <listitem><para>Set by systemd for
+                                supervised processes for status and
+                                start-up completion notification. See
+                                <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for more information.
+                                </para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
 
         <refsect1>
                 <title>Sockets and FIFOs</title>
@@ -278,11 +608,18 @@
                 </variablelist>
         </refsect1>
 
-
         <refsect1>
                 <title>See Also</title>
                 <para>
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-notify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

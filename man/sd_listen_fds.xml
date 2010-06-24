@@ -160,6 +160,26 @@
         </refsect1>
 
         <refsect1>
+                <title>Environment</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>$LISTEN_PID</varname></term>
+                                <term><varname>$LISTEN_FDS</varname></term>
+
+                                <listitem><para>Set by the init system
+                                for supervised processes that use
+                                socket-based activation. This
+                                environment variable specifies the
+                                data
+                                <function>sd_listen_fds()</function>
+                                parses. See above for
+                                details.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
 
                 <para>

@@ -1,0 +1,111 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemadm">
+
+        <refentryinfo>
+                <title>systemadm</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemadm</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemadm</refname>
+                <refpurpose>Graphical frontend for the systemd system
+                and session manager</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemadm <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemadm</command> is a graphical
+                frontend for the systemd system and session manager
+                and allows introspection and control of
+                systemd.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>--h</option></term>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
+                                <term><option>--system</option></term>
+
+                                <listitem><para>Connect to the systemd
+                                system
+                                manager. (Default)</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--session</option></term>
+
+                                <listitem><para>Connect to the systemd
+                                session manager of the calling
+                                user.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+
+                <para>In addition to this a number of of parameters
+                common to all Gtk+ programs are supported.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

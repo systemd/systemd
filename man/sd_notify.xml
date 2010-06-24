@@ -228,6 +228,24 @@
         </refsect1>
 
         <refsect1>
+                <title>Environment</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>$NOTIFY_SOCKET</varname></term>
+
+                                <listitem><para>Set by the init system
+                                for supervised processes for status
+                                and start-up completion
+                                notification. This environment variable
+                                specifies the socket
+                                <function>sd_notify()</function> talks
+                                to. See above for details.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>Examples</title>
 
                 <example>

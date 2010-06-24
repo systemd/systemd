@@ -207,6 +207,10 @@
                 tools like
                 <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
+                <para>If the options are omitted they default to
+                <option>create-session=1</option>,
+                <option>kill-session=0</option>,
+                <option>kill-user=0</option>.</para>
         </refsect1>
 
         <refsect1>
