@@ -474,11 +474,11 @@ void log_parse_environment(void) {
                 if (log_set_max_level_from_string(e) < 0)
                         log_warning("Failed to parse log level %s. Ignoring.", e);
 
-        if ((e = getenv("SYSTEMD_SHOW_COLOR")))
+        if ((e = getenv("SYSTEMD_LOG_COLOR")))
                 if (log_show_color_from_string(e) < 0)
                         log_warning("Failed to parse bool %s. Ignoring.", e);
 
-        if ((e = getenv("SYSTEMD_SHOW_LOCATION"))) {
+        if ((e = getenv("SYSTEMD_LOG_LOCATION"))) {
                 if (log_show_location_from_string(e) < 0)
                         log_warning("Failed to parse bool %s. Ignoring.", e);
         }
