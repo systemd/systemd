@@ -70,7 +70,7 @@
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
                 syntax is inspired by <ulink
                 url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
-                Desktop Entry Specificiation</ulink> <filename>.desktop</filename> files, which are in turn
+                Desktop Entry Specification</ulink> <filename>.desktop</filename> files, which are in turn
                 inspired by Microsoft Windows
                 <filename>.ini</filename> files.</para>
 
@@ -227,7 +227,7 @@
                                 must be fulfilled and otherwise the
                                 transaction fails. Hence, this option
                                 may be used to configure dependencies
-                                that are normally honoured unless the
+                                that are normally honored unless the
                                 user explicitly starts up the unit, in
                                 which case whether they failed or not
                                 is irrelevant.</para></listitem>
@@ -393,7 +393,7 @@
                                 dependency of another unit start-up
                                 will succeed. This is mostly a safety
                                 feature to ensure that the user does
-                                not accidently activate units that are
+                                not accidentally activate units that are
                                 not intended to be activated
                                 explicitly. This option defaults to
                                 <option>false</option>.</para></listitem>
