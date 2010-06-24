@@ -1879,7 +1879,7 @@ static int manager_process_signal_fd(Manager *m) {
                         if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
                             (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(table)) {
                                 manager_start_target(m, table[sfsi.ssi_signo - SIGRTMIN],
-                                                     sfsi.ssi_signo == 2 ? JOB_ISOLATE : JOB_REPLACE);
+                                                     (sfsi.ssi_signo == 1 || sfsi.ssi_signo == 2) ? JOB_ISOLATE : JOB_REPLACE);
                                 break;
                         }
 
