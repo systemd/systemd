@@ -116,7 +116,6 @@ dist_systemunit_DATA = \
 	units/mail-transfer-agent.target \
 	units/poweroff.target \
 	units/reboot.target \
-	units/remote-fs.target \
 	units/rescue.target \
 	units/rpcbind.target \
 	units/rtc-set.target \
@@ -139,10 +138,11 @@ dist_systemunit_DATA = \
 	units/var-lock.mount \
 	units/var-run.mount
 
-systemunit_DATA = \
+nodist_systemunit_DATA = \
 	units/sysinit.target \
 	units/getty@.service \
 	units/graphical.target \
+	units/remote-fs.target \
 	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
@@ -151,7 +151,7 @@ systemunit_DATA = \
 dist_sessionunit_DATA = \
 	units/session/default.target
 
-sessionunit_DATA = \
+nodist_sessionunit_DATA = \
 	units/session/remote-fs.target \
 	units/session/exit.service
 
@@ -304,71 +304,67 @@ EXTRA_DIST += \
 	src/sd-daemon.h \
 	src/special.h
 
-dist_man_MANS = \
-	man/systemd.unit.5 \
-	man/systemd.service.5 \
-	man/daemon.7 \
+
+MANPAGES = \
 	man/systemd.1 \
+	man/systemctl.1 \
+	man/systemadm.1 \
+	man/systemd-install.1 \
 	man/sd_notify.3 \
 	man/sd_booted.3 \
 	man/sd_listen_fds.3 \
 	man/sd_is_fifo.3 \
+	man/systemd.unit.5 \
+	man/systemd.service.5 \
+	man/daemon.7 \
 	man/sd-daemon.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
 	man/halt.8 \
 	man/shutdown.8 \
-	man/systemd-install.1 \
-	man/pam_systemd.8 \
-	man/systemadm.1 \
-	man/systemctl.1
+	man/pam_systemd.8
+
+MANPAGES_ALIAS = \
+	man/reboot.8 \
+	man/poweroff.8 \
+	man/sd_is_socket.3 \
+	man/sd_is_socket_unix.3 \
+	man/sd_is_socket_inet.3 \
+	man/sd_notifyf.3 \
+	man/init.1
+
+man/reboot.8: man/halt.8
+man/poweroff.8: man/halt.8
+man/sd_is_socket.3: man/sd_is_fifo.3
+man/sd_is_socket_unix.3: man/sd_is_fifo.3
+man/sd_is_socket_inet.3: man/sd_is_fifo.3
+man/sd_notifyf.3: man/sd_notify.3
+man/init.1: man/systemd.1
+
+dist_man_MANS = \
+	$(MANPAGES) \
+	$(MANPAGES_ALIAS)
 
 nodist_man_MANS = \
 	man/systemd.special.7
 
+XML_FILES = \
+	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
+
+XML_IN_FILES = \
+	${patsubst %.1,%.xml.in,${patsubst %.3,%.xml.in,${patsubst %.5,%.xml.in,${patsubst %.7,%.xml.in,${patsubst %.8,%.xml.in,$(nodist_man_MANS)}}}}}
+
 dist_noinst_DATA = \
-	man/systemd.unit.html \
-	man/systemd.service.html \
-	man/daemon.html \
-	man/systemd.html \
-	man/sd_notify.html \
-	man/sd_booted.html \
-	man/sd_listen_fds.html \
-	man/sd_is_fifo.html \
-	man/sd-daemon.html \
-	man/runlevel.html \
-	man/telinit.html \
-	man/halt.html \
-	man/shutdown.html \
-	man/systemd-install.html \
-	man/pam_systemd.html \
-	man/systemadm.html \
-	man/systemctl.html
+	${XML_FILES:.xml=.html}
 
 nodist_noinst_DATA = \
-	man/systemd.special.html
+	${XML_IN_FILES:.xml.in=.html}
 
 EXTRA_DIST += \
-	man/systemd.unit.xml \
-	man/systemd.service.xml \
-	man/systemd.special.xml.in \
-	man/systemd.special.7.in \
-	man/systemd.special.html.in \
-	man/daemon.xml \
-	man/systemd.xml \
-	man/sd_notify.xml \
-	man/sd_booted.xml \
-	man/sd_listen_fds.xml \
-	man/sd_is_fifo.xml \
-	man/sd-daemon.xml \
-	man/runlevel.xml \
-	man/telinit.xml \
-	man/halt.xml \
-	man/shutdown.xml \
-	man/systemd-install.xml \
-	man/pam_systemd.xml \
-	man/systemadm.xml \
-	man/systemctl.xml
+	$(XML_FILES) \
+	$(XML_IN_FILES) \
+	${nodist_man_MANS:=.in} \
+	${XML_IN_FILES:.xml.in=.html.in}
 
 systemd_SOURCES = \
 	src/main.c
@@ -573,24 +569,15 @@ units/session/%: units/%.m4 Makefile
 	$(M4_PROCESS_SESSION)
 
 CLEANFILES = \
-	units/systemd-initctl.service \
-	units/systemd-logger.service \
-	units/syslog.target \
-	units/sysinit.target \
-	units/getty@.service \
-	units/graphical.target \
-	units/multi-user.target \
-	units/remote-fs.target \
-	units/session/remote-fs.target \
-	units/session/exit.service \
-	man/systemd.special.7 \
-	man/systemd.special.html \
-	systemd.pc
+	$(nodist_systemunit_DATA) \
+	$(nodist_sessionunit_DATA) \
+	$(nodist_man_MANS) \
+	${XML_IN_FILES:.xml.in=.html} \
+	$(pkgconfigdata_DATA)
 
 if HAVE_VALAC
 CLEANFILES += \
-	src/systemd-interfaces.c \
-	src/systemadm.c
+	${systemadm_SOURCES:.vala=.c}
 endif
 
 if HAVE_XSLTPROC
@@ -616,16 +603,16 @@ XSLTPROC_PROCESS_HTML_IN = \
 	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
-man/%.3: man/%.xml
-	$(XSLTPROC_PROCESS_MAN)
-
-man/%.3.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_MAN)
-
 man/%.1: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.1.in: man/%.xml.in
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.3: man/%.xml
+	$(XSLTPROC_PROCESS_MAN)
+
+man/%.3.in: man/%.xml.in
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.5: man/%.xml
@@ -654,24 +641,16 @@ man/%.html.in: man/%.xml.in
 
 CLEANFILES += \
 	$(dist_man_MANS) \
-	man/systemd.special.7.in \
-	man/systemd.unit.html \
-	man/systemd.service.html \
-	man/systemd.special.html.in \
-	man/daemon.html \
-	man/runlevel.html \
-	man/sd_booted.html \
-	man/sd-daemon.html \
-	man/sd_is_fifo.html \
-	man/sd_listen_fds.html \
-	man/sd_notify.html \
-	man/systemd.html
+	${nodist_man_MANS:=.in} \
+	${XML_FILES:.xml=.html} \
+	${XML_IN_FILES:.xml.in=.html.in}
 endif
 
 org.freedesktop.systemd1.%.xml: systemd
 	$(AM_V_GEN)./systemd --introspect=${@:.xml=} > $@
 
-CLEANFILES += $(dbusinterface_DATA)
+CLEANFILES += \
+	$(dbusinterface_DATA)
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \

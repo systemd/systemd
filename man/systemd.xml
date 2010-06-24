@@ -44,6 +44,7 @@
 
         <refnamediv>
                 <refname>systemd</refname>
+                <refname>init</refname>
                 <refpurpose>systemd System and Session Manager</refpurpose>
         </refnamediv>
 
