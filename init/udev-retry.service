@@ -1,0 +1,13 @@
+[Unit]
+Description=re-trigger failed events after filesystems are available
+After=local-fs.target
+
+[Service]
+Type=finish
+ValidNoProcess=yes
+ExecStart=/sbin/udevadm trigger --type=failed
+
+[Install]
+WantedBy=sysinit.target
+Also=udev.service
+Also=udev-settle.service

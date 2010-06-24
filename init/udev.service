@@ -1,0 +1,15 @@
+[Unit]
+Description=/dev and kernel device manager
+Before=sysinit.target
+
+[Service]
+Type=notify
+ExecStart=/sbin/udevd
+ExecStartPost=/sbin/udevadm trigger --type=subsystems --action=add
+ExecStartPost=/sbin/udevadm trigger --type=devices --action=add
+
+[Install]
+WantedBy=sysinit.target
+Also=udev-settle.service
+Also=udev-retry.service
+

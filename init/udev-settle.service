@@ -1,0 +1,13 @@
+[Unit]
+Description=wait until full initialization
+After=udev.service
+
+[Service]
+Type=finish
+ValidNoProcess=yes
+ExecStart=/sbin/udevadm settle
+
+[Install]
+WantedBy=sysinit.target
+Also=udev.service
+Also=udev-retry.service
