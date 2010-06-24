@@ -66,6 +66,12 @@
                 <para><command>systemd-install</command> enables or
                 disables systemd units, or checks whether they are
                 enabled.</para>
+
+                <para>This command is useful to apply or undo the
+                installation instructions encoded in the [Install]
+                section of unit files. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information.</para>
         </refsect1>
 
         <refsect1>

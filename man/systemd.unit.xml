@@ -55,67 +55,132 @@
                 <para><filename>systemd.automount</filename></para>
                 <para><filename>systemd.swap</filename></para>
                 <para><filename>systemd.target</filename></para>
+                <para><filename>systemd.path</filename></para>
+                <para><filename>systemd.timer</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
                 <para>A unit configuration file encodes information
-                about a service, a socket, a mount point, an automount
-                point, a swap file or patition, or a start-up target
-                controlled and supervised by systemd. The syntax is
-                inspired by XDG <filename>.desktop</filename> files,
-                which are in turn inspired by Windows
-                <filename>.ini</filename> files.</para>
+                about a service, a socket, a device, a mount point, an
+                automount point, a swap file or patition, a start-up
+                target, a file system path or a timer controlled and
+                supervised by <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The syntax is inspired by XDG
+                <filename>.desktop</filename> files, which are in turn
+                inspired by Microsoft Windows <filename>.ini</filename>
+                files.</para>
 
                 <para>This man pages lists the common configuration
-                options of the various unit types.</para>
+                options of the all unit types. These options need to
+                be configured either in the [Unit] resp. [Install]
+                section of the unit files.</para>
         </refsect1>
 
         <refsect1>
                 <title>Options</title>
 
+                <para>Unit file may include a [Unit] section, which
+                carries generic information about the unit that is not
+                dependent on the type of unit:</para>
+
                 <variablelist>
                         <varlistentry>
                                 <term><varname>Names=</varname></term>
-                                <listitem>
-                                        <para>Additional names for this unit. The names
-                                        listed here mus have the same suffix (i.e. type)
-                                        as the identifier name. This option may be
-                                        specified more than once.</para>
+
+                                <listitem><para>Additional names for
+                                this unit. The names listed here must
+                                have the same suffix (i.e. type) as
+                                the unit file name. This option may be
+                                specified more than once, in which
+                                case all listed names are used. Note
+                                that this option is different from the
+                                <varname>Alias=</varname> option from
+                                the [Install] section mentioned
+                                below. See below for details</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><varname>Requires=</varname></term>
-                                <listitem>
-                                        <para>Dependencies on other
-                                        units. If this units get
-                                        activated the units listed
-                                        here will be activated as
-                                        well. If one of the other
-                                        units gets deactivated or its
-                                        activation fails, this unit
-                                        will be deactivated. This
-                                        option may be specified more
-                                        than once.</para>
+
+                                <listitem><para>Requirement
+                                dependencies on other units. If this
+                                units get activated the units listed
+                                here will be activated as well. If one
+                                of the other units gets deactivated or
+                                its activation fails, this unit will
+                                be deactivated. This option may be
+                                specified more than once, in which
+                                case requirement dependencies for all
+                                listed names are created.</para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>
+
+                <para>Unit file may include a [Install] section, which
+                carries installation information for the unit. This
+                section is not interpreted by
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                during runtime. It is used exclusively by the
+                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                during installation of a unit:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>Alias=</varname></term>
+
+                                <listitem><para>Additional names this
+                                unit shall be installed under. The
+                                names listed here must have the same
+                                suffix (i.e. type) as the unit file
+                                name. This option may be specified
+                                more than once, in which case all
+                                listed names are used. At installation
+                                time
+                                <command>systemd-install</command>
+                                will create symlinks from these names
+                                to the unit file name. Note that this
+                                is different from the
+                                <varname>Names=</varname> option from
+                                the [Unit] section mentioned above:
+                                The names from
+                                <varname>Names=</varname> apply
+                                unconditionally if the unit is
+                                loaded. The names from
+                                <varname>Alias=</varname> apply only
+                                if the unit is actually installed with
+                                the <command>systemd-install</command>
+                                tool.  Also, if systemd searches for a
+                                unit, it will discover symlinked alias
+                                names, but not names configured only
+                                with <varname>Names=</varname>. It is
+                                a common pattern to list a name in both
+                                options. In this case, a unit will be
+                                active under all names if installed,
+                                but also if not installed but
+                                requested
+                                explicitly.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
         </refsect1>
 
         <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                        <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                        <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                        <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
