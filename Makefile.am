@@ -310,6 +310,7 @@ MANPAGES = \
 	man/systemctl.1 \
 	man/systemadm.1 \
 	man/systemd-install.1 \
+	man/systemd-notify.1 \
 	man/sd_notify.3 \
 	man/sd_booted.3 \
 	man/sd_listen_fds.3 \
