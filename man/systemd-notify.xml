@@ -73,6 +73,11 @@
                 environment variables to send as part of the status
                 update.</para>
 
+                <para>Note that systemd will refuse reception of
+                status updates from this command unless
+                <varname>NotifyAccess=all</varname> is set for the
+                service unit this command is called from.</para>
+
         </refsect1>
 
         <refsect1>
@@ -151,6 +156,34 @@
 
                 <para>On success 0 is returned, a non-zero failure
                 code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+
+                <example>
+                        <title>Start-up Notification and Status Updates</title>
+
+                        <para>A simple shell daemon that sends
+                        start-up notifications after having set up its
+                        communication channel. During runtime it sends
+                        further status updates to the init
+                        system:</para>
+
+                        <programlisting>#!/bin/bash
+
+mkfifo /tmp/waldo
+systemd-notify --ready --status="Waiting for data..."
+
+while : ; do
+        read a &lt; /tmp/waldo
+        systemd-notify --status="Processing $a"
+
+        # Do something with $a ...
+
+        systemd-notify --status="Waiting for data..."
+done</programlisting>
+                </example>
         </refsect1>
 
         <refsect1>
