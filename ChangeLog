@@ -1,3 +1,31 @@
+Summary of changes from v157 to v158
+============================================
+
+Harald Hoyer (1):
+      extras/keymap: add Samsung N210 to keymap rules
+
+Kay Sievers (7):
+      version bump
+      libudev: fix fd leak in udev_enumerate_scan_devices() when tags are searched
+      udevd: in case we don't daemonize, send READY message to /sbin/init
+      delete last distro specific rules
+      remove a few comments in file headers
+      mtd_probe: add needed include, modprobe blacklist flag, and change some whitespace
+      rules: remove unused subdir
+
+Martin Pitt (4):
+      Fix hid2hci rules harder
+      add Vala vapi for gudev-1.0
+      Revert "add Vala vapi for gudev-1.0"
+      Fix usb printer rule for multiple USB interfaces
+
+Maxim Levitsky (1):
+      mtd_probe: add autodetection for xD cards
+
+Paul Bender (1):
+      configure.ac: fix cross compilation
+
+
 Summary of changes from v156 to v157
 ============================================
 

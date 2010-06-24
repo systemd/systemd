@@ -2,6 +2,11 @@ udev 158
 ========
 Bugfixes.
 
+All distribution specific rules are removed from the udev source tree,
+most of them are no longer needed. The Gentoo rules which allow to support
+older kernel versions, which are not covered by the default rules anymore
+has moved to rules/misc/30-kernel-compat.rules.
+
 udev 157
 ========
 Bugfixes.
