@@ -21,7 +21,8 @@ AM_LDFLAGS = \
 	-Wl,--as-needed
 
 DISTCHECK_CONFIGURE_FLAGS = \
-	--enable-gtk-doc
+	--enable-gtk-doc \
+	--with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)
 
 CLEANFILES =
 
