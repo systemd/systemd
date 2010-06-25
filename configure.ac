@@ -49,8 +49,7 @@ fi
 AC_ARG_WITH(firmware-path,
 	AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
 	   [Firmware search path (default=/lib/firmware/updates:/lib/firmware)]),
-	[], [with_firmware_path="/lib/firmware/updates:/lib/firmware"]
-	)
+	[], [with_firmware_path="/lib/firmware/updates:/lib/firmware"])
 OLD_IFS=$IFS
 IFS=:
 for i in $with_firmware_path
@@ -63,6 +62,12 @@ do
 done
 IFS=$OLD_IFS
 AC_SUBST([FIRMWARE_PATH], [$FIRMWARE_PATH])
+
+AC_ARG_WITH([systemdsystemunitdir],
+	AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
+	[], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
+AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
+AM_CONDITIONAL(WITH_SYSTEMD, [test -n "$with_systemdsystemunitdir"])
 
 AC_ARG_ENABLE([extras],
 	AS_HELP_STRING([--disable-extras], [disable extras with external dependencies]),
@@ -126,10 +131,13 @@ AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = xyes])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
+	udev/udev.pc
+	init/udev.service
+	init/udev-settle.service
+	init/udev-retry.service
 	libudev/libudev.pc
 	libudev/docs/Makefile
 	libudev/docs/version.xml
-	udev/udev.pc
 	extras/gudev/gudev-1.0.pc
 	extras/gudev/docs/Makefile
 	extras/gudev/docs/version.xml
@@ -152,6 +160,8 @@ AC_MSG_RESULT([
 	includedir:		${includedir}
 
 	include_prefix:		${INCLUDE_PREFIX}
+
+	systemdsystemunitdir:	${systemdsystemunitdir}
 
 	logging:		${enable_logging}
 	debug:			${enable_debug}

@@ -114,6 +114,13 @@ dist_udevconf_DATA = udev.conf
 sharepkgconfigdir = $(datadir)/pkgconfig
 sharepkgconfig_DATA = udev/udev.pc
 
+if WITH_SYSTEMD
+systemdsystemunit_DATA = \
+	init/udev.service \
+	init/udev-settle.service \
+	init/udev-retry.service
+endif
+
 sbin_PROGRAMS = \
 	udev/udevd \
 	udev/udevadm

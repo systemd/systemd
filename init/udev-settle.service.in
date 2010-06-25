@@ -5,7 +5,7 @@ After=udev.service
 [Service]
 Type=finish
 ValidNoProcess=yes
-ExecStart=/sbin/udevadm settle
+ExecStart=@sbindir@/udevadm settle
 
 [Install]
 WantedBy=sysinit.target

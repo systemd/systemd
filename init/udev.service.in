@@ -4,9 +4,9 @@ Before=sysinit.target
 
 [Service]
 Type=notify
-ExecStart=/sbin/udevd
-ExecStartPost=/sbin/udevadm trigger --type=subsystems --action=add
-ExecStartPost=/sbin/udevadm trigger --type=devices --action=add
+ExecStart=@sbindir@/udevd
+ExecStartPost=@sbindir@/udevadm trigger --type=subsystems --action=add
+ExecStartPost=@sbindir@/udevadm trigger --type=devices --action=add
 
 [Install]
 WantedBy=sysinit.target
