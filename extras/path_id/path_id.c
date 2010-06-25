@@ -448,6 +448,9 @@ int main(int argc, char **argv)
 		} else if (strcmp(subsys, "xen") == 0) {
 			path_prepend(&path, "xen-%s", udev_device_get_sysname(parent));
 			parent = skip_subsystem(parent, "xen");
+		} else if (strcmp(subsys, "virtio") == 0) {
+			path_prepend(&path, "virtio-pci-%s", udev_device_get_sysname(parent));
+			parent = skip_subsystem(parent, "virtio");
 		}
 
 		parent = udev_device_get_parent(parent);
