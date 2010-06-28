@@ -31,4 +31,6 @@ ENV{DMI_VENDOR}=="MTC", ATTR{[dmi/id]product_version}=="A0", RUN+="keyboard-forc
 
 ENV{DMI_VENDOR}=="PEGATRON CORP.", ATTR{[dmi/id]product_name}=="Spring Peak", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
 
+ENV{DMI_VENDOR}=="TOSHIBA", ATTR{[dmi/id]product_name}=="Satellite U300|Satellite Pro U300|Satellite U305", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
 LABEL="force_release_end"
