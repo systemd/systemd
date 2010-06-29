@@ -381,7 +381,7 @@ extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gud
 if ENABLE_INTROSPECTION
 extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
 	$(AM_V_GEN)PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
-	LD_LIBRARY_PATH=$(top_builddir)/extras/gudev \
+	LD_LIBRARY_PATH=$(top_builddir)/extras/gudev:$$LD_LIBRARY_PATH \
 	$(G_IR_SCANNER) -v \
 		--namespace GUdev \
 		--nsversion=1.0 \
