@@ -39,13 +39,13 @@
         "  <property name=\"Accept\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"KeepAlive\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
-        "  <priority name=\"ReceiveBuffer\" type=\"t\" access=\"read\"/>\n" \
-        "  <priority name=\"SendBuffer\" type=\"t\" access=\"read\"/>\n" \
-        "  <priority name=\"IPTOS\" type=\"i\" access=\"read\"/>\n"     \
-        "  <priority name=\"IPTTL\" type=\"i\" access=\"read\"/>\n"     \
-        "  <priority name=\"PipeSize\" type=\"t\" access=\"read\"/>\n"  \
-        "  <priority name=\"FreeBind\" type=\"b\" access=\"read\"/>\n"  \
-        "  <priority name=\"Mark\" type=\"i\" access=\"read\"/>\n"      \
+        "  <property name=\"ReceiveBuffer\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"SendBuffer\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"IPTOS\" type=\"i\" access=\"read\"/>\n"     \
+        "  <property name=\"IPTTL\" type=\"i\" access=\"read\"/>\n"     \
+        "  <property name=\"PipeSize\" type=\"t\" access=\"read\"/>\n"  \
+        "  <property name=\"FreeBind\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"Mark\" type=\"i\" access=\"read\"/>\n"      \
         " </interface>\n"                                               \
 
 #define INTROSPECTION                                                   \
