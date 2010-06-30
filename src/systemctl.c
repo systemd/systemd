@@ -46,7 +46,7 @@ static const char *arg_type = NULL;
 static bool arg_all = false;
 static bool arg_replace = false;
 static bool arg_session = false;
-static bool arg_block = false;
+static bool arg_no_block = false;
 static bool arg_immediate = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_sync = false;
@@ -663,7 +663,7 @@ static int start_unit_one(
         assert(method);
         assert(name);
         assert(mode);
-        assert(!arg_block || s);
+        assert(arg_no_block || s);
 
         dbus_error_init(&error);
 
@@ -700,7 +700,7 @@ static int start_unit_one(
                 goto finish;
         }
 
-        if (arg_block) {
+        if (!arg_no_block) {
                 const char *path;
                 char *p;
 
@@ -806,7 +806,7 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 one_name = table[arg_action];
         }
 
-        if (arg_block) {
+        if (!arg_no_block) {
                 if ((r = enable_wait_for_jobs(bus)) < 0) {
                         log_error("Could not watch jobs: %s", strerror(-r));
                         goto finish;
@@ -830,7 +830,7 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                                 goto finish;
         }
 
-        if (arg_block)
+        if (!arg_no_block)
                 r = wait_for_jobs(bus, s);
 
 finish:
@@ -1436,7 +1436,7 @@ static int systemctl_help(void) {
                "     --replace   When installing a new job, replace existing conflicting ones\n"
                "     --system    Connect to system bus\n"
                "     --session   Connect to session bus\n"
-               "     --block     Wait until operation finished\n"
+               "     --no-block  Do not wait until operation finished\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n\n"
                "Commands:\n"
                "  list-units                      List units\n"
@@ -1540,20 +1540,20 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_REPLACE = 0x100,
                 ARG_SESSION,
                 ARG_SYSTEM,
-                ARG_BLOCK,
+                ARG_NO_BLOCK,
                 ARG_NO_WALL
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'         },
-                { "type",      required_argument, NULL, 't'         },
-                { "all",       no_argument,       NULL, 'a'         },
-                { "replace",   no_argument,       NULL, ARG_REPLACE },
-                { "session",   no_argument,       NULL, ARG_SESSION },
-                { "system",    no_argument,       NULL, ARG_SYSTEM  },
-                { "block",     no_argument,       NULL, ARG_BLOCK   },
-                { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
-                { NULL,        0,                 NULL, 0           }
+                { "help",      no_argument,       NULL, 'h'          },
+                { "type",      required_argument, NULL, 't'          },
+                { "all",       no_argument,       NULL, 'a'          },
+                { "replace",   no_argument,       NULL, ARG_REPLACE  },
+                { "session",   no_argument,       NULL, ARG_SESSION  },
+                { "system",    no_argument,       NULL, ARG_SYSTEM   },
+                { "no-block",  no_argument,       NULL, ARG_NO_BLOCK },
+                { "no-wall",   no_argument,       NULL, ARG_NO_WALL  },
+                { NULL,        0,                 NULL, 0            }
         };
 
         int c;
@@ -1589,8 +1589,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_session = false;
                         break;
 
-                case ARG_BLOCK:
-                        arg_block = true;
+                case ARG_NO_BLOCK:
+                        arg_no_block = true;
                         break;
 
                 case ARG_NO_WALL:
