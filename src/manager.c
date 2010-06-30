@@ -1343,7 +1343,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                         continue;
 
                 /* No need to stop inactive jobs */
-                if (unit_active_state(u) == UNIT_INACTIVE)
+                if (UNIT_IS_INACTIVE_OR_MAINTENANCE(unit_active_state(u)))
                         continue;
 
                 /* Is there already something listed for this? */

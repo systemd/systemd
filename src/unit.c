@@ -365,8 +365,12 @@ void unit_free(Unit *u) {
 UnitActiveState unit_active_state(Unit *u) {
         assert(u);
 
-        if (u->meta.load_state != UNIT_LOADED)
-                return UNIT_INACTIVE;
+        if (u->meta.load_state == UNIT_MERGED)
+                return unit_active_state(unit_follow_merge(u));
+
+        /* After a reload it might happen that a unit is not correctly
+         * loaded but still has a process around. That's why we won't
+         * shortcut failed loading to UNIT_INACTIVE_MAINTENANCE. */
 
         return UNIT_VTABLE(u)->active_state(u);
 }
@@ -463,7 +467,7 @@ int unit_merge(Unit *u, Unit *other) {
         if (other->meta.job)
                 return -EEXIST;
 
-        if (unit_active_state(other) != UNIT_INACTIVE)
+        if (!UNIT_IS_INACTIVE_OR_MAINTENANCE(unit_active_state(other)))
                 return -EEXIST;
 
         /* Merge names */
@@ -746,6 +750,9 @@ int unit_start(Unit *u) {
 
         assert(u);
 
+        if (u->meta.load_state != UNIT_LOADED)
+                return -EINVAL;
+
         /* If this is already (being) started, then this will
          * succeed. Note that this will even succeed if this unit is
          * not startable by the user. This is relied on to detect when
@@ -785,7 +792,7 @@ int unit_stop(Unit *u) {
         assert(u);
 
         state = unit_active_state(u);
-        if (state == UNIT_INACTIVE)
+        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(state))
                 return -EALREADY;
 
         if (!UNIT_VTABLE(u)->stop)
@@ -804,6 +811,9 @@ int unit_reload(Unit *u) {
         UnitActiveState state;
 
         assert(u);
+
+        if (u->meta.load_state != UNIT_LOADED)
+                return -EINVAL;
 
         if (!unit_can_reload(u))
                 return -EBADR;
@@ -941,9 +951,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
         dual_timestamp_get(&ts);
 
-        if (os == UNIT_INACTIVE && ns != UNIT_INACTIVE)
+        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(os) && !UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
                 u->meta.inactive_exit_timestamp = ts;
-        else if (os != UNIT_INACTIVE && ns == UNIT_INACTIVE)
+        else if (!UNIT_IS_INACTIVE_OR_MAINTENANCE(os) && UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
                 u->meta.inactive_enter_timestamp = ts;
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
@@ -1002,6 +1012,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
                         if (ns == UNIT_INACTIVE)
                                 job_finish_and_invalidate(u->meta.job, true);
+                        else if (ns == UNIT_INACTIVE_MAINTENANCE)
+                                job_finish_and_invalidate(u->meta.job, false);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
                                 job_finish_and_invalidate(u->meta.job, false);
@@ -1952,7 +1964,9 @@ DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE] = "active",
+        [UNIT_ACTIVE_RELOADING] = "active-reloading",
         [UNIT_INACTIVE] = "inactive",
+        [UNIT_INACTIVE_MAINTENANCE] = "inactive-maintenance",
         [UNIT_ACTIVATING] = "activating",
         [UNIT_DEACTIVATING] = "deactivating"
 };

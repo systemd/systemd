@@ -34,7 +34,7 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
         [PATH_WAITING] = UNIT_ACTIVE,
         [PATH_RUNNING] = UNIT_ACTIVE,
-        [PATH_MAINTENANCE] = UNIT_INACTIVE
+        [PATH_MAINTENANCE] = UNIT_INACTIVE_MAINTENANCE
 };
 
 static void path_done(Unit *u) {

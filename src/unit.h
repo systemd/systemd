@@ -80,6 +80,7 @@ enum UnitActiveState {
         UNIT_ACTIVE,
         UNIT_ACTIVE_RELOADING,
         UNIT_INACTIVE,
+        UNIT_INACTIVE_MAINTENANCE,
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
         _UNIT_ACTIVE_STATE_MAX,
@@ -95,7 +96,11 @@ static inline bool UNIT_IS_ACTIVE_OR_ACTIVATING(UnitActiveState t) {
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
-        return t == UNIT_INACTIVE || t == UNIT_DEACTIVATING;
+        return t == UNIT_INACTIVE || t == UNIT_INACTIVE_MAINTENANCE || t == UNIT_DEACTIVATING;
+}
+
+static inline bool UNIT_IS_INACTIVE_OR_MAINTENANCE(UnitActiveState t) {
+        return t == UNIT_INACTIVE || t == UNIT_INACTIVE_MAINTENANCE;
 }
 
 enum UnitDependency {

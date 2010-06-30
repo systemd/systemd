@@ -31,7 +31,7 @@ static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_WAITING] = UNIT_ACTIVE,
         [TIMER_RUNNING] = UNIT_ACTIVE,
         [TIMER_ELAPSED] = UNIT_ACTIVE,
-        [TIMER_MAINTENANCE] = UNIT_INACTIVE
+        [TIMER_MAINTENANCE] = UNIT_INACTIVE_MAINTENANCE
 };
 
 static void timer_init(Unit *u) {
@@ -401,7 +401,7 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
 
                 case TIMER_RUNNING:
 
-                        if (new_state == UNIT_INACTIVE) {
+                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(new_state)) {
                                 log_debug("%s got notified about unit deactivation.", t->meta.id);
                                 timer_enter_waiting(t, false);
                         }

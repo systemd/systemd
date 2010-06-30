@@ -10,8 +10,6 @@
 
 * "disabled" load state?
 
-* gc: don't reap broken services
-
 * ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
 
@@ -37,9 +35,17 @@
 
 * selinux
 
-External:
+* systemctl check
 
-* systemd-sysvinit as package
+* nettere fehlermeldung bei systemctl start foo.service failure
+
+* systemd-install disable sollte den service runterfahren
+
+* systemctl daemon-reload is kaputt
+
+* keinerlei fehlermeldung bei dead symlink muss gefixt werden
+
+External:
 
 * patch /etc/init.d/functions with:
 

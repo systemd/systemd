@@ -40,7 +40,7 @@ static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
         [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
         [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
-        [AUTOMOUNT_MAINTENANCE] = UNIT_INACTIVE,
+        [AUTOMOUNT_MAINTENANCE] = UNIT_INACTIVE_MAINTENANCE
 };
 
 static int open_dev_autofs(Manager *m);

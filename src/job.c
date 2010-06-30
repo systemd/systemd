@@ -279,7 +279,8 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
 
         case JOB_STOP:
                 return
-                        b == UNIT_INACTIVE;
+                        b == UNIT_INACTIVE ||
+                        b == UNIT_INACTIVE_MAINTENANCE;
 
         case JOB_VERIFY_ACTIVE:
                 return
@@ -415,7 +416,7 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_RESTART: {
                         UnitActiveState t = unit_active_state(j->unit);
-                        if (t == UNIT_INACTIVE || t == UNIT_ACTIVATING) {
+                        if (t == UNIT_INACTIVE || t == UNIT_INACTIVE_MAINTENANCE || t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
                                 r = unit_start(j->unit);
                         } else
@@ -425,7 +426,7 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_TRY_RESTART: {
                         UnitActiveState t = unit_active_state(j->unit);
-                        if (t == UNIT_INACTIVE || t == UNIT_DEACTIVATING)
+                        if (t == UNIT_INACTIVE || t == UNIT_INACTIVE_MAINTENANCE || t == UNIT_DEACTIVATING)
                                 r = -ENOEXEC;
                         else if (t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
