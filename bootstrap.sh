@@ -53,7 +53,7 @@ if type -p colorgcc > /dev/null ; then
 fi
 
 if [ "x$1" = "xam" ] ; then
-    run_versioned automake "$VERSION" -a -c --foreign
+    run_versioned automake "$AM_VERSION" -a -c --foreign
     ./config.status
 else
     rm -rf autom4te.cache
