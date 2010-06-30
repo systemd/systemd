@@ -1273,7 +1273,7 @@ int exec_spawn(ExecCommand *command,
         log_debug("Forked %s as %lu", command->path, (unsigned long) pid);
 
         command->exec_status.pid = pid;
-        command->exec_status.start_timestamp = now(CLOCK_REALTIME);
+        dual_timestamp_get(&command->exec_status.start_timestamp);
 
         *ret = pid;
         return 0;
@@ -1553,7 +1553,7 @@ void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status) {
         assert(s);
 
         s->pid = pid;
-        s->exit_timestamp = now(CLOCK_REALTIME);
+        dual_timestamp_get(&s->exit_timestamp);
 
         s->code = code;
         s->status = status;
@@ -1575,17 +1575,17 @@ void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
                 "%sPID: %lu\n",
                 prefix, (unsigned long) s->pid);
 
-        if (s->start_timestamp > 0)
+        if (s->start_timestamp.realtime > 0)
                 fprintf(f,
                         "%sStart Timestamp: %s\n",
-                        prefix, format_timestamp(buf, sizeof(buf), s->start_timestamp));
+                        prefix, format_timestamp(buf, sizeof(buf), s->start_timestamp.realtime));
 
-        if (s->exit_timestamp > 0)
+        if (s->exit_timestamp.realtime > 0)
                 fprintf(f,
                         "%sExit Timestamp: %s\n"
                         "%sExit Code: %s\n"
                         "%sExit Status: %i\n",
-                        prefix, format_timestamp(buf, sizeof(buf), s->exit_timestamp),
+                        prefix, format_timestamp(buf, sizeof(buf), s->exit_timestamp.realtime),
                         prefix, sigchld_code_to_string(s->code),
                         prefix, s->status);
 }

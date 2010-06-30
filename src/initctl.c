@@ -290,7 +290,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                         goto fail;
                 }
 
-                f->fd = SD_LISTEN_FDS_START+i;
+                f->fd = fd;
                 LIST_PREPEND(Fifo, fifo, s->fifos, f);
                 f->server = s;
                 s->n_fifos ++;

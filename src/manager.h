@@ -137,7 +137,7 @@ struct Manager {
 
         char **environment;
 
-        timestamp startup_timestamp;
+        dual_timestamp startup_timestamp;
 
         /* Data specific to the device subsystem */
         struct udev* udev;

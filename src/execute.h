@@ -67,8 +67,8 @@ typedef enum ExecOutput {
 } ExecOutput;
 
 struct ExecStatus {
-        usec_t start_timestamp;
-        usec_t exit_timestamp;
+        dual_timestamp start_timestamp;
+        dual_timestamp exit_timestamp;
         pid_t pid;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in sigingo_t::si_status */

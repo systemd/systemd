@@ -153,10 +153,10 @@ struct Meta {
          * the job for it */
         Job *job;
 
-        timestamp inactive_exit_timestamp;
-        timestamp active_enter_timestamp;
-        timestamp active_exit_timestamp;
-        timestamp inactive_enter_timestamp;
+        dual_timestamp inactive_exit_timestamp;
+        dual_timestamp active_enter_timestamp;
+        dual_timestamp active_exit_timestamp;
+        dual_timestamp inactive_enter_timestamp;
 
         /* Counterparts in the cgroup filesystem */
         CGroupBonding *cgroup_bondings;

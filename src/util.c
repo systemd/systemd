@@ -75,7 +75,7 @@ usec_t now(clockid_t clock_id) {
         return timespec_load(&ts);
 }
 
-timestamp* timestamp_get(timestamp *ts) {
+dual_timestamp* dual_timestamp_get(dual_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);

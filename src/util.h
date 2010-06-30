@@ -34,10 +34,10 @@
 
 typedef uint64_t usec_t;
 
-typedef struct timestamp {
+typedef struct dual_timestamp {
         usec_t realtime;
         usec_t monotonic;
-} timestamp;
+} dual_timestamp;
 
 #define MSEC_PER_SEC  1000ULL
 #define USEC_PER_SEC  1000000ULL
@@ -60,7 +60,7 @@ typedef struct timestamp {
 
 usec_t now(clockid_t clock);
 
-timestamp* timestamp_get(timestamp *ts);
+dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
 
 usec_t timespec_load(const struct timespec *ts);
 struct timespec *timespec_store(struct timespec *ts, usec_t u);

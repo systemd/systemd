@@ -194,7 +194,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         if (!(m = new0(Manager, 1)))
                 return -ENOMEM;
 
-        timestamp_get(&m->startup_timestamp);
+        dual_timestamp_get(&m->startup_timestamp);
 
         m->running_as = running_as;
         m->confirm_spawn = confirm_spawn;

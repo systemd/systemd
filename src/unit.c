@@ -926,7 +926,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         bool unexpected = false;
-        timestamp ts;
+        dual_timestamp ts;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -939,7 +939,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
          * this function will be called too and the utmp code below
          * relies on that! */
 
-        timestamp_get(&ts);
+        dual_timestamp_get(&ts);
 
         if (os == UNIT_INACTIVE && ns != UNIT_INACTIVE)
                 u->meta.inactive_exit_timestamp = ts;
