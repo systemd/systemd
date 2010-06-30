@@ -305,6 +305,7 @@ int socket_address_listen(
                 int backlog,
                 SocketAddressBindIPv6Only only,
                 const char *bind_to_device,
+                bool free_bind,
                 mode_t directory_mode,
                 mode_t socket_mode,
                 int *ret) {
@@ -329,6 +330,12 @@ int socket_address_listen(
         if (bind_to_device)
                 if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device)+1) < 0)
                         goto fail;
+
+        if (free_bind) {
+                one = 1;
+                if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &one, sizeof(one)) < 0)
+                        log_warning("IP_FREEBIND failed: %m");
+        }
 
         one = 1;
         if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0)

@@ -1460,6 +1460,22 @@ int bus_property_append_int32(Manager *m, DBusMessageIter *i, const char *proper
         return 0;
 }
 
+int bus_property_append_size(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        uint64_t u;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(data);
+
+        u = (uint64_t) *(size_t*) data;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &u))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_parse_strv(DBusMessage *m, char ***_l) {
         DBusMessageIter iter, sub;
         unsigned n = 0, i = 0;

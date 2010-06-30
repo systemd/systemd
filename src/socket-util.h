@@ -68,6 +68,7 @@ int socket_address_listen(
                 int backlog,
                 SocketAddressBindIPv6Only only,
                 const char *bind_to_device,
+                bool free_bind,
                 mode_t directory_mode,
                 mode_t socket_mode,
                 int *ret);

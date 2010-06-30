@@ -37,6 +37,15 @@
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"SocketMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Accept\" type=\"b\" access=\"read\"/>\n"    \
+        "  <property name=\"KeepAlive\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
+        "  <priority name=\"ReceiveBuffer\" type=\"t\" access=\"read\"/>\n" \
+        "  <priority name=\"SendBuffer\" type=\"t\" access=\"read\"/>\n" \
+        "  <priority name=\"IPTOS\" type=\"i\" access=\"read\"/>\n"     \
+        "  <priority name=\"IPTTL\" type=\"i\" access=\"read\"/>\n"     \
+        "  <priority name=\"PipeSize\" type=\"t\" access=\"read\"/>\n"  \
+        "  <priority name=\"FreeBind\" type=\"b\" access=\"read\"/>\n"  \
+        "  <priority name=\"Mark\" type=\"i\" access=\"read\"/>\n"      \
         " </interface>\n"                                               \
 
 #define INTROSPECTION                                                   \
@@ -66,6 +75,15 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { "org.freedesktop.systemd1.Socket", "DirectoryMode", bus_property_append_mode,     "u", &u->socket.directory_mode },
                 { "org.freedesktop.systemd1.Socket", "SocketMode",    bus_property_append_mode,     "u", &u->socket.socket_mode },
                 { "org.freedesktop.systemd1.Socket", "Accept",        bus_property_append_bool,     "b", &u->socket.accept },
+                { "org.freedesktop.systemd1.Socket", "KeepAlive",     bus_property_append_bool,     "b", &u->socket.keep_alive },
+                { "org.freedesktop.systemd1.Socket", "Priority",      bus_property_append_int,      "i", &u->socket.priority },
+                { "org.freedesktop.systemd1.Socket", "ReceiveBuffer", bus_property_append_size,     "t", &u->socket.receive_buffer },
+                { "org.freedesktop.systemd1.Socket", "SendBuffer",    bus_property_append_size,     "t", &u->socket.send_buffer },
+                { "org.freedesktop.systemd1.Socket", "IPTOS",         bus_property_append_int,      "i", &u->socket.ip_tos },
+                { "org.freedesktop.systemd1.Socket", "IPTTL",         bus_property_append_int,      "i", &u->socket.ip_ttl },
+                { "org.freedesktop.systemd1.Socket", "PipeSize",      bus_property_append_size,     "t", &u->socket.pipe_size },
+                { "org.freedesktop.systemd1.Socket", "FreeBind",      bus_property_append_bool,     "b", &u->socket.free_bind },
+                { "org.freedesktop.systemd1.Socket", "Mark",          bus_property_append_int,      "i", &u->socket.mark },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

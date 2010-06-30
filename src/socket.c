@@ -36,6 +36,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "dbus-socket.h"
+#include "missing.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -64,6 +65,16 @@ static void socket_init(Unit *u) {
         s->socket_mode = 0666;
 
         s->max_connections = 64;
+
+        s->keep_alive = false;
+        s->priority = -1;
+        s->receive_buffer = 0;
+        s->send_buffer = 0;
+        s->ip_tos = -1;
+        s->ip_ttl = -1;
+        s->pipe_size = 0;
+        s->mark = -1;
+        s->free_bind = false;
 
         exec_context_init(&s->exec_context);
 
@@ -308,13 +319,17 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sBacklog: %u\n"
                 "%sKillMode: %s\n"
                 "%sSocketMode: %04o\n"
-                "%sDirectoryMode: %04o\n",
+                "%sDirectoryMode: %04o\n"
+                "%sKeepAlive: %s\n"
+                "%sFreeBind: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
                 prefix, s->backlog,
                 prefix, kill_mode_to_string(s->kill_mode),
                 prefix, s->socket_mode,
-                prefix, s->directory_mode);
+                prefix, s->directory_mode,
+                prefix, yes_no(s->keep_alive),
+                prefix, yes_no(s->free_bind));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -334,6 +349,41 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->n_accepted,
                         prefix, s->n_connections,
                         prefix, s->max_connections);
+
+        if (s->priority >= 0)
+                fprintf(f,
+                        "%sPriority: %i\n",
+                        prefix, s->priority);
+
+        if (s->receive_buffer > 0)
+                fprintf(f,
+                        "%sReceiveBuffer: %zu\n",
+                        prefix, s->receive_buffer);
+
+        if (s->send_buffer > 0)
+                fprintf(f,
+                        "%sSendBuffer: %zu\n",
+                        prefix, s->send_buffer);
+
+        if (s->ip_tos >= 0)
+                fprintf(f,
+                        "%sIPTOS: %i\n",
+                        prefix, s->ip_tos);
+
+        if (s->ip_ttl >= 0)
+                fprintf(f,
+                        "%sIPTTL: %i\n",
+                        prefix, s->ip_ttl);
+
+        if (s->pipe_size > 0)
+                fprintf(f,
+                        "%sPipeSize: %zu\n",
+                        prefix, s->pipe_size);
+
+        if (s->mark >= 0)
+                fprintf(f,
+                        "%sMark: %i\n",
+                        prefix, s->mark);
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -493,6 +543,54 @@ static void socket_close_fds(Socket *s) {
         }
 }
 
+static void socket_apply_socket_options(Socket *s, int fd) {
+        assert(s);
+        assert(fd >= 0);
+
+        if (s->keep_alive) {
+                int b = s->keep_alive;
+                if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &b, sizeof(b)) < 0)
+                        log_warning("SO_KEEPALIVE failed: %m");
+        }
+
+        if (s->priority >= 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &s->priority, sizeof(s->priority)) < 0)
+                        log_warning("SO_PRIORITY failed: %m");
+
+        if (s->receive_buffer > 0) {
+                int value = (int) s->receive_buffer;
+                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
+                        log_warning("SO_RCVBUF failed: %m");
+        }
+
+        if (s->send_buffer > 0) {
+                int value = (int) s->send_buffer;
+                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
+                        log_warning("SO_SNDBUF failed: %m");
+        }
+
+        if (s->mark >= 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_MARK, &s->mark, sizeof(s->mark)) < 0)
+                        log_warning("SO_MARK failed: %m");
+
+        if (s->ip_tos >= 0)
+                if (setsockopt(fd, IPPROTO_IP, IP_TOS, &s->ip_tos, sizeof(s->ip_tos)) < 0)
+                        log_warning("IP_TOS failed: %m");
+
+        if (s->ip_ttl >= 0)
+                if (setsockopt(fd, IPPROTO_IP, IP_TTL, &s->ip_ttl, sizeof(s->ip_ttl)) < 0)
+                        log_warning("IP_TTL failed: %m");
+}
+
+static void socket_apply_pipe_options(Socket *s, int fd) {
+        assert(s);
+        assert(fd >= 0);
+
+        if (s->pipe_size > 0)
+                if (fcntl(fd, F_SETPIPE_SZ, s->pipe_size) < 0)
+                        log_warning("F_SETPIPE_SZ: %m");
+}
+
 static int socket_open_fds(Socket *s) {
         SocketPort *p;
         int r;
@@ -511,10 +609,13 @@ static int socket_open_fds(Socket *s) {
                                              s->backlog,
                                              s->bind_ipv6_only,
                                              s->bind_to_device,
+                                             s->free_bind,
                                              s->directory_mode,
                                              s->socket_mode,
                                              &p->fd)) < 0)
                                 goto rollback;
+
+                        socket_apply_socket_options(s, p->fd);
 
                 } else {
                         struct stat st;
@@ -543,6 +644,8 @@ static int socket_open_fds(Socket *s) {
                                 r = -EEXIST;
                                 goto rollback;
                         }
+
+                        socket_apply_pipe_options(s, p->fd);
                 }
         }
 
@@ -1253,6 +1356,8 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
 
                         break;
                 }
+
+                socket_apply_socket_options(s, cfd);
         }
 
         socket_enter_running(s, cfd);

@@ -78,10 +78,7 @@ struct Socket {
 
         LIST_HEAD(SocketPort, ports);
 
-        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
-        SocketAddressBindIPv6Only bind_ipv6_only;
         unsigned backlog;
-
         usec_t timeout_usec;
 
         ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
@@ -97,10 +94,6 @@ struct Socket {
         SocketExecCommand control_command_id;
         pid_t control_pid;
 
-        char *bind_to_device;
-        mode_t directory_mode;
-        mode_t socket_mode;
-
         bool accept;
         unsigned n_accepted;
         unsigned n_connections;
@@ -108,6 +101,24 @@ struct Socket {
 
         bool failure;
         Watch timer_watch;
+
+        /* Socket options */
+        bool keep_alive;
+        int priority;
+        size_t receive_buffer;
+        size_t send_buffer;
+        int ip_tos;
+        int ip_ttl;
+        size_t pipe_size;
+        int mark;
+        bool free_bind;
+        char *bind_to_device;
+
+        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
+        SocketAddressBindIPv6Only bind_ipv6_only;
+
+        mode_t directory_mode;
+        mode_t socket_mode;
 };
 
 /* Called from the service code when collecting fds */

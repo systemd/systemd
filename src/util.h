@@ -226,7 +226,8 @@ unsigned long long random_ull(void);
                 unsigned u = 0;                                         \
                 assert(s);                                              \
                 for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
-                        if (streq(name##_table[i], s))                  \
+                        if (name##_table[i] &&                          \
+                            streq(name##_table[i], s))                  \
                                 return i;                               \
                 if (safe_atou(s, &u) >= 0 &&                            \
                     u < ELEMENTSOF(name##_table))                       \
@@ -300,5 +301,8 @@ int sched_policy_from_string(const char *s);
 
 const char *rlimit_to_string(int i);
 int rlimit_from_string(const char *s);
+
+const char *ip_tos_to_string(int i);
+int ip_tos_from_string(const char *s);
 
 #endif

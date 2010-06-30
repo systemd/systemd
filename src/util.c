@@ -46,6 +46,7 @@
 #include <sys/prctl.h>
 #include <sys/utsname.h>
 #include <pwd.h>
+#include <netinet/ip.h>
 
 #include "macro.h"
 #include "util.h"
@@ -2625,3 +2626,12 @@ static const char* const rlimit_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
+
+static const char* const ip_tos_table[] = {
+        [IPTOS_LOWDELAY] = "low-delay",
+        [IPTOS_THROUGHPUT] = "throughput",
+        [IPTOS_RELIABILITY] = "reliability",
+        [IPTOS_LOWCOST] = "low-cost",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);

@@ -1205,6 +1205,33 @@ finish:
         return r;
 }
 
+static int config_parse_ip_tos(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *ip_tos = data, x;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((x = ip_tos_from_string(rvalue)) < 0)
+                if ((r = safe_atoi(rvalue, &x)) < 0) {
+                        log_error("[%s:%u] Failed to parse IP TOS value: %s", filename, line, rvalue);
+                        return r;
+                }
+
+        *ip_tos = x;
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
 
 #define FOLLOW_MAX 8
@@ -1517,6 +1544,15 @@ static int load_from_path(Unit *u, const char *path) {
                 { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
                 { "Accept",                 config_parse_bool,            &u->socket.accept,                               "Socket"  },
                 { "MaxConnections",         config_parse_unsigned,        &u->socket.max_connections,                      "Socket"  },
+                { "KeepAlive",              config_parse_bool,            &u->socket.keep_alive,                           "Socket"  },
+                { "Priority",               config_parse_int,             &u->socket.priority,                             "Socket"  },
+                { "ReceiveBuffer",          config_parse_size,            &u->socket.receive_buffer,                       "Socket"  },
+                { "SendBuffer",             config_parse_size,            &u->socket.send_buffer,                          "Socket"  },
+                { "IPTOS",                  config_parse_ip_tos,          &u->socket.ip_tos,                               "Socket"  },
+                { "IPTTL",                  config_parse_int,             &u->socket.ip_ttl,                               "Socket"  },
+                { "Mark",                   config_parse_int,             &u->socket.mark,                                 "Socket"  },
+                { "PipeSize",               config_parse_size,            &u->socket.pipe_size,                            "Socket"  },
+                { "FreeBind",               config_parse_bool,            &u->socket.free_bind,                            "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 { "What",                   config_parse_string,          &u->mount.parameters_fragment.what,              "Mount"   },
