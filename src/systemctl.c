@@ -52,6 +52,7 @@ static bool arg_no_wtmp = false;
 static bool arg_no_sync = false;
 static bool arg_no_wall = false;
 static bool arg_dry = false;
+static bool arg_quiet = false;
 static char **arg_wall = NULL;
 enum action {
         ACTION_INVALID,
@@ -849,6 +850,128 @@ static int start_special(DBusConnection *bus, char **args, unsigned n) {
         return start_unit(bus, args, n);
 }
 
+static int check_unit(DBusConnection *bus, char **args, unsigned n) {
+        DBusMessage *m = NULL, *reply = NULL;
+        const char
+                *interface = "org.freedesktop.systemd1.Unit",
+                *property = "ActiveState";
+        int r = -EADDRNOTAVAIL;
+        DBusError error;
+        unsigned i;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        for (i = 1; i < n; i++) {
+                const char *path = NULL;
+                const char *state;
+                DBusMessageIter iter, sub;
+
+                if (!(m = dbus_message_new_method_call(
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "GetUnit"))) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+
+                        /* Hmm, cannot figure out anything about this unit... */
+                        if (!arg_quiet)
+                                puts("unknown");
+
+                        continue;
+                }
+
+                if (!dbus_message_get_args(reply, &error,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse reply: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_unref(m);
+                if (!(m = dbus_message_new_method_call(
+                                      "org.freedesktop.systemd1",
+                                      path,
+                                      "org.freedesktop.DBus.Properties",
+                                      "Get"))) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &interface,
+                                              DBUS_TYPE_STRING, &property,
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                dbus_message_unref(reply);
+                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                        log_error("Failed to issue method call: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (!dbus_message_iter_init(reply, &iter) ||
+                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&iter, &sub);
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_get_basic(&sub, &state);
+
+                if (!arg_quiet)
+                        puts(state);
+
+                if (streq(state, "active") || startswith(state, "active-"))
+                        r = 0;
+
+                dbus_message_unref(m);
+                dbus_message_unref(reply);
+                m = reply = NULL;
+        }
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+
+}
+
 static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage *message, void *data) {
         DBusError error;
         DBusMessage *m = NULL, *reply = NULL;
@@ -1205,7 +1328,9 @@ static int snapshot(DBusConnection *bus, char **args, unsigned n) {
         }
 
         dbus_message_iter_get_basic(&sub, &id);
-        puts(id);
+
+        if (!arg_quiet)
+                puts(id);
         r = 0;
 
 finish:
@@ -1436,6 +1561,7 @@ static int systemctl_help(void) {
                "     --replace   When installing a new job, replace existing conflicting ones\n"
                "     --system    Connect to system bus\n"
                "     --session   Connect to session bus\n"
+               "  -q --quiet     Suppress output\n"
                "     --no-block  Do not wait until operation finished\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n\n"
                "Commands:\n"
@@ -1449,6 +1575,7 @@ static int systemctl_help(void) {
                "  restart [NAME...]               Restart one or more units\n"
                "  reload [NAME...]                Reload one or more units\n"
                "  isolate [NAME]                  Start one unit and stop all others\n"
+               "  check [NAME...]                 Check whether any of the passed units are active\n"
                "  monitor                         Monitor unit/job changes\n"
                "  dump                            Dump server status\n"
                "  snapshot [NAME]                 Create a snapshot\n"
@@ -1553,6 +1680,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "system",    no_argument,       NULL, ARG_SYSTEM   },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL  },
+                { "quiet",     no_argument,       NULL, 'q'          },
                 { NULL,        0,                 NULL, 0            }
         };
 
@@ -1561,7 +1689,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hta", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "htaq", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -1595,6 +1723,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_WALL:
                         arg_no_wall = true;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
                         break;
 
                 case '?':
@@ -2108,6 +2240,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "reload",            MORE,  2, start_unit      },
                 { "restart",           MORE,  2, start_unit      },
                 { "isolate",           EQUAL, 2, start_unit      },
+                { "check",             MORE,  2, check_unit      },
                 { "monitor",           EQUAL, 1, monitor         },
                 { "dump",              EQUAL, 1, dump            },
                 { "snapshot",          LESS,  2, snapshot        },
@@ -2138,6 +2271,11 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 /* Special rule: no arguments means "list-units" */
                 i = 0;
         else {
+                if (streq(argv[optind], "help")) {
+                        systemctl_help();
+                        return 0;
+                }
+
                 for (i = 0; i < ELEMENTSOF(verbs); i++)
                         if (streq(argv[optind], verbs[i].verb))
                                 break;
