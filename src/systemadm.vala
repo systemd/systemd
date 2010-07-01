@@ -107,7 +107,7 @@ public class MainWindow : Window {
                 position = WindowPosition.CENTER;
                 set_default_size(1000, 700);
                 set_border_width(12);
-                destroy += Gtk.main_quit;
+                destroy.connect(Gtk.main_quit);
 
                 Notebook notebook = new Notebook();
                 add(notebook);
@@ -135,15 +135,15 @@ public class MainWindow : Window {
                 unit_type_combo_box.append_text("Targets");
                 unit_type_combo_box.append_text("Snapshots");
                 unit_type_combo_box.set_active(1);
-                unit_type_combo_box.changed += unit_type_changed;
+                unit_type_combo_box.changed.connect(unit_type_changed);
 
                 unit_load_entry = new Entry();
                 unit_load_button = new Button.with_mnemonic("_Load");
                 unit_load_button.set_sensitive(false);
 
-                unit_load_entry.changed += on_unit_load_entry_changed;
-                unit_load_entry.activate += on_unit_load;
-                unit_load_button.clicked += on_unit_load;
+                unit_load_entry.changed.connect(on_unit_load_entry_changed);
+                unit_load_entry.activate.connect(on_unit_load);
+                unit_load_button.clicked.connect(on_unit_load);
 
                 Box unit_load_hbox = new HBox(false, 6);
                 unit_load_hbox.pack_start(unit_load_entry, false, true, 0);
@@ -152,8 +152,8 @@ public class MainWindow : Window {
                 server_snapshot_button = new Button.with_mnemonic("Take S_napshot");
                 server_reload_button = new Button.with_mnemonic("Reload _Configuration");
 
-                server_snapshot_button.clicked += on_server_snapshot;
-                server_reload_button.clicked += on_server_reload;
+                server_snapshot_button.clicked.connect(on_server_snapshot);
+                server_reload_button.clicked.connect(on_server_reload);
 
                 type_hbox.pack_end(server_snapshot_button, false, true, 0);
                 type_hbox.pack_end(server_reload_button, false, true, 0);
@@ -169,8 +169,8 @@ public class MainWindow : Window {
                 unit_view = new TreeView.with_model(unit_model_filter);
                 job_view = new TreeView.with_model(job_model);
 
-                unit_view.cursor_changed += unit_changed;
-                job_view.cursor_changed += job_changed;
+                unit_view.cursor_changed.connect(unit_changed);
+                job_view.cursor_changed.connect(job_changed);
 
                 unit_view.insert_column_with_attributes(-1, "Load State", new CellRendererText(), "text", 2);
                 unit_view.insert_column_with_attributes(-1, "Active State", new CellRendererText(), "text", 3);
@@ -215,7 +215,7 @@ public class MainWindow : Window {
 
                 unit_dependency_label.set_track_visited_links(false);
                 unit_dependency_label.set_selectable(false);
-                unit_dependency_label.activate_link += on_activate_link;
+                unit_dependency_label.activate_link.connect(on_activate_link);
 
                 unit_fragment_path_label.set_track_visited_links(false);
 
@@ -276,10 +276,10 @@ public class MainWindow : Window {
                 reload_button = new Button.with_mnemonic("_Reload");
                 restart_button = new Button.with_mnemonic("Res_tart");
 
-                start_button.clicked += on_start;
-                stop_button.clicked += on_stop;
-                reload_button.clicked += on_reload;
-                restart_button.clicked += on_restart;
+                start_button.clicked.connect(on_start);
+                stop_button.clicked.connect(on_stop);
+                reload_button.clicked.connect(on_reload);
+                restart_button.clicked.connect(on_restart);
 
                 bbox.pack_start(start_button, false, true, 0);
                 bbox.pack_start(stop_button, false, true, 0);
@@ -293,7 +293,7 @@ public class MainWindow : Window {
 
                 cancel_button = new Button.with_mnemonic("_Cancel");
 
-                cancel_button.clicked += on_cancel;
+                cancel_button.clicked.connect(on_cancel);
 
                 bbox.pack_start(cancel_button, false, true, 0);
 
@@ -304,10 +304,10 @@ public class MainWindow : Window {
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager") as Manager;
 
-                manager.unit_new += on_unit_new;
-                manager.job_new += on_job_new;
-                manager.unit_removed += on_unit_removed;
-                manager.job_removed += on_job_removed;
+                manager.unit_new.connect(on_unit_new);
+                manager.job_new.connect(on_job_new);
+                manager.unit_removed.connect(on_unit_removed);
+                manager.job_removed.connect(on_job_removed);
 
                 manager.subscribe();
 
@@ -330,7 +330,7 @@ public class MainWindow : Window {
                                         i.unit_path,
                                         "org.freedesktop.systemd1.Unit") as Unit;
 
-                        u.changed += on_unit_changed;
+                        u.changed.connect(on_unit_changed);
 
                         unit_model.append(out iter);
                         unit_model.set(iter,
@@ -357,7 +357,7 @@ public class MainWindow : Window {
                                         i.job_path,
                                         "org.freedesktop.systemd1.Job") as Job;
 
-                        j.changed += on_job_changed;
+                        j.changed.connect(on_job_changed);
 
                         job_model.append(out iter);
                         job_model.set(iter,
@@ -677,7 +677,7 @@ public class MainWindow : Window {
                                 path,
                                 "org.freedesktop.systemd1.Unit") as Unit;
 
-                u.changed += on_unit_changed;
+                u.changed.connect(on_unit_changed);
 
                 TreeIter iter;
                 unit_model.append(out iter);
@@ -700,7 +700,7 @@ public class MainWindow : Window {
                                 path,
                                 "org.freedesktop.systemd1.Job") as Job;
 
-                j.changed += on_job_changed;
+                j.changed.connect(on_job_changed);
 
                 TreeIter iter;
                 job_model.append(out iter);
