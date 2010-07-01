@@ -39,6 +39,7 @@ struct Snapshot {
         SnapshotState state, deserialized_state;
 
         bool cleanup;
+        bool by_snapshot_create:1;
 };
 
 extern const UnitVTable snapshot_vtable;

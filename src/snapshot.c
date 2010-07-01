@@ -47,6 +47,21 @@ static void snapshot_set_state(Snapshot *s, SnapshotState state) {
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
 
+static int snapshot_load(Unit *u) {
+        Snapshot *s = SNAPSHOT(u);
+
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
+
+        /* Make sure that only snapshots created via snapshot_create()
+         * can be loaded */
+        if (!s->by_snapshot_create)
+                return -ENOENT;
+
+        u->meta.load_state = UNIT_LOADED;
+        return 0;
+}
+
 static int snapshot_coldplug(Unit *u) {
         Snapshot *s = SNAPSHOT(u);
 
@@ -197,11 +212,15 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
                 name = n;
         }
 
-        r = manager_load_unit(m, name, NULL, &u);
+        r = manager_load_unit_prepare(m, name, NULL, &u);
         free(n);
 
         if (r < 0)
                 goto fail;
+
+        SNAPSHOT(u)->by_snapshot_create = true;
+        manager_dispatch_load_queue(m);
+        assert(u->meta.load_state == UNIT_LOADED);
 
         HASHMAP_FOREACH_KEY(other, k, m->units, i) {
 
@@ -258,7 +277,7 @@ const UnitVTable snapshot_vtable = {
         .no_snapshots = true,
         .no_gc = true,
 
-        .load = unit_load_nop,
+        .load = snapshot_load,
         .coldplug = snapshot_coldplug,
 
         .dump = snapshot_dump,
