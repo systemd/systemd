@@ -48,6 +48,8 @@ struct Automount {
         Watch pipe_watch;
         dev_t dev_id;
 
+        mode_t directory_mode;
+
         Set *tokens;
 
         bool failure:1;

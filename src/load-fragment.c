@@ -1566,6 +1566,7 @@ static int load_from_path(Unit *u, const char *path) {
                 EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
 
                 { "Where",                  config_parse_path,            &u->automount.where,                             "Automount" },
+                { "DirectoryMode",          config_parse_mode,            &u->automount.directory_mode,                    "Automount" },
 
                 { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap"    },
                 { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap"    },

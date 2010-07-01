@@ -53,6 +53,8 @@ static void automount_init(Unit *u) {
 
         a->pipe_watch.fd = a->pipe_fd = -1;
         a->pipe_watch.type = WATCH_INVALID;
+
+        a->directory_mode = 0755;
 }
 
 static void repeat_unmout(const char *path) {
@@ -253,9 +255,11 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sAutomount State: %s\n"
-                "%sWhere: %s\n",
+                "%sWhere: %s\n"
+                "%sDirectoryMode: %04o\n",
                 prefix, automount_state_to_string(a->state),
-                prefix, a->where);
+                prefix, a->where,
+                prefix, a->directory_mode);
 }
 
 static void automount_enter_dead(Automount *a, bool success) {
@@ -536,9 +540,10 @@ static void automount_enter_runnning(Automount *a) {
         assert(a);
         assert(a->mount);
 
-        /* Before we do anything, let's see if somebody is playing games with us? */
+        mkdir_p(a->where, a->directory_mode);
 
-        if (stat(a->where, &st) < 0) {
+        /* Before we do anything, let's see if somebody is playing games with us? */
+        if (lstat(a->where, &st) < 0) {
                 log_warning("%s failed stat automount point: %m", a->meta.id);
                 goto fail;
         }
