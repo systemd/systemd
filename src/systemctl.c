@@ -530,13 +530,18 @@ finish:
         return r;
 }
 
+typedef struct WaitData {
+        Set *set;
+        bool failed;
+} WaitData;
+
 static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *message, void *data) {
         DBusError error;
-        Set *s = data;
+        WaitData *d = data;
 
         assert(connection);
         assert(message);
-        assert(s);
+        assert(d);
 
         dbus_error_init(&error);
 
@@ -552,17 +557,22 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 uint32_t id;
                 const char *path;
+                dbus_bool_t success = true;
 
                 if (!dbus_message_get_args(message, &error,
                                            DBUS_TYPE_UINT32, &id,
                                            DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_BOOLEAN, &success,
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse message: %s", error.message);
                 else {
                         char *p;
 
-                        if ((p = set_remove(s, (char*) path)))
+                        if ((p = set_remove(d->set, (char*) path)))
                                 free(p);
+
+                        if (!success)
+                                d->failed = true;
                 }
         }
 
@@ -627,11 +637,16 @@ finish:
 
 static int wait_for_jobs(DBusConnection *bus, Set *s) {
         int r;
+        WaitData d;
 
         assert(bus);
         assert(s);
 
-        if (!dbus_connection_add_filter(bus, wait_filter, s, NULL)) {
+        zero(d);
+        d.set = s;
+        d.failed = false;
+
+        if (!dbus_connection_add_filter(bus, wait_filter, &d, NULL)) {
                 log_error("Failed to add filter.");
                 r = -ENOMEM;
                 goto finish;
@@ -641,7 +656,10 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                dbus_connection_read_write_dispatch(bus, -1))
                 ;
 
-        r = 0;
+        if (!arg_quiet && d.failed)
+                log_error("Job failed, see logs for details.");
+
+        r = d.failed ? -EIO : 0;
 
 finish:
         /* This is slightly dirty, since we don't undo the filter registration. */
