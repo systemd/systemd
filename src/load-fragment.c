@@ -1392,7 +1392,8 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_timer_unit,       "NAME" },
                 { config_parse_path_spec,        "PATH" },
                 { config_parse_path_unit,        "UNIT" },
-                { config_parse_notify_access,    "ACCESS" }
+                { config_parse_notify_access,    "ACCESS" },
+                { config_parse_ip_tos,           "TOS" },
         };
 
         assert(f);
