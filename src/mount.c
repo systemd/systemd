@@ -62,6 +62,8 @@ static void mount_init(Unit *u) {
         m->timeout_usec = DEFAULT_TIMEOUT_USEC;
         exec_context_init(&m->exec_context);
 
+        m->directory_mode = 0755;
+
         /* We need to make sure that /bin/mount is always called in
          * the same process group as us, so that the autofs kernel
          * side doesn't send us another mount request while we are
@@ -497,7 +499,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sFrom /etc/fstab: %s\n"
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
-                "%sKillMode: %s\n",
+                "%sKillMode: %s\n"
+                "%sDirectoryMode: %04o\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, m->where,
                 prefix, strna(p->what),
@@ -506,7 +509,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->from_etc_fstab),
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
-                prefix, kill_mode_to_string(m->kill_mode));
+                prefix, kill_mode_to_string(m->kill_mode),
+                prefix, m->directory_mode);
 
         if (m->control_pid > 0)
                 fprintf(f,
@@ -661,6 +665,8 @@ static void mount_enter_mounting(Mount *m) {
 
         m->control_command_id = MOUNT_EXEC_MOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
+
+        mkdir_p(m->where, m->directory_mode);
 
         if (m->from_fragment)
                 r = exec_command_set(

@@ -1562,6 +1562,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Type",                   config_parse_string,          &u->mount.parameters_fragment.fstype,            "Mount"   },
                 { "TimeoutSec",             config_parse_usec,            &u->mount.timeout_usec,                          "Mount"   },
                 { "KillMode",               config_parse_kill_mode,       &u->mount.kill_mode,                             "Mount"   },
+                { "DirectoryMode",          config_parse_mode,            &u->mount.directory_mode,                        "Mount"   },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
 
                 { "Where",                  config_parse_path,            &u->automount.where,                             "Automount" },
