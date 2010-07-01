@@ -1,0 +1,498 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.socket">
+        <refentryinfo>
+                <title>systemd.socket</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.socket</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.socket</refname>
+                <refpurpose>systemd socket configuration files</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.socket</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A unit configuration file whose name ends in .socket
+                encodes information about an IPC or network socket or
+                a file system FIFO controlled and supervised by systemd,
+                for socket-based activation.</para>
+
+                <para>This man page lists the configuration options
+                specific to this unit type. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files. The common configuration items are configured
+                in the generic [Unit] and [Install] sections. The
+                service specific configuration options are configured
+                in the [Socket] section.</para>
+
+                <para>Additional options are listed in
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                <para>For each socket file a matching service file (see <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details)
+                must exist, describing the service to start on
+                incoming traffic on the socket. Depending on the
+                setting of <option>Accept=</option> (see below) this
+                must either be named like the socket unit, but with
+                the suffix replaced; or it must be a template file
+                named the same way. Example: a socket file
+                <filename>foo.socket</filename> needs a matching
+                service <filename>foo.service</filename> if
+                <option>Accept=false</option> is set. If
+                <option>Accept=true</option> is set a service template
+                file <filename>foo@.service</filename> must exist from
+                which services are instantiated for each incoming
+                connection.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>Socket files must include a [Socket] section,
+                which carries information about the socket or FIFO it
+                supervises. A number of options that may be used in
+                this section are shared with other unit types. These
+                options are documented in
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+                options specific to the [Socket] section of service
+                units are the following:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>ListenStream=</varname></term>
+                                <term><varname>ListenDatagram=</varname></term>
+                                <term><varname>ListenSequentialPacket=</varname></term>
+                                <listitem><para>Specifies an address
+                                to listen on for a stream
+                                (SOCK_STREAM), datagram (SOCK_DGRAM)
+                                resp. sequential packet
+                                (SOCK_SEQPACKET) socket. The address
+                                can be written in various formats:</para>
+
+                                <para>If the address starts with a
+                                slash (/), it is read as file system
+                                socket in the AF_UNIX socket
+                                family.</para>
+
+                                <para>If the address starts with an
+                                ampersand (@) it is read as abstract
+                                namespace socket in the AF_UNIX
+                                family. The @ is replaced with a NUL
+                                character before binding. For details
+                                see
+                                <citerefentry><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+                                <para>If the address string is a
+                                single number it is read as port
+                                number to listen on for both IPv4 and
+                                IPv6.</para>
+
+                                <para>If the address string is a
+                                string in the format v.w.x.y:z it is
+                                read as IPv4 specifier for listening
+                                on an address v.w.x.y on a port
+                                z.</para>
+
+                                <para>If the address string is a
+                                string in the format [x]:y it is read
+                                as IPv6 address x on a port y.</para>
+
+                                <para>Note that SOCK_SEQPACKET
+                                (i.e. <varname>ListenSequentialPacket=</varname>)
+                                is only available for AF_UNIX
+                                sockets. SOCK_STREAM
+                                (i.e. <varname>ListenStream=</varname>)
+                                when used for IP sockets refers to TCP
+                                sockets, SOCK_DGRAM
+                                (i.e. <varname>ListenDatagram=</varname>)
+                                to UDP.</para>
+
+                                <para>These options may be specified
+                                more than once in which case incoming
+                                traffic on any of the sockets will trigger
+                                service activation, and all listed
+                                sockets will be passed to the service,
+                                regardless whether there is incoming
+                                traffic on them or not.</para>
+
+                                <para>If an IP address is used here it
+                                is often desirable to listen on it
+                                before the interface it is configured
+                                on is up and running, and even
+                                regardless whether it will be up and
+                                running ever at all. To deal with this it is
+                                recommended to set the
+                                <varname>FreeBind=</varname> option
+                                described below.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ListenFIFO=</varname></term>
+                                <listitem><para>Specifies a file
+                                system FIFO to listen on. This expects
+                                an absolute file system path as
+                                argument. Behaviour otherwise is very
+                                similar to the
+                                <varname>ListenDatagram=</varname>
+                                directive above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BindIPv6Only=</varname></term>
+                                <listitem><para>Takes a one of
+                                <option>default</option>,
+                                <option>both</option> or
+                                <option>ipv6-only</option>. Controls
+                                the IPV6_V6ONLY socket option (see
+                                <citerefentry><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details). If
+                                <option>both</option>, IPv6 sockets
+                                bound will be accessible via both IPv4
+                                and IPv6. If
+                                <option>ipv6-only</option>, they will
+                                be accessible via IPv6 only. If
+                                <option>default</option> (which is the
+                                default, surprise!) the system wide
+                                default setting is used, as controlled
+                                by
+                                <filename>/proc/sys/net/ipv6/bindv6only</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Backlog=</varname></term>
+                                <listitem><para>Takes an unsigned
+                                integer argument. Specifies the number
+                                of connections to queue that have not
+                                been accepted yet. This setting
+                                matters only for stream and sequential
+                                packet sockets. See
+                                <citerefentry><refentrytitle>listen</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details. Defaults to SOMAXCONN
+                                (128).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BindToDevice=</varname></term>
+                                <listitem><para>Specifies a network
+                                interface name to bind this socket
+                                to. If set traffic will only be
+                                accepted from the specified network
+                                interfaces. This controls the
+                                SO_BINDTODEVICE socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details). If this option is used
+                                an automatic dependency from this
+                                socket unit on the network interface
+                                device unit
+                                (<citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                is created.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DirectoryMode=</varname></term>
+                                <listitem><para>If listening on a file
+                                system socket of FIFO the parent
+                                directories are automatically created
+                                if needed. This option specifies the
+                                file system access mode used when
+                                creating these directories. Defaults
+                                to 0755.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SocketMode=</varname></term>
+                                <listitem><para>If listening on a file
+                                system socket of FIFO this option
+                                specifies the file system access mode
+                                used when creating the file
+                                node. Defaults to
+                                0666.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Accept=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. If true a service instance
+                                is spawned for each incoming
+                                connection and only the connection
+                                socket is passed to it. If false all
+                                listening sockets themselves are
+                                passed to the started service unit,
+                                and only one service unit is spawned
+                                for all connections (also see
+                                above). This value is ignored for
+                                datagram sockets and FIFOs where
+                                unconditionally a single service unit
+                                handles all incoming traffic. Defaults
+                                to <option>false</option>. For
+                                performance reasons it is recommended
+                                to write new daemons only in a way
+                                that is suitable for
+                                <option>Accept=false</option>. This
+                                option is mostly useful to allow
+                                daemons designed for usage with
+                                <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                to work unmodified with system socket
+                                activation.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>MaxConnections=</varname></term>
+                                <listitem><para>The maximum number of
+                                connections to simultaneously run
+                                services instances for, when
+                                <option>Accept=true</option> is
+                                set. If more concurrent connections
+                                are coming in they will be refused,
+                                until at least one existing connection
+                                is terminated. This setting has no
+                                effect for sockets configured with
+                                <option>Accept=no</option> or datagram
+                                sockets. Defaults to
+                                64.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KeepAlive=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. If true, the TCP/IP stack
+                                will send a keep alive message after
+                                2h (depending on the configuration of
+                                <filename>/proc/sys/net/ipv4/tcp_keepalive_time</filename>)
+                                for all TCP streams accepted on this
+                                socket. This controls the SO_KEEPALIVE
+                                socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and the <ulink
+                                url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
+                                Keepalive HOWTO</ulink> for details.)
+                                Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Priority=</varname></term>
+                                <listitem><para>Takes an integer
+                                argument controlling the priority for
+                                all traffic sent from this
+                                socket. This controls the SO_PRIORITY
+                                socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details.).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ReceiveBuffer=</varname></term>
+                                <term><varname>SendBuffer=</varname></term>
+                                <listitem><para>Takes an integer
+                                argument controlling the receive
+                                resp. send buffer sizes of this
+                                socket. This controls the SO_RCVBUF
+                                resp. SO_SNDBUF socket options (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details.).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>IPTOS=</varname></term>
+                                <listitem><para>Takes an integer
+                                argument controlling the IP
+                                Type-Of-Service field for packets
+                                generated from this socket. This
+                                controls the IP_TOS socket option (see
+                                <citerefentry><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details.). Either a numeric string
+                                or one of <option>low-delay</option>,
+                                <option>throughput</option>,
+                                <option>reliability</option> or
+                                <option>low-cost</option> may be
+                                specified.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>IPTTL=</varname></term>
+                                <listitem><para>Takes an integer
+                                argument controlling the IPv4
+                                Time-To-Live/IPv6 Hop-Count field for
+                                packets generated from this
+                                socket. This sets the
+                                IP_TTL/IPV6_UNICAST_HOPS socket
+                                options (see
+                                <citerefentry><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and
+                                <citerefentry><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details.)</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Mark=</varname></term>
+                                <listitem><para>Takes an integer
+                                value. Controls the firewall mark of
+                                packets generated by this socket. This
+                                can be used in the firewall logic to
+                                filter packets from this socket. This
+                                sets the SO_MARK socket option. See
+                                <citerefentry><refentrytitle>iptables</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PipeSize=</varname></term>
+                                <listitem><para>Takes an integer
+                                value. Controls the pipe buffer size
+                                of FIFOs configured in this socket
+                                unit.  See
+                                <citerefentry><refentrytitle>fcntl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>FreeBind=</varname></term>
+                                <listitem><para>Takes a boolean
+                                value. Controls whether the socket can
+                                be bound to non-local IP
+                                addresses. This is useful to configure
+                                sockets listening on specific IP
+                                addresses before those IP addresses
+                                are successfully configured on a
+                                network interface. This sets the
+                                IP_FREEBIND socket option. For
+                                robustness reasons it is recommended
+                                to use this option whenever you bind a
+                                socket to a specific IP
+                                address. Defaults to <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+    <!--
+                { "TimeoutSec",             config_parse_usec,            &u->socket.timeout_usec,                         "Socket"  },
+                { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
+-->
+                        <varlistentry>
+                                <term><varname>ExecStartPre=</varname></term>
+                                <term><varname>ExecStartPost=</varname></term>
+                                <listitem><para>Takes a command line
+                                that is executed before (resp. after)
+                                the listening sockets/FIFOs are created and
+                                bound. The first token of the command
+                                line must be an absolute file name,
+                                then followed by arguments for the
+                                process. If specified more than once,
+                                all commands are executed one after
+                                the other, serially. Use of these
+                                settings is optional.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ExecStopPre=</varname></term>
+                                <term><varname>ExecStopPost=</varname></term>
+                                <listitem><para>Additional commands
+                                that are executed before (resp. after)
+                                the listening sockets/FIFOs are closed
+                                and removed. If specified more than
+                                once, all commands are executed one
+                                after the other, serially. Use of
+                                these settings is
+                                optional.</para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
+                                <term><varname>TimeoutSec=</varname></term>
+                                <listitem><para>Configures the time to
+                                wait for the commands specified in
+                                <varname>ExecStartPre=</varname>,
+                                <varname>ExecStartPost=</varname>,
+                                <varname>ExecStopPre=</varname> and
+                                <varname>ExecStopPost=</varname> to
+                                finish. If a comand does not exit
+                                within the configured time the socket
+                                will be considered failed and be shut
+                                down again. All commands still running
+                                will be terminated forcibly via
+                                SIGTERM, and after another delay of
+                                this time with SIGKILL. (See
+                                <option>KilleMode=</option> below.)
+                                Takes a unit-less value in seconds, or
+                                a time span value such as "5min
+                                20s". Pass 0 to disable the timeout
+                                logic. Defaults to
+                                60s.</para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
+                                <term><varname>KillMode=</varname></term>
+                                <listitem><para>Specifies how
+                                processes of this service shall be
+                                killed. One of
+                                <option>control-group</option>,
+                                <option>process-group</option>,
+                                <option>process</option>,
+                                <option>none</option>.</para>
+
+                                <para>This option is mostly equivalent
+                                to the <option>KillMode=</option>
+                                option of service files. See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

@@ -144,6 +144,44 @@
                 activation which makes dependencies implicit, which
                 both results in a simpler and more flexible
                 system.</para>
+
+                <para>Some unit names reflect paths existing in the
+                file system name space. Example: a device unit
+                <filename>dev-sda.device</filename> refers to a device
+                with the device node <filename>/dev/sda</filename> in
+                the file system namespace. If this applies a special
+                way to escape the path name is used, so that it is
+                usable as part of a file name. Basically, given a path,
+                "/" is replaced by "-", and all unprintable characters
+                and the "-" are replaced by C-style "\x20"
+                escapes. This escaping is reversible.</para>
+
+                <para>Optionally, units may be instantiated from a
+                template file at runtime. This allows creation of
+                multiple units from a single configuration file. If
+                systemd looks for a unit configuration file it will
+                first search for the literal unit name in the
+                filesystem. If that yields no success and the unit
+                name contains an @ character, systemd will look for a
+                unit template that shares the same name but with the
+                instance string (i.e. the part between the @ character
+                and the suffix) removed. Example: if a service
+                <filename>getty@tty3.service</filename> is requested
+                and no file by that name is found, systemd will look
+                for <filename>getty@.service</filename> and
+                instantiate a service from that configuration file if
+                it is found. To refer to the instance string from
+                within the configuration file you may use the special
+                <literal>%i</literal> specifier in many of the
+                configuration options. Other specifiers that may be
+                used are <literal>%n</literal>, <literal>%N</literal>,
+                <literal>%p</literal>, <literal>%P</literal> and
+                <literal>%I</literal>, for the full unit name, the
+                unescaped unit name, the prefix name, the unescaped
+                prefix name and the unescaped instance name,
+                respectively. The prefix name here refers to the
+                string before the @, i.e. "getty" in the example
+                above, where "tty3" is the instance name.</para>
         </refsect1>
 
         <refsect1>

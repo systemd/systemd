@@ -66,15 +66,10 @@ static void socket_init(Unit *u) {
 
         s->max_connections = 64;
 
-        s->keep_alive = false;
         s->priority = -1;
-        s->receive_buffer = 0;
-        s->send_buffer = 0;
         s->ip_tos = -1;
         s->ip_ttl = -1;
-        s->pipe_size = 0;
         s->mark = -1;
-        s->free_bind = false;
 
         exec_context_init(&s->exec_context);
 

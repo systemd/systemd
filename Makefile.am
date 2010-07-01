@@ -317,6 +317,7 @@ MANPAGES = \
 	man/sd_is_fifo.3 \
 	man/systemd.unit.5 \
 	man/systemd.service.5 \
+	man/systemd.socket.5 \
 	man/daemon.7 \
 	man/sd-daemon.7 \
 	man/runlevel.8 \

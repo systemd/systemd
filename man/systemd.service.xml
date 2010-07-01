@@ -54,9 +54,9 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>A configuration file ending in .service encodes
-                information about a process controlled and supervised
-                by systemd.</para>
+                <para>A unit configuration file whose name ends in
+                .service encodes information about a process
+                controlled and supervised by systemd.</para>
 
                 <para>This man page lists the configuration options
                 specific to this unit type. See
@@ -308,7 +308,7 @@
                                 forcibly via SIGTERM, and after
                                 another delay of this time with
                                 SIGKILL. (See
-                                <option>KilleMode=</option>
+                                <option>KillMode=</option>
                                 below.) Takes a unit-less value in seconds, or a
                                 time span value such as "5min
                                 20s". Pass 0 to disable the timeout
