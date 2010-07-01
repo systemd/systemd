@@ -577,9 +577,15 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 if (setsockopt(fd, IPPROTO_IP, IP_TOS, &s->ip_tos, sizeof(s->ip_tos)) < 0)
                         log_warning("IP_TOS failed: %m");
 
-        if (s->ip_ttl >= 0)
-                if (setsockopt(fd, IPPROTO_IP, IP_TTL, &s->ip_ttl, sizeof(s->ip_ttl)) < 0)
-                        log_warning("IP_TTL failed: %m");
+        if (s->ip_ttl >= 0) {
+                int r, x;
+
+                r = setsockopt(fd, IPPROTO_IP, IP_TTL, &s->ip_ttl, sizeof(s->ip_ttl));
+                x = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &s->ip_ttl, sizeof(s->ip_ttl));
+
+                if (r < 0 && x < 0)
+                        log_warning("IP_TTL/IPV6_UNICAST_HOPS failed: %m");
+        }
 }
 
 static void socket_apply_pipe_options(Socket *s, int fd) {
