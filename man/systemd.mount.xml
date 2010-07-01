@@ -71,8 +71,8 @@
                 <para>Additional options are listed in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-                <para>Mount units must be named after the file paths
-                they reflect. Example: the mount point
+                <para>Mount units must be named after the mount point
+                directories they control. Example: the mount point
                 <filename>/home/lennart</filename> must be configured
                 in a unit file
                 <filename>home-lennart.mount</filename>. For details
@@ -84,6 +84,10 @@
                 an automount unit, to allow on-demand or parallelized
                 mounting. See
                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                <para>If an mount point is beneath another mount point
+                in the file system hierarchy a dependency between both
+                units is created automatically.</para>
         </refsect1>
 
         <refsect1>
