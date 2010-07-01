@@ -33,6 +33,7 @@
 #include "macro.h"
 #include "util.h"
 #include "socket-util.h"
+#include "missing.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         int r;

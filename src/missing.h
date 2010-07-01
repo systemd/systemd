@@ -26,6 +26,7 @@
 
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#include <fcntl.h>
 
 #ifndef RLIMIT_RTTIME
 #define RLIMIT_RTTIME 15
@@ -41,6 +42,10 @@
 
 #ifndef F_GETPIPE_SZ
 #define F_GETPIPE_SZ (F_LINUX_SPECIFIC_BASE + 8)
+#endif
+
+#ifndef IP_FREEBIND
+#define IP_FREEBIND 15
 #endif
 
 static inline int pivot_root(const char *new_root, const char *put_old) {
