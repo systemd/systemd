@@ -70,7 +70,7 @@
                 <variablelist>
                         <varlistentry>
                                 <term><option>--help</option></term>
-                                <term><option>--h</option></term>
+                                <term><option>-h</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
@@ -78,6 +78,7 @@
 
                         <varlistentry>
                                 <term><option>--type=</option></term>
+                                <term><option>-t</option></term>
 
                                 <listitem><para>When listing units,
                                 limit display to certain unit
@@ -91,6 +92,7 @@
 
                         <varlistentry>
                                 <term><option>--all</option></term>
+                                <term><option>-a</option></term>
 
                                 <listitem><para>When listing units,
                                 show all units, regardless of their
@@ -125,11 +127,25 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--block</option></term>
+                                <term><option>--no-block</option></term>
 
-                                <listitem><para>Synchronously wait for
-                                the requested operation to
-                                finish.</para></listitem>
+                                <listitem><para>Do no synchronously
+                                wait for the requested operation to
+                                finish. If this is not specified the
+                                job will be verified, enqueued and
+                                wait until it is complete. By passing
+                                this argument it is only verified and
+                                enqueued.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--quiet</option></term>
+                                <term><option>-q</option></term>
+
+                                <listitem><para>Suppress output to
+                                STDOUT for <command>snapshot</command>
+                                and
+                                <command>check</command>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -252,6 +268,18 @@
                                 others.</para></listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><command>check [NAME...]</command></term>
+
+                                <listitem><para>Check whether any of
+                                the specified units is active
+                                (i.e. running). Returns 0 if at least
+                                one is active, non-zero
+                                otherwise. Unless
+                                <option>--quiet</option> is specified
+                                this will also print the current unit
+                                state to STDOUT.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><command>monitor</command></term>
 
                                 <listitem><para>Monitor unit/job
@@ -280,8 +308,10 @@
                                 snapshot will be named after it. If
                                 none is specified an automatic
                                 snapshot name is generated. In either
-                                case, the snapshot name used is printed
-                                to STDOUT.</para>
+                                case, the snapshot name used is
+                                printed to STDOUT, unless
+                                <option>--quiet</option> is
+                                specified.</para>
 
                                 <para>A snapshot refers to a saved
                                 state of the systemd manager. It is
