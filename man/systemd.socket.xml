@@ -65,7 +65,7 @@
                 for the common options of all unit configuration
                 files. The common configuration items are configured
                 in the generic [Unit] and [Install] sections. The
-                service specific configuration options are configured
+                socket specific configuration options are configured
                 in the [Socket] section.</para>
 
                 <para>Additional options are listed in
@@ -406,10 +406,6 @@
                                 address. Defaults to <option>false</option>.</para></listitem>
                         </varlistentry>
 
-    <!--
-                { "TimeoutSec",             config_parse_usec,            &u->socket.timeout_usec,                         "Socket"  },
-                { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
--->
                         <varlistentry>
                                 <term><varname>ExecStartPre=</varname></term>
                                 <term><varname>ExecStartPost=</varname></term>
@@ -438,7 +434,6 @@
                                 optional.</para></listitem>
                         </varlistentry>
 
-
                         <varlistentry>
                                 <term><varname>TimeoutSec=</varname></term>
                                 <listitem><para>Configures the time to
@@ -454,7 +449,7 @@
                                 will be terminated forcibly via
                                 SIGTERM, and after another delay of
                                 this time with SIGKILL. (See
-                                <option>KilleMode=</option> below.)
+                                <option>KillMode=</option> below.)
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
@@ -462,11 +457,10 @@
                                 60s.</para></listitem>
                         </varlistentry>
 
-
                         <varlistentry>
                                 <term><varname>KillMode=</varname></term>
                                 <listitem><para>Specifies how
-                                processes of this service shall be
+                                processes of this socket unit shall be
                                 killed. One of
                                 <option>control-group</option>,
                                 <option>process-group</option>,
@@ -479,8 +473,6 @@
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details.</para></listitem>
                         </varlistentry>
-
-
                 </variablelist>
         </refsect1>
 

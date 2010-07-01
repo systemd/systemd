@@ -1,0 +1,230 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.mount">
+        <refentryinfo>
+                <title>systemd.mount</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.mount</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.mount</refname>
+                <refpurpose>systemd mount configuration files</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.mount</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A unit configuration file whose name ends in
+                .mount encodes information about a file system mount
+                point controlled and supervised by systemd.</para>
+
+                <para>This man page lists the configuration options
+                specific to this unit type. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files. The common configuration items are configured
+                in the generic [Unit] and [Install] sections. The
+                mount specific configuration options are configured
+                in the [Mount] section.</para>
+
+                <para>Additional options are listed in
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                <para>Mount units must be named after the file paths
+                they reflect. Example: the mount point
+                <filename>/home/lennart</filename> must be configured
+                in a unit file
+                <filename>home-lennart.mount</filename>. For details
+                about the escaping logic used to convert a file system
+                path to a unit name see
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title><filename>fstab</filename></title>
+
+                <para>Mount units may either be configured via unit
+                files, or via <filename>/etc/fstab</filename> (see
+                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details).</para>
+
+                <para>When reading <filename>/etc/fstab</filename> a
+                few special mount options are understood by systemd
+                which influence how dependencies are created for mount
+                points from <filename>/etc/fstab</filename>. If
+                <option>comment=systemd.mount</option> is specified as
+                mount option then systemd will create a dependency of
+                type <option>Wants</option> from either
+                <filename>local-fs.target</filename> or
+                <filename>remote-fs.target</filename>, depending
+                whether the file system is local or remote. If
+                <option>comment=systemd.automount</option> is set, an
+                automount unit will be created for the file system. See
+                <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details.</para>
+
+                <para>If a mount point is configured in both
+                <filename>/etc/fstab</filename> and a unit file the
+                configuration in the latter takes precedence.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>Mount files must include a [Mount] section,
+                which carries information about the file system mount points it
+                supervises. A number of options that may be used in
+                this section are shared with other unit types. These
+                options are documented in
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+                options specific to the [Mount] section of service
+                units are the following:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>What=</varname></term>
+                                <listitem><para>Takes an absolute path
+                                of a device node, file or other
+                                resource to mount. See
+                                <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for details. If this refers to a
+                                device node a dependency on the
+                                respective device unit is
+                                automatically created. (See
+                                <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.)
+                                This option is
+                                mandatory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Where=</varname></term>
+                                <listitem><para>Takes an absolute path
+                                of a directory of the mount point. If
+                                the mount point is not existing at
+                                time of mounting it is created. This
+                                string must be reflected in the unit
+                                file name. (See above.) This option is
+                                mandatory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Type=</varname></term>
+                                <listitem><para>Takes a string for the
+                                filesystem type. See
+                                <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for details. This setting is
+                                optional.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Options=</varname></term>
+
+                                <listitem><para>Mount options to use
+                                when mounting. This takes a comma
+                                seperated list of options. This
+                                setting is optional.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DirectoryMode=</varname></term>
+                                <listitem><para>Directories of mount
+                                points (and any parent directories)
+                                are automatically created if
+                                needed. This option specifies the file
+                                system access mode used when creating
+                                these directories. Defaults to
+                                0755.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>TimeoutSec=</varname></term>
+                                <listitem><para>Configures the time to
+                                wait for the mount command to
+                                finish. If a comand does not exit
+                                within the configured time the mount
+                                will be considered failed and be shut
+                                down again. All commands still running
+                                will be terminated forcibly via
+                                SIGTERM, and after another delay of
+                                this time with SIGKILL. (See
+                                <option>KillMode=</option> below.)
+                                Takes a unit-less value in seconds, or
+                                a time span value such as "5min
+                                20s". Pass 0 to disable the timeout
+                                logic. Defaults to
+                                60s.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillMode=</varname></term>
+                                <listitem><para>Specifies how
+                                processes of this mount shall be
+                                killed. One of
+                                <option>control-group</option>,
+                                <option>process-group</option>,
+                                <option>process</option>,
+                                <option>none</option>.</para>
+
+                                <para>This option is mostly equivalent
+                                to the <option>KillMode=</option>
+                                option of service files. See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
