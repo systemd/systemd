@@ -54,10 +54,11 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>A unit configuration file whose name ends in .socket
-                encodes information about an IPC or network socket or
-                a file system FIFO controlled and supervised by systemd,
-                for socket-based activation.</para>
+                <para>A unit configuration file whose name ends in
+                <filename>.socket</filename> encodes information about
+                an IPC or network socket or a file system FIFO
+                controlled and supervised by systemd, for socket-based
+                activation.</para>
 
                 <para>This man page lists the configuration options
                 specific to this unit type. See
@@ -71,13 +72,15 @@
                 <para>Additional options are listed in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-                <para>For each socket file a matching service file (see <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details)
-                must exist, describing the service to start on
-                incoming traffic on the socket. Depending on the
-                setting of <option>Accept=</option> (see below) this
-                must either be named like the socket unit, but with
-                the suffix replaced; or it must be a template file
-                named the same way. Example: a socket file
+                <para>For each socket file a matching service file
+                (see
+                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details) must exist, describing the service to
+                start on incoming traffic on the socket. Depending on
+                the setting of <option>Accept=</option> (see below)
+                this must either be named like the socket unit, but
+                with the suffix replaced; or it must be a template
+                file named the same way. Example: a socket file
                 <filename>foo.socket</filename> needs a matching
                 service <filename>foo.service</filename> if
                 <option>Accept=false</option> is set. If
@@ -85,6 +88,10 @@
                 file <filename>foo@.service</filename> must exist from
                 which services are instantiated for each incoming
                 connection.</para>
+
+                <para>Socket units may be used to implement on-demand
+                starting of services as well as parallelized starting
+                of services.</para>
         </refsect1>
 
         <refsect1>
@@ -96,7 +103,7 @@
                 this section are shared with other unit types. These
                 options are documented in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
-                options specific to the [Socket] section of service
+                options specific to the [Socket] section of socket
                 units are the following:</para>
 
                 <variablelist>

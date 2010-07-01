@@ -1,0 +1,162 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.automount">
+        <refentryinfo>
+                <title>systemd.automount</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.automount</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.automount</refname>
+                <refpurpose>systemd automount configuration files</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.automount</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A unit configuration file whose name ends in
+                <filename>.automount</filename> encodes information
+                about a file system automount point controlled and
+                supervised by systemd.</para>
+
+                <para>This man page lists the configuration options
+                specific to this unit type. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files. The common configuration items are configured
+                in the generic [Unit] and [Install] sections. The
+                automount specific configuration options are configured
+                in the [Automount] section.</para>
+
+                <para>Automount units must be named after the file
+                paths they reflect. Example: the automount point
+                <filename>/home/lennart</filename> must be configured
+                in a unit file
+                <filename>home-lennart.automount</filename>. For
+                details about the escaping logic used to convert a
+                file system path to a unit name see
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                <para>For each automount unit file a matching mount
+                unit file (see
+                <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details) must exist which is activated when the
+                automount path is accessed. Example: if an automount
+                unit <filename>home-lennart.automount</filename> is
+                active and the user accesses
+                <filename>/home/lennart</filename> the mount unit
+                <filename>home-lennart.mount</filename> will be
+                activated.</para>
+
+                <para>Automount units may be used to implement
+                on-demand mounting as well as parallelized mounting of
+                file systems.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title><filename>fstab</filename></title>
+
+                <para>Automount units may either be configured via unit
+                files, or via <filename>/etc/fstab</filename> (see
+                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details).</para>
+
+                <para>For details how systemd parses
+                <filename>/etc/fstab</filename> see
+                <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                <para>If an automount point is configured in both
+                <filename>/etc/fstab</filename> and a unit file the
+                configuration in the latter takes precedence.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>Automount files must include an [Automount]
+                section, which carries information about the file
+                system automount points it supervises. The options
+                specific to the [Automount] section of automount units
+                are the following:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>Where=</varname></term>
+                                <listitem><para>Takes an absolute path
+                                of a directory of the automount
+                                point. If the automount point is not
+                                existing at time of the automount
+                                point is installed it is created. This
+                                string must be reflected in the unit
+                                file name. (See above.) This option is
+                                mandatory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DirectoryMode=</varname></term>
+                                <listitem><para>Directories of automount
+                                points (and any parent directories)
+                                are automatically created if
+                                needed. This option specifies the file
+                                system access mode used when creating
+                                these directories. Defaults to
+                                0755.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>automount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

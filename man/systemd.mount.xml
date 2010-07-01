@@ -55,8 +55,9 @@
                 <title>Description</title>
 
                 <para>A unit configuration file whose name ends in
-                .mount encodes information about a file system mount
-                point controlled and supervised by systemd.</para>
+                <filename>.mount</filename> encodes information about
+                a file system mount point controlled and supervised by
+                systemd.</para>
 
                 <para>This man page lists the configuration options
                 specific to this unit type. See
@@ -78,6 +79,11 @@
                 about the escaping logic used to convert a file system
                 path to a unit name see
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                <para>Optionally, a mount unit may be accompanied by
+                an automount unit, to allow on-demand or parallelized
+                mounting. See
+                <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </refsect1>
 
         <refsect1>
@@ -117,7 +123,7 @@
                 this section are shared with other unit types. These
                 options are documented in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
-                options specific to the [Mount] section of service
+                options specific to the [Mount] section of mount
                 units are the following:</para>
 
                 <variablelist>
