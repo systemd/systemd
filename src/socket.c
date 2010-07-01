@@ -50,7 +50,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
         [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_MAINTENANCE] = UNIT_INACTIVE_MAINTENANCE
+        [SOCKET_MAINTENANCE] = UNIT_MAINTENANCE
 };
 
 static void socket_init(Unit *u) {

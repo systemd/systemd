@@ -35,15 +35,9 @@
 
 * selinux
 
-* systemctl check
-
-* nettere fehlermeldung bei systemctl start foo.service failure
-
-* systemd-install disable sollte den service runterfahren
+* systemd-install disable sollte den service runterfahren, and daemon-reload machen
 
 * systemctl daemon-reload is kaputt
-
-* keinerlei fehlermeldung bei dead symlink muss gefixt werden
 
 External:
 

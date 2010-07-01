@@ -38,7 +38,7 @@
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,
         [SWAP_ACTIVE] = UNIT_ACTIVE,
-        [SWAP_MAINTENANCE] = UNIT_INACTIVE_MAINTENANCE
+        [SWAP_MAINTENANCE] = UNIT_MAINTENANCE
 };
 
 static void swap_init(Unit *u) {

@@ -31,7 +31,7 @@ static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_WAITING] = UNIT_ACTIVE,
         [TIMER_RUNNING] = UNIT_ACTIVE,
         [TIMER_ELAPSED] = UNIT_ACTIVE,
-        [TIMER_MAINTENANCE] = UNIT_INACTIVE_MAINTENANCE
+        [TIMER_MAINTENANCE] = UNIT_MAINTENANCE
 };
 
 static void timer_init(Unit *u) {

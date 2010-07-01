@@ -819,7 +819,7 @@ int unit_reload(Unit *u) {
                 return -EBADR;
 
         state = unit_active_state(u);
-        if (unit_active_state(u) == UNIT_ACTIVE_RELOADING)
+        if (unit_active_state(u) == UNIT_RELOADING)
                 return -EALREADY;
 
         if (unit_active_state(u) != UNIT_ACTIVE)
@@ -998,7 +998,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         if (u->meta.job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
                                         job_finish_and_invalidate(u->meta.job, true);
-                                else if (ns != UNIT_ACTIVATING && ns != UNIT_ACTIVE_RELOADING) {
+                                else if (ns != UNIT_ACTIVATING && ns != UNIT_RELOADING) {
                                         unexpected = true;
                                         job_finish_and_invalidate(u->meta.job, false);
                                 }
@@ -1012,7 +1012,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
                         if (ns == UNIT_INACTIVE)
                                 job_finish_and_invalidate(u->meta.job, true);
-                        else if (ns == UNIT_INACTIVE_MAINTENANCE)
+                        else if (ns == UNIT_MAINTENANCE)
                                 job_finish_and_invalidate(u->meta.job, false);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
@@ -1964,9 +1964,9 @@ DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE] = "active",
-        [UNIT_ACTIVE_RELOADING] = "active-reloading",
+        [UNIT_RELOADING] = "reloading",
         [UNIT_INACTIVE] = "inactive",
-        [UNIT_INACTIVE_MAINTENANCE] = "inactive-maintenance",
+        [UNIT_MAINTENANCE] = "maintenance",
         [UNIT_ACTIVATING] = "activating",
         [UNIT_DEACTIVATING] = "deactivating"
 };
