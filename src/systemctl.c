@@ -969,7 +969,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                 if (!arg_quiet)
                         puts(state);
 
-                if (streq(state, "active") || startswith(state, "active-"))
+                if (streq(state, "active") || startswith(state, "reloading"))
                         r = 0;
 
                 dbus_message_unref(m);
