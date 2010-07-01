@@ -246,8 +246,8 @@
                                         mounts listed in
                                         <filename>/etc/fstab</filename>
                                         that have the
-                                        <literal>auto</literal> and
-                                        <literal>comment=systemd.mount</literal>
+                                        <option>auto</option> and
+                                        <option>comment=systemd.mount</option>
                                         mount options set.</para>
 
                                         <para>systemd automatically

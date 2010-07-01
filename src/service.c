@@ -2625,8 +2625,8 @@ static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 
 static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
-        [SERVICE_FORKING] = "forking",
         [SERVICE_SIMPLE] = "simple",
+        [SERVICE_FORKING] = "forking",
         [SERVICE_FINISH] = "finish",
         [SERVICE_DBUS] = "dbus",
         [SERVICE_NOTIFY] = "notify"

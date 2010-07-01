@@ -102,6 +102,16 @@
                 <option>false</option> and <option>off</option> are
                 equivalent.</para>
 
+                <para>Time span values encoded in unit files can be
+                written in various formats. A stand-alone number
+                specifies a time in seconds. If suffixed with a time
+                unit, the unit is honored. A concatentation of
+                multiple value with units is supported, in which case
+                the values are added up. Example: "50" refers to 50
+                seconds; "2min 200ms" refers to 2 minutes plus 200
+                milliseconds, i.e. 120200ms. The following time units
+                are understood: s, min, h, d, w, ms, us.</para>
+
                 <para>Empty lines and lines starting with # or ; are
                 ignored. This may be used for commenting.</para>
 
