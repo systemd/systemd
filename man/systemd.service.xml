@@ -68,7 +68,10 @@
                 service specific configuration options are configured
                 in the [Service] section.</para>
 
-                <para>Additional options are listed in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+                <para>Additional options are listed in
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                which define the execution environment the commands
+                are executed in.</para>
         </refsect1>
 
         <refsect1>

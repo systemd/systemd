@@ -70,7 +70,13 @@
                 in the [Socket] section.</para>
 
                 <para>Additional options are listed in
-                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                which define the execution environment the
+                <option>ExecStartPre=</option>,
+                <option>ExecStartPost=</option>,
+                <option>ExecStopPre=</option> and
+                <option>ExecStoptPost=</option> commands are executed
+                in.</para>
 
                 <para>For each socket file a matching service file
                 (see
