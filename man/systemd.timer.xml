@@ -1,0 +1,181 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.timer">
+        <refentryinfo>
+                <title>systemd.timer</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.timer</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.timer</refname>
+                <refpurpose>systemd timer configuration files</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.timer</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A unit configuration file whose name ends in
+                <filename>.timer</filename> encodes information about
+                a timer controlled and supervised by systemd, for
+                timer-based activation.</para>
+
+                <para>This man page lists the configuration options
+                specific to this unit type. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files. The common configuration items are configured
+                in the generic [Unit] and [Install] sections. The
+                timer specific configuration options are configured in
+                the [Timer] section.</para>
+
+                <para>For each timer file a matching unit file must
+                exist, describing the unit to activate when the timer
+                elapses. By default a service by the same name as the
+                timer (except for the suffix) is activated. Example: a
+                timer file <filename>foo.timer</filename> activates a
+                matching service <filename>foo.service</filename>. The
+                unit to activate may be controlled by
+                <varname>Unit=</varname> (see below).</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>Timer files must include a [Timer] section,
+                which carries information about the timer it
+                defines. The options specific to the [Timer] section
+                of timer units are the following:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>OnActive=</varname></term>
+                                <term><varname>OnBootup=</varname></term>
+                                <term><varname>OnStartup=</varname></term>
+                                <term><varname>OnUnitActive=</varname></term>
+                                <term><varname>OnUnitInactive=</varname></term>
+
+                                <listitem><para>Defines timers
+                                relative to different starting points:
+                                <varname>OnActive=</varname> defines a
+                                timer relative to the moment the timer
+                                itself is
+                                activated. <varname>OnBootup=</varname>
+                                defines a timer relative to when the
+                                machine was booted
+                                up. <varname>OnStartup=</varname>
+                                defines a timer relative to when
+                                systemd was
+                                started. <varname>OnUnitActive=</varname>
+                                defines a timer relative to when the
+                                unit the timer is activating was last
+                                activated. <varname>OnUnitInactive=</varname>
+                                defines a timer relative to when the
+                                unit the timer is activating was last
+                                deactivated.</para>
+
+                                <para>Multiple directives may be
+                                combined, of the same and of different
+                                types. For example, by combining
+                                <varname>OnBoot=</varname> and
+                                <varname>OnUnitActive=</varname> it is
+                                possible to define a timer that
+                                elapses in regular intervals and
+                                activates a specific service each
+                                time.</para>
+
+                                <para>The arguments to the directives
+                                are time spans configured in
+                                seconds. Example: "OnBoot=50" means
+                                50s after boot-up. The argument may
+                                also include time units. Example:
+                                "OnBoot=5h 30min" means 5 hours and 30
+                                minutes after boot-up. For details
+                                about the syntax of time spans see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                                <para>If a timer configured with
+                                <varname>OnBootup=</varname> or
+                                <varname>OnStartup=</varname> is
+                                already in the past when the timer
+                                unit is activated, it will immediately
+                                elapse and the configured unit is
+                                started. This is not the case for
+                                timers defined in the other
+                                directives.</para></listitem>
+
+                                <para>These are monotonic timers,
+                                independant of wall-clock time and timezones. If the
+                                computer is temporarily suspended, the
+                                monotonic clock stops too.</para>
+
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>Unit=</varname></term>
+
+                                <listitem><para>The unit to activate
+                                when this timer elapses. Argument is a
+                                unit name, whose suffix is not
+                                <filename>.timer</filename>. If not
+                                specified this value defaults to a
+                                service that has the same name as the
+                                timer unit, except for the
+                                suffix. (See above.) It is recommended
+                                that the unit name that is activated
+                                and the unit name of the timer unit
+                                is chosen identical except for the
+                                suffix.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
