@@ -1,0 +1,97 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.target">
+        <refentryinfo>
+                <title>systemd.target</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.target</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.target</refname>
+                <refpurpose>systemd target configuration files</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.target</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A unit configuration file whose name ends in
+                <filename>.target</filename> encodes information about
+                a target unit of systemd, which is used for grouping
+                units and as well-known synchronization points during
+                start-up.</para>
+
+                <para>This unit type has no specific options. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files. The common configuration items are configured
+                in the generic [Unit] and [Install] sections. A
+                seperate [Target] section does not exist, since no
+                target-specific options may be configured.</para>
+
+                <para>Target units do not offer any additional
+                functionality on top of the generic functionality
+                provided by units. They exist merely to group units via dependencies
+                (useful as boot targets), and to establish
+                standardized names for synchronization points used in
+                dependencies between units. Among other things target
+                units are a more flexible replacement for SysV
+                runlevels in the classic SysV init system. (And in
+                fact for compatibility reasons there exist special
+                target units such as
+                <filename>runlevel3.target</filename> that are used by
+                the SysV runlevel compatibility code in systemd. See
+                <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                for details).</para>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
