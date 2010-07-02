@@ -1363,6 +1363,89 @@ finish:
         return r;
 }
 
+static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
+        DBusMessage *m = NULL, *reply = NULL;
+        int r;
+        DBusError error;
+        unsigned i;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        for (i = 1; i < n; i++) {
+                const char *path = NULL;
+
+                if (!(m = dbus_message_new_method_call(
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "GetUnit"))) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                        log_error("Failed to issue method call: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (!dbus_message_get_args(reply, &error,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse reply: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_unref(m);
+                if (!(m = dbus_message_new_method_call(
+                                      "org.freedesktop.systemd1",
+                                      path,
+                                      "org.freedesktop.systemd1.Snapshot",
+                                      "Remove"))) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                dbus_message_unref(reply);
+                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                        log_error("Failed to issue method call: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_unref(m);
+                dbus_message_unref(reply);
+                m = reply = NULL;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
 static int clear_jobs(DBusConnection *bus, char **args, unsigned n) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
@@ -1597,6 +1680,7 @@ static int systemctl_help(void) {
                "  monitor                         Monitor unit/job changes\n"
                "  dump                            Dump server status\n"
                "  snapshot [NAME]                 Create a snapshot\n"
+               "  delete [NAME...]                Remove one or more snapshots\n"
                "  daemon-reload                   Reload systemd manager configuration\n"
                "  daemon-reexec                   Reexecute systemd manager\n"
                "  daemon-exit                     Ask the systemd manager to quit\n"
@@ -2262,6 +2346,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "monitor",           EQUAL, 1, monitor         },
                 { "dump",              EQUAL, 1, dump            },
                 { "snapshot",          LESS,  2, snapshot        },
+                { "delete",            MORE,  2, delete_snapshot },
                 { "daemon-reload",     EQUAL, 1, clear_jobs      },
                 { "daemon-reexec",     EQUAL, 1, clear_jobs      },
                 { "daemon-exit",       EQUAL, 1, clear_jobs      },

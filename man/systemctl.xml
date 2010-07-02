@@ -332,6 +332,13 @@
                                 on reboot.</para>
                         </varlistentry>
                         <varlistentry>
+                                <term><command>delete [NAME...]</command></term>
+
+                                <listitem><para>Remove a snapshot
+                                previously created with
+                                <command>snapshot</command>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><command>daemon-reload</command></term>
 
                                 <listitem><para>Reload systemd manager
