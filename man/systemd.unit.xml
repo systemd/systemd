@@ -56,7 +56,8 @@
                 <filename>systemd.swap</filename>,
                 <filename>systemd.target</filename>,
                 <filename>systemd.path</filename>,
-                <filename>systemd.timer</filename></para>
+                <filename>systemd.timer</filename>,
+                <filename>systemd.snapshot</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -549,7 +550,8 @@
                         <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
