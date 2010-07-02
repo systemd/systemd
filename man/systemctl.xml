@@ -129,14 +129,13 @@
                         <varlistentry>
                                 <term><option>--no-block</option></term>
 
-                                <listitem><para>Do no synchronously
-                                wait for the requested operation to
-                                finish. If this is not specified the
-                                job will be verified, enqueued and
-                                wait until it is complete. By passing
-                                this argument it is only verified and
-                                enqueued.</para></listitem>
-                        </varlistentry>
+				<listitem><para>Do not synchronously wait for
+				the requested operation to finish. If this is
+				not specified the job will be verified,
+				enqueued and <command>systemctl</command> will
+				wait until it is completed. By passing this
+				argument it is only verified and
+				enqueued.</para></listitem> </varlistentry>
 
                         <varlistentry>
                                 <term><option>--quiet</option></term>
