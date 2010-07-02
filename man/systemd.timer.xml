@@ -68,9 +68,9 @@
                 timer specific configuration options are configured in
                 the [Timer] section.</para>
 
-                <para>For each timer file a matching unit file must
+                <para>For each timer file, a matching unit file must
                 exist, describing the unit to activate when the timer
-                elapses. By default a service by the same name as the
+                elapses. By default, a service by the same name as the
                 timer (except for the suffix) is activated. Example: a
                 timer file <filename>foo.timer</filename> activates a
                 matching service <filename>foo.service</filename>. The
@@ -114,7 +114,7 @@
                                 deactivated.</para>
 
                                 <para>Multiple directives may be
-                                combined, of the same and of different
+                                combined of the same and of different
                                 types. For example, by combining
                                 <varname>OnBoot=</varname> and
                                 <varname>OnUnitActive=</varname> it is
@@ -144,7 +144,7 @@
                                 directives.</para></listitem>
 
                                 <para>These are monotonic timers,
-                                independant of wall-clock time and timezones. If the
+                                independent of wall-clock time and timezones. If the
                                 computer is temporarily suspended, the
                                 monotonic clock stops too.</para>
 
@@ -156,13 +156,13 @@
                                 when this timer elapses. The argument is a
                                 unit name, whose suffix is not
                                 <filename>.timer</filename>. If not
-                                specified this value defaults to a
+                                specified, this value defaults to a
                                 service that has the same name as the
                                 timer unit, except for the
-                                suffix. (See above.) It is recommended
+                                suffix. (See above.) It is recommended,
                                 that the unit name that is activated
                                 and the unit name of the timer unit
-                                is chosen identical except for the
+                                are named identical, except for the
                                 suffix.</para></listitem>
                         </varlistentry>
                 </variablelist>

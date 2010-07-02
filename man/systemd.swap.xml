@@ -107,12 +107,12 @@
                                 paging. See
                                 <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for details. If this refers to a
-                                device node a dependency on the
+                                device node, a dependency on the
                                 respective device unit is
                                 automatically created. (See
                                 <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for more information.) If this refers
-                                to a file a dependency on the
+                                to a file, a dependency on the
                                 respective mount unit is automatically
                                 created. (See
                                 <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>

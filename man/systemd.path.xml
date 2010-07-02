@@ -68,9 +68,9 @@
                 path specific configuration options are configured in
                 the [Path] section.</para>
 
-                <para>For each path file a matching unit file must
+                <para>For each path file, a matching unit file must
                 exist, describing the unit to activate when the path
-                changes. By default a service by the same name as the
+                changes. By default, a service by the same name as the
                 path (except for the suffix) is activated. Example: a
                 path file <filename>foo.path</filename> activates a
                 matching service <filename>foo.service</filename>. The
@@ -79,13 +79,13 @@
 
                 <para>Internally, path units use the
                 <citerefentry><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                API to monitor file systems. Due to that it suffers by the
+                API to monitor file systems. Due to that, it suffers by the
                 same limitations as inotify, and for example cannot be
                 used to monitor files or directories changed by other
                 machines on remote NFS file systems.</para>
 
                 <para>If an path unit is beneath another mount
-                point in the file system hierarchy a dependency
+                point in the file system hierarchy, a dependency
                 between both units is created automatically.</para>
         </refsect1>
 
@@ -106,7 +106,7 @@
                                 <listitem><para>Defines paths to
                                 monitor for certain changes:
                                 <varname>PathExists=</varname> may be
-                                used to watch the mere existance of a
+                                used to watch the mere existence of a
                                 file or directory. If the file
                                 specified exists the configured unit
                                 is
@@ -116,7 +116,7 @@
                                 unit whenever it changes or is
                                 modified. <varname>DirectoryNotEmpty=</varname>
                                 may be used to watch a directory and
-                                activate the configured unit whenver
+                                activate the configured unit whenever
                                 it contains at least one file.</para>
 
                                 <para>The arguments of these
@@ -133,7 +133,7 @@
                                 directory already is not empty (in
                                 case of
                                 <varname>DirectoryNotEmpty=</varname>)
-                                at the time the path unit is activated
+                                at the time the path unit is activated,
                                 then the configured unit is
                                 immediately activated as
                                 well. Something similar does not apply
@@ -148,13 +148,13 @@
                                 changes. The argument is a unit name,
                                 whose suffix is not
                                 <filename>.path</filename>. If not
-                                specified this value defaults to a
+                                specified, this value defaults to a
                                 service that has the same name as the
                                 path unit, except for the suffix. (See
                                 above.) It is recommended that the
                                 unit name that is activated and the
-                                unit name of the path unit is chosen
-                                identical except for the
+                                unit name of the path unit are named
+                                identical, except for the
                                 suffix.</para></listitem>
                         </varlistentry>
                 </variablelist>

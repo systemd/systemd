@@ -86,7 +86,7 @@
                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                 <para>If an mount point is beneath another mount point
-                in the file system hierarchy a dependency between both
+                in the file system hierarchy, a dependency between both
                 units is created automatically.</para>
 
                 <para>Mount points created at runtime independent on
@@ -108,7 +108,7 @@
                 which influence how dependencies are created for mount
                 points from <filename>/etc/fstab</filename>. If
                 <option>comment=systemd.mount</option> is specified as
-                mount option then systemd will create a dependency of
+                mount option, then systemd will create a dependency of
                 type <option>Wants</option> from either
                 <filename>local-fs.target</filename> or
                 <filename>remote-fs.target</filename>, depending
@@ -119,7 +119,7 @@
                 for details.</para>
 
                 <para>If a mount point is configured in both
-                <filename>/etc/fstab</filename> and a unit file the
+                <filename>/etc/fstab</filename> and a unit file, the
                 configuration in the latter takes precedence.</para>
         </refsect1>
 
@@ -144,7 +144,7 @@
                                 resource to mount. See
                                 <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for details. If this refers to a
-                                device node a dependency on the
+                                device node, a dependency on the
                                 respective device unit is
                                 automatically created. (See
                                 <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.)
@@ -157,7 +157,7 @@
                                 <listitem><para>Takes an absolute path
                                 of a directory of the mount point. If
                                 the mount point is not existing at
-                                time of mounting it is created. This
+                                time of mounting, it is created. This
                                 string must be reflected in the unit
                                 file name. (See above.) This option is
                                 mandatory.</para></listitem>
@@ -196,7 +196,7 @@
                                 <term><varname>TimeoutSec=</varname></term>
                                 <listitem><para>Configures the time to
                                 wait for the mount command to
-                                finish. If a comand does not exit
+                                finish. If a command does not exit
                                 within the configured time the mount
                                 will be considered failed and be shut
                                 down again. All commands still running

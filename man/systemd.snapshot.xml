@@ -64,12 +64,12 @@
                 dynamically via <command>systemctl snapshot</command>
                 (see
                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                for details) or an equivalent command. When created
+                for details) or an equivalent command. When created,
                 they will automatically get dependencies on the
-                currently activated units. They hence act as saved
-                runtime state of the systemd manager. Later on the
+                currently activated units. They act as saved
+                runtime state of the systemd manager. Later on, the
                 user may choose to return to the saved state via
-                <command>systemctl isolate</command>. They are hence
+                <command>systemctl isolate</command>. They are
                 useful to roll back to a defined state after
                 temporarily starting/stopping services or
                 similar.</para>

@@ -65,7 +65,7 @@
                 for the common options of all unit configuration
                 files. The common configuration items are configured
                 in the generic [Unit] and [Install] sections. A
-                seperate [Device] section does not exist, since no
+                separate [Device] section does not exist, since no
                 device-specific options may be configured.</para>
 
                 <para>systemd will automatically create dynamic device
@@ -100,8 +100,8 @@
                                 <listitem><para>Adds dependencies of
                                 type <varname>Wants</varname> from
                                 this unit to all listed units. This
-                                may be used to activate aritrary units
-                                if a specific device becomes
+                                may be used to activate arbitrary units,
+                                when a specific device becomes
                                 available.</para></listitem>
                         </varlistentry>
 

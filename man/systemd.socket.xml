@@ -77,7 +77,7 @@
                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for details) must exist, describing the service to
                 start on incoming traffic on the socket. Depending on
-                the setting of <option>Accept=</option> (see below)
+                the setting of <option>Accept=</option> (see below),
                 this must either be named like the socket unit, but
                 with the suffix replaced; or it must be a template
                 file named the same way. Example: a socket file
@@ -90,7 +90,7 @@
                 connection.</para>
 
                 <para>Socket units may be used to implement on-demand
-                starting of services as well as parallelized starting
+                starting of services, as well as parallelized starting
                 of services.</para>
         </refsect1>
 
@@ -164,7 +164,7 @@
                                 regardless whether there is incoming
                                 traffic on them or not.</para>
 
-                                <para>If an IP address is used here it
+                                <para>If an IP address is used here, it
                                 is often desirable to listen on it
                                 before the interface it is configured
                                 on is up and running, and even
@@ -230,7 +230,7 @@
                                 interfaces. This controls the
                                 SO_BINDTODEVICE socket option (see
                                 <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details). If this option is used
+                                for details). If this option is used,
                                 an automatic dependency from this
                                 socket unit on the network interface
                                 device unit
@@ -241,7 +241,7 @@
                         <varlistentry>
                                 <term><varname>DirectoryMode=</varname></term>
                                 <listitem><para>If listening on a file
-                                system socket of FIFO the parent
+                                system socket of FIFO, the parent
                                 directories are automatically created
                                 if needed. This option specifies the
                                 file system access mode used when
@@ -252,7 +252,7 @@
                         <varlistentry>
                                 <term><varname>SocketMode=</varname></term>
                                 <listitem><para>If listening on a file
-                                system socket of FIFO this option
+                                system socket of FIFO, this option
                                 specifies the file system access mode
                                 used when creating the file
                                 node. Defaults to
@@ -262,27 +262,27 @@
                         <varlistentry>
                                 <term><varname>Accept=</varname></term>
                                 <listitem><para>Takes a boolean
-                                argument. If true a service instance
+                                argument. If true, a service instance
                                 is spawned for each incoming
                                 connection and only the connection
-                                socket is passed to it. If false all
+                                socket is passed to it. If false, all
                                 listening sockets themselves are
                                 passed to the started service unit,
                                 and only one service unit is spawned
                                 for all connections (also see
                                 above). This value is ignored for
                                 datagram sockets and FIFOs where
-                                unconditionally a single service unit
+                                a single service unit unconditionally
                                 handles all incoming traffic. Defaults
                                 to <option>false</option>. For
-                                performance reasons it is recommended
+                                performance reasons, it is recommended
                                 to write new daemons only in a way
                                 that is suitable for
                                 <option>Accept=false</option>. This
                                 option is mostly useful to allow
                                 daemons designed for usage with
-                                <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                to work unmodified with system socket
+                                <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                                to work unmodified with systemd socket
                                 activation.</para></listitem>
                         </varlistentry>
 
@@ -293,7 +293,7 @@
                                 services instances for, when
                                 <option>Accept=true</option> is
                                 set. If more concurrent connections
-                                are coming in they will be refused,
+                                are coming in, they will be refused
                                 until at least one existing connection
                                 is terminated. This setting has no
                                 effect for sockets configured with
@@ -416,16 +416,16 @@
                         <varlistentry>
                                 <term><varname>ExecStartPre=</varname></term>
                                 <term><varname>ExecStartPost=</varname></term>
-                                <listitem><para>Takes a command line
-                                that is executed before (resp. after)
+                                <listitem><para>Takes a command line,
+                                which is executed before (resp. after)
                                 the listening sockets/FIFOs are created and
                                 bound. The first token of the command
                                 line must be an absolute file name,
                                 then followed by arguments for the
                                 process. If specified more than once,
                                 all commands are executed one after
-                                the other, serially. Use of these
-                                settings is optional.</para></listitem>
+                                the other, fully serialized. The use of
+                                these settings is optional.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -436,9 +436,8 @@
                                 the listening sockets/FIFOs are closed
                                 and removed. If specified more than
                                 once, all commands are executed one
-                                after the other, serially. Use of
-                                these settings is
-                                optional.</para></listitem>
+                                after the other, fully serialized. The use of
+                                these settings is optional.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -449,10 +448,10 @@
                                 <varname>ExecStartPost=</varname>,
                                 <varname>ExecStopPre=</varname> and
                                 <varname>ExecStopPost=</varname> to
-                                finish. If a comand does not exit
-                                within the configured time the socket
+                                finish. If a command does not exit
+                                within the configured time, the socket
                                 will be considered failed and be shut
-                                down again. All commands still running
+                                down again. All commands still running,
                                 will be terminated forcibly via
                                 SIGTERM, and after another delay of
                                 this time with SIGKILL. (See
