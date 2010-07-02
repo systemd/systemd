@@ -94,7 +94,7 @@
                 additional information in the unit files.</para>
 
                 <para>Boolean arguments used in unit files can be
-                written in various forms. For positive settings the
+                written in various formats. For positive settings the
                 strings <option>1</option>, <option>yes</option>,
                 <option>true</option> and <option>on</option> are
                 equivalent. For negative settings the strings
@@ -509,7 +509,7 @@
                                 effect that when the listed unit name
                                 is activated the unit listing it is
                                 activated
-                                to. <command>WantedBy=foo.service</command>
+                                too. <command>WantedBy=foo.service</command>
                                 in a service
                                 <filename>bar.service</filename> is
                                 mostly equivalent to
