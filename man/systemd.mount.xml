@@ -88,6 +88,11 @@
                 <para>If an mount point is beneath another mount point
                 in the file system hierarchy a dependency between both
                 units is created automatically.</para>
+
+                <para>Mount points created at runtime independent on
+                unit files or <filename>/etc/fstab</filename> will be
+                monitored by systemd and appear like any other mount
+                unit in systemd.</para>
         </refsect1>
 
         <refsect1>

@@ -322,6 +322,7 @@ MANPAGES = \
 	man/systemd.automount.5 \
 	man/systemd.swap.5 \
 	man/systemd.timer.5 \
+	man/systemd.path.5 \
 	man/daemon.7 \
 	man/sd-daemon.7 \
 	man/runlevel.8 \
