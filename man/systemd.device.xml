@@ -1,0 +1,141 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.device">
+        <refentryinfo>
+                <title>systemd.device</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.device</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.device</refname>
+                <refpurpose>systemd device configuration files</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.device</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A unit configuration file whose name ends in
+                <filename>.device</filename> encodes information about
+                a device unit as exposed in the
+                sysfs/<citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                device tree.</para>
+
+                <para>This unit type has no specific options. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files. The common configuration items are configured
+                in the generic [Unit] and [Install] sections. A
+                seperate [Device] section does not exist, since no
+                device-specific options may be configured.</para>
+
+                <para>systemd will automatically create dynamic device
+                units for all kernel devices that are marked with the
+                "systemd" udev tag (by default all block and network
+                devices, and a few others). This may be used to define
+                dependencies between devices and other
+                units.</para>
+
+                <para>Device units are named after the
+                <filename>/sys</filename> and
+                <filename>/dev</filename> paths they control. Example:
+                the device <filename>/dev/sda5</filename> is exposed
+                in systemd as <filename>dev-sda5.device</filename>. For
+                details about the escaping logic used to convert a
+                file system path to a unit name see
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>The udev Database</title>
+
+                <para>The settings of device units may either be
+                configured via unit files, or directly from the udev
+                database (which is recommended). The following udev
+                properties are understood by systemd:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>SYSTEMD_WANTS=</varname></term>
+                                <listitem><para>Adds dependencies of
+                                type <varname>Wants</varname> from
+                                this unit to all listed units. This
+                                may be used to activate aritrary units
+                                if a specific device becomes
+                                available.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SYSTEMD_ALIAS=</varname></term>
+                                <listitem><para>Adds an additional
+                                alias name to the device unit. This
+                                must be an absolute path that is
+                                automatically transformed into a unit
+                                name. (See above.)</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ID_MODEL_FROM_DATABASE=</varname></term>
+                                <term><varname>ID_MODEL=</varname></term>
+
+                                <listitem><para>If set, this property is
+                                used as description string for the
+                                device unit.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+
+
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
