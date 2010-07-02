@@ -251,8 +251,10 @@
                                 directories are automatically created
                                 if needed. This option specifies the
                                 file system access mode used when
-                                creating these directories. Defaults
-                                to 0755.</para></listitem>
+                                creating these directories. Takes an
+                                access mode in octal
+                                notation. Defaults to
+                                0755.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -261,7 +263,8 @@
                                 system socket of FIFO, this option
                                 specifies the file system access mode
                                 used when creating the file
-                                node. Defaults to
+                                node. Takes an access mode in octal
+                                notation. Defaults to
                                 0666.</para></listitem>
                         </varlistentry>
 

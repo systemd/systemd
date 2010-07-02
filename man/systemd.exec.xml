@@ -1,0 +1,740 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.exec">
+        <refentryinfo>
+                <title>systemd.exec</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.exec</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.exec</refname>
+                <refpurpose>systemd execution environment configuration</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.service</filename>,
+                <filename>systemd.socket</filename>,
+                <filename>systemd.mount</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>Unit configuration files for services, sockets
+                and mount points share a subset of configuration
+                options which define the execution environment of
+                spawned processes.</para>
+
+                <para>This man page lists the configuration options
+                shared by these three unit types. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files, and
+                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information on the specific unit
+                configuration files. The execution specific
+                configuration options are configured in the [Service],
+                [Socket] resp. [Mount] section, depending on the unit
+                type.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>WorkingDirectory=</varname></term>
+
+                                <listitem><para>Takes an absolute
+                                directory path. Sets the working
+                                directory for executed
+                                processes.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RootDirectory=</varname></term>
+
+                                <listitem><para>Takes an absolute
+                                directory path. Sets the root
+                                directory for executed processes, with
+                                the
+                                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                system call. If this is used it must
+                                be ensured that the process and all
+                                its auxiliary files are available in
+                                the <function>chroot()</function>
+                                jail.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>User=</varname></term>
+                                <term><varname>Group=</varname></term>
+
+                                <listitem><para>Sets the Unix user
+                                resp. group the processes are executed
+                                as. Takes a single user resp. group
+                                name or ID as argument. If no group is
+                                set the default group of the user is
+                                chosen.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SupplementaryGroups=</varname></term>
+
+                                <listitem><para>Sets the supplementary
+                                Unix groups the processes are executed
+                                as. This takes a space seperated list
+                                of group names or IDs. This option may
+                                be specified more than once in which
+                                case all listed groups are set as
+                                supplementary groups. This option does
+                                not override but extend the list of
+                                supplementary groups configured in the
+                                system group database for the
+                                user.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Nice=</varname></term>
+
+                                <listitem><para>Sets the default nice
+                                level (scheduling priority) for
+                                executed processes. Takes an integer
+                                between -20 (highest priority) and 19
+                                (lowest priority). See
+                                <citerefentry><refentrytitle>setpriority</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>OOMAdjust=</varname></term>
+
+                                <listitem><para>Sets the adjustment
+                                level for the Out-Of-Memory killer for
+                                executed processes. Takes an integer
+                                between -17 (to disable OOM killing
+                                for this process) and 15 (to make
+                                killing of this process under memory
+                                pressure very likely). See <ulink
+                                url="http://www.kernel.org/doc/Documentation/filesystems/proc.txt">proc.txt</ulink>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>IOSchedulingClass=</varname></term>
+
+                                <listitem><para>Sets the IO scheduling
+                                class for executed processes. Takes an
+                                integer between 0 and 3 or one of the
+                                strings <option>none</option>,
+                                <option>realtime</option>,
+                                <option>best-effort</option> or
+                                <option>idle</option>. See
+                                <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>IOSchedulingPriority=</varname></term>
+
+                                <listitem><para>Sets the IO scheduling
+                                priority for executed processes. Takes
+                                an integer between 0 (highest
+                                priority) and 7 (lowest priority). The
+                                available priorities depend on the
+                                selected IO scheduling class (see
+                                above). See
+                                <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CPUSchedulingPolicy=</varname></term>
+
+                                <listitem><para>Sets the CPU
+                                scheduling policy for executed
+                                processes. Takes one of
+                                <option>other</option>,
+                                <option>batch</option>,
+                                <option>idle</option>,
+                                <option>fifo</option> or
+                                <option>rr</option>. See
+                                <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CPUSchedulingPriority=</varname></term>
+
+                                <listitem><para>Sets the CPU
+                                scheduling priority for executed
+                                processes. Takes an integer between 1
+                                (lowest priority) and 99 (highest
+                                priority). The available priority
+                                range depends on the selected CPU
+                                scheduling policy (see above). See
+                                <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CPUSchedulingResetOnFork=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true elevated CPU
+                                scheduling priorities and policies
+                                will be reset when the executed
+                                processes fork, and can hence not leak
+                                into child processes. See
+                                <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details. Defaults to false.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CPUAffinity=</varname></term>
+
+                                <listitem><para>Controls the CPU
+                                affinity of the executed
+                                processes. Takes a space-seperated
+                                list of CPU indexes. See
+                                <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>UMask=</varname></term>
+
+                                <listitem><para>Controls the file mode
+                                creation mask. Takes an access mode in
+                                octal notation. See
+                                <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details. Defaults to
+                                0002.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Environment=</varname></term>
+
+                                <listitem><para>Sets environment
+                                variables for executed
+                                processes. Takes a space-seperated
+                                list of variable assignments. This
+                                option may be specified more than once
+                                in which case all listed variables
+                                will be set. If the same variable is
+                                set twice the later setting will
+                                override the earlier setting. See
+                                <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>EnvironmentFile=</varname></term>
+                                <listitem><para>Similar to
+                                <varname>Environment=</varname> but
+                                reads the environment variables from a
+                                text file. The text file should
+                                contain new-line seperated variable
+                                assignments. Empty lines and lines
+                                starting with ; or # will be ignored,
+                                which may be used for
+                                commenting.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>StandardInput=</varname></term>
+                                <listitem><para>Controls where file
+                                descriptor 0 (STDIN) of the executed
+                                processes is connected to. Takes one
+                                of <option>null</option>,
+                                <option>tty</option>,
+                                <option>tty-force</option>,
+                                <option>tty-fail</option> or
+                                <option>socket</option>. If
+                                <option>null</option> is selected
+                                standard input will be connected to
+                                <filename>/dev/null</filename>,
+                                i.e. all read attempts by the process
+                                will result in immediate EOF. If
+                                <option>tty</option> is selected
+                                standard input is connected to a TTY
+                                (as configured by
+                                <varname>TTYPath=</varname>, see
+                                below) and the executed process
+                                becomes the controlling process of the
+                                terminal. If the terminal is already
+                                being controlled by another process it
+                                is waited until that process releases
+                                the
+                                terminal. <option>tty-force</option>
+                                is similar to <option>tty</option>,
+                                but the executed process is forcefully
+                                and immediately made the controlling
+                                process of the terminal, potentially
+                                removing previous controlling
+                                processes from the
+                                terminal. <option>tty-fail</option> is
+                                similar to <option>tty</option> but if
+                                the terminal already has a controlling
+                                process start-up of the executed
+                                process fails.  The
+                                <option>socket</option> option is only
+                                valid in socket-activated services,
+                                and only when the socket configuration
+                                file (see
+                                <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details) specifies a single socket
+                                only. If this option is set standard
+                                input will be connected to the socket
+                                the service was activated from, which
+                                is primarily useful for compatibility
+                                with daemons designed for use with the
+                                traditional
+                                <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                daemon. This setting defaults to
+                                <option>null</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>StandardOutput=</varname></term>
+                                <listitem><para>Controls where file
+                                descriptor 1 (STDOUT) of the executed
+                                processes is connected to. Takes one
+                                of <option>inherit</option>,
+                                <option>null</option>,
+                                <option>tty</option>,
+                                <option>syslog</option>,
+                                <option>kmsg</option> or
+                                <option>socket</option>. If set to
+                                <option>inherit</option> the file
+                                descriptor of standard input is
+                                duplicated for standard output. If set
+                                to <option>null</option> standard
+                                output will be connected to
+                                <filename>/dev/null</filename>,
+                                i.e. everything written to it will be
+                                lost. If set to <option>tty</option>
+                                standard output will be connected to a
+                                tty (as configured via
+                                <varname>TTYPath=</varname>, see
+                                below). If the TTY is used for output
+                                only the executed process will not
+                                become the controlling process of the
+                                terminal, and will not fail or wait
+                                for other processes to release the
+                                terminal. <option>syslog</option>
+                                connects standard output to the
+                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                system logger. <option>kmsg</option>
+                                connects it with the kernel log buffer
+                                which is accessible via
+                                <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>socket</option>
+                                connects standard output to a socket
+                                from socket activation, semantics are
+                                similar to the respective option of
+                                <varname>StandardInput=</varname>.
+                                This setting defaults to
+                                <option>inherit</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>StandardOutput=</varname></term>
+                                <listitem><para>Controls where file
+                                descriptor 2 (STDERR) of the executed
+                                processes is connected to. The
+                                available options are identical to
+                                those of
+                                <varname>StandardError=</varname>,
+                                whith one exception: if set to
+                                <option>inherit</option> the file
+                                descriptor used for standard output is
+                                duplicated for standard error. This
+                                setting defaults to
+                                <option>inherit</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>TTYPath=</varname></term>
+                                <listitem><para>Sets the terminal
+                                device node to use if standard input,
+                                output or stderr are connected to a
+                                TTY (see above). Defaults to
+                                <filename>/dev/console</filename>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>SyslogIdentifer=</varname></term>
+                                <listitem><para>Sets the process name
+                                to prefix log lines sent to syslog or
+                                the kernel log buffer with. If not set
+                                defaults to the process name of the
+                                executed process. This option is only
+                                useful when
+                                <varname>StandardOutput=</varname> or
+                                <varname>StandardError=</varname> are
+                                set to <option>syslog</option> or
+                                <option>kmsg</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>SyslogFacility=</varname></term>
+                                <listitem><para>Sets the syslog
+                                facility to use when logging to
+                                syslog. One of <option>kern</option>,
+                                <option>user</option>,
+                                <option>mail</option>,
+                                <option>daemon</option>,
+                                <option>auth</option>,
+                                <option>syslog</option>,
+                                <option>lpr</option>,
+                                <option>news</option>,
+                                <option>uucp</option>,
+                                <option>cron</option>,
+                                <option>authpriv</option>,
+                                <option>ftp</option>,
+                                <option>local0</option>,
+                                <option>local1</option>,
+                                <option>local2</option>,
+                                <option>local3</option>,
+                                <option>local4</option>,
+                                <option>local5</option>,
+                                <option>local6</option> or
+                                <option>local7</option>. See
+                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details. This option is only
+                                useful when
+                                <varname>StandardOutput=</varname> or
+                                <varname>StandardError=</varname> are
+                                set to <option>syslog</option>.
+                                Defaults to
+                                <option>daemon</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>SyslogLevel=</varname></term>
+                                <listitem><para>Default syslog level
+                                to use when logging to syslog or the
+                                kernel log buffer. One of
+                                <option>emerg</option>,
+                                <option>alert</option>,
+                                <option>crit</option>,
+                                <option>err</option>,
+                                <option>warning</option>,
+                                <option>notice</option>,
+                                <option>info</option>,
+                                <option>debug</option>. See
+                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details. This option is only
+                                useful when
+                                <varname>StandardOutput=</varname> or
+                                <varname>StandardError=</varname> are
+                                set to <option>syslog</option> or
+                                <option>kmsg</option>. Note that
+                                individual lines output by the daemon
+                                might be prefixed with a different log
+                                level which can be used to override
+                                the default log level specified
+                                here. The interpretation of these
+                                prefixes may be disabled with
+                                <varname>SyslogNoPrefix=</varname>,
+                                see below. For details see
+                                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+
+                                Defaults to
+                                <option>info</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SyslogNoPrefix=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. If false and
+                                <varname>StandardOutput=</varname> or
+                                <varname>StandardError=</varname> are
+                                set to <option>syslog</option> or
+                                <option>kmsg</option> log lines
+                                written by the executed process that
+                                are prefixed with a log level will be
+                                passed on to syslog with this log
+                                level set but the prefix removed. If
+                                set to true, the interpretation of
+                                these prefixes is disabled and the
+                                logged lines are passed on as-is. For
+                                details about this prefixing see
+                                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+                                Defaults to false.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>TimerSlackNS=</varname></term>
+                                <listitem><para>Sets the timer slack
+                                in nanoseconds for the executed
+                                processes The timer slack controls the accuracy
+                                of wake-ups triggered by timers. See
+                                <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for more information.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>LimitCPU=</varname></term>
+                                <term><varname>LimitFSIZE=</varname></term>
+                                <term><varname>LimitDATA=</varname></term>
+                                <term><varname>LimitSTACK=</varname></term>
+                                <term><varname>LimitCORE=</varname></term>
+                                <term><varname>LimitRSS=</varname></term>
+                                <term><varname>LimitNOFILE=</varname></term>
+                                <term><varname>LimitAS=</varname></term>
+                                <term><varname>LimitNPROC=</varname></term>
+                                <term><varname>LimitMEMLOCK=</varname></term>
+                                <term><varname>LimitLOCKS=</varname></term>
+                                <term><varname>LimitSIGPENDING=</varname></term>
+                                <term><varname>LimitMSGQUEUE=</varname></term>
+                                <term><varname>LimitNICE=</varname></term>
+                                <term><varname>LimitRTPRIO=</varname></term>
+                                <term><varname>LimitRTTIME=</varname></term>
+                                <listitem><para>These settings control
+                                various resource limits for executed
+                                processes. See
+                                <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PAMName=</varname></term>
+                                <listitem><para>Sets the PAM service
+                                name to set up a session as. If set
+                                the executed process will be
+                                registered as a PAM session under the
+                                specified service name. This is only
+                                useful in conjunction with the
+                                <varname>User=</varname> setting. If
+                                not set no PAM session will be opened
+                                for the executed processes. See
+                                <citerefentry><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>TCPWrapName=</varname></term>
+                                <listitem><para>If this is a
+                                socket-activated service this sets the
+                                tcpwrap service name to check the
+                                permission for the current connection
+                                with. This is only useful in
+                                conjunction with socket-activated
+                                services, and stream sockets (TCP) in
+                                particular. It has no effect on other
+                                socket types (e.g. datagram/UDP) and on processes
+                                unrelated to socket-based
+                                activation. If the tcpwrap
+                                verification fails daemon start-up
+                                will fail and the connection is
+                                terminated. See
+                                <citerefentry><refentrytitle>tcpd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Capabilities=</varname></term>
+                                <listitem><para>Controls the
+                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                set for the executed process. Take a
+                                capability string as described in
+                                <citerefentry><refentrytitle>cap_from_text</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                Note that this capability set is
+                                usually influenced by the capabilities
+                                attached to the executed
+                                file.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SecureBits=</varname></term>
+                                <listitem><para>Controls the secure
+                                bits set for the executed process. See
+                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details. Takes a list of strings:
+                                <option>keep-caps</option>,
+                                <option>keep-caps-locked</option>,
+                                <option>no-setuid-fixup</option>,
+                                <option>no-setuid-fixup-locked</option>,
+                                <option>no-setuid-noroot</option> and/or
+                                <option>no-setuid-noroot-locked</option>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CapabilityBoundingSetDrop=</varname></term>
+
+                                <listitem><para>Controls the
+                                capability bounding set drop set for
+                                the executed process. See
+                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details. Takes a list of
+                                capability names as read by
+                                <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ControlGroup=</varname></term>
+
+                                <listitem><para>Controls the control
+                                groups the executed processes shall be
+                                made member of. Takes a
+                                space-seperated list of cgroup
+                                identifiers. A cgroup identifier has a
+                                format like
+                                <filename>cpu:/foo/bar</filename>,
+                                where "cpu" identifies the kernel
+                                control group controller used, and
+                                <filename>/foo/bar</filename> is the
+                                control group path. The controller name
+                                and ":" may be omitted in which case
+                                the named systemd control group
+                                hierarchy is implied. Alternatively,
+                                the path and ":" may be omitted, in
+                                which case the default control group
+                                path for this unit is implied. This
+                                option may be used to place executed
+                                processes in arbitrary groups in
+                                arbitrary hierachies -- which can be
+                                configured externally with additional execution limits. By default
+                                systemd will place all executed
+                                processes in seperate per-unit control
+                                groups (named after the unit) in the
+                                systemd named hierarchy. Since every
+                                process can be in one group per
+                                hierarchy only overriding the control group
+                                path in the named systemd hierarchy
+                                will disable automatic placement in
+                                the default group. For details about control
+                                groups see <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ReadWriteDirectories=</varname></term>
+                                <term><varname>ReadOnlyDirectories=</varname></term>
+                                <term><varname>InaccessibleDirectories=</varname></term>
+
+                                <listitem><para>Sets up a new
+                                file-system name space for executed
+                                processes. These options may be used
+                                to limit access a process might have
+                                to the main file-system
+                                hierarchy. Each setting takes a
+                                space-seperated list of absolute
+                                directory paths. Directories listed in
+                                <varname>ReadWriteDirectories=</varname>
+                                are accessible from within the
+                                namespace with the same access rights
+                                as from outside. Directories listed in
+                                <varname>ReadOnlyDirectories=</varname>
+                                are accessible for reading only,
+                                writing will be refused even if the
+                                usual file access controls would
+                                permit this. Directories listed in
+                                <varname>InaccessibleDirectories=</varname>
+                                will be made inaccesible for processes
+                                inside the namespace. Note that
+                                restricting access with these options
+                                does not extend to submounts of a
+                                directory. You must list submounts
+                                seperately in these setttings to
+                                ensure the same limited access. These
+                                options may be specified more than
+                                once in which case all directories
+                                listed will have limited access from
+                                within the
+                                namespace.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PrivateTmp=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true sets up a new
+                                namespace for the executed processes
+                                and mounts a private
+                                <filename>/tmp</filename> directory
+                                inside it, that is not shared by
+                                processes outside of the
+                                namespace. This is useful to secure
+                                access to temporary files of the
+                                process, but makes sharing between
+                                processes via
+                                <filename>/tmp</filename>
+                                impossible. Defaults to false.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>MountFlags=</varname></term>
+
+                                <listitem><para>Takes a mount
+                                propagation flag:
+                                <option>shared</option>,
+                                <option>slave</option> or
+                                <option>private</option>, which
+                                control whether namespaces set up with
+                                <varname>ReadWriteDirectories=</varname>,
+                                <varname>ReadOnlyDirectories=</varname>
+                                and
+                                <varname>InaccessibleDirectories=</varname>
+                                receive or propagate new mounts
+                                from/to the main namespace. See
+                                <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                for details. Defaults to
+                                <option>shared</option>, i.e. the new
+                                namespace will both receive new mount
+                                points from the main namespace as well
+                                as propagate new mounts to
+                                it.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

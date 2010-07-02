@@ -326,6 +326,7 @@ MANPAGES = \
 	man/systemd.target.5 \
 	man/systemd.device.5 \
 	man/systemd.snapshot.5 \
+	man/systemd.exec.5 \
 	man/daemon.7 \
 	man/sd-daemon.7 \
 	man/runlevel.8 \
