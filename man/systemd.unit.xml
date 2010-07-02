@@ -465,7 +465,7 @@
                         <varlistentry>
                                 <term><varname>Alias=</varname></term>
 
-                                <listitem><para>Additional names, this
+                                <listitem><para>Additional names this
                                 unit shall be installed under. The
                                 names listed here must have the same
                                 suffix (i.e. type) as the unit file
