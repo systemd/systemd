@@ -151,10 +151,13 @@
                 with the device node <filename>/dev/sda</filename> in
                 the file system namespace. If this applies a special
                 way to escape the path name is used, so that it is
-                usable as part of a file name. Basically, given a path,
-                "/" is replaced by "-", and all unprintable characters
-                and the "-" are replaced by C-style "\x20"
-                escapes. This escaping is reversible.</para>
+                usable as part of a file name. Basically, given a
+                path, "/" is replaced by "-", and all unprintable
+                characters and the "-" are replaced by C-style "\x20"
+                escapes. The root directory "/" is encoded as single
+                dash, while otherwise the initial and ending "/" is
+                removed from all paths during transformation. This
+                escaping is reversible.</para>
 
                 <para>Optionally, units may be instantiated from a
                 template file at runtime. This allows creation of
