@@ -970,11 +970,20 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                if (socket_fd >= 0 && context->tcpwrap_name)
-                        if (!socket_tcpwrap(socket_fd, context->tcpwrap_name)) {
-                                r = EXIT_TCPWRAP;
-                                goto fail;
+                if (context->tcpwrap_name) {
+                        if (socket_fd >= 0)
+                                if (!socket_tcpwrap(socket_fd, context->tcpwrap_name)) {
+                                        r = EXIT_TCPWRAP;
+                                        goto fail;
+                                }
+
+                        for (i = 0; i < (int) n_fds; i++) {
+                                if (!socket_tcpwrap(fds[i], context->tcpwrap_name)) {
+                                        r = EXIT_TCPWRAP;
+                                        goto fail;
+                                }
                         }
+                }
 
                 if (confirm_spawn) {
                         char response;
