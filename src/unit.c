@@ -69,6 +69,7 @@ Unit *unit_new(Manager *m) {
         u->meta.manager = m;
         u->meta.type = _UNIT_TYPE_INVALID;
         u->meta.deserialized_job = _JOB_TYPE_INVALID;
+        u->meta.default_dependencies = true;
 
         return u;
 }
@@ -593,8 +594,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
-                "%s\tGC Check Good: %s\n"
-                "%s\tOnly By Dependency: %s\n",
+                "%s\tGC Check Good: %s\n",
                 prefix, u->meta.id,
                 prefix, unit_description(u),
                 prefix, strna(u->meta.instance),
@@ -604,8 +604,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp.realtime)),
-                prefix, yes_no(unit_check_gc(u)),
-                prefix, yes_no(u->meta.only_by_dependency));
+                prefix, yes_no(unit_check_gc(u)));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -623,9 +622,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->meta.load_state == UNIT_LOADED) {
                 fprintf(f,
                         "%s\tRecursive Stop: %s\n"
-                        "%s\tStop When Unneeded: %s\n",
+                        "%s\tStopWhenUnneeded: %s\n"
+                        "%s\tOnlyByDependency: %s\n"
+                        "%s\tDefaultDependencies: %s\n",
                         prefix, yes_no(u->meta.recursive_stop),
-                        prefix, yes_no(u->meta.stop_when_unneeded));
+                        prefix, yes_no(u->meta.stop_when_unneeded),
+                        prefix, yes_no(u->meta.only_by_dependency),
+                        prefix, yes_no(u->meta.default_dependencies));
 
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",

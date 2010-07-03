@@ -25,6 +25,7 @@
 #include "unit-name.h"
 #include "timer.h"
 #include "dbus-timer.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = UNIT_INACTIVE,
@@ -89,6 +90,11 @@ static int timer_load(Unit *u) {
 
                 if ((r = unit_add_dependency(u, UNIT_BEFORE, t->unit, true)) < 0)
                         return r;
+
+                /* Timers shouldn't stay around on shutdown */
+                if (t->meta.default_dependencies)
+                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                                return r;
         }
 
         return timer_verify(t);

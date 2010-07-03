@@ -142,9 +142,6 @@ struct Meta {
         UnitLoadState load_state;
         Unit *merged_into;
 
-        /* Refuse manual starting, allow starting only indirectly via dependency. */
-        bool only_by_dependency;
-
         char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
         char *instance;
 
@@ -189,6 +186,12 @@ struct Meta {
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
+
+        /* Refuse manual starting, allow starting only indirectly via dependency. */
+        bool only_by_dependency;
+
+        /* Create default depedencies */
+        bool default_dependencies;
 
         /* When deserializing, temporarily store the job type for this
          * unit here, if there was a job scheduled */

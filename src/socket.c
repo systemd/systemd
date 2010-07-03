@@ -37,6 +37,7 @@
 #include "unit-name.h"
 #include "dbus-socket.h"
 #include "missing.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -241,6 +242,17 @@ static int socket_add_device_link(Socket *s) {
         return r;
 }
 
+static int socket_add_default_dependencies(Socket *s) {
+        int r;
+        assert(s);
+
+        if (s->meta.manager->running_as == MANAGER_SYSTEM)
+                if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+}
+
 static int socket_load(Unit *u) {
         Socket *s = SOCKET(u);
         int r;
@@ -273,6 +285,10 @@ static int socket_load(Unit *u) {
 
                 if ((r = unit_add_default_cgroup(u)) < 0)
                         return r;
+
+                if (s->meta.default_dependencies)
+                        if ((r = socket_add_default_dependencies(s)) < 0)
+                                return r;
         }
 
         return socket_verify(s);

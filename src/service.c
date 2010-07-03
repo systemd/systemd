@@ -665,20 +665,18 @@ static int service_load_sysv_path(Service *s, const char *path) {
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
 
-        if (!s->sysv_runlevels || chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
+        if (s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
                 /* If there a runlevels configured for this service
                  * but none of the standard ones, then we assume this
                  * is some special kind of service (which might be
                  * needed for early boot) and don't create any links
                  * to it. */
 
-                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true)) < 0 ||
-                    (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
-                        goto finish;
+                s->meta.default_dependencies = false;
 
-        } else
                 /* Don't timeout special services during boot (like fsck) */
                 s->timeout_usec = 0;
+        }
 
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
@@ -827,6 +825,30 @@ static int service_verify(Service *s) {
         return 0;
 }
 
+static int service_add_default_dependencies(Service *s) {
+        int r;
+
+        assert(s);
+
+        /* Add a number of automatic dependencies useful for the
+         * majority of services. */
+
+        /* First, pull in base system */
+        if (s->meta.manager->running_as == MANAGER_SYSTEM) {
+
+                if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
+                        return r;
+
+        } else if (s->meta.manager->running_as == MANAGER_SESSION) {
+
+                if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SOCKETS_TARGET, NULL, true)) < 0)
+                        return r;
+        }
+
+        /* Second, activate normal shutdown */
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+}
+
 static int service_load(Unit *u) {
         int r;
         Service *s = SERVICE(u);
@@ -867,11 +889,19 @@ static int service_load(Unit *u) {
                                 return r;
 
                         if ((r = unit_watch_bus_name(u, s->bus_name)) < 0)
-                            return r;
+                                return r;
                 }
 
                 if (s->type == SERVICE_NOTIFY && s->notify_access == NOTIFY_NONE)
                         s->notify_access = NOTIFY_MAIN;
+
+                if (s->type == SERVICE_DBUS || s->bus_name)
+                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_TARGET, NULL, true)) < 0)
+                                return r;
+
+                if (s->meta.default_dependencies)
+                        if ((r = service_add_default_dependencies(s)) < 0)
+                                return r;
         }
 
         return service_verify(s);

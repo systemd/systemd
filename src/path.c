@@ -29,6 +29,7 @@
 #include "unit-name.h"
 #include "path.h"
 #include "dbus-path.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
@@ -120,6 +121,11 @@ static int path_load(Unit *u) {
 
                 if ((r = path_add_mount_links(p)) < 0)
                         return r;
+
+                /* Path units shouldn't stay around on shutdown */
+                if (p->meta.default_dependencies)
+                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                                return r;
         }
 
         return path_verify(p);
