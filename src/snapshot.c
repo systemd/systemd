@@ -122,8 +122,8 @@ static int snapshot_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "state", snapshot_state_to_string(s->state));
         unit_serialize_item(u, f, "cleanup", yes_no(s->cleanup));
-        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
-                unit_serialize_item(u, f, "requires", other->meta.id);
+        SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
+                unit_serialize_item(u, f, "wants", other->meta.id);
 
         return 0;
 }
@@ -152,12 +152,9 @@ static int snapshot_deserialize_item(Unit *u, const char *key, const char *value
                 else
                         s->cleanup = r;
 
-        } else if (streq(key, "requires")) {
+        } else if (streq(key, "wants")) {
 
-                if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, value, NULL, true)) < 0)
-                        return r;
-
-                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, value, NULL, true)) < 0)
+                if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, value, NULL, true)) < 0)
                         return r;
         } else
                 log_debug("Unknown serialization key '%s'", key);
@@ -237,10 +234,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         continue;
 
-                if ((r = unit_add_dependency(u, UNIT_REQUIRES, other, true)) < 0)
-                        goto fail;
-
-                if ((r = unit_add_dependency(u, UNIT_AFTER, other, true)) < 0)
+                if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, other, true)) < 0)
                         goto fail;
         }
 
