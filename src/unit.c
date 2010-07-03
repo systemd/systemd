@@ -1324,6 +1324,20 @@ fail:
         return r;
 }
 
+int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference) {
+        int r;
+
+        assert(u);
+
+        if ((r = unit_add_dependency(u, d, other, add_reference)) < 0)
+                return r;
+
+        if ((r = unit_add_dependency(u, e, other, add_reference)) < 0)
+                return r;
+
+        return 0;
+}
+
 static const char *resolve_template(Unit *u, const char *name, const char*path, char **p) {
         char *s;
 
@@ -1378,6 +1392,27 @@ finish:
         return r;
 }
 
+int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
+        Unit *other;
+        int r;
+        char *s;
+
+        assert(u);
+        assert(name || path);
+
+        if (!(name = resolve_template(u, name, path, &s)))
+                return -ENOMEM;
+
+        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+                goto finish;
+
+        r = unit_add_two_dependencies(u, d, e, other, add_reference);
+
+finish:
+        free(s);
+        return r;
+}
+
 int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
         Unit *other;
         int r;
@@ -1393,6 +1428,28 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
                 goto finish;
 
         r = unit_add_dependency(other, d, u, add_reference);
+
+finish:
+        free(s);
+        return r;
+}
+
+int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
+        Unit *other;
+        int r;
+        char *s;
+
+        assert(u);
+        assert(name || path);
+
+        if (!(name = resolve_template(u, name, path, &s)))
+                return -ENOMEM;
+
+        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+                goto finish;
+
+        if ((r = unit_add_two_dependencies(other, d, e, u, add_reference)) < 0)
+                goto finish;
 
 finish:
         free(s);
@@ -1907,10 +1964,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (r < 0)
                 return r;
 
-        if ((r = unit_add_dependency(u, UNIT_AFTER, device, true)) < 0)
-                return r;
-
-        if ((r = unit_add_dependency(u, UNIT_REQUIRES, device, true)) < 0)
+        if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, device, true)) < 0)
                 return r;
 
         if (wants)

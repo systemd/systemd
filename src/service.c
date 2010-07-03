@@ -543,10 +543,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
-                                        else {
-                                                if ((r = unit_add_dependency_by_name_inverse(u, UNIT_REQUIRES, m, NULL, true)) >= 0)
-                                                        r = unit_add_dependency_by_name(u, UNIT_BEFORE, m, NULL, true);
-                                        }
+                                        else
+                                                r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_REQUIRES, m, NULL, true);
 
                                         free(m);
 
@@ -2449,21 +2447,13 @@ static int service_enumerate(Manager *m) {
                                 service = unit_follow_merge(service);
 
                                 if (de->d_name[0] == 'S') {
-                                        Unit *runlevel_target;
 
-                                        if ((r = manager_load_unit(m, rcnd_table[i].target, NULL, &runlevel_target)) < 0)
-                                                goto finish;
-
-                                        if ((r = unit_add_dependency(runlevel_target, UNIT_WANTS, service, true)) < 0)
-                                                goto finish;
-
-                                        if ((r = unit_add_dependency(service, UNIT_BEFORE, runlevel_target, true)) < 0)
+                                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, rcnd_table[i].target, NULL, true)) < 0)
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
                                            (rcnd_table[i].type == RUNLEVEL_DOWN ||
                                             rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
-                                        Unit *shutdown_target;
 
                                         /* We honour K links only for
                                          * halt/reboot. For the normal
@@ -2481,13 +2471,7 @@ static int service_enumerate(Manager *m) {
                                          * too to the shutdown
                                          * target.*/
 
-                                        if ((r = manager_load_unit(m, SPECIAL_SHUTDOWN_TARGET, NULL, &shutdown_target)) < 0)
-                                                goto finish;
-
-                                        if ((r = unit_add_dependency(service, UNIT_CONFLICTS, shutdown_target, true)) < 0)
-                                                goto finish;
-
-                                        if ((r = unit_add_dependency(service, UNIT_BEFORE, shutdown_target, true)) < 0)
+                                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
                                                 goto finish;
                                 }
                         }

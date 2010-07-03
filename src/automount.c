@@ -125,10 +125,7 @@ int automount_add_one_mount_link(Automount *a, Mount *m) {
         if (path_equal(a->where, m->where))
                 return 0;
 
-        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(a), true)) < 0)
-                return r;
-
-        if ((r = unit_add_dependency(UNIT(a), UNIT_REQUIRES, UNIT(m), true)) < 0)
+        if ((r = unit_add_two_dependencies(UNIT(a), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true)) < 0)
                 return r;
 
         return 0;

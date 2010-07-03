@@ -262,11 +262,7 @@ static int mount_add_target_links(Mount *m) {
                 if ((r = unit_load_related_unit(UNIT(m), ".automount", &am)) < 0)
                         return r;
 
-                if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(am), true)) < 0)
-                        return r;
-
-                return unit_add_dependency(UNIT(am), UNIT_BEFORE, tu, true);
-
+                return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_WANTS, UNIT(am), true);
         } else {
 
                 if (!noauto && handle)

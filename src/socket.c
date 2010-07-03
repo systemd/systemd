@@ -204,10 +204,7 @@ int socket_add_one_mount_link(Socket *s, Mount *m) {
         if (!socket_needs_mount(s, m->where))
                 return 0;
 
-        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(s), true)) < 0)
-                return r;
-
-        if ((r = unit_add_dependency(UNIT(s), UNIT_REQUIRES, UNIT(m), true)) < 0)
+        if ((r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true)) < 0)
                 return r;
 
         return 0;

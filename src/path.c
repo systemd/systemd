@@ -65,10 +65,7 @@ int path_add_one_mount_link(Path *p, Mount *m) {
                 if (!path_startswith(s->path, m->where))
                         continue;
 
-                if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(p), true)) < 0)
-                        return r;
-
-                if ((r = unit_add_dependency(UNIT(p), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                if ((r = unit_add_two_dependencies(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true)) < 0)
                         return r;
         }
 
