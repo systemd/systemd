@@ -76,6 +76,17 @@
                 matching service <filename>foo.service</filename>. The
                 unit to activate may be controlled by
                 <varname>Unit=</varname> (see below).</para>
+
+                <para>Unless <varname>DefaultDependencies=</varname>
+                is set to <option>false</option>, timer units will
+                implicitly have dependencies of type
+                <varname>Conflicts=</varname> and
+                <varname>Before=</varname> on
+                <filename>shutdown.target</filename>. These ensure
+                that timer units are stopped cleanly prior to system
+                shutdown. Only timer units involved with early boot or
+                late system shutdown should disable this
+                option.</para>
         </refsect1>
 
         <refsect1>

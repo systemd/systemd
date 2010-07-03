@@ -51,6 +51,7 @@
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
                 <filename>@SPECIAL_DBUS_SERVICE@</filename>,
+                <filename>dbus.target</filename>,
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
                 <filename>emergency.service</filename>,
@@ -78,8 +79,8 @@
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>sysinit.target</filename>,
-                <filename>syslog.target</filename>,
                 <filename>@SPECIAL_SYSLOG_SERVICE@</filename>,
+                <filename>syslog.target</filename>,
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
                 <filename>systemd-logger.service</filename>,
@@ -141,6 +142,28 @@
                                         up systemd will connect to it
                                         and register its
                                         service.</para>
+
+                                        <para>Units should generally
+                                        avoid depending on this unit
+                                        directly and instead refer to
+                                        the
+                                        <filename>dbus.target</filename>
+                                        unit instead, which pulls this
+                                        one in directly or indirectly
+                                        via socket-based activation.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>dbus.target</filename></term>
+                                <listitem>
+                                        <para>Administrators should
+                                        ensure that this target pulls
+                                        in a service unit with the
+                                        name or alias of
+                                        <filename>@SPECIAL_DBUS_SERVICE@</filename>
+                                        (or a socket unit that
+                                        activates this
+                                        service).</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -523,28 +546,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>syslog.target</filename></term>
-                                <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
-                                        <literal>$syslog</literal>
-                                        facility.</para>
-
-                                        <para>Administrators should
-                                        ensure that this target pulls
-                                        in a service unit with the
-                                        name or alias of
-                                        <filename>@SPECIAL_SYSLOG_SERVICE@</filename>
-                                        (or a socket unit that
-                                        activates this
-                                        service).</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>sysinit.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -571,11 +572,37 @@
                                         and use it for logging if it
                                         has been configured for
                                         that.</para>
-                                        <para>Applications should
-                                        generally not depend on this
-                                        service, and depend on
+
+                                        <para>Units should generally
+                                        avoid depending on this unit
+                                        directly and instead refer to
+                                        the
                                         <filename>syslog.target</filename>
-                                        instead.</para>
+                                        unit instead, which pulls this
+                                        one in directly or indirectly
+                                        via socket-based activation.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>syslog.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After for this target unit to
+                                        all SysV init script service
+                                        units with an LSB header
+                                        referring to the
+                                        <literal>$syslog</literal>
+                                        facility.</para>
+
+                                        <para>Administrators should
+                                        ensure that this target pulls
+                                        in a service unit with the
+                                        name or alias of
+                                        <filename>@SPECIAL_SYSLOG_SERVICE@</filename>
+                                        (or a socket unit that
+                                        activates this
+                                        service).</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

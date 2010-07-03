@@ -76,12 +76,22 @@
                 dependencies between units. Among other things, target
                 units are a more flexible replacement for SysV
                 runlevels in the classic SysV init system. (And for
-                compatibility reasons there exist special
+                compatibility reasons special
                 target units such as
-                <filename>runlevel3.target</filename> which are used by
+                <filename>runlevel3.target</filename> exist which are used by
                 the SysV runlevel compatibility code in systemd. See
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 for details).</para>
+
+                <para>Unless
+                <varname>DefaultDependencies=</varname> is set to
+                <option>false</option>, target units will
+                implicitly complement all configured dependencies of type
+                <varname>Wants=</varname>,
+                <varname>Requires=</varname>,
+                <varname>RequiresOverridable=</varname> with
+                dependencies of type <varname>After=</varname>.
+                </para>
         </refsect1>
 
         <refsect1>

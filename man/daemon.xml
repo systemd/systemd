@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd.special">
+<refentry id="daemon">
 
         <refentryinfo>
                 <title>daemon</title>
@@ -55,8 +55,9 @@
                 functionality to other processes. Traditionally,
                 daemons are implemented following a scheme originating
                 in SysV Unix. Modern daemons should follow a simpler
-                yet more powerful scheme here called "new-style"
-                daemons, as implemented by systemd. </para>
+                yet more powerful scheme (here called "new-style"
+                daemons), as implemented by
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. </para>
 
                 <refsect2>
                         <title>SysV Daemons</title>
@@ -64,7 +65,7 @@
                         <para>When a traditional SysV daemon
                         starts, it should execute the following steps
                         as part of the initialization. Note that these
-                        steps are unnecessary for new-style daemons,
+                        steps are unnecessary for new-style daemons (see below),
                         and should only be implemented if compatibility
                         with SysV is essential.</para>
 
@@ -80,7 +81,7 @@
                                 <filename>/proc/self/fd</filename>,
                                 with a fallback of iterating from file
                                 descriptor 3 to the value returned by
-                                getrlimit() for
+                                <function>getrlimit()</function> for
                                 RLIMIT_NOFILE.</para></listitem>
 
                                 <listitem><para>Reset all signal
@@ -91,23 +92,30 @@
                                 SIG_DFL.</para></listitem>
 
                                 <listitem><para>Reset the signal mask
-                                using sigprocmask().</para></listitem>
+                                using
+                                <function>sigprocmask()</function>.</para></listitem>
 
-                                <listitem><para>Call fork(),
+                                <listitem><para>Sanitize the
+                                environment block, removing or
+                                resetting environment variables that
+                                might negatively impact daemon
+                                runtime.</para></listitem>
+
+                                <listitem><para>Call <function>fork()</function>,
                                 to create a background
                                 process.</para></listitem>
 
                                 <listitem><para>In the child, call
-                                setsid() to detach from any terminal
-                                and create an independent
-                                session.</para></listitem>
+                                <function>setsid()</function> to
+                                detach from any terminal and create an
+                                independent session.</para></listitem>
 
                                 <listitem><para>In the child, call
-                                fork() again, to ensure the daemon can
-                                never re-aquire a terminal
-                                again.</para></listitem>
+                                <function>fork()</function> again, to
+                                ensure the daemon can never re-aquire
+                                a terminal again.</para></listitem>
 
-                                <listitem><para>Call exit() in the
+                                <listitem><para>Call <function>exit()</function> in the
                                 first child, so that only the second
                                 child (the actual daemon process)
                                 stays around. This ensures that the
@@ -122,7 +130,7 @@
 
                                 <listitem><para>In the daemon process,
                                 reset the umask to 0, so that the file
-                                modes passed to open(), mkdir() and
+                                modes passed to <function>open()</function>, <function>mkdir()</function> and
                                 suchlike directly control the access
                                 mode of the created files and
                                 directories.</para></listitem>
@@ -135,6 +143,23 @@
                                 unmounted.</para></listitem>
 
                                 <listitem><para>In the daemon process,
+                                write the daemon PID (as returned by
+                                <function>getpid()</function>) to a
+                                PID file, for example
+                                <filename>/var/run/foobar.pid</filename>
+                                (for a hypothetical daemon "foobar"),
+                                to ensure that the daemon cannot be
+                                started more than once. This must be
+                                implemented in race-free fashion so
+                                that the PID file is only updated when
+                                at the same time it is verified that
+                                the PID previously stored in the PID
+                                file no longer exists or belongs to a
+                                foreign process. Commonly some kind of
+                                file locking is employed to implement
+                                this logic.</para></listitem>
+
+                                <listitem><para>In the daemon process,
                                 drop privileges, if possible and
                                 applicable.</para></listitem>
 
@@ -144,21 +169,25 @@
                                 complete. This can be implemented via
                                 an unnamed pipe or similar
                                 communication channel that is created
-                                before the first fork() and available
-                                in both processes.</para></listitem>
+                                before the first
+                                <function>fork()</function> and hence
+                                available in both the original and the
+                                daemon process.</para></listitem>
 
-                                <listitem><para>Call exit() in the
+                                <listitem><para>Call
+                                <function>exit()</function> in the
                                 original process. The process that
                                 invoked the daemon must be able to
-                                rely that this exit() happens after
-                                initialization is complete and all
-                                external communication channels
+                                rely that this
+                                <function>exit()</function> happens
+                                after initialization is complete and
+                                all external communication channels
                                 established and
                                 accessible.</para></listitem>
                         </orderedlist>
 
-                        <para>The BSD daemon() function should not be
-                        used, as it does only a subset of these steps.</para>
+                        <para>The BSD <function>daemon()</function> function should not be
+                        used, as it implements only a subset of these steps.</para>
 
                         <para>A daemon that needs to provide
                         compatibility with SysV systems should
@@ -190,6 +219,17 @@
                         execute them when run as new-style
                         service.</para>
 
+                        <para>Note that new-style init systems
+                        guarantee execution of daemon processes in
+                        clean process contexts: it is guaranteed that
+                        the environment block is sanitized, that the
+                        signal handlers and mask is reset and that no
+                        left-over file descriptors are passed. Daemons
+                        will be executed in their own session, and
+                        STDIN/STDOUT/STDERR connected to
+                        <filename>/dev/null</filename> unless
+                        otherwise configured. The umask is reset.</para>
+
                         <para>It is recommended for new-style daemons
                         to implement the following:</para>
 
@@ -207,9 +247,10 @@
                                 this is used by the init system to
                                 detect service errors and problems. It
                                 is recommended to follow the exit code
-                                scheme as defined in LSB
-                                recommendations for SysV init scripts
-                                (http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html).</para></listitem>
+                                scheme as defined in the <ulink
+                                url="http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
+                                recommendations for SysV init
+                                scripts</ulink>.</para></listitem>
 
                                 <listitem><para>As much as possible,
                                 rely on systemd's functionality to
@@ -220,7 +261,10 @@
                                 implementing your own, rely on
                                 systemd's privilege dropping code
                                 instead of implementing it in the
-                                daemon, and similar.</para></listitem>
+                                daemon, and similar. See
+                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for the available
+                                controls.</para></listitem>
 
                                 <listitem><para>If possible and
                                 applicable expose the daemon's control
@@ -239,8 +283,8 @@
                                 boot-up speed; your daemon can be
                                 restarted on failure, without losing
                                 any bus requests, as the bus queues
-                                requests for activatable
-                                services.</para></listitem>
+                                requests for activatable services. See
+                                below for details.</para></listitem>
 
                                 <listitem><para>If your daemon
                                 provides services to other local
@@ -255,20 +299,21 @@
                                 protocols (such as syslog, DNS) a
                                 daemon implementing socket-based
                                 activation can be restarted without
-                                losing a single
-                                request.</para></listitem>
+                                losing a single request. See below for
+                                details.</para></listitem>
 
                                 <listitem><para>If applicable a daemon
                                 should notify the init system about
-                                startup completion or status
-                                updates via the sd_notify()
+                                startup completion or status updates
+                                via the
+                                <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 interface.</para></listitem>
 
                                 <listitem><para>Instead of using the
-                                syslog() call to log directly to the
+                                <function>syslog()</function> call to log directly to the
                                 system logger, a new-style daemon may
                                 choose to simply log to STDERR via
-                                fprintf(), which is then forwarded to
+                                <function>fprintf()</function>, which is then forwarded to
                                 syslog by the init system. If log
                                 priorities are necessary these can be
                                 encoded by prefixing individual log
@@ -276,30 +321,259 @@
                                 (for log priority 4 "WARNING" in the
                                 syslog priority scheme), following a
                                 similar style as the Linux kernel's
-                                printk() priority system. In fact, using
-                                this style of logging also enables the
-                                init system to optionally direct all
-                                application logging to the kernel log
-                                buffer (kmsg), as accessible via
-                                dmesg.</para></listitem>
+                                <function>printk()</function> priority system. In fact,
+                                using this style of logging also
+                                enables the init system to optionally
+                                direct all application logging to the
+                                kernel log buffer (kmsg), as
+                                accessible via
+                                <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. This
+                                kind of logging may be enabled by
+                                setting
+                                <varname>StandardError=syslog</varname>
+                                in the service unit file. For details
+                                see
+                                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and
+                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        </orderedlist>
+
+                        <para>These recommendations are similar but
+                        not identical to the <ulink
+                        url="http://developer.apple.com/mac/library/documentation/MacOSX/Conceptual/BPSystemStartup/Articles/LaunchOnDemandDaemons.html#//apple_ref/doc/uid/TP40001762-104738">Apple
+                        MacOS X Daemon Requirements</ulink>.</para>
+                </refsect2>
+
+                <refsect2>
+                        <title>Socket-Based Activation</title>
+                </refsect2>
+
+                <refsect2>
+                        <title>Bus-Based Activation</title>
+                </refsect2>
+
+                <refsect2>
+                        <title>Path-Based Activation</title>
+                </refsect2>
+
+                <refsect2>
+                        <title>Writing Systemd Unit Files</title>
+
+                        <para>When writing systemd unit files, it is
+                        recommended to consider the following
+                        suggestions:</para>
+
+                        <orderedlist>
+                                <listitem><para>If possible do not use
+                                the <varname>Type=forking</varname>
+                                setting in service files. But if you
+                                do, make sure to set the PID file path
+                                using <varname>PIDFile=</varname>. See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
+
+                                <listitem><para>If your daemon
+                                registers a D-Bus name on the bus,
+                                make sure to use
+                                <varname>Type=dbus</varname> if
+                                possible.</para></listitem>
+
+                                <listitem><para>Make sure to set a
+                                good human-readable description string
+                                with
+                                <varname>Description=</varname>.</para></listitem>
+
+                                <listitem><para>Do not disable
+                                <varname>DefaultDependencies=</varname>,
+                                unless you really know what you do and
+                                your unit is involved in early boot or
+                                late system shutdown.</para></listitem>
+
+                                <listitem><para>Normally, little if
+                                any dependencies should need to
+                                be defined explicitly. However, if you
+                                do configure explicit dependencies, only refer to
+                                unit names listed on
+                                <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                or names introduced by your own
+                                package to keep the unit file
+                                operating
+                                system-independent.</para></listitem>
+
+                                <listitem><para>Make sure to include
+                                an <literal>[Install]</literal> section including
+                                installation information for the unit
+                                file. See
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details. To activate your service
+                                on boot make sure to add a
+                                <varname>WantedBy=multi-user.target</varname>
+                                or
+                                <varname>WantedBy=graphical.target</varname> directive.</para></listitem>
 
                         </orderedlist>
                 </refsect2>
 
                 <refsect2>
-                        <title>Bus Activation</title>
-                </refsect2>
-
-                <refsect2>
-                        <title>Socket Activation</title>
-                </refsect2>
-
-                <refsect2>
-                        <title>Writing Service Files</title>
-                </refsect2>
-
-                <refsect2>
                         <title>Installing Service Files</title>
+
+                        <para>At the build installation time
+                        (e.g. <command>make install</command> during
+                        package build) packages are recommended to
+                        install their systemd unit files in the
+                        directory returned by <command>pkg-config
+                        systemd
+                        --variable=systemdsystemnunitdir</command>
+                        (for system services),
+                        resp. <command>pkg-config systemd
+                        --variable=systemdsessionunitdir</command>
+                        (for session services). This will make the
+                        services available in the system on explicit
+                        request but not activate them automatically
+                        during boot. Optionally, during package
+                        installation (e.g. <command>rpm -i</command>
+                        by the administrator) symlinks should be
+                        created in the systemd configuration
+                        directories via the
+                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        tool, to activate them automatically on
+                        boot.</para>
+
+                        <para>Packages using
+                        <citerefentry><refentrytitle>autoconf</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        are recommended to use a configure script
+                        excerpt like the following to determine the
+                        unit installation path during source
+                        configuration:</para>
+
+                        <programlisting>PKG_PROG_PKG_CONFIG
+AC_ARG_WITH([systemdsystemunitdir],
+        AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
+        [], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
+AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
+AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir"])</programlisting>
+
+                        <para>This snippet allows automatic
+                        installation of the unit files on systemd
+                        machines, and optionally allows their
+                        installation even on machines lacking
+                        systemd. (Modification of this snippet for the
+                        session unit directory is left as excercise to the
+                        reader.)</para>
+
+                        <para>Additionally, to ensure that
+                        <command>make distcheck</command> continues to
+                        work, it is recommended to add the following
+                        to the top-level <filename>Makefile.am</filename>
+                        file in
+                        <citerefentry><refentrytitle>automake</refentrytitle><manvolnum>1</manvolnum></citerefentry>-based
+                        projects:</para>
+
+                        <programlisting>DISTCHECK_CONFIGURE_FLAGS = \
+        --with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)</programlisting>
+
+                        <para>Finally, unit files should be installed in the system with an automake excerpt like the following:</para>
+
+                        <programlisting>if HAVE_SYSTEMD
+systemdsystemunit_DATA = \
+        foobar.socket \
+        foobar.service
+endif</programlisting>
+
+                        <para>In the
+                        <citerefentry><refentrytitle>rpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <filename>.spec</filename> file use a snippet like
+                        the following to enable/disable the service
+                        during installation/deinstallation. Consult
+                        the packaging guidelines of your distribution
+                        for details and the equivalent for other
+                        packaging managers:</para>
+
+                        <programlisting>%post
+/usr/bin/systemd-install enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+
+%preun
+if [ "$1" -eq 0 ]; then
+        /usr/bin/systemd-install disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+fi</programlisting>
+
+                </refsect2>
+
+                <refsect2>
+                        <title>Porting Existing Daemons</title>
+
+                        <para>Since new-style init systems such as
+                        systemd are compatible with traditional SysV
+                        init systems it is not strictly necessary to
+                        port existing daemons to the new
+                        style. However doing this offers additional
+                        functionality to the daemons as well as it
+                        simplifies integration into new-style init
+                        systems.</para>
+
+                        <para>To port an existing SysV compatible
+                        daemon the following steps are
+                        recommended:</para>
+
+                        <orderedlist>
+                                <listitem><para>If not already
+                                implemented, add an optional command
+                                line switch to the daemon to disable
+                                daemonization. This is useful not only
+                                for using the daemon in new-style init
+                                systems, but also to ease debugging.</para></listitem>
+
+                                <listitem><para>If the daemon offers
+                                interfaces to other software running
+                                on the local system via local AF_UNIX
+                                sockets, consider implementing
+                                socket-based activation (see
+                                above). Usually a minimal patch is
+                                sufficient to implement this: Extend
+                                the socket creation in the daemon code
+                                so that
+                                <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                is checked for already passed sockets
+                                first. If sockets are passed
+                                (i.e. when
+                                <function>sd_listen_fds()</function>
+                                returns a positive value), skip the
+                                socket createn step and use the passed
+                                sockets. Secondly, ensure that the
+                                file-system socket nodes for local
+                                AF_UNIX sockets used in the
+                                socket-based activation are not
+                                removed when the daemon shuts down, if
+                                sockets have been passed. Third, if
+                                the daemon normally closes all
+                                remaining open file descriptors as
+                                part of its initialization, the
+                                sockets passed from the init system
+                                must be spared. Since new-style init
+                                systems guarantee that no left-over
+                                file descriptors are passed to
+                                executed processes, it might be a good
+                                choice to simply skip the closing of
+                                all remaining open file descriptors if
+                                file descriptors are
+                                passed.</para></listitem>
+
+                                <listitem><para>Write and install a
+                                systemd unit file for the service (and
+                                the sockets if socket-based activation
+                                is used, as well as a path unit file,
+                                if the daemon processes a spool
+                                directory), see above for
+                                details.</para></listitem>
+
+                                <listitem><para>If the daemon exposes
+                                interfaces via D-Bus, write and
+                                install a D-Bus activation file for
+                                the service, see above for
+                                details.</para></listitem>
+                        </orderedlist>
+
                 </refsect2>
 
         </refsect1>
@@ -309,8 +583,11 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

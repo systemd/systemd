@@ -215,10 +215,10 @@
                         <varlistentry>
                                 <term><varname>Description=</varname></term>
                                 <listitem><para>A free-form string
-                                describing the unit. This is intended for use
-                                in UIs wanting to show
-                                descriptive information along with the
-                                unit name.</para></listitem>
+                                describing the unit. This is intended
+                                for use in UIs to show descriptive
+                                information along with the unit
+                                name.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -449,6 +449,34 @@
                                 not intended to be activated
                                 explicitly. This option defaults to
                                 <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultDependencies=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                (the default), a few default
+                                dependencies will implicitly be
+                                created for the unit. The actual
+                                dependencies created depend on the
+                                unit type. For example, for service
+                                units, these dependencies ensure that
+                                the service is started only after
+                                basic system initialization is
+                                complete and is properly terminated on
+                                system shutdown. See the respective
+                                man pages for details. Generally, only
+                                services involved with early boot or
+                                late shutdown should set this option
+                                to <option>false</option>. It is
+                                highly recommended to leave this
+                                option enabled for the majority of
+                                common units. If set to
+                                <option>false</option> this option
+                                does not disable all implicit
+                                dependencies, just non-essential
+                                ones.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

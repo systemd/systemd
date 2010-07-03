@@ -87,6 +87,17 @@
                 <para>If an path unit is beneath another mount
                 point in the file system hierarchy, a dependency
                 between both units is created automatically.</para>
+
+                <para>Unless <varname>DefaultDependencies=</varname>
+                is set to <option>false</option>, path units will
+                implicitly have dependencies of type
+                <varname>Conflicts=</varname> and
+                <varname>Before=</varname> on
+                <filename>shutdown.target</filename>. These ensure
+                that path units are terminated cleanly prior to system
+                shutdown. Only path units involved with early boot or
+                late system shutdown should disable this
+                option.</para>
         </refsect1>
 
         <refsect1>

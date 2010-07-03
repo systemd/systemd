@@ -64,27 +64,44 @@
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for the common options of all unit configuration
                 files. The common configuration items are configured
-                in the generic [Unit] and [Install] sections. The
-                service specific configuration options are configured
-                in the [Service] section.</para>
+                in the generic <literal>[Unit]</literal> and
+                <literal>[Install]</literal> sections. The service
+                specific configuration options are configured in the
+                <literal>[Service]</literal> section.</para>
 
                 <para>Additional options are listed in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 which define the execution environment the commands
                 are executed in.</para>
+
+                <para>Unless <varname>DefaultDependencies=</varname>
+                is set to <option>false</option>, service units will
+                implicitly have dependencies of type
+                <varname>Requires=</varname> and
+                <varname>After=</varname> on
+                <filename>basic.target</filename> as well as
+                dependencies of type <varname>Conflicts=</varname> and
+                <varname>Before=</varname> on
+                <filename>shutdown.target</filename>. These ensure
+                that normal service units pull in basic system
+                initialization, and are terminated cleanly prior to
+                system shutdown. Only services involved with early
+                boot or late system shutdown should disable this
+                option.</para>
         </refsect1>
 
         <refsect1>
                 <title>Options</title>
 
-                <para>Service files must include a [Service] section,
-                which carries information about the service and the
-                process it supervises. A number of options that may be
-                used in this section are shared with other unit
-                types. These options are documented in
+                <para>Service files must include a
+                <literal>[Service]</literal> section, which carries
+                information about the service and the process it
+                supervises. A number of options that may be used in
+                this section are shared with other unit types. These
+                options are documented in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
-                options specific to the [Service] section of service
-                units are the following:</para>
+                options specific to the <literal>[Service]</literal>
+                section of service units are the following:</para>
 
                 <variablelist>
                         <varlistentry>
@@ -143,14 +160,18 @@
 
                                 <para>Behaviour of
                                 <option>dbus</option> is similar to
-                                <option>simple</option>, however it
-                                is expected that the daemon acquires a
+                                <option>simple</option>, however it is
+                                expected that the daemon acquires a
                                 name on the D-Bus bus, as configured
                                 by
                                 <varname>BusName=</varname>. systemd
                                 will proceed starting follow-up units
                                 after the D-Bus bus name has been
-                                acquired.</para>
+                                acquired. Service units with this
+                                option configured implicitly have
+                                dependencies on the
+                                <filename>dbus.target</filename>
+                                unit.</para>
 
                                 <para>Behaviour of
                                 <option>notify</option> is similar to
@@ -163,10 +184,13 @@
                                 starting follow-up units after this
                                 notification message has been sent. If
                                 this option is used
-                                <option>NotifyAccess=</option> (see
+                                <varname>NotifyAccess=</varname> (see
                                 below) must be set to open access to
                                 the notification socket provided by
-                                systemd.</para>
+                                systemd. If
+                                <varname>NotifyAccess=</varname> is not
+                                set, it will be implicitly set to
+                                <option>main</option>.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -220,11 +244,12 @@
                                 services. This option may not be
                                 specified more than once. Optionally,
                                 if the absolute file name is prefixed
-                                with @, the second token will be
-                                passed as argv[0] to the executed
-                                process, followed by the further
-                                arguments specified. Unless
-                                <option>Type=forking</option> is set,
+                                with <literal>@</literal>, the second
+                                token will be passed as
+                                <literal>argv[0]</literal> to the
+                                executed process, followed by the
+                                further arguments specified. Unless
+                                <varname>Type=forking</varname> is set,
                                 the process started via this command
                                 line will be considered the main
                                 process of the
@@ -312,7 +337,7 @@
                                 forcibly via SIGTERM, and after
                                 another delay of this time with
                                 SIGKILL. (See
-                                <option>KillMode=</option>
+                                <varname>KillMode=</varname>
                                 below.) Takes a unit-less value in seconds, or a
                                 time span value such as "5min
                                 20s". Pass 0 to disable the timeout
@@ -450,7 +475,7 @@
                                 <para>Processes will first be
                                 terminated via SIGTERM. If then after
                                 a delay (configured via the
-                                <option>TimeoutSec=</option> option)
+                                <varname>TimeoutSec=</varname> option)
                                 processes still remain, the
                                 termination request is repeated with
                                 the SIGKILL signal. See
