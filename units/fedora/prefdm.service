@@ -7,13 +7,11 @@
 
 [Unit]
 Description=Display Manager
-Before=graphical.target
-Requires=basic.target
-After=basic.target syslog.target messagebus.service haldaemon.service
-Conflicts=shutdown.target
+After=syslog.target dbus.target haldaemon.service
 
 [Service]
 ExecStart=/etc/X11/prefdm -nodaemon
 
 [Install]
 Alias=display-manager.service
+WantedBy=graphical.target

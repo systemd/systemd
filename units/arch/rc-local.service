@@ -7,10 +7,6 @@
 
 [Unit]
 Description=/etc/rc.local Compatibility
-Requires=basic.target
-After=basic.target
-Conflicts=shutdown.target
-Before=getty@tty1.service
 
 [Service]
 ExecStart=/etc/rc.local
@@ -18,3 +14,6 @@ ExectStop=/etc/rc.local.shutdown
 TimeoutSec=0
 StandardInput=tty
 ValidNoProcess=yes
+
+[Install]
+WantedBy=multi-user.target

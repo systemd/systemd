@@ -7,10 +7,6 @@
 
 [Unit]
 Description=/etc/rc.local Compatibility
-Requires=basic.target
-After=basic.target
-Conflicts=shutdown.target
-Before=getty@tty1.service
 
 # The rcN.d symlink uses the name "local" while the script itself is
 # called "rc.local", hence carry both names here.
@@ -22,3 +18,6 @@ TimeoutSec=0
 StandardInput=tty
 ValidNoProcess=yes
 SysVStartPriority=99
+
+[Install]
+WantedBy=multi-user.target

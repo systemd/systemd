@@ -14,8 +14,12 @@ m4_dnl
 [Unit]
 Description=Getty on %I
 Before=getty.target
-After=basic.target
-Conflicts=shutdown.target
+m4_ifdef(`TARGET_FEDORA',
+After=rc-local.service
+)m4_dnl
+m4_ifdef(`TARGET_ARCH',
+After=rc-local.service
+)m4_dnl
 
 [Service]
 Environment=TERM=linux

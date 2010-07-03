@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Emergency Shell
+DefaultDependencies=no
 
 [Service]
 ExecStart=/bin/sh

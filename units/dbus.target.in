@@ -8,9 +8,10 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd Logging Daemon
-DefaultDependencies=no
-After=@SPECIAL_SYSLOG_SERVICE@
+Description=D-Bus
 
-[Service]
-ExecStart=@rootlibexecdir@/systemd-logger
+# As soon as D-Bus has native files this explicit dependency should be
+# dropped, and replaced by an alias symlink in the .wants/ directory,
+# to either the .service or .socket unit of the D-Bus service.
+Requires=@SPECIAL_DBUS_SERVICE@
+After=@SPECIAL_DBUS_SERVICE@

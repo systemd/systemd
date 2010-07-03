@@ -7,10 +7,11 @@
 
 [Unit]
 Description=Display Manager
-Before=graphical.target
-Requires=basic.target
-After=basic.target syslog.target dbus.service hald.service
-Conflicts=shutdown.target
+After=syslog.target dbus.target hald.service
 
 [Service]
 ExecStart=/etc/init.d/xdm start
+
+[Install]
+Alias=display-manager.service
+WantedBy=graphical.target

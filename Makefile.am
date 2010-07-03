@@ -146,7 +146,8 @@ nodist_systemunit_DATA = \
 	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
-	units/syslog.target
+	units/syslog.target \
+	units/dbus.target
 
 dist_sessionunit_DATA = \
 	units/session/default.target
@@ -164,6 +165,7 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
+	units/dbus.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
 
@@ -738,8 +740,8 @@ if TARGET_FEDORA
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
-		rm -f display-manager.service && \
-		$(LN_S) ../display-manager.service display-manager.service )
+		rm -f prefdm.service && \
+		$(LN_S) ../prefdm.service prefdm.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f rc-local.service && \
 		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
@@ -754,8 +756,8 @@ if TARGET_GENTOO
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/xdm.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
-		rm -f display-manager.service && \
-		$(LN_S) ../display-manager.service display-manager.service )
+		rm -f prefdm.service && \
+		$(LN_S) ../prefdm.service prefdm.service )
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \

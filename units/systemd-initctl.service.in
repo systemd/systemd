@@ -9,6 +9,7 @@
 
 [Unit]
 Description=systemd /dev/initctl Compatibility Daemon
+DefaultDependencies=no
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-initctl
