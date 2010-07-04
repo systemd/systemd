@@ -30,6 +30,7 @@
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Restart\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"PIDFile\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"NotifyAccess\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
@@ -39,6 +40,8 @@
         "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"MainPID\" type=\"u\" access=\"read\"/>\n"   \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"SysVStartPriority\" type=\"i\" access=\"read\"/>\n" \
+        "  <property name=\"SysVRunLevels\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SysVPath\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
@@ -57,27 +60,31 @@ const char bus_service_interface[] = BUS_SERVICE_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_notify_access, notify_access, NotifyAccess);
 
 DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connection, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Service", "Type",                   bus_service_append_type,    "s", &u->service.type },
-                { "org.freedesktop.systemd1.Service", "Restart",                bus_service_append_restart, "s", &u->service.restart },
-                { "org.freedesktop.systemd1.Service", "PIDFile",                bus_property_append_string, "s", u->service.pid_file },
-                { "org.freedesktop.systemd1.Service", "RestartUSec",            bus_property_append_usec,   "t", &u->service.restart_usec },
-                { "org.freedesktop.systemd1.Service", "TimeoutUSec",            bus_property_append_usec,   "t", &u->service.timeout_usec },
+                { "org.freedesktop.systemd1.Service", "Type",                   bus_service_append_type,    "s", &u->service.type                      },
+                { "org.freedesktop.systemd1.Service", "Restart",                bus_service_append_restart, "s", &u->service.restart                   },
+                { "org.freedesktop.systemd1.Service", "PIDFile",                bus_property_append_string, "s", u->service.pid_file                   },
+                { "org.freedesktop.systemd1.Service", "NotifyAccess",           bus_service_append_notify_access, "s", &u->service.notify_access       },
+                { "org.freedesktop.systemd1.Service", "RestartUSec",            bus_property_append_usec,   "t", &u->service.restart_usec              },
+                { "org.freedesktop.systemd1.Service", "TimeoutUSec",            bus_property_append_usec,   "t", &u->service.timeout_usec              },
                 /* ExecCommand */
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Service", u->service.exec_context),
-                { "org.freedesktop.systemd1.Service", "PermissionsStartOnly",   bus_property_append_bool,   "b", &u->service.permissions_start_only },
+                { "org.freedesktop.systemd1.Service", "PermissionsStartOnly",   bus_property_append_bool,   "b", &u->service.permissions_start_only    },
                 { "org.freedesktop.systemd1.Service", "RootDirectoryStartOnly", bus_property_append_bool,   "b", &u->service.root_directory_start_only },
-                { "org.freedesktop.systemd1.Service", "ValidNoProcess",         bus_property_append_bool,   "b", &u->service.valid_no_process },
-                { "org.freedesktop.systemd1.Service", "KillMode",               bus_unit_append_kill_mode,  "s", &u->service.kill_mode },
+                { "org.freedesktop.systemd1.Service", "ValidNoProcess",         bus_property_append_bool,   "b", &u->service.valid_no_process          },
+                { "org.freedesktop.systemd1.Service", "KillMode",               bus_unit_append_kill_mode,  "s", &u->service.kill_mode                 },
                 /* MainExecStatus */
-                { "org.freedesktop.systemd1.Service", "MainPID",                bus_property_append_pid,    "u", &u->service.main_pid },
-                { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid },
-                { "org.freedesktop.systemd1.Service", "SysVPath",               bus_property_append_string, "s", u->service.sysv_path },
-                { "org.freedesktop.systemd1.Service", "BusName",                bus_property_append_string, "s", u->service.bus_name },
-                { "org.freedesktop.systemd1.Service", "StatusText",             bus_property_append_string, "s", u->service.status_text },
+                { "org.freedesktop.systemd1.Service", "MainPID",                bus_property_append_pid,    "u", &u->service.main_pid                  },
+                { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid               },
+                { "org.freedesktop.systemd1.Service", "SysVPath",               bus_property_append_string, "s", u->service.sysv_path                  },
+                { "org.freedesktop.systemd1.Service", "BusName",                bus_property_append_string, "s", u->service.bus_name                   },
+                { "org.freedesktop.systemd1.Service", "StatusText",             bus_property_append_string, "s", u->service.status_text                },
+                { "org.freedesktop.systemd1.Service", "SysVRunLevels",          bus_property_append_string, "s", u->service.sysv_runlevels             },
+                { "org.freedesktop.systemd1.Service", "SysVStartPriority",      bus_property_append_int,    "i", &u->service.sysv_start_priority       },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
