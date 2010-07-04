@@ -192,7 +192,7 @@ struct Manager {
 
         bool utmp_reboot_written:1;
 
-        bool confirm_spawn:1;
+        bool confirm_spawn;
 };
 
 int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **m);

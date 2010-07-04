@@ -109,6 +109,11 @@
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -189,14 +194,19 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         Manager *m = data;
 
         const BusProperty properties[] = {
-                { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s", PACKAGE_STRING     },
-                { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s", &m->running_as     },
-                { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t", &m->startup_timestamp.realtime },
-                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s", NULL               },
-                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
-                { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u", NULL               },
-                { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u", NULL               },
-                { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment    },
+                { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s",  PACKAGE_STRING     },
+                { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s",  &m->running_as     },
+                { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
+                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
+                { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
+                { "org.freedesktop.systemd1.Manager", "UnitPath",      bus_property_append_strv,      "as", m->lookup_paths.unit_path },
+                { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
+                { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
+                { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
