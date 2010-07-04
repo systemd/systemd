@@ -282,7 +282,8 @@ void unit_add_to_dbus_queue(Unit *u) {
         if (u->meta.load_state == UNIT_STUB || u->meta.in_dbus_queue)
                 return;
 
-        if (set_isempty(u->meta.manager->subscribed)) {
+        /* Shortcut things if nobody cares */
+        if (!bus_has_subscriber(u->meta.manager)) {
                 u->meta.sent_dbus_new_signal = true;
                 return;
         }

@@ -452,14 +452,25 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Subscribe")) {
                 char *client;
+                Set *s;
+
+                if (!(s = BUS_CONNECTION_SUBSCRIBED(m, connection))) {
+                        if (!(s = set_new(string_hash_func, string_compare_func)))
+                                goto oom;
+
+                        if (!(dbus_connection_set_data(connection, m->subscribed_data_slot, s, NULL))) {
+                                set_free(s);
+                                goto oom;
+                        }
+                }
 
                 if (!(client = strdup(dbus_message_get_sender(message))))
                         goto oom;
 
-                r = set_put(m->subscribed, client);
-
-                if (r < 0)
+                if ((r = set_put(s, client)) < 0) {
+                        free(client);
                         return bus_send_error_reply(m, connection, message, NULL, r);
+                }
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -467,7 +478,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Unsubscribe")) {
                 char *client;
 
-                if (!(client = set_remove(m->subscribed, (char*) dbus_message_get_sender(message))))
+                if (!(client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) dbus_message_get_sender(message))))
                         return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
 
                 free(client);
@@ -702,6 +713,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
                         return bus_send_error_reply(m, connection, message, NULL, r);
 
+                if (!(j->bus_client = strdup(dbus_message_get_sender(message))))
+                        goto oom;
+
+                j->bus = connection;
+
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
@@ -713,6 +729,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_OBJECT_PATH, &path,
                                     DBUS_TYPE_INVALID))
                         goto oom;
+
         }
 
         free(path);

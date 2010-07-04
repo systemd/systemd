@@ -102,6 +102,10 @@ struct Job {
         JobType type;
         JobState state;
 
+        /* Note that this bus object is not ref counted here. */
+        DBusConnection *bus;
+        char *bus_client;
+
         bool installed:1;
         bool in_run_queue:1;
         bool matters_to_anchor:1;

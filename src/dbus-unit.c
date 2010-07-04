@@ -376,7 +376,7 @@ void bus_unit_send_change_signal(Unit *u) {
         LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
         u->meta.in_dbus_queue = false;
 
-        if (set_isempty(u->meta.manager->subscribed)) {
+        if (!bus_has_subscriber(u->meta.manager)) {
                 u->meta.sent_dbus_new_signal = true;
                 return;
         }
@@ -427,7 +427,7 @@ void bus_unit_send_removed_signal(Unit *u) {
 
         assert(u);
 
-        if (set_isempty(u->meta.manager->subscribed))
+        if (!bus_has_subscriber(u->meta.manager))
                 return;
 
         if (!u->meta.sent_dbus_new_signal)

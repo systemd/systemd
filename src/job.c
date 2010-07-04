@@ -76,6 +76,7 @@ void job_free(Job *j) {
         if (j->in_dbus_queue)
                 LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
 
+        free(j->bus_client);
         free(j);
 }
 
@@ -544,10 +545,9 @@ void job_add_to_dbus_queue(Job *j) {
         if (j->in_dbus_queue)
                 return;
 
-        if (set_isempty(j->manager->subscribed)) {
-                j->sent_dbus_new_signal = true;
-                return;
-        }
+        /* We don't check if anybody is subscribed here, since this
+         * job might just have been created and not yet assigned to a
+         * connection/client. */
 
         LIST_PREPEND(Job, dbus_queue, j->manager->dbus_job_queue, j);
         j->in_dbus_queue = true;

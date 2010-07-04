@@ -156,7 +156,6 @@ struct Manager {
         DBusServer *private_bus;
         Set *bus_connections, *bus_connections_for_dispatch;
 
-        Set *subscribed;
         DBusMessage *queued_message; /* This is used during reloading:
                                       * before the reload we queue the
                                       * reply message here, and
@@ -164,6 +163,7 @@ struct Manager {
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
         int32_t name_data_slot;
+        int32_t subscribed_data_slot;
 
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;

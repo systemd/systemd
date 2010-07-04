@@ -146,6 +146,32 @@ const DBusObjectPathVTable bus_job_vtable = {
         .message_function = bus_job_message_handler
 };
 
+static int job_send_message(Job *j, DBusMessage *m) {
+        int r;
+
+        assert(j);
+        assert(m);
+
+        if (bus_has_subscriber(j->manager)) {
+                if ((r = bus_broadcast(j->manager, m)) < 0)
+                        return r;
+
+        } else  if (j->bus_client) {
+                /* If nobody is subscribed, we just send the message
+                 * to the client which created the job */
+
+                assert(j->bus);
+
+                if (!dbus_message_set_destination(m, j->bus_client))
+                        return -ENOMEM;
+
+                if (!dbus_connection_send(j->bus, m, NULL))
+                        return -ENOMEM;
+        }
+
+        return 0;
+}
+
 void bus_job_send_change_signal(Job *j) {
         char *p = NULL;
         DBusMessage *m = NULL;
@@ -156,7 +182,7 @@ void bus_job_send_change_signal(Job *j) {
         LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
         j->in_dbus_queue = false;
 
-        if (set_isempty(j->manager->subscribed)) {
+        if (!bus_has_subscriber(j->manager) && !j->bus_client) {
                 j->sent_dbus_new_signal = true;
                 return;
         }
@@ -182,7 +208,7 @@ void bus_job_send_change_signal(Job *j) {
                         goto oom;
         }
 
-        if (bus_broadcast(j->manager, m) < 0)
+        if (job_send_message(j, m) < 0)
                 goto oom;
 
         free(p);
@@ -208,7 +234,7 @@ void bus_job_send_removed_signal(Job *j, bool success) {
 
         assert(j);
 
-        if (set_isempty(j->manager->subscribed))
+        if (!bus_has_subscriber(j->manager) && !j->bus_client)
                 return;
 
         if (!j->sent_dbus_new_signal)
@@ -227,7 +253,7 @@ void bus_job_send_removed_signal(Job *j, bool success) {
                                       DBUS_TYPE_INVALID))
                 goto oom;
 
-        if (bus_broadcast(j->manager, m) < 0)
+        if (job_send_message(j, m) < 0)
                 goto oom;
 
         free(p);

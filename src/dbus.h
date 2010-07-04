@@ -105,6 +105,12 @@ int bus_property_append_ul(Manager *m, DBusMessageIter *i, const char *property,
 
 int bus_parse_strv(DBusMessage *m, char ***_l);
 
+bool bus_has_subscriber(Manager *m);
+bool bus_connection_has_subscriber(Manager *m, DBusConnection *c);
+
+#define BUS_CONNECTION_SUBSCRIBED(m, c) dbus_connection_get_data((c), (m)->subscribed_data_slot)
+#define BUS_PENDING_CALL_NAME(m, p) dbus_pending_call_get_data((p), (m)->name_data_slot)
+
 extern const char * const bus_interface_table[];
 
 #endif

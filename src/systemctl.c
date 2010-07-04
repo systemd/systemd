@@ -583,13 +583,10 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
 
 static int enable_wait_for_jobs(DBusConnection *bus) {
         DBusError error;
-        DBusMessage *m = NULL, *reply = NULL;
-        int r;
 
         assert(bus);
 
         dbus_error_init(&error);
-
         dbus_bus_add_match(bus,
                            "type='signal',"
                            "sender='org.freedesktop.systemd1',"
@@ -600,40 +597,12 @@ static int enable_wait_for_jobs(DBusConnection *bus) {
 
         if (dbus_error_is_set(&error)) {
                 log_error("Failed to add match: %s", error.message);
-                r = -EIO;
-                goto finish;
+                dbus_error_free(&error);
+                return -EIO;
         }
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "Subscribe"))) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
-                r = -EIO;
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
         /* This is slightly dirty, since we don't undo the match registrations. */
-
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
-        return r;
+        return 0;
 }
 
 static int wait_for_jobs(DBusConnection *bus, Set *s) {

@@ -355,8 +355,8 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse NameOwnerChanged message: %s", error.message);
                 else  {
-                        if (set_remove(m->subscribed, (char*) name))
-                                log_debug("Subscription client vanished: %s (left: %u)", name, set_size(m->subscribed));
+                        if (set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) name))
+                                log_debug("Subscription client vanished: %s (left: %u)", name, set_size(BUS_CONNECTION_SUBSCRIBED(m, connection)));
 
                         if (old_owner[0] == 0)
                                 old_owner = NULL;
@@ -882,13 +882,6 @@ static int bus_init_api(Manager *m) {
                   strnull(dbus_bus_get_unique_name(m->api_bus)));
         dbus_free(id);
 
-        if (!m->subscribed)
-                if (!(m->subscribed = set_new(string_hash_func, string_compare_func))) {
-                        log_error("Not enough memory");
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
         return 0;
 
 fail:
@@ -959,6 +952,12 @@ int bus_init(Manager *m) {
                         return -ENOMEM;
                 }
 
+        if (m->subscribed_data_slot < 0)
+                if (!dbus_pending_call_allocate_data_slot(&m->subscribed_data_slot)) {
+                        log_error("Not enough memory");
+                        return -ENOMEM;
+                }
+
         if ((r = bus_init_system(m)) < 0 ||
             (r = bus_init_api(m)) < 0 ||
             (r = bus_init_private(m)) < 0)
@@ -968,8 +967,29 @@ int bus_init(Manager *m) {
 }
 
 static void shutdown_connection(Manager *m, DBusConnection *c) {
+        Set *s;
+        Job *j;
+        Iterator i;
+
+        HASHMAP_FOREACH(j, m->jobs, i)
+                if (j->bus == c) {
+                        free(j->bus_client);
+                        j->bus_client = NULL;
+
+                        j->bus = NULL;
+                }
+
         set_remove(m->bus_connections, c);
         set_remove(m->bus_connections_for_dispatch, c);
+
+        if ((s = BUS_CONNECTION_SUBSCRIBED(m, c))) {
+                char *t;
+
+                while ((t = set_steal_first(s)))
+                        free(t);
+
+                set_free(s);
+        }
 
         dbus_connection_set_dispatch_status_function(c, NULL, NULL, NULL);
         dbus_connection_flush(c);
@@ -988,15 +1008,6 @@ static void bus_done_api(Manager *m) {
                 m->api_bus = NULL;
         }
 
-        if (m->subscribed) {
-                char *c;
-
-                while ((c = set_steal_first(m->subscribed)))
-                        free(c);
-
-                set_free(m->subscribed);
-                m->subscribed = NULL;
-        }
 
        if (m->queued_message) {
                dbus_message_unref(m->queued_message);
@@ -1043,6 +1054,9 @@ void bus_done(Manager *m) {
 
         if (m->name_data_slot >= 0)
                dbus_pending_call_free_data_slot(&m->name_data_slot);
+
+        if (m->subscribed_data_slot >= 0)
+                dbus_pending_call_free_data_slot(&m->subscribed_data_slot);
 }
 
 static void query_pid_pending_cb(DBusPendingCall *pending, void *userdata) {
@@ -1053,7 +1067,7 @@ static void query_pid_pending_cb(DBusPendingCall *pending, void *userdata) {
 
         dbus_error_init(&error);
 
-        assert_se(name = dbus_pending_call_get_data(pending, m->name_data_slot));
+        assert_se(name = BUS_PENDING_CALL_NAME(m, pending));
         assert_se(reply = dbus_pending_call_steal_reply(pending));
 
         switch (dbus_message_get_type(reply)) {
@@ -1537,4 +1551,28 @@ int bus_parse_strv(DBusMessage *m, char ***_l) {
                 *_l = l;
 
         return 0;
+}
+
+bool bus_has_subscriber(Manager *m) {
+        Iterator i;
+        DBusConnection *c;
+
+        assert(m);
+
+        SET_FOREACH(c, m->bus_connections_for_dispatch, i)
+                if (bus_connection_has_subscriber(m, c))
+                        return true;
+
+        SET_FOREACH(c, m->bus_connections, i)
+                if (bus_connection_has_subscriber(m, c))
+                        return true;
+
+        return false;
+}
+
+bool bus_connection_has_subscriber(Manager *m, DBusConnection *c) {
+        assert(m);
+        assert(c);
+
+        return !set_isempty(BUS_CONNECTION_SUBSCRIBED(m, c));
 }

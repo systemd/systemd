@@ -198,7 +198,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
 
         m->running_as = running_as;
         m->confirm_spawn = confirm_spawn;
-        m->name_data_slot = -1;
+        m->name_data_slot = m->subscribed_data_slot = -1;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
 
