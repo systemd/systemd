@@ -95,7 +95,7 @@ struct ExecContext {
 
         cpu_set_t *cpuset;
         unsigned cpuset_ncpus;
-        unsigned long timer_slack_ns;
+        unsigned long timer_slack_nsec;
 
         ExecInput std_input;
         ExecOutput std_output;
@@ -135,7 +135,7 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
-        bool timer_slack_ns_set:1;
+        bool timer_slack_nsec_set:1;
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn

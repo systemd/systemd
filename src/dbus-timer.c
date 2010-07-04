@@ -29,7 +29,7 @@
         " <interface name=\"org.freedesktop.systemd1.Timer\">\n"        \
         "  <property name=\"Unit\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Timers\" type=\"a(stt)\" access=\"read\"/>\n" \
-        "  <property name=\"NextElapse\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"NextElapseUSec\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -57,13 +57,30 @@ static int bus_timer_append_timers(Manager *m, DBusMessageIter *i, const char *p
                 return -ENOMEM;
 
         LIST_FOREACH(value, k, p->values) {
-                const char *t = timer_base_to_string(k->base);
+                char *buf;
+                const char *t;
+                size_t l;
+                bool b;
 
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &t) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->value) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->next_elapse) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
+                t = timer_base_to_string(k->base);
+                assert(endswith(t, "Sec"));
+
+                /* s/Sec/USec/ */
+                l = strlen(t);
+                if (!(buf = new(char, l+2)))
+                        return -ENOMEM;
+
+                memcpy(buf, t, l-3);
+                memcpy(buf+l-3, "USec", 5);
+
+                b = dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &buf) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->value) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->next_elapse) &&
+                        dbus_message_iter_close_container(&sub, &sub2);
+
+                free(buf);
+                if (!b)
                         return -ENOMEM;
         }
 
@@ -76,9 +93,9 @@ static int bus_timer_append_timers(Manager *m, DBusMessageIter *i, const char *p
 DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Timer", "Unit",       bus_property_append_string, "s",      u->timer.unit->meta.id },
-                { "org.freedesktop.systemd1.Timer", "Timers",     bus_timer_append_timers,    "a(stt)", u                      },
-                { "org.freedesktop.systemd1.Timer", "NextElapse", bus_property_append_usec,   "t",      &u->timer.next_elapse  },
+                { "org.freedesktop.systemd1.Timer", "Unit",           bus_property_append_string, "s",      u->timer.unit->meta.id },
+                { "org.freedesktop.systemd1.Timer", "Timers",         bus_timer_append_timers,    "a(stt)", u                      },
+                { "org.freedesktop.systemd1.Timer", "NextElapseUSec", bus_property_append_usec,   "t",      &u->timer.next_elapse  },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

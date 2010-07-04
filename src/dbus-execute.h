@@ -115,7 +115,7 @@
         { interface, "CPUSchedulingPolicy",           bus_execute_append_cpu_sched_policy, "i", &(context)                         }, \
         { interface, "CPUSchedulingPriority",         bus_execute_append_cpu_sched_priority, "i", &(context)                       }, \
         { interface, "CPUAffinity",                   bus_execute_append_affinity,"ay",    &(context)                              }, \
-        { interface, "TimerSlackNS",                  bus_execute_append_timer_slack_ns, "t", &(context)                           }, \
+        { interface, "TimerSlackNSec",                bus_execute_append_timer_slack_nsec, "t", &(context)                           }, \
         { interface, "CPUSchedulingResetOnFork",      bus_property_append_bool,   "b",     &(context).cpu_sched_reset_on_fork      }, \
         { interface, "NonBlocking",                   bus_property_append_bool,   "b",     &(context).non_blocking                 }, \
         { interface, "StandardInput",                 bus_execute_append_input,   "s",     &(context).std_input                    }, \
@@ -158,7 +158,7 @@ int bus_execute_append_ioprio(Manager *m, DBusMessageIter *i, const char *proper
 int bus_execute_append_cpu_sched_policy(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_cpu_sched_priority(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_affinity(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_timer_slack_ns(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_timer_slack_nsec(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_rlimits(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_command(Manager *m, DBusMessageIter *u, const char *property, void *data);

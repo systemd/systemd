@@ -440,11 +440,11 @@ static const char* const timer_state_table[_TIMER_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState);
 
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
-        [TIMER_ACTIVE] = "OnActive",
-        [TIMER_BOOT] = "OnBoot",
-        [TIMER_STARTUP] = "OnStartup",
-        [TIMER_UNIT_ACTIVE] = "OnUnitActive",
-        [TIMER_UNIT_INACTIVE] = "OnUnitInactive"
+        [TIMER_ACTIVE] = "OnActiveSec",
+        [TIMER_BOOT] = "OnBootSec",
+        [TIMER_STARTUP] = "OnStartupSec",
+        [TIMER_UNIT_ACTIVE] = "OnUnitActiveSec",
+        [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);

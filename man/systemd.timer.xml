@@ -99,27 +99,27 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><varname>OnActive=</varname></term>
-                                <term><varname>OnBootup=</varname></term>
-                                <term><varname>OnStartup=</varname></term>
-                                <term><varname>OnUnitActive=</varname></term>
-                                <term><varname>OnUnitInactive=</varname></term>
+                                <term><varname>OnActiveSec=</varname></term>
+                                <term><varname>OnBootSec=</varname></term>
+                                <term><varname>OnStartupSec=</varname></term>
+                                <term><varname>OnUnitActiveSec=</varname></term>
+                                <term><varname>OnUnitInactiveSec=</varname></term>
 
                                 <listitem><para>Defines timers
                                 relative to different starting points:
-                                <varname>OnActive=</varname> defines a
+                                <varname>OnActiveSec=</varname> defines a
                                 timer relative to the moment the timer
                                 itself is
-                                activated. <varname>OnBootup=</varname>
+                                activated. <varname>OnBootSec=</varname>
                                 defines a timer relative to when the
                                 machine was booted
-                                up. <varname>OnStartup=</varname>
+                                up. <varname>OnStartupSec=</varname>
                                 defines a timer relative to when
                                 systemd was
-                                started. <varname>OnUnitActive=</varname>
+                                started. <varname>OnUnitActiveSec=</varname>
                                 defines a timer relative to when the
                                 unit the timer is activating was last
-                                activated. <varname>OnUnitInactive=</varname>
+                                activated. <varname>OnUnitInactiveSec=</varname>
                                 defines a timer relative to when the
                                 unit the timer is activating was last
                                 deactivated.</para>
@@ -127,8 +127,8 @@
                                 <para>Multiple directives may be
                                 combined of the same and of different
                                 types. For example, by combining
-                                <varname>OnBoot=</varname> and
-                                <varname>OnUnitActive=</varname> it is
+                                <varname>OnBootSec=</varname> and
+                                <varname>OnUnitActiveSec=</varname> it is
                                 possible to define a timer that
                                 elapses in regular intervals and
                                 activates a specific service each
@@ -136,17 +136,17 @@
 
                                 <para>The arguments to the directives
                                 are time spans configured in
-                                seconds. Example: "OnBoot=50" means
+                                seconds. Example: "OnBootSec=50" means
                                 50s after boot-up. The argument may
                                 also include time units. Example:
-                                "OnBoot=5h 30min" means 5 hours and 30
+                                "OnBootSec=5h 30min" means 5 hours and 30
                                 minutes after boot-up. For details
                                 about the syntax of time spans see
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                                 <para>If a timer configured with
-                                <varname>OnBootup=</varname> or
-                                <varname>OnStartup=</varname> is
+                                <varname>OnBootSec=</varname> or
+                                <varname>OnStartupSec=</varname> is
                                 already in the past when the timer
                                 unit is activated, it will immediately
                                 elapse and the configured unit is

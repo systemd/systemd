@@ -41,9 +41,11 @@
 
 * get rid of Subscribe() in systemctl
 
-* Unify NS, USec, NSec, Sec suffixes in properties, use format_timespan
+* use format_timespan where applicable
 
 * Turn around negative options
+
+* Add missing man pages: update systemd.1, finish daemon.7
 
 External:
 

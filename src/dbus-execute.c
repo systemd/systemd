@@ -171,7 +171,7 @@ int bus_execute_append_affinity(Manager *m, DBusMessageIter *i, const char *prop
         return 0;
 }
 
-int bus_execute_append_timer_slack_ns(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_execute_append_timer_slack_nsec(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         uint64_t u;
 
@@ -180,8 +180,8 @@ int bus_execute_append_timer_slack_ns(Manager *m, DBusMessageIter *i, const char
         assert(property);
         assert(c);
 
-        if (c->timer_slack_ns_set)
-                u = (uint64_t) c->timer_slack_ns_set;
+        if (c->timer_slack_nsec_set)
+                u = (uint64_t) c->timer_slack_nsec;
         else
                 u = (uint64_t) prctl(PR_GET_TIMERSLACK);
 

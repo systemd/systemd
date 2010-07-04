@@ -857,7 +857,7 @@ static int config_parse_bounding_set(
         return 0;
 }
 
-static int config_parse_timer_slack_ns(
+static int config_parse_timer_slack_nsec(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -880,7 +880,7 @@ static int config_parse_timer_slack_ns(
                 return r;
         }
 
-        c->timer_slack_ns = u;
+        c->timer_slack_nsec = u;
 
         return 0;
 }
@@ -1373,7 +1373,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_capabilities,     "CAPABILITIES" },
                 { config_parse_secure_bits,      "SECUREBITS" },
                 { config_parse_bounding_set,     "BOUNDINGSET" },
-                { config_parse_timer_slack_ns,   "TIMERSLACK" },
+                { config_parse_timer_slack_nsec, "TIMERSLACK" },
                 { config_parse_limit,            "LIMIT" },
                 { config_parse_cgroup,           "CGROUP [...]" },
                 { config_parse_deps,             "UNIT [...]" },
@@ -1468,7 +1468,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Capabilities",           config_parse_capabilities,    &(context),                                      section   }, \
                 { "SecureBits",             config_parse_secure_bits,     &(context),                                      section   }, \
                 { "CapabilityBoundingSetDrop", config_parse_bounding_set, &(context),                                      section   }, \
-                { "TimerSlackNS",           config_parse_timer_slack_ns,  &(context),                                      section   }, \
+                { "TimerSlackNSec",         config_parse_timer_slack_nsec,&(context),                                      section   }, \
                 { "LimitCPU",               config_parse_limit,           &(context).rlimit[RLIMIT_CPU],                   section   }, \
                 { "LimitFSIZE",             config_parse_limit,           &(context).rlimit[RLIMIT_FSIZE],                 section   }, \
                 { "LimitDATA",              config_parse_limit,           &(context).rlimit[RLIMIT_DATA],                  section   }, \
@@ -1574,11 +1574,11 @@ static int load_from_path(Unit *u, const char *path) {
                 { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap"    },
                 { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap"    },
 
-                { "OnActive",               config_parse_timer,           &u->timer,                                       "Timer"   },
-                { "OnBoot",                 config_parse_timer,           &u->timer,                                       "Timer"   },
-                { "OnStartup",              config_parse_timer,           &u->timer,                                       "Timer"   },
-                { "OnUnitActive",           config_parse_timer,           &u->timer,                                       "Timer"   },
-                { "OnUnitInactive",         config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnActiveSec",            config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnBootSec",              config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnStartupSec",           config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnUnitActiveSec",        config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnUnitInactiveSec",      config_parse_timer,           &u->timer,                                       "Timer"   },
                 { "Unit",                   config_parse_timer_unit,      &u->timer,                                       "Timer"   },
 
                 { "PathExists",             config_parse_path_spec,       &u->path,                                        "Path"    },

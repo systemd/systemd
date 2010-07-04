@@ -1083,8 +1083,8 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                if (context->timer_slack_ns_set)
-                        if (prctl(PR_SET_TIMERSLACK, context->timer_slack_ns_set) < 0) {
+                if (context->timer_slack_nsec_set)
+                        if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
                                 r = EXIT_TIMERSLACK;
                                 goto fail;
                         }
@@ -1468,8 +1468,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fputs("\n", f);
         }
 
-        if (c->timer_slack_ns_set)
-                fprintf(f, "%sTimerSlackNS: %lu\n", prefix, c->timer_slack_ns);
+        if (c->timer_slack_nsec_set)
+                fprintf(f, "%sTimerSlackNSec: %lu\n", prefix, c->timer_slack_nsec);
 
         fprintf(f,
                 "%sStandardInput: %s\n"
