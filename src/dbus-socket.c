@@ -46,6 +46,9 @@
         "  <property name=\"PipeSize\" type=\"t\" access=\"read\"/>\n"  \
         "  <property name=\"FreeBind\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"Mark\" type=\"i\" access=\"read\"/>\n"      \
+        "  <property name=\"MaxConnections\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"NAccepted\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"NConnections\" type=\"u\" access=\"read\"/>\n" \
         " </interface>\n"                                               \
 
 #define INTROSPECTION                                                   \
@@ -64,26 +67,29 @@ static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_
 DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Socket", "BindIPv6Only",  bus_socket_append_bind_ipv6_only, "s", &u->socket.bind_ipv6_only },
-                { "org.freedesktop.systemd1.Socket", "Backlog",       bus_property_append_unsigned, "u", &u->socket.backlog },
-                { "org.freedesktop.systemd1.Socket", "TimeoutUSec",   bus_property_append_usec,     "t", &u->socket.timeout_usec },
+                { "org.freedesktop.systemd1.Socket", "BindIPv6Only",   bus_socket_append_bind_ipv6_only, "s", &u->socket.bind_ipv6_only  },
+                { "org.freedesktop.systemd1.Socket", "Backlog",        bus_property_append_unsigned,     "u", &u->socket.backlog         },
+                { "org.freedesktop.systemd1.Socket", "TimeoutUSec",    bus_property_append_usec,         "t", &u->socket.timeout_usec    },
                 /* ExecCommand */
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Socket", u->socket.exec_context),
-                { "org.freedesktop.systemd1.Socket", "KillMode",      bus_unit_append_kill_mode,    "s", &u->socket.kill_mode },
-                { "org.freedesktop.systemd1.Socket", "ControlPID",    bus_property_append_pid,      "u", &u->socket.control_pid },
-                { "org.freedesktop.systemd1.Socket", "BindToDevice",  bus_property_append_string,   "s", u->socket.bind_to_device },
-                { "org.freedesktop.systemd1.Socket", "DirectoryMode", bus_property_append_mode,     "u", &u->socket.directory_mode },
-                { "org.freedesktop.systemd1.Socket", "SocketMode",    bus_property_append_mode,     "u", &u->socket.socket_mode },
-                { "org.freedesktop.systemd1.Socket", "Accept",        bus_property_append_bool,     "b", &u->socket.accept },
-                { "org.freedesktop.systemd1.Socket", "KeepAlive",     bus_property_append_bool,     "b", &u->socket.keep_alive },
-                { "org.freedesktop.systemd1.Socket", "Priority",      bus_property_append_int,      "i", &u->socket.priority },
-                { "org.freedesktop.systemd1.Socket", "ReceiveBuffer", bus_property_append_size,     "t", &u->socket.receive_buffer },
-                { "org.freedesktop.systemd1.Socket", "SendBuffer",    bus_property_append_size,     "t", &u->socket.send_buffer },
-                { "org.freedesktop.systemd1.Socket", "IPTOS",         bus_property_append_int,      "i", &u->socket.ip_tos },
-                { "org.freedesktop.systemd1.Socket", "IPTTL",         bus_property_append_int,      "i", &u->socket.ip_ttl },
-                { "org.freedesktop.systemd1.Socket", "PipeSize",      bus_property_append_size,     "t", &u->socket.pipe_size },
-                { "org.freedesktop.systemd1.Socket", "FreeBind",      bus_property_append_bool,     "b", &u->socket.free_bind },
-                { "org.freedesktop.systemd1.Socket", "Mark",          bus_property_append_int,      "i", &u->socket.mark },
+                { "org.freedesktop.systemd1.Socket", "KillMode",       bus_unit_append_kill_mode,        "s", &u->socket.kill_mode       },
+                { "org.freedesktop.systemd1.Socket", "ControlPID",     bus_property_append_pid,          "u", &u->socket.control_pid     },
+                { "org.freedesktop.systemd1.Socket", "BindToDevice",   bus_property_append_string,       "s", u->socket.bind_to_device   },
+                { "org.freedesktop.systemd1.Socket", "DirectoryMode",  bus_property_append_mode,         "u", &u->socket.directory_mode  },
+                { "org.freedesktop.systemd1.Socket", "SocketMode",     bus_property_append_mode,         "u", &u->socket.socket_mode     },
+                { "org.freedesktop.systemd1.Socket", "Accept",         bus_property_append_bool,         "b", &u->socket.accept          },
+                { "org.freedesktop.systemd1.Socket", "KeepAlive",      bus_property_append_bool,         "b", &u->socket.keep_alive      },
+                { "org.freedesktop.systemd1.Socket", "Priority",       bus_property_append_int,          "i", &u->socket.priority        },
+                { "org.freedesktop.systemd1.Socket", "ReceiveBuffer",  bus_property_append_size,         "t", &u->socket.receive_buffer  },
+                { "org.freedesktop.systemd1.Socket", "SendBuffer",     bus_property_append_size,         "t", &u->socket.send_buffer     },
+                { "org.freedesktop.systemd1.Socket", "IPTOS",          bus_property_append_int,          "i", &u->socket.ip_tos          },
+                { "org.freedesktop.systemd1.Socket", "IPTTL",          bus_property_append_int,          "i", &u->socket.ip_ttl          },
+                { "org.freedesktop.systemd1.Socket", "PipeSize",       bus_property_append_size,         "t", &u->socket.pipe_size       },
+                { "org.freedesktop.systemd1.Socket", "FreeBind",       bus_property_append_bool,         "b", &u->socket.free_bind       },
+                { "org.freedesktop.systemd1.Socket", "Mark",           bus_property_append_int,          "i", &u->socket.mark            },
+                { "org.freedesktop.systemd1.Socket", "MaxConnections", bus_property_append_unsigned,     "u", &u->socket.max_connections },
+                { "org.freedesktop.systemd1.Socket", "NConnections",   bus_property_append_unsigned,     "u", &u->socket.n_connections   },
+                { "org.freedesktop.systemd1.Socket", "NAccepted",      bus_property_append_unsigned,     "u", &u->socket.n_accepted      },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
