@@ -83,7 +83,10 @@
         "  <property name=\"InaccessibleDirectories\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"MountFlags\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"PrivateTmp\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"NoSetSID\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"NoSetSID\" type=\"b\" access=\"read\"/>\n"
+
+#define BUS_EXEC_COMMAND_INTERFACE(name)                             \
+        "  <property name=\"" name "\" type=\"a(sasttuii)\" access=\"read\"/>\n"
 
 #define BUS_EXEC_CONTEXT_PROPERTIES(interface, context)                 \
         { interface, "Environment",                   bus_property_append_strv,   "as",    (context).environment                   }, \
@@ -144,6 +147,9 @@
         { interface, prefix "Code",                   bus_property_append_int,    "i",     &(estatus).code                         }, \
         { interface, prefix "Status",                 bus_property_append_int,    "i",     &(estatus).status                       }
 
+#define BUS_EXEC_COMMAND_PROPERTY(interface, command, name)            \
+        { interface, name, bus_execute_append_command, "a(sasttuii)", (command) }
+
 int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_input(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_oom_adjust(Manager *m, DBusMessageIter *i, const char *property, void *data);
@@ -155,5 +161,6 @@ int bus_execute_append_affinity(Manager *m, DBusMessageIter *i, const char *prop
 int bus_execute_append_timer_slack_ns(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_rlimits(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_command(Manager *m, DBusMessageIter *u, const char *property, void *data);
 
 #endif

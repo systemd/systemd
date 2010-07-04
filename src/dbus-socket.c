@@ -30,6 +30,10 @@
         "  <property name=\"BindIPv6Only\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Backlog\" type=\"u\" access=\"read\"/>\n"   \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStopPre")                       \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
@@ -70,7 +74,10 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { "org.freedesktop.systemd1.Socket", "BindIPv6Only",   bus_socket_append_bind_ipv6_only, "s", &u->socket.bind_ipv6_only  },
                 { "org.freedesktop.systemd1.Socket", "Backlog",        bus_property_append_unsigned,     "u", &u->socket.backlog         },
                 { "org.freedesktop.systemd1.Socket", "TimeoutUSec",    bus_property_append_usec,         "t", &u->socket.timeout_usec    },
-                /* ExecCommand */
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", u->service.exec_command[SOCKET_EXEC_START_PRE],  "ExecStartPre"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", u->service.exec_command[SOCKET_EXEC_START_POST], "ExecStartPost"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", u->service.exec_command[SOCKET_EXEC_STOP_PRE],   "ExecStopPre"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", u->service.exec_command[SOCKET_EXEC_STOP_POST],  "ExecStopPost"),
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Socket", u->socket.exec_context),
                 { "org.freedesktop.systemd1.Socket", "KillMode",       bus_unit_append_kill_mode,        "s", &u->socket.kill_mode       },
                 { "org.freedesktop.systemd1.Socket", "ControlPID",     bus_property_append_pid,          "u", &u->socket.control_pid     },

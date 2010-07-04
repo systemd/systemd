@@ -26,6 +26,7 @@
 #include "dbus-execute.h"
 #include "missing.h"
 #include "ioprio.h"
+#include "strv.h"
 
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);
@@ -153,7 +154,7 @@ int bus_execute_append_affinity(Manager *m, DBusMessageIter *i, const char *prop
         assert(property);
         assert(c);
 
-        if (!(dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "y", &sub)))
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "y", &sub))
                 return -ENOMEM;
 
         if (c->cpuset)
@@ -242,6 +243,56 @@ int bus_execute_append_rlimits(Manager *m, DBusMessageIter *i, const char *prope
         }
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &u))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_execute_append_command(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        ExecCommand *c = data;
+        DBusMessageIter sub, sub2, sub3;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sasttuii)", &sub))
+                return -ENOMEM;
+
+        LIST_FOREACH(command, c, c) {
+                char **l;
+                uint32_t pid;
+                int32_t code, status;
+
+                if (!c->path)
+                        continue;
+
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &c->path) ||
+                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_ARRAY, "s", &sub3))
+                        return -ENOMEM;
+
+                STRV_FOREACH(l, c->argv)
+                        if (!dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, l))
+                                return -ENOMEM;
+
+                pid = (uint32_t) c->exec_status.pid;
+                code = (int32_t) c->exec_status.code;
+                status = (int32_t) c->exec_status.status;
+
+                if (!dbus_message_iter_close_container(&sub2, &sub3) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.start_timestamp.realtime) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.exit_timestamp.realtime) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &c->exec_status.pid) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &c->exec_status.code) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &c->exec_status.status))
+                        return -ENOMEM;
+
+                if (!dbus_message_iter_close_container(&sub, &sub2))
+                        return -ENOMEM;
+        }
+
+        if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
 
         return 0;

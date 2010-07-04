@@ -32,6 +32,9 @@
         "  <property name=\"Options\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_EXEC_COMMAND_INTERFACE("ExecMount")                         \
+        BUS_EXEC_COMMAND_INTERFACE("ExecUnmount")                       \
+        BUS_EXEC_COMMAND_INTERFACE("ExecRemount")                       \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
@@ -129,7 +132,9 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMess
                 { "org.freedesktop.systemd1.Mount", "Options",       bus_mount_append_options,   "s", u                      },
                 { "org.freedesktop.systemd1.Mount", "Type",          bus_mount_append_type,      "s", u                      },
                 { "org.freedesktop.systemd1.Mount", "TimeoutUSec",   bus_property_append_usec,   "t", &u->mount.timeout_usec },
-                /* ExecCommand */
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Mount", u->mount.exec_command+MOUNT_EXEC_MOUNT,   "ExecMount"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Mount", u->mount.exec_command+MOUNT_EXEC_UNMOUNT, "ExecUnmount"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Mount", u->mount.exec_command+MOUNT_EXEC_REMOUNT, "ExecRemount"),
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Mount", u->mount.exec_context),
                 { "org.freedesktop.systemd1.Mount", "KillMode",      bus_unit_append_kill_mode,  "s", &u->mount.kill_mode    },
                 { "org.freedesktop.systemd1.Mount", "ControlPID",    bus_property_append_pid,    "u", &u->mount.control_pid  },

@@ -1166,7 +1166,68 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &base, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &value, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &next_elapse, false) >= 0)
-                                        printf("%s=%llu\n", base, (unsigned long long) value);
+                                        printf("%s={ value=%llu ; next_elapse=%llu }\n",
+                                               base,
+                                               (unsigned long long) value,
+                                               (unsigned long long) next_elapse);
+
+                                dbus_message_iter_next(&sub);
+                        }
+
+                        return 0;
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && startswith(name, "Exec")) {
+
+                        DBusMessageIter sub, sub2, sub3;
+
+                        dbus_message_iter_recurse(iter, &sub);
+
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *path;
+                                uint64_t start_time, exit_time;
+                                uint32_t pid;
+                                int32_t code, status;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0)
+                                        continue;
+
+                                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_ARRAY ||
+                                    dbus_message_iter_get_element_type(&sub2) != DBUS_TYPE_STRING)
+                                        continue;
+
+                                printf("%s={ path=%s ; argv[]=", name, path);
+
+                                dbus_message_iter_recurse(&sub2, &sub3);
+
+                                while (dbus_message_iter_get_arg_type(&sub3) != DBUS_TYPE_INVALID) {
+                                        const char *s;
+
+                                        assert(dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_STRING);
+                                        dbus_message_iter_get_basic(&sub3, &s);
+                                        printf("%s ", s);
+                                        dbus_message_iter_next(&sub3);
+                                }
+
+                                if (dbus_message_iter_next(&sub2) &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &start_time, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &exit_time, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &code, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &status, false) >= 0) {
+
+                                        char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
+
+                                        printf("; start=%s ; stop=%s ; pid=%u ; code=%s ; status=%i/%s",
+                                               strna(format_timestamp(timestamp1, sizeof(timestamp1), start_time)),
+                                               strna(format_timestamp(timestamp2, sizeof(timestamp2), exit_time)),
+                                               (unsigned) pid,
+                                               sigchld_code_to_string(code),
+                                               status,
+                                               strna(code == CLD_EXITED ? NULL : strsignal(status)));
+                                }
+
+                                printf(" }\n");
 
                                 dbus_message_iter_next(&sub);
                         }

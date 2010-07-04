@@ -33,6 +33,12 @@
         "  <property name=\"NotifyAccess\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStart")                         \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
+        BUS_EXEC_COMMAND_INTERFACE("ExecReload")                        \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStop")                          \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
@@ -72,7 +78,12 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { "org.freedesktop.systemd1.Service", "NotifyAccess",           bus_service_append_notify_access, "s", &u->service.notify_access       },
                 { "org.freedesktop.systemd1.Service", "RestartUSec",            bus_property_append_usec,   "t", &u->service.restart_usec              },
                 { "org.freedesktop.systemd1.Service", "TimeoutUSec",            bus_property_append_usec,   "t", &u->service.timeout_usec              },
-                /* ExecCommand */
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_START_PRE],  "ExecStartPre"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_START],      "ExecStart"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_START_POST], "ExecStartPost"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_RELOAD],     "ExecReload"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_STOP],       "ExecStop"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_STOP_POST],  "ExecStopPost"),
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Service", u->service.exec_context),
                 { "org.freedesktop.systemd1.Service", "PermissionsStartOnly",   bus_property_append_bool,   "b", &u->service.permissions_start_only    },
                 { "org.freedesktop.systemd1.Service", "RootDirectoryStartOnly", bus_property_append_bool,   "b", &u->service.root_directory_start_only },
