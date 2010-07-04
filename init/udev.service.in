@@ -1,5 +1,6 @@
 [Unit]
 Description=/dev and kernel device manager
+DefaultDependencies=no
 Before=sysinit.target
 
 [Service]
@@ -12,4 +13,3 @@ ExecStartPost=@sbindir@/udevadm trigger --type=devices --action=add
 WantedBy=sysinit.target
 Also=udev-settle.service
 Also=udev-retry.service
-
