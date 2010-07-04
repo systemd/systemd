@@ -72,6 +72,8 @@
         "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>\n"    \
         "  <property name=\"RecursiveStop\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"StopWhenUneeded\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"OnlyByDependency\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"DefaultDependencies\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
         " </interface>\n"
@@ -104,6 +106,8 @@
         { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,            "(uo)", u                                 }, \
         { "org.freedesktop.systemd1.Unit", "RecursiveStop",        bus_property_append_bool,       "b",    &u->meta.recursive_stop           }, \
         { "org.freedesktop.systemd1.Unit", "StopWhenUneeded",      bus_property_append_bool,       "b",    &u->meta.stop_when_unneeded       }, \
+        { "org.freedesktop.systemd1.Unit", "OnlyByDependency",     bus_property_append_bool,       "b",    &u->meta.only_by_dependency       }, \
+        { "org.freedesktop.systemd1.Unit", "DefaultDependencies",  bus_property_append_bool,       "b",    &u->meta.default_dependencies     }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }
 
