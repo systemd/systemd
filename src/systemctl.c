@@ -1059,7 +1059,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                 DBusMessageIter sub;
                 dbus_message_iter_recurse(iter, &sub);
 
-                if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_UINT32 && strstr(name, "Job")) {
+                if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_UINT32 && streq(name, "Job")) {
                         uint32_t u;
 
                         dbus_message_iter_get_basic(&sub, &u);
@@ -1070,7 +1070,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 printf("%s=\n", name);
 
                         return 0;
-                } else if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING && strstr(name, "Unit")) {
+                } else if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING && streq(name, "Unit")) {
                         const char *s;
 
                         dbus_message_iter_get_basic(&sub, &s);
@@ -1108,6 +1108,25 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 }
 
                                 puts("");
+                        }
+
+                        return 0;
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Paths")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *type, *path;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &type, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, false) >= 0)
+                                        printf("%s=%s\n", type, path);
+
+                                dbus_message_iter_next(&sub);
                         }
 
                         return 0;
