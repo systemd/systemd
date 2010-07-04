@@ -1397,7 +1397,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         s->failure = s->failure || !success;
 
         if (s->control_command)
-                exec_status_fill(&s->control_command->exec_status, pid, code, status);
+                exec_status_exit(&s->control_command->exec_status, pid, code, status);
 
         log_debug("%s control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
 

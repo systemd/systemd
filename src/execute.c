@@ -1281,8 +1281,7 @@ int exec_spawn(ExecCommand *command,
 
         log_debug("Forked %s as %lu", command->path, (unsigned long) pid);
 
-        command->exec_status.pid = pid;
-        dual_timestamp_get(&command->exec_status.start_timestamp);
+        exec_status_start(&command->exec_status, pid);
 
         *ret = pid;
         return 0;
@@ -1561,8 +1560,20 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         }
 }
 
-void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status) {
+void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
+
+        zero(*s);
+        s->pid = pid;
+        dual_timestamp_get(&s->start_timestamp);
+}
+
+void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status) {
+        assert(s);
+
+        if ((s->pid && s->pid != pid) ||
+            !s->start_timestamp.realtime <= 0)
+                zero(*s);
 
         s->pid = pid;
         dual_timestamp_get(&s->exit_timestamp);

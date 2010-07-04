@@ -144,6 +144,8 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         s->main_pid = pid;
         s->main_pid_known = true;
 
+        exec_status_start(&s->main_exec_status, pid);
+
         return 0;
 }
 
@@ -2082,7 +2084,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         if (s->main_pid == pid) {
 
-                exec_status_fill(&s->main_exec_status, pid, code, status);
+                exec_status_exit(&s->main_exec_status, pid, code, status);
                 s->main_pid = 0;
 
                 if (s->type != SERVICE_FORKING) {
@@ -2138,7 +2140,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         } else if (s->control_pid == pid) {
 
                 if (s->control_command)
-                        exec_status_fill(&s->control_command->exec_status, pid, code, status);
+                        exec_status_exit(&s->control_command->exec_status, pid, code, status);
 
                 s->control_pid = 0;
 

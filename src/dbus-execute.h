@@ -26,6 +26,13 @@
 
 #include "manager.h"
 
+#define BUS_EXEC_STATUS_INTERFACE(prefix)                               \
+        "  <property name=\"" prefix "StartTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"" prefix "ExitTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"" prefix "PID\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"" prefix "Code\" type=\"i\" access=\"read\"/>\n" \
+        "  <property name=\"" prefix "Status\" type=\"i\" access=\"read\"/>\n"
+
 #define BUS_EXEC_CONTEXT_INTERFACE                                      \
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"UMask\" type=\"u\" access=\"read\"/>\n"     \
@@ -129,6 +136,13 @@
         { interface, "MountFlags",                    bus_property_append_ul,     "t",     &(context).mount_flags                  }, \
         { interface, "PrivateTmp",                    bus_property_append_bool,   "b",     &(context).private_tmp                  }, \
         { interface, "NoSetSID",                      bus_property_append_bool,   "b",     &(context).no_setsid                    }
+
+#define BUS_EXEC_STATUS_PROPERTIES(interface, estatus, prefix)           \
+        { interface, prefix "StartTimestamp",         bus_property_append_usec,   "t",     &(estatus).start_timestamp.realtime     }, \
+        { interface, prefix "ExitTimestamp",          bus_property_append_usec,   "t",     &(estatus).start_timestamp.realtime     }, \
+        { interface, prefix "PID",                    bus_property_append_pid,    "u",     &(estatus).pid                          }, \
+        { interface, prefix "Code",                   bus_property_append_int,    "i",     &(estatus).code                         }, \
+        { interface, prefix "Status",                 bus_property_append_int,    "i",     &(estatus).status                       }
 
 int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_input(Manager *m, DBusMessageIter *i, const char *property, void *data);

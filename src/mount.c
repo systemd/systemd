@@ -936,7 +936,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         m->failure = m->failure || !success;
 
         if (m->control_command) {
-                exec_status_fill(&m->control_command->exec_status, pid, code, status);
+                exec_status_exit(&m->control_command->exec_status, pid, code, status);
                 m->control_command = NULL;
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
