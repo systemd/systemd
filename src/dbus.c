@@ -1201,7 +1201,6 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
                 const char *interface;
                 const BusProperty *p;
                 DBusMessageIter iter, sub, sub2, sub3;
-                bool any = false;
 
                 if (!dbus_message_get_args(
                             message,
@@ -1219,7 +1218,7 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
                         goto oom;
 
                 for (p = properties; p->property; p++) {
-                        if (!streq(p->interface, interface))
+                        if (interface[0] && !streq(p->interface, interface))
                                 continue;
 
                         if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_DICT_ENTRY, NULL, &sub2) ||
@@ -1239,8 +1238,6 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
                         if (!dbus_message_iter_close_container(&sub2, &sub3) ||
                             !dbus_message_iter_close_container(&sub, &sub2))
                                 goto oom;
-
-                        any = true;
                 }
 
                 if (!dbus_message_iter_close_container(&iter, &sub))
