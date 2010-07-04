@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <sched.h>
 
 #include "macro.h"
 
@@ -283,6 +284,8 @@ int getmachineid_malloc(char **r);
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
 int rm_rf(const char *path, bool only_dirs, bool delete_root);
+
+cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);

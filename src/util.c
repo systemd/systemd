@@ -2538,6 +2538,34 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         return 0;
 }
 
+cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
+        cpu_set_t *r;
+        unsigned n = 1024;
+
+        /* Allocates the cpuset in the right size */
+
+        for (;;) {
+                if (!(r = CPU_ALLOC(n)))
+                        return NULL;
+
+                if (sched_getaffinity(0, CPU_ALLOC_SIZE(n), r) >= 0) {
+                        CPU_ZERO_S(CPU_ALLOC_SIZE(n), r);
+
+                        if (ncpus)
+                                *ncpus = n;
+
+                        return r;
+                }
+
+                CPU_FREE(r);
+
+                if (errno != EINVAL)
+                        return NULL;
+
+                n *= 2;
+        }
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

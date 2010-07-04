@@ -93,7 +93,8 @@ struct ExecContext {
         int cpu_sched_policy;
         int cpu_sched_priority;
 
-        cpu_set_t cpu_affinity;
+        cpu_set_t *cpuset;
+        unsigned cpuset_ncpus;
         unsigned long timer_slack_ns;
 
         ExecInput std_input;
@@ -134,7 +135,6 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
-        bool cpu_affinity_set:1;
         bool timer_slack_ns_set:1;
 
         /* This is not exposed to the user but available
@@ -142,7 +142,7 @@ struct ExecContext {
          * /bin/mount it is run in the same process group as us so
          * that the autofs logic detects that it belongs to us and we
          * don't enter a trigger loop. */
-        bool no_setsid:1;
+        bool no_setsid;
 };
 
 typedef enum ExitStatus {

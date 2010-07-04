@@ -1071,8 +1071,8 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                if (context->cpu_affinity_set)
-                        if (sched_setaffinity(0, sizeof(context->cpu_affinity), &context->cpu_affinity) < 0) {
+                if (context->cpuset)
+                        if (sched_setaffinity(0, CPU_ALLOC_SIZE(context->cpuset_ncpus), context->cpuset) < 0) {
                                 r = EXIT_CPUAFFINITY;
                                 goto fail;
                         }
@@ -1350,6 +1350,9 @@ void exec_context_done(ExecContext *c) {
 
         strv_free(c->inaccessible_dirs);
         c->inaccessible_dirs = NULL;
+
+        if (c->cpuset)
+                CPU_FREE(c->cpuset);
 }
 
 void exec_command_done(ExecCommand *c) {
@@ -1458,10 +1461,10 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         prefix, c->cpu_sched_priority,
                         prefix, yes_no(c->cpu_sched_reset_on_fork));
 
-        if (c->cpu_affinity_set) {
+        if (c->cpuset) {
                 fprintf(f, "%sCPUAffinity:", prefix);
-                for (i = 0; i < CPU_SETSIZE; i++)
-                        if (CPU_ISSET(i, &c->cpu_affinity))
+                for (i = 0; i < c->cpuset_ncpus; i++)
+                        if (CPU_ISSET_S(i, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset))
                                 fprintf(f, " %i", i);
                 fputs("\n", f);
         }

@@ -1111,7 +1111,29 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_BYTE) {
+                        DBusMessageIter sub;
 
+                        dbus_message_iter_recurse(iter, &sub);
+
+                        if (arg_all ||
+                            dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                printf("%s=", name);
+
+                                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                        uint8_t u;
+
+                                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_BYTE);
+                                        dbus_message_iter_get_basic(&sub, &u);
+                                        printf("%02x", u);
+
+                                        dbus_message_iter_next(&sub);
+                                }
+
+                                puts("");
+                        }
+
+                        return 0;
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Paths")) {
                         DBusMessageIter sub, sub2;
 

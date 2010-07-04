@@ -725,18 +725,20 @@ static int config_parse_cpu_affinity(
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
+                if (!(c->cpuset))
+                        if (!(c->cpuset = cpu_set_malloc(&c->cpuset_ncpus)))
+                                return -ENOMEM;
+
                 r = safe_atou(t, &cpu);
                 free(t);
 
-                if (r < 0 || cpu >= CPU_SETSIZE) {
+                if (r < 0 || cpu >= c->cpuset_ncpus) {
                         log_error("[%s:%u] Failed to parse CPU affinity: %s", filename, line, rvalue);
                         return -EBADMSG;
                 }
 
-                CPU_SET(cpu, &c->cpu_affinity);
+                CPU_SET_S(cpu, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset);
         }
-
-        c->cpu_affinity_set = true;
 
         return 0;
 }
