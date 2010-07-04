@@ -967,7 +967,10 @@ int bus_init(Manager *m) {
         return 0;
 }
 
-static void shutdown_connection(DBusConnection *c) {
+static void shutdown_connection(Manager *m, DBusConnection *c) {
+        set_remove(m->bus_connections, c);
+        set_remove(m->bus_connections_for_dispatch, c);
+
         dbus_connection_set_dispatch_status_function(c, NULL, NULL, NULL);
         dbus_connection_flush(c);
         dbus_connection_close(c);
@@ -981,8 +984,7 @@ static void bus_done_api(Manager *m) {
                 if (m->system_bus == m->api_bus)
                         m->system_bus = NULL;
 
-                set_remove(m->bus_connections, m->api_bus);
-                shutdown_connection(m->api_bus);
+                shutdown_connection(m, m->api_bus);
                 m->api_bus = NULL;
         }
 
@@ -1009,8 +1011,7 @@ static void bus_done_system(Manager *m) {
                 bus_done_api(m);
 
         if (m->system_bus) {
-                set_remove(m->bus_connections, m->system_bus);
-                shutdown_connection(m->system_bus);
+                shutdown_connection(m, m->system_bus);
                 m->system_bus = NULL;
         }
 }
@@ -1032,10 +1033,10 @@ void bus_done(Manager *m) {
         bus_done_private(m);
 
         while ((c = set_steal_first(m->bus_connections)))
-                shutdown_connection(c);
+                shutdown_connection(m, c);
 
         while ((c = set_steal_first(m->bus_connections_for_dispatch)))
-                shutdown_connection(c);
+                shutdown_connection(m, c);
 
         set_free(m->bus_connections);
         set_free(m->bus_connections_for_dispatch);
