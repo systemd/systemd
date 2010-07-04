@@ -468,7 +468,7 @@
                                 the default log level specified
                                 here. The interpretation of these
                                 prefixes may be disabled with
-                                <varname>SyslogNoPrefix=</varname>,
+                                <varname>SyslogLevelPrefix=</varname>,
                                 see below. For details see
                                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
 
@@ -477,9 +477,9 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>SyslogNoPrefix=</varname></term>
+                                <term><varname>SyslogLevelPrefix=</varname></term>
                                 <listitem><para>Takes a boolean
-                                argument. If false and
+                                argument. If true and
                                 <varname>StandardOutput=</varname> or
                                 <varname>StandardError=</varname> are
                                 set to <option>syslog</option> or
@@ -488,12 +488,12 @@
                                 are prefixed with a log level will be
                                 passed on to syslog with this log
                                 level set but the prefix removed. If
-                                set to true, the interpretation of
+                                set to false, the interpretation of
                                 these prefixes is disabled and the
                                 logged lines are passed on as-is. For
                                 details about this prefixing see
                                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-                                Defaults to false.</para></listitem>
+                                Defaults to true.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

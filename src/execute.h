@@ -103,7 +103,7 @@ struct ExecContext {
 
         int syslog_priority;
         char *syslog_identifier;
-        bool syslog_no_prefix;
+        bool syslog_level_prefix;
 
         char *tcpwrap_name;
 
@@ -142,7 +142,7 @@ struct ExecContext {
          * /bin/mount it is run in the same process group as us so
          * that the autofs logic detects that it belongs to us and we
          * don't enter a trigger loop. */
-        bool no_setsid;
+        bool same_pgrp;
 };
 
 typedef enum ExitStatus {

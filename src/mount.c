@@ -68,7 +68,7 @@ static void mount_init(Unit *u) {
          * the same process group as us, so that the autofs kernel
          * side doesn't send us another mount request while we are
          * already trying to comply its last one. */
-        m->exec_context.no_setsid = true;
+        m->exec_context.same_pgrp = true;
 
         m->timer_watch.type = WATCH_INVALID;
 

@@ -69,7 +69,7 @@
         "  <property name=\"TTYPath\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"SyslogPriority\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"SyslogIdentifier\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"SyslogNoPrefix\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"SyslogLevelPrefix\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Capabilities\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SecureBits\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"CapabilityBoundingSetDrop\" type=\"t\" access=\"read\"/>\n" \
@@ -83,7 +83,7 @@
         "  <property name=\"InaccessibleDirectories\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"MountFlags\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"PrivateTmp\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"NoSetSID\" type=\"b\" access=\"read\"/>\n"
+        "  <property name=\"SameProcessGroup\" type=\"b\" access=\"read\"/>\n"
 
 #define BUS_EXEC_COMMAND_INTERFACE(name)                             \
         "  <property name=\"" name "\" type=\"a(sasttuii)\" access=\"read\"/>\n"
@@ -115,7 +115,7 @@
         { interface, "CPUSchedulingPolicy",           bus_execute_append_cpu_sched_policy, "i", &(context)                         }, \
         { interface, "CPUSchedulingPriority",         bus_execute_append_cpu_sched_priority, "i", &(context)                       }, \
         { interface, "CPUAffinity",                   bus_execute_append_affinity,"ay",    &(context)                              }, \
-        { interface, "TimerSlackNSec",                bus_execute_append_timer_slack_nsec, "t", &(context)                           }, \
+        { interface, "TimerSlackNSec",                bus_execute_append_timer_slack_nsec, "t", &(context)                         }, \
         { interface, "CPUSchedulingResetOnFork",      bus_property_append_bool,   "b",     &(context).cpu_sched_reset_on_fork      }, \
         { interface, "NonBlocking",                   bus_property_append_bool,   "b",     &(context).non_blocking                 }, \
         { interface, "StandardInput",                 bus_execute_append_input,   "s",     &(context).std_input                    }, \
@@ -124,7 +124,7 @@
         { interface, "TTYPath",                       bus_property_append_string, "s",     (context).tty_path                      }, \
         { interface, "SyslogPriority",                bus_property_append_int,    "i",     &(context).syslog_priority              }, \
         { interface, "SyslogIdentifier",              bus_property_append_string, "s",     (context).syslog_identifier             }, \
-        { interface, "SyslogNoPrefix",                bus_property_append_bool,   "b",     &(context).syslog_no_prefix             }, \
+        { interface, "SyslogLevelPrefix",             bus_property_append_bool,   "b",     &(context).syslog_level_prefix          }, \
         { interface, "Capabilities",                  bus_property_append_string, "s",     (context).capabilities                  }, \
         { interface, "SecureBits",                    bus_property_append_int,    "i",     &(context).secure_bits                  }, \
         { interface, "CapabilityBoundingSetDrop",     bus_property_append_uint64, "t",     &(context).capability_bounding_set_drop }, \
@@ -138,7 +138,7 @@
         { interface, "InaccessibleDirectories",       bus_property_append_strv,   "as",    (context).inaccessible_dirs             }, \
         { interface, "MountFlags",                    bus_property_append_ul,     "t",     &(context).mount_flags                  }, \
         { interface, "PrivateTmp",                    bus_property_append_bool,   "b",     &(context).private_tmp                  }, \
-        { interface, "NoSetSID",                      bus_property_append_bool,   "b",     &(context).no_setsid                    }
+        { interface, "SameProcessGroup",              bus_property_append_bool,   "b",     &(context).same_pgrp                    }
 
 #define BUS_EXEC_STATUS_PROPERTIES(interface, estatus, prefix)           \
         { interface, prefix "StartTimestamp",         bus_property_append_usec,   "t",     &(estatus).start_timestamp.realtime     }, \
@@ -147,7 +147,7 @@
         { interface, prefix "Code",                   bus_property_append_int,    "i",     &(estatus).code                         }, \
         { interface, prefix "Status",                 bus_property_append_int,    "i",     &(estatus).status                       }
 
-#define BUS_EXEC_COMMAND_PROPERTY(interface, command, name)            \
+#define BUS_EXEC_COMMAND_PROPERTY(interface, command, name)             \
         { interface, name, bus_execute_append_command, "a(sasttuii)", (command) }
 
 int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);

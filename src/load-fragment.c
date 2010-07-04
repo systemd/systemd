@@ -1464,7 +1464,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "SyslogIdentifier",       config_parse_string_printf,   &(context).syslog_identifier,                    section   }, \
                 { "SyslogFacility",         config_parse_facility,        &(context).syslog_priority,                      section   }, \
                 { "SyslogLevel",            config_parse_level,           &(context).syslog_priority,                      section   }, \
-                { "SyslogNoPrefix",         config_parse_bool,            &(context).syslog_no_prefix,                     section   }, \
+                { "SyslogLevelPrefix",      config_parse_bool,            &(context).syslog_level_prefix,                  section   }, \
                 { "Capabilities",           config_parse_capabilities,    &(context),                                      section   }, \
                 { "SecureBits",             config_parse_secure_bits,     &(context),                                      section   }, \
                 { "CapabilityBoundingSetDrop", config_parse_bounding_set, &(context),                                      section   }, \

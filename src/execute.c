@@ -197,7 +197,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 output == EXEC_OUTPUT_KMSG ? "kmsg" : "syslog",
                 context->syslog_priority,
                 context->syslog_identifier ? context->syslog_identifier : ident,
-                !context->syslog_no_prefix);
+                context->syslog_level_prefix);
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
@@ -964,7 +964,7 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
-                if (!context->no_setsid)
+                if (!context->same_pgrp)
                         if (setsid() < 0) {
                                 r = EXIT_SETSID;
                                 goto fail;
@@ -1294,6 +1294,7 @@ void exec_context_init(ExecContext *c) {
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
+        c->syslog_level_prefix = true;
         c->mount_flags = MS_SHARED;
 }
 
