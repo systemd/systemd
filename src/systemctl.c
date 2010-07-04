@@ -1039,7 +1039,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                 uint32_t u;
                 dbus_message_iter_get_basic(iter, &u);
 
-                if (strstr(name, "UMask"))
+                if (strstr(name, "UMask") || strstr(name, "Mode"))
                         printf("%s=%04o\n", name, u);
                 else
                         printf("%s=%u\n", name, (unsigned) u);

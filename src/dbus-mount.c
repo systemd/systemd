@@ -35,6 +35,7 @@
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -123,15 +124,16 @@ static int bus_mount_append_type(Manager *n, DBusMessageIter *i, const char *pro
 DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Mount", "Where",       bus_property_append_string, "s", u->mount.where         },
-                { "org.freedesktop.systemd1.Mount", "What",        bus_mount_append_what,      "s", u                      },
-                { "org.freedesktop.systemd1.Mount", "Options",     bus_mount_append_options,   "s", u                      },
-                { "org.freedesktop.systemd1.Mount", "Type",        bus_mount_append_type,      "s", u                      },
-                { "org.freedesktop.systemd1.Mount", "TimeoutUSec", bus_property_append_usec,   "t", &u->mount.timeout_usec },
+                { "org.freedesktop.systemd1.Mount", "Where",         bus_property_append_string, "s", u->mount.where         },
+                { "org.freedesktop.systemd1.Mount", "What",          bus_mount_append_what,      "s", u                      },
+                { "org.freedesktop.systemd1.Mount", "Options",       bus_mount_append_options,   "s", u                      },
+                { "org.freedesktop.systemd1.Mount", "Type",          bus_mount_append_type,      "s", u                      },
+                { "org.freedesktop.systemd1.Mount", "TimeoutUSec",   bus_property_append_usec,   "t", &u->mount.timeout_usec },
                 /* ExecCommand */
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Mount", u->mount.exec_context),
-                { "org.freedesktop.systemd1.Mount", "KillMode",    bus_unit_append_kill_mode,  "s", &u->mount.kill_mode    },
-                { "org.freedesktop.systemd1.Mount", "ControlPID",  bus_property_append_pid,    "u", &u->mount.control_pid  },
+                { "org.freedesktop.systemd1.Mount", "KillMode",      bus_unit_append_kill_mode,  "s", &u->mount.kill_mode    },
+                { "org.freedesktop.systemd1.Mount", "ControlPID",    bus_property_append_pid,    "u", &u->mount.control_pid  },
+                { "org.freedesktop.systemd1.Mount", "DirectoryMode", bus_property_append_mode,   "u", &u->mount.directory_mode },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

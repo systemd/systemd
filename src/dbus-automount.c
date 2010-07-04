@@ -25,6 +25,7 @@
 #define BUS_AUTOMOUNT_INTERFACE                                      \
         " <interface name=\"org.freedesktop.systemd1.Automount\">\n" \
         "  <property name=\"Where\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION                                                \
@@ -41,7 +42,8 @@ const char bus_automount_interface[] = BUS_AUTOMOUNT_INTERFACE;
 DBusHandlerResult bus_automount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Automount", "Where", bus_property_append_string, "s", u->automount.where },
+                { "org.freedesktop.systemd1.Automount", "Where", bus_property_append_string,       "s", u->automount.where           },
+                { "org.freedesktop.systemd1.Automount", "DirectoryMode", bus_property_append_mode, "u", &u->automount.directory_mode },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
