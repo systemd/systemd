@@ -91,13 +91,28 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--property=</option></term>
+                                <term><option>-p</option></term>
+
+                                <listitem><para>When showing
+                                unit/job/manager information, limit
+                                display to certain property names. If
+                                not specified all set properties are
+                                shown. The argument should be a
+                                property name, such as
+                                <literal>MainPID</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--all</option></term>
                                 <term><option>-a</option></term>
 
                                 <listitem><para>When listing units,
                                 show all units, regardless of their
-                                state, including inactive
-                                units.</para></listitem>
+                                state, including inactive units. When
+                                showing unit/job/manager information,
+                                show all properties regardless whether
+                                they are set or not.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -165,53 +180,6 @@
                                 <listitem><para>List known units.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><command>list-jobs</command></term>
-
-                                <listitem><para>List jobs that are in progress.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>clear-jobs</command></term>
-
-                                <listitem><para>Cancel all jobs that are in progress.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>load [NAME...]</command></term>
-
-                                <listitem><para>Load one or more units
-                                specified on the command line. This
-                                will simply load their configuration
-                                from disk, but not start them. To
-                                start them you need to use the
-                                <command>start</command> command which
-                                will implicitly load a unit that has
-                                not been loaded yet. Note that systemd
-                                garbage collects loaded units that are
-                                not active or referenced by an active
-                                unit. This means that units loaded
-                                this way will usually not stay loaded
-                                for long. Also note that this command
-                                cannot be used to reload unit
-                                configuration. Use the
-                                <command>daemon-reload</command>
-                                command for that. All in all, this
-                                command is of little use except for
-                                debugging.</para>
-                                <para>This command should not be
-                                confused with the
-                                <command>daemon-reload</command> or
-                                <command>reload</command>
-                                commands.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>cancel [JOB...]</command></term>
-
-                                <listitem><para>Cancel one or more
-                                jobs specified on the command line by
-                                their numeric job
-                                IDs.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><command>start [NAME...]</command></term>
 
                                 <listitem><para>Start one or more
@@ -277,6 +245,65 @@
                                 <option>--quiet</option> is specified
                                 this will also print the current unit
                                 state to STDOUT.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>show [NAME...|JOB...]</command></term>
+
+                                <listitem><para>Show information about
+                                one or more units, jobs or the manager
+                                itself. If no argument is specified
+                                information about the manager will be
+                                shown. If a unit name is specified
+                                information about the unit is shown,
+                                and if a job id is specified
+                                information about the job is
+                                shown.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>load [NAME...]</command></term>
+
+                                <listitem><para>Load one or more units
+                                specified on the command line. This
+                                will simply load their configuration
+                                from disk, but not start them. To
+                                start them you need to use the
+                                <command>start</command> command which
+                                will implicitly load a unit that has
+                                not been loaded yet. Note that systemd
+                                garbage collects loaded units that are
+                                not active or referenced by an active
+                                unit. This means that units loaded
+                                this way will usually not stay loaded
+                                for long. Also note that this command
+                                cannot be used to reload unit
+                                configuration. Use the
+                                <command>daemon-reload</command>
+                                command for that. All in all, this
+                                command is of little use except for
+                                debugging.</para>
+                                <para>This command should not be
+                                confused with the
+                                <command>daemon-reload</command> or
+                                <command>reload</command>
+                                commands.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>list-jobs</command></term>
+
+                                <listitem><para>List jobs that are in progress.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>cancel [JOB...]</command></term>
+
+                                <listitem><para>Cancel one or more
+                                jobs specified on the command line by
+                                their numeric job
+                                IDs.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>clear-jobs</command></term>
+
+                                <listitem><para>Cancel all jobs that are in progress.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>monitor</command></term>
