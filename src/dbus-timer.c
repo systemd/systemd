@@ -27,8 +27,9 @@
 
 #define BUS_TIMER_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Timer\">\n"        \
-        "  <property name=\"Unit\" type=\"s\"  access=\"read\"/>\n"     \
-        " </interface>\n"                                               \
+        "  <property name=\"Unit\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Timers\" type=\"a(stt)\" access=\"read\"/>\n" \
+        " </interface>\n"
 
 #define INTROSPECTION                                                   \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
@@ -41,10 +42,41 @@
 
 const char bus_timer_interface[] = BUS_TIMER_INTERFACE;
 
+static int bus_timer_append_timers(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Timer *p = data;
+        DBusMessageIter sub, sub2;
+        TimerValue *k;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(p);
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(stt)", &sub))
+                return -ENOMEM;
+
+        LIST_FOREACH(value, k, p->values) {
+                const char *t = timer_base_to_string(k->base);
+
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &t) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->value) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->next_elapse) ||
+                    !dbus_message_iter_close_container(&sub, &sub2))
+                        return -ENOMEM;
+        }
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Timer", "Unit", bus_property_append_string, "s", &u->timer.unit->meta.id },
+                { "org.freedesktop.systemd1.Timer", "Unit",       bus_property_append_string, "s",      u->timer.unit->meta.id },
+                { "org.freedesktop.systemd1.Timer", "Timers",     bus_timer_append_timers,    "a(stt)", u                      },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

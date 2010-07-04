@@ -1024,7 +1024,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                 /* Yes, heuristics! But we can change this check
                  * should it turn out to not be sufficient */
 
-                if (strstr(name, "Timestamp")) {
+                if (strstr(name, "Timestamp") || strstr(name, "Elapse")) {
                         char timestamp[FORMAT_TIMESTAMP_MAX], *t;
 
                         if ((t = format_timestamp(timestamp, sizeof(timestamp), u)) || arg_all)
@@ -1125,6 +1125,26 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &type, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, false) >= 0)
                                         printf("%s=%s\n", type, path);
+
+                                dbus_message_iter_next(&sub);
+                        }
+
+                        return 0;
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Timers")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *base;
+                                uint64_t value, next_elapse;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &base, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &value, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &next_elapse, false) >= 0)
+                                        printf("%s=%llu\n", base, (unsigned long long) value);
 
                                 dbus_message_iter_next(&sub);
                         }
