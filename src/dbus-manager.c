@@ -103,7 +103,7 @@
         "  </signal>"                                                   \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"BootTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"LogLevel\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
@@ -191,12 +191,12 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         const BusProperty properties[] = {
                 { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s", PACKAGE_STRING     },
                 { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s", &m->running_as     },
-                { "org.freedesktop.systemd1.Manager", "BootTimestamp", bus_property_append_uint64,    "t", &m->startup_timestamp.realtime },
+                { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t", &m->startup_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s", NULL               },
                 { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
                 { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u", NULL               },
                 { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u", NULL               },
-                { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment   },
+                { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment    },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
