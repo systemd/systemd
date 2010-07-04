@@ -1029,6 +1029,10 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                         if ((t = format_timestamp(timestamp, sizeof(timestamp), u)) || arg_all)
                                 printf("%s=%s\n", name, strempty(t));
+                } else if (strstr(name, "USec")) {
+                        char timespan[FORMAT_TIMESPAN_MAX];
+
+                        printf("%s=%s\n", name, format_timespan(timespan, sizeof(timespan), u));
                 } else
                         printf("%s=%llu\n", name, (unsigned long long) u);
 
@@ -1165,11 +1169,14 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                                 if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &base, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &value, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &next_elapse, false) >= 0)
-                                        printf("%s={ value=%llu ; next_elapse=%llu }\n",
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &next_elapse, false) >= 0) {
+                                        char timespan1[FORMAT_TIMESPAN_MAX], timespan2[FORMAT_TIMESPAN_MAX];
+
+                                        printf("%s={ value=%s ; next_elapse=%s }\n",
                                                base,
-                                               (unsigned long long) value,
-                                               (unsigned long long) next_elapse);
+                                               format_timespan(timespan1, sizeof(timespan1), value),
+                                               format_timespan(timespan2, sizeof(timespan2), next_elapse));
+                                }
 
                                 dbus_message_iter_next(&sub);
                         }

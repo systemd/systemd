@@ -41,8 +41,6 @@
 
 * get rid of Subscribe() in systemctl
 
-* use format_timespan where applicable
-
 * Turn around negative options
 
 * Add missing man pages: update systemd.1, finish daemon.7
