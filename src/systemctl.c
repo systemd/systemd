@@ -1024,7 +1024,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                 /* Yes, heuristics! But we can change this check
                  * should it turn out to not be sufficient */
 
-                if (strstr(name, "Timestamp") || strstr(name, "Elapse")) {
+                if (strstr(name, "Timestamp")) {
                         char timestamp[FORMAT_TIMESTAMP_MAX], *t;
 
                         if ((t = format_timestamp(timestamp, sizeof(timestamp), u)) || arg_all)

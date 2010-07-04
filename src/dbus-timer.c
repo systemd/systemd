@@ -29,6 +29,7 @@
         " <interface name=\"org.freedesktop.systemd1.Timer\">\n"        \
         "  <property name=\"Unit\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Timers\" type=\"a(stt)\" access=\"read\"/>\n" \
+        "  <property name=\"NextElapse\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -77,6 +78,7 @@ DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMess
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Timer", "Unit",       bus_property_append_string, "s",      u->timer.unit->meta.id },
                 { "org.freedesktop.systemd1.Timer", "Timers",     bus_timer_append_timers,    "a(stt)", u                      },
+                { "org.freedesktop.systemd1.Timer", "NextElapse", bus_property_append_usec,   "t",      &u->timer.next_elapse  },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
