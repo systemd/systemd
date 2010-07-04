@@ -43,6 +43,7 @@
 #include "strv.h"
 
 static const char *arg_type = NULL;
+static const char *arg_property = NULL;
 static bool arg_all = false;
 static bool arg_replace = false;
 static bool arg_session = false;
@@ -987,7 +988,332 @@ finish:
         dbus_error_free(&error);
 
         return r;
+}
 
+static int print_property(const char *name, DBusMessageIter *iter) {
+        assert(name);
+        assert(iter);
+
+        if (arg_property && !streq(name, arg_property))
+                return 0;
+
+        switch (dbus_message_iter_get_arg_type(iter)) {
+
+        case DBUS_TYPE_STRING: {
+                const char *s;
+                dbus_message_iter_get_basic(iter, &s);
+
+                if (arg_all || s[0])
+                        printf("%s=%s\n", name, s);
+
+                return 0;
+        }
+
+        case DBUS_TYPE_BOOLEAN: {
+                dbus_bool_t b;
+                dbus_message_iter_get_basic(iter, &b);
+                printf("%s=%s\n", name, yes_no(b));
+
+                return 0;
+        }
+
+        case DBUS_TYPE_UINT64: {
+                uint64_t u;
+                dbus_message_iter_get_basic(iter, &u);
+
+                /* Yes, heuristics! But we can change this check
+                 * should it turn out to not be sufficient */
+
+                if (strstr(name, "Timestamp")) {
+                        char timestamp[FORMAT_TIMESTAMP_MAX], *t;
+
+                        if ((t = format_timestamp(timestamp, sizeof(timestamp), u)) || arg_all)
+                                printf("%s=%s\n", name, strempty(t));
+                } else
+                        printf("%s=%llu\n", name, (unsigned long long) u);
+
+                return 0;
+        }
+
+        case DBUS_TYPE_UINT32: {
+                uint32_t u;
+                dbus_message_iter_get_basic(iter, &u);
+
+                if (strstr(name, "UMask"))
+                        printf("%s=%04o\n", name, u);
+                else
+                        printf("%s=%u\n", name, (unsigned) u);
+
+                return 0;
+        }
+
+        case DBUS_TYPE_INT32: {
+                int32_t i;
+                dbus_message_iter_get_basic(iter, &i);
+
+                printf("%s=%i\n", name, (int) i);
+                return 0;
+        }
+
+        case DBUS_TYPE_STRUCT: {
+                DBusMessageIter sub;
+                dbus_message_iter_recurse(iter, &sub);
+
+                if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_UINT32 && strstr(name, "Job")) {
+                        uint32_t u;
+
+                        dbus_message_iter_get_basic(&sub, &u);
+
+                        if (u)
+                                printf("%s=%u\n", name, (unsigned) u);
+                        else if (arg_all)
+                                printf("%s=\n", name);
+
+                        return 0;
+                } else if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING && strstr(name, "Unit")) {
+                        const char *s;
+
+                        dbus_message_iter_get_basic(&sub, &s);
+
+                        if (arg_all || s[0])
+                                printf("%s=%s\n", name, s);
+
+                        return 0;
+                }
+
+                break;
+        }
+
+        case DBUS_TYPE_ARRAY:
+
+                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING) {
+                        DBusMessageIter sub;
+                        bool space = false;
+
+                        dbus_message_iter_recurse(iter, &sub);
+
+                        if (arg_all ||
+                            dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                printf("%s=", name);
+
+                                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                        const char *s;
+
+                                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
+                                        dbus_message_iter_get_basic(&sub, &s);
+                                        printf("%s%s", space ? " " : "", s);
+
+                                        space = true;
+                                        dbus_message_iter_next(&sub);
+                                }
+
+                                puts("");
+                        }
+
+                        return 0;
+                }
+
+                break;
+        }
+
+        if (arg_all)
+                printf("%s=[unprintable]\n", name);
+
+        return 0;
+}
+
+static int show_one(DBusConnection *bus, const char *path) {
+        DBusMessage *m = NULL, *reply = NULL;
+        const char *interface = "";
+        int r;
+        DBusError error;
+        DBusMessageIter iter, sub, sub2, sub3;
+
+        assert(bus);
+        assert(path);
+
+        dbus_error_init(&error);
+
+        if (!(m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              path,
+                              "org.freedesktop.DBus.Properties",
+                              "GetAll"))) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &interface,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                log_error("Failed to issue method call: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
+                log_error("Failed to parse reply.");
+                r = -EIO;
+                goto finish;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *name;
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_DICT_ENTRY) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT)  {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&sub2, &sub3);
+
+                if (print_property(name, &sub3) < 0) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_next(&sub);
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int show(DBusConnection *bus, char **args, unsigned n) {
+        DBusMessage *m = NULL, *reply = NULL;
+        int r;
+        DBusError error;
+        unsigned i;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        if (n <= 1) {
+                /* If not argument is specified inspect the manager
+                 * itself */
+
+                r = show_one(bus, "/org/freedesktop/systemd1");
+                goto finish;
+        }
+
+        for (i = 1; i < n; i++) {
+                const char *path = NULL;
+                uint32_t id;
+
+                if (safe_atou32(args[i], &id) < 0) {
+
+                        if (!(m = dbus_message_new_method_call(
+                                              "org.freedesktop.systemd1",
+                                              "/org/freedesktop/systemd1",
+                                              "org.freedesktop.systemd1.Manager",
+                                              "GetUnit"))) {
+                                log_error("Could not allocate message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (!dbus_message_append_args(m,
+                                                      DBUS_TYPE_STRING, &args[i],
+                                                      DBUS_TYPE_INVALID)) {
+                                log_error("Could not append arguments to message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                } else {
+
+                        if (!(m = dbus_message_new_method_call(
+                                              "org.freedesktop.systemd1",
+                                              "/org/freedesktop/systemd1",
+                                              "org.freedesktop.systemd1.Manager",
+                                              "GetJob"))) {
+                                log_error("Could not allocate message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (!dbus_message_append_args(m,
+                                                      DBUS_TYPE_UINT32, &id,
+                                                      DBUS_TYPE_INVALID)) {
+                                log_error("Could not append arguments to message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+                }
+
+                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                        log_error("Failed to issue method call: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (!dbus_message_get_args(reply, &error,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse reply: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if ((r = show_one(bus, path)) < 0)
+                        goto finish;
+
+                dbus_message_unref(m);
+                dbus_message_unref(reply);
+                m = reply = NULL;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
 }
 
 static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage *message, void *data) {
@@ -1656,27 +1982,29 @@ static int systemctl_help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to the systemd manager.\n\n"
-               "  -h --help      Show this help\n"
-               "  -t --type=TYPE List only units of a particular type\n"
-               "  -a --all       Show all units, including dead ones\n"
-               "     --replace   When installing a new job, replace existing conflicting ones\n"
-               "     --system    Connect to system bus\n"
-               "     --session   Connect to session bus\n"
-               "  -q --quiet     Suppress output\n"
-               "     --no-block  Do not wait until operation finished\n"
-               "     --no-wall   Don't send wall message before halt/power-off/reboot\n\n"
+               "  -h --help          Show this help\n"
+               "  -t --type=TYPE     List only units of a particular type\n"
+               "  -p --property=NAME Show only property by this name\n"
+               "  -a --all           Show all units/properties, including dead/empty ones\n"
+               "     --replace       When installing a new job, replace existing conflicting ones\n"
+               "     --system        Connect to system bus\n"
+               "     --session       Connect to session bus\n"
+               "  -q --quiet         Suppress output\n"
+               "     --no-block      Do not wait until operation finished\n"
+               "     --no-wall       Don't send wall message before halt/power-off/reboot\n\n"
                "Commands:\n"
                "  list-units                      List units\n"
-               "  list-jobs                       List jobs\n"
-               "  clear-jobs                      Cancel all jobs\n"
-               "  load [NAME...]                  Load one or more units\n"
-               "  cancel [JOB...]                 Cancel one or more jobs\n"
                "  start [NAME...]                 Start one or more units\n"
                "  stop [NAME...]                  Stop one or more units\n"
                "  restart [NAME...]               Restart one or more units\n"
                "  reload [NAME...]                Reload one or more units\n"
                "  isolate [NAME]                  Start one unit and stop all others\n"
                "  check [NAME...]                 Check whether any of the passed units are active\n"
+               "  show [NAME...|JOB...]           Show information about one or more units\n"
+               "  load [NAME...]                  Load one or more units\n"
+               "  list-jobs                       List jobs\n"
+               "  cancel [JOB...]                 Cancel one or more jobs\n"
+               "  clear-jobs                      Cancel all jobs\n"
                "  monitor                         Monitor unit/job changes\n"
                "  dump                            Dump server status\n"
                "  snapshot [NAME]                 Create a snapshot\n"
@@ -1776,6 +2104,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'          },
                 { "type",      required_argument, NULL, 't'          },
+                { "property",  required_argument, NULL, 'p'          },
                 { "all",       no_argument,       NULL, 'a'          },
                 { "replace",   no_argument,       NULL, ARG_REPLACE  },
                 { "session",   no_argument,       NULL, ARG_SESSION  },
@@ -1791,7 +2120,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "htaq", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:aq", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -1801,6 +2130,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 't':
                         arg_type = optarg;
+                        break;
+
+                case 'p':
+                        arg_property = optarg;
+
+                        /* If the user asked for a particular
+                         * property, show it to him, even if it is
+                         * empty. */
+                        arg_all = true;
                         break;
 
                 case 'a':
@@ -2343,6 +2681,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "restart",           MORE,  2, start_unit      },
                 { "isolate",           EQUAL, 2, start_unit      },
                 { "check",             MORE,  2, check_unit      },
+                { "show",              MORE,  1, show            },
                 { "monitor",           EQUAL, 1, monitor         },
                 { "dump",              EQUAL, 1, dump            },
                 { "snapshot",          LESS,  2, snapshot        },
