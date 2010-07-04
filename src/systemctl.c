@@ -1264,7 +1264,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                               "org.freedesktop.systemd1",
                                               "/org/freedesktop/systemd1",
                                               "org.freedesktop.systemd1.Manager",
-                                              "GetUnit"))) {
+                                              "LoadUnit"))) {
                                 log_error("Could not allocate message.");
                                 r = -ENOMEM;
                                 goto finish;
