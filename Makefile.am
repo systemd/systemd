@@ -543,6 +543,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/lg-x110 \
 	extras/keymap/keymaps/logitech-wave \
 	extras/keymap/keymaps/logitech-wave-cordless \
+	extras/keymap/keymaps/logitech-wave-pro-cordless \
 	extras/keymap/keymaps/maxdata-pro_7000 \
 	extras/keymap/keymaps/medion-fid2060 \
 	extras/keymap/keymaps/medionnb-a555 \
