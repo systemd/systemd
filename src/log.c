@@ -227,10 +227,10 @@ static int write_to_console(
         if (show_location)
                 IOVEC_SET_STRING(iovec[n++], location);
         if (highlight)
-                IOVEC_SET_STRING(iovec[n++], "\x1B[1;31m");
+                IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_ON);
         IOVEC_SET_STRING(iovec[n++], buffer);
         if (highlight)
-                IOVEC_SET_STRING(iovec[n++], "\x1B[0m");
+                IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_OFF);
         IOVEC_SET_STRING(iovec[n++], "\n");
 
         if (writev(console_fd, iovec, n) < 0)

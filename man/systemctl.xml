@@ -247,16 +247,25 @@
                                 state to STDOUT.</para></listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><command>status [NAME...]</command></term>
+
+                                <listitem><para>Show short status
+                                information about one or more
+                                units. This shows terse runtime
+                                information about
+                                units.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><command>show [NAME...|JOB...]</command></term>
 
-                                <listitem><para>Show information about
+                                <listitem><para>Show properties of
                                 one or more units, jobs or the manager
                                 itself. If no argument is specified
-                                information about the manager will be
+                                properties of the manager will be
                                 shown. If a unit name is specified
-                                information about the unit is shown,
+                                properties of the unit is shown,
                                 and if a job id is specified
-                                information about the job is
+                                properties of the job is
                                 shown.</para></listitem>
                         </varlistentry>
                         <varlistentry>

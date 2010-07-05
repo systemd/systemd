@@ -59,6 +59,9 @@ typedef struct dual_timestamp {
 #define FORMAT_TIMESTAMP_MAX 64
 #define FORMAT_TIMESPAN_MAX 64
 
+#define ANSI_HIGHLIGHT_ON "\x1B[1;31m"
+#define ANSI_HIGHLIGHT_OFF "\x1B[0m"
+
 usec_t now(clockid_t clock);
 
 dual_timestamp* dual_timestamp_get(dual_timestamp *ts);

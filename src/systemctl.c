@@ -959,9 +959,226 @@ finish:
         return r;
 }
 
+typedef struct UnitStatusInfo {
+        const char *id;
+        const char *load_state;
+        const char *active_state;
+        const char *sub_state;
+
+        const char *description;
+
+        const char *fragment_path;
+        const char *default_control_group;
+
+        /* Service */
+        pid_t main_pid;
+        pid_t control_pid;
+        const char *status_text;
+        bool running;
+
+        usec_t start_timestamp;
+        usec_t exit_timestamp;
+
+        int exit_code, exit_status;
+
+        /* Socket */
+        unsigned n_accepted;
+        unsigned n_connections;
+
+        /* Device */
+        const char *sysfs_path;
+
+        /* Mount, Automount */
+        const char *where;
+
+        /* Swap */
+        const char *what;
+} UnitStatusInfo;
+
+static void print_status_info(UnitStatusInfo *i) {
+        assert(i);
+
+        /* This shows pretty information about a unit. See
+         * print_property() for a low-level property printer */
+
+        printf("%s", strna(i->id));
+
+        if (i->description && !streq_ptr(i->id, i->description))
+                printf(" - %s", i->description);
+
+        printf("\n");
+
+        if (i->fragment_path)
+                printf("\t  Loaded: %s (%s)\n", strna(i->load_state), i->fragment_path);
+        else if (streq_ptr(i->load_state, "failed"))
+                printf("\t  Loaded: " ANSI_HIGHLIGHT_ON "%s" ANSI_HIGHLIGHT_OFF "\n", strna(i->load_state));
+        else
+                printf("\t  Loaded: %s\n", strna(i->load_state));
+
+        if (streq_ptr(i->active_state, "maintenance"))
+                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s (%s)" ANSI_HIGHLIGHT_OFF "\n",
+                       strna(i->active_state),
+                       strna(i->sub_state));
+        else
+                printf("\t  Active: %s (%s)\n",
+                       strna(i->active_state),
+                       strna(i->sub_state));
+
+        if (i->sysfs_path)
+                printf("\t  Device: %s\n", i->sysfs_path);
+        else if (i->where)
+                printf("\t   Where: %s\n", i->where);
+        else if (i->what)
+                printf("\t    What: %s\n", i->what);
+
+        if (i->status_text)
+                printf("\t  Status: \"%s\"\n", i->status_text);
+
+        if (i->id && endswith(i->id, ".socket"))
+                printf("\tAccepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
+
+        if (i->main_pid > 0 || i->control_pid > 0) {
+                printf("\t");
+
+                if (i->main_pid > 0) {
+                        printf(" Process: %u", (unsigned) i->main_pid);
+
+                        if (i->running) {
+                                char *t = NULL;
+                                get_process_name(i->main_pid, &t);
+                                if (t) {
+                                        printf(" (%s)", t);
+                                        free(t);
+                                }
+                        } else {
+                                printf(" (code=%s, ", sigchld_code_to_string(i->exit_code));
+
+                                if (i->exit_code == CLD_EXITED)
+                                        printf("status=%i", i->exit_status);
+                                else
+                                        printf("signal=%s", strsignal(i->exit_status));
+                                printf(")");
+                        }
+                }
+
+                if (i->main_pid > 0 && i->control_pid > 0)
+                        printf(";");
+
+                if (i->control_pid > 0) {
+                        char *t = NULL;
+
+                        printf(" Control: %u", (unsigned) i->control_pid);
+
+                        get_process_name(i->control_pid, &t);
+                        if (t) {
+                                printf(" (%s)", t);
+                                free(t);
+                        }
+                }
+
+                printf("\n");
+        }
+
+        if (i->default_control_group)
+                printf("\t  CGroup: %s\n", i->default_control_group);
+}
+
+static int status_property(const char *name, DBusMessageIter *iter, UnitStatusInfo *i) {
+
+        switch (dbus_message_iter_get_arg_type(iter)) {
+
+        case DBUS_TYPE_STRING: {
+                const char *s;
+
+                dbus_message_iter_get_basic(iter, &s);
+
+                if (s[0]) {
+                        if (streq(name, "Id"))
+                                i->id = s;
+                        else if (streq(name, "LoadState"))
+                                i->load_state = s;
+                        else if (streq(name, "ActiveState"))
+                                i->active_state = s;
+                        else if (streq(name, "SubState"))
+                                i->sub_state = s;
+                        else if (streq(name, "Description"))
+                                i->description = s;
+                        else if (streq(name, "FragmentPath"))
+                                i->fragment_path = s;
+                        else if (streq(name, "DefaultControlGroup"))
+                                i->default_control_group = s;
+                        else if (streq(name, "StatusText"))
+                                i->status_text = s;
+                        else if (streq(name, "SysFSPath"))
+                                i->sysfs_path = s;
+                        else if (streq(name, "Where"))
+                                i->where = s;
+                        else if (streq(name, "What"))
+                                i->what = s;
+                }
+
+                break;
+        }
+
+        case DBUS_TYPE_UINT32: {
+                uint32_t u;
+
+                dbus_message_iter_get_basic(iter, &u);
+
+                if (streq(name, "MainPID")) {
+                        if (u > 0) {
+                                i->main_pid = (pid_t) u;
+                                i->running = true;
+                        }
+                } else if (streq(name, "ControlPID"))
+                        i->control_pid = (pid_t) u;
+                else if (streq(name, "ExecMainPID")) {
+                        if (u > 0)
+                                i->main_pid = (pid_t) u;
+                } else if (streq(name, "NAccepted"))
+                        i->n_accepted = u;
+                else if (streq(name, "NConnections"))
+                        i->n_connections = u;
+
+                break;
+        }
+
+        case DBUS_TYPE_INT32: {
+                int32_t j;
+
+                dbus_message_iter_get_basic(iter, &j);
+
+                if (streq(name, "ExecMainCode"))
+                        i->exit_code = (int) j;
+                else if (streq(name, "ExecMainStatus"))
+                        i->exit_status = (int) j;
+
+                break;
+        }
+
+        case DBUS_TYPE_UINT64: {
+                uint64_t u;
+
+                dbus_message_iter_get_basic(iter, &u);
+
+                if (streq(name, "ExecMainStartTimestamp"))
+                        i->start_timestamp = (usec_t) u;
+                else if (streq(name, "ExecMainExitTimestamp"))
+                        i->exit_timestamp = (usec_t) u;
+
+                break;
+        }
+        }
+
+        return 0;
+}
+
 static int print_property(const char *name, DBusMessageIter *iter) {
         assert(name);
         assert(iter);
+
+        /* This is a low-level property printer, see
+         * print_status_info() for the nicer output */
 
         if (arg_property && !streq(name, arg_property))
                 return 0;
@@ -1200,7 +1417,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                                (unsigned) pid,
                                                sigchld_code_to_string(code),
                                                status,
-                                               strna(code == CLD_EXITED ? NULL : strsignal(status)));
+                                               strempty(code == CLD_EXITED ? NULL : strsignal(status)));
                                 }
 
                                 printf(" }\n");
@@ -1220,16 +1437,19 @@ static int print_property(const char *name, DBusMessageIter *iter) {
         return 0;
 }
 
-static int show_one(DBusConnection *bus, const char *path) {
+static int show_one(DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
         DBusMessage *m = NULL, *reply = NULL;
         const char *interface = "";
         int r;
         DBusError error;
         DBusMessageIter iter, sub, sub2, sub3;
+        UnitStatusInfo info;
 
         assert(bus);
         assert(path);
+        assert(new_line);
 
+        zero(info);
         dbus_error_init(&error);
 
         if (!(m = dbus_message_new_method_call(
@@ -1266,6 +1486,11 @@ static int show_one(DBusConnection *bus, const char *path) {
 
         dbus_message_iter_recurse(&iter, &sub);
 
+        if (*new_line)
+                printf("\n");
+
+        *new_line = true;
+
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *name;
 
@@ -1291,7 +1516,12 @@ static int show_one(DBusConnection *bus, const char *path) {
 
                 dbus_message_iter_recurse(&sub2, &sub3);
 
-                if (print_property(name, &sub3) < 0) {
+                if (show_properties)
+                        r = print_property(name, &sub3);
+                else
+                        r = status_property(name, &sub3, &info);
+
+                if (r < 0) {
                         log_error("Failed to parse reply.");
                         r = -EIO;
                         goto finish;
@@ -1299,6 +1529,9 @@ static int show_one(DBusConnection *bus, const char *path) {
 
                 dbus_message_iter_next(&sub);
         }
+
+        if (!show_properties)
+                print_status_info(&info);
 
         r = 0;
 
@@ -1319,17 +1552,20 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
         int r;
         DBusError error;
         unsigned i;
+        bool show_properties, new_line = false;
 
         assert(bus);
         assert(args);
 
         dbus_error_init(&error);
 
-        if (n <= 1) {
+        show_properties = !streq(args[0], "status");
+
+        if (show_properties && n <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
 
-                r = show_one(bus, "/org/freedesktop/systemd1");
+                r = show_one(bus, "/org/freedesktop/systemd1", show_properties, &new_line);
                 goto finish;
         }
 
@@ -1337,7 +1573,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 const char *path = NULL;
                 uint32_t id;
 
-                if (safe_atou32(args[i], &id) < 0) {
+                if (!show_properties || safe_atou32(args[i], &id) < 0) {
 
                         if (!(m = dbus_message_new_method_call(
                                               "org.freedesktop.systemd1",
@@ -1392,7 +1628,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                if ((r = show_one(bus, path)) < 0)
+                if ((r = show_one(bus, path, show_properties, &new_line)) < 0)
                         goto finish;
 
                 dbus_message_unref(m);
@@ -2098,7 +2334,8 @@ static int systemctl_help(void) {
                "  reload [NAME...]                Reload one or more units\n"
                "  isolate [NAME]                  Start one unit and stop all others\n"
                "  check [NAME...]                 Check whether any of the passed units are active\n"
-               "  show [NAME...|JOB...]           Show information about one or more units/jobs/manager\n"
+               "  status [NAME...]                Show status of one or more units\n"
+               "  show [NAME...|JOB...]           Show properties of one or more units/jobs/manager\n"
                "  load [NAME...]                  Load one or more units\n"
                "  list-jobs                       List jobs\n"
                "  cancel [JOB...]                 Cancel one or more jobs\n"
@@ -2780,6 +3017,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "isolate",           EQUAL, 2, start_unit      },
                 { "check",             MORE,  2, check_unit      },
                 { "show",              MORE,  1, show            },
+                { "status",            MORE,  2, show            },
                 { "monitor",           EQUAL, 1, monitor         },
                 { "dump",              EQUAL, 1, dump            },
                 { "snapshot",          LESS,  2, snapshot        },
