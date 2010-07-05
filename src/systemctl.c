@@ -959,6 +959,43 @@ finish:
         return r;
 }
 
+static void show_cgroup(const char *name) {
+        char *fn, *pids;
+        int r;
+        char *p;
+
+        if (!startswith(name, "name=systemd:"))
+                return;
+
+        if (asprintf(&fn, "/cgroup/systemd/%s/tasks", name + 13) < 0)
+                return;
+
+        r = read_one_line_file(fn, &pids);
+        free(fn);
+
+        if (r < 0)
+                return;
+
+        p = pids;
+        while (p[0]) {
+                unsigned long ul;
+                char *t = NULL;
+
+                p += strspn(p, WHITESPACE);
+
+                errno = 0;
+                ul = strtoul(p, &p, 0);
+                if (errno != 0 || ul <= 0)
+                        break;
+
+                get_process_cmdline((pid_t) ul, 60, &t);
+                printf("\t\t%lu %s\n", ul, strna(t));
+                free(t);
+        }
+
+        free(pids);
+}
+
 typedef struct UnitStatusInfo {
         const char *id;
         const char *load_state;
@@ -1079,8 +1116,10 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\n");
         }
 
-        if (i->default_control_group)
+        if (i->default_control_group) {
                 printf("\t  CGroup: %s\n", i->default_control_group);
+                show_cgroup(i->default_control_group);
+        }
 }
 
 static int status_property(const char *name, DBusMessageIter *iter, UnitStatusInfo *i) {

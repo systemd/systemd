@@ -183,6 +183,7 @@ int mkdir_p(const char *path, mode_t mode);
 int rmdir_parents(const char *path, const char *stop);
 
 int get_process_name(pid_t pid, char **name);
+int get_process_cmdline(pid_t pid, size_t max_length, char **line);
 
 char hexchar(int x);
 int unhexchar(char c);

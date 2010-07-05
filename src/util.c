@@ -566,6 +566,65 @@ int get_process_name(pid_t pid, char **name) {
         return 0;
 }
 
+int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
+        char *p, *r, *k;
+        int c;
+        bool space = false;
+        size_t left;
+        FILE *f;
+
+        assert(pid >= 1);
+        assert(max_length > 0);
+        assert(line);
+
+        if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
+                return -ENOMEM;
+
+        f = fopen(p, "r");
+        free(p);
+
+        if (!f)
+                return -errno;
+
+        if (!(r = new(char, max_length))) {
+                fclose(f);
+                return -ENOMEM;
+        }
+
+        k = r;
+        left = max_length;
+        while ((c = getc(f)) != EOF) {
+
+                if (isprint(c)) {
+                        if (space) {
+                                if (left <= 4)
+                                        break;
+
+                                *(k++) = ' ';
+                                space = false;
+                        }
+
+                        if (left <= 4)
+                                break;
+
+                        *(k++) = (char) c;
+                }  else
+                        space = true;
+        }
+
+        if (left <= 4) {
+                size_t n = MIN(left-1, 3U);
+                memcpy(k, "...", n);
+                k[n] = 0;
+        } else
+                *k = 0;
+
+        fclose(f);
+
+        *line = r;
+        return 0;
+}
+
 char *strappend(const char *s, const char *suffix) {
         size_t a, b;
         char *r;
