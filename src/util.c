@@ -601,6 +601,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
                                         break;
 
                                 *(k++) = ' ';
+                                left--;
                                 space = false;
                         }
 
@@ -608,6 +609,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
                                 break;
 
                         *(k++) = (char) c;
+                        left--;
                 }  else
                         space = true;
         }
