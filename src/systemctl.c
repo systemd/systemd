@@ -856,6 +856,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                         if (!arg_quiet)
                                 puts("unknown");
 
+                        dbus_error_free(&error);
                         continue;
                 }
 
@@ -1618,6 +1619,42 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 goto finish;
                         }
 
+                        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+
+                                if (!dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED)) {
+                                        log_error("Failed to issue method call: %s", error.message);
+                                        r = -EIO;
+                                        goto finish;
+                                }
+
+                                dbus_error_free(&error);
+
+                                dbus_message_unref(m);
+                                if (!(m = dbus_message_new_method_call(
+                                                      "org.freedesktop.systemd1",
+                                                      "/org/freedesktop/systemd1",
+                                                      "org.freedesktop.systemd1.Manager",
+                                                      "GetUnit"))) {
+                                        log_error("Could not allocate message.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if (!dbus_message_append_args(m,
+                                                              DBUS_TYPE_STRING, &args[i],
+                                                              DBUS_TYPE_INVALID)) {
+                                        log_error("Could not append arguments to message.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                                        log_error("Failed to issue method call: %s", error.message);
+                                        r = -EIO;
+                                        goto finish;
+                                }
+                        }
+
                 } else {
 
                         if (!(m = dbus_message_new_method_call(
@@ -1637,12 +1674,12 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
-                }
 
-                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
-                        r = -EIO;
-                        goto finish;
+                        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                                log_error("Failed to issue method call: %s", error.message);
+                                r = -EIO;
+                                goto finish;
+                        }
                 }
 
                 if (!dbus_message_get_args(reply, &error,
