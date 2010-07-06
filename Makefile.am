@@ -38,10 +38,12 @@ systemunitdir=$(rootdir)/lib/systemd/system
 
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
+	-DSYSTEM_CONFIG_FILE=\"$(pkgsysconfdir)/system.conf\" \
 	-DSYSTEM_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/system\" \
 	-DSYSTEM_DATA_UNIT_PATH=\"$(systemunitdir)\" \
 	-DSYSTEM_SYSVINIT_PATH=\"$(SYSTEM_SYSVINIT_PATH)\" \
 	-DSYSTEM_SYSVRCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
+	-DSESSION_CONFIG_FILE=\"$(pkgsysconfdir)/session.conf\" \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
 	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
 	-DCGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
@@ -80,6 +82,9 @@ if HAVE_PAM
 pamlib_LTLIBRARIES = \
 	pam_systemd.la
 endif
+
+dist_pkgsysconf_DATA = \
+	src/system.conf
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf

@@ -43,33 +43,6 @@
 #define COMMENTS "#;\n"
 #define LINE_MAX 4096
 
-#define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
-        static int function(                                            \
-                        const char *filename,                           \
-                        unsigned line,                                  \
-                        const char *section,                            \
-                        const char *lvalue,                             \
-                        const char *rvalue,                             \
-                        void *data,                                     \
-                        void *userdata) {                               \
-                                                                        \
-                type *i = data, x;                                      \
-                                                                        \
-                assert(filename);                                       \
-                assert(lvalue);                                         \
-                assert(rvalue);                                         \
-                assert(data);                                           \
-                                                                        \
-                if ((x = name##_from_string(rvalue)) < 0) {             \
-                        log_error("[%s:%u] " msg ": %s", filename, line, rvalue); \
-                        return -EBADMSG;                                \
-                }                                                       \
-                                                                        \
-                *i = x;                                                 \
-                                                                        \
-                return 0;                                               \
-        }
-
 static int config_parse_deps(
                 const char *filename,
                 unsigned line,
@@ -496,8 +469,8 @@ static int config_parse_usec(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
 
 static int config_parse_bindtodevice(
                 const char *filename,
@@ -528,8 +501,8 @@ static int config_parse_bindtodevice(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_input, exec_input, ExecInput, "Failed to parse input specifier");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_input, exec_input, ExecInput, "Failed to parse input specifier");
 
 static int config_parse_facility(
                 const char *filename,
@@ -725,12 +698,12 @@ static int config_parse_cpu_affinity(
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
+                r = safe_atou(t, &cpu);
+                free(t);
+
                 if (!(c->cpuset))
                         if (!(c->cpuset = cpu_set_malloc(&c->cpuset_ncpus)))
                                 return -ENOMEM;
-
-                r = safe_atou(t, &cpu);
-                free(t);
 
                 if (r < 0 || cpu >= c->cpuset_ncpus) {
                         log_error("[%s:%u] Failed to parse CPU affinity: %s", filename, line, rvalue);
@@ -973,7 +946,7 @@ static int config_parse_sysv_priority(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
 static int config_parse_mount_flags(
                 const char *filename,
@@ -1234,7 +1207,7 @@ static int config_parse_ip_tos(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
 
 #define FOLLOW_MAX 8
 

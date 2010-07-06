@@ -53,4 +53,32 @@ int config_parse_path(const char *filename, unsigned line, const char *section, 
 int config_parse_strv(const char *filename, unsigned line, const char *section, const char *lvalue, const char *rvalue, void *data, void *userdata);
 int config_parse_path_strv(const char *filename, unsigned line, const char *section, const char *lvalue, const char *rvalue, void *data, void *userdata);
 
+#define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
+        int function(                                                   \
+                        const char *filename,                           \
+                        unsigned line,                                  \
+                        const char *section,                            \
+                        const char *lvalue,                             \
+                        const char *rvalue,                             \
+                        void *data,                                     \
+                        void *userdata) {                               \
+                                                                        \
+                type *i = data, x;                                      \
+                                                                        \
+                assert(filename);                                       \
+                assert(lvalue);                                         \
+                assert(rvalue);                                         \
+                assert(data);                                           \
+                                                                        \
+                if ((x = name##_from_string(rvalue)) < 0) {             \
+                        log_error("[%s:%u] " msg ": %s", filename, line, rvalue); \
+                        return -EBADMSG;                                \
+                }                                                       \
+                                                                        \
+                *i = x;                                                 \
+                                                                        \
+                return 0;                                               \
+        }
+
+
 #endif

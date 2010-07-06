@@ -42,6 +42,7 @@
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
+#include "conf-parser.h"
 
 static enum {
         ACTION_RUN,
@@ -334,6 +335,169 @@ static int parse_proc_cmdline_word(const char *word) {
                         if (streq(word, rlmap[i]))
                                 return set_default_unit(rlmap[i+1]);
         }
+
+        return 0;
+}
+
+static int config_parse_level(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        log_set_max_level_from_string(rvalue);
+        return 0;
+}
+
+static int config_parse_target(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        log_set_target_from_string(rvalue);
+        return 0;
+}
+
+static int config_parse_color(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        log_show_color_from_string(rvalue);
+        return 0;
+}
+
+static int config_parse_location(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        log_show_location_from_string(rvalue);
+        return 0;
+}
+
+static int config_parse_cpu_affinity(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char *w;
+        size_t l;
+        char *state;
+        cpu_set_t *c = NULL;
+        unsigned ncpus = 0;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        FOREACH_WORD(w, l, rvalue, state) {
+                char *t;
+                int r;
+                unsigned cpu;
+
+                if (!(t = strndup(w, l)))
+                        return -ENOMEM;
+
+                r = safe_atou(t, &cpu);
+                free(t);
+
+                if (!c)
+                        if (!(c = cpu_set_malloc(&ncpus)))
+                                return -ENOMEM;
+
+                if (r < 0 || cpu >= ncpus) {
+                        log_error("[%s:%u] Failed to parse CPU affinity: %s", filename, line, rvalue);
+                        CPU_FREE(c);
+                        return -EBADMSG;
+                }
+
+                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
+        }
+
+        if (c) {
+                if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
+                        log_warning("Failed to set CPU affinity: %m");
+
+                CPU_FREE(c);
+        }
+
+        return 0;
+}
+
+static int parse_config_file(void) {
+
+        const ConfigItem items[] = {
+                { "LogLevel",    config_parse_level,        NULL,             "Manager" },
+                { "LogTarget",   config_parse_target,       NULL,             "Manager" },
+                { "LogColor",    config_parse_color,        NULL,             "Manager" },
+                { "LogLocation", config_parse_location,     NULL,             "Manager" },
+                { "DumpCore",    config_parse_bool,         &arg_dump_core,   "Manager" },
+                { "CrashShell",  config_parse_bool,         &arg_crash_shell, "Manager" },
+                { "ShowStatus",  config_parse_bool,         &arg_show_status, "Manager" },
+                { "CrashChVT",   config_parse_int,          &arg_crash_chvt,  "Manager" },
+                { "CPUAffinity", config_parse_cpu_affinity, NULL,             "Manager" },
+                { NULL, NULL, NULL, NULL }
+        };
+
+        static const char * const sections[] = {
+                "Manager",
+                NULL
+        };
+
+        FILE *f;
+        const char *fn;
+        int r;
+
+        fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : SESSION_CONFIG_FILE;
+
+        if (!(f = fopen(fn, "re"))) {
+                if (errno == ENOENT)
+                        return 0;
+
+                log_warning("Failed to open configuration file '%s': %m", fn);
+                return 0;
+        }
+
+        if ((r = config_parse(fn, f, sections, items, false, NULL)) < 0)
+                log_warning("Failed to parse configuration file: %s", strerror(-r));
+
+        fclose(f);
 
         return 0;
 }
@@ -693,6 +857,9 @@ int main(int argc, char *argv[]) {
 
         /* If we are init, we can block sigkill. Yay. */
         ignore_signals(SIGNALS_IGNORE, -1);
+
+        if (parse_config_file() < 0)
+                goto finish;
 
         if (arg_running_as == MANAGER_SYSTEM)
                 if (parse_proc_cmdline() < 0)
