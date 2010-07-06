@@ -267,6 +267,7 @@ libsystemd_core_la_SOURCES = \
 	src/hostname-setup.c \
 	src/loopback-setup.c \
 	src/kmod-setup.c \
+	src/modprobe-setup.c \
 	src/utmp-wtmp.c \
 	src/specifier.c \
 	src/unit-name.c \
