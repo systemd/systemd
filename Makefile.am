@@ -341,7 +341,8 @@ MANPAGES = \
 	man/telinit.8 \
 	man/halt.8 \
 	man/shutdown.8 \
-	man/pam_systemd.8
+	man/pam_systemd.8 \
+	man/systemd.conf.5
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \

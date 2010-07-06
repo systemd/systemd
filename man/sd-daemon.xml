@@ -61,7 +61,7 @@
                 <filename>sd-daemon.h</filename> provide a reference
                 implementation of various APIs for new-style daemons,
                 as implemented by the
-                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 init system.</para>
 
                 <para>See

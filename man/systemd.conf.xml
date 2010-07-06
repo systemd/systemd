@@ -1,0 +1,112 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.conf">
+        <refentryinfo>
+                <title>systemd.conf</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.conf</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.conf</refname>
+                <refpurpose>systemd manager configuration file</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>system.conf</filename></para>
+                <para><filename>session.conf</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>When run as system instance systemd reads the
+                configuration file <filename>system.conf</filename>,
+                otherwise <filename>session.conf</filename>. These
+                configuration files contain a few settings controlling
+                basic manager operations.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>All options are configured in the
+                <literal>[Manager]</literal> section:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>LogLevel=</varname></term>
+                                <term><varname>LogTarget=</varname></term>
+                                <term><varname>LogColor=</varname></term>
+                                <term><varname>LogLocation=</varname></term>
+                                <term><varname>DumpCore=yes</varname></term>
+                                <term><varname>CrashShell=no</varname></term>
+                                <term><varname>ShowStatus=yes</varname></term>
+                                <term><varname>CrashChVT=1</varname></term>
+
+                                <listitem><para>Configures various
+                                parameters of basic manager
+                                operation. These options may be
+                                overriden by the respective command
+                                line arguments. See
+                                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                for details about these command line
+                                arguments.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CPUAffinity=</varname></term>
+
+                                <listitem><para>Configures the initial
+                                CPU affinity for the init
+                                process. Takes a space-seperated list
+                                of CPU indexes.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

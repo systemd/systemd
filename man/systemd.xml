@@ -73,6 +73,13 @@
                 are mostly equivalent when invoked from normal login sessions. See
                 <citerefentry><refentrytitle>telinit</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 for more information.</para>
+
+                <para>When run as system instance, systemd interprets
+                the configuration file
+                <filename>system.conf</filename>, otherwise
+                <filename>session.conf</filename>. See
+                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information.</para>
         </refsect1>
 
         <refsect1>
@@ -87,6 +94,37 @@
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--test</option></term>
+
+                                <listitem><para>Determine startup
+                                sequence, dump it and exit. This is an
+                                option useful for debugging
+                                only.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--dump-configuration-items</option></term>
+
+                                <listitem><para>Dump understood unit
+                                configuration items. This outputs a
+                                terse but complete list of
+                                configuration items understood in unit
+                                definition files.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--introspect=</option></term>
+
+                                <listitem><para>Extract D-Bus
+                                interface introspection data. This is
+                                mostly useful at build at install time
+                                to generate data suitable for the
+                                D-Bus interfaces
+                                repository. Optionally the interface
+                                name for the introspection data may be
+                                specified. If omitted, the
+                                introspection data for all interfaces
+                                is dumped.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--unit=</option></term>
@@ -111,40 +149,35 @@
                                 debugging.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><option>--test</option></term>
+                                <term><option>--dump-core</option></term>
 
-                                <listitem><para>Determine startup
-                                sequence, dump it and exit. This is an
-                                option useful for debugging
-                                only.</para></listitem>
+                                <listitem><para>Dump core on crash. This switch has no effect when run as session instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><option>--dump-configuration-items</option></term>
+                                <term><option>--crash-shell</option></term>
 
-                                <listitem><para>Dump understood unit
-                                configuration items. This outputs a
-                                terse but complete list of
-                                configuration items understood in unit
-                                definition files.</para></listitem>
+                                <listitem><para>Run shell on crash. This switch has no effect when run as session instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--confirm-spawn</option></term>
 
-                                <listitem><para>Ask for confirmation when spawning processes.</para></listitem>
+                                <listitem><para>Ask for confirmation when spawning processes. This switch has no effect when run as session instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><option>--introspect=</option></term>
+                                <term><option>--show-status</option></term>
 
-                                <listitem><para>Extract D-Bus
-                                interface introspection data. This is
-                                mostly useful at build at install time
-                                to generate data suitable for the
-                                D-Bus interfaces
-                                repository. Optionally the interface
-                                name for the introspection data may be
-                                specified. If omitted, the
-                                introspection data for all interfaces
-                                is dumped.</para></listitem>
+                                <listitem><para>Show terse service status information while booting. This switch has no effect when run as session instance.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--log-target=</option></term>
+
+                                <listitem><para>Set log
+                                target. Argument must be one of
+                                <option>console</option>,
+                                <option>syslog</option>,
+                                <option>kmsg</option>,
+                                <option>syslog-or-kmsg</option>,
+                                <option>null</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--log-level=</option></term>
@@ -161,17 +194,6 @@
                                 <option>notice</option>,
                                 <option>info</option>,
                                 <option>debug</option>.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><option>--log-target=</option></term>
-
-                                <listitem><para>Set log
-                                target. Argument must be one of
-                                <option>console</option>,
-                                <option>syslog</option>,
-                                <option>kmsg</option>,
-                                <option>syslog-or-kmsg</option>,
-                                <option>null</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--log-color=</option></term>
@@ -711,6 +733,87 @@
                                 for more information.
                                 </para></listitem>
                         </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Kernel Command Line</title>
+
+                <para>When run as system instance systemd parses a few kernel command line arguments:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>systemd.unit=</varname></term>
+
+                                <listitem><para>Overrides the unit to
+                                activate on boot. Defaults to
+                                <filename>default.target</filename>. This
+                                may be used to temporarily boot into a
+                                different boot unit, for example
+                                <filename>rescue.target</filename> or
+                                <filename>emergency.service</filename>. See
+                                <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details about these
+                                units.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.log_target=</varname></term>
+                                <term><varname>systemd.log_level=</varname></term>
+                                <term><varname>systemd.log_color=</varname></term>
+                                <term><varname>systemd.log_location=</varname></term>
+
+                                <listitem><para>Controls log output,
+                                with the same effect as the
+                                <varname>$SYSTEMD_LOG_TARGET</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>, <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LOCATION</varname>
+                                environment variables described above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.dump_core=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                systemd dumps core when it
+                                crashes. Otherwise no core dump is
+                                created. Defaults to
+                                <option>true</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.crash_shell=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                systemd spawns a shell when it
+                                crashes. Otherwise no core dump is
+                                created. Defaults to
+                                <option>false</option>, for security
+                                reasons, as the shell is not protected
+                                by any password
+                                authentication.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.crash_chvt=</varname></term>
+
+                                <listitem><para>Takes an integer
+                                argument. If positive systemd
+                                activates the specified virtual
+                                terminal when it crashes. Defaults to
+                                <literal>-1</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.show_status=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                shows terse service status updates on
+                                the console during bootup. Defaults to
+                                <option>true</option>.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
