@@ -935,9 +935,9 @@ finish:
 }
 
 static void show_cgroup(const char *name) {
-        char *fn, *pids;
-        int r;
-        char *p;
+        char *fn;
+        FILE *f;
+        pid_t last = 0;
 
         if (!startswith(name, "name=systemd:"))
                 return;
@@ -945,30 +945,41 @@ static void show_cgroup(const char *name) {
         if (asprintf(&fn, "/cgroup/systemd/%s/tasks", name + 13) < 0)
                 return;
 
-        r = read_one_line_file(fn, &pids);
+        f = fopen(fn, "r");
         free(fn);
 
-        if (r < 0)
+        if (!f)
                 return;
 
-        p = pids;
-        while (p[0]) {
+        printf("\t\t  │\n");
+
+        while (!feof(f)) {
                 unsigned long ul;
-                char *t = NULL;
 
-                p += strspn(p, WHITESPACE);
-
-                errno = 0;
-                ul = strtoul(p, &p, 0);
-                if (errno != 0 || ul <= 0)
+                if (fscanf(f, "%lu", &ul) != 1)
                         break;
 
-                get_process_cmdline((pid_t) ul, 60, &t);
-                printf("\t\t%lu %s\n", ul, strna(t));
+                if (ul <= 0)
+                        continue;
+
+                if (last > 0) {
+                        char *t = NULL;
+                        get_process_cmdline(last, 60, &t);
+                        printf("\t\t  ├ %lu %s\n", (unsigned long) last, strna(t));
+                        free(t);
+                }
+
+                last = (pid_t) ul;
+        }
+
+        if (last > 0) {
+                char *t = NULL;
+                get_process_cmdline(last, 60, &t);
+                printf("\t\t  └ %lu %s\n", (unsigned long) last, strna(t));
                 free(t);
         }
 
-        free(pids);
+        fclose(f);
 }
 
 typedef struct UnitStatusInfo {
