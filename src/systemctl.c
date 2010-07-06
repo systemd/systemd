@@ -951,7 +951,7 @@ static void show_cgroup(const char *name) {
         if (!f)
                 return;
 
-        printf("\t\t  │\n");
+        printf("\t\t  \342\224\202\n");
 
         while (!feof(f)) {
                 unsigned long ul;
@@ -965,7 +965,7 @@ static void show_cgroup(const char *name) {
                 if (last > 0) {
                         char *t = NULL;
                         get_process_cmdline(last, 60, &t);
-                        printf("\t\t  ├ %lu %s\n", (unsigned long) last, strna(t));
+                        printf("\t\t  \342\224\234 %lu %s\n", (unsigned long) last, strna(t));
                         free(t);
                 }
 
@@ -975,7 +975,7 @@ static void show_cgroup(const char *name) {
         if (last > 0) {
                 char *t = NULL;
                 get_process_cmdline(last, 60, &t);
-                printf("\t\t  └ %lu %s\n", (unsigned long) last, strna(t));
+                printf("\t\t  \342\224\224 %lu %s\n", (unsigned long) last, strna(t));
                 free(t);
         }
 
