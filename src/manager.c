@@ -182,7 +182,7 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
-int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
+int manager_new(ManagerRunningAs running_as, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
         char *p;
@@ -197,7 +197,6 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         dual_timestamp_get(&m->startup_timestamp);
 
         m->running_as = running_as;
-        m->confirm_spawn = confirm_spawn;
         m->name_data_slot = m->subscribed_data_slot = -1;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
@@ -2334,6 +2333,22 @@ finish:
                 fdset_free(fds);
 
         return r;
+}
+
+bool manager_is_booting_or_shutting_down(Manager *m) {
+        Unit *u;
+
+        assert(m);
+
+        /* Is the initial job still around? */
+        if (manager_get_job(m, 1))
+                return true;
+
+        /* Is there a job for the shutdown target? */
+        if (((u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET))))
+                return !!u->meta.job;
+
+        return false;
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

@@ -335,6 +335,9 @@ struct UnitVTable {
 
         /* Exclude from isolation requests */
         bool no_isolate:1;
+
+        /* Show status updates on the console */
+        bool show_status:1;
 };
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
@@ -458,6 +461,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 int unit_add_node_link(Unit *u, const char *what, bool wants);
 
 int unit_coldplug(Unit *u);
+
+void unit_status_printf(Unit *u, const char *format, ...);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);

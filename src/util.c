@@ -2627,6 +2627,30 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
+void status_vprintf(const char *format, va_list ap) {
+        char *s = NULL;
+        int fd = -1;
+
+        assert(format);
+
+        /* This independent of logging, as status messages are
+         * optional and go exclusively to the console. */
+
+        if (vasprintf(&s, format, ap) < 0)
+                goto finish;
+
+        if ((fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
+                goto finish;
+
+        write(fd, s, strlen(s));
+
+finish:
+        free(s);
+
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

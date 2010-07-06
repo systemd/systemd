@@ -547,6 +547,7 @@ const UnitVTable swap_vtable = {
 
         .no_instances = true,
         .no_isolate = true,
+        .show_status = true,
 
         .init = swap_init,
         .load = swap_load,

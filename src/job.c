@@ -483,6 +483,9 @@ int job_finish_and_invalidate(Job *j, bool success) {
         t = j->type;
         job_free(j);
 
+        if (!success)
+                unit_status_printf(u, "Starting %s... " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u));
+
         /* Fail depending jobs on failure */
         if (!success) {
 

@@ -59,6 +59,7 @@ static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_nomodules = false;
+static bool arg_show_status = true;
 
 static FILE* serialization = NULL;
 
@@ -236,6 +237,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 "4",      SPECIAL_RUNLEVEL4_TARGET,
                 "5",      SPECIAL_RUNLEVEL5_TARGET
         };
+        bool ignore_quiet = false;
 
         if (startswith(word, "systemd.unit="))
                 return set_default_unit(word + 13);
@@ -292,6 +294,16 @@ static int parse_proc_cmdline_word(const char *word) {
                 else
                         arg_crash_chvt = k;
 
+        } else if (startswith(word, "systemd.show_status=")) {
+                int r;
+
+                if ((r = parse_boolean(word + 20)) < 0)
+                        log_warning("Failed to parse show status switch %s, Ignoring.", word + 20);
+                else {
+                        arg_show_status = r;
+                        ignore_quiet = true;
+                }
+
         } else if (startswith(word, "systemd.")) {
 
                 log_warning("Unknown kernel switch %s. Ignoring.", word);
@@ -304,13 +316,17 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n"
                          "systemd.dump_core=0|1                    Dump core on crash\n"
-                         "systemd.crash_shell=0|1                  On crash run shell\n"
+                         "systemd.crash_shell=0|1                  Run shell on crash\n"
                          "systemd.crash_chvt=N                     Change to VT #N on crash\n"
-                         "systemd.confirm_spawn=0|1                Confirm every process spawn");
+                         "systemd.confirm_spawn=0|1                Confirm every process spawn\n"
+                         "systemd.show_status=0|1                  Show status updates on the console during bootup\n");
 
         } else if (streq(word, "nomodules"))
                 arg_nomodules = true;
-        else {
+        else if (streq(word, "quiet")) {
+                if (!ignore_quiet)
+                        arg_show_status = false;
+        } else {
                 unsigned i;
 
                 /* SysV compatibility */
@@ -367,7 +383,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RUNNING_AS,
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
+                ARG_DUMP_CORE,
+                ARG_CRASH_SHELL,
                 ARG_CONFIRM_SPAWN,
+                ARG_SHOW_STATUS,
                 ARG_DESERIALIZE,
                 ARG_INTROSPECT
         };
@@ -382,7 +401,10 @@ static int parse_argv(int argc, char *argv[]) {
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
+                { "dump-core",                no_argument,       NULL, ARG_DUMP_CORE                },
+                { "crash-shell",              no_argument,       NULL, ARG_CRASH_SHELL              },
                 { "confirm-spawn",            no_argument,       NULL, ARG_CONFIRM_SPAWN            },
+                { "show-status",              no_argument,       NULL, ARG_SHOW_STATUS              },
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
                 { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { NULL,                       0,                 NULL, 0                            }
@@ -467,8 +489,20 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_DUMP_CONFIGURATION_ITEMS;
                         break;
 
+                case ARG_DUMP_CORE:
+                        arg_dump_core = true;
+                        break;
+
+                case ARG_CRASH_SHELL:
+                        arg_crash_shell = true;
+                        break;
+
                 case ARG_CONFIRM_SPAWN:
                         arg_confirm_spawn = true;
+                        break;
+
+                case ARG_SHOW_STATUS:
+                        arg_show_status = true;
                         break;
 
                 case ARG_DESERIALIZE: {
@@ -543,14 +577,17 @@ static int help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Starts up and maintains the system or a session.\n\n"
                "  -h --help                      Show this help\n"
-               "     --unit=UNIT                 Set default unit\n"
-               "     --running-as=AS             Set running as (system, session)\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
-               "     --confirm-spawn             Ask for confirmation when spawning processes\n"
                "     --introspect[=INTERFACE]    Extract D-Bus interface data\n"
-               "     --log-level=LEVEL           Set log level\n"
+               "     --unit=UNIT                 Set default unit\n"
+               "     --running-as=AS             Set running as (system, session)\n"
+               "     --dump-core                 Dump core on crash\n"
+               "     --crash-shell               Run shell on crash\n"
+               "     --confirm-spawn             Ask for confirmation when spawning processes\n"
+               "     --show-status               Show status updates on the console during bootup\n"
                "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
+               "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
                "     --log-location[=0|1]        Include code location in log messages\n",
                program_invocation_short_name);
@@ -734,10 +771,13 @@ int main(int argc, char *argv[]) {
                 loopback_setup();
         }
 
-        if ((r = manager_new(arg_running_as, arg_confirm_spawn, &m)) < 0) {
+        if ((r = manager_new(arg_running_as, &m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
         }
+
+        m->confirm_spawn = arg_confirm_spawn;
+        m->show_status = arg_show_status;
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));

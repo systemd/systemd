@@ -192,10 +192,11 @@ struct Manager {
 
         bool utmp_reboot_written:1;
 
+        bool show_status;
         bool confirm_spawn;
 };
 
-int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **m);
+int manager_new(ManagerRunningAs running_as, Manager **m);
 void manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);
@@ -239,6 +240,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds);
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
 
 int manager_reload(Manager *m);
+
+bool manager_is_booting_or_shutting_down(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

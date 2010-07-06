@@ -291,6 +291,8 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
+void status_vprintf(const char *format, va_list ap);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 
