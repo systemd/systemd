@@ -64,9 +64,11 @@
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for the common options of all unit configuration
                 files. The common configuration items are configured
-                in the generic [Unit] and [Install] sections. A
-                separate [Device] section does not exist, since no
-                device-specific options may be configured.</para>
+                in the generic <literal>[Unit]</literal> and
+                <literal>[Install]</literal> sections. A separate
+                <literal>[Device]</literal> section does not exist,
+                since no device-specific options may be
+                configured.</para>
 
                 <para>systemd will automatically create dynamic device
                 units for all kernel devices that are marked with the
@@ -100,9 +102,15 @@
                                 <listitem><para>Adds dependencies of
                                 type <varname>Wants</varname> from
                                 this unit to all listed units. This
-                                may be used to activate arbitrary units,
-                                when a specific device becomes
-                                available.</para></listitem>
+                                may be used to activate arbitrary
+                                units, when a specific device becomes
+                                available. Note that this and the
+                                other tags are not taken into account
+                                unless the device is tagged with the
+                                "<literal>systemd</literal>" string in
+                                the udev database, because otherwise
+                                the device is not exposed as systemd
+                                unit.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

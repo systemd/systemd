@@ -197,6 +197,112 @@
         </refsect1>
 
         <refsect1>
+                <title>Concepts</title>
+
+                <para>systemd provides a dependency system between
+                various entities called "units". Units encapsulate
+                various objects that are relevant for system boot-up
+                and maintainance. The majority of units are configured
+                in unit configuration files, whose syntax and basic
+                set of options is described in
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                however some are created automatically from other
+                configuration or dynamically from system state. Units
+                may be active (meaning started, bound, plugged in, ...
+                depending on the unit type), or inactive (meaning
+                stopped, unbound, unplugged, ...), as well is in the
+                process of being activated or deactivated,
+                i.e. between the two states. The following unit types
+                are available:</para>
+
+                <orderedlist>
+                        <listitem><para>Service units, which control
+                        daemons and the processes they consist of. For
+                        details see
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Socket units, which
+                        encapsulate local IPC or network sockets in
+                        the system, useful for socket-based
+                        activation. For details about socket units see
+                        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        for details on socket-based activation and
+                        other forms of activation, see
+                        <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Target units are useful to
+                        group units, or provide well-known
+                        synchronization points during boot-up, see
+                        <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Device units expose kernel
+                        devices in systemd and may be used to
+                        implement device-based activation. For details
+                        see
+                        <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Mount units control mount
+                        points in the file system, for details see
+                        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Automount units provide
+                        automount capabilities, for on-demand mounting
+                        of file systems as well as parallelized
+                        boot-up. See
+                        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Snapshot units can be used to
+                        temporarily save the state of the set of
+                        systemd units, which later may be restored by
+                        activating the saved snapshot unit. For more
+                        information see
+                        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Timer units are useful for
+                        triggering activation of other units based on
+                        timers. You may find details in
+                        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Swap units are very similar to
+                        mount units and encapsulated memory swap
+                        partitions or files of the operating
+                        systemd. They are described in <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Path units may be used
+                        activate other services when file system
+                        objects change or are modified. See
+                        <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                </orderedlist>
+
+                <para>Units are named as their configuration
+                files. Some units have special semantics. A detailed
+                list you may find in
+                <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+                <para>On boot systemd activates the target unit
+                <filename>default.target</filename> whose job it is to
+                activate on-boot services and other on-boot units by
+                pulling them in via dependencies. Usually the unit
+                name is just an alias (symlink) for either
+                <filename>graphical.target</filename> (for
+                fully-featured boots into the UI) or
+                <filename>multi-user.target</filename> (for limited
+                console-only boots for use in embedded or server
+                environments, or similar; a subset of
+                graphical.target). However it is at the discretion of
+                the administrator to configure it as an alias to any
+                other target unit. See
+                <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                for details about these target units.</para>
+
+                <para>For more information about the concepts and
+                ideas behind systemd please refer to the <ulink
+                url="http://0pointer.de/blog/projects/systemd.html">Original
+                Announcement Document</ulink>.</para>
+        </refsect1>
+
+        <refsect1>
                 <title>Directories</title>
 
                 <variablelist>
