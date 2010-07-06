@@ -296,10 +296,68 @@
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 for details about these target units.</para>
 
+                <para>Processes systemd spawns ared placed in
+                individual Linux control groups named after the unit
+                which they belong to in the private systemd
+                hierarchy. (see <ulink
+                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>
+                for more information about control groups, or short
+                "cgroups"). systemd uses this to effectively keep
+                track of processes. Control group information is
+                maintained in the kernel, and is accessible via the
+                file system hierarchy (beneath
+                <filename>/cgroup/systemd/</filename>), or in tools
+                such as
+                <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                (<command>ps xawf -eo pid,user,cgroup,args</command>
+                is particularly useful to list all processes and the
+                systemd units they belong to.).</para>
+
+                <para>systemd is compatible with the SysV init system
+                to a large degree: SysV init scripts are supported and
+                simply read as an alternative (though limited)
+                configuration file format. The SysV
+                <filename>/dev/initctl</filename> interface is
+                provided, and comaptibility implementations of the
+                various SysV client tools available. In addition to
+                that various established Unix functionality such as
+                <filename>/etc/fstab</filename> or the
+                <filename>utmp</filename> database are
+                supported.</para>
+
+                <para>systemd has a minimal transaction system: if a
+                unit is requested to start up or shut down it will add
+                it and all its dependencies to a temporary
+                transaction. Then, it will verify if the transaction
+                is consistent (i.e. whether the ordering of all units
+                is cycle-free). If it is not, systemd will try to fix
+                it up, and removes non-essential jobs from the
+                transaction that might remove the loop. Also, systemd
+                tries to suppress non-essential jobs in the
+                transaction that would stop a running service. Finally
+                it is checked whether the jobs of the transaction
+                contradict jobs that have already been queued, and
+                optionally the transaction is aborted then. If all
+                worked out and the transaction is consistent and
+                minimized in its impact it is merged with all already
+                outstanding jobs and added to the run
+                queue. Effectively this means that before executing a
+                requested operation, systemd will verify that it makes
+                sense, fixing it if possible, and only failing if it
+                really cannot work.</para>
+
+                <para>Systemd contains native implementations of
+                various tasks that need to be executed as part of the
+                boot process. For example, it sets the host name or
+                configures the loopback network device. It also sets
+                up and mounts various API file systems, such as
+                <filename>/sys</filename> or
+                <filename>/proc</filename>.</para>
+
                 <para>For more information about the concepts and
                 ideas behind systemd please refer to the <ulink
                 url="http://0pointer.de/blog/projects/systemd.html">Original
-                Announcement Document</ulink>.</para>
+                Design Document</ulink>.</para>
         </refsect1>
 
         <refsect1>

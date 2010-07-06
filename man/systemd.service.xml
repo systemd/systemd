@@ -88,6 +88,14 @@
                 system shutdown. Only services involved with early
                 boot or late system shutdown should disable this
                 option.</para>
+
+                <para>If a service is requested under a certain name
+                but no unit configuration file is found, systemd looks
+                for a SysV init script by the same name (with the
+                <filename>.service</filename> suffix removed) and
+                dynamically creates a service unit from that
+                script. This is useful for compatibility with
+                SysV.</para>
         </refsect1>
 
         <refsect1>
