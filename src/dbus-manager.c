@@ -195,6 +195,20 @@ static int bus_manager_append_n_jobs(Manager *m, DBusMessageIter *i, const char 
         return 0;
 }
 
+static const char *message_get_sender_with_fallback(DBusMessage *m) {
+        const char *s;
+
+        assert(m);
+
+        if ((s = dbus_message_get_sender(m)))
+                return s;
+
+        /* When the message came in from a direct connection the
+         * message will have no sender. We fix that here. */
+
+        return ":no-sender";
+}
+
 static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection, DBusMessage *message, void *data) {
         Manager *m = data;
 
@@ -471,7 +485,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         }
                 }
 
-                if (!(client = strdup(dbus_message_get_sender(message))))
+                if (!(client = strdup(message_get_sender_with_fallback(message))))
                         goto oom;
 
                 if ((r = set_put(s, client)) < 0) {
@@ -485,7 +499,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Unsubscribe")) {
                 char *client;
 
-                if (!(client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) dbus_message_get_sender(message))))
+                if (!(client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) message_get_sender_with_fallback(message))))
                         return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
 
                 free(client);
@@ -720,7 +734,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
                         return bus_send_error_reply(m, connection, message, NULL, r);
 
-                if (!(j->bus_client = strdup(dbus_message_get_sender(message))))
+                if (!(j->bus_client = strdup(message_get_sender_with_fallback(message))))
                         goto oom;
 
                 j->bus = connection;
