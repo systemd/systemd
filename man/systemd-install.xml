@@ -68,10 +68,18 @@
                 enabled.</para>
 
                 <para>This command is useful to apply or undo the
-                installation instructions encoded in the [Install]
+                installation instructions encoded in the <literal>[Install]</literal>
                 section of unit files. See
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information.</para>
+
+                <para>Enabling units (as with <command>systemd-install
+                enable</command>) should not be confused with
+                activating units (as with <command>systemctl
+                start</command>). The former simply installs the unit
+                files in the configuration tree, but does not start
+                them. The latter equals starting them, but does not
+                necessarily require them to be enabled.</para>
         </refsect1>
 
         <refsect1>
@@ -120,6 +128,49 @@
                                 session service for all
                                 users.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--start[=MODE]</option></term>
+
+                                <listitem><para>After
+                                enabling/disabling stop/restart the
+                                unit and reload manager
+                                configuration. Optionally, takes one
+                                of <option>no</option>,
+                                <option>minimal</option>,
+                                <option>maybe</option> or
+                                <option>yes</option>. If
+                                <option>no</option> is passed the
+                                manager will not reload its
+                                configuration and no service will be
+                                started or stopped after
+                                enabling/disabling of the unit
+                                files. If <option>minimal</option> is
+                                passed and a unit is being enabled it
+                                will also be restarted should it
+                                already be running. If a unit is being
+                                disabled it will be stopped should it
+                                be running. In either case the
+                                daemon configuration is
+                                reloaded. <option>maybe</option> is
+                                similar to this, but the unit will
+                                also be started if it is being enabled
+                                and any of the units listed in
+                                <varname>WantedBy=</varname> in the
+                                <literal>[Install]</literal> section
+                                of the unit file is already
+                                activated. Finally
+                                <option>yes</option> starts the unit
+                                unconditionally after enabling. This
+                                setting defaults to
+                                <option>no</option>. If the mode value
+                                is omitted defaults to
+                                <option>maybe</option>. This option
+                                has no effect when
+                                <option>--global</option> or
+                                <command>test</command> is
+                                used.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>The following commands are understood:</para>
@@ -130,17 +181,19 @@
 
                                 <listitem><para>Enable a unit. This
                                 will create a number of symlinks as
-                                encoded in the [Install] section of a
-                                unit file.</para></listitem>
+                                encoded in the
+                                <literal>[Install]</literal> section
+                                of a unit file.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><command>disable</command></term>
 
                                 <listitem><para>Disable a unit. This
-                                will removed a number of symlinks as
-                                encoded in the [Install] section of a
-                                unit file.</para></listitem>
+                                will remove a number of symlinks as
+                                encoded in the
+                                <literal>[Install]</literal> section
+                                of a unit file.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -150,8 +203,9 @@
                                 the units specified are
                                 installed. This will check for the
                                 existence of a number of symlinks as
-                                encoded in the [Install] section of a
-                                unit file.</para></listitem>
+                                encoded in the
+                                <literal>[Install]</literal> section
+                                of a unit file.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
