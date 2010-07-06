@@ -2651,6 +2651,53 @@ finish:
                 close_nointr_nofail(fd);
 }
 
+void status_printf(const char *format, ...) {
+        va_list ap;
+
+        assert(format);
+
+        va_start(ap, format);
+        status_vprintf(format, ap);
+        va_end(ap);
+}
+
+void status_welcome(void) {
+
+#if defined(TARGET_FEDORA)
+        char *r;
+
+        if (read_one_line_file("/etc/system-release", &r) < 0)
+                return;
+
+        truncate_nl(r);
+
+        /* This tries to mimic the color magic the old Red Hat sysinit
+         * script did. */
+
+        if (startswith(r, "Red Hat"))
+                status_printf("\tWelcome to \x1B[0;31m%s\x1B[0m!\n", r); /* Red for RHEL */
+        else if (startswith(r, "Fedora"))
+                status_printf("\tWelcome to \x1B[0;34m%s\x1B[0m!\n", r); /* Blue for Fedora */
+        else
+                status_printf("\tWelcome to %s!\n", r);
+
+        free(r);
+
+#elif defined(TARGET_SUSE)
+        char *r;
+
+        if (read_one_line_file("/etc/SuSE-release", &r) < 0)
+                return;
+
+        truncate_nl(r);
+
+        status_printf("\tWelcome to \x1B[0;32m%s\x1B[0m!\n", r); /* Green for SUSE */
+        free(r);
+#else
+#warning "You probably should add a welcome text logic here."
+#endif
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
