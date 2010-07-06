@@ -305,7 +305,7 @@ EXTRA_DIST += \
 	src/initreq.h \
 	src/sd-daemon.h \
 	src/special.h \
-	src/dbus.common.h
+	src/dbus-common.h
 
 MANPAGES = \
 	man/systemd.1 \
