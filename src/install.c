@@ -31,6 +31,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "conf-parser.h"
+#include "dbus-common.h"
 
 static bool arg_force = false;
 
@@ -47,6 +48,13 @@ static enum {
         ACTION_TEST
 } arg_action = ACTION_INVALID;
 
+static enum {
+        START_NO,        /* Don't start/stop or anything */
+        START_MINIMAL,   /* Only shutdown/restart if running. */
+        START_MAYBE,     /* Start if WantedBy= suggests */
+        START_YES        /* Start unconditionally */
+} arg_start = START_NO;
+
 typedef struct {
         char *name;
         char *path;
@@ -61,11 +69,13 @@ static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Install init system units.\n\n"
-               "  -h --help        Show this help\n"
-               "     --force       Override existing links\n"
-               "     --system      Install into system\n"
-               "     --session     Install into session\n"
-               "     --global      Install into all sessions\n\n"
+               "  -h --help         Show this help\n"
+               "     --force        Override existing links\n"
+               "     --system       Install into system\n"
+               "     --session      Install into session\n"
+               "     --global       Install into all sessions\n"
+               "     --start[=MODE] Start/stop/restart unit after installation\n"
+               "                    Takes 'no', 'minimal', 'maybe' or 'yes'\n\n"
                "Commands:\n"
                "  enable [NAME...]    Enable one or more units\n"
                "  disable [NAME...]   Disable one or more units\n"
@@ -81,7 +91,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SESSION = 0x100,
                 ARG_SYSTEM,
                 ARG_GLOBAL,
-                ARG_FORCE
+                ARG_FORCE,
+                ARG_START
         };
 
         static const struct option options[] = {
@@ -90,6 +101,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system",    no_argument,       NULL, ARG_SYSTEM  },
                 { "global",    no_argument,       NULL, ARG_GLOBAL  },
                 { "force",     no_argument,       NULL, ARG_FORCE   },
+                { "start",     optional_argument, NULL, ARG_START   },
                 { NULL,        0,                 NULL, 0           }
         };
 
@@ -120,6 +132,25 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FORCE:
                         arg_force = true;
+                        break;
+
+                case ARG_START:
+
+                        if (!optarg)
+                                arg_start = START_MAYBE;
+                        else if (streq(optarg, "no"))
+                                arg_start = START_NO;
+                        else if (streq(optarg, "minimal"))
+                                arg_start = START_MINIMAL;
+                        else if (streq(optarg, "maybe"))
+                                arg_start = START_MAYBE;
+                        else if (streq(optarg, "yes"))
+                                arg_start = START_YES;
+                        else {
+                                log_error("Invalid --start argument %s", optarg);
+                                return -EINVAL;
+                        }
+
                         break;
 
                 case '?':
@@ -153,6 +184,7 @@ static int parse_argv(int argc, char *argv[]) {
                 log_error("Missing unit name.");
                 return -EINVAL;
         }
+
 
         return 1;
 }
@@ -219,6 +251,225 @@ static int install_info_add(const char *name) {
 fail:
         if (i)
                 install_info_free(i);
+
+        return r;
+}
+
+static int daemon_reload(DBusConnection *bus) {
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        int r;
+
+        assert(bus);
+
+        dbus_error_init(&error);
+
+        if (!(m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              "/org/freedesktop/systemd1",
+                              "org.freedesktop.systemd1.Manager",
+                              "Reload"))) {
+                log_error("Could not allocate message.");
+                return -ENOMEM;
+        }
+
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                log_error("Failed to reload configuration: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int install_info_run(DBusConnection *bus, InstallInfo *i) {
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        int r;
+        const char *mode = "replace";
+
+        assert(bus);
+        assert(i);
+
+        dbus_error_init(&error);
+
+        if (arg_action == ACTION_ENABLE) {
+
+                if (arg_start == START_MAYBE) {
+                        char **k;
+                        bool yes_please = false;
+
+                        STRV_FOREACH(k, i->wanted_by) {
+                                DBusMessageIter sub, iter;
+
+                                const char *path, *state;
+                                const char *interface = "org.freedesktop.systemd1.Unit";
+                                const char *property = "ActiveState";
+
+                                if (!(m = dbus_message_new_method_call(
+                                                      "org.freedesktop.systemd1",
+                                                      "/org/freedesktop/systemd1",
+                                                      "org.freedesktop.systemd1.Manager",
+                                                      "GetUnit"))) {
+                                        log_error("Could not allocate message.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if (!dbus_message_append_args(m,
+                                                              DBUS_TYPE_STRING, k,
+                                                              DBUS_TYPE_INVALID)) {
+                                        log_error("Could not append arguments to message.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                                        /* Hmm, this unit doesn't exist, let's try the next one */
+                                        dbus_message_unref(m);
+                                        m = NULL;
+                                        continue;
+                                }
+
+                                if (!dbus_message_get_args(reply, &error,
+                                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                                           DBUS_TYPE_INVALID)) {
+                                        log_error("Failed to parse reply: %s", error.message);
+                                        r = -EIO;
+                                        goto finish;
+                                }
+
+                                dbus_message_unref(m);
+                                if (!(m = dbus_message_new_method_call(
+                                                      "org.freedesktop.systemd1",
+                                                      path,
+                                                      "org.freedesktop.DBus.Properties",
+                                                      "Get"))) {
+                                        log_error("Could not allocate message.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if (!dbus_message_append_args(m,
+                                                              DBUS_TYPE_STRING, &interface,
+                                                              DBUS_TYPE_STRING, &property,
+                                                              DBUS_TYPE_INVALID)) {
+                                        log_error("Could not append arguments to message.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                dbus_message_unref(reply);
+                                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                                        log_error("Failed to issue method call: %s", error.message);
+                                        r = -EIO;
+                                        goto finish;
+                                }
+
+                                if (!dbus_message_iter_init(reply, &iter) ||
+                                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
+                                        log_error("Failed to parse reply.");
+                                        r = -EIO;
+                                        goto finish;
+                                }
+
+                                dbus_message_iter_recurse(&iter, &sub);
+
+                                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
+                                        log_error("Failed to parse reply.");
+                                        r = -EIO;
+                                        goto finish;
+                                }
+
+                                dbus_message_iter_get_basic(&sub, &state);
+
+                                dbus_message_unref(m);
+                                dbus_message_unref(reply);
+                                m = reply = NULL;
+
+                                if (streq(state, "active") ||
+                                    startswith(state, "reloading") ||
+                                    startswith(state, "activating")) {
+                                        yes_please = true;
+                                        break;
+                                }
+                        }
+
+                        if (!yes_please) {
+                                r = 0;
+                                goto finish;
+                        }
+                }
+
+                if (!(m = dbus_message_new_method_call(
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      arg_start == START_MINIMAL ? "TryRestartUnit" : "RestartUnit"))) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &i->name,
+                                              DBUS_TYPE_STRING, &mode,
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+
+        } else if (arg_action == ACTION_DISABLE) {
+
+                if (!(m = dbus_message_new_method_call(
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "StopUnit"))) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &i->name,
+                                              DBUS_TYPE_STRING, &mode,
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+        }
+
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                log_error("Failed to reload configuration: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
 
         return r;
 }
@@ -518,6 +769,57 @@ static char *get_config_path(void) {
         }
 }
 
+static int do_run(void) {
+        DBusConnection *bus = NULL;
+        DBusError error;
+        int r, q;
+        Iterator i;
+        InstallInfo *j;
+
+        dbus_error_init(&error);
+
+        if (arg_start == START_NO)
+                return 0;
+
+        if (arg_where == WHERE_GLOBAL) {
+                log_warning("Warning: --start has no effect with --global.");
+                return 0;
+        }
+
+        if (arg_action != ACTION_ENABLE && arg_action != ACTION_DISABLE) {
+                log_warning("Warning: --start has no effect with test.");
+                return 0;
+        }
+
+        if ((r = bus_connect(arg_where == WHERE_SESSION ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &error)) < 0) {
+                log_error("Failed to get D-Bus connection: %s", error.message);
+                goto finish;
+        }
+
+        r = 0;
+
+        if (arg_action == ACTION_ENABLE)
+                if ((r = daemon_reload(bus)) < 0)
+                        goto finish;
+
+        HASHMAP_FOREACH(j, have_installed, i)
+                if ((q = install_info_run(bus, j)) < 0)
+                        r = q;
+
+        if (arg_action == ACTION_DISABLE)
+                if ((q = daemon_reload(bus)) < 0)
+                        r = q;
+
+finish:
+        if (bus)
+                dbus_connection_unref(bus);
+
+        dbus_error_free(&error);
+
+        dbus_shutdown();
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         int r, retval = 1, j;
         LookupPaths paths;
@@ -570,6 +872,9 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         }
+
+        if (do_run() < 0)
+                goto finish;
 
         retval = arg_action == ACTION_TEST ? 1 : 0;
 

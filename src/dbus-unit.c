@@ -272,6 +272,8 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 job_type = JOB_RELOAD;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Restart"))
                 job_type = JOB_RESTART;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "TryRestart"))
+                job_type = JOB_TRY_RESTART;
         else if (UNIT_VTABLE(u)->bus_message_handler)
                 return UNIT_VTABLE(u)->bus_message_handler(u, connection, message);
         else

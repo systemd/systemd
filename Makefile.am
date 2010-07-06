@@ -219,10 +219,6 @@ noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
 	libsystemd-core.la
 
-# This is needed because automake is buggy in how it generates the
-# rules for C programs, but not Vala programs.  We therefore can't
-# list the .h files as dependencies if we want make dist to work.
-
 libsystemd_basic_la_SOURCES = \
         src/util.c \
         src/hashmap.c \
@@ -293,6 +289,10 @@ libsystemd_core_la_LIBADD = \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS)
 
+# This is needed because automake is buggy in how it generates the
+# rules for C programs, but not Vala programs.  We therefore can't
+# list the .h files as dependencies if we want make dist to work.
+
 EXTRA_DIST += \
 	${libsystemd_basic_la_SOURCES:.c=.h} \
 	${libsystemd_core_la_SOURCES:.c=.h} \
@@ -304,8 +304,8 @@ EXTRA_DIST += \
 	src/linux/auto_dev-ioctl.h \
 	src/initreq.h \
 	src/sd-daemon.h \
-	src/special.h
-
+	src/special.h \
+	src/dbus.common.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -469,7 +469,8 @@ systemd_cgroups_agent_LDADD = \
 
 systemctl_SOURCES = \
 	src/systemctl.c \
-	src/utmp-wtmp.c
+	src/utmp-wtmp.c \
+	src/dbus-common.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -488,12 +489,13 @@ systemd_notify_LDADD = \
 
 systemd_install_SOURCES = \
 	src/install.c \
-	src/path-lookup.c
+	src/path-lookup.c \
+	src/dbus-common.c
 
 systemd_install_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	$(DBUS_LIBS)
 
-# We don't really link here against D-Bus, however we indirectly include D-Bus header files
 systemd_install_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)

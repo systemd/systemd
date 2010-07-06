@@ -35,11 +35,7 @@
 
 * selinux
 
-* systemd-install disable sollte den service runterfahren, and daemon-reload machen
-
 * systemctl daemon-reload is kaputt
-
-* Add missing man pages: update systemd.1, finish daemon.7
 
 External:
 

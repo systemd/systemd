@@ -41,6 +41,7 @@
 #include "special.h"
 #include "initreq.h"
 #include "strv.h"
+#include "dbus-common.h"
 
 static const char *arg_type = NULL;
 static const char *arg_property = NULL;
@@ -104,32 +105,6 @@ static int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *da
                 return -EIO;
 
         return 0;
-}
-
-static int bus_check_peercred(DBusConnection *c) {
-        int fd;
-        struct ucred ucred;
-        socklen_t l;
-
-        assert(c);
-
-        assert_se(dbus_connection_get_unix_fd(c, &fd));
-
-        l = sizeof(struct ucred);
-        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0) {
-                log_error("SO_PEERCRED failed: %m");
-                return -errno;
-        }
-
-        if (l != sizeof(struct ucred)) {
-                log_error("SO_PEERCRED returned wrong size.");
-                return -E2BIG;
-        }
-
-        if (ucred.uid != 0)
-                return -EPERM;
-
-        return 1;
 }
 
 static int columns(void) {
@@ -3264,19 +3239,7 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        /* If we are root, then let's not go via the bus */
-        if (geteuid() == 0 && !arg_session) {
-                bus = dbus_connection_open("unix:abstract=/org/freedesktop/systemd1/private", &error);
-
-                if (bus && bus_check_peercred(bus) < 0) {
-                        log_error("Failed to verify owner of bus.");
-                        goto finish;
-                }
-        } else
-                bus = dbus_bus_get(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error);
-
-        if (bus)
-                dbus_connection_set_exit_on_disconnect(bus, FALSE);
+        bus_connect(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &error);
 
         switch (arg_action) {
 
