@@ -426,7 +426,7 @@ static int config_parse_cpu_affinity(
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t;
                 int r;
                 unsigned cpu;

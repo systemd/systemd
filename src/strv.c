@@ -264,7 +264,7 @@ char **strv_split_quoted(const char *s) {
 
         i = 0;
         FOREACH_WORD_QUOTED(w, l, s, state)
-                if (!(r[i++] = strndup(w, l))) {
+                if (!(r[i++] = cunescape_length(w, l))) {
                         strv_free(r);
                         return NULL;
                 }

@@ -423,7 +423,7 @@ int config_parse_strv(
                 k = 0;
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state)
-                if (!(n[k++] = strndup(w, l)))
+                if (!(n[k++] = cunescape_length(w, l)))
                         goto fail;
 
         n[k] = NULL;
@@ -475,7 +475,7 @@ int config_parse_path_strv(
                         n[k] = (*sv)[k];
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                if (!(n[k] = strndup(w, l))) {
+                if (!(n[k] = cunescape_length(w, l))) {
                         r = -ENOMEM;
                         goto fail;
                 }

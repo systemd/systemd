@@ -61,7 +61,7 @@ static int config_parse_deps(
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t, *k;
                 int r;
 
@@ -103,7 +103,7 @@ static int config_parse_names(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t, *k;
                 int r;
 
@@ -689,7 +689,7 @@ static int config_parse_cpu_affinity(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t;
                 int r;
                 unsigned cpu;
@@ -766,7 +766,7 @@ static int config_parse_secure_bits(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 if (first_word(w, "keep-caps"))
                         c->secure_bits |= SECURE_KEEP_CAPS;
                 else if (first_word(w, "keep-caps-locked"))
@@ -807,7 +807,7 @@ static int config_parse_bounding_set(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t;
                 int r;
                 cap_value_t cap;
@@ -902,11 +902,11 @@ static int config_parse_cgroup(
         size_t l;
         char *state;
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t;
                 int r;
 
-                if (!(t = strndup(w, l)))
+                if (!(t = cunescape_length(w, l)))
                         return -ENOMEM;
 
                 r = unit_add_cgroup_from_text(u, t);
@@ -967,7 +967,7 @@ static int config_parse_mount_flags(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 if (strncmp(w, "shared", l) == 0)
                         flags |= MS_SHARED;
                 else if (strncmp(w, "slave", l) == 0)

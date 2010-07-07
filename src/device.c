@@ -244,7 +244,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                         goto fail;
 
         if (wants) {
-                FOREACH_WORD(w, l, wants, state) {
+                FOREACH_WORD_QUOTED(w, l, wants, state) {
                         char *e;
 
                         if (!(e = strndup(w, l))) {

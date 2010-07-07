@@ -526,7 +526,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 state = LSB;
 
-                                FOREACH_WORD(w, z, t+9, i) {
+                                FOREACH_WORD_QUOTED(w, z, t+9, i) {
                                         char *n, *m;
 
                                         if (!(n = strndup(w, z))) {
@@ -563,7 +563,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 state = LSB;
 
-                                FOREACH_WORD(w, z, strchr(t, ':')+1, i) {
+                                FOREACH_WORD_QUOTED(w, z, strchr(t, ':')+1, i) {
                                         char *n, *m;
 
                                         if (!(n = strndup(w, z))) {
