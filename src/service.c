@@ -2085,28 +2085,28 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "main-exec-status-start-realtime")) {
                 uint64_t k;
 
-                if ((r = safe_atollu(value, &k)) < 0)
+                if ((r = safe_atou64(value, &k)) < 0)
                         log_debug("Failed to parse main-exec-status-start-realtime value %s", value);
                 else
                         s->main_exec_status.start_timestamp.realtime = (usec_t) k;
         } else if (streq(key, "main-exec-status-start-monotonic")) {
                 uint64_t k;
 
-                if ((r = safe_atollu(value, &k)) < 0)
+                if ((r = safe_atou64(value, &k)) < 0)
                         log_debug("Failed to parse main-exec-status-start-monotonic value %s", value);
                 else
                         s->main_exec_status.start_timestamp.monotonic = (usec_t) k;
         } else if (streq(key, "main-exec-status-exit-realtime")) {
                 uint64_t k;
 
-                if ((r = safe_atollu(value, &k)) < 0)
+                if ((r = safe_atou64(value, &k)) < 0)
                         log_debug("Failed to parse main-exec-status-exit-realtime value %s", value);
                 else
                         s->main_exec_status.exit_timestamp.realtime = (usec_t) k;
         } else if (streq(key, "main-exec-status-exit-monotonic")) {
                 uint64_t k;
 
-                if ((r = safe_atollu(value, &k)) < 0)
+                if ((r = safe_atou64(value, &k)) < 0)
                         log_debug("Failed to parse main-exec-status-exit-monotonic value %s", value);
                 else
                         s->main_exec_status.exit_timestamp.monotonic = (usec_t) k;
