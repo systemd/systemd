@@ -15,6 +15,5 @@ Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.a
 [Service]
 Type=finish
 ValidNoProcess=yes
-Environment=INIT_HALT=HALT
-Environment=RC_DOWN_HARDDISK=yes
+Environment=INIT_HALT=HALT RC_DOWN_HARDDISK=yes
 ExecStart=/etc/init.d/shutdown.sh

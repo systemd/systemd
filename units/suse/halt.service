@@ -15,6 +15,5 @@ Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.a
 [Service]
 Type=finish
 ValidNoProcess=yes
-Environment=INIT_HALT=HALT
-Environment=RUNLEVEL=0
+Environment=INIT_HALT=HALT RUNLEVEL=0
 ExecStart=/etc/init.d/halt start
