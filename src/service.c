@@ -1972,6 +1972,28 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 unit_serialize_item_format(u, f, "socket-fd", "%i", copy);
         }
 
+        if (s->main_exec_status.pid > 0) {
+                unit_serialize_item_format(u, f, "main-exec-status-pid", "%lu", (unsigned long) s->main_exec_status.pid);
+
+                if (s->main_exec_status.start_timestamp.realtime > 0) {
+                        unit_serialize_item_format(u, f, "main-exec-status-start-realtime",
+                                                   "%llu", (unsigned long long) s->main_exec_status.start_timestamp.realtime);
+
+                        unit_serialize_item_format(u, f, "main-exec-status-start-monotonic",
+                                                   "%llu", (unsigned long long) s->main_exec_status.start_timestamp.monotonic);
+                }
+
+                if (s->main_exec_status.exit_timestamp.realtime > 0) {
+                        unit_serialize_item_format(u, f, "main-exec-status-exit-realtime",
+                                                   "%llu", (unsigned long long) s->main_exec_status.exit_timestamp.realtime);
+                        unit_serialize_item_format(u, f, "main-exec-status-exit-monotonic",
+                                                   "%llu", (unsigned long long) s->main_exec_status.exit_timestamp.monotonic);
+
+                        unit_serialize_item_format(u, f, "main-exec-status-code", "%i", s->main_exec_status.code);
+                        unit_serialize_item_format(u, f, "main-exec-status-status", "%i", s->main_exec_status.status);
+                }
+        }
+
         return 0;
 }
 
@@ -2039,6 +2061,55 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                                 close_nointr_nofail(s->socket_fd);
                         s->socket_fd = fdset_remove(fds, fd);
                 }
+        } else if (streq(key, "main-exec-status-pid")) {
+                pid_t pid;
+
+                if ((r = parse_pid(value, &pid)) < 0)
+                        log_debug("Failed to parse main-exec-status-pid value %s", value);
+                else
+                        s->main_exec_status.pid = pid;
+        } else if (streq(key, "main-exec-status-code")) {
+                int i;
+
+                if ((r = safe_atoi(value, &i)) < 0)
+                        log_debug("Failed to parse main-exec-status-code value %s", value);
+                else
+                        s->main_exec_status.code = i;
+        } else if (streq(key, "main-exec-status-status")) {
+                int i;
+
+                if ((r = safe_atoi(value, &i)) < 0)
+                        log_debug("Failed to parse main-exec-status-status value %s", value);
+                else
+                        s->main_exec_status.status = i;
+        } else if (streq(key, "main-exec-status-start-realtime")) {
+                uint64_t k;
+
+                if ((r = safe_atollu(value, &k)) < 0)
+                        log_debug("Failed to parse main-exec-status-start-realtime value %s", value);
+                else
+                        s->main_exec_status.start_timestamp.realtime = (usec_t) k;
+        } else if (streq(key, "main-exec-status-start-monotonic")) {
+                uint64_t k;
+
+                if ((r = safe_atollu(value, &k)) < 0)
+                        log_debug("Failed to parse main-exec-status-start-monotonic value %s", value);
+                else
+                        s->main_exec_status.start_timestamp.monotonic = (usec_t) k;
+        } else if (streq(key, "main-exec-status-exit-realtime")) {
+                uint64_t k;
+
+                if ((r = safe_atollu(value, &k)) < 0)
+                        log_debug("Failed to parse main-exec-status-exit-realtime value %s", value);
+                else
+                        s->main_exec_status.exit_timestamp.realtime = (usec_t) k;
+        } else if (streq(key, "main-exec-status-exit-monotonic")) {
+                uint64_t k;
+
+                if ((r = safe_atollu(value, &k)) < 0)
+                        log_debug("Failed to parse main-exec-status-exit-monotonic value %s", value);
+                else
+                        s->main_exec_status.exit_timestamp.monotonic = (usec_t) k;
         } else
                 log_debug("Unknown serialization key '%s'", key);
 
