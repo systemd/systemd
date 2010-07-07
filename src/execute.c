@@ -305,16 +305,16 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
 
         case EXEC_OUTPUT_INHERIT:
 
-                /* If the input is connected to a terminal, inherit that... */
+                /* If the input is connected to anything that's not a /dev/null, inherit that... */
                 if (i != EXEC_INPUT_NULL)
                         return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
 
-                /* For PID 1 stdout is always connected to /dev/null,
-                 * hence reopen the console if out parent is PID1. */
-                if (getppid() == 1)
-                        return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
+                /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
+                if (getppid() != 1)
+                        return STDOUT_FILENO;
 
-                return STDOUT_FILENO;
+                /* We need to open /dev/null here anew, to get the
+                 * right access mode. So we fall through */
 
         case EXEC_OUTPUT_NULL:
                 return open_null_as(O_WRONLY, STDOUT_FILENO);
@@ -356,7 +356,7 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
          * the way and are not on a tty */
         if (e == EXEC_OUTPUT_INHERIT &&
             o == EXEC_OUTPUT_INHERIT &&
-            i != EXEC_INPUT_NULL &&
+            i == EXEC_INPUT_NULL &&
             getppid () != 1)
                 return STDERR_FILENO;
 

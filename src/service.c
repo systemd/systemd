@@ -686,6 +686,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->valid_no_process = true;
         s->kill_mode = KILL_PROCESS_GROUP;
         s->restart = SERVICE_ONCE;
+        s->exec_context.std_output = EXEC_OUTPUT_TTY;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
