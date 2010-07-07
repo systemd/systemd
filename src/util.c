@@ -2675,11 +2675,11 @@ void status_welcome(void) {
          * script did. */
 
         if (startswith(r, "Red Hat"))
-                status_printf("\tWelcome to \x1B[0;31m%s\x1B[0m!\n", r); /* Red for RHEL */
+                status_printf("Welcome to \x1B[0;31m%s\x1B[0m!\n", r); /* Red for RHEL */
         else if (startswith(r, "Fedora"))
-                status_printf("\tWelcome to \x1B[0;34m%s\x1B[0m!\n", r); /* Blue for Fedora */
+                status_printf("Welcome to \x1B[0;34m%s\x1B[0m!\n", r); /* Blue for Fedora */
         else
-                status_printf("\tWelcome to %s!\n", r);
+                status_printf("Welcome to %s!\n", r);
 
         free(r);
 
@@ -2691,7 +2691,7 @@ void status_welcome(void) {
 
         truncate_nl(r);
 
-        status_printf("\tWelcome to \x1B[0;32m%s\x1B[0m!\n", r); /* Green for SUSE */
+        status_printf("Welcome to \x1B[0;32m%s\x1B[0m!\n", r); /* Green for SUSE */
         free(r);
 #else
 #warning "You probably should add a welcome text logic here."
