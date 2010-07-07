@@ -1129,7 +1129,7 @@ char *cescape(const char *s) {
         return r;
 }
 
-char *cunescape(const char *s) {
+char *cunescape_length(const char *s, size_t length) {
         char *r, *t;
         const char *f;
 
@@ -1137,10 +1137,10 @@ char *cunescape(const char *s) {
 
         /* Undoes C style string escaping */
 
-        if (!(r = new(char, strlen(s)+1)))
+        if (!(r = new(char, length+1)))
                 return r;
 
-        for (f = s, t = r; *f; f++) {
+        for (f = s, t = r; f < s + length; f++) {
 
                 if (*f != '\\') {
                         *(t++) = *f;
@@ -1242,6 +1242,9 @@ finish:
         return r;
 }
 
+char *cunescape(const char *s) {
+        return cunescape_length(s, strlen(s));
+}
 
 char *xescape(const char *s, const char *bad) {
         char *r, *t;

@@ -222,6 +222,12 @@ int undecchar(char c);
 
 char *cescape(const char *s);
 char *cunescape(const char *s);
+char *cunescape_length(const char *s, size_t length);
+
+char *xescape(const char *s, const char *bad);
+
+char *bus_path_escape(const char *s);
+char *bus_path_unescape(const char *s);
 
 char *path_kill_slashes(char *path);
 
@@ -229,11 +235,6 @@ bool path_startswith(const char *path, const char *prefix);
 bool path_equal(const char *a, const char *b);
 
 char *ascii_strlower(char *path);
-
-char *xescape(const char *s, const char *bad);
-
-char *bus_path_escape(const char *s);
-char *bus_path_unescape(const char *s);
 
 bool ignore_file(const char *filename);
 
