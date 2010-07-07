@@ -384,7 +384,7 @@
                 communication channels are established already, and no
                 request is lost because client requests will be queued
                 by the bus system (in case of D-Bus) or the kernel (in
-                case of sockets), until the activation
+                case of sockets), until the activation is
                 completed.</para>
 
                 <refsect2>
@@ -726,7 +726,7 @@
                         install their systemd unit files in the
                         directory returned by <command>pkg-config
                         systemd
-                        --variable=systemdsystemnunitdir</command>
+                        --variable=systemdsystemunitdir</command>
                         (for system services),
                         resp. <command>pkg-config systemd
                         --variable=systemdsessionunitdir</command>
@@ -809,8 +809,8 @@ fi</programlisting>
                 <para>Since new-style init systems such as systemd are
                 compatible with traditional SysV init systems it is
                 not strictly necessary to port existing daemons to the
-                new style. However doing this offers additional
-                functionality to the daemons as well as it simplifies
+                new style. However doing so offers additional
+                functionality to the daemons as well as simplifying
                 integration into new-style init systems.</para>
 
                 <para>To port an existing SysV compatible daemon the
@@ -849,7 +849,7 @@ fi</programlisting>
                         left-over file descriptors are passed to
                         executed processes, it might be a good choice
                         to simply skip the closing of all remaining
-                        open file descriptors if file descriptors are
+                        open file descriptors if sockets are
                         passed.</para></listitem>
 
                         <listitem><para>Write and install a systemd

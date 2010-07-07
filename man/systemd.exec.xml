@@ -374,13 +374,13 @@
                                 <option>inherit</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><varname>StandardOutput=</varname></term>
+                                <term><varname>StandardError=</varname></term>
                                 <listitem><para>Controls where file
                                 descriptor 2 (STDERR) of the executed
                                 processes is connected to. The
                                 available options are identical to
                                 those of
-                                <varname>StandardError=</varname>,
+                                <varname>StandardOutput=</varname>,
                                 whith one exception: if set to
                                 <option>inherit</option> the file
                                 descriptor used for standard output is
@@ -617,7 +617,7 @@
 
                                 <listitem><para>Controls the control
                                 groups the executed processes shall be
-                                made member of. Takes a
+                                made members of. Takes a
                                 space-seperated list of cgroup
                                 identifiers. A cgroup identifier has a
                                 format like

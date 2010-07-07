@@ -109,8 +109,8 @@
                 <para>On failure, this call returns a negative
                 errno-style error code. If
                 <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
-                was not set or not correctly set for this daemon and
-                hence no file descriptors received, 0 is
+                was not set or was not correctly set for this daemon and
+                hence no file descriptors were received, 0 is
                 returned. Otherwise the number of file descriptors
                 passed is returned. The application may find them
                 starting with file descriptor SD_LISTEN_FDS_START,

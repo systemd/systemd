@@ -117,7 +117,7 @@
 
                                 <listitem><para>Extract D-Bus
                                 interface introspection data. This is
-                                mostly useful at build at install time
+                                mostly useful at install time
                                 to generate data suitable for the
                                 D-Bus interfaces
                                 repository. Optionally the interface

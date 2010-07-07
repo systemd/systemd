@@ -252,7 +252,7 @@
                         <title>Start-up Notification</title>
 
                         <para>When a daemon finished starting up, it
-                        might issue the following call call to notify
+                        might issue the following call to notify
                         the init system:</para>
 
                         <programlisting>sd_notify(0, "READY=1");</programlisting>

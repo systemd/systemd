@@ -381,7 +381,7 @@
                                 unit files and recreate the entire
                                 dependency tree. While the daemon is
                                 reloaded, all sockets systemd listens
-                                on on behalf of user configuration, will
+                                on on behalf of user configuration will
                                 stay accessible.</para> <para>This
                                 command should not be confused with
                                 the <command>load</command> or
