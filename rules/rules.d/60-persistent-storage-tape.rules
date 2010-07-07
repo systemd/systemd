@@ -17,7 +17,7 @@ KERNEL=="st*[0-9]",  ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$en
 KERNEL=="nst*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}-nst"
 
 # by-path (parent device path)
-KERNEL=="st*[0-9]|nst*[0-9]", IMPORT{program}="path_id.sh %p"
+KERNEL=="st*[0-9]|nst*[0-9]", IMPORT{program}="path_id %p"
 KERNEL=="st*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH}"
 KERNEL=="nst*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH}"
 
