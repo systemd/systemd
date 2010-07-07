@@ -41,6 +41,7 @@ ENV{DMI_VENDOR}=="", GOTO="keyboard_end"
 
 ENV{DMI_VENDOR}=="IBM*", KERNELS=="input*", ATTRS{name}=="ThinkPad Extra Buttons", RUN+="keymap $name module-ibm"
 ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="ThinkPad Extra Buttons", RUN+="keymap $name module-lenovo"
+ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="Lenovo ThinkPad SL Series extra buttons", RUN+="keymap $name 0x0E bluetooth"
 ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Asus Extra Buttons", ATTR{[dmi/id]product_name}=="W3J", RUN+="keymap $name module-asus-w3j"
 ENV{DMI_VENDOR}=="Sony*", KERNELS=="input*", ATTRS{name}=="Sony Vaio Keys", RUN+="keymap $name module-sony"
 
