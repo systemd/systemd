@@ -34,6 +34,8 @@ keyboard_devices() {
     # modules
     module=`udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*Extra Buttons'`
     module="$module
+`udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*extra buttons'`"
+    module="$module
 `udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='Sony Vaio Keys'`"
     for m in $module; do
 	evdev=`ls -d $m/event* 2>/dev/null`
