@@ -114,7 +114,10 @@
                 are understood: s, min, h, d, w, ms, us.</para>
 
                 <para>Empty lines and lines starting with # or ; are
-                ignored. This may be used for commenting.</para>
+                ignored. This may be used for commenting. Lines ending
+                in a backslash are concatenated with the following
+                line while reading and the backslash is replaced by a
+                space character. This may be used to wrap long lines.</para>
 
                 <para>If a line starts with <option>.include</option>
                 followed by a file name the specified file will be

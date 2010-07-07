@@ -270,10 +270,21 @@
                                 <listitem><para>Additional commands
                                 that are executed before (resp. after)
                                 the command in
-                                <varname>ExecStart=</varname>. If
-                                specified more than once, all commands
-                                are executed one after the other,
-                                serially. Use of these settings is
+                                <varname>ExecStart=</varname>. Multiple
+                                command lines may be concatenated in a
+                                single directive, by seperating them
+                                by semicolons (these semicolons must
+                                be passed as seperate words). In that
+                                case, the commands are executed one
+                                after the other,
+                                serially. Alternatively, these
+                                directives may be specified more than
+                                once whith the same effect. However,
+                                the latter syntax is not recommended
+                                for compatibility with parsers
+                                suitable for XDG
+                                <filename>.desktop</filename> files.
+                                Use of these settings is
                                 optional.</para></listitem>
                         </varlistentry>
 
@@ -281,20 +292,24 @@
                                 <term><varname>ExecReload=</varname></term>
                                 <listitem><para>Commands to execute to
                                 trigger a configuration reload in the
-                                service. If used more than once, all
-                                commands are executed one after the
-                                other, serially. Use of this setting is optional.
-                                </para></listitem>
+                                service. This argument takes multiple
+                                command lines, following the same
+                                scheme as pointed out for
+                                <varname>ExecStartPre=</varname>
+                                above. Use of this setting is
+                                optional.  </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>ExecStop=</varname></term>
                                 <listitem><para>Commands to execute to
                                 stop the service started via
-                                <varname>ExecStart=</varname>. If used
-                                more than once, all commands are
-                                executed one after the other,
-                                serially. Use of this setting is
+                                <varname>ExecStart=</varname>. This
+                                argument takes multiple command lines,
+                                following the same scheme as pointed
+                                out for
+                                <varname>ExecStartPre=</varname>
+                                above. Use of this setting is
                                 optional. All processes remaining for
                                 a service after the commands
                                 configured in this option are run are
@@ -312,10 +327,12 @@
                                 that are executed after the service
                                 was stopped using the commands
                                 configured in
-                                <varname>ExecStop=</varname>. If
-                                specified more than once, all commands
-                                are executed one after the other,
-                                serially. Use of these settings is
+                                <varname>ExecStop=</varname>. This
+                                argument takes multiple command lines,
+                                following the same scheme as pointed
+                                out for
+                                <varname>ExecStartPre</varname>. Use
+                                of these settings is
                                 optional.</para></listitem>
                         </varlistentry>
 

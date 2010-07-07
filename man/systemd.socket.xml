@@ -440,16 +440,18 @@
                         <varlistentry>
                                 <term><varname>ExecStartPre=</varname></term>
                                 <term><varname>ExecStartPost=</varname></term>
-                                <listitem><para>Takes a command line,
-                                which is executed before (resp. after)
-                                the listening sockets/FIFOs are created and
+                                <listitem><para>Takes one or more
+                                command lines, which are executed
+                                before (resp. after) the listening
+                                sockets/FIFOs are created and
                                 bound. The first token of the command
                                 line must be an absolute file name,
                                 then followed by arguments for the
-                                process. If specified more than once,
-                                all commands are executed one after
-                                the other, fully serialized. The use of
-                                these settings is optional.</para></listitem>
+                                process. Multiple command lines may be
+                                specified following the same scheme as
+                                used for
+                                <varname>ExecStartPre=</varname> of
+                                service unit files.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -458,10 +460,11 @@
                                 <listitem><para>Additional commands
                                 that are executed before (resp. after)
                                 the listening sockets/FIFOs are closed
-                                and removed. If specified more than
-                                once, all commands are executed one
-                                after the other, fully serialized. The use of
-                                these settings is optional.</para></listitem>
+                                and removed. Multiple command lines
+                                may be specified following the same
+                                scheme as used for
+                                <varname>ExecStartPre=</varname> of
+                                service unit files.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
