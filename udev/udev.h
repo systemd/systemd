@@ -44,13 +44,14 @@ struct udev_event {
 	gid_t gid;
 	struct udev_list_node run_list;
 	int exec_delay;
+	bool inotify_watch;
+	bool inotify_watch_final;
 	bool group_final;
 	bool owner_final;
 	bool mode_final;
 	bool name_final;
 	bool devlink_final;
 	bool run_final;
-	bool inotify_watch;
 };
 
 struct udev_watch {

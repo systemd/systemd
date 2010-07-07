@@ -513,6 +513,12 @@
                   writing, a change uevent will be synthesised.</para>
                 </listitem>
               </varlistentry>
+              <varlistentry>
+                <term><option>nowatch</option></term>
+                <listitem>
+                  <para>Disable the watching of a device node with inotify.</para>
+                </listitem>
+              </varlistentry>
             </variablelist>
           </listitem>
         </varlistentry>

@@ -1569,42 +1569,42 @@ static int add_rule(struct udev_rules *rules, char *line,
 			if (pos != NULL) {
 				int prio = atoi(&pos[strlen("link_priority=")]);
 
-				rule_add_key(&rule_tmp, TK_A_DEVLINK_PRIO, 0, NULL, &prio);
+				rule_add_key(&rule_tmp, TK_A_DEVLINK_PRIO, op, NULL, &prio);
 				dbg(rules->udev, "link priority=%i\n", prio);
 			}
 			pos = strstr(value, "event_timeout=");
 			if (pos != NULL) {
 				int tout = atoi(&pos[strlen("event_timeout=")]);
 
-				rule_add_key(&rule_tmp, TK_A_EVENT_TIMEOUT, 0, NULL, &tout);
+				rule_add_key(&rule_tmp, TK_A_EVENT_TIMEOUT, op, NULL, &tout);
 				dbg(rules->udev, "event timeout=%i\n", tout);
 			}
 			pos = strstr(value, "string_escape=");
 			if (pos != NULL) {
 				pos = &pos[strlen("string_escape=")];
 				if (strncmp(pos, "none", strlen("none")) == 0)
-					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_NONE, 0, NULL, NULL);
+					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_NONE, op, NULL, NULL);
 				else if (strncmp(pos, "replace", strlen("replace")) == 0)
-					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_REPLACE, 0, NULL, NULL);
+					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_REPLACE, op, NULL, NULL);
 			}
 			pos = strstr(value, "nowatch");
 			if (pos != NULL) {
 				const int off = 0;
 
-				rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, 0, NULL, &off);
+				rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, op, NULL, &off);
 				dbg(rules->udev, "inotify watch of device disabled\n");
 			} else {
 				pos = strstr(value, "watch");
 				if (pos != NULL) {
 					const int on = 1;
 
-					rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, 0, NULL, &on);
+					rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, op, NULL, &on);
 					dbg(rules->udev, "inotify watch of device requested\n");
 				}
 			}
 			pos = strstr(value, "static_node=");
 			if (pos != NULL) {
-				rule_add_key(&rule_tmp, TK_A_STATIC_NODE, 0, &pos[strlen("static_node=")], NULL);
+				rule_add_key(&rule_tmp, TK_A_STATIC_NODE, op, &pos[strlen("static_node=")], NULL);
 				rule_tmp.rule.rule.has_static_node = true;
 			}
 			continue;
@@ -2400,6 +2400,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			esc = ESCAPE_REPLACE;
 			break;
 		case TK_A_INOTIFY_WATCH:
+			if (event->inotify_watch_final)
+				break;
+			if (cur->key.op == OP_ASSIGN_FINAL)
+				event->inotify_watch_final = true;
 			event->inotify_watch = cur->key.watch;
 			break;
 		case TK_A_DEVLINK_PRIO:
