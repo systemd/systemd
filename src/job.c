@@ -461,7 +461,6 @@ int job_finish_and_invalidate(Job *j, bool success) {
         assert(j);
         assert(j->installed);
 
-        log_debug("Job %s/%s finished, success=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(success));
         job_add_to_dbus_queue(j);
 
         /* Patch restart jobs so that they become normal start jobs */
@@ -471,12 +470,14 @@ int job_finish_and_invalidate(Job *j, bool success) {
                           j->unit->meta.id, job_type_to_string(j->type),
                           j->unit->meta.id, job_type_to_string(JOB_START));
 
-                j->state = JOB_RUNNING;
+                j->state = JOB_WAITING;
                 j->type = JOB_START;
 
                 job_add_to_run_queue(j);
                 return 0;
         }
+
+        log_debug("Job %s/%s finished, success=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(success));
 
         j->failed = !success;
         u = j->unit;
