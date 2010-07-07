@@ -641,6 +641,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!(m->queued_message = dbus_message_new_method_return(message)))
                         goto oom;
 
+                m->queued_message_connection = connection;
                 m->exit_code = MANAGER_RELOAD;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reexecute")) {

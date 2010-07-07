@@ -496,12 +496,13 @@ unsigned bus_dispatch(Manager *m) {
                  * dispatch any D-Bus messages, so that we won't end
                  * up wanting to queue another message. */
 
-                if (m->api_bus)
-                        if (!dbus_connection_send(m->api_bus, m->queued_message, NULL))
+                if (m->queued_message_connection)
+                        if (!dbus_connection_send(m->queued_message_connection, m->queued_message, NULL))
                                 return 0;
 
                 dbus_message_unref(m->queued_message);
                 m->queued_message = NULL;
+                m->queued_message_connection = NULL;
         }
 
         if ((c = set_first(m->bus_connections_for_dispatch))) {
@@ -989,6 +990,15 @@ static void shutdown_connection(Manager *m, DBusConnection *c) {
                         free(t);
 
                 set_free(s);
+        }
+
+        if (m->queued_message_connection == c) {
+                m->queued_message_connection = NULL;
+
+                if (m->queued_message) {
+                        dbus_message_unref(m->queued_message);
+                        m->queued_message = NULL;
+                }
         }
 
         dbus_connection_set_dispatch_status_function(c, NULL, NULL, NULL);

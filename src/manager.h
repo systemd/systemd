@@ -160,6 +160,7 @@ struct Manager {
                                       * before the reload we queue the
                                       * reply message here, and
                                       * afterwards we send it */
+        DBusConnection *queued_message_connection; /* The connection to send the queued message on */
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
         int32_t name_data_slot;
