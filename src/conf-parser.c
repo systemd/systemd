@@ -142,6 +142,7 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
         char *section = NULL;
         int r;
         bool ours = false;
+        char *continuation = NULL;
 
         assert(filename);
         assert(t);
@@ -157,7 +158,8 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
         }
 
         while (!feof(f)) {
-                char l[LINE_MAX];
+                char l[LINE_MAX], *p, *c = NULL, *e;
+                bool escaped = false;
 
                 if (!fgets(l, sizeof(l), f)) {
                         if (feof(f))
@@ -168,7 +170,44 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
                         goto finish;
                 }
 
-                if ((r = parse_line(filename, ++line, &section, sections, t, relaxed, l, userdata)) < 0)
+                truncate_nl(l);
+
+                if (continuation) {
+                        if (!(c = strappend(continuation, l))) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        free(continuation);
+                        continuation = NULL;
+                        p = c;
+                } else
+                        p = l;
+
+                for (e = p; *e; e++) {
+                        if (escaped)
+                                escaped = false;
+                        else if (*e == '\\')
+                                escaped = true;
+                }
+
+                if (escaped) {
+                        *(e-1) = ' ';
+
+                        if (c)
+                                continuation = c;
+                        else if (!(continuation = strdup(l))) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        continue;
+                }
+
+                r = parse_line(filename, ++line, &section, sections, t, relaxed, p, userdata);
+                free(c);
+
+                if (r < 0)
                         goto finish;
         }
 
@@ -176,6 +215,7 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
 
 finish:
         free(section);
+        free(continuation);
 
         if (f && ours)
                 fclose(f);
