@@ -242,7 +242,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                         if (job_id != 0)
                                 printf(" %-15s%n", job_type, &b);
                         else
-                                b = 1 + 15;
+                                b = 1 + 16;
 
                         if (a + b + 2 < columns()) {
                                 if (job_id == 0)
@@ -952,8 +952,6 @@ static void show_cgroup(const char *name) {
         if (!f)
                 return;
 
-        printf("\t\t  \342\224\202\n");
-
         while (!feof(f)) {
                 unsigned long ul;
 
@@ -968,7 +966,8 @@ static void show_cgroup(const char *name) {
                         get_process_cmdline(last, 60, &t);
                         printf("\t\t  \342\224\234 %lu %s\n", (unsigned long) last, strna(t));
                         free(t);
-                }
+                } else
+                        printf("\t\t  \342\224\202\n");
 
                 last = (pid_t) ul;
         }
