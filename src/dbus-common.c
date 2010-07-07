@@ -54,7 +54,7 @@ int bus_check_peercred(DBusConnection *c) {
         return 1;
 }
 
-int bus_connect(DBusBusType t, DBusConnection **_bus, DBusError *error) {
+int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *error) {
         DBusConnection *bus;
 
         assert(_bus);
@@ -71,9 +71,16 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, DBusError *error) {
                         dbus_set_error_const(error, DBUS_ERROR_ACCESS_DENIED, "Failed to verify owner of bus.");
                         return -EACCES;
                 }
+
+                if (private)
+                        *private = true;
+
         } else {
                 if (!(bus = dbus_bus_get(t, error)))
                         return -EIO;
+
+                if (private)
+                        *private = false;
         }
 
         dbus_connection_set_exit_on_disconnect(bus, FALSE);

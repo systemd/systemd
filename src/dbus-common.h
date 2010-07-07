@@ -26,6 +26,6 @@
 
 int bus_check_peercred(DBusConnection *c);
 
-int bus_connect(DBusBusType t, DBusConnection **_bus, DBusError *error);
+int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private_bus, DBusError *error);
 
 #endif

@@ -75,6 +75,8 @@ enum action {
         _ACTION_MAX
 } arg_action = ACTION_SYSTEMCTL;
 
+static bool private_bus = false;
+
 static bool error_is_no_service(DBusError *error) {
 
         assert(error);
@@ -560,6 +562,9 @@ static int enable_wait_for_jobs(DBusConnection *bus) {
         DBusError error;
 
         assert(bus);
+
+        if (private_bus)
+                return 0;
 
         dbus_error_init(&error);
         dbus_bus_add_match(bus,
@@ -1849,43 +1854,45 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
-        dbus_bus_add_match(bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Manager',"
-                           "path='/org/freedesktop/systemd1'",
-                           &error);
+        if (!private_bus) {
+                dbus_bus_add_match(bus,
+                                   "type='signal',"
+                                   "sender='org.freedesktop.systemd1',"
+                                   "interface='org.freedesktop.systemd1.Manager',"
+                                   "path='/org/freedesktop/systemd1'",
+                                   &error);
 
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match: %s", error.message);
-                r = -EIO;
-                goto finish;
-        }
+                if (dbus_error_is_set(&error)) {
+                        log_error("Failed to add match: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
 
-        dbus_bus_add_match(bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Unit',"
-                           "member='Changed'",
-                           &error);
+                dbus_bus_add_match(bus,
+                                   "type='signal',"
+                                   "sender='org.freedesktop.systemd1',"
+                                   "interface='org.freedesktop.systemd1.Unit',"
+                                   "member='Changed'",
+                                   &error);
 
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match: %s", error.message);
-                r = -EIO;
-                goto finish;
-        }
+                if (dbus_error_is_set(&error)) {
+                        log_error("Failed to add match: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
 
-        dbus_bus_add_match(bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Job',"
-                           "member='Changed'",
-                           &error);
+                dbus_bus_add_match(bus,
+                                   "type='signal',"
+                                   "sender='org.freedesktop.systemd1',"
+                                   "interface='org.freedesktop.systemd1.Job',"
+                                   "member='Changed'",
+                                   &error);
 
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match: %s", error.message);
-                r = -EIO;
-                goto finish;
+                if (dbus_error_is_set(&error)) {
+                        log_error("Failed to add match: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
         }
 
         if (!dbus_connection_add_filter(bus, monitor_filter, NULL, NULL)) {
@@ -3286,7 +3293,7 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        bus_connect(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &error);
+        bus_connect(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
 
         switch (arg_action) {
 

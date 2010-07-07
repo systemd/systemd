@@ -791,7 +791,7 @@ static int do_run(void) {
                 return 0;
         }
 
-        if ((r = bus_connect(arg_where == WHERE_SESSION ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &error)) < 0) {
+        if ((r = bus_connect(arg_where == WHERE_SESSION ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, NULL, &error)) < 0) {
                 log_error("Failed to get D-Bus connection: %s", error.message);
                 goto finish;
         }
