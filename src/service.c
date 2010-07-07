@@ -1328,8 +1328,8 @@ static int service_spawn(
         pid_t pid;
         int r;
         int *fds = NULL, *fdsbuf = NULL;
-        unsigned n_fds = 0;
-        char **argv = NULL, **env = NULL;
+        unsigned n_fds = 0, n_env = 0;
+        char **argv = NULL, **final_env = NULL, **our_env = NULL;
 
         assert(s);
         assert(c);
@@ -1362,63 +1362,64 @@ static int service_spawn(
                 goto fail;
         }
 
-        if (set_notify_socket) {
-                char *t;
+        if (!(our_env = new0(char*, 3))) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
-                if (asprintf(&t, "NOTIFY_SOCKET=@%s", s->meta.manager->notify_socket) < 0) {
+        if (set_notify_socket)
+                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=@%s", s->meta.manager->notify_socket) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
-                env = strv_env_set(s->meta.manager->environment, t);
-                free(t);
-
-                if (!env) {
+        if (s->main_pid > 0)
+                if (asprintf(our_env + n_env++, "MAINPID=%lu", (unsigned long) s->main_pid) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
-        } else
-                env = s->meta.manager->environment;
+
+        if (!(final_env = strv_env_merge(2,
+                                         s->meta.manager->environment,
+                                         our_env,
+                                         NULL))) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
         r = exec_spawn(c,
                        argv,
                        &s->exec_context,
                        fds, n_fds,
-                       env,
+                       final_env,
                        apply_permissions,
                        apply_chroot,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
                        &pid);
 
-        strv_free(argv);
-        argv = NULL;
-
-        if (set_notify_socket)
-                strv_free(env);
-        env = NULL;
-
         if (r < 0)
                 goto fail;
 
-        if (fdsbuf)
-                free(fdsbuf);
 
         if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
+
+        free(fdsbuf);
+        strv_free(argv);
+        strv_free(our_env);
+        strv_free(final_env);
 
         *_pid = pid;
 
         return 0;
 
 fail:
-        free(fds);
-
+        free(fdsbuf);
         strv_free(argv);
-
-        if (set_notify_socket)
-                strv_free(env);
+        strv_free(our_env);
+        strv_free(final_env);
 
         if (timeout)
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
