@@ -1212,7 +1212,7 @@ char *cunescape(const char *s) {
                 default:
                         /* Invalid escape code, let's take it literal then */
                         *(t++) = '\\';
-                        *(t++) = 'f';
+                        *(t++) = *f;
                         break;
                 }
         }
