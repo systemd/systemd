@@ -833,7 +833,7 @@ int main(int argc, char *argv[]) {
 
         log_show_color(true);
         log_show_location(false);
-        log_set_max_level(LOG_DEBUG);
+        log_set_max_level(LOG_INFO);
 
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
