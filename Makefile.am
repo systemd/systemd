@@ -453,7 +453,8 @@ systemd_logger_LDADD = \
 
 systemd_initctl_SOURCES = \
 	src/initctl.c \
-	src/sd-daemon.c
+	src/sd-daemon.c \
+	src/dbus-common.c
 
 systemd_initctl_CFLAGS = \
 	$(AM_CFLAGS) \

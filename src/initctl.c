@@ -41,6 +41,7 @@
 #include "initreq.h"
 #include "special.h"
 #include "sd-daemon.h"
+#include "dbus-common.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT ((int) (10*MSEC_PER_SEC))
@@ -298,6 +299,10 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         if (!(s->bus = dbus_connection_open("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
                 log_error("Failed to get D-Bus connection: %s", error.message);
+                goto fail;
+        }
+        if ((r = bus_check_peercred(s->bus)) < 0) {
+                log_error("Bus connection failed peer credential check: %s", strerror(-r));
                 goto fail;
         }
 
