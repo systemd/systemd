@@ -123,11 +123,6 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
         assert(message);
         assert(m);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
-
         if ((r = manager_get_job_from_dbus_path(m, dbus_message_get_path(message), &j)) < 0) {
 
                 if (r == -ENOMEM)

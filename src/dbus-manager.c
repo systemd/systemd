@@ -243,11 +243,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         dbus_error_init(&error);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
-
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnit")) {
                 const char *name;
                 Unit *u;
