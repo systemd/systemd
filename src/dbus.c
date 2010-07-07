@@ -71,6 +71,7 @@ static const char *error_to_dbus(int error);
 static void bus_done_api(Manager *m);
 static void bus_done_system(Manager *m);
 static void bus_done_private(Manager *m);
+static void shutdown_connection(Manager *m, DBusConnection *c);
 
 static void bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus status, void *data)  {
         Manager *m = data;
@@ -477,11 +478,8 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
                   dbus_message_get_member(message),
                   dbus_message_get_path(message));
 
-        if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-                set_remove(m->bus_connections, connection);
-                set_remove(m->bus_connections_for_dispatch, connection);
-                dbus_connection_unref(connection);
-        }
+        if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected"))
+                shutdown_connection(m, connection);
 
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
