@@ -1007,6 +1007,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 case MANAGER_RELOAD:
+                        log_info("Reloading.");
                         if ((r = manager_reload(m)) < 0)
                                 log_error("Failed to reload: %s", strerror(-r));
                         break;
@@ -1016,7 +1017,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
 
                         reexecute = true;
-                        log_debug("Reexecuting.");
+                        log_notice("Reexecuting.");
                         goto finish;
 
                 default:
