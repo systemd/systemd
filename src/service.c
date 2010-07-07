@@ -457,7 +457,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith_no_case(t, "description:")) {
+                        } else if (startswith_no_case(t, "description:") &&
+                                   !u->meta.description) {
 
                                 size_t k = strlen(t);
                                 char *d;
@@ -603,8 +604,12 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith_no_case(t, "Description:")) {
+                        } else if (startswith_no_case(t, "Description:") &&
+                                   !u->meta.description) {
                                 char *d;
+
+                                /* We use the long description only if
+                                 * no short description is set. */
 
                                 state = LSB_DESCRIPTION;
 
@@ -616,12 +621,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 free(u->meta.description);
                                 u->meta.description = d;
 
-                        } else if (startswith_no_case(t, "Short-Description:") &&
-                                   !u->meta.description) {
+                        } else if (startswith_no_case(t, "Short-Description:")) {
                                 char *d;
-
-                                /* We use the short description only
-                                 * if no long description is set. */
 
                                 state = LSB;
 
