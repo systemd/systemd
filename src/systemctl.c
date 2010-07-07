@@ -239,19 +239,25 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
                         int a = 0, b = 0;
 
+                        if (streq(active_state, "maintenance"))
+                                fputs(ANSI_HIGHLIGHT_ON, stdout);
+
                         printf("%-45s %-6s %-12s %-12s%n", id, load_state, active_state, sub_state, &a);
 
                         if (job_id != 0)
                                 printf(" %-15s%n", job_type, &b);
                         else
-                                b = 1 + 16;
+                                b = 1 + 15;
 
                         if (a + b + 2 < columns()) {
                                 if (job_id == 0)
                                         printf("                ");
 
-                                printf("%.*s", columns() - a - b - 2, description);
+                                printf(" %.*s", columns() - a - b - 2, description);
                         }
+
+                        if (streq(active_state, "maintenance"))
+                                fputs(ANSI_HIGHLIGHT_OFF, stdout);
 
                         fputs("\n", stdout);
                         k++;
