@@ -2,6 +2,10 @@ udev 159
 ========
 Bugfixes.
 
+New and fixed keymaps.
+
+Install systemd service files if applicable.
+
 udev 158
 ========
 Bugfixes.

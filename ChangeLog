@@ -1,3 +1,33 @@
+Summary of changes from v158 to v159
+============================================
+
+Jerone Young (1):
+      Fix stuck volume key presses for Toshiba Satellite U300 & U305models
+
+Kay Sievers (5):
+      version bump
+      add systemd service files
+      make: pre-process and install systemd service files when needed
+      make: fix 'make distcheck'
+      switch a few left-over from GPLv2 to GPLv2 or later
+
+Lennart Poettering (1):
+      systemd: update service files for newly introduced DefaultDependencies= option
+
+Martin Pitt (1):
+      keymap: Add Logitech Cordless Wave Pro
+
+Matthew Garrett (1):
+      keymap: Add support for IBM-branded USB devices
+
+Michael Meeks (1):
+      gudev: respect possibly given LD_LIBRARY_PATH
+
+Ryan Harper (2):
+      Add virtio-blk support to path_id
+      Add virtio-blk by-id rules based on 'serial' attribute
+
+
 Summary of changes from v157 to v158
 ============================================
 
