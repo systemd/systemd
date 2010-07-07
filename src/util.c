@@ -1182,6 +1182,11 @@ char *cunescape_length(const char *s, size_t length) {
                         *(t++) = '\'';
                         break;
 
+                case 's':
+                        /* This is an extension of the XDG syntax files */
+                        *(t++) = ' ';
+                        break;
+
                 case 'x': {
                         /* hexadecimal encoding */
                         int a, b;
