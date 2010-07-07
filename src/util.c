@@ -307,40 +307,6 @@ int safe_atoi(const char *s, int *ret_i) {
         return 0;
 }
 
-int safe_atolu(const char *s, long unsigned *ret_lu) {
-        char *x = NULL;
-        unsigned long l;
-
-        assert(s);
-        assert(ret_lu);
-
-        errno = 0;
-        l = strtoul(s, &x, 0);
-
-        if (!x || *x || errno)
-                return errno ? -errno : -EINVAL;
-
-        *ret_lu = l;
-        return 0;
-}
-
-int safe_atoli(const char *s, long int *ret_li) {
-        char *x = NULL;
-        long l;
-
-        assert(s);
-        assert(ret_li);
-
-        errno = 0;
-        l = strtol(s, &x, 0);
-
-        if (!x || *x || errno)
-                return errno ? -errno : -EINVAL;
-
-        *ret_li = l;
-        return 0;
-}
-
 int safe_atollu(const char *s, long long unsigned *ret_llu) {
         char *x = NULL;
         unsigned long long l;

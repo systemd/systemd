@@ -30,8 +30,6 @@
 #include "util.h"
 #include "log.h"
 
-#define LINE_MAX 4096
-
 #if defined(TARGET_FEDORA)
 #define FILENAME "/etc/sysconfig/network"
 #elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)

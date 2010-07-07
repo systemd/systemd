@@ -41,7 +41,6 @@
 #include "unit-name.h"
 
 #define COMMENTS "#;\n"
-#define LINE_MAX 4096
 
 static int config_parse_deps(
                 const char *filename,

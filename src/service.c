@@ -36,7 +36,6 @@
 
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
-#define LINE_MAX 4096
 
 typedef enum RunlevelType {
         RUNLEVEL_UP,
