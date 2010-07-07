@@ -2374,7 +2374,7 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_AUTO_RESTART:
-                log_debug("%s holdoff time over, scheduling restart.", u->meta.id);
+                log_info("%s holdoff time over, scheduling restart.", u->meta.id);
                 service_enter_restart(s);
                 break;
 

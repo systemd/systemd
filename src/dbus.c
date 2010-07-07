@@ -336,10 +336,10 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
         dbus_error_init(&error);
 
-        /* log_debug("Got D-Bus request: %s.%s() on %s", */
-        /*           dbus_message_get_interface(message), */
-        /*           dbus_message_get_member(message), */
-        /*           dbus_message_get_path(message)); */
+        log_debug("Got D-Bus request: %s.%s() on %s",
+                  dbus_message_get_interface(message),
+                  dbus_message_get_member(message),
+                  dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! API D-Bus connection terminated.");
@@ -441,10 +441,10 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
 
         dbus_error_init(&error);
 
-        /* log_debug("Got D-Bus request: %s.%s() on %s", */
-        /*           dbus_message_get_interface(message), */
-        /*           dbus_message_get_member(message), */
-        /*           dbus_message_get_path(message)); */
+        log_debug("Got D-Bus request: %s.%s() on %s",
+                  dbus_message_get_interface(message),
+                  dbus_message_get_member(message),
+                  dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! System D-Bus connection terminated.");
@@ -472,10 +472,10 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
         assert(message);
         assert(m);
 
-        /* log_debug("Got D-Bus request: %s.%s() on %s", */
-        /*           dbus_message_get_interface(message), */
-        /*           dbus_message_get_member(message), */
-        /*           dbus_message_get_path(message)); */
+        log_debug("Got D-Bus request: %s.%s() on %s",
+                  dbus_message_get_interface(message),
+                  dbus_message_get_member(message),
+                  dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 set_remove(m->bus_connections, connection);
@@ -794,9 +794,9 @@ static int bus_init_system(Manager *m) {
                 goto fail;
         }
 
-        log_debug("Successfully connected to system D-Bus bus %s as %s",
-                  strnull((id = dbus_connection_get_server_id(m->system_bus))),
-                  strnull(dbus_bus_get_unique_name(m->system_bus)));
+        log_info("Successfully connected to system D-Bus bus %s as %s",
+                 strnull((id = dbus_connection_get_server_id(m->system_bus))),
+                 strnull(dbus_bus_get_unique_name(m->system_bus)));
         dbus_free(id);
 
         return 0;
@@ -878,9 +878,9 @@ static int bus_init_api(Manager *m) {
         if ((r = query_name_list(m)) < 0)
                 goto fail;
 
-        log_debug("Successfully connected to API D-Bus bus %s as %s",
-                  strnull((id = dbus_connection_get_server_id(m->api_bus))),
-                  strnull(dbus_bus_get_unique_name(m->api_bus)));
+        log_info("Successfully connected to API D-Bus bus %s as %s",
+                 strnull((id = dbus_connection_get_server_id(m->api_bus))),
+                 strnull(dbus_bus_get_unique_name(m->api_bus)));
         dbus_free(id);
 
         return 0;
@@ -927,7 +927,7 @@ static int bus_init_private(Manager *m) {
 
         dbus_server_set_new_connection_function(m->private_bus, bus_new_connection, m, NULL);
 
-        log_debug("Successfully create private D-Bus server.");
+        log_debug("Successfully created private D-Bus server.");
 
         return 0;
 

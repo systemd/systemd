@@ -929,7 +929,7 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1)
                 install_crash_handler();
 
-        log_debug(PACKAGE_STRING " running in %s mode.", manager_running_as_to_string(arg_running_as));
+        log_info(PACKAGE_STRING " running in %s mode.", manager_running_as_to_string(arg_running_as));
 
         if (arg_running_as == MANAGER_SYSTEM && !serialization) {
                 if (arg_show_status)

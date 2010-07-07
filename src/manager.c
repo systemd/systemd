@@ -689,7 +689,7 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
                                 return -ENOEXEC;
 
                         /* Ok, we can drop one, so let's do so. */
-                        log_debug("Trying to fix job merging by deleting job %s/%s", d->unit->meta.id, job_type_to_string(d->type));
+                        log_notice("Trying to fix job merging by deleting job %s/%s", d->unit->meta.id, job_type_to_string(d->type));
                         transaction_delete_job(m, d, true);
                         return 0;
                 }
@@ -840,17 +840,17 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                  * job to remove. We use the marker to find our way
                  * back, since smart how we are we stored our way back
                  * in there. */
-                log_debug("Found ordering cycle on %s/%s", j->unit->meta.id, job_type_to_string(j->type));
+                log_warning("Found ordering cycle on %s/%s", j->unit->meta.id, job_type_to_string(j->type));
 
                 for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
 
-                        log_debug("Walked on cycle path to %s/%s", k->unit->meta.id, job_type_to_string(k->type));
+                        log_info("Walked on cycle path to %s/%s", k->unit->meta.id, job_type_to_string(k->type));
 
                         if (!k->installed &&
                             !unit_matters_to_anchor(k->unit, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
-                                log_debug("Breaking order cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
+                                log_warning("Breaking order cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
                                 transaction_delete_unit(m, k->unit);
                                 return -EAGAIN;
                         }
@@ -861,7 +861,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                                 break;
                 }
 
-                log_debug("Unable to break cycle");
+                log_error("Unable to break cycle");
 
                 return -ENOEXEC;
         }
@@ -1004,13 +1004,13 @@ static void transaction_minimize_impact(Manager *m) {
                                         continue;
 
                                 if (stops_running_service)
-                                        log_debug("%s/%s would stop a running service.", j->unit->meta.id, job_type_to_string(j->type));
+                                        log_info("%s/%s would stop a running service.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 if (changes_existing_job)
-                                        log_debug("%s/%s would change existing job.", j->unit->meta.id, job_type_to_string(j->type));
+                                        log_info("%s/%s would change existing job.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 /* Ok, let's get rid of this */
-                                log_debug("Deleting %s/%s to minimize impact.", j->unit->meta.id, job_type_to_string(j->type));
+                                log_info("Deleting %s/%s to minimize impact.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 transaction_delete_job(m, j, true);
                                 again = true;
@@ -1111,7 +1111,7 @@ static int transaction_activate(Manager *m, JobMode mode) {
                         break;
 
                 if (r != -EAGAIN) {
-                        log_debug("Requested transaction contains an unfixable cyclic ordering dependency: %s", strerror(-r));
+                        log_warning("Requested transaction contains an unfixable cyclic ordering dependency: %s", strerror(-r));
                         goto rollback;
                 }
 
@@ -1127,7 +1127,7 @@ static int transaction_activate(Manager *m, JobMode mode) {
                         break;
 
                 if (r != -EAGAIN) {
-                        log_debug("Requested transaction contains unmergable jobs: %s", strerror(-r));
+                        log_warning("Requested transaction contains unmergable jobs: %s", strerror(-r));
                         goto rollback;
                 }
 
@@ -1145,13 +1145,13 @@ static int transaction_activate(Manager *m, JobMode mode) {
         /* Ninth step: check whether we can actually apply this */
         if (mode == JOB_FAIL)
                 if ((r = transaction_is_destructive(m)) < 0) {
-                        log_debug("Requested transaction contradicts existing jobs: %s", strerror(-r));
+                        log_notice("Requested transaction contradicts existing jobs: %s", strerror(-r));
                         goto rollback;
                 }
 
         /* Tenth step: apply changes */
         if ((r = transaction_apply(m)) < 0) {
-                log_debug("Failed to apply transaction: %s", strerror(-r));
+                log_warning("Failed to apply transaction: %s", strerror(-r));
                 goto rollback;
         }
 
@@ -1238,7 +1238,7 @@ void manager_transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies
                 job_dependency_free(j->object_list);
 
                 if (other && delete_dependencies) {
-                        log_debug("Deleting job %s/%s as dependency of job %s/%s",
+                        log_info("Deleting job %s/%s as dependency of job %s/%s",
                                   other->unit->meta.id, job_type_to_string(other->type),
                                   j->unit->meta.id, job_type_to_string(j->type));
                         transaction_delete_job(m, other, delete_dependencies);

@@ -473,7 +473,7 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         /* /dev/kmsg logging is strictly optional */
         if ((s->kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
-                log_debug("Failed to open /dev/kmsg for logging, disabling kernel log buffer support: %s", strerror(errno));
+                log_warning("Failed to open /dev/kmsg for logging, disabling kernel log buffer support: %s", strerror(errno));
 
         return 0;
 

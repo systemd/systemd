@@ -738,7 +738,7 @@ fail:
         u->meta.load_state = UNIT_FAILED;
         unit_add_to_dbus_queue(u);
 
-        log_debug("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
+        log_notice("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
 
         return r;
 }
@@ -878,7 +878,7 @@ static void unit_check_uneeded(Unit *u) {
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         return;
 
-        log_debug("Service %s is not needed anymore. Stopping.", u->meta.id);
+        log_info("Service %s is not needed anymore. Stopping.", u->meta.id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
         manager_add_job(u->meta.manager, JOB_STOP, u, JOB_FAIL, true, NULL);
