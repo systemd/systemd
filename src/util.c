@@ -360,7 +360,8 @@ char *split(const char *c, size_t *l, const char *separator, char **state) {
 /* Split a string into words, but consider strings enclosed in '' and
  * "" as words even if they include spaces. */
 char *split_quoted(const char *c, size_t *l, char **state) {
-        char *current;
+        char *current, *e;
+        bool escaped = false;
 
         current = *state ? *state : (char*) c;
 
@@ -371,25 +372,44 @@ char *split_quoted(const char *c, size_t *l, char **state) {
 
         if (*current == '\'') {
                 current ++;
-                *l = strcspn(current, "'");
-                *state = current+*l;
 
-                if (**state == '\'')
-                        (*state)++;
+                for (e = current; *e; e++) {
+                        if (escaped)
+                                escaped = false;
+                        else if (*e == '\\')
+                                escaped = true;
+                        else if (*e == '\'')
+                                break;
+                }
+
+                *l = e-current;
+                *state = *e == 0 ? e : e+1;
         } else if (*current == '\"') {
                 current ++;
-                *l = strcspn(current, "\"");
-                *state = current+*l;
 
-                if (**state == '\"')
-                        (*state)++;
+                for (e = current; *e; e++) {
+                        if (escaped)
+                                escaped = false;
+                        else if (*e == '\\')
+                                escaped = true;
+                        else if (*e == '\"')
+                                break;
+                }
+
+                *l = e-current;
+                *state = *e == 0 ? e : e+1;
         } else {
-                *l = strcspn(current, WHITESPACE);
-                *state = current+*l;
+                for (e = current; *e; e++) {
+                        if (escaped)
+                                escaped = false;
+                        else if (*e == '\\')
+                                escaped = true;
+                        else if (strchr(WHITESPACE, *e))
+                                break;
+                }
+                *l = e-current;
+                *state = e;
         }
-
-        /* FIXME: Cannot deal with strings that have spaces AND ticks
-         * in them */
 
         return (char*) current;
 }
