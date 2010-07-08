@@ -60,9 +60,9 @@ static void mount_init(Unit *u) {
         assert(u->meta.load_state == UNIT_STUB);
 
         m->timeout_usec = DEFAULT_TIMEOUT_USEC;
-        exec_context_init(&m->exec_context);
-
         m->directory_mode = 0755;
+
+        exec_context_init(&m->exec_context);
 
         /* We need to make sure that /bin/mount is always called in
          * the same process group as us, so that the autofs kernel
@@ -534,8 +534,8 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             m->meta.manager->environment,
                             true,
                             true,
-                            m->meta.manager->confirm_spawn,
                             true,
+                            m->meta.manager->confirm_spawn,
                             m->meta.cgroup_bondings,
                             &pid)) < 0)
                 goto fail;
