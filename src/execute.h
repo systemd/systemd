@@ -196,6 +196,7 @@ int exec_spawn(ExecCommand *command,
                char **environment,
                bool apply_permissions,
                bool apply_chroot,
+               bool apply_tty_stdin,
                bool confirm_spawn,
                struct CGroupBonding *cgroup_bondings,
                pid_t *ret);

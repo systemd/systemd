@@ -822,6 +822,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        s->meta.manager->environment,
                        true,
                        true,
+                       true,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
                        &pid);

@@ -1273,7 +1273,7 @@ static int transaction_add_job_and_dependencies(
         assert(unit);
 
         if (unit->meta.load_state != UNIT_LOADED) {
-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load.", unit->meta.id);
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load. See logs for details.", unit->meta.id);
                 return -EINVAL;
         }
 

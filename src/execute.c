@@ -232,7 +232,10 @@ static bool is_terminal_input(ExecInput i) {
                 i == EXEC_INPUT_TTY_FAIL;
 }
 
-static int fixup_input(ExecInput std_input, int socket_fd) {
+static int fixup_input(ExecInput std_input, int socket_fd, bool apply_tty_stdin) {
+
+        if (is_terminal_input(std_input) && !apply_tty_stdin)
+                return EXEC_INPUT_NULL;
 
         if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
                 return EXEC_INPUT_NULL;
@@ -248,12 +251,12 @@ static int fixup_output(ExecOutput std_output, int socket_fd) {
         return std_output;
 }
 
-static int setup_input(const ExecContext *context, int socket_fd) {
+static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty_stdin) {
         ExecInput i;
 
         assert(context);
 
-        i = fixup_input(context->std_input, socket_fd);
+        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
 
         switch (i) {
 
@@ -289,14 +292,14 @@ static int setup_input(const ExecContext *context, int socket_fd) {
         }
 }
 
-static int setup_output(const ExecContext *context, int socket_fd, const char *ident) {
+static int setup_output(const ExecContext *context, int socket_fd, const char *ident, bool apply_tty_stdin) {
         ExecOutput o;
         ExecInput i;
 
         assert(context);
         assert(ident);
 
-        i = fixup_input(context->std_input, socket_fd);
+        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
         o = fixup_output(context->std_output, socket_fd);
 
         /* This expects the input is already set up */
@@ -339,14 +342,14 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         }
 }
 
-static int setup_error(const ExecContext *context, int socket_fd, const char *ident) {
+static int setup_error(const ExecContext *context, int socket_fd, const char *ident, bool apply_tty_stdin) {
         ExecOutput o, e;
         ExecInput i;
 
         assert(context);
         assert(ident);
 
-        i = fixup_input(context->std_input, socket_fd);
+        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
         o = fixup_output(context->std_output, socket_fd);
         e = fixup_output(context->std_error, socket_fd);
 
@@ -889,6 +892,7 @@ int exec_spawn(ExecCommand *command,
                char **environment,
                bool apply_permissions,
                bool apply_chroot,
+               bool apply_tty_stdin,
                bool confirm_spawn,
                CGroupBonding *cgroup_bondings,
                pid_t *ret) {
@@ -985,7 +989,9 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                if (confirm_spawn) {
+                /* We skip the confirmation step if we shall not apply the TTY */
+                if (confirm_spawn &&
+                    (!is_terminal_input(context->std_input) || apply_tty_stdin)) {
                         char response;
 
                         /* Set up terminal for the question */
@@ -1018,18 +1024,18 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (!keep_stdin)
-                        if (setup_input(context, socket_fd) < 0) {
+                        if (setup_input(context, socket_fd, apply_tty_stdin) < 0) {
                                 r = EXIT_STDIN;
                                 goto fail;
                         }
 
                 if (!keep_stdout)
-                        if (setup_output(context, socket_fd, file_name_from_path(command->path)) < 0) {
+                        if (setup_output(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin) < 0) {
                                 r = EXIT_STDOUT;
                                 goto fail;
                         }
 
-                if (setup_error(context, socket_fd, file_name_from_path(command->path)) < 0) {
+                if (setup_error(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin) < 0) {
                         r = EXIT_STDERR;
                         goto fail;
                 }

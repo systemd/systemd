@@ -70,7 +70,7 @@ int kmod_setup(void) {
         command.argv = (char**) cmdline;
 
         exec_context_init(&context);
-        r = exec_spawn(&command, NULL, &context, NULL, 0, NULL, false, false, false, NULL, &pid);
+        r = exec_spawn(&command, NULL, &context, NULL, 0, NULL, false, false, false, false, NULL, &pid);
         exec_context_done(&context);
 
         if (r < 0)

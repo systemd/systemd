@@ -1323,6 +1323,7 @@ static int service_spawn(
                 bool pass_fds,
                 bool apply_permissions,
                 bool apply_chroot,
+                bool apply_tty_stdin,
                 bool set_notify_socket,
                 pid_t *_pid) {
 
@@ -1395,6 +1396,7 @@ static int service_spawn(
                        final_env,
                        apply_permissions,
                        apply_chroot,
+                       apply_tty_stdin,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
                        &pid);
@@ -1505,6 +1507,7 @@ static void service_enter_stop_post(Service *s, bool success) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       true,
                                        false,
                                        &s->control_pid)) < 0)
                         goto fail;
@@ -1605,6 +1608,7 @@ static void service_enter_stop(Service *s, bool success) {
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
                                        false,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1653,6 +1657,7 @@ static void service_enter_start_post(Service *s) {
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
                                        false,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1684,6 +1689,7 @@ static void service_enter_start(Service *s) {
         if ((r = service_spawn(s,
                                s->exec_command[SERVICE_EXEC_START],
                                s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
+                               true,
                                true,
                                true,
                                true,
@@ -1747,6 +1753,7 @@ static void service_enter_start_pre(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       true,
                                        false,
                                        &s->control_pid)) < 0)
                         goto fail;
@@ -1800,6 +1807,7 @@ static void service_enter_reload(Service *s) {
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
                                        false,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1834,6 +1842,7 @@ static void service_run_next(Service *s, bool success) {
                                false,
                                !s->permissions_start_only,
                                !s->root_directory_start_only,
+                               false,
                                false,
                                &s->control_pid)) < 0)
                 goto fail;
