@@ -257,11 +257,19 @@
                                 <literal>argv[0]</literal> to the
                                 executed process, followed by the
                                 further arguments specified. Unless
-                                <varname>Type=forking</varname> is set,
-                                the process started via this command
-                                line will be considered the main
-                                process of the
-                                daemon.</para></listitem>
+                                <varname>Type=forking</varname> is
+                                set, the process started via this
+                                command line will be considered the
+                                main process of the daemon. The
+                                command line accepts % specifiers as
+                                described in
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. On
+                                top of that basic environment variable
+                                substitution is supported, where
+                                <literal>$(FOO)</literal> is replaced
+                                by the value of the environment
+                                variable of the same
+                                name.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -285,7 +293,9 @@
                                 suitable for XDG
                                 <filename>.desktop</filename> files.
                                 Use of these settings is
-                                optional.</para></listitem>
+                                optional. Specifier and environment
+                                variable substitution is
+                                supported.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -297,7 +307,17 @@
                                 scheme as pointed out for
                                 <varname>ExecStartPre=</varname>
                                 above. Use of this setting is
-                                optional.  </para></listitem>
+                                optional. Specifier and environment
+                                variable substitution is supported
+                                here following the same scheme as for
+                                <varname>ExecStart=</varname>. One
+                                special environment variable is set:
+                                if known <literal>$MAINPID</literal> is
+                                set to the main process of the
+                                daemon, and may be used for command
+                                lines like the following:
+                                <command>/bin/kill -HUP
+                                $(MAINPID)</command>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -318,7 +338,11 @@
                                 (see below). If this option is not
                                 specified the process is terminated
                                 right-away when service stop is
-                                requested.</para></listitem>
+                                requested. Specifier and environment
+                                variable substitution is supported
+                                (including
+                                <literal>$(MAINPID)</literal>, see
+                                above).</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -333,7 +357,9 @@
                                 out for
                                 <varname>ExecStartPre</varname>. Use
                                 of these settings is
-                                optional.</para></listitem>
+                                optional. Specifier and environment
+                                variable substitution is
+                                supported.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

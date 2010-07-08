@@ -24,6 +24,7 @@
 #include <stdio.h>
 
 #include "loopback-setup.h"
+#include "util.h"
 
 int main(int argc, char* argv[]) {
         int r;
