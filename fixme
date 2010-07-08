@@ -35,8 +35,6 @@
 
 * selinux
 
-* systemctl daemon-reload is kaputt
-
 External:
 
 * patch /etc/init.d/functions with:
