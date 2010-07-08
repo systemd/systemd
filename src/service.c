@@ -2565,6 +2565,13 @@ static int service_enumerate(Manager *m) {
                                 manager_dispatch_load_queue(m);
                                 service = unit_follow_merge(service);
 
+                                /* If this is a native service, rely
+                                 * on native ways to pull in a
+                                 * service, don't pull it in via sysv
+                                 * rcN.d links. */
+                                if (service->meta.fragment_path)
+                                        continue;
+
                                 if (de->d_name[0] == 'S') {
 
                                         if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, rcnd_table[i].target, NULL, true)) < 0)
