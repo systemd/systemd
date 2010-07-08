@@ -849,7 +849,7 @@ int main(int argc, char *argv[]) {
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
-        if (geteuid() == 0)
+        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS"))
                 if (mount_setup() < 0)
                         goto finish;
 
