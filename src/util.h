@@ -183,6 +183,10 @@ int write_one_line_file(const char *fn, const char *line);
 int read_one_line_file(const char *fn, char **line);
 
 char *strappend(const char *s, const char *suffix);
+char *strnappend(const char *s, const char *suffix, size_t length);
+
+char *replace_env(const char *format, char **env);
+char **replace_env_argv(char **argv, char **env);
 
 int readlink_malloc(const char *p, char **r);
 int readlink_and_make_absolute(const char *p, char **r);

@@ -943,7 +943,7 @@ int exec_spawn(ExecCommand *command,
                 const char *username = NULL, *home = NULL;
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
-                char **our_env = NULL, **pam_env = NULL, **final_env = NULL;
+                char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
                 int saved_stdout = -1, saved_stdin = -1;
                 bool keep_stdout = false, keep_stdin = false;
@@ -1260,13 +1260,19 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
-                execve(command->path, argv, final_env);
+                if (!(final_argv = replace_env_argv(argv, final_env))) {
+                        r = EXIT_MEMORY;
+                        goto fail;
+                }
+
+                execve(command->path, final_argv, final_env);
                 r = EXIT_EXEC;
 
         fail:
                 strv_free(our_env);
                 strv_free(final_env);
                 strv_free(pam_env);
+                strv_free(final_argv);
 
                 if (saved_stdin >= 0)
                         close_nointr_nofail(saved_stdin);

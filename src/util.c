@@ -613,15 +613,23 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
         return 0;
 }
 
-char *strappend(const char *s, const char *suffix) {
-        size_t a, b;
+char *strnappend(const char *s, const char *suffix, size_t b) {
+        size_t a;
         char *r;
+
+        if (!s && !suffix)
+                return strdup("");
+
+        if (!s)
+                return strndup(suffix, b);
+
+        if (!suffix)
+                return strdup(s);
 
         assert(s);
         assert(suffix);
 
         a = strlen(s);
-        b = strlen(suffix);
 
         if (!(r = new(char, a+b+1)))
                 return NULL;
@@ -631,6 +639,10 @@ char *strappend(const char *s, const char *suffix) {
         r[a+b] = 0;
 
         return r;
+}
+
+char *strappend(const char *s, const char *suffix) {
+        return strnappend(s, suffix, suffix ? strlen(suffix) : 0);
 }
 
 int readlink_malloc(const char *p, char **r) {
@@ -2690,6 +2702,100 @@ void status_welcome(void) {
 #else
 #warning "You probably should add a welcome text logic here."
 #endif
+}
+
+char *replace_env(const char *format, char **env) {
+        enum {
+                WORD,
+                DOLLAR,
+                VARIABLE
+        } state = WORD;
+
+        const char *e, *word = format;
+        char *r = NULL, *k;
+
+        assert(format);
+
+        for (e = format; *e; e ++) {
+
+                switch (state) {
+
+                case WORD:
+                        if (*e == '$')
+                                state = DOLLAR;
+                        break;
+
+                case DOLLAR:
+                        if (*e == '(') {
+                                if (!(k = strnappend(r, word, e-word-1)))
+                                        goto fail;
+
+                                free(r);
+                                r = k;
+
+                                word = e-1;
+                                state = VARIABLE;
+
+                        } else if (*e == '$') {
+                                if (!(k = strnappend(r, word, e-word)))
+                                        goto fail;
+
+                                free(r);
+                                r = k;
+
+                                word = e+1;
+                                state = WORD;
+                        } else
+                                state = WORD;
+                        break;
+
+                case VARIABLE:
+                        if (*e == ')') {
+                                char *t;
+
+                                if ((t = strv_env_get_with_length(env, word+2, e-word-2))) {
+                                        if (!(k = strappend(r, t)))
+                                                goto fail;
+
+                                        free(r);
+                                        r = k;
+
+                                        word = e+1;
+                                }
+
+                                state = WORD;
+                        }
+                        break;
+                }
+        }
+
+        if (!(k = strnappend(r, word, e-word)))
+                goto fail;
+
+        free(r);
+        return k;
+
+fail:
+        free(r);
+        return NULL;
+}
+
+char **replace_env_argv(char **argv, char **env) {
+        char **r, **i;
+        unsigned k;
+
+        if (!(r = new(char*, strv_length(argv)+1)))
+                return NULL;
+
+        STRV_FOREACH(i, argv) {
+                if (!(r[k++] = replace_env(*i, env))) {
+                        strv_free(r);
+                        return NULL;
+                }
+        }
+
+        r[k] = NULL;
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

@@ -539,3 +539,20 @@ fail:
         return NULL;
 
 }
+
+char *strv_env_get_with_length(char **l, const char *name, size_t k) {
+        char **i;
+
+        assert(name);
+
+        STRV_FOREACH(i, l)
+                if (strncmp(*i, name, k) == 0 &&
+                    (*i)[k] == '=')
+                        return *i + k + 1;
+
+        return NULL;
+}
+
+char *strv_env_get(char **l, const char *name) {
+        return strv_env_get_with_length(l, name, strlen(name));
+}
