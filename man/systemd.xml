@@ -232,7 +232,7 @@
                 configuration or dynamically from system state. Units
                 may be active (meaning started, bound, plugged in, ...
                 depending on the unit type), or inactive (meaning
-                stopped, unbound, unplugged, ...), as well is in the
+                stopped, unbound, unplugged, ...), as well as in the
                 process of being activated or deactivated,
                 i.e. between the two states. The following unit types
                 are available:</para>
@@ -291,7 +291,7 @@
                         systemd. They are described in <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
                         <listitem><para>Path units may be used
-                        activate other services when file system
+                        to activate other services when file system
                         objects change or are modified. See
                         <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
@@ -303,7 +303,7 @@
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                 <para>On boot systemd activates the target unit
-                <filename>default.target</filename> whose job it is to
+                <filename>default.target</filename> whose job is to
                 activate on-boot services and other on-boot units by
                 pulling them in via dependencies. Usually the unit
                 name is just an alias (symlink) for either
@@ -318,7 +318,7 @@
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 for details about these target units.</para>
 
-                <para>Processes systemd spawns ared placed in
+                <para>Processes systemd spawns are placed in
                 individual Linux control groups named after the unit
                 which they belong to in the private systemd
                 hierarchy. (see <ulink
@@ -340,9 +340,9 @@
                 simply read as an alternative (though limited)
                 configuration file format. The SysV
                 <filename>/dev/initctl</filename> interface is
-                provided, and comaptibility implementations of the
-                various SysV client tools available. In addition to
-                that various established Unix functionality such as
+                provided, and compatibility implementations of the
+                various SysV client tools are available. In addition to
+                that, various established Unix functionality such as
                 <filename>/etc/fstab</filename> or the
                 <filename>utmp</filename> database are
                 supported.</para>
