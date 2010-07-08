@@ -686,7 +686,7 @@ CLEANFILES += \
 endif
 
 org.freedesktop.systemd1.%.xml: systemd
-	$(AM_V_GEN)./systemd --introspect=${@:.xml=} > $@
+	$(AM_V_GEN)SYSTEMD_SKIP_API_MOUNTS=1 ./systemd --introspect=${@:.xml=} > $@
 
 CLEANFILES += \
 	$(dbusinterface_DATA)
