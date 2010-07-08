@@ -58,7 +58,8 @@ rootbin_PROGRAMS = \
 	systemd-notify
 
 bin_PROGRAMS = \
-	systemd-install
+	systemd-install \
+	systemd-cgls
 
 if HAVE_GTK
 bin_PROGRAMS += \
@@ -320,6 +321,7 @@ MANPAGES = \
 	man/systemctl.1 \
 	man/systemadm.1 \
 	man/systemd-install.1 \
+	man/systemd-cgls.1 \
 	man/systemd-notify.1 \
 	man/sd_notify.3 \
 	man/sd_booted.3 \
@@ -510,6 +512,16 @@ systemd_install_LDADD = \
 systemd_install_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
+
+systemd_cgls_SOURCES = \
+	src/systemd-cgls.c \
+	src/cgroup-show.c
+
+systemd_cgls_LDADD = \
+	libsystemd-basic.la
+
+systemd_cgls_CFLAGS = \
+	$(AM_CFLAGS)
 
 systemadm_SOURCES = \
 	src/systemadm.vala \

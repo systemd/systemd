@@ -328,6 +328,8 @@ void status_vprintf(const char *format, va_list ap);
 void status_printf(const char *format, ...);
 void status_welcome(void);
 
+int columns(void);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

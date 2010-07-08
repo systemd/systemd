@@ -110,30 +110,6 @@ static int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *da
         return 0;
 }
 
-static int columns(void) {
-        static int parsed_columns = 0;
-        const char *e;
-
-        if (parsed_columns > 0)
-                return parsed_columns;
-
-        if ((e = getenv("COLUMNS")))
-                parsed_columns = atoi(e);
-
-        if (parsed_columns <= 0) {
-                struct winsize ws;
-                zero(ws);
-
-                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
-                        parsed_columns = ws.ws_col;
-        }
-
-        if (parsed_columns <= 0)
-                parsed_columns = 80;
-
-        return parsed_columns;
-}
-
 static void warn_wall(enum action action) {
         static const char *table[_ACTION_MAX] = {
                 [ACTION_HALT]      = "The system is going down for system halt NOW!",
@@ -1076,7 +1052,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 else
                         c = 0;
 
-                show_cgroup(i->default_control_group, "\t\t  ", c);
+                show_cgroup_recursive(i->default_control_group, "\t\t  ", c);
         }
 }
 
@@ -3068,7 +3044,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "reboot",            EQUAL, 1, start_special   },
                 { "default",           EQUAL, 1, start_special   },
                 { "rescue",            EQUAL, 1, start_special   },
-                { "emergency",         EQUAL, 1, start_special   },
+                { "emergency",         EQUAL, 1, start_special   }
         };
 
         int left;

@@ -609,6 +609,9 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
 
         fclose(f);
 
+        if (r[0] == 0)
+                return get_process_name(pid, line);
+
         *line = r;
         return 0;
 }
@@ -2796,6 +2799,30 @@ char **replace_env_argv(char **argv, char **env) {
 
         r[k] = NULL;
         return r;
+}
+
+int columns(void) {
+        static __thread int parsed_columns = 0;
+        const char *e;
+
+        if (parsed_columns > 0)
+                return parsed_columns;
+
+        if ((e = getenv("COLUMNS")))
+                parsed_columns = atoi(e);
+
+        if (parsed_columns <= 0) {
+                struct winsize ws;
+                zero(ws);
+
+                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
+                        parsed_columns = ws.ws_col;
+        }
+
+        if (parsed_columns <= 0)
+                parsed_columns = 80;
+
+        return parsed_columns;
 }
 
 static const char *const ioprio_class_table[] = {

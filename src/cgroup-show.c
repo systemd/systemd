@@ -21,6 +21,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
+#include <errno.h>
 
 #include "util.h"
 #include "macro.h"
@@ -36,25 +38,57 @@ static int compare(const void *a, const void *b) {
         return 0;
 }
 
-void show_cgroup(const char *name, const char *prefix, unsigned columns) {
+static char *get_cgroup_path(const char *name) {
+
+        if (startswith(name, "name=systemd:"))
+                name += 13;
+
+        if (path_startswith(name, "/cgroup"))
+                return strdup(name);
+
+        return strappend("/cgroup/systemd/", name);
+}
+
+static unsigned ilog10(unsigned long ul) {
+        int n = 0;
+
+        while (ul > 0) {
+                n++;
+                ul /= 10;
+        }
+
+        return n;
+}
+
+static int show_cgroup_full(const char *name, const char *prefix, unsigned n_columns, bool more) {
         char *fn;
         FILE *f;
         size_t n = 0, n_allocated = 0;
         pid_t *pids = NULL;
+        char *p;
+        int r;
+        unsigned long biggest = 0;
 
-        if (!startswith(name, "name=systemd:"))
-                return;
+        if (n_columns <= 0)
+                n_columns = columns();
 
-        if (asprintf(&fn, "/cgroup/systemd/%s/cgroup.procs", name + 13) < 0) {
-                log_error("Out of memory");
-                return;
-        }
+        if (!prefix)
+                prefix = "";
 
-        f = fopen(fn, "r");
+        if (!(p = get_cgroup_path(name)))
+                return -ENOMEM;
+
+        r = asprintf(&fn, "%s/cgroup.procs", p);
+        free(p);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        f = fopen(fn, "re");
         free(fn);
 
         if (!f)
-                return;
+                return -errno;
 
         while (!feof(f)) {
                 unsigned long ul;
@@ -71,7 +105,7 @@ void show_cgroup(const char *name, const char *prefix, unsigned columns) {
                         n_allocated = MAX(16U, n*2U);
 
                         if (!(npids = realloc(pids, sizeof(pid_t) * n_allocated))) {
-                                log_error("Out of memory");
+                                r = -ENOMEM;
                                 goto finish;
                         }
 
@@ -80,6 +114,9 @@ void show_cgroup(const char *name, const char *prefix, unsigned columns) {
 
                 assert(n < n_allocated);
                 pids[n++] = (pid_t) ul;
+
+                if (ul > biggest)
+                        biggest = ul;
         }
 
         if (n > 0) {
@@ -102,33 +139,124 @@ void show_cgroup(const char *name, const char *prefix, unsigned columns) {
                 /* And sort */
                 qsort(pids, n, sizeof(pid_t), compare);
 
-                if (!prefix)
-                        prefix = "";
-
-                if (columns > 8)
-                        columns -= 8;
+                if (n_columns > 8)
+                        n_columns -= 8;
                 else
-                        columns = 20;
-
-                printf("%s\342\224\202\n", prefix);
+                        n_columns = 20;
 
                 for (i = 0; i < n; i++) {
                         char *t = NULL;
 
-                        get_process_cmdline(pids[i], columns, &t);
+                        get_process_cmdline(pids[i], n_columns, &t);
 
-                        printf("%s%s %5lu %s\n",
+                        printf("%s%s %*lu %s\n",
                                prefix,
-                               i < n-1 ? "\342\224\234" : "\342\224\224",
-                               (unsigned long) pids[i], strna(t));
+                               (more || i < n-1) ? "\342\224\234" : "\342\224\224",
+                               ilog10(biggest),
+                               (unsigned long) pids[i],
+                               strna(t));
 
                         free(t);
                 }
         }
+
+        r = 0;
 
 finish:
         free(pids);
 
         if (f)
                 fclose(f);
+
+        return r;
+}
+
+int show_cgroup(const char *name, const char *prefix, unsigned n_columns) {
+        return show_cgroup_full(name, prefix, n_columns, false);
+}
+
+int show_cgroup_recursive(const char *name, const char *prefix, unsigned n_columns) {
+        DIR *d;
+        char *last = NULL;
+        char *p1 = NULL, *p2 = NULL, *fn = NULL;
+        struct dirent *de;
+        bool shown_pids = false;
+        int r;
+
+        assert(name);
+
+        if (n_columns <= 0)
+                n_columns = columns();
+
+        if (!prefix)
+                prefix = "";
+
+        if (!(fn = get_cgroup_path(name)))
+                return -ENOMEM;
+
+        if (!(d = opendir(fn))) {
+                free(fn);
+                return -errno;
+        }
+
+        while ((de = readdir(d))) {
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                if (ignore_file(de->d_name))
+                        continue;
+
+                if (!shown_pids) {
+                        show_cgroup_full(name, prefix, n_columns, true);
+                        shown_pids = true;
+                }
+
+                if (last) {
+                        printf("%s\342\224\234 %s\n", prefix, file_name_from_path(last));
+
+                        if (!p1)
+                                if (!(p1 = strappend(prefix, "\342\224\202 "))) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                        show_cgroup_recursive(last, p1, n_columns-2);
+
+                        free(last);
+                        last = NULL;
+                }
+
+                if (asprintf(&last, "%s/%s", name, de->d_name) < 0) {
+                        log_error("Out of memory");
+                        goto finish;
+                }
+        }
+
+        if (!shown_pids)
+                show_cgroup_full(name, prefix, n_columns, !!last);
+
+        if (last) {
+                printf("%s\342\224\224 %s\n", prefix, file_name_from_path(last));
+
+                if (!p2)
+                        if (!(p2 = strappend(prefix, "  "))) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                show_cgroup_recursive(last, p2, n_columns-2);
+        }
+
+        r = 0;
+
+finish:
+        free(p1);
+        free(p2);
+        free(last);
+        free(fn);
+
+        closedir(d);
+
+        return r;
 }
