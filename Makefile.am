@@ -312,7 +312,8 @@ EXTRA_DIST += \
 	src/sd-daemon.h \
 	src/special.h \
 	src/dbus-common.h \
-	src/bus-errors.h
+	src/bus-errors.h \
+	src/cgroup-show.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -479,7 +480,8 @@ systemd_cgroups_agent_LDADD = \
 systemctl_SOURCES = \
 	src/systemctl.c \
 	src/utmp-wtmp.c \
-	src/dbus-common.c
+	src/dbus-common.c \
+	src/cgroup-show.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \

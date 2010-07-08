@@ -42,6 +42,7 @@
 #include "initreq.h"
 #include "strv.h"
 #include "dbus-common.h"
+#include "cgroup-show.h"
 
 static const char *arg_type = NULL;
 static const char *arg_property = NULL;
@@ -131,7 +132,6 @@ static int columns(void) {
                 parsed_columns = 80;
 
         return parsed_columns;
-
 }
 
 static void warn_wall(enum action action) {
@@ -946,53 +946,6 @@ finish:
         return r;
 }
 
-static void show_cgroup(const char *name) {
-        char *fn;
-        FILE *f;
-        pid_t last = 0;
-
-        if (!startswith(name, "name=systemd:"))
-                return;
-
-        if (asprintf(&fn, "/cgroup/systemd/%s/tasks", name + 13) < 0)
-                return;
-
-        f = fopen(fn, "r");
-        free(fn);
-
-        if (!f)
-                return;
-
-        while (!feof(f)) {
-                unsigned long ul;
-
-                if (fscanf(f, "%lu", &ul) != 1)
-                        break;
-
-                if (ul <= 0)
-                        continue;
-
-                if (last > 0) {
-                        char *t = NULL;
-                        get_process_cmdline(last, 60, &t);
-                        printf("\t\t  \342\224\234 %lu %s\n", (unsigned long) last, strna(t));
-                        free(t);
-                } else
-                        printf("\t\t  \342\224\202\n");
-
-                last = (pid_t) ul;
-        }
-
-        if (last > 0) {
-                char *t = NULL;
-                get_process_cmdline(last, 60, &t);
-                printf("\t\t  \342\224\224 %lu %s\n", (unsigned long) last, strna(t));
-                free(t);
-        }
-
-        fclose(f);
-}
-
 typedef struct UnitStatusInfo {
         const char *id;
         const char *load_state;
@@ -1114,8 +1067,16 @@ static void print_status_info(UnitStatusInfo *i) {
         }
 
         if (i->default_control_group) {
+                unsigned c;
+
                 printf("\t  CGroup: %s\n", i->default_control_group);
-                show_cgroup(i->default_control_group);
+
+                if ((c = columns()) > 18)
+                        c -= 18;
+                else
+                        c = 0;
+
+                show_cgroup(i->default_control_group, "\t\t  ", c);
         }
 }
 
