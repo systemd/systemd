@@ -330,6 +330,8 @@ void status_welcome(void);
 
 int columns(void);
 
+int running_in_chroot(void);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

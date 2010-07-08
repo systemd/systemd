@@ -2825,6 +2825,25 @@ int columns(void) {
         return parsed_columns;
 }
 
+int running_in_chroot(void) {
+        struct stat a, b;
+
+        zero(a);
+        zero(b);
+
+        /* Only works as root */
+
+        if (stat("/proc/1/root", &a) < 0)
+                return -errno;
+
+        if (stat("/", &b) < 0)
+                return -errno;
+
+        return
+                a.st_dev != b.st_dev ||
+                a.st_ino != b.st_ino;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

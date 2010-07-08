@@ -503,7 +503,8 @@ systemd_notify_LDADD = \
 systemd_install_SOURCES = \
 	src/install.c \
 	src/path-lookup.c \
-	src/dbus-common.c
+	src/dbus-common.c \
+	src/sd-daemon.c
 
 systemd_install_LDADD = \
 	libsystemd-basic.la \

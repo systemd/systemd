@@ -793,11 +793,11 @@ endif</programlisting>
                         package managers:</para>
 
                         <programlisting>%post
-/usr/bin/systemd-install --start enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+/usr/bin/systemd-install --realize enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 
 %preun
 if [ "$1" -eq 0 ]; then
-        /usr/bin/systemd-install --start disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+        /usr/bin/systemd-install --realize disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 fi</programlisting>
 
                 </refsect2>

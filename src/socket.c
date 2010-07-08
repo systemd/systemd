@@ -1039,7 +1039,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 socket_set_state(s, SOCKET_RUNNING);
         } else {
                 Unit *u;
-                char *prefix, *instance, *name;
+                char *prefix, *instance = NULL, *name;
 
                 if (s->n_connections >= s->max_connections) {
                         log_warning("Too many incoming connections (%u)", s->n_connections);

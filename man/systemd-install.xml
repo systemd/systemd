@@ -130,13 +130,14 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--start[=MODE]</option></term>
+                                <term><option>--realize[=MODE]</option></term>
 
                                 <listitem><para>After
-                                enabling/disabling stop/restart the
-                                unit and reload manager
+                                enabling/disabling stop/restart/stop
+                                the unit and reload manager
                                 configuration. Optionally, takes one
                                 of <option>no</option>,
+                                <option>reload</option>,
                                 <option>minimal</option>,
                                 <option>maybe</option> or
                                 <option>yes</option>. If
@@ -145,13 +146,17 @@
                                 configuration and no service will be
                                 started or stopped after
                                 enabling/disabling of the unit
-                                files. If <option>minimal</option> is
-                                passed and a unit is being enabled it
-                                will also be restarted should it
-                                already be running. If a unit is being
-                                disabled it will be stopped should it
-                                be running. In either case the
-                                daemon configuration is
+                                files. If <option>reload</option> is
+                                passed the daemon configuration is
+                                reloaded but the unit otherwise not
+                                started/stopped/restarted. If
+                                <option>minimal</option> is passed and
+                                a unit is being enabled it will also
+                                be restarted should it already be
+                                running. If a unit is being disabled
+                                it will be stopped should it be
+                                running. In either case the daemon
+                                configuration is
                                 reloaded. <option>maybe</option> is
                                 similar to this, but the unit will
                                 also be started if it is being enabled
@@ -168,8 +173,11 @@
                                 <option>maybe</option>. This option
                                 has no effect when
                                 <option>--global</option> or
-                                <command>test</command> is
-                                used.</para></listitem>
+                                <command>test</command> is used, or
+                                when systemd is not running or the
+                                command is executed in a
+                                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                environment.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
