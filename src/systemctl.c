@@ -3156,7 +3156,7 @@ static int start_with_fallback(DBusConnection *bus) {
 static int halt_main(DBusConnection *bus) {
         int r;
 
-        if (!arg_immediate)
+        if (!arg_dry && !arg_immediate)
                 return start_with_fallback(bus);
 
         if (!arg_no_wtmp)
