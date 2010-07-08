@@ -2782,7 +2782,7 @@ fail:
 
 char **replace_env_argv(char **argv, char **env) {
         char **r, **i;
-        unsigned k;
+        unsigned k = 0;
 
         if (!(r = new(char*, strv_length(argv)+1)))
                 return NULL;
