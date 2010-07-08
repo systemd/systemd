@@ -6,10 +6,8 @@ Before=sysinit.target
 [Service]
 Type=notify
 ExecStart=@sbindir@/udevd
-ExecStartPost=@sbindir@/udevadm trigger --type=subsystems --action=add
-ExecStartPost=@sbindir@/udevadm trigger --type=devices --action=add
+ExecStartPost=@sbindir@/udevadm trigger --type=subsystems --action=add ; @sbindir@/udevadm trigger --type=devices --action=add
 
 [Install]
 WantedBy=sysinit.target
-Also=udev-settle.service
-Also=udev-retry.service
+Also=udev-settle.service udev-retry.service

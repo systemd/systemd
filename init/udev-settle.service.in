@@ -10,5 +10,4 @@ ExecStart=@sbindir@/udevadm settle
 
 [Install]
 WantedBy=sysinit.target
-Also=udev.service
-Also=udev-retry.service
+Also=udev.service udev-retry.service
