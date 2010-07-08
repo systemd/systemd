@@ -76,12 +76,12 @@
                 <filename>.ini</filename> files.</para>
 
                 <para>This man pages lists the common configuration
-                options of the all unit types. These options need to
+                options of all the unit types. These options need to
                 be configured in the [Unit] resp. [Install]
                 section of the unit files.</para>
 
                 <para>In addition to the generic [Unit] and [Install]
-                sections described here each unit should have a
+                sections described here, each unit should have a
                 type-specific section, e.g. [Service] for a service
                 unit. See the respective man pages for more
                 information.</para>
@@ -107,7 +107,7 @@
                 written in various formats. A stand-alone number
                 specifies a time in seconds. If suffixed with a time
                 unit, the unit is honored. A concatenation of
-                multiple value with units is supported, in which case
+                multiple values with units is supported, in which case
                 the values are added up. Example: "50" refers to 50
                 seconds; "2min 200ms" refers to 2 minutes plus 200
                 milliseconds, i.e. 120200ms. The following time units
@@ -120,8 +120,8 @@
                 space character. This may be used to wrap long lines.</para>
 
                 <para>If a line starts with <option>.include</option>
-                followed by a file name the specified file will be
-                read as if its contents where listed in place of the
+                followed by a file name, the specified file will be
+                read as if its contents were listed in place of the
                 <option>.include</option> directive.</para>
 
                 <para>Along with a unit file
@@ -229,7 +229,7 @@
 
                                 <listitem><para>Configures requirement
                                 dependencies on other units. If this
-                                units get activated the units listed
+                                unit gets activated, the units listed
                                 here will be activated as well. If one
                                 of the other units gets deactivated or
                                 its activation fails, this unit will
@@ -273,7 +273,7 @@
                                 Dependencies listed in
                                 <varname>RequiresOverridable=</varname>
                                 which cannot be fulfilled or fail to
-                                start are ignored iff the startup was
+                                start are ignored if the startup was
                                 explicitly requested by the user. If
                                 the start-up was pulled in indirectly
                                 by some dependency or automatic
@@ -308,7 +308,7 @@
                                 <varname>Requires=</varname>. A unit
                                 listed in this option will be started
                                 if the configuring unit is. However,
-                                it the listed unit fails to start up
+                                if the listed unit fails to start up
                                 or cannot be added to the transaction
                                 this has no impact on the validity of
                                 the transaction as a whole. This is
@@ -328,9 +328,9 @@
 
                                 <listitem><para>Configures negative
                                 requirement dependencies. If a unit
-                                that has a
+                                has a
                                 <varname>Conflicts=</varname> setting
-                                on another unit starting the former
+                                on another unit, starting the former
                                 will stop the latter and vice
                                 versa. Note that this setting is
                                 independent of and orthogonal to the
@@ -348,7 +348,7 @@
                                 <filename>foo.service</filename>
                                 contains a setting
                                 <option>Before=bar.service</option>
-                                and both units are being started
+                                and both units are being started,
                                 <filename>bar.service</filename>'s
                                 start-up is delayed until
                                 <filename>foo.service</filename> is
@@ -378,7 +378,7 @@
                                 listed unit is started. Note that when
                                 two units with an ordering dependency
                                 between them are shut down, the
-                                inverse of of the start-up order is
+                                inverse of the start-up order is
                                 applied. i.e. if a unit is configured
                                 with <varname>After=</varname> on
                                 another unit, the former is stopped
@@ -403,17 +403,17 @@
 
                                 <listitem><para>Takes a boolean
                                 argument. If <option>true</option> and
-                                the unit stops without this being
-                                requested by the user all units
+                                the unit stops without being requested
+                                by the user, all units
                                 depending on it will be stopped as
                                 well. (e.g. if a service exits or
                                 crashes on its own behalf, units using
                                 it will be stopped) Note that normally
-                                if a unit stops without user request
+                                if a unit stops without a user request,
                                 units depending on it will not be
                                 terminated. Only if the user requested
-                                shutdown of a unit all units depending
-                                on the unit will be shut down as well
+                                shutdown of a unit, all units depending
+                                on that unit will be shut down as well
                                 and at the same time. Defaults to
                                 <option>false</option>.</para></listitem>
                         </varlistentry>
@@ -425,12 +425,12 @@
                                 argument. If <option>true</option>
                                 this unit will be stopped when it is
                                 no longer used. Note that in order to
-                                minimize the work to be executed
-                                systemd will by default not stop units
+                                minimize the work to be executed,
+                                systemd will not stop units by default
                                 unless they are conflicting with other
                                 units, or the user explicitly
                                 requested their shut down. If this
-                                option is set a unit will be
+                                option is set, a unit will be
                                 automatically cleaned up if no other
                                 active unit requires it. Defaults to
                                 <option>false</option>.</para></listitem>
@@ -441,11 +441,11 @@
 
                                 <listitem><para>Takes a boolean
                                 argument. If <option>true</option>
-                                this unit may only be activated
+                                this unit can only be activated
                                 indirectly. In this case explicit
                                 start-up requested by the user is
-                                denied, however if it is started as
-                                dependency of another unit start-up
+                                denied, however if it is started as a
+                                dependency of another unit, start-up
                                 will succeed. This is mostly a safety
                                 feature to ensure that the user does
                                 not accidentally activate units that are
@@ -467,7 +467,7 @@
                                 units, these dependencies ensure that
                                 the service is started only after
                                 basic system initialization is
-                                complete and is properly terminated on
+                                completed and is properly terminated on
                                 system shutdown. See the respective
                                 man pages for details. Generally, only
                                 services involved with early boot or
@@ -556,7 +556,7 @@
                                 install when this unit is
                                 installed. If the user requests
                                 installation of a unit with this
-                                option configured
+                                option configured,
                                 <command>systemd-install</command>
                                 will automatically install units
                                 listed in this option as
