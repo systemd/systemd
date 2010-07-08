@@ -3156,6 +3156,11 @@ static int start_with_fallback(DBusConnection *bus) {
 static int halt_main(DBusConnection *bus) {
         int r;
 
+        if (geteuid() != 0) {
+                log_error("Must to be root.");
+                return -EPERM;
+        }
+
         if (!arg_dry && !arg_immediate)
                 return start_with_fallback(bus);
 
