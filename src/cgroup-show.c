@@ -228,7 +228,7 @@ int show_cgroup_recursive(const char *name, const char *prefix, unsigned n_colum
                 }
 
                 if (asprintf(&last, "%s/%s", name, de->d_name) < 0) {
-                        log_error("Out of memory");
+                        r = -ENOMEM;
                         goto finish;
                 }
         }
