@@ -26,6 +26,7 @@
 #include "timer.h"
 #include "dbus-timer.h"
 #include "special.h"
+#include "bus-errors.h"
 
 static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = UNIT_INACTIVE,
@@ -261,18 +262,23 @@ fail:
 }
 
 static void timer_enter_running(Timer *t) {
+        DBusError error;
         int r;
-        assert(t);
 
-        if ((r = manager_add_job(t->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, NULL)) < 0)
+        assert(t);
+        dbus_error_init(&error);
+
+        if ((r = manager_add_job(t->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
         timer_set_state(t, TIMER_RUNNING);
         return;
 
 fail:
-        log_warning("%s failed to queue unit startup job: %s", t->meta.id, strerror(-r));
+        log_warning("%s failed to queue unit startup job: %s", t->meta.id, bus_error(&error, r));
         timer_enter_dead(t, false);
+
+        dbus_error_free(&error);
 }
 
 static int timer_start(Unit *u) {

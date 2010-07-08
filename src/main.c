@@ -43,6 +43,7 @@
 #include "fdset.h"
 #include "special.h"
 #include "conf-parser.h"
+#include "bus-errors.h"
 
 static enum {
         ACTION_RUN,
@@ -963,14 +964,20 @@ int main(int argc, char *argv[]) {
                 fclose(serialization);
                 serialization = NULL;
         } else {
+                DBusError error;
+
+                dbus_error_init(&error);
+
                 log_debug("Activating default unit: %s", arg_default_unit);
 
-                if ((r = manager_load_unit(m, arg_default_unit, NULL, &target)) < 0) {
-                        log_error("Failed to load default target: %s", strerror(-r));
+                if ((r = manager_load_unit(m, arg_default_unit, NULL, &error, &target)) < 0) {
+                        log_error("Failed to load default target: %s", bus_error(&error, r));
+                        dbus_error_free(&error);
 
                         log_info("Trying to load rescue target...");
-                        if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &target)) < 0) {
-                                log_error("Failed to load rescue target: %s", strerror(-r));
+                        if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target)) < 0) {
+                                log_error("Failed to load rescue target: %s", bus_error(&error, r));
+                                dbus_error_free(&error);
                                 goto finish;
                         }
                 }
@@ -980,8 +987,9 @@ int main(int argc, char *argv[]) {
                         manager_dump_units(m, stdout, "\t");
                 }
 
-                if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &job)) < 0) {
-                        log_error("Failed to start default target: %s", strerror(-r));
+                if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &job)) < 0) {
+                        log_error("Failed to start default target: %s", bus_error(&error, r));
+                        dbus_error_free(&error);
                         goto finish;
                 }
 

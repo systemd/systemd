@@ -53,6 +53,7 @@
 #include "missing.h"
 #include "path-lookup.h"
 #include "special.h"
+#include "bus-errors.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -697,7 +698,7 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
         return -EINVAL;
 }
 
-static int transaction_merge_jobs(Manager *m) {
+static int transaction_merge_jobs(Manager *m, DBusError *e) {
         Job *j;
         Iterator i;
         int r;
@@ -726,6 +727,8 @@ static int transaction_merge_jobs(Manager *m) {
                                 return -EAGAIN;
 
                         /* We couldn't merge anything. Failure */
+                        dbus_set_error(e, BUS_ERROR_TRANSACTION_JOBS_CONFLICTING, "Transaction contains conflicting jobs '%s' and '%s' for %s. Probably contradicting requirement dependencies configured.",
+                                       job_type_to_string(t), job_type_to_string(k->type), k->unit->meta.id);
                         return r;
                 }
         }
@@ -812,7 +815,7 @@ static bool unit_matters_to_anchor(Unit *u, Job *j) {
         return false;
 }
 
-static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned generation) {
+static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned generation, DBusError *e) {
         Iterator i;
         Unit *u;
         int r;
@@ -863,6 +866,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
                 log_error("Unable to break cycle");
 
+                dbus_set_error(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC, "Transaction order is cyclic. See logs for details.");
                 return -ENOEXEC;
         }
 
@@ -887,7 +891,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                         if (!(o = u->meta.job))
                                 continue;
 
-                if ((r = transaction_verify_order_one(m, o, j, generation)) < 0)
+                if ((r = transaction_verify_order_one(m, o, j, generation, e)) < 0)
                         return r;
         }
 
@@ -898,7 +902,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
         return 0;
 }
 
-static int transaction_verify_order(Manager *m, unsigned *generation) {
+static int transaction_verify_order(Manager *m, unsigned *generation, DBusError *e) {
         Job *j;
         int r;
         Iterator i;
@@ -913,7 +917,7 @@ static int transaction_verify_order(Manager *m, unsigned *generation) {
         g = (*generation)++;
 
         HASHMAP_FOREACH(j, m->transaction_jobs, i)
-                if ((r = transaction_verify_order_one(m, j, NULL, g)) < 0)
+                if ((r = transaction_verify_order_one(m, j, NULL, g, e)) < 0)
                         return r;
 
         return 0;
@@ -945,7 +949,7 @@ static void transaction_collect_garbage(Manager *m) {
         } while (again);
 }
 
-static int transaction_is_destructive(Manager *m) {
+static int transaction_is_destructive(Manager *m, DBusError *e) {
         Iterator i;
         Job *j;
 
@@ -962,8 +966,11 @@ static int transaction_is_destructive(Manager *m) {
 
                 if (j->unit->meta.job &&
                     j->unit->meta.job != j &&
-                    !job_type_is_superset(j->type, j->unit->meta.job->type))
+                    !job_type_is_superset(j->type, j->unit->meta.job->type)) {
+
+                        dbus_set_error(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE, "Transaction is destructive.");
                         return -EEXIST;
+                }
         }
 
         return 0;
@@ -1080,7 +1087,7 @@ rollback:
         return r;
 }
 
-static int transaction_activate(Manager *m, JobMode mode) {
+static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
         int r;
         unsigned generation = 1;
 
@@ -1107,11 +1114,11 @@ static int transaction_activate(Manager *m, JobMode mode) {
 
                 /* Fifth step: verify order makes sense and correct
                  * cycles if necessary and possible */
-                if ((r = transaction_verify_order(m, &generation)) >= 0)
+                if ((r = transaction_verify_order(m, &generation, e)) >= 0)
                         break;
 
                 if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains an unfixable cyclic ordering dependency: %s", strerror(-r));
+                        log_warning("Requested transaction contains an unfixable cyclic ordering dependency: %s", bus_error(e, r));
                         goto rollback;
                 }
 
@@ -1123,11 +1130,11 @@ static int transaction_activate(Manager *m, JobMode mode) {
                 /* Sixth step: let's drop unmergeable entries if
                  * necessary and possible, merge entries we can
                  * merge */
-                if ((r = transaction_merge_jobs(m)) >= 0)
+                if ((r = transaction_merge_jobs(m, e)) >= 0)
                         break;
 
                 if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains unmergable jobs: %s", strerror(-r));
+                        log_warning("Requested transaction contains unmergable jobs: %s", bus_error(e, r));
                         goto rollback;
                 }
 
@@ -1144,8 +1151,8 @@ static int transaction_activate(Manager *m, JobMode mode) {
 
         /* Ninth step: check whether we can actually apply this */
         if (mode == JOB_FAIL)
-                if ((r = transaction_is_destructive(m)) < 0) {
-                        log_notice("Requested transaction contradicts existing jobs: %s", strerror(-r));
+                if ((r = transaction_is_destructive(m, e)) < 0) {
+                        log_notice("Requested transaction contradicts existing jobs: %s", bus_error(e, r));
                         goto rollback;
                 }
 
@@ -1253,6 +1260,7 @@ static int transaction_add_job_and_dependencies(
                 Job *by,
                 bool matters,
                 bool override,
+                DBusError *e,
                 Job **_ret) {
         Job *ret;
         Iterator i;
@@ -1264,11 +1272,15 @@ static int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
-        if (unit->meta.load_state != UNIT_LOADED)
+        if (unit->meta.load_state != UNIT_LOADED) {
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load.", unit->meta.id);
                 return -EINVAL;
+        }
 
-        if (!unit_job_is_applicable(unit, type))
+        if (!unit_job_is_applicable(unit, type)) {
+                dbus_set_error(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE, "Job type %s is not applicable for unit %s.", job_type_to_string(type), unit->meta.id);
                 return -EBADR;
+        }
 
         /* First add the job. */
         if (!(ret = transaction_add_one_job(m, type, unit, override, &is_new)))
@@ -1282,33 +1294,33 @@ static int transaction_add_job_and_dependencies(
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR)
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, e, NULL)) < 0)
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR)
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
                 }
 
@@ -1349,14 +1361,14 @@ static int transaction_add_isolate_jobs(Manager *m) {
                 if (hashmap_get(m->transaction_jobs, u))
                         continue;
 
-                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, NULL)) < 0)
+                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, NULL, NULL)) < 0)
                         log_warning("Cannot add isolate job for unit %s, ignoring: %s", u->meta.id, strerror(-r));
         }
 
         return 0;
 }
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, Job **_ret) {
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, DBusError *e, Job **_ret) {
         int r;
         Job *ret;
 
@@ -1365,12 +1377,14 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         assert(unit);
         assert(mode < _JOB_MODE_MAX);
 
-        if (mode == JOB_ISOLATE && type != JOB_START)
+        if (mode == JOB_ISOLATE && type != JOB_START) {
+                dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "Isolate is only valid for start.");
                 return -EINVAL;
+        }
 
         log_debug("Trying to enqueue job %s/%s", unit->meta.id, job_type_to_string(type));
 
-        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, &ret)) < 0) {
+        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, e, &ret)) < 0) {
                 transaction_abort(m);
                 return r;
         }
@@ -1381,7 +1395,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                         return r;
                 }
 
-        if ((r = transaction_activate(m, mode)) < 0)
+        if ((r = transaction_activate(m, mode, e)) < 0)
                 return r;
 
         log_debug("Enqueued job %s/%s as %u", unit->meta.id, job_type_to_string(type), (unsigned) ret->id);
@@ -1392,7 +1406,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         return 0;
 }
 
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool override, Job **_ret) {
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool override, DBusError *e, Job **_ret) {
         Unit *unit;
         int r;
 
@@ -1401,10 +1415,10 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         assert(name);
         assert(mode < _JOB_MODE_MAX);
 
-        if ((r = manager_load_unit(m, name, NULL, &unit)) < 0)
+        if ((r = manager_load_unit(m, name, NULL, NULL, &unit)) < 0)
                 return r;
 
-        return manager_add_job(m, type, unit, mode, override, _ret);
+        return manager_add_job(m, type, unit, mode, override, e, _ret);
 }
 
 Job *manager_get_job(Manager *m, uint32_t id) {
@@ -1446,7 +1460,7 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Unit **_ret) {
+int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
         Unit *ret;
         int r;
 
@@ -1456,14 +1470,18 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Un
         /* This will prepare the unit for loading, but not actually
          * load anything from disk. */
 
-        if (path && !is_path(path))
+        if (path && !is_path(path)) {
+                dbus_set_error(e, BUS_ERROR_INVALID_PATH, "Path %s is not absolute.", path);
                 return -EINVAL;
+        }
 
         if (!name)
                 name = file_name_from_path(path);
 
-        if (!unit_name_is_valid(name))
+        if (!unit_name_is_valid(name)) {
+                dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
                 return -EINVAL;
+        }
 
         if ((ret = manager_get_unit(m, name))) {
                 *_ret = ret;
@@ -1494,7 +1512,7 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Un
         return 0;
 }
 
-int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_ret) {
+int manager_load_unit(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
         int r;
 
         assert(m);
@@ -1502,7 +1520,7 @@ int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_re
         /* This will load the service information files, but not actually
          * start any services or anything. */
 
-        if ((r = manager_load_unit_prepare(m, name, path, _ret)) != 0)
+        if ((r = manager_load_unit_prepare(m, name, path, e, _ret)) != 0)
                 return r;
 
         manager_dispatch_load_queue(m);
@@ -1746,9 +1764,14 @@ static int manager_dispatch_sigchld(Manager *m) {
 
 static int manager_start_target(Manager *m, const char *name, JobMode mode) {
         int r;
+        DBusError error;
 
-        if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, NULL)) < 0)
-                log_error("Failed to enqueue %s job: %s", name, strerror(-r));
+        dbus_error_init(&error);
+
+        if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL)) < 0)
+                log_error("Failed to enqueue %s job: %s", name, bus_error(&error, r));
+
+        dbus_error_free(&error);
 
         return r;
 }
@@ -2266,7 +2289,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                 char_array_0(name);
 
-                if ((r = manager_load_unit(m, strstrip(name), NULL, &u)) < 0)
+                if ((r = manager_load_unit(m, strstrip(name), NULL, NULL, &u)) < 0)
                         return r;
 
                 if ((r = unit_deserialize(u, f, fds)) < 0)

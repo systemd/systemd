@@ -881,7 +881,7 @@ static void unit_check_uneeded(Unit *u) {
         log_info("Service %s is not needed anymore. Stopping.", u->meta.id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
-        manager_add_job(u->meta.manager, JOB_STOP, u, JOB_FAIL, true, NULL);
+        manager_add_job(u->meta.manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
 }
 
 static void retroactively_start_dependencies(Unit *u) {
@@ -893,23 +893,23 @@ static void retroactively_start_dependencies(Unit *u) {
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
+                        manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -923,7 +923,7 @@ static void retroactively_stop_dependencies(Unit *u) {
                 /* Pull down units need us recursively if enabled */
                 SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
                         if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                                manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
+                                manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
         }
 
         /* Garbage collect services that might not be needed anymore, if enabled */
@@ -1391,7 +1391,7 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, con
         if (!(name = resolve_template(u, name, path, &s)))
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+        if ((r = manager_load_unit(u->meta.manager, name, path, NULL, &other)) < 0)
                 goto finish;
 
         r = unit_add_dependency(u, d, other, add_reference);
@@ -1412,7 +1412,7 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
         if (!(name = resolve_template(u, name, path, &s)))
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+        if ((r = manager_load_unit(u->meta.manager, name, path, NULL, &other)) < 0)
                 goto finish;
 
         r = unit_add_two_dependencies(u, d, e, other, add_reference);
@@ -1433,7 +1433,7 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
         if (!(name = resolve_template(u, name, path, &s)))
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+        if ((r = manager_load_unit(u->meta.manager, name, path, NULL, &other)) < 0)
                 goto finish;
 
         r = unit_add_dependency(other, d, u, add_reference);
@@ -1454,7 +1454,7 @@ int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDep
         if (!(name = resolve_template(u, name, path, &s)))
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+        if ((r = manager_load_unit(u->meta.manager, name, path, NULL, &other)) < 0)
                 goto finish;
 
         if ((r = unit_add_two_dependencies(other, d, e, u, add_reference)) < 0)
@@ -1682,7 +1682,7 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
 
         assert(!unit_has_name(u, t));
 
-        r = manager_load_unit(u->meta.manager, t, NULL, _found);
+        r = manager_load_unit(u->meta.manager, t, NULL, NULL, _found);
         free(t);
 
         assert(r < 0 || *_found != u);
@@ -1967,7 +1967,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (!(e = unit_name_build_escape(what+1, NULL, ".device")))
                 return -ENOMEM;
 
-        r = manager_load_unit(u->meta.manager, e, NULL, &device);
+        r = manager_load_unit(u->meta.manager, e, NULL, NULL, &device);
         free(e);
 
         if (r < 0)
@@ -1993,7 +1993,7 @@ int unit_coldplug(Unit *u) {
                         return r;
 
         if (u->meta.deserialized_job >= 0) {
-                if ((r = manager_add_job(u->meta.manager, u->meta.deserialized_job, u, JOB_FAIL, false, NULL)) < 0)
+                if ((r = manager_add_job(u->meta.manager, u->meta.deserialized_job, u, JOB_FAIL, false, NULL, NULL)) < 0)
                         return r;
 
                 u->meta.deserialized_job = _JOB_TYPE_INVALID;

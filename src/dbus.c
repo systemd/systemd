@@ -42,6 +42,7 @@
 #include "dbus-swap.h"
 #include "dbus-timer.h"
 #include "dbus-path.h"
+#include "bus-errors.h"
 
 #define CONNECTIONS_MAX 52
 
@@ -380,13 +381,13 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
                         log_debug("Got D-Bus activation request for %s", name);
 
-                        r = manager_load_unit(m, name, NULL, &u);
+                        r = manager_load_unit(m, name, NULL, &error, &u);
 
                         if (r >= 0 && u->meta.only_by_dependency)
                                 r = -EPERM;
 
                         if (r >= 0)
-                                r = manager_add_job(m, JOB_START, u, JOB_REPLACE, true, NULL);
+                                r = manager_add_job(m, JOB_START, u, JOB_REPLACE, true, &error, NULL);
 
                         if (r < 0) {
                                 const char *id, *text;
@@ -396,8 +397,8 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                                 if (!(reply = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure")))
                                         goto oom;
 
-                                id = error_to_dbus(r);
-                                text = strerror(-r);
+                                id = error.name ? error.name : error_to_dbus(r);
+                                text = bus_error(&error, r);
 
                                 if (!dbus_message_set_destination(reply, DBUS_SERVICE_DBUS) ||
                                     !dbus_message_append_args(reply,
@@ -1324,13 +1325,13 @@ static const char *error_to_dbus(int error) {
         return DBUS_ERROR_FAILED;
 }
 
-DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessage *message, DBusError *bus_error, int error) {
+DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessage *message, DBusError *berror, int error) {
         DBusMessage *reply = NULL;
         const char *name, *text;
 
-        if (bus_error && dbus_error_is_set(bus_error)) {
-                name = bus_error->name;
-                text = bus_error->message;
+        if (berror && dbus_error_is_set(berror)) {
+                name = berror->name;
+                text = berror->message;
         } else {
                 name = error_to_dbus(error);
                 text = strerror(-error);
@@ -1344,8 +1345,8 @@ DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessag
 
         dbus_message_unref(reply);
 
-        if (bus_error)
-                dbus_error_free(bus_error);
+        if (berror)
+                dbus_error_free(berror);
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
@@ -1353,8 +1354,8 @@ oom:
         if (reply)
                 dbus_message_unref(reply);
 
-        if (bus_error)
-                dbus_error_free(bus_error);
+        if (berror)
+                dbus_error_free(berror);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }

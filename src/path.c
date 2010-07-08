@@ -30,6 +30,7 @@
 #include "path.h"
 #include "dbus-path.h"
 #include "special.h"
+#include "bus-errors.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
@@ -298,17 +299,22 @@ static void path_enter_dead(Path *p, bool success) {
 
 static void path_enter_running(Path *p) {
         int r;
-        assert(p);
+        DBusError error;
 
-        if ((r = manager_add_job(p->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, NULL)) < 0)
+        assert(p);
+        dbus_error_init(&error);
+
+        if ((r = manager_add_job(p->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
         path_set_state(p, PATH_RUNNING);
         return;
 
 fail:
-        log_warning("%s failed to queue unit startup job: %s", p->meta.id, strerror(-r));
+        log_warning("%s failed to queue unit startup job: %s", p->meta.id, bus_error(&error, r));
         path_enter_dead(p, false);
+
+        dbus_error_free(&error);
 }
 
 

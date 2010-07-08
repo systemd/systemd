@@ -24,6 +24,7 @@
 #include "dbus.h"
 #include "log.h"
 #include "dbus-unit.h"
+#include "bus-errors.h"
 
 const char bus_unit_interface[] = BUS_UNIT_INTERFACE;
 
@@ -285,8 +286,10 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 Job *j;
                 int r;
 
-                if (job_type == JOB_START && u->meta.only_by_dependency)
-                        return bus_send_error_reply(m, connection, message, NULL, -EPERM);
+                if (job_type == JOB_START && u->meta.only_by_dependency) {
+                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Unit may be activated by dependency only.");
+                        return bus_send_error_reply(m, connection, message, &error, -EPERM);
+                }
 
                 if (!dbus_message_get_args(
                                     message,
@@ -295,11 +298,13 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
-                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID)
-                        return bus_send_error_reply(m, connection, message, NULL, -EINVAL);
+                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
+                        dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                }
 
-                if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                if ((r = manager_add_job(m, job_type, u, mode, true, &error, &j)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;

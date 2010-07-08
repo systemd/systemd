@@ -35,6 +35,7 @@
 #include "load-dropin.h"
 #include "unit-name.h"
 #include "dbus-automount.h"
+#include "bus-errors.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -533,9 +534,12 @@ fail:
 static void automount_enter_runnning(Automount *a) {
         int r;
         struct stat st;
+        DBusError error;
 
         assert(a);
         assert(a->mount);
+
+        dbus_error_init(&error);
 
         mkdir_p(a->where, a->directory_mode);
 
@@ -547,8 +551,8 @@ static void automount_enter_runnning(Automount *a) {
 
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
                 log_info("%s's automount point already active?", a->meta.id);
-        else if ((r = manager_add_job(a->meta.manager, JOB_START, UNIT(a->mount), JOB_REPLACE, true, NULL)) < 0) {
-                log_warning("%s failed to queue mount startup job: %s", a->meta.id, strerror(-r));
+        else if ((r = manager_add_job(a->meta.manager, JOB_START, UNIT(a->mount), JOB_REPLACE, true, &error, NULL)) < 0) {
+                log_warning("%s failed to queue mount startup job: %s", a->meta.id, bus_error(&error, r));
                 goto fail;
         }
 
@@ -557,6 +561,7 @@ static void automount_enter_runnning(Automount *a) {
 
 fail:
         automount_enter_dead(a, false);
+        dbus_error_free(&error);
 }
 
 static int automount_start(Unit *u) {

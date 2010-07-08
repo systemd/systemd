@@ -210,11 +210,11 @@ Unit *manager_get_unit(Manager *m, const char *name);
 int manager_get_unit_from_dbus_path(Manager *m, const char *s, Unit **_u);
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
-int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Unit **_ret);
-int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_ret);
+int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret);
+int manager_load_unit(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret);
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, Job **_ret);
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool force, Job **_ret);
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, DBusError *e, Job **_ret);
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool force, DBusError *e, Job **_ret);
 
 void manager_dump_units(Manager *s, FILE *f, const char *prefix);
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);

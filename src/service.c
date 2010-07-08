@@ -33,6 +33,7 @@
 #include "unit-name.h"
 #include "dbus-service.h"
 #include "special.h"
+#include "bus-errors.h"
 
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
@@ -1763,20 +1764,24 @@ fail:
 
 static void service_enter_restart(Service *s) {
         int r;
+        DBusError error;
+
         assert(s);
+        dbus_error_init(&error);
 
         service_enter_dead(s, true, false);
 
-        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL)) < 0)
+        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL, NULL)) < 0)
                 goto fail;
 
         log_debug("%s scheduled restart job.", s->meta.id);
         return;
 
 fail:
-
-        log_warning("%s failed to schedule restart job: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to schedule restart job: %s", s->meta.id, bus_error(&error, -r));
         service_enter_dead(s, false, false);
+
+        dbus_error_free(&error);
 }
 
 static void service_enter_reload(Service *s) {
@@ -2538,7 +2543,7 @@ static int service_enumerate(Manager *m) {
                                         goto finish;
                                 }
 
-                                if ((r = manager_load_unit_prepare(m, name, NULL, &service)) < 0) {
+                                if ((r = manager_load_unit_prepare(m, name, NULL, NULL, &service)) < 0) {
                                         log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
                                         continue;
                                 }

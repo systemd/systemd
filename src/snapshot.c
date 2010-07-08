@@ -25,6 +25,7 @@
 #include "snapshot.h"
 #include "unit-name.h"
 #include "dbus-snapshot.h"
+#include "bus-errors.h"
 
 static const UnitActiveState state_translation_table[_SNAPSHOT_STATE_MAX] = {
         [SNAPSHOT_DEAD] = UNIT_INACTIVE,
@@ -174,7 +175,7 @@ static const char *snapshot_sub_state_to_string(Unit *u) {
         return snapshot_state_to_string(SNAPSHOT(u)->state);
 }
 
-int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
+int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Snapshot **_s) {
         Iterator i;
         Unit *other, *u = NULL;
         char *n = NULL;
@@ -185,14 +186,20 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
         assert(_s);
 
         if (name) {
-                if (!unit_name_is_valid(name))
+                if (!unit_name_is_valid(name)) {
+                        dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
                         return -EINVAL;
+                }
 
-                if (unit_name_to_type(name) != UNIT_SNAPSHOT)
+                if (unit_name_to_type(name) != UNIT_SNAPSHOT) {
+                        dbus_set_error(e, BUS_ERROR_UNIT_TYPE_MISMATCH, "Unit name %s lacks snapshot suffix.", name);
                         return -EINVAL;
+                }
 
-                if (manager_get_unit(m, name))
+                if (manager_get_unit(m, name)) {
+                        dbus_set_error(e, BUS_ERROR_UNIT_EXISTS, "Snapshot %s exists already.", name);
                         return -EEXIST;
+                }
 
         } else {
 
@@ -209,7 +216,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
                 name = n;
         }
 
-        r = manager_load_unit_prepare(m, name, NULL, &u);
+        r = manager_load_unit_prepare(m, name, NULL, e, &u);
         free(n);
 
         if (r < 0)

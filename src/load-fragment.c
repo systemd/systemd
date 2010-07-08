@@ -39,6 +39,7 @@
 #include "securebits.h"
 #include "missing.h"
 #include "unit-name.h"
+#include "bus-errors.h"
 
 #define COMMENTS "#;\n"
 
@@ -1057,14 +1058,23 @@ static int config_parse_timer_unit(
 
         Timer *t = data;
         int r;
+        DBusError error;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        dbus_error_init(&error);
 
         if (endswith(rvalue, ".timer")) {
                 log_error("[%s:%u] Unit cannot be of type timer: %s", filename, line, rvalue);
                 return -EINVAL;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &t->unit)) < 0) {
-                log_error("[%s:%u] Failed to load unit: %s", filename, line, rvalue);
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, NULL, &t->unit)) < 0) {
+                log_error("[%s:%u] Failed to load unit %s: %s", filename, line, rvalue, bus_error(&error, r));
+                dbus_error_free(&error);
                 return r;
         }
 
@@ -1128,14 +1138,23 @@ static int config_parse_path_unit(
 
         Path *t = data;
         int r;
+        DBusError error;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        dbus_error_init(&error);
 
         if (endswith(rvalue, ".path")) {
                 log_error("[%s:%u] Unit cannot be of type path: %s", filename, line, rvalue);
                 return -EINVAL;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &t->unit)) < 0) {
-                log_error("[%s:%u] Failed to load unit: %s", filename, line, rvalue);
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &error, &t->unit)) < 0) {
+                log_error("[%s:%u] Failed to load unit %s: %s", filename, line, rvalue, bus_error(&error, r));
+                dbus_error_free(&error);
                 return r;
         }
 

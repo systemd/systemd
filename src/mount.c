@@ -253,7 +253,7 @@ static int mount_add_target_links(Mount *m) {
         else
                 target = SPECIAL_LOCAL_FS_TARGET;
 
-        if ((r = manager_load_unit(m->meta.manager, target, NULL, &tu)) < 0)
+        if ((r = manager_load_unit(m->meta.manager, target, NULL, NULL, &tu)) < 0)
                 return r;
 
         if (automount && m->meta.manager->running_as == MANAGER_SYSTEM) {

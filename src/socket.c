@@ -38,6 +38,7 @@
 #include "dbus-socket.h"
 #include "missing.h"
 #include "special.h"
+#include "bus-errors.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -1025,11 +1026,13 @@ fail:
 
 static void socket_enter_running(Socket *s, int cfd) {
         int r;
+        DBusError error;
 
         assert(s);
+        dbus_error_init(&error);
 
         if (cfd < 0) {
-                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, NULL)) < 0)
+                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
                         goto fail;
 
                 socket_set_state(s, SOCKET_RUNNING);
@@ -1061,7 +1064,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         goto fail;
                 }
 
-                r = manager_load_unit(s->meta.manager, name, NULL, &u);
+                r = manager_load_unit(s->meta.manager, name, NULL, NULL, &u);
                 free(name);
 
                 if (r < 0)
@@ -1074,18 +1077,20 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 s->n_connections ++;
 
-                if ((r = manager_add_job(u->meta.manager, JOB_START, u, JOB_REPLACE, true, NULL)) < 0)
+                if ((r = manager_add_job(u->meta.manager, JOB_START, u, JOB_REPLACE, true, &error, NULL)) < 0)
                         goto fail;
         }
 
         return;
 
 fail:
-        log_warning("%s failed to queue socket startup job: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to queue socket startup job: %s", s->meta.id, bus_error(&error, r));
         socket_enter_stop_pre(s, false);
 
         if (cfd >= 0)
                 close_nointr_nofail(cfd);
+
+        dbus_error_free(&error);
 }
 
 static void socket_run_next(Socket *s, bool success) {

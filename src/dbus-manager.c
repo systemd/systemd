@@ -25,6 +25,7 @@
 #include "log.h"
 #include "dbus-manager.h"
 #include "strv.h"
+#include "bus-errors.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"      \
@@ -254,8 +255,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
-                if (!(u = manager_get_unit(m, name)))
-                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
+                if (!(u = manager_get_unit(m, name))) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                }
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -280,8 +283,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
-                if ((r = manager_load_unit(m, name, NULL, &u)) < 0)
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                if ((r = manager_load_unit(m, name, NULL, &error, &u)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -316,8 +319,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
-                if (!(j = manager_get_job(m, id)))
-                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
+                if (!(j = manager_get_job(m, id))) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
+                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                }
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -496,8 +501,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Unsubscribe")) {
                 char *client;
 
-                if (!(client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) message_get_sender_with_fallback(message))))
-                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
+                if (!(client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) message_get_sender_with_fallback(message)))) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                }
 
                 free(client);
 
@@ -548,8 +555,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (name && name[0] == 0)
                         name = NULL;
 
-                if ((r = snapshot_create(m, name, cleanup, &s)) < 0)
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                if ((r = snapshot_create(m, name, cleanup, &error, &s)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -648,8 +655,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
 
-                if (m->running_as == MANAGER_SYSTEM)
-                        return bus_send_error_reply(m, connection, message, NULL, -ENOTSUP);
+                if (m->running_as == MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for session managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -720,17 +729,21 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
-                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID)
-                        return bus_send_error_reply(m, connection, message, NULL, -EINVAL);
+                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
+                        dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                }
 
-                if ((r = manager_load_unit(m, name, NULL, &u)) < 0)
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                if ((r = manager_load_unit(m, name, NULL, &error, &u)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
 
-                if (job_type == JOB_START && u->meta.only_by_dependency)
-                        return bus_send_error_reply(m, connection, message, NULL, -EPERM);
+                if (job_type == JOB_START && u->meta.only_by_dependency) {
+                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Unit may be activated by dependency only.");
+                        return bus_send_error_reply(m, connection, message, &error, -EPERM);
+                }
 
-                if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                if ((r = manager_add_job(m, job_type, u, mode, true, &error, &j)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
 
                 if (!(j->bus_client = strdup(message_get_sender_with_fallback(message))))
                         goto oom;
