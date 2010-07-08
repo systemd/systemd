@@ -752,7 +752,7 @@ if TARGET_FEDORA
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
 		rm -f prefdm.service && \
-		$(LN_S) ../prefdm.service prefdm.service )
+		$(LN_S) $(systemunitdir)/prefdm.service prefdm.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f rc-local.service && \
 		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
@@ -767,8 +767,8 @@ if TARGET_GENTOO
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/xdm.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
-		rm -f prefdm.service && \
-		$(LN_S) ../prefdm.service prefdm.service )
+		rm -f xdm.service && \
+		$(LN_S) $(systemunitdir)/xdm.service xdm.service )
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
