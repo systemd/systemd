@@ -15,5 +15,6 @@ Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.a
 [Service]
 Type=finish
 ValidNoProcess=yes
-ExecStart=/etc/init.d/reboot start
+Environment=COLD_BOOT=1
+ExecStart=/etc/init.d/reboot
 StandardInput=tty
