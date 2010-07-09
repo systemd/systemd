@@ -39,8 +39,6 @@
 
 * pull in umount.target and shutdown.target from emergency.service (?)
 
-* Don't show Accepted/Connected for non-Accept sockets
-
 * Show exit status auf auxiliary programs in systemctl status
 
 External:

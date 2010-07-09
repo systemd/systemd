@@ -947,6 +947,7 @@ typedef struct UnitStatusInfo {
         /* Socket */
         unsigned n_accepted;
         unsigned n_connections;
+        bool accept;
 
         /* Device */
         const char *sysfs_path;
@@ -997,7 +998,7 @@ static void print_status_info(UnitStatusInfo *i) {
         if (i->status_text)
                 printf("\t  Status: \"%s\"\n", i->status_text);
 
-        if (i->id && endswith(i->id, ".socket"))
+        if (i->accept)
                 printf("\tAccepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
 
         if (i->main_pid > 0 || i->control_pid > 0) {
@@ -1089,6 +1090,17 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         else if (streq(name, "What"))
                                 i->what = s;
                 }
+
+                break;
+        }
+
+        case DBUS_TYPE_BOOLEAN: {
+                dbus_bool_t b;
+
+                dbus_message_iter_get_basic(iter, &b);
+
+                if (streq(name, "Accept"))
+                        i->accept = b;
 
                 break;
         }
