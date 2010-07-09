@@ -148,6 +148,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_realize = REALIZE_MAYBE;
                         else if (streq(optarg, "yes"))
                                 arg_realize = REALIZE_YES;
+                        else if (streq(optarg, "reload"))
+                                arg_realize = REALIZE_RELOAD;
                         else {
                                 log_error("Invalid --realize argument %s", optarg);
                                 return -EINVAL;
