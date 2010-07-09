@@ -678,7 +678,8 @@
                                 <listitem><para>If your daemon
                                 registers a D-Bus name on the bus,
                                 make sure to use
-                                <varname>Type=dbus</varname> if
+                                <varname>Type=dbus</varname> in the
+                                service file if
                                 possible.</para></listitem>
 
                                 <listitem><para>Make sure to set a
@@ -703,16 +704,45 @@
                                 operating
                                 system-independent.</para></listitem>
 
+                                <listitem><para>Since not all syslog
+                                implementations are socket-activatable
+                                yet, it is recommended to place an
+                                <varname>After=syslog.target</varname>
+                                dependency in service files for
+                                daemons that can log to
+                                syslog. <filename>syslog.target</filename>
+                                then either pulls in the syslog daemon
+                                itself or simply the activation
+                                socket. A <varname>Wants=</varname> or
+                                even <varname>Requires=</varname>
+                                dependency should generally not be
+                                added, since it should be up to the
+                                administrator whether he wants to
+                                enable logging or not, and most syslog
+                                clients work fine if no log daemon is
+                                running.</para></listitem>
+
                                 <listitem><para>Make sure to include
-                                an <literal>[Install]</literal> section including
-                                installation information for the unit
-                                file. See
+                                an <literal>[Install]</literal>
+                                section including installation
+                                information for the unit file. See
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details. To activate your service
                                 on boot make sure to add a
                                 <varname>WantedBy=multi-user.target</varname>
                                 or
-                                <varname>WantedBy=graphical.target</varname> directive.</para></listitem>
+                                <varname>WantedBy=graphical.target</varname>
+                                directive. To activate your socket on
+                                boot, make sure to add
+                                <varname>WantedBy=sockets.target</varname>. Usually
+                                you also want to make sure that when
+                                your service is installed your socket
+                                is installed too, hence add
+                                <varname>Also=foo.socket</varname> in
+                                your service file
+                                <filename>foo.service</filename>, for
+                                a hypothetical program
+                                <filename>foo</filename>.</para></listitem>
 
                         </orderedlist>
                 </refsect2>
@@ -799,6 +829,15 @@ endif</programlisting>
 if [ "$1" -eq 0 ]; then
         /usr/bin/systemd-install --realize disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 fi</programlisting>
+
+                        <para>Depending on whether your service should
+                        or should not be started/stopped/restarted
+                        during package installation, deinstallation or
+                        upgrade, a different argument to
+                        <option>--realize=</option> may be
+                        specified. See
+                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        for details.</para>
 
                 </refsect2>
         </refsect1>
