@@ -35,6 +35,16 @@
 
 * selinux
 
+* .socket should refuse start when .service is already up to avoid overwriting the socket
+
+* introduce umount.target
+
+* pull in umount.target and shutdown.target from emergency.service (?)
+
+* extend recommendations to depend on syslog.target via "After"
+
+* Don't show Accepted/Connected for non-Accept sockets
+
 External:
 
 * patch /etc/init.d/functions with:
