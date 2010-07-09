@@ -794,3 +794,11 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-rootdir=$$dc_install_base/$(rootdir)
+
+upload: all distcheck
+	cp -v systemd-$(VERSION).tar.bz2 /home/lennart/cvs.fedora/systemd/devel/
+	scp systemd-$(VERSION).tar.bz2 fdo:/srv/www.freedesktop.org/www/software/systemd/
+	scp man/*.html tango:public/systemd-man/
+
+git-tag:
+	git tag "v$(VERSION)" -m "systemd $(VERSION)"
