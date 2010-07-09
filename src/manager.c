@@ -83,7 +83,7 @@ static int manager_setup_notify(Manager *m) {
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
 
-        if (m->running_as == MANAGER_SESSION)
+        if (getpid() != 1)
                 snprintf(sa.un.sun_path+1, sizeof(sa.un.sun_path)-1, NOTIFY_SOCKET "/%llu", random_ull());
         else
                 strncpy(sa.un.sun_path+1, NOTIFY_SOCKET, sizeof(sa.un.sun_path)-1);

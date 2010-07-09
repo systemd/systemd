@@ -907,7 +907,7 @@ static int bus_init_private(Manager *m) {
                 return 0;
 
         /* We want the private bus only when running as init */
-        if (m->running_as != MANAGER_SYSTEM)
+        if (getpid() != 1)
                 return 0;
 
         if (!(m->private_bus = dbus_server_listen("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
