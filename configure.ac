@@ -52,7 +52,7 @@ CC_CHECK_CFLAGS_APPEND([ \
         -Wall \
         -W \
         -Wextra \
-        -Winline \
+        -Wno-inline \
         -Wvla \
         -Wundef \
         -Wformat=2 \
