@@ -9,9 +9,3 @@
 
 [Unit]
 Description=D-Bus
-
-# As soon as D-Bus has native files this explicit dependency should be
-# dropped, and replaced by an alias symlink in the .wants/ directory,
-# to either the .service or .socket unit of the D-Bus service.
-Requires=@SPECIAL_DBUS_SERVICE@
-After=@SPECIAL_DBUS_SERVICE@

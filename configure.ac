@@ -101,7 +101,7 @@ PKG_CHECK_MODULES(UDEV, [ libudev >= 154 ])
 AC_SUBST(UDEV_CFLAGS)
 AC_SUBST(UDEV_LIBS)
 
-PKG_CHECK_MODULES(DBUS, [ dbus-1 ])
+PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
 AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
 
@@ -215,7 +215,6 @@ fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
 
 # Default generic names
-SPECIAL_DBUS_SERVICE=dbus.service
 SPECIAL_SYSLOG_SERVICE=syslog.service
 
 # Location of the init scripts as mandated by LSB
@@ -228,17 +227,16 @@ case $with_distro in
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
 
-                # A little background why we define these special unit
+                # A little background why we define this special unit
                 # names here in configure.ac: SysV services currently
                 # cannot have aliases. As long as syslog is started
-                # via a SysV init script we hence define these names
-                # to the actual SysV name here. Later on when SysV
-                # init scripts are not used anymore it is advisable to
-                # use the generic names instead and use symlinks in
-                # the unit directories to point to the right native
-                # unit file.
+                # via a SysV init script we hence define this name to
+                # the actual SysV name here. Later on when SysV init
+                # scripts are not used anymore it is advisable to use
+                # the generic name instead and use symlinks in the
+                # unit directories to point to the right native unit
+                # file.
 
-                SPECIAL_DBUS_SERVICE=messagebus.service
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 M4_DISTRO_FLAG=-DTARGET_FEDORA=1
@@ -270,7 +268,6 @@ case $with_distro in
         slackware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
-                SPECIAL_DBUS_SERVICE=messagebus.service
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
                 M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
                 ;;
@@ -279,8 +276,6 @@ case $with_distro in
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvinit-path= to configure])])
                 AS_IF([test "x$with_sysvrcd_path" = "x"],
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvrcd-path= to configure])])
-                AS_IF([test "x$with_dbus_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=other, you must pass --with-dbus-service= to configure])])
                 AS_IF([test "x$with_syslog_service" = "x"],
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
                 ;;
@@ -301,12 +296,6 @@ AC_ARG_WITH([sysvrcd-path],
         [SYSTEM_SYSVRCND_PATH="$withval"],
         [])
 
-AC_ARG_WITH([dbus-service],
-        [AS_HELP_STRING([--with-dbus-service=UNIT],
-                [Specify the name of the special DBus service @<:@default=based on distro@:>@])],
-        [SPECIAL_DBUS_SERVICE="$withval"],
-        [])
-
 AC_ARG_WITH([syslog-service],
         [AS_HELP_STRING([--with-syslog-service=UNIT],
                 [Specify the name of the special syslog service @<:@default=based on distro@:>@])],
@@ -315,7 +304,6 @@ AC_ARG_WITH([syslog-service],
 
 AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
-AC_SUBST(SPECIAL_DBUS_SERVICE)
 AC_SUBST(SPECIAL_SYSLOG_SERVICE)
 AC_SUBST(M4_DISTRO_FLAG)
 
@@ -326,7 +314,6 @@ AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 
-AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$SPECIAL_DBUS_SERVICE"], [D-Bus service name])
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 
 AC_ARG_WITH([dbuspolicydir],
@@ -382,7 +369,6 @@ echo "
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
-        D-Bus service:           ${SPECIAL_DBUS_SERVICE}
         Gtk:                     ${have_gtk}
         tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}

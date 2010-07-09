@@ -50,7 +50,7 @@
         <refsynopsisdiv>
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
-                <filename>@SPECIAL_DBUS_SERVICE@</filename>,
+                <filename>dbus.service</filename>,
                 <filename>dbus.target</filename>,
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
@@ -134,7 +134,7 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>@SPECIAL_DBUS_SERVICE@</filename></term>
+                                <term><filename>dbus.service</filename></term>
                                 <listitem>
                                         <para>A special unit for the
                                         D-Bus system bus. As soon as
@@ -160,7 +160,7 @@
                                         ensure that this target pulls
                                         in a service unit with the
                                         name or alias of
-                                        <filename>@SPECIAL_DBUS_SERVICE@</filename>
+                                        <filename>dbus.service</filename>
                                         (or a socket unit that
                                         activates this
                                         service).</para>

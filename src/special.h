@@ -56,10 +56,7 @@
 #define SPECIAL_HALT_TARGET "halt.target"
 #define SPECIAL_POWEROFF_TARGET "poweroff.target"
 #define SPECIAL_REBOOT_TARGET "reboot.target"
-
-#ifndef SPECIAL_DBUS_SERVICE
 #define SPECIAL_DBUS_SERVICE "dbus.service"
-#endif
 
 #ifndef SPECIAL_SYSLOG_SERVICE
 #define SPECIAL_SYSLOG_SERVICE "syslog.service"

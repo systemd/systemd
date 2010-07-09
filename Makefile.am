@@ -129,6 +129,7 @@ dist_systemunit_DATA = \
 	units/sigpwr.target \
 	units/sockets.target \
 	units/swap.target \
+	units/dbus.target \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket \
 	units/dev-hugepages.automount \
@@ -152,8 +153,7 @@ nodist_systemunit_DATA = \
 	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
-	units/syslog.target \
-	units/dbus.target
+	units/syslog.target
 
 dist_sessionunit_DATA = \
 	units/session/default.target
@@ -171,7 +171,6 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
-	units/dbus.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
 
@@ -573,7 +572,6 @@ SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
-		-e 's,@SPECIAL_DBUS_SERVICE\@,$(SPECIAL_DBUS_SERVICE),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
 		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
