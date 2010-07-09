@@ -16,3 +16,4 @@ Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.a
 Type=finish
 ValidNoProcess=yes
 ExecStart=/etc/init.d/reboot.sh
+StandardInput=tty

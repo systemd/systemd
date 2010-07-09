@@ -17,3 +17,4 @@ Type=finish
 ValidNoProcess=yes
 Environment=INIT_HALT=HALT RC_DOWN_HARDDISK=yes
 ExecStart=/etc/init.d/shutdown.sh
+StandardInput=tty
