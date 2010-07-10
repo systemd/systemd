@@ -1343,20 +1343,26 @@ static int transaction_add_job_and_dependencies(
                                         goto fail;
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR)
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+                                        dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, e, NULL)) < 0)
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, e, NULL)) < 0) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+                                        dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR)
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+                                        dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
