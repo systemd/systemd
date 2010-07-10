@@ -154,6 +154,11 @@ static int automount_verify(Automount *a) {
         if (a->meta.load_state != UNIT_LOADED)
                 return 0;
 
+        if (path_equal(a->where, "/")) {
+                log_error("Cannot have an automount unit for the root directory. Refusing.");
+                return -EINVAL;
+        }
+
         if (!(e = unit_name_from_path(a->where, ".automount")))
                 return -ENOMEM;
 
