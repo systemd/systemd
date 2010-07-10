@@ -1166,20 +1166,22 @@ static int socket_stop(Unit *u) {
 
         assert(s);
 
-        /* We cannot fulfill this request right now, try again later
-         * please! */
-        if (s->state == SOCKET_START_PRE ||
-            s->state == SOCKET_START_POST)
-                return -EAGAIN;
-
         /* Already on it */
         if (s->state == SOCKET_STOP_PRE ||
             s->state == SOCKET_STOP_PRE_SIGTERM ||
             s->state == SOCKET_STOP_PRE_SIGKILL ||
             s->state == SOCKET_STOP_POST ||
             s->state == SOCKET_FINAL_SIGTERM ||
-            s->state == SOCKET_FINAL_SIGTERM)
+            s->state == SOCKET_FINAL_SIGKILL)
                 return 0;
+
+        /* If there's already something running we go directly into
+         * kill mode. */
+        if (s->state == SOCKET_START_PRE ||
+            s->state == SOCKET_START_POST) {
+                socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, true);
+                return -EAGAIN;
+        }
 
         assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
 

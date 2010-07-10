@@ -806,23 +806,20 @@ static int mount_stop(Unit *u) {
 
         assert(m);
 
-        /* Cann't do this right now. */
-        if (m->state == MOUNT_MOUNTING ||
-            m->state == MOUNT_MOUNTING_DONE ||
-            m->state == MOUNT_MOUNTING_SIGTERM ||
-            m->state == MOUNT_MOUNTING_SIGKILL ||
-            m->state == MOUNT_REMOUNTING ||
-            m->state == MOUNT_REMOUNTING_SIGTERM ||
-            m->state == MOUNT_REMOUNTING_SIGKILL)
-                return -EAGAIN;
-
         /* Already on it */
         if (m->state == MOUNT_UNMOUNTING ||
             m->state == MOUNT_UNMOUNTING_SIGKILL ||
             m->state == MOUNT_UNMOUNTING_SIGTERM)
                 return 0;
 
-        assert(m->state == MOUNT_MOUNTED);
+        assert(m->state == MOUNT_MOUNTING ||
+               m->state == MOUNT_MOUNTING_DONE ||
+               m->state == MOUNT_MOUNTED ||
+               m->state == MOUNT_MOUNTING_SIGTERM ||
+               m->state == MOUNT_MOUNTING_SIGKILL ||
+               m->state == MOUNT_REMOUNTING ||
+               m->state == MOUNT_REMOUNTING_SIGTERM ||
+               m->state == MOUNT_REMOUNTING_SIGKILL);
 
         mount_enter_unmounting(m, true);
         return 0;

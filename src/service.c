@@ -1902,12 +1902,9 @@ static int service_stop(Unit *u) {
 
         assert(s);
 
-        /* Cannot do this now */
-        if (s->state == SERVICE_START_PRE ||
-            s->state == SERVICE_START ||
-            s->state == SERVICE_START_POST ||
-            s->state == SERVICE_RELOAD)
-                return -EAGAIN;
+        /* This is a user request, so don't do restarts on this
+         * shutdown. */
+        s->allow_restart = false;
 
         /* Already on it */
         if (s->state == SERVICE_STOP ||
@@ -1918,16 +1915,24 @@ static int service_stop(Unit *u) {
             s->state == SERVICE_FINAL_SIGKILL)
                 return 0;
 
+        /* Don't allow a restart */
         if (s->state == SERVICE_AUTO_RESTART) {
                 service_set_state(s, SERVICE_DEAD);
                 return 0;
         }
 
-        assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
+        /* If there's already something running we go directly into
+         * kill mode. */
+        if (s->state == SERVICE_START_PRE ||
+            s->state == SERVICE_START ||
+            s->state == SERVICE_START_POST ||
+            s->state == SERVICE_RELOAD) {
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, true);
+                return 0;
+        }
 
-        /* This is a user request, so don't do restarts on this
-         * shutdown. */
-        s->allow_restart = false;
+        assert(s->state == SERVICE_RUNNING ||
+               s->state == SERVICE_EXITED);
 
         service_enter_stop(s, true);
         return 0;
