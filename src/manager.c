@@ -2279,6 +2279,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
         log_debug("Deserializing state...");
 
+        m->deserializing = true;
+
         for (;;) {
                 Unit *u;
                 char name[UNIT_NAME_MAX+2];
@@ -2288,22 +2290,30 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (feof(f))
                                 break;
 
-                        return -errno;
+                        r = -errno;
+                        goto finish;
                 }
 
                 char_array_0(name);
 
                 if ((r = manager_load_unit(m, strstrip(name), NULL, NULL, &u)) < 0)
-                        return r;
+                        goto finish;
 
                 if ((r = unit_deserialize(u, f, fds)) < 0)
-                        return r;
+                        goto finish;
         }
 
-        if (ferror(f))
-                return -EIO;
+        if (ferror(f)) {
+                r = -EIO;
+                goto finish;
+        }
 
-        return 0;
+        r = 0;
+
+finish:
+        m->deserializing = false;
+
+        return r;
 }
 
 int manager_reload(Manager *m) {

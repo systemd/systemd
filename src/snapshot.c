@@ -56,7 +56,7 @@ static int snapshot_load(Unit *u) {
 
         /* Make sure that only snapshots created via snapshot_create()
          * can be loaded */
-        if (!s->by_snapshot_create)
+        if (!s->by_snapshot_create && !s->meta.manager->deserializing)
                 return -ENOENT;
 
         u->meta.load_state = UNIT_LOADED;
