@@ -126,6 +126,7 @@ dist_systemunit_DATA = \
 	units/rpcbind.target \
 	units/rtc-set.target \
 	units/shutdown.target \
+	units/umount.target \
 	units/sigpwr.target \
 	units/sockets.target \
 	units/swap.target \

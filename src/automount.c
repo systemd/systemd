@@ -36,6 +36,7 @@
 #include "unit-name.h"
 #include "dbus-automount.h"
 #include "bus-errors.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -194,6 +195,10 @@ static int automount_load(Unit *u) {
 
                 if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount), true)) < 0)
                         return r;
+
+                if (a->meta.default_dependencies)
+                        if ((r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                                return r;
         }
 
         return automount_verify(a);

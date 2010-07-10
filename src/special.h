@@ -29,6 +29,7 @@
  * it to bring all services down that want to be brought down on
  * system shutdown. */
 #define SPECIAL_SHUTDOWN_TARGET "shutdown.target"
+#define SPECIAL_UMOUNT_TARGET "umount.target"
 
 #define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
 

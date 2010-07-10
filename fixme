@@ -35,8 +35,6 @@
 
 * selinux
 
-* introduce umount.target
-
 * pull in umount.target and shutdown.target from emergency.service (?)
 
 * Show exit status auf auxiliary programs in systemctl status
