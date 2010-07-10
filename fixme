@@ -37,6 +37,10 @@
 
 * Show exit status auf auxiliary programs in systemctl status
 
+* rtkit status
+
+* systemctl status $PID, systemctl stop $PID!
+
 External:
 
 * patch /etc/init.d/functions with:

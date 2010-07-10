@@ -43,6 +43,7 @@
 #include "strv.h"
 #include "dbus-common.h"
 #include "cgroup-show.h"
+#include "list.h"
 
 static const char *arg_type = NULL;
 static const char *arg_property = NULL;
@@ -922,6 +923,95 @@ finish:
         return r;
 }
 
+typedef struct ExecStatusInfo {
+        char *path;
+        char **argv;
+
+        usec_t start_timestamp;
+        usec_t exit_timestamp;
+        pid_t pid;
+        int code;
+        int status;
+
+        LIST_FIELDS(struct ExecStatusInfo, exec);
+} ExecStatusInfo;
+
+static void exec_status_info_free(ExecStatusInfo *i) {
+        assert(i);
+
+        free(i->path);
+        strv_free(i->argv);
+        free(i);
+}
+
+static int exec_status_info_deserialize(DBusMessageIter *sub, ExecStatusInfo *i) {
+        uint64_t start_timestamp, exit_timestamp;
+        DBusMessageIter sub2, sub3;
+        const char*path;
+        unsigned n;
+        uint32_t pid;
+        int32_t code, status;
+
+        assert(i);
+        assert(i);
+
+        if (dbus_message_iter_get_arg_type(sub) != DBUS_TYPE_STRUCT)
+                return -EIO;
+
+        dbus_message_iter_recurse(sub, &sub2);
+
+        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0)
+                return -EIO;
+
+        if (!(i->path = strdup(path)))
+                return -ENOMEM;
+
+        if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&sub2) != DBUS_TYPE_STRING)
+                return -EIO;
+
+        n = 0;
+        dbus_message_iter_recurse(&sub2, &sub3);
+        while (dbus_message_iter_get_arg_type(&sub3) != DBUS_TYPE_INVALID) {
+                assert(dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_STRING);
+                dbus_message_iter_next(&sub3);
+                n++;
+        }
+
+
+        if (!(i->argv = new0(char*, n+1)))
+                return -ENOMEM;
+
+        n = 0;
+        dbus_message_iter_recurse(&sub2, &sub3);
+        while (dbus_message_iter_get_arg_type(&sub3) != DBUS_TYPE_INVALID) {
+                const char *s;
+
+                assert(dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_STRING);
+                dbus_message_iter_get_basic(&sub3, &s);
+                dbus_message_iter_next(&sub3);
+
+                if (!(i->argv[n++] = strdup(s)))
+                        return -ENOMEM;
+        }
+
+        if (!dbus_message_iter_next(&sub2) ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &start_timestamp, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &exit_timestamp, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &code, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &status, false) < 0)
+                return -EIO;
+
+        i->start_timestamp = (usec_t) start_timestamp;
+        i->exit_timestamp = (usec_t) exit_timestamp;
+        i->pid = (pid_t) pid;
+        i->code = code;
+        i->status = status;
+
+        return 0;
+}
+
 typedef struct UnitStatusInfo {
         const char *id;
         const char *load_state;
@@ -957,9 +1047,13 @@ typedef struct UnitStatusInfo {
 
         /* Swap */
         const char *what;
+
+        LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
 
 static void print_status_info(UnitStatusInfo *i) {
+        ExecStatusInfo *p;
+
         assert(i);
 
         /* This shows pretty information about a unit. See
@@ -979,14 +1073,23 @@ static void print_status_info(UnitStatusInfo *i) {
         else
                 printf("\t  Loaded: %s\n", strna(i->load_state));
 
-        if (streq_ptr(i->active_state, "maintenance"))
-                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s (%s)" ANSI_HIGHLIGHT_OFF "\n",
-                       strna(i->active_state),
-                       strna(i->sub_state));
-        else
-                printf("\t  Active: %s (%s)\n",
-                       strna(i->active_state),
-                       strna(i->sub_state));
+        if (streq_ptr(i->active_state, "maintenance")) {
+                        if (streq_ptr(i->active_state, i->sub_state))
+                                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s" ANSI_HIGHLIGHT_OFF "\n",
+                                       strna(i->active_state));
+                        else
+                                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s (%s)" ANSI_HIGHLIGHT_OFF "\n",
+                                       strna(i->active_state),
+                                       strna(i->sub_state));
+        } else {
+                if (streq_ptr(i->active_state, i->sub_state))
+                        printf("\t  Active: %s\n",
+                               strna(i->active_state));
+                else
+                        printf("\t  Active: %s (%s)\n",
+                               strna(i->active_state),
+                               strna(i->sub_state));
+        }
 
         if (i->sysfs_path)
                 printf("\t  Device: %s\n", i->sysfs_path);
@@ -1001,11 +1104,38 @@ static void print_status_info(UnitStatusInfo *i) {
         if (i->accept)
                 printf("\tAccepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
 
+        LIST_FOREACH(exec, p, i->exec) {
+                char *t;
+
+                /* Only show exited processes here */
+                if (p->code == 0)
+                        continue;
+
+                t = strv_join(p->argv, " ");
+                printf("\t  Exited: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
+                free(t);
+
+                if (p->code == CLD_EXITED)
+                        printf("status=%i", p->status);
+                else
+                        printf("signal=%s", signal_to_string(p->status));
+                printf(")\n");
+
+                if (i->main_pid == p->pid &&
+                    i->start_timestamp == p->start_timestamp &&
+                    i->exit_timestamp == p->start_timestamp)
+                        /* Let's not show this twice */
+                        i->main_pid = 0;
+
+                if (p->pid == i->control_pid)
+                        i->control_pid = 0;
+        }
+
         if (i->main_pid > 0 || i->control_pid > 0) {
                 printf("\t");
 
                 if (i->main_pid > 0) {
-                        printf(" Process: %u", (unsigned) i->main_pid);
+                        printf("    Main: %u", (unsigned) i->main_pid);
 
                         if (i->running) {
                                 char *t = NULL;
@@ -1020,7 +1150,7 @@ static void print_status_info(UnitStatusInfo *i) {
                                 if (i->exit_code == CLD_EXITED)
                                         printf("status=%i", i->exit_status);
                                 else
-                                        printf("signal=%s", strsignal(i->exit_status));
+                                        printf("signal=%s", signal_to_string(i->exit_status));
                                 printf(")");
                         }
                 }
@@ -1153,6 +1283,34 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                 break;
         }
+
+        case DBUS_TYPE_ARRAY: {
+
+                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT &&
+                    startswith(name, "Exec")) {
+                        DBusMessageIter sub;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                ExecStatusInfo *info;
+                                int r;
+
+                                if (!(info = new0(ExecStatusInfo, 1)))
+                                        return -ENOMEM;
+
+                                if ((r = exec_status_info_deserialize(&sub, info)) < 0) {
+                                        free(info);
+                                        return r;
+                                }
+
+                                LIST_PREPEND(ExecStatusInfo, exec, i->exec, info);
+
+                                dbus_message_iter_next(&sub);
+                        }
+                }
+
+                break;
+        }
         }
 
         return 0;
@@ -1266,7 +1424,6 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         bool space = false;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         if (arg_all ||
                             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                                 printf("%s=", name);
@@ -1286,11 +1443,11 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_BYTE) {
                         DBusMessageIter sub;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         if (arg_all ||
                             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                                 printf("%s=", name);
@@ -1309,11 +1466,11 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Paths")) {
                         DBusMessageIter sub, sub2;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
                                 const char *type, *path;
 
@@ -1327,11 +1484,11 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Timers")) {
                         DBusMessageIter sub, sub2;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
                                 const char *base;
                                 uint64_t value, next_elapse;
@@ -1353,59 +1510,38 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
-                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && startswith(name, "Exec")) {
 
-                        DBusMessageIter sub, sub2, sub3;
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && startswith(name, "Exec")) {
+                        DBusMessageIter sub;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
-                                const char *path;
-                                uint64_t start_time, exit_time;
-                                uint32_t pid;
-                                int32_t code, status;
+                                ExecStatusInfo info;
 
-                                dbus_message_iter_recurse(&sub, &sub2);
-
-                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0)
-                                        continue;
-
-                                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_ARRAY ||
-                                    dbus_message_iter_get_element_type(&sub2) != DBUS_TYPE_STRING)
-                                        continue;
-
-                                printf("%s={ path=%s ; argv[]=", name, path);
-
-                                dbus_message_iter_recurse(&sub2, &sub3);
-
-                                while (dbus_message_iter_get_arg_type(&sub3) != DBUS_TYPE_INVALID) {
-                                        const char *s;
-
-                                        assert(dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_STRING);
-                                        dbus_message_iter_get_basic(&sub3, &s);
-                                        printf("%s ", s);
-                                        dbus_message_iter_next(&sub3);
-                                }
-
-                                if (dbus_message_iter_next(&sub2) &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &start_time, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &exit_time, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &code, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &status, false) >= 0) {
-
+                                zero(info);
+                                if (exec_status_info_deserialize(&sub, &info) >= 0) {
                                         char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
+                                        char *t;
 
-                                        printf("; start=%s ; stop=%s ; pid=%u ; code=%s ; status=%i/%s",
-                                               strna(format_timestamp(timestamp1, sizeof(timestamp1), start_time)),
-                                               strna(format_timestamp(timestamp2, sizeof(timestamp2), exit_time)),
-                                               (unsigned) pid,
-                                               sigchld_code_to_string(code),
-                                               status,
-                                               strempty(code == CLD_EXITED ? NULL : strsignal(status)));
+                                        t = strv_join(info.argv, " ");
+
+                                        printf("%s={ path=%s ; argv[]=%s;  start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
+                                               name,
+                                               strna(info.path),
+                                               strna(t),
+                                               strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
+                                               strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                               (unsigned) info. pid,
+                                               sigchld_code_to_string(info.code),
+                                               info.status,
+                                               info.code == CLD_EXITED ? "" : "/",
+                                               strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
+
+                                        free(t);
                                 }
 
-                                printf(" }\n");
+                                free(info.path);
+                                strv_free(info.argv);
 
                                 dbus_message_iter_next(&sub);
                         }
@@ -1429,6 +1565,7 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
         DBusError error;
         DBusMessageIter iter, sub, sub2, sub3;
         UnitStatusInfo info;
+        ExecStatusInfo *p;
 
         assert(bus);
         assert(path);
@@ -1517,6 +1654,11 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
 
         if (!show_properties)
                 print_status_info(&info);
+
+        while ((p = info.exec)) {
+                LIST_REMOVE(ExecStatusInfo, exec, info.exec, p);
+                exec_status_info_free(p);
+        }
 
         r = 0;
 

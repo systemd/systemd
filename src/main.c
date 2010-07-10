@@ -76,7 +76,7 @@ static void nop_handler(int sig) {
 _noreturn_ static void crash(int sig) {
 
         if (!arg_dump_core)
-                log_error("Caught <%s>, not dumping core.", strsignal(sig));
+                log_error("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 struct sigaction sa;
                 pid_t pid;
@@ -88,7 +88,7 @@ _noreturn_ static void crash(int sig) {
                 assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
                 if ((pid = fork()) < 0)
-                        log_error("Caught <%s>, cannot fork for core dump: %s", strsignal(sig), strerror(errno));
+                        log_error("Caught <%s>, cannot fork for core dump: %s", signal_to_string(sig), strerror(errno));
 
                 else if (pid == 0) {
                         struct rlimit rl;
@@ -118,11 +118,11 @@ _noreturn_ static void crash(int sig) {
 
                         /* Order things nicely. */
                         if ((r = waitpid(pid, &status, 0)) < 0)
-                                log_error("Caught <%s>, waitpid() failed: %s", strsignal(sig), strerror(errno));
+                                log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(errno));
                         else if (!WCOREDUMP(status))
-                                log_error("Caught <%s>, core dump failed.", strsignal(sig));
+                                log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
                         else
-                                log_error("Caught <%s>, dumped core as pid %lu.", strsignal(sig), (unsigned long) pid);
+                                log_error("Caught <%s>, dumped core as pid %lu.", signal_to_string(sig), (unsigned long) pid);
                 }
         }
 

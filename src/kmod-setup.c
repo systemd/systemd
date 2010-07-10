@@ -99,7 +99,7 @@ int kmod_setup(void) {
         }
 
         if (WIFSIGNALED(status)) {
-                log_warning("/sbin/modprobe terminated by signal %s.", strsignal(WTERMSIG(status)));
+                log_warning("/sbin/modprobe terminated by signal %s.", signal_to_string(WTERMSIG(status)));
                 return -EPROTO;
         }
 

@@ -1748,7 +1748,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                           (long unsigned) si.si_pid,
                           sigchld_code_to_string(si.si_code),
                           si.si_status,
-                          strna(si.si_code == CLD_EXITED ? exit_status_to_string(si.si_status) : strsignal(si.si_status)));
+                          strna(si.si_code == CLD_EXITED ? exit_status_to_string(si.si_status) : signal_to_string(si.si_status)));
 
                 if (!u)
                         continue;
