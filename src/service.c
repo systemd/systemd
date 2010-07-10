@@ -631,6 +631,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         goto finish;
                                 }
 
+                                free(u->meta.description);
                                 u->meta.description = d;
 
                         } else if (startswith_no_case(t, "X-Interactive:")) {
