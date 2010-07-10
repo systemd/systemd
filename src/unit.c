@@ -970,6 +970,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
                 u->meta.active_exit_timestamp = ts;
 
+        if (ns != os && ns == UNIT_MAINTENANCE)
+                log_notice("Unit %s entered maintenance state.", u->meta.id);
+
         timer_unit_notify(u, ns);
         path_unit_notify(u, ns);
 

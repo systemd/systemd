@@ -1768,6 +1768,8 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
 
         dbus_error_init(&error);
 
+        log_info("Activating special unit %s", name);
+
         if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL)) < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error(&error, r));
 
@@ -1794,6 +1796,8 @@ static int manager_process_signal_fd(Manager *m) {
 
                         return -errno;
                 }
+
+                log_debug("Received SIG%s", strna(signal_to_string(sfsi.ssi_signo)));
 
                 switch (sfsi.ssi_signo) {
 
@@ -1905,7 +1909,7 @@ static int manager_process_signal_fd(Manager *m) {
                                 break;
                         }
 
-                        log_info("Got unhandled signal <%s>.", strsignal(sfsi.ssi_signo));
+                        log_warning("Got unhandled signal <%s>.", strna(signal_to_string(sfsi.ssi_signo)));
                 }
                 }
         }

@@ -338,10 +338,12 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
         dbus_error_init(&error);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
+        if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL ||
+            dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL)
+                log_debug("Got D-Bus request: %s.%s() on %s",
+                          dbus_message_get_interface(message),
+                          dbus_message_get_member(message),
+                          dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! API D-Bus connection terminated.");
@@ -443,10 +445,13 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
 
         dbus_error_init(&error);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
+        if (m->api_bus != m->system_bus &&
+            (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL ||
+             dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL))
+                log_debug("Got D-Bus request on system bus: %s.%s() on %s",
+                          dbus_message_get_interface(message),
+                          dbus_message_get_member(message),
+                          dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! System D-Bus connection terminated.");
@@ -474,10 +479,12 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
         assert(message);
         assert(m);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
+        if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL ||
+            dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL)
+                log_debug("Got D-Bus request: %s.%s() on %s",
+                          dbus_message_get_interface(message),
+                          dbus_message_get_member(message),
+                          dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected"))
                 shutdown_connection(m, connection);
