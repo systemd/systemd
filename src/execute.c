@@ -1308,6 +1308,7 @@ void exec_context_init(ExecContext *c) {
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
         c->mount_flags = MS_SHARED;
+        c->kill_signal = SIGTERM;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1571,6 +1572,12 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 strv_fprintf(f, c->inaccessible_dirs);
                 fputs("\n", f);
         }
+
+        fprintf(f,
+                "%sKillMode: %s\n"
+                "%sKillSignal: SIG%s\n",
+                prefix, kill_mode_to_string(c->kill_mode),
+                prefix, signal_to_string(c->kill_signal));
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

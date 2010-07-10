@@ -301,7 +301,7 @@ static int mount_verify(Mount *m) {
                 return -EBADMSG;
         }
 
-        if (m->exec_context.pam_name && m->kill_mode != KILL_CONTROL_GROUP) {
+        if (m->exec_context.pam_name && m->exec_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", m->meta.id);
                 return -EINVAL;
         }
@@ -501,7 +501,6 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sFrom /etc/fstab: %s\n"
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
-                "%sKillMode: %s\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, m->where,
@@ -511,7 +510,6 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->from_etc_fstab),
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
-                prefix, kill_mode_to_string(m->kill_mode),
                 prefix, m->directory_mode);
 
         if (m->control_pid > 0)
@@ -587,12 +585,12 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
         if (!success)
                 m->failure = true;
 
-        if (m->kill_mode != KILL_NONE) {
+        if (m->exec_context.kill_mode != KILL_NONE) {
                 int sig = (state == MOUNT_MOUNTING_SIGTERM ||
                            state == MOUNT_UNMOUNTING_SIGTERM ||
-                           state == MOUNT_REMOUNTING_SIGTERM) ? SIGTERM : SIGKILL;
+                           state == MOUNT_REMOUNTING_SIGTERM) ? m->exec_context.kill_signal : SIGKILL;
 
-                if (m->kill_mode == KILL_CONTROL_GROUP) {
+                if (m->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if ((r = cgroup_bonding_kill_list(m->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
@@ -602,7 +600,10 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                 }
 
                 if (!sent && m->control_pid > 0)
-                        if (kill(m->kill_mode == KILL_PROCESS ? m->control_pid : -m->control_pid, sig) < 0 && errno != ESRCH) {
+                        if (kill(m->exec_context.kill_mode == KILL_PROCESS ?
+                                 m->control_pid :
+                                 -m->control_pid, sig) < 0 && errno != ESRCH) {
+
                                 r = -errno;
                                 goto fail;
                         }

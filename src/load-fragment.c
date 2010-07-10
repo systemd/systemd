@@ -969,6 +969,36 @@ static int config_parse_sysv_priority(
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
+static int config_parse_kill_signal(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *sig = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(sig);
+
+        if ((r = signal_from_string(rvalue)) <= 0)
+                if (startswith(rvalue, "SIG"))
+                        r = signal_from_string(rvalue+3);
+
+        if (r <= 0) {
+                log_error("[%s:%u] Failed to parse kill signal: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
+        *sig = r;
+        return 0;
+}
+
 static int config_parse_mount_flags(
                 const char *filename,
                 unsigned line,
@@ -1395,6 +1425,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_service_restart,  "SERVICERESTART" },
                 { config_parse_sysv_priority,    "SYSVPRIORITY" },
                 { config_parse_kill_mode,        "KILLMODE" },
+                { config_parse_kill_signal,      "SIGNAL" },
                 { config_parse_listen,           "SOCKET [...]" },
                 { config_parse_socket_bind,      "SOCKETBIND" },
                 { config_parse_bindtodevice,     "NETWORKINTERFACE" },
@@ -1504,7 +1535,9 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PrivateTmp",             config_parse_bool,            &(context).private_tmp,                          section   }, \
                 { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }, \
                 { "TCPWrapName",            config_parse_string_printf,   &(context).tcpwrap_name,                         section   }, \
-                { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }
+                { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }, \
+                { "KillMode",               config_parse_kill_mode,       &(context).kill_mode,                            section   }, \
+                { "KillSignal",             config_parse_kill_signal,     &(context).kill_signal,                          section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },
@@ -1537,7 +1570,6 @@ static int load_from_path(Unit *u, const char *path) {
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 { "ValidNoProcess",         config_parse_bool,            &u->service.valid_no_process,                    "Service" },
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
-                { "KillMode",               config_parse_kill_mode,       &u->service.kill_mode,                           "Service" },
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
                 { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
                 { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
@@ -1557,7 +1589,6 @@ static int load_from_path(Unit *u, const char *path) {
                 { "TimeoutSec",             config_parse_usec,            &u->socket.timeout_usec,                         "Socket"  },
                 { "DirectoryMode",          config_parse_mode,            &u->socket.directory_mode,                       "Socket"  },
                 { "SocketMode",             config_parse_mode,            &u->socket.socket_mode,                          "Socket"  },
-                { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
                 { "Accept",                 config_parse_bool,            &u->socket.accept,                               "Socket"  },
                 { "MaxConnections",         config_parse_unsigned,        &u->socket.max_connections,                      "Socket"  },
                 { "KeepAlive",              config_parse_bool,            &u->socket.keep_alive,                           "Socket"  },
@@ -1576,7 +1607,6 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Options",                config_parse_string,          &u->mount.parameters_fragment.options,           "Mount"   },
                 { "Type",                   config_parse_string,          &u->mount.parameters_fragment.fstype,            "Mount"   },
                 { "TimeoutSec",             config_parse_usec,            &u->mount.timeout_usec,                          "Mount"   },
-                { "KillMode",               config_parse_kill_mode,       &u->mount.kill_mode,                             "Mount"   },
                 { "DirectoryMode",          config_parse_mode,            &u->mount.directory_mode,                        "Mount"   },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
 

@@ -35,7 +35,6 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPre")                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
-        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
@@ -79,7 +78,6 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", u->service.exec_command[SOCKET_EXEC_STOP_PRE],   "ExecStopPre"),
                 BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", u->service.exec_command[SOCKET_EXEC_STOP_POST],  "ExecStopPost"),
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Socket", u->socket.exec_context),
-                { "org.freedesktop.systemd1.Socket", "KillMode",       bus_unit_append_kill_mode,        "s", &u->socket.kill_mode       },
                 { "org.freedesktop.systemd1.Socket", "ControlPID",     bus_property_append_pid,          "u", &u->socket.control_pid     },
                 { "org.freedesktop.systemd1.Socket", "BindToDevice",   bus_property_append_string,       "s", u->socket.bind_to_device   },
                 { "org.freedesktop.systemd1.Socket", "DirectoryMode",  bus_property_append_mode,         "u", &u->socket.directory_mode  },

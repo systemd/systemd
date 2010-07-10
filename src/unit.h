@@ -43,15 +43,6 @@ typedef enum UnitDependency UnitDependency;
 #define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
-typedef enum KillMode {
-        KILL_CONTROL_GROUP = 0,
-        KILL_PROCESS_GROUP,
-        KILL_PROCESS,
-        KILL_NONE,
-        _KILL_MODE_MAX,
-        _KILL_MODE_INVALID = -1
-} KillMode;
-
 enum UnitType {
         UNIT_SERVICE = 0,
         UNIT_SOCKET,

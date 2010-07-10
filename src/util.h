@@ -353,4 +353,7 @@ int rlimit_from_string(const char *s);
 const char *ip_tos_to_string(int i);
 int ip_tos_from_string(const char *s);
 
+const char *signal_to_string(int i);
+int signal_from_string(const char *s);
+
 #endif

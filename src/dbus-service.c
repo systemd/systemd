@@ -43,7 +43,6 @@
         "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ValidNoProcess\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
         BUS_EXEC_STATUS_INTERFACE("ExecMain")                           \
         "  <property name=\"MainPID\" type=\"u\" access=\"read\"/>\n"   \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
@@ -88,7 +87,6 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { "org.freedesktop.systemd1.Service", "PermissionsStartOnly",   bus_property_append_bool,   "b", &u->service.permissions_start_only    },
                 { "org.freedesktop.systemd1.Service", "RootDirectoryStartOnly", bus_property_append_bool,   "b", &u->service.root_directory_start_only },
                 { "org.freedesktop.systemd1.Service", "ValidNoProcess",         bus_property_append_bool,   "b", &u->service.valid_no_process          },
-                { "org.freedesktop.systemd1.Service", "KillMode",               bus_unit_append_kill_mode,  "s", &u->service.kill_mode                 },
                 BUS_EXEC_STATUS_PROPERTIES("org.freedesktop.systemd1.Service", u->service.main_exec_status, "ExecMain"),
                 { "org.freedesktop.systemd1.Service", "MainPID",                bus_property_append_pid,    "u", &u->service.main_pid                  },
                 { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid               },

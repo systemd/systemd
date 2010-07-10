@@ -165,7 +165,7 @@ static int socket_verify(Socket *s) {
                 return -EINVAL;
         }
 
-        if (s->exec_context.pam_name && s->kill_mode != KILL_CONTROL_GROUP) {
+        if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
                 return -EINVAL;
         }
@@ -326,7 +326,6 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocket State: %s\n"
                 "%sBindIPv6Only: %s\n"
                 "%sBacklog: %u\n"
-                "%sKillMode: %s\n"
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n"
                 "%sKeepAlive: %s\n"
@@ -334,7 +333,6 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
                 prefix, s->backlog,
-                prefix, kill_mode_to_string(s->kill_mode),
                 prefix, s->socket_mode,
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
@@ -891,10 +889,10 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
         if (!success)
                 s->failure = true;
 
-        if (s->kill_mode != KILL_NONE) {
-                int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? SIGTERM : SIGKILL;
+        if (s->exec_context.kill_mode != KILL_NONE) {
+                int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
-                if (s->kill_mode == KILL_CONTROL_GROUP) {
+                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
@@ -904,7 +902,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                 }
 
                 if (!sent && s->control_pid > 0)
-                        if (kill(s->kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH) {
+                        if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH) {
                                 r = -errno;
                                 goto fail;
                         }

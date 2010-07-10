@@ -254,8 +254,6 @@ int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property
         return 0;
 }
 
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_unit_append_kill_mode, kill_mode, KillMode);
-
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *connection, DBusMessage *message) {
         DBusMessage *reply = NULL;
         Manager *m = u->meta.manager;

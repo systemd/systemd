@@ -28,6 +28,8 @@
 #include "ioprio.h"
 #include "strv.h"
 
+DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_kill_mode, kill_mode, KillMode);
+
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);
 

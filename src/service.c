@@ -684,9 +684,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
         s->valid_no_process = true;
-        s->kill_mode = KILL_PROCESS_GROUP;
         s->restart = SERVICE_ONCE;
         s->exec_context.std_output = EXEC_OUTPUT_TTY;
+        s->exec_context.kill_mode = KILL_PROCESS_GROUP;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -821,7 +821,7 @@ static int service_verify(Service *s) {
                 return -EINVAL;
         }
 
-        if (s->exec_context.pam_name && s->kill_mode != KILL_CONTROL_GROUP) {
+        if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
                 return -EINVAL;
         }
@@ -928,14 +928,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sValidNoProcess: %s\n"
-                "%sKillMode: %s\n"
                 "%sType: %s\n"
                 "%sNotifyAccess: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->valid_no_process),
-                prefix, kill_mode_to_string(s->kill_mode),
                 prefix, service_type_to_string(s->type),
                 prefix, notify_access_to_string(s->notify_access));
 
@@ -1533,10 +1531,10 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         if (!success)
                 s->failure = true;
 
-        if (s->kill_mode != KILL_NONE) {
-                int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? SIGTERM : SIGKILL;
+        if (s->exec_context.kill_mode != KILL_NONE) {
+                int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
-                if (s->kill_mode == KILL_CONTROL_GROUP) {
+                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
@@ -1549,14 +1547,14 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                         r = 0;
 
                         if (s->main_pid > 0) {
-                                if (kill(s->kill_mode == KILL_PROCESS ? s->main_pid : -s->main_pid, sig) < 0 && errno != ESRCH)
+                                if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->main_pid : -s->main_pid, sig) < 0 && errno != ESRCH)
                                         r = -errno;
                                 else
                                         sent = true;
                         }
 
                         if (s->control_pid > 0) {
-                                if (kill(s->kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH)
+                                if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH)
                                         r = -errno;
                                 else
                                         sent = true;

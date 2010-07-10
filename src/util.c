@@ -2941,3 +2941,39 @@ static const char* const ip_tos_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);
+
+static const char *const signal_table[] = {
+        [SIGHUP] = "HUP",
+        [SIGINT] = "INT",
+        [SIGQUIT] = "QUIT",
+        [SIGILL] = "ILL",
+        [SIGTRAP] = "TRAP",
+        [SIGABRT] = "ABRT",
+        [SIGBUS] = "BUS",
+        [SIGFPE] = "FPE",
+        [SIGKILL] = "KILL",
+        [SIGUSR1] = "USR1",
+        [SIGSEGV] = "SEGV",
+        [SIGUSR2] = "USR2",
+        [SIGPIPE] = "PIPE",
+        [SIGALRM] = "ALRM",
+        [SIGTERM] = "TERM",
+        [SIGSTKFLT] = "STKFLT",
+        [SIGCHLD] = "CHLD",
+        [SIGCONT] = "CONT",
+        [SIGSTOP] = "STOP",
+        [SIGTSTP] = "TSTP",
+        [SIGTTIN] = "TTIN",
+        [SIGTTOU] = "TTOU",
+        [SIGURG] = "URG",
+        [SIGXCPU] = "XCPU",
+        [SIGXFSZ] = "XFSZ",
+        [SIGVTALRM] = "VTALRM",
+        [SIGPROF] = "PROF",
+        [SIGWINCH] = "WINCH",
+        [SIGIO] = "IO",
+        [SIGPWR] = "PWR",
+        [SIGSYS] = "SYS"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(signal, int);

@@ -107,8 +107,6 @@ struct Service {
 
         ServiceState state, deserialized_state;
 
-        KillMode kill_mode;
-
         ExecStatus main_exec_status;
 
         ExecCommand *control_command;
