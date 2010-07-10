@@ -1100,9 +1100,6 @@ static void print_status_info(UnitStatusInfo *i) {
         else if (i->what)
                 printf("\t    What: %s\n", i->what);
 
-        if (i->status_text)
-                printf("\t  Status: \"%s\"\n", i->status_text);
-
         if (i->accept)
                 printf("\tAccepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
 
@@ -1174,6 +1171,9 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 printf("\n");
         }
+
+        if (i->status_text)
+                printf("\t  Status: \"%s\"\n", i->status_text);
 
         if (i->default_control_group) {
                 unsigned c;
