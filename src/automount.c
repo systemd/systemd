@@ -201,7 +201,8 @@ static int automount_load(Unit *u) {
                 if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount), true)) < 0)
                         return r;
 
-                if (a->meta.default_dependencies)
+                if (a->meta.default_dependencies &&
+                    a->meta.manager->running_as == MANAGER_SYSTEM)
                         if ((r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
                                 return r;
         }
