@@ -758,7 +758,6 @@ static void bus_new_connection(
 
 static int bus_init_system(Manager *m) {
         DBusError error;
-        char *id;
         int r;
 
         assert(m);
@@ -800,10 +799,13 @@ static int bus_init_system(Manager *m) {
                 goto fail;
         }
 
-        log_info("Successfully connected to system D-Bus bus %s as %s",
-                 strnull((id = dbus_connection_get_server_id(m->system_bus))),
-                 strnull(dbus_bus_get_unique_name(m->system_bus)));
-        dbus_free(id);
+        if (m->api_bus != m->system_bus) {
+                char *id;
+                log_info("Successfully connected to system D-Bus bus %s as %s",
+                         strnull((id = dbus_connection_get_server_id(m->system_bus))),
+                         strnull(dbus_bus_get_unique_name(m->system_bus)));
+                dbus_free(id);
+        }
 
         return 0;
 
@@ -816,7 +818,6 @@ fail:
 
 static int bus_init_api(Manager *m) {
         DBusError error;
-        char *id;
         int r;
 
         assert(m);
@@ -884,10 +885,13 @@ static int bus_init_api(Manager *m) {
         if ((r = query_name_list(m)) < 0)
                 goto fail;
 
-        log_info("Successfully connected to API D-Bus bus %s as %s",
-                 strnull((id = dbus_connection_get_server_id(m->api_bus))),
-                 strnull(dbus_bus_get_unique_name(m->api_bus)));
-        dbus_free(id);
+        if (m->api_bus != m->system_bus) {
+                char *id;
+                log_info("Successfully connected to API D-Bus bus %s as %s",
+                         strnull((id = dbus_connection_get_server_id(m->api_bus))),
+                         strnull(dbus_bus_get_unique_name(m->api_bus)));
+                dbus_free(id);
+        }
 
         return 0;
 
