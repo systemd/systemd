@@ -186,7 +186,6 @@ static int manager_setup_signals(Manager *m) {
 int manager_new(ManagerRunningAs running_as, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
-        char *p;
 
         assert(_m);
         assert(running_as >= 0);
@@ -244,14 +243,6 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         /* Try to connect to the busses, if possible. */
         if ((r = bus_init(m)) < 0)
                 goto fail;
-
-        if (asprintf(&p, "%s/%s", m->cgroup_mount_point, m->cgroup_hierarchy) < 0) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        m->pin_cgroupfs_fd = open(p, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-        free(p);
 
         *_m = m;
         return 0;
@@ -420,8 +411,7 @@ void manager_free(Manager *m) {
 
         /* If we reexecute ourselves, we keep the root cgroup
          * around */
-        if (m->exit_code != MANAGER_REEXECUTE)
-                manager_shutdown_cgroup(m);
+        manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
         bus_done(m);
 
@@ -443,13 +433,8 @@ void manager_free(Manager *m) {
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
 
-        free(m->cgroup_hierarchy);
-        free(m->cgroup_mount_point);
-
         hashmap_free(m->cgroup_bondings);
-
-        if (m->pin_cgroupfs_fd >= 0)
-                close_nointr_nofail(m->pin_cgroupfs_fd);
+        set_free_free(m->unit_path_cache);
 
         free(m);
 }
@@ -1664,7 +1649,7 @@ static int manager_process_notify_fd(Manager *m) {
 
                 ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
 
-                if (!(u = hashmap_get(m->watch_pids, UINT32_TO_PTR(ucred->pid))))
+                if (!(u = hashmap_get(m->watch_pids, LONG_TO_PTR(ucred->pid))))
                         if (!(u = cgroup_unit_by_pid(m, ucred->pid))) {
                                 log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
                                 continue;
@@ -1729,7 +1714,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                         return r;
 
                 /* And now figure out the unit this belongs to */
-                if (!(u = hashmap_get(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
+                if (!(u = hashmap_get(m->watch_pids, LONG_TO_PTR(si.si_pid))))
                         u = cgroup_unit_by_pid(m, si.si_pid);
 
                 /* And now, we actually reap the zombie. */
@@ -1752,9 +1737,9 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (!u)
                         continue;
 
-                log_debug("Child %llu belongs to %s", (long long unsigned) si.si_pid, u->meta.id);
+                log_debug("Child %lu belongs to %s", (long unsigned) si.si_pid, u->meta.id);
 
-                hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid));
+                hashmap_remove(m->watch_pids, LONG_TO_PTR(si.si_pid));
                 UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
         }
 

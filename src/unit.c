@@ -39,6 +39,7 @@
 #include "specifier.h"
 #include "dbus-unit.h"
 #include "special.h"
+#include "cgroup-util.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -1144,14 +1145,14 @@ int unit_watch_pid(Unit *u, pid_t pid) {
         /* Watch a specific PID. We only support one unit watching
          * each PID for now. */
 
-        return hashmap_put(u->meta.manager->watch_pids, UINT32_TO_PTR(pid), u);
+        return hashmap_put(u->meta.manager->watch_pids, LONG_TO_PTR(pid), u);
 }
 
 void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
 
-        hashmap_remove_value(u->meta.manager->watch_pids, UINT32_TO_PTR(pid), u);
+        hashmap_remove_value(u->meta.manager->watch_pids, LONG_TO_PTR(pid), u);
 }
 
 int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {

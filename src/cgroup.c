@@ -25,8 +25,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <sys/mount.h>
-
-#include <libcgroup.h>
+#include <fcntl.h>
 
 #include "cgroup.h"
 #include "cgroup-util.h"
@@ -210,71 +209,91 @@ int cgroup_bonding_is_empty_list(CGroupBonding *first) {
 }
 
 int manager_setup_cgroup(Manager *m) {
-        char *cp;
+        char *current = NULL, *path = NULL;
         int r;
-        pid_t pid;
         char suffix[32];
 
         assert(m);
 
-        if ((r = cgroup_init()) != 0) {
-                log_error("Failed to initialize libcg: %s", cgroup_strerror(r));
-                return cg_translate_error(r, errno);
+        /* 1. Initialize libcg */
+        if ((r = cg_init()) < 0) {
+                log_error("Failed to initialize libcg: %s", strerror(-r));
+                goto finish;
         }
 
-        free(m->cgroup_mount_point);
-        m->cgroup_mount_point = NULL;
-        if ((r = cgroup_get_subsys_mount_point(SYSTEMD_CGROUP_CONTROLLER, &m->cgroup_mount_point)))
-                return cg_translate_error(r, errno);
+        /* 2. Determine hierarchy */
+        if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &current)) < 0)
+                goto finish;
 
-        pid = getpid();
-
-        if ((r = cgroup_get_current_controller_path(pid, SYSTEMD_CGROUP_CONTROLLER, &cp)))
-                return cg_translate_error(r, errno);
-
-        snprintf(suffix, sizeof(suffix), "/systemd-%u", (unsigned) pid);
+        snprintf(suffix, sizeof(suffix), "/systemd-%lu", (unsigned long) getpid());
         char_array_0(suffix);
 
         free(m->cgroup_hierarchy);
-
-        if (endswith(cp, suffix))
+        if (endswith(current, suffix)) {
                 /* We probably got reexecuted and can continue to use our root cgroup */
-                m->cgroup_hierarchy = cp;
-        else {
+                m->cgroup_hierarchy = current;
+                current = NULL;
+
+        } else {
                 /* We need a new root cgroup */
-
                 m->cgroup_hierarchy = NULL;
-                r = asprintf(&m->cgroup_hierarchy, "%s%s", streq(cp, "/") ? "" : cp, suffix);
-                free(cp);
-
-                if (r < 0)
-                        return -ENOMEM;
+                if ((r = asprintf(&m->cgroup_hierarchy, "%s%s", streq(current, "/") ? "" : current, suffix)) < 0) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
         }
 
-        log_debug("Using cgroup controller <" SYSTEMD_CGROUP_CONTROLLER ">, hierarchy mounted at <%s>, using root group <%s>.",
-                  m->cgroup_mount_point,
-                  m->cgroup_hierarchy);
+        /* 3. Show data */
+        if ((r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, NULL, &path)) < 0)
+                goto finish;
 
+        log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
+
+        /* 4. Install agent */
         if ((r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, CGROUP_AGENT_PATH)) < 0)
                 log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
+        else if (r > 0)
+                log_debug("Installed release agent.");
         else
-                log_debug("Installed release agent, or already installed.");
+                log_debug("Release agent already installed.");
 
-        if ((r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, 0)) < 0)
+        /* 5. Realize the group */
+        if ((r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, 0)) < 0) {
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
-        else
-                log_debug("Created root group.");
+                goto finish;
+        }
+
+        /* 6. And pin it, so that it cannot be unmounted */
+        if (m->pin_cgroupfs_fd >= 0)
+                close_nointr_nofail(m->pin_cgroupfs_fd);
+
+        if ((m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK)) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        log_debug("Created root group.");
+
+finish:
+        free(current);
+        free(path);
 
         return r;
 }
 
-int manager_shutdown_cgroup(Manager *m) {
+void manager_shutdown_cgroup(Manager *m, bool delete) {
         assert(m);
 
-        if (!m->cgroup_hierarchy)
-                return 0;
+        if (delete && m->cgroup_hierarchy)
+                cg_delete(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy);
 
-        return cg_delete(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy);
+        if (m->pin_cgroupfs_fd >= 0) {
+                close_nointr_nofail(m->pin_cgroupfs_fd);
+                m->pin_cgroupfs_fd = -1;
+        }
+
+        free(m->cgroup_hierarchy);
+        m->cgroup_hierarchy = NULL;
 }
 
 int cgroup_notify_empty(Manager *m, const char *group) {

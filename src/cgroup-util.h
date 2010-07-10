@@ -23,8 +23,18 @@
 ***/
 
 #include <sys/types.h>
+#include <stdio.h>
+
+#include "set.h"
+
+#define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
 
 int cg_translate_error(int error, int _errno);
+
+int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
+int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f);
+
+int cg_read_pid(FILE *f, pid_t *_pid);
 
 int cg_kill(const char *controller, const char *path, int sig, bool ignore_self);
 int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self);
@@ -50,5 +60,7 @@ int cg_install_release_agent(const char *controller, const char *agent);
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self);
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self);
+
+int cg_init(void);
 
 #endif

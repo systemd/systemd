@@ -121,6 +121,7 @@
         "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -229,6 +230,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
                 { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
                 { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
+                { "org.freedesktop.systemd1.Manager", "ControlGroupHierarchy", bus_property_append_string, "s", m->cgroup_hierarchy },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

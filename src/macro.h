@@ -108,11 +108,17 @@ static inline size_t ALIGN(size_t l) {
 #define PTR_TO_UINT32(p) ((uint32_t) ((uintptr_t) (p)))
 #define UINT32_TO_PTR(u) ((void*) ((uintptr_t) (u)))
 
+#define PTR_TO_ULONG(p) ((unsigned long) ((uintptr_t) (p)))
+#define ULONG_TO_PTR(u) ((void*) ((uintptr_t) (u)))
+
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define INT_TO_PTR(u) ((void*) ((intptr_t) (u)))
 
 #define TO_INT32(p) ((int32_t) ((intptr_t) (p)))
 #define INT32_TO_PTR(u) ((void*) ((intptr_t) (u)))
+
+#define PTR_TO_LONG(p) ((long) ((intptr_t) (p)))
+#define LONG_TO_PTR(u) ((void*) ((intptr_t) (u)))
 
 #define memzero(x,l) (memset((x), 0, (l)))
 #define zero(x) (memzero(&(x), sizeof(x)))

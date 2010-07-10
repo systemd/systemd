@@ -956,7 +956,6 @@ int mkdir_parents(const char *path, mode_t mode) {
                         return -ENOMEM;
 
                 r = mkdir(t, mode);
-
                 free(t);
 
                 if (r < 0 && errno != EEXIST)
@@ -972,7 +971,7 @@ int mkdir_p(const char *path, mode_t mode) {
         if ((r = mkdir_parents(path, mode)) < 0)
                 return r;
 
-        if (mkdir(path, mode) < 0)
+        if (mkdir(path, mode) < 0 && errno != EEXIST)
                 return -errno;
 
         return 0;

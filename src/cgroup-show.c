@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "macro.h"
+#include "cgroup-util.h"
 #include "cgroup-show.h"
 
 static int compare(const void *a, const void *b) {
@@ -40,8 +41,11 @@ static int compare(const void *a, const void *b) {
 
 static char *get_cgroup_path(const char *name) {
 
-        if (startswith(name, "name=systemd:"))
-                name += 13;
+        if (!name)
+                return strdup("/cgroup/systemd");
+
+        if (startswith(name, SYSTEMD_CGROUP_CONTROLLER ":"))
+                name += sizeof(SYSTEMD_CGROUP_CONTROLLER);
 
         if (path_startswith(name, "/cgroup"))
                 return strdup(name);
@@ -60,14 +64,14 @@ static unsigned ilog10(unsigned long ul) {
         return n;
 }
 
-static int show_cgroup_full(const char *name, const char *prefix, unsigned n_columns, bool more) {
+static int show_cgroup_full(const char *path, const char *prefix, unsigned n_columns, bool more) {
         char *fn;
         FILE *f;
         size_t n = 0, n_allocated = 0;
         pid_t *pids = NULL;
         char *p;
+        pid_t pid, biggest = 0;
         int r;
-        unsigned long biggest = 0;
 
         if (n_columns <= 0)
                 n_columns = columns();
@@ -75,7 +79,7 @@ static int show_cgroup_full(const char *name, const char *prefix, unsigned n_col
         if (!prefix)
                 prefix = "";
 
-        if (!(p = get_cgroup_path(name)))
+        if (!(p = get_cgroup_path(path)))
                 return -ENOMEM;
 
         r = asprintf(&fn, "%s/cgroup.procs", p);
@@ -90,14 +94,7 @@ static int show_cgroup_full(const char *name, const char *prefix, unsigned n_col
         if (!f)
                 return -errno;
 
-        while (!feof(f)) {
-                unsigned long ul;
-
-                if (fscanf(f, "%lu", &ul) != 1)
-                        break;
-
-                if (ul <= 0)
-                        continue;
+        while ((r = cg_read_pid(f, &pid)) > 0) {
 
                 if (n >= n_allocated) {
                         pid_t *npids;
@@ -113,11 +110,14 @@ static int show_cgroup_full(const char *name, const char *prefix, unsigned n_col
                 }
 
                 assert(n < n_allocated);
-                pids[n++] = (pid_t) ul;
+                pids[n++] = pid;
 
-                if (ul > biggest)
-                        biggest = ul;
+                if (pid > biggest)
+                        biggest = pid;
         }
+
+        if (r < 0)
+                goto finish;
 
         if (n > 0) {
                 unsigned i, m;
@@ -171,11 +171,11 @@ finish:
         return r;
 }
 
-int show_cgroup(const char *name, const char *prefix, unsigned n_columns) {
-        return show_cgroup_full(name, prefix, n_columns, false);
+int show_cgroup(const char *path, const char *prefix, unsigned n_columns) {
+        return show_cgroup_full(path, prefix, n_columns, false);
 }
 
-int show_cgroup_recursive(const char *name, const char *prefix, unsigned n_columns) {
+int show_cgroup_recursive(const char *path, const char *prefix, unsigned n_columns) {
         DIR *d;
         char *last = NULL;
         char *p1 = NULL, *p2 = NULL, *fn = NULL;
@@ -183,15 +183,13 @@ int show_cgroup_recursive(const char *name, const char *prefix, unsigned n_colum
         bool shown_pids = false;
         int r;
 
-        assert(name);
-
         if (n_columns <= 0)
                 n_columns = columns();
 
         if (!prefix)
                 prefix = "";
 
-        if (!(fn = get_cgroup_path(name)))
+        if (!(fn = get_cgroup_path(path)))
                 return -ENOMEM;
 
         if (!(d = opendir(fn))) {
@@ -208,7 +206,7 @@ int show_cgroup_recursive(const char *name, const char *prefix, unsigned n_colum
                         continue;
 
                 if (!shown_pids) {
-                        show_cgroup_full(name, prefix, n_columns, true);
+                        show_cgroup_full(path, prefix, n_columns, true);
                         shown_pids = true;
                 }
 
@@ -227,14 +225,14 @@ int show_cgroup_recursive(const char *name, const char *prefix, unsigned n_colum
                         last = NULL;
                 }
 
-                if (asprintf(&last, "%s/%s", name, de->d_name) < 0) {
+                if (asprintf(&last, "%s/%s", strempty(path), de->d_name) < 0) {
                         r = -ENOMEM;
                         goto finish;
                 }
         }
 
         if (!shown_pids)
-                show_cgroup_full(name, prefix, n_columns, !!last);
+                show_cgroup_full(path, prefix, n_columns, !!last);
 
         if (last) {
                 printf("%s\342\224\224 %s\n", prefix, file_name_from_path(last));

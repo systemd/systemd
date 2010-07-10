@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "cgroup-show.h"
+#include "cgroup-util.h"
 #include "log.h"
 #include "util.h"
 
@@ -82,6 +83,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (cg_init() < 0) {
+                log_error("Failed to initialize libcg: %s", strerror(-r));
+                goto finish;
+        }
+
         if (optind < argc) {
                 unsigned i;
 
@@ -105,7 +111,7 @@ int main(int argc, char *argv[]) {
                         printf("Working Directory %s:\n", p);
                         r = show_cgroup_recursive(p, NULL, 0);
                 } else
-                        r = show_cgroup_recursive("", NULL, 0);
+                        r = show_cgroup_recursive(NULL, NULL, 0);
 
                 free(p);
         }

@@ -22,8 +22,6 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <libcgroup.h>
-
 #include "cgroup-util.h"
 #include "util.h"
 #include "log.h"
@@ -31,54 +29,54 @@
 int main(int argc, char*argv[]) {
         char *path;
 
-        assert_se(cgroup_init() == 0);
+        assert_se(cg_init() >= 0);
 
-        assert_se(cg_create("name=systemd", "/test-a") == 0);
-        assert_se(cg_create("name=systemd", "/test-a") == 0);
-        assert_se(cg_create("name=systemd", "/test-b") == 0);
-        assert_se(cg_create("name=systemd", "/test-b/test-c") == 0);
-        assert_se(cg_create_and_attach("name=systemd", "/test-b", 0) == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b") == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-c") == 0);
+        assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0) == 0);
 
-        assert_se(cg_get_by_pid("name=systemd", getpid(), &path) == 0);
+        assert_se(cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, getpid(), &path) == 0);
         assert_se(streq(path, "/test-b"));
         free(path);
 
-        assert_se(cg_attach("name=systemd", "/test-a", 0) == 0);
+        assert_se(cg_attach(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0) == 0);
 
-        assert_se(cg_get_by_pid("name=systemd", getpid(), &path) == 0);
+        assert_se(cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, getpid(), &path) == 0);
         assert_se(path_equal(path, "/test-a"));
         free(path);
 
-        assert_se(cg_create_and_attach("name=systemd", "/test-b/test-d", 0) == 0);
+        assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-d", 0) == 0);
 
-        assert_se(cg_get_by_pid("name=systemd", getpid(), &path) == 0);
+        assert_se(cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, getpid(), &path) == 0);
         assert_se(path_equal(path, "/test-b/test-d"));
         free(path);
 
-        assert_se(cg_get_path("name=systemd", "/test-b/test-d", NULL, &path) == 0);
+        assert_se(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-d", NULL, &path) == 0);
         assert_se(path_equal(path, "/cgroup/systemd/test-b/test-d"));
         free(path);
 
-        assert_se(cg_is_empty("name=systemd", "/test-a", false) > 0);
-        assert_se(cg_is_empty("name=systemd", "/test-b", false) > 0);
-        assert_se(cg_is_empty_recursive("name=systemd", "/test-a", false) > 0);
-        assert_se(cg_is_empty_recursive("name=systemd", "/test-b", false) == 0);
+        assert_se(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, "/test-a", false) > 0);
+        assert_se(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, "/test-b", false) > 0);
+        assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", false) > 0);
+        assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", false) == 0);
 
-        assert_se(cg_kill_recursive("name=systemd", "/test-a", 0, false) == 0);
-        assert_se(cg_kill_recursive("name=systemd", "/test-b", 0, false) > 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false) == 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false) > 0);
 
-        assert_se(cg_migrate_recursive("name=systemd", "/test-b", "/test-a", false) == 0);
+        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", "/test-a", false) == 0);
 
-        assert_se(cg_is_empty_recursive("name=systemd", "/test-a", false) == 0);
-        assert_se(cg_is_empty_recursive("name=systemd", "/test-b", false) > 0);
+        assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", false) == 0);
+        assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", false) > 0);
 
-        assert_se(cg_kill_recursive("name=systemd", "/test-a", 0, false) > 0);
-        assert_se(cg_kill_recursive("name=systemd", "/test-b", 0, false) == 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false) > 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false) == 0);
 
-        cg_trim("name=systemd", "/", false);
+        cg_trim(SYSTEMD_CGROUP_CONTROLLER, "/", false);
 
-        assert_se(cg_delete("name=systemd", "/test-b") < 0);
-        assert_se(cg_delete("name=systemd", "/test-a") == 0);
+        assert_se(cg_delete(SYSTEMD_CGROUP_CONTROLLER, "/test-b") < 0);
+        assert_se(cg_delete(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
 
         return 0;
 }

@@ -483,15 +483,18 @@ systemctl_SOURCES = \
 	src/systemctl.c \
 	src/utmp-wtmp.c \
 	src/dbus-common.c \
-	src/cgroup-show.c
+	src/cgroup-show.c \
+	src/cgroup-util.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(DBUS_CFLAGS) \
+	$(CGROUP_CLAGS)
 
 systemctl_LDADD = \
 	libsystemd-basic.la \
-	$(DBUS_LIBS)
+	$(DBUS_LIBS) \
+	$(CGROUP_LIBS)
 
 systemd_notify_SOURCES = \
 	src/notify.c \
@@ -516,13 +519,16 @@ systemd_install_CFLAGS = \
 
 systemd_cgls_SOURCES = \
 	src/systemd-cgls.c \
-	src/cgroup-show.c
-
-systemd_cgls_LDADD = \
-	libsystemd-basic.la
+	src/cgroup-show.c \
+	src/cgroup-util.c
 
 systemd_cgls_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+	$(CGROUP_CLAGS)
+
+systemd_cgls_LDADD = \
+	libsystemd-basic.la \
+	$(CGROUP_LIBS)
 
 systemadm_SOURCES = \
 	src/systemadm.vala \

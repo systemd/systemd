@@ -33,6 +33,15 @@
 #include "macro.h"
 #include "util.h"
 
+/*
+   Currently, the only remaining functionality from libcgroup we call
+   here is:
+
+   - cgroup_get_subsys_mount_point()
+   - cgroup_walk_tree_begin()/cgroup_walk_tree_next()
+   - cgroup_delete_cgroup_ext()
+ */
+
 int cg_translate_error(int error, int _errno) {
 
         switch (error) {
@@ -73,11 +82,78 @@ static struct cgroup* cg_new(const char *controller, const char *path) {
         return cgroup;
 }
 
+int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
+        char *fs;
+        int r;
+        FILE *f;
+
+        assert(controller);
+        assert(path);
+        assert(_f);
+
+        if ((r = cg_get_path(controller, path, "cgroup.procs", &fs)) < 0)
+                return r;
+
+        f = fopen(fs, "re");
+        free(fs);
+
+        if (!f)
+                return -errno;
+
+        *_f = f;
+        return 0;
+}
+
+int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f) {
+        char *fs;
+        int r;
+        FILE *f;
+
+        assert(controller);
+        assert(path);
+        assert(_f);
+
+        if ((r = cg_get_path(controller, path, "tasks", &fs)) < 0)
+                return r;
+
+        f = fopen(fs, "re");
+        free(fs);
+
+        if (!f)
+                return -errno;
+
+        *_f = f;
+        return 0;
+}
+
+int cg_read_pid(FILE *f, pid_t *_pid) {
+        unsigned long ul;
+
+        /* Note that the cgroup.procs might contain duplicates! See
+         * cgroups.txt for details. */
+
+        errno = 0;
+        if (fscanf(f, "%lu", &ul) != 1) {
+
+                if (feof(f))
+                        return 0;
+
+                return errno ? -errno : -EIO;
+        }
+
+        if (ul <= 0)
+                return -EIO;
+
+        *_pid = (pid_t) ul;
+        return 1;
+}
+
 int cg_kill(const char *controller, const char *path, int sig, bool ignore_self) {
         bool killed = false, done = false;
         Set *s;
         pid_t my_pid;
         int r, ret = 0;
+        FILE *f = NULL;
 
         assert(controller);
         assert(path);
@@ -93,23 +169,22 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
         my_pid = getpid();
 
         do {
-                void *iterator = NULL;
-                pid_t pid = 0;
-
+                pid_t pid;
                 done = true;
 
-                r = cgroup_get_task_begin(path, controller, &iterator, &pid);
-                while (r == 0) {
+                if ((r = cg_enumerate_processes(controller, path, &f)) < 0)
+                        goto finish;
+
+                while ((r = cg_read_pid(f, &pid)) > 0) {
 
                         if (pid == my_pid && ignore_self)
-                                goto next;
+                                continue;
 
-                        if (set_get(s, INT_TO_PTR(pid)) == INT_TO_PTR(pid))
-                                goto next;
+                        if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
+                                continue;
 
                         /* If we haven't killed this process yet, kill
                          * it */
-
                         if (kill(pid, sig) < 0 && errno != ESRCH) {
                                 if (ret == 0)
                                         ret = -errno;
@@ -118,22 +193,12 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
                         killed = true;
                         done = false;
 
-                        if ((r = set_put(s, INT_TO_PTR(pid))) < 0)
-                                goto loop_exit;
-
-                next:
-                        r = cgroup_get_task_next(&iterator, &pid);
+                        if ((r = set_put(s, LONG_TO_PTR(pid))) < 0)
+                                break;
                 }
 
-                if (r == 0 || r == ECGEOF)
-                        r = 0;
-                else if (r == ECGOTHER && errno == ENOENT)
-                        r = -ESRCH;
-                else
-                        r = cg_translate_error(r, errno);
-
-        loop_exit:
-                assert_se(cgroup_get_task_end(&iterator) == 0);
+                fclose(f);
+                f = NULL;
 
                 /* To avoid racing against processes which fork
                  * quicker than we can kill them we repeat this until
@@ -141,13 +206,17 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
 
         } while (!done && r >= 0);
 
+finish:
         set_free(s);
 
-        if (ret < 0)
-                return ret;
+        if (f)
+                fclose(f);
 
         if (r < 0)
                 return r;
+
+        if (ret < 0)
+                return ret;
 
         return !!killed;
 }
@@ -237,62 +306,52 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path) {
 
 int cg_migrate(const char *controller, const char *from, const char *to, bool ignore_self) {
         bool migrated = false, done = false;
-        struct cgroup *dest;
         int r, ret = 0;
         pid_t my_pid;
+        FILE *f = NULL;
 
         assert(controller);
         assert(from);
         assert(to);
 
-        if (!(dest = cg_new(controller, to)))
-                return -ENOMEM;
-
         my_pid = getpid();
 
         do {
-                void *iterator = NULL;
-                pid_t pid = 0;
-
+                pid_t pid;
                 done = true;
 
-                r = cgroup_get_task_begin(from, controller, &iterator, &pid);
-                while (r == 0) {
+                if ((r = cg_enumerate_tasks(controller, from, &f)) < 0)
+                        goto finish;
+
+                while ((r = cg_read_pid(f, &pid)) > 0) {
 
                         if (pid == my_pid && ignore_self)
-                                goto next;
+                                continue;
 
-                        if ((r = cgroup_attach_task_pid(dest, pid)) != 0) {
+                        if ((r = cg_attach(controller, to, pid)) < 0) {
                                 if (ret == 0)
-                                        r = cg_translate_error(r, errno);
+                                        ret = -r;
                         }
 
                         migrated = true;
                         done = false;
-
-                next:
-
-                        r = cgroup_get_task_next(&iterator, &pid);
                 }
 
-                if (r == 0 || r == ECGEOF)
-                        r = 0;
-                else if (r == ECGOTHER && errno == ENOENT)
-                        r = -ESRCH;
-                else
-                        r = cg_translate_error(r, errno);
-
-                assert_se(cgroup_get_task_end(&iterator) == 0);
+                fclose(f);
+                f = NULL;
 
         } while (!done && r >= 0);
 
-        cgroup_free(&dest);
+finish:
 
-        if (ret < 0)
-                return ret;
+        if (f)
+                fclose(f);
 
         if (r < 0)
                 return r;
+
+        if (ret < 0)
+                return ret;
 
         return !!migrated;
 }
@@ -354,18 +413,24 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         int r;
 
         assert(controller);
-        assert(path);
 
         if ((r = cgroup_get_subsys_mount_point(controller, &mp)) != 0)
                 return cg_translate_error(r, errno);
 
-        if (suffix)
+        if (path && suffix)
                 r = asprintf(fs, "%s/%s/%s", mp, path, suffix);
-        else
+        else if (path)
                 r = asprintf(fs, "%s/%s", mp, path);
+        else if (suffix)
+                r = asprintf(fs, "%s/%s", mp, suffix);
+        else {
+                path_kill_slashes(mp);
+                *fs = mp;
+                return 0;
+        }
 
         free(mp);
-
+        path_kill_slashes(*fs);
         return r < 0 ? -ENOMEM : 0;
 }
 
@@ -409,83 +474,59 @@ finish:
 }
 
 int cg_create(const char *controller, const char *path) {
-        struct cgroup *cg;
+        char *fs;
         int r;
 
         assert(controller);
         assert(path);
 
-        if (!(cg = cg_new(controller, path)))
-                return -ENOMEM;
+        if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
+                return r;
 
-        if ((r = cgroup_create_cgroup(cg, 1)) != 0) {
-                r = cg_translate_error(r, errno);
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
-        cgroup_free(&cg);
+        r = mkdir_p(fs, 0755);
+        free(fs);
 
         return r;
 }
 
 int cg_attach(const char *controller, const char *path, pid_t pid) {
-        struct cgroup *cg;
+        char *fs;
         int r;
+        char c[32];
 
         assert(controller);
         assert(path);
         assert(pid >= 0);
 
-        if (!(cg = cg_new(controller, path)))
-                return -ENOMEM;
+        if ((r = cg_get_path(controller, path, "tasks", &fs)) < 0)
+                return r;
 
         if (pid == 0)
                 pid = getpid();
 
-        if ((r = cgroup_attach_task_pid(cg, pid))) {
-                r = cg_translate_error(r, errno);
-                goto finish;
-        }
+        snprintf(c, sizeof(c), "%lu\n", (unsigned long) pid);
+        char_array_0(c);
 
-        r = 0;
-
-finish:
-        cgroup_free(&cg);
+        r = write_one_line_file(fs, c);
+        free(fs);
 
         return r;
 }
 
 int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
-        struct cgroup *cg;
         int r;
 
         assert(controller);
         assert(path);
         assert(pid >= 0);
 
-        if (!(cg = cg_new(controller, path)))
-                return -ENOMEM;
+        if ((r = cg_create(controller, path)) < 0)
+                return r;
 
-        if ((r = cgroup_create_cgroup(cg, 1)) != 0) {
-                r = cg_translate_error(r, errno);
-                goto finish;
-        }
+        if ((r = cg_attach(controller, path, pid)) < 0)
+                return r;
 
-        if (pid == 0)
-                pid = getpid();
-
-        if ((r = cgroup_attach_task_pid(cg, pid))) {
-                r = cg_translate_error(r, errno);
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
-        cgroup_free(&cg);
+        /* This does not remove the cgroup on failure */
 
         return r;
 }
@@ -525,40 +566,82 @@ int cg_set_task_access(const char *controller, const char *path, mode_t mode, ui
 int cg_get_by_pid(const char *controller, pid_t pid, char **path) {
         int r;
         char *p = NULL;
+        FILE *f;
+        char *fs;
+        size_t cs;
 
         assert(controller);
-        assert(pid > 0);
         assert(path);
+        assert(pid >= 0);
 
-        if ((r = cgroup_get_current_controller_path(pid, controller, &p)) != 0)
-                return cg_translate_error(r, errno);
+        if (pid == 0)
+                pid = getpid();
 
-        assert(p);
+        if (asprintf(&fs, "/proc/%lu/cgroup", (unsigned long) pid) < 0)
+                return -ENOMEM;
 
-        *path = p;
-        return 0;
+        f = fopen(fs, "re");
+        free(fs);
+
+        cs = strlen(controller);
+
+        while (!feof(f)) {
+                char line[LINE_MAX];
+                char *l;
+
+                errno = 0;
+                if (!(fgets(line, sizeof(line), f))) {
+                        if (feof(f))
+                                break;
+
+                        r = errno ? -errno : -EIO;
+                        goto finish;
+                }
+
+                truncate_nl(line);
+
+                if (!(l = strchr(line, ':')))
+                        continue;
+
+                l++;
+                if (strncmp(l, controller, cs) != 0)
+                        continue;
+
+                if (l[cs] != ':')
+                        continue;
+
+                if (!(p = strdup(l + cs + 1))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                *path = p;
+                r = 0;
+                goto finish;
+        }
+
+        r = -ENOENT;
+
+finish:
+        fclose(f);
+
+        return r;
 }
 
 int cg_install_release_agent(const char *controller, const char *agent) {
-        char *mp = NULL, *path = NULL, *contents = NULL, *line = NULL, *sc;
+        char *fs = NULL, *contents = NULL, *line = NULL, *sc;
         int r;
 
         assert(controller);
         assert(agent);
 
-        if ((r = cgroup_get_subsys_mount_point(controller, &mp)) != 0)
-                return cg_translate_error(r, errno);
+        if ((r = cg_get_path(controller, NULL, "release_agent", &fs)) < 0)
+                return r;
 
-        if (asprintf(&path, "%s/release_agent", mp) < 0) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if ((r = read_one_line_file(path, &contents)) < 0)
+        if ((r = read_one_line_file(fs, &contents)) < 0)
                 goto finish;
 
         sc = strstrip(contents);
-
         if (sc[0] == 0) {
 
                 if (asprintf(&line, "%s\n", agent) < 0) {
@@ -566,7 +649,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
                         goto finish;
                 }
 
-                if ((r = write_one_line_file(path, line)) < 0)
+                if ((r = write_one_line_file(fs, line)) < 0)
                         goto finish;
 
         } else if (!streq(sc, agent)) {
@@ -574,33 +657,33 @@ int cg_install_release_agent(const char *controller, const char *agent) {
                 goto finish;
         }
 
-        free(path);
-        path = NULL;
-        if (asprintf(&path, "%s/notify_on_release", mp) < 0) {
+        free(fs);
+        fs = NULL;
+        if ((r = cg_get_path(controller, NULL, "notify_on_release", &fs)) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
 
         free(contents);
         contents = NULL;
-        if ((r = read_one_line_file(path, &contents)) < 0)
+        if ((r = read_one_line_file(fs, &contents)) < 0)
                 goto finish;
 
         sc = strstrip(contents);
 
         if (streq(sc, "0")) {
-                if ((r = write_one_line_file(path, "1\n")) < 0)
+                if ((r = write_one_line_file(fs, "1\n")) < 0)
                         goto finish;
+
+                r = 1;
         } else if (!streq(sc, "1")) {
                 r = -EIO;
                 goto finish;
-        }
-
-        r = 0;
+        } else
+                r = 0;
 
 finish:
-        free(mp);
-        free(path);
+        free(fs);
         free(contents);
         free(line);
 
@@ -608,36 +691,32 @@ finish:
 }
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
-        void *iterator = NULL;
-        pid_t pid = 0;
+        pid_t pid;
         int r;
+        FILE *f;
+        bool found = false;
 
         assert(controller);
         assert(path);
 
-        r = cgroup_get_task_begin(path, controller, &iterator, &pid);
-        while (r == 0) {
+        if ((r = cg_enumerate_tasks(controller, path, &f)) < 0)
+                return r;
 
-                if (ignore_self&& pid == getpid())
-                        goto next;
+        while ((r = cg_read_pid(f, &pid)) > 0) {
 
+                if (ignore_self && pid == getpid())
+                        continue;
+
+                found = true;
                 break;
-
-        next:
-                r = cgroup_get_task_next(&iterator, &pid);
         }
 
+        fclose(f);
 
-        if (r == ECGEOF)
-                r = 1;
-        else if (r != 0)
-                r = cg_translate_error(r, errno);
-        else
-                r = 0;
+        if (r < 0)
+                return r;
 
-        assert_se(cgroup_get_task_end(&iterator) == 0);
-
-        return r;
+        return !found;
 }
 
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
@@ -691,4 +770,13 @@ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_
         assert_se(cgroup_walk_tree_end(&iterator) == 0);
 
         return ret;
+}
+
+int cg_init(void) {
+        int r;
+
+        if ((r = cgroup_init()) != 0)
+                return cg_translate_error(r, errno);
+
+        return 0;
 }
