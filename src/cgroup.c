@@ -101,6 +101,20 @@ void cgroup_bonding_free_list(CGroupBonding *first) {
                 cgroup_bonding_free(b);
 }
 
+void cgroup_bonding_trim(CGroupBonding *b, bool delete_root) {
+        assert(b);
+
+        if (b->realized && b->only_us && b->clean_up)
+                cg_trim(b->controller, b->path, delete_root);
+}
+
+void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root) {
+        CGroupBonding *b;
+
+        LIST_FOREACH(by_unit, b, first)
+                cgroup_bonding_trim(b, delete_root);
+}
+
 int cgroup_bonding_install(CGroupBonding *b, pid_t pid) {
         int r;
 

@@ -61,6 +61,9 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid);
 int cgroup_bonding_kill(CGroupBonding *b, int sig);
 int cgroup_bonding_kill_list(CGroupBonding *first, int sig);
 
+void cgroup_bonding_trim(CGroupBonding *first, bool delete_root);
+void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root);
+
 int cgroup_bonding_is_empty(CGroupBonding *b);
 int cgroup_bonding_is_empty_list(CGroupBonding *first);
 

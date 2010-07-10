@@ -973,6 +973,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         if (ns != os && ns == UNIT_MAINTENANCE)
                 log_notice("Unit %s entered maintenance state.", u->meta.id);
 
+        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+                cgroup_bonding_trim_list(u->meta.cgroup_bondings, true);
+
         timer_unit_notify(u, ns);
         path_unit_notify(u, ns);
 
