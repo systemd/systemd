@@ -26,6 +26,8 @@ typedef struct CGroupBonding CGroupBonding;
 
 #include "unit.h"
 
+#define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
+
 /* Binds a cgroup to a name */
 struct CGroupBonding {
         char *controller;

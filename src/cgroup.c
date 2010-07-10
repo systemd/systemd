@@ -222,18 +222,14 @@ int manager_setup_cgroup(Manager *m) {
                 return cg_translate_error(r, errno);
         }
 
-        free(m->cgroup_controller);
-        if (!(m->cgroup_controller = strdup("name=systemd")))
-                return -ENOMEM;
-
         free(m->cgroup_mount_point);
         m->cgroup_mount_point = NULL;
-        if ((r = cgroup_get_subsys_mount_point(m->cgroup_controller, &m->cgroup_mount_point)))
+        if ((r = cgroup_get_subsys_mount_point(SYSTEMD_CGROUP_CONTROLLER, &m->cgroup_mount_point)))
                 return cg_translate_error(r, errno);
 
         pid = getpid();
 
-        if ((r = cgroup_get_current_controller_path(pid, m->cgroup_controller, &cp)))
+        if ((r = cgroup_get_current_controller_path(pid, SYSTEMD_CGROUP_CONTROLLER, &cp)))
                 return cg_translate_error(r, errno);
 
         snprintf(suffix, sizeof(suffix), "/systemd-%u", (unsigned) pid);
@@ -255,17 +251,16 @@ int manager_setup_cgroup(Manager *m) {
                         return -ENOMEM;
         }
 
-        log_debug("Using cgroup controller <%s>, hierarchy mounted at <%s>, using root group <%s>.",
-                  m->cgroup_controller,
+        log_debug("Using cgroup controller <" SYSTEMD_CGROUP_CONTROLLER ">, hierarchy mounted at <%s>, using root group <%s>.",
                   m->cgroup_mount_point,
                   m->cgroup_hierarchy);
 
-        if ((r = cg_install_release_agent(m->cgroup_controller, CGROUP_AGENT_PATH)) < 0)
+        if ((r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, CGROUP_AGENT_PATH)) < 0)
                 log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
         else
                 log_debug("Installed release agent, or already installed.");
 
-        if ((r = cg_create_and_attach(m->cgroup_controller, m->cgroup_hierarchy, 0)) < 0)
+        if ((r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, 0)) < 0)
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
         else
                 log_debug("Created root group.");
@@ -276,10 +271,10 @@ int manager_setup_cgroup(Manager *m) {
 int manager_shutdown_cgroup(Manager *m) {
         assert(m);
 
-        if (!m->cgroup_controller || !m->cgroup_hierarchy)
+        if (!m->cgroup_hierarchy)
                 return 0;
 
-        return cg_delete(m->cgroup_controller, m->cgroup_hierarchy);
+        return cg_delete(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy);
 }
 
 int cgroup_notify_empty(Manager *m, const char *group) {
@@ -324,7 +319,7 @@ Unit* cgroup_unit_by_pid(Manager *m, pid_t pid) {
         if (pid <= 1)
                 return NULL;
 
-        if ((r = cg_get_by_pid(m->cgroup_controller, pid, &group)))
+        if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &group)))
                 return NULL;
 
         l = hashmap_get(m->cgroup_bondings, group);

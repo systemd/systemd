@@ -1598,7 +1598,7 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         if (n > 0)
                 controller = strndup(name, n);
         else
-                controller = strdup(u->meta.manager->cgroup_controller);
+                controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
 
         if (!controller) {
                 r = -ENOMEM;
@@ -1647,7 +1647,7 @@ int unit_add_default_cgroup(Unit *u) {
         if (!(b = new0(CGroupBonding, 1)))
                 return -ENOMEM;
 
-        if (!(b->controller = strdup(u->meta.manager->cgroup_controller)))
+        if (!(b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER)))
                 goto fail;
 
         if (!(b->path = default_cgroup_path(u)))
@@ -1672,7 +1672,7 @@ fail:
 CGroupBonding* unit_get_default_cgroup(Unit *u) {
         assert(u);
 
-        return cgroup_bonding_find_list(u->meta.cgroup_bondings, u->meta.manager->cgroup_controller);
+        return cgroup_bonding_find_list(u->meta.cgroup_bondings, SYSTEMD_CGROUP_CONTROLLER);
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {

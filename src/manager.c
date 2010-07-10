@@ -443,7 +443,6 @@ void manager_free(Manager *m) {
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
 
-        free(m->cgroup_controller);
         free(m->cgroup_hierarchy);
         free(m->cgroup_mount_point);
 

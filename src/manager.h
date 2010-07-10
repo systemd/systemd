@@ -171,7 +171,6 @@ struct Manager {
 
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
-        char *cgroup_controller;
         char *cgroup_mount_point;
         char *cgroup_hierarchy;
 
