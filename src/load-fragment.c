@@ -1690,7 +1690,13 @@ static int load_from_path(Unit *u, const char *path) {
                                 goto finish;
                         }
 
-                        if ((r = open_follow(&filename, &f, symlink_names, &id)) < 0) {
+                        if (u->meta.manager->unit_path_cache &&
+                            !set_get(u->meta.manager->unit_path_cache, filename))
+                                r = -ENOENT;
+                        else
+                                r = open_follow(&filename, &f, symlink_names, &id);
+
+                        if (r < 0) {
                                 char *sn;
 
                                 free(filename);

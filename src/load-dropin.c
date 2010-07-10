@@ -84,7 +84,11 @@ int unit_load_dropin(Unit *u) {
                         if (asprintf(&path, "%s/%s.wants", *p, t) < 0)
                                 return -ENOMEM;
 
-                        r = iterate_dir(u, path);
+                        if (u->meta.manager->unit_path_cache &&
+                            !set_get(u->meta.manager->unit_path_cache, path))
+                                r = 0;
+                        else
+                                r = iterate_dir(u, path);
                         free(path);
 
                         if (r < 0)
@@ -103,7 +107,11 @@ int unit_load_dropin(Unit *u) {
                                 if (r < 0)
                                         return -ENOMEM;
 
-                                r = iterate_dir(u, path);
+                                if (u->meta.manager->unit_path_cache &&
+                                    !set_get(u->meta.manager->unit_path_cache, path))
+                                        r = 0;
+                                else
+                                        r = iterate_dir(u, path);
                                 free(path);
 
                                 if (r < 0)

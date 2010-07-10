@@ -134,6 +134,7 @@ struct Manager {
         unsigned n_snapshots;
 
         LookupPaths lookup_paths;
+        Set *unit_path_cache;
 
         char **environment;
 

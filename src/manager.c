@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -478,10 +479,70 @@ int manager_coldplug(Manager *m) {
         return r;
 }
 
+static void manager_build_unit_path_cache(Manager *m) {
+        char **i;
+        DIR *d = NULL;
+        int r;
+
+        assert(m);
+
+        set_free_free(m->unit_path_cache);
+
+        if (!(m->unit_path_cache = set_new(string_hash_func, string_compare_func))) {
+                log_error("Failed to allocate unit path cache.");
+                return;
+        }
+
+        /* This simply builds a list of files we know exist, so that
+         * we don't always have to go to disk */
+
+        STRV_FOREACH(i, m->lookup_paths.unit_path) {
+                struct dirent *de;
+
+                if (!(d = opendir(*i))) {
+                        log_error("Failed to open directory: %m");
+                        continue;
+                }
+
+                while ((de = readdir(d))) {
+                        char *p;
+
+                        if (ignore_file(de->d_name))
+                                continue;
+
+                        if (asprintf(&p, "%s/%s", streq(*i, "/") ? "" : *i, de->d_name) < 0) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        if ((r = set_put(m->unit_path_cache, p)) < 0) {
+                                free(p);
+                                goto fail;
+                        }
+                }
+
+                closedir(d);
+                d = NULL;
+        }
+
+        return;
+
+fail:
+        log_error("Failed to build unit path cache: %s", strerror(-r));
+
+        set_free_free(m->unit_path_cache);
+        m->unit_path_cache = NULL;
+
+        if (d)
+                closedir(d);
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r, q;
 
         assert(m);
+
+        manager_build_unit_path_cache(m);
 
         /* First, enumerate what we can from all config files */
         r = manager_enumerate(m);
@@ -1992,6 +2053,10 @@ int manager_loop(Manager *m) {
 
         assert(m);
         m->exit_code = MANAGER_RUNNING;
+
+        /* Release the path cache */
+        set_free_free(m->unit_path_cache);
+        m->unit_path_cache = NULL;
 
         /* There might still be some zombies hanging around from
          * before we were exec()'ed. Leat's reap them */
