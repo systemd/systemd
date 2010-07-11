@@ -49,7 +49,9 @@ SUBSYSTEM=="dvb", GROUP="video"
 
 # FireWire (firewire-core driver: IIDC devices, AV/C devices)
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*", GROUP="video"
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*", GROUP="video"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", GROUP="video"
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
 
 # FireWire (deprecated dv1394 and video1394 drivers)
 KERNEL=="dv1394-[0-9]*",	NAME="dv1394/%n", GROUP="video"
