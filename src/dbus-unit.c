@@ -371,10 +371,11 @@ void bus_unit_send_change_signal(Unit *u) {
         DBusMessage *m = NULL;
 
         assert(u);
-        assert(u->meta.in_dbus_queue);
 
-        LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
-        u->meta.in_dbus_queue = false;
+        if (u->meta.in_dbus_queue) {
+                LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
+                u->meta.in_dbus_queue = false;
+        }
 
         if (!bus_has_subscriber(u->meta.manager)) {
                 u->meta.sent_dbus_new_signal = true;
