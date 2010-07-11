@@ -232,7 +232,7 @@ static void server_done(Server *s) {
                 close_nointr_nofail(s->epoll_fd);
 
         if (s->bus) {
-               dbus_connection_set_exit_on_disconnect(s->bus, FALSE);
+               dbus_connection_close(s->bus);
                dbus_connection_unref(s->bus);
         }
 }
@@ -297,12 +297,8 @@ static int server_init(Server *s, unsigned n_sockets) {
                 s->n_fifos ++;
         }
 
-        if (!(s->bus = dbus_connection_open("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
+        if (bus_connect(DBUS_BUS_SYSTEM, &s->bus, NULL, &error) < 0) {
                 log_error("Failed to get D-Bus connection: %s", error.message);
-                goto fail;
-        }
-        if ((r = bus_check_peercred(s->bus)) < 0) {
-                log_error("Bus connection failed peer credential check: %s", strerror(-r));
                 goto fail;
         }
 

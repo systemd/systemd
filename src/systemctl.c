@@ -3056,7 +3056,7 @@ static int talk_upstart(void) {
         if (utmp_get_runlevel(&previous, NULL) < 0)
                 previous = 'N';
 
-        if (!(bus = dbus_connection_open("unix:abstract=/com/ubuntu/upstart", &error))) {
+        if (!(bus = dbus_connection_open_private("unix:abstract=/com/ubuntu/upstart", &error))) {
                 if (dbus_error_has_name(&error, DBUS_ERROR_NO_SERVER)) {
                         r = 0;
                         goto finish;
@@ -3120,8 +3120,10 @@ finish:
         if (reply)
                 dbus_message_unref(reply);
 
-        if (bus)
+        if (bus) {
+                dbus_connection_close(bus);
                 dbus_connection_unref(bus);
+        }
 
         dbus_error_free(&error);
 
@@ -3444,8 +3446,10 @@ int main(int argc, char*argv[]) {
 
 finish:
 
-        if (bus)
+        if (bus) {
+                dbus_connection_close(bus);
                 dbus_connection_unref(bus);
+        }
 
         dbus_error_free(&error);
 

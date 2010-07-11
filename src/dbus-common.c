@@ -62,7 +62,7 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
         /* If we are root, then let's not go via the bus */
         if (geteuid() == 0 && t == DBUS_BUS_SYSTEM) {
 
-                if (!(bus = dbus_connection_open("unix:abstract=/org/freedesktop/systemd1/private", error)))
+                if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", error)))
                         return -EIO;
 
                 if (bus_check_peercred(bus) < 0) {
