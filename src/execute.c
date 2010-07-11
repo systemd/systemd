@@ -171,7 +171,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
         sa.sa.sa_family = AF_UNIX;
         strncpy(sa.un.sun_path+1, LOGGER_SOCKET, sizeof(sa.un.sun_path)-1);
 
-        if (connect(fd, &sa.sa, sizeof(sa)) < 0) {
+        if (connect(fd, &sa.sa, sizeof(sa_family_t) + 1 + sizeof(LOGGER_SOCKET) - 1) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
