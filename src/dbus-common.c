@@ -76,7 +76,7 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
                         *private = true;
 
         } else {
-                if (!(bus = dbus_bus_get(t, error)))
+                if (!(bus = dbus_bus_get_private(t, error)))
                         return -EIO;
 
                 if (private)

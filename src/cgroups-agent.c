@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (!(bus = dbus_bus_get(DBUS_BUS_SYSTEM, &error))) {
+        if (!(bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error))) {
                 log_error("Failed to get D-Bus connection: %s", error.message);
                 goto finish;
         }
@@ -61,8 +61,10 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 finish:
-        if (bus)
+        if (bus) {
+                dbus_connection_close(bus);
                 dbus_connection_unref(bus);
+        }
 
         if (m)
                 dbus_message_unref(m);
