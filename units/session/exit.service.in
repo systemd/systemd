@@ -1,7 +1,7 @@
 [Unit]
 Description=Exit
 DefaultDependencies=no
-Wants=shutdown.target
+Requires=shutdown.target
 After=shutdown.target
 
 [Service]

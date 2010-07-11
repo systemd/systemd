@@ -10,7 +10,7 @@
 [Unit]
 Description=Emergency Shell
 DefaultDependencies=no
-Wants=shutdown.target umount.target
+Requires=shutdown.target umount.target
 After=shutdown.target umount.target
 
 [Service]

@@ -8,7 +8,7 @@
 [Unit]
 Description=Power-Off
 DefaultDependencies=no
-Wants=shutdown.target
+Requires=shutdown.target
 After=shutdown.target
 Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount sys-kernel-security.automount
 

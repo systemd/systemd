@@ -794,12 +794,17 @@ finish:
 }
 
 static int start_special(DBusConnection *bus, char **args, unsigned n) {
+        int r;
+
         assert(bus);
         assert(args);
 
-        warn_wall(verb_to_action(args[0]));
+        r = start_unit(bus, args, n);
 
-        return start_unit(bus, args, n);
+        if (r >= 0)
+                warn_wall(verb_to_action(args[0]));
+
+        return r;
 }
 
 static int check_unit(DBusConnection *bus, char **args, unsigned n) {
@@ -3292,26 +3297,29 @@ static int reload_with_fallback(DBusConnection *bus) {
 static int start_with_fallback(DBusConnection *bus) {
         int r;
 
-        warn_wall(arg_action);
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
                 if ((r = start_unit(bus, NULL, 0)) > 0)
-                        return 0;
+                        goto done;
 
                 /* Hmm, talking to systemd via D-Bus didn't work. Then
                  * let's try to talk to Upstart via D-Bus. */
                 if ((r = talk_upstart()) > 0)
-                        return 0;
+                        goto done;
         }
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
         if ((r = talk_initctl()) != 0)
-                return 0;
+                goto done;
 
         log_error("Failed to talk to init daemon.");
         return -EIO;
+
+done:
+        warn_wall(arg_action);
+        return 0;
 }
 
 static int halt_main(DBusConnection *bus) {
