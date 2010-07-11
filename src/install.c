@@ -773,7 +773,7 @@ static char *get_config_path(void) {
         }
 }
 
-static int do_run(void) {
+static int do_realize(void) {
         DBusConnection *bus = NULL;
         DBusError error;
         int r, q;
@@ -827,8 +827,10 @@ static int do_run(void) {
                         r = q;
 
 finish:
-        if (bus)
+        if (bus) {
+                dbus_connection_close(bus);
                 dbus_connection_unref(bus);
+        }
 
         dbus_error_free(&error);
 
@@ -889,7 +891,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (do_run() < 0)
+        if (do_realize() < 0)
                 goto finish;
 
         retval = arg_action == ACTION_TEST ? 1 : 0;
