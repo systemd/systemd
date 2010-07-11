@@ -1,3 +1,24 @@
+Summary of changes from v159 to v160
+============================================
+
+Harald Hoyer (2):
+      60-persistent-storage-tape: s/path_id.sh/path_id/
+      60-persistent-storage-tape.rules: make own by-path symlink for nst tapes
+
+Kay Sievers (4):
+      version bump
+      rules: tape - remove WAIT_FOR instruction and don't export BSG_DEV
+      allow final assignment for OPTIONS:="nowatch"
+      udevd: init_notify() fix abstract namespace name handling
+
+Lennart Poettering (1):
+      systemd: make service files readable by GKeyFile
+
+Martin Pitt (2):
+      keymap: Find alternate Lenovo module
+      keymap: Add Lenovo ThinkPad SL Series extra buttons
+
+
 Summary of changes from v158 to v159
 ============================================
 
