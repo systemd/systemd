@@ -49,7 +49,7 @@
 static const char *arg_type = NULL;
 static const char *arg_property = NULL;
 static bool arg_all = false;
-static bool arg_replace = false;
+static bool arg_fail = false;
 static bool arg_session = false;
 static bool arg_no_block = false;
 static bool arg_immediate = false;
@@ -742,8 +742,8 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                         (streq(args[0], "isolate") ||
                          streq(args[0], "rescue")  ||
                          streq(args[0], "emergency")) ? "isolate" :
-                                          arg_replace ? "replace" :
-                                                        "fail";
+                                             arg_fail ? "fail" :
+                                                        "replace";
 
                 one_name = table[verb_to_action(args[0])];
 
@@ -2490,7 +2490,7 @@ static int systemctl_help(void) {
                "  -t --type=TYPE     List only units of a particular type\n"
                "  -p --property=NAME Show only properties by this name\n"
                "  -a --all           Show all units/properties, including dead/empty ones\n"
-               "     --replace       When installing a new job, replace existing conflicting ones\n"
+               "     --fail          When installing a new job, fail if conflicting jobs are pending\n"
                "     --system        Connect to system bus\n"
                "     --session       Connect to session bus\n"
                "  -q --quiet         Suppress output\n"
@@ -2599,7 +2599,7 @@ static int runlevel_help(void) {
 static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_REPLACE = 0x100,
+                ARG_FAIL = 0x100,
                 ARG_SESSION,
                 ARG_SYSTEM,
                 ARG_NO_BLOCK,
@@ -2611,7 +2611,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "type",      required_argument, NULL, 't'          },
                 { "property",  required_argument, NULL, 'p'          },
                 { "all",       no_argument,       NULL, 'a'          },
-                { "replace",   no_argument,       NULL, ARG_REPLACE  },
+                { "fail",      no_argument,       NULL, ARG_FAIL     },
                 { "session",   no_argument,       NULL, ARG_SESSION  },
                 { "system",    no_argument,       NULL, ARG_SYSTEM   },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK },
@@ -2650,8 +2650,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_all = true;
                         break;
 
-                case ARG_REPLACE:
-                        arg_replace = true;
+                case ARG_FAIL:
+                        arg_fail = true;
                         break;
 
                 case ARG_SESSION:

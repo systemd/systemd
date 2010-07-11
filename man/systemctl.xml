@@ -116,15 +116,15 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--replace</option></term>
+                                <term><option>--fail</option></term>
 
                                 <listitem><para>If the requested
                                 operation conflicts with an existing
-                                unfinished operation, replace the
-                                existing operation by the requested
-                                operation. If this is not specified
-                                the requested operation will
-                                fail.</para></listitem>
+                                unfinished operation, fail the
+                                command. If this is not specified the
+                                requested operation will replace the
+                                pending job if
+                                necessary.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
