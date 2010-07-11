@@ -89,7 +89,7 @@ static int manager_setup_notify(Manager *m) {
         else
                 strncpy(sa.un.sun_path+1, NOTIFY_SOCKET, sizeof(sa.un.sun_path)-1);
 
-        if (bind(m->notify_watch.fd, &sa.sa, sizeof(sa)) < 0) {
+        if (bind(m->notify_watch.fd, &sa.sa, sizeof(sa_family_t) + 1 + strlen(sa.un.sun_path+1)) < 0) {
                 log_error("bind() failed: %m");
                 return -errno;
         }

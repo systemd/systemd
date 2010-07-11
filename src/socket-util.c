@@ -101,7 +101,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
                 a->sockaddr.un.sun_family = AF_UNIX;
                 memcpy(a->sockaddr.un.sun_path+1, s+1, l);
-                a->size = sizeof(struct sockaddr_un);
+                a->size = sizeof(sa_family_t) + 1 + l;
 
         } else {
 
@@ -198,11 +198,7 @@ int socket_address_verify(const SocketAddress *a) {
 
                         if (a->size > sizeof(sa_family_t)) {
 
-                                if (a->sockaddr.un.sun_path[0] == 0) {
-                                        /* abstract */
-                                        if (a->size != sizeof(struct sockaddr_un))
-                                                return -EINVAL;
-                                } else {
+                                if (a->sockaddr.un.sun_path[0] != 0) {
                                         char *e;
 
                                         /* path */
@@ -437,7 +433,7 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                         if (strncmp(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, sizeof(a->sockaddr.un.sun_path)) != 0)
                                 return false;
                 } else {
-                        if (memcmp(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, sizeof(a->sockaddr.un.sun_path)) != 0)
+                        if (memcmp(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, a->size) != 0)
                                 return false;
                 }
 
