@@ -1033,7 +1033,18 @@ static void socket_enter_running(Socket *s, int cfd) {
         /* We don't take connections anymore if we are supposed to
          * shut down anyway */
         if (s->meta.job && s->meta.job->type == JOB_STOP) {
-                close_nointr_nofail(cfd);
+                if (cfd >= 0)
+                        close_nointr_nofail(cfd);
+                else  {
+                        /* Flush all sockets by closing and reopening them */
+                        socket_close_fds(s);
+
+                        if ((r = socket_watch_fds(s)) < 0) {
+                                log_warning("%s failed to watch sockets: %s", s->meta.id, strerror(-r));
+                                socket_enter_stop_pre(s, false);
+                        }
+                }
+
                 return;
         }
 
