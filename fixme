@@ -39,8 +39,6 @@
 
 * sulogin in den single user mode, mit plymouth --hide davor
 
-* replace remaining libcgroup use
-
 External:
 
 * patch /etc/init.d/functions with:
