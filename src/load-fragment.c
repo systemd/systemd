@@ -382,7 +382,7 @@ static int config_parse_exec(
                 char *w;
                 size_t l;
                 char *state;
-                bool honour_argv0, write_to_path;
+                bool honour_argv0 = false, ignore = false;
 
                 path = NULL;
                 nce = NULL;
@@ -393,9 +393,17 @@ static int config_parse_exec(
                 if (rvalue[0] == 0)
                         break;
 
-                honour_argv0 = rvalue[0] == '@';
+                if (rvalue[0] == '-') {
+                        ignore = true;
+                        rvalue ++;
+                }
 
-                if (rvalue[honour_argv0 ? 1 : 0] != '/') {
+                if (rvalue[0] == '@') {
+                        honour_argv0 = true;
+                        rvalue ++;
+                }
+
+                if (*rvalue != '/') {
                         log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
                         return -EINVAL;
                 }
@@ -408,19 +416,18 @@ static int config_parse_exec(
                         k++;
                 }
 
-                if (!(n = new(char*, k + (honour_argv0 ? 0 : 1))))
+                if (!(n = new(char*, k + !honour_argv0)))
                         return -ENOMEM;
 
                 k = 0;
-                write_to_path = honour_argv0;
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                         if (strncmp(w, ";", l) == 0)
                                 break;
 
-                        if (write_to_path) {
-                                if (!(path = cunescape_length(w+1, l-1)))
+                        if (honour_argv0 && w == rvalue) {
+                                assert(!path);
+                                if (!(path = cunescape_length(w, l)))
                                         goto fail;
-                                write_to_path = false;
                         } else {
                                 if (!(n[k++] = cunescape_length(w, l)))
                                         goto fail;
@@ -446,6 +453,7 @@ static int config_parse_exec(
 
                 nce->argv = n;
                 nce->path = path;
+                nce->ignore = ignore;
 
                 path_kill_slashes(nce->path);
 

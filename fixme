@@ -35,11 +35,11 @@
 
 * selinux
 
-* Show exit status auf auxiliary programs in systemctl status
-
-* rtkit status
-
 * systemctl status $PID, systemctl stop $PID!
+
+* make shutdown go on even if conflicting units fail to shut down.
+
+* sulogin in den single user mode, mit plymouth --hide davor
 
 External:
 

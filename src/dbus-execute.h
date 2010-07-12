@@ -88,7 +88,7 @@
         "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n"
 
 #define BUS_EXEC_COMMAND_INTERFACE(name)                             \
-        "  <property name=\"" name "\" type=\"a(sasttuii)\" access=\"read\"/>\n"
+        "  <property name=\"" name "\" type=\"a(sasbttuii)\" access=\"read\"/>\n"
 
 #define BUS_EXEC_CONTEXT_PROPERTIES(interface, context)                 \
         { interface, "Environment",                   bus_property_append_strv,   "as",    (context).environment                   }, \
@@ -152,7 +152,7 @@
         { interface, prefix "Status",                 bus_property_append_int,    "i",     &(estatus).status                       }
 
 #define BUS_EXEC_COMMAND_PROPERTY(interface, command, name)             \
-        { interface, name, bus_execute_append_command, "a(sasttuii)", (command) }
+        { interface, name, bus_execute_append_command, "a(sasbttuii)", (command) }
 
 int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_input(Manager *m, DBusMessageIter *i, const char *property, void *data);

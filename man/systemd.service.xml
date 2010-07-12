@@ -256,7 +256,15 @@
                                 token will be passed as
                                 <literal>argv[0]</literal> to the
                                 executed process, followed by the
-                                further arguments specified. Unless
+                                further arguments specified. If the
+                                first token is prefixed with
+                                <literal>-</literal> an error code of
+                                the command normally considered a
+                                failure is ignored and considered
+                                success. If both <literal>-</literal>
+                                and <literal>@</literal> are used for
+                                the same command the latter must
+                                preceed the latter. Unless
                                 <varname>Type=forking</varname> is
                                 set, the process started via this
                                 command line will be considered the

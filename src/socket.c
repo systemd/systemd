@@ -1400,12 +1400,16 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         s->control_pid = 0;
 
         success = is_clean_exit(code, status);
-        s->failure = s->failure || !success;
 
-        if (s->control_command)
+        if (s->control_command) {
                 exec_status_exit(&s->control_command->exec_status, pid, code, status);
 
+                if (s->control_command->ignore)
+                        success = true;
+        }
+
         log_debug("%s control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+        s->failure = s->failure || !success;
 
         if (s->control_command && s->control_command->command_next && success) {
                 log_debug("%s running next command for state %s", u->meta.id, socket_state_to_string(s->state));

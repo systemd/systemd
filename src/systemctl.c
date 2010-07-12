@@ -933,6 +933,8 @@ typedef struct ExecStatusInfo {
         char *path;
         char **argv;
 
+        bool ignore;
+
         usec_t start_timestamp;
         usec_t exit_timestamp;
         pid_t pid;
@@ -957,6 +959,7 @@ static int exec_status_info_deserialize(DBusMessageIter *sub, ExecStatusInfo *i)
         unsigned n;
         uint32_t pid;
         int32_t code, status;
+        dbus_bool_t ignore;
 
         assert(i);
         assert(i);
@@ -1002,6 +1005,7 @@ static int exec_status_info_deserialize(DBusMessageIter *sub, ExecStatusInfo *i)
         }
 
         if (!dbus_message_iter_next(&sub2) ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &ignore, true) < 0 ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &start_timestamp, true) < 0 ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &exit_timestamp, true) < 0 ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, true) < 0 ||
@@ -1009,6 +1013,7 @@ static int exec_status_info_deserialize(DBusMessageIter *sub, ExecStatusInfo *i)
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &status, false) < 0)
                 return -EIO;
 
+        i->ignore = ignore;
         i->start_timestamp = (usec_t) start_timestamp;
         i->exit_timestamp = (usec_t) exit_timestamp;
         i->pid = (pid_t) pid;
@@ -1535,10 +1540,11 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                                         t = strv_join(info.argv, " ");
 
-                                        printf("%s={ path=%s ; argv[]=%s;  start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
+                                        printf("%s={ path=%s ; argv[]=%s ; ignore=%s ; start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
                                                name,
                                                strna(info.path),
                                                strna(t),
+                                               yes_no(info.ignore),
                                                strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
                                                strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
                                                (unsigned) info. pid,

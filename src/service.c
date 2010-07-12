@@ -2171,7 +2171,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(pid >= 0);
 
         success = is_clean_exit(code, status);
-        s->failure = s->failure || !success;
 
         if (s->main_pid == pid) {
 
@@ -2181,9 +2180,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 if (s->type != SERVICE_FORKING) {
                         assert(s->exec_command[SERVICE_EXEC_START]);
                         s->exec_command[SERVICE_EXEC_START]->exec_status = s->main_exec_status;
+
+                        if (s->exec_command[SERVICE_EXEC_START]->ignore)
+                                success = true;
                 }
 
                 log_debug("%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                s->failure = s->failure || !success;
 
                 /* The service exited, so the service is officially
                  * gone. */
@@ -2230,12 +2233,17 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         } else if (s->control_pid == pid) {
 
-                if (s->control_command)
+                if (s->control_command) {
                         exec_status_exit(&s->control_command->exec_status, pid, code, status);
+
+                        if (s->control_command->ignore)
+                                success = true;
+                }
 
                 s->control_pid = 0;
 
                 log_debug("%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                s->failure = s->failure || !success;
 
                 /* If we are shutting things down anyway we
                  * don't care about failing commands. */
