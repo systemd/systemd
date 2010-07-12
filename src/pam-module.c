@@ -31,8 +31,6 @@
 #include <security/pam_ext.h>
 #include <security/pam_misc.h>
 
-#include <libcgroup.h>
-
 #include "util.h"
 #include "cgroup-util.h"
 #include "macro.h"
