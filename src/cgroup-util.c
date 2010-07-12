@@ -37,7 +37,6 @@
    Currently, the only remaining functionality from libcgroup we call
    here is:
 
-   - cgroup_get_subsys_mount_point()
    - cgroup_walk_tree_begin()/cgroup_walk_tree_next()
    - cgroup_delete_cgroup_ext()
  */
@@ -409,13 +408,33 @@ int cg_migrate_recursive(const char *controller, const char *from, const char *t
 }
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs) {
+        const char *p;
         char *mp;
         int r;
 
         assert(controller);
+        assert(fs);
 
-        if ((r = cgroup_get_subsys_mount_point(controller, &mp)) != 0)
-                return cg_translate_error(r, errno);
+        /* This is a very minimal lookup from controller names to
+         * paths. Since we have mounted most hierarchies ourselves
+         * should be kinda safe, but eventually we might want to
+         * extend this to have a fallback to actually check
+         * /proc/mounts. Might need caching then. */
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+                p = "systemd";
+        else if (startswith(controller, "name="))
+                p = controller + 5;
+        else
+                p = controller;
+
+        if (asprintf(&mp, "/cgroup/%s", p) < 0)
+                return -ENOMEM;
+
+        if ((r = path_is_mount_point(mp)) <= 0) {
+                free(mp);
+                return r < 0 ? r : -ENOENT;
+        }
 
         if (path && suffix)
                 r = asprintf(fs, "%s/%s/%s", mp, path, suffix);
