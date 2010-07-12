@@ -1,0 +1,26 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+# See systemd.special(7) for details
+
+[Unit]
+Description=Rescue Shell
+DefaultDependencies=no
+After=shutdown.target sysinit.target
+
+[Service]
+ExecStartPre=-/bin/plymouth --hide-splash
+ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" to activate default mode.'
+ExecStart=/bin/sh
+StandardInput=tty-force
+Restart=restart-always
+RestartSec=0
+KillMode=process-group
+
+# Bash ignores SIGTERM, so we send SIGHUP first, to ensure that bash
+# terminates cleanly.
+ExecStop=-/bin/kill -HUP $(MAINPID)
