@@ -308,6 +308,10 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
 
         case EXEC_OUTPUT_INHERIT:
 
+                /* If input got downgraded, inherit the original value */
+                if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
+                        return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
+
                 /* If the input is connected to anything that's not a /dev/null, inherit that... */
                 if (i != EXEC_INPUT_NULL)
                         return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
@@ -360,10 +364,11 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         if (e == EXEC_OUTPUT_INHERIT &&
             o == EXEC_OUTPUT_INHERIT &&
             i == EXEC_INPUT_NULL &&
+            !is_terminal_input(context->std_input) &&
             getppid () != 1)
                 return STDERR_FILENO;
 
-        /* Duplicate form stdout if possible */
+        /* Duplicate from stdout if possible */
         if (e == o || e == EXEC_OUTPUT_INHERIT)
                 return dup2(STDOUT_FILENO, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
 
