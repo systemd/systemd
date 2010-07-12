@@ -9,7 +9,8 @@
 
 [Unit]
 Description=Systemd Initialization
-Conflicts=emergency.service
+Conflicts=emergency.service emergency.target
+After=emergency.service emergency.target
 OnlyByDependency=yes
 m4_dnl
 m4_ifdef(`TARGET_FEDORA',

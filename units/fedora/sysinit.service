@@ -8,9 +8,7 @@
 [Unit]
 Description=System Initialization
 DefaultDependencies=no
-Before=local-fs.target remote-fs.target swap.target sockets.target
-Conflicts=shutdown.target
-Before=shutdown.target
+Before=emergency.service emergency.target
 
 [Service]
 ExecStart=/etc/rc.d/rc.sysinit

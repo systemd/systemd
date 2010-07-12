@@ -1947,7 +1947,7 @@ static int manager_process_signal_fd(Manager *m) {
                         static const char * const table[] = {
                                 [0] = SPECIAL_DEFAULT_TARGET,
                                 [1] = SPECIAL_RESCUE_TARGET,
-                                [2] = SPECIAL_EMERGENCY_SERVICE,
+                                [2] = SPECIAL_EMERGENCY_TARGET,
                                 [3] = SPECIAL_HALT_TARGET,
                                 [4] = SPECIAL_POWEROFF_TARGET,
                                 [5] = SPECIAL_REBOOT_TARGET

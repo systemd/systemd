@@ -501,7 +501,7 @@
                                 <listitem><para>Enter emergency
                                 mode. This is mostly equivalent to
                                 <command>isolate
-                                emergency.service</command> but also
+                                emergency.target</command> but also
                                 prints a wall message to all
                                 users.</para></listitem>
                         </varlistentry>

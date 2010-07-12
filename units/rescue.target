@@ -8,9 +8,10 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Rescue Prompt
-Requires=basic.target
-After=basic.target
+Description=Rescue Mode
+Requires=sysinit.target local-fs.target swap.target shutdown.target
+Conflicts=emergency.service emergency.target
+After=sysinit.target local-fs.target swap.target shutdown.target emergency.service emergency.target
 Names=runlevel1.target
 
 [Install]

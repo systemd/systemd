@@ -720,7 +720,7 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 [ACTION_RUNLEVEL4] = SPECIAL_RUNLEVEL4_TARGET,
                 [ACTION_RUNLEVEL5] = SPECIAL_RUNLEVEL5_TARGET,
                 [ACTION_RESCUE] = SPECIAL_RESCUE_TARGET,
-                [ACTION_EMERGENCY] = SPECIAL_EMERGENCY_SERVICE,
+                [ACTION_EMERGENCY] = SPECIAL_EMERGENCY_TARGET,
                 [ACTION_DEFAULT] = SPECIAL_DEFAULT_TARGET
         };
 

@@ -53,7 +53,7 @@
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
 #define SPECIAL_EXIT_SERVICE "exit.service"
-#define SPECIAL_EMERGENCY_SERVICE "emergency.service"
+#define SPECIAL_EMERGENCY_TARGET "emergency.target"
 #define SPECIAL_HALT_TARGET "halt.target"
 #define SPECIAL_POWEROFF_TARGET "poweroff.target"
 #define SPECIAL_REBOOT_TARGET "reboot.target"

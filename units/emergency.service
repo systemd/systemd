@@ -10,16 +10,17 @@
 [Unit]
 Description=Emergency Shell
 DefaultDependencies=no
-Requires=shutdown.target umount.target
-After=shutdown.target umount.target
+After=shutdown.target
 
 [Service]
+ExecStartPre=-/bin/plymouth --hide-splash
+ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" to activate default mode.'
 ExecStart=/bin/sh
-StandardInput=tty
+StandardInput=tty-force
 Restart=restart-always
 RestartSec=0
 KillMode=process-group
 
 # Bash ignores SIGTERM, so we send SIGHUP first, to ensure that bash
 # terminates cleanly.
-ExecStop=/bin/kill -HUP $(MAINPID)
+ExecStop=-/bin/kill -HUP $(MAINPID)

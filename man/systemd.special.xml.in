@@ -54,7 +54,7 @@
                 <filename>dbus.target</filename>,
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
-                <filename>emergency.service</filename>,
+                <filename>emergency.target</filename>,
                 <filename>exit.service</filename>,
                 <filename>graphical.target</filename>,
                 <filename>halt.target</filename>,
@@ -205,9 +205,9 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>emergency.service</filename></term>
+                                <term><filename>emergency.target</filename></term>
                                 <listitem>
-                                        <para>A special service unit
+                                        <para>A special target unit
                                         that starts an emergency
                                         shell on the main
                                         console. This unit is supposed

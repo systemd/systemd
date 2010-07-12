@@ -113,6 +113,7 @@ dbusinterface_DATA = \
 
 dist_systemunit_DATA = \
 	units/emergency.service \
+	units/emergency.target \
 	units/basic.target \
 	units/getty.target \
 	units/halt.target \
@@ -183,7 +184,8 @@ dist_systemunit_DATA += \
 	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/reboot.service \
-	units/fedora/sysinit.service
+	units/fedora/sysinit.service \
+	units/fedora/single.service
 endif
 
 if TARGET_SUSE
@@ -755,7 +757,8 @@ install-data-hook:
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
 if TARGET_FEDORA
 	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH)
+		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
+		$(DESTDIR)$(systemunitdir)/rescue.target.wants
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
@@ -765,6 +768,9 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f rc-local.service && \
 		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir)/rescue.target.wants && \
+		rm -f single.service && \
+		$(LN_S) $(systemunitdir)/single.service single.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )

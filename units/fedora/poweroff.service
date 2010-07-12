@@ -8,9 +8,9 @@
 [Unit]
 Description=Power-Off
 DefaultDependencies=no
-Requires=shutdown.target killall.service
-After=shutdown.target killall.service
-Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount sys-kernel-security.automount
+Requires=shutdown.target umount.target killall.service
+Conflicts=sysinit.service
+After=shutdown.target umount.target killall.service sysinit.service
 
 [Service]
 Type=finish
