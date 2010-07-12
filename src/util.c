@@ -47,6 +47,7 @@
 #include <sys/utsname.h>
 #include <pwd.h>
 #include <netinet/ip.h>
+#include <linux/kd.h>
 
 #include "macro.h"
 #include "util.h"
@@ -1844,10 +1845,22 @@ int ask(char *ret, const char *replies, const char *text, ...) {
 int reset_terminal(int fd) {
         struct termios termios;
         int r = 0;
+        long arg;
+
+        /* Set terminal to some sane defaults */
 
         assert(fd >= 0);
 
-        /* Set terminal to some sane defaults */
+        /* First, unlock termios */
+        zero(termios);
+        ioctl(fd, TIOCSLCKTRMIOS, &termios);
+
+        /* Disable exclusive mode, just in case */
+        ioctl(fd, TIOCNXCL);
+
+        /* Enable console unicode mode */
+        arg = K_UNICODE;
+        ioctl(fd, KDSKBMODE, &arg);
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = -errno;
