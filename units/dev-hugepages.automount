@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Huge Pages File System Automount Point
-Before=sysinit.target
+DefaultDependencies=no
 
 [Automount]
 Where=/dev/hugepages

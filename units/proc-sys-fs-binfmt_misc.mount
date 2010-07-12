@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Arbitrary Executable File Formats File System
+DefaultDependencies=no
 
 [Mount]
 What=binfmt_misc

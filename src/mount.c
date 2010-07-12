@@ -274,6 +274,24 @@ static int mount_add_target_links(Mount *m) {
         }
 }
 
+static int mount_add_default_dependencies(Mount *m) {
+        int r;
+
+        assert(m);
+
+        if (m->meta.manager->running_as == MANAGER_SYSTEM) {
+
+                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+
+                if (!path_equal(m->where, "/"))
+                        if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                                return r;
+        }
+
+        return 0;
+}
+
 static int mount_verify(Mount *m) {
         bool b;
         char *e;
@@ -368,10 +386,8 @@ static int mount_load(Unit *u) {
                 if ((r = unit_add_default_cgroup(u)) < 0)
                         return r;
 
-                if (m->meta.default_dependencies &&
-                    m->meta.manager->running_as == MANAGER_SYSTEM &&
-                    !path_equal(m->where, "/"))
-                        if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                if (m->meta.default_dependencies)
+                        if ((r = mount_add_default_dependencies(m)) < 0)
                                 return r;
         }
 

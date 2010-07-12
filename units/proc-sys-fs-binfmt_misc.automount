@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Arbitrary Executable File Formats File System Automount Point
-Before=sysinit.target
+DefaultDependencies=no
 
 [Automount]
 Where=/proc/sys/fs/binfmt_misc

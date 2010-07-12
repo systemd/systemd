@@ -7,7 +7,7 @@
 
 [Unit]
 Description=POSIX Message Queue File System Automount Point
-Before=sysinit.target
+DefaultDependencies=no
 
 [Automount]
 Where=/dev/mqueue

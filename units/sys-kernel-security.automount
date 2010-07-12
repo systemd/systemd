@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Security File System Automount Point
-Before=sysinit.target
+DefaultDependencies=no
 
 [Automount]
 Where=/sys/kernel/security

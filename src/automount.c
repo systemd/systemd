@@ -146,6 +146,23 @@ static int automount_add_mount_links(Automount *a) {
         return 0;
 }
 
+static int automount_add_default_dependencies(Automount *a) {
+        int r;
+
+        assert(a);
+
+        if (a->meta.manager->running_as == MANAGER_SYSTEM) {
+
+                if ((r = unit_add_dependency_by_name(UNIT(a), UNIT_AFTER, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+
+                if ((r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int automount_verify(Automount *a) {
         bool b;
         char *e;
@@ -201,9 +218,8 @@ static int automount_load(Unit *u) {
                 if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount), true)) < 0)
                         return r;
 
-                if (a->meta.default_dependencies &&
-                    a->meta.manager->running_as == MANAGER_SYSTEM)
-                        if ((r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                if (a->meta.default_dependencies)
+                        if ((r = automount_add_default_dependencies(a)) < 0)
                                 return r;
         }
 

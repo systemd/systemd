@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Debug File System
+DefaultDependencies=no
 
 [Mount]
 What=debugfs
