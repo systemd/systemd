@@ -1846,7 +1846,8 @@ static void service_run_next(Service *s, bool success) {
                                false,
                                !s->permissions_start_only,
                                !s->root_directory_start_only,
-                               false,
+                               s->control_command_id == SERVICE_EXEC_START_PRE ||
+                               s->control_command_id == SERVICE_EXEC_STOP_POST,
                                false,
                                &s->control_pid)) < 0)
                 goto fail;
