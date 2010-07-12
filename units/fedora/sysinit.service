@@ -8,7 +8,8 @@
 [Unit]
 Description=System Initialization
 DefaultDependencies=no
-Before=emergency.service emergency.target
+Conflicts=shutdown.target
+Before=shutdown.target emergency.service emergency.target
 
 [Service]
 ExecStart=/etc/rc.d/rc.sysinit

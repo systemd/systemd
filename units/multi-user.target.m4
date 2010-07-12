@@ -10,7 +10,7 @@
 [Unit]
 Description=Multi-User
 Requires=basic.target
-Conflicts=rescue.target shutdown.target
+Conflicts=rescue.target
 After=basic.target rescue.target
 m4_dnl
 m4_ifdef(`TARGET_FEDORA',

@@ -9,9 +9,8 @@
 
 [Unit]
 Description=Rescue Mode
-Requires=sysinit.target local-fs.target swap.target shutdown.target
-Conflicts=emergency.service emergency.target
-After=sysinit.target local-fs.target swap.target shutdown.target emergency.service emergency.target
+Requires=sysinit.target local-fs.target swap.target
+After=sysinit.target local-fs.target swap.target
 Names=runlevel1.target
 
 [Install]

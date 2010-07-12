@@ -9,8 +9,7 @@
 Description=Reboot
 DefaultDependencies=no
 Requires=shutdown.target umount.target killall.service
-Conflicts=sysinit.service
-After=shutdown.target umount.target killall.service sysinit.service
+After=shutdown.target umount.target killall.service
 
 [Service]
 Type=finish

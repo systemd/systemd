@@ -10,7 +10,8 @@
 [Unit]
 Description=Rescue Shell
 DefaultDependencies=no
-After=shutdown.target sysinit.target
+Conflicts=multi-user.target
+After=sysinit.target multi-user.target
 
 [Service]
 ExecStartPre=-/bin/plymouth --hide-splash

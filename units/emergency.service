@@ -10,7 +10,6 @@
 [Unit]
 Description=Emergency Shell
 DefaultDependencies=no
-After=shutdown.target
 
 [Service]
 ExecStartPre=-/bin/plymouth --hide-splash

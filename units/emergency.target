@@ -9,5 +9,5 @@
 
 [Unit]
 Description=Emergency Mode
-Requires=shutdown.target umount.target emergency.service
-After=shutdown.target umount.target emergency.service
+Requires=emergency.service
+After=emergency.service
