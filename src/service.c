@@ -1179,6 +1179,11 @@ static void service_set_state(Service *s, ServiceState state) {
                 service_connection_unref(s);
         }
 
+        /* For the inactive states unit_notify() will trim the cgroup,
+         * but for exit we have to do that ourselves... */
+        if (state == SERVICE_EXITED)
+                cgroup_bonding_trim_list(s->meta.cgroup_bondings, true);
+
         if (old_state != state)
                 log_debug("%s changed %s -> %s", s->meta.id, service_state_to_string(old_state), service_state_to_string(state));
 
