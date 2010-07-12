@@ -968,6 +968,14 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
+                /* Close sockets very early to make sure we don' block
+                 * init reexecution because it cannot bind its sockets
+                 * or so */
+                if (close_all_fds(fds, n_fds) < 0) {
+                        r = EXIT_FDS;
+                        goto fail;
+                }
+
                 if (!context->same_pgrp)
                         if (setsid() < 0) {
                                 r = EXIT_SETSID;
@@ -1111,16 +1119,6 @@ int exec_spawn(ExecCommand *command,
 
 #ifdef HAVE_PAM
                 if (context->pam_name && username) {
-                        /* Make sure no fds leak into the PAM
-                         * supervisor process. We will call this later
-                         * on again to make sure that any fds leaked
-                         * by the PAM modules get closed before our
-                         * exec(). */
-                        if (close_all_fds(fds, n_fds) < 0) {
-                                r = EXIT_FDS;
-                                goto fail;
-                        }
-
                         if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) < 0) {
                                 r = EXIT_PAM;
                                 goto fail;
@@ -1180,6 +1178,8 @@ int exec_spawn(ExecCommand *command,
                         free(d);
                 }
 
+                /* We repeat the fd closing here, to make sure that
+                 * nothing is leaked from the PAM modules */
                 if (close_all_fds(fds, n_fds) < 0 ||
                     shift_fds(fds, n_fds) < 0 ||
                     flags_fds(fds, n_fds, context->non_blocking) < 0) {
