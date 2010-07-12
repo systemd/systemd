@@ -109,10 +109,6 @@ PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
 AC_SUBST(DBUSGLIB_CFLAGS)
 AC_SUBST(DBUSGLIB_LIBS)
 
-PKG_CHECK_MODULES(CGROUP, [ libcgroup >= 0.36 ])
-AC_SUBST(CGROUP_CFLAGS)
-AC_SUBST(CGROUP_LIBS)
-
 AC_ARG_ENABLE([tcpwrap],
         AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),
                 [case "${enableval}" in

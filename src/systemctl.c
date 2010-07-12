@@ -1064,7 +1064,6 @@ typedef struct UnitStatusInfo {
 
 static void print_status_info(UnitStatusInfo *i) {
         ExecStatusInfo *p;
-        int r;
 
         assert(i);
 
@@ -1195,10 +1194,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 else
                         c = 0;
 
-                if ((r = cg_init()) < 0)
-                        log_error("Failed to initialize libcg: %s", strerror(-r));
-                else
-                        show_cgroup_recursive(i->default_control_group, "\t\t  ", c);
+                show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
         }
 }
 

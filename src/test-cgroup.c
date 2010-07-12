@@ -28,8 +28,7 @@
 
 int main(int argc, char*argv[]) {
         char *path;
-
-        assert_se(cg_init() >= 0);
+        char *c, *p;
 
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
@@ -62,21 +61,44 @@ int main(int argc, char*argv[]) {
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", false) > 0);
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", false) == 0);
 
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false) == 0);
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false) > 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false, false) == 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false, false) > 0);
 
-        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", "/test-a", false) == 0);
+        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", "/test-a", false, false) > 0);
 
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", false) == 0);
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", false) > 0);
 
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false) > 0);
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false) == 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false, false) > 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false, false) == 0);
 
         cg_trim(SYSTEMD_CGROUP_CONTROLLER, "/", false);
 
         assert_se(cg_delete(SYSTEMD_CGROUP_CONTROLLER, "/test-b") < 0);
-        assert_se(cg_delete(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
+        assert_se(cg_delete(SYSTEMD_CGROUP_CONTROLLER, "/test-a") >= 0);
+
+        assert_se(cg_split_spec("foobar:/", &c, &p) == 0);
+        assert(streq(c, "foobar"));
+        assert(streq(p, "/"));
+        free(c);
+        free(p);
+
+        assert_se(cg_split_spec("foobar:", &c, &p) < 0);
+        assert_se(cg_split_spec("foobar:asdfd", &c, &p) < 0);
+        assert_se(cg_split_spec(":///", &c, &p) < 0);
+        assert_se(cg_split_spec(":", &c, &p) < 0);
+        assert_se(cg_split_spec("", &c, &p) < 0);
+        assert_se(cg_split_spec("fo/obar:/", &c, &p) < 0);
+
+        assert_se(cg_split_spec("/", &c, &p) >= 0);
+        assert(c == NULL);
+        assert(streq(p, "/"));
+        free(p);
+
+        assert_se(cg_split_spec("foo", &c, &p) >= 0);
+        assert(streq(c, "foo"));
+        assert(p == NULL);
+        free(c);
 
         return 0;
 }

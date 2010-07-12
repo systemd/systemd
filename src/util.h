@@ -212,6 +212,8 @@ int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int mkdir_parents(const char *path, mode_t mode);
 int mkdir_p(const char *path, mode_t mode);
 
+int parent_of_path(const char *path, char **parent);
+
 int rmdir_parents(const char *path, const char *stop);
 
 int get_process_name(pid_t pid, char **name);

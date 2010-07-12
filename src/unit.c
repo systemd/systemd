@@ -1511,12 +1511,9 @@ char *unit_dbus_path(Unit *u) {
         if (!(e = bus_path_escape(u->meta.id)))
                 return NULL;
 
-        if (asprintf(&p, "/org/freedesktop/systemd1/unit/%s", e) < 0) {
-                free(e);
-                return NULL;
-        }
-
+        p = strappend("/org/freedesktop/systemd1/unit/", e);
         free(e);
+
         return p;
 }
 
@@ -1526,7 +1523,12 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 
         assert(u);
         assert(b);
+
         assert(b->path);
+
+        if (!b->controller)
+                if (!(b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER)))
+                        return -ENOMEM;
 
         /* Ensure this hasn't been added yet */
         assert(!b->unit);
@@ -1566,7 +1568,6 @@ static char *default_cgroup_path(Unit *u) {
 }
 
 int unit_add_cgroup_from_text(Unit *u, const char *name) {
-        size_t n;
         char *controller = NULL, *path = NULL;
         CGroupBonding *b = NULL;
         int r;
@@ -1574,38 +1575,20 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        /* Detect controller name */
-        n = strcspn(name, ":");
+        if ((r = cg_split_spec(name, &controller, &path)) < 0)
+                return r;
 
-        if (name[n] == 0 ||
-            (name[n] == ':' && name[n+1] == 0)) {
+        if (!path)
+                path = default_cgroup_path(u);
 
-                /* Only controller name, no path? */
-
-                if (!(path = default_cgroup_path(u)))
-                        return -ENOMEM;
-
-        } else {
-                const char *p;
-
-                /* Controller name, and path. */
-                p = name+n+1;
-
-                if (!path_is_absolute(p))
-                        return -EINVAL;
-
-                if (!(path = strdup(p)))
-                        return -ENOMEM;
-        }
-
-        if (n > 0)
-                controller = strndup(name, n);
-        else
+        if (!controller)
                 controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
 
-        if (!controller) {
-                r = -ENOMEM;
-                goto fail;
+        if (!path || !controller) {
+                free(path);
+                free(controller);
+
+                return -ENOMEM;
         }
 
         if (cgroup_bonding_find_list(u->meta.cgroup_bondings, controller)) {
@@ -1649,9 +1632,6 @@ int unit_add_default_cgroup(Unit *u) {
 
         if (!(b = new0(CGroupBonding, 1)))
                 return -ENOMEM;
-
-        if (!(b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER)))
-                goto fail;
 
         if (!(b->path = default_cgroup_path(u)))
                 goto fail;

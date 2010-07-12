@@ -609,8 +609,22 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
 
         fclose(f);
 
-        if (r[0] == 0)
-                return get_process_name(pid, line);
+        /* Kernel threads have no argv[] */
+        if (r[0] == 0) {
+                char *t;
+                int h;
+
+                free(r);
+
+                if ((h = get_process_name(pid, &t)) < 0)
+                        return h;
+
+                h = asprintf(&r, "[%s]", t);
+                free(t);
+
+                if (h < 0)
+                        return -ENOMEM;
+        }
 
         *line = r;
         return 0;
@@ -697,6 +711,48 @@ int readlink_and_make_absolute(const char *p, char **r) {
         *r = k;
         return 0;
 }
+
+int parent_of_path(const char *path, char **_r) {
+        const char *e, *a = NULL, *b = NULL, *p;
+        char *r;
+        bool slash = false;
+
+        assert(path);
+        assert(_r);
+
+        if (!*path)
+                return -EINVAL;
+
+        for (e = path; *e; e++) {
+
+                if (!slash && *e == '/') {
+                        a = b;
+                        b = e;
+                        slash = true;
+                } else if (slash && *e != '/')
+                        slash = false;
+        }
+
+        if (*(e-1) == '/')
+                p = a;
+        else
+                p = b;
+
+        if (!p)
+                return -EINVAL;
+
+        if (p == path)
+                r = strdup("/");
+        else
+                r = strndup(path, p-path);
+
+        if (!r)
+                return -ENOMEM;
+
+        *_r = r;
+        return 0;
+}
+
 
 char *file_name_from_path(const char *p) {
         char *r;
@@ -2201,25 +2257,24 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
 
 int path_is_mount_point(const char *t) {
         struct stat a, b;
-        char *copy;
+        char *parent;
+        int r;
 
         if (lstat(t, &a) < 0) {
-
                 if (errno == ENOENT)
                         return 0;
 
                 return -errno;
         }
 
-        if (!(copy = strdup(t)))
-                return -ENOMEM;
+        if ((r = parent_of_path(t, &parent)) < 0)
+                return r;
 
-        if (lstat(dirname(copy), &b) < 0) {
-                free(copy);
+        r = lstat(parent, &b);
+        free(parent);
+
+        if (r < 0)
                 return -errno;
-        }
-
-        free(copy);
 
         return a.st_dev != b.st_dev;
 }

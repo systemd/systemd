@@ -149,7 +149,7 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig) {
 
         assert(b->realized);
 
-        return cg_kill_recursive(b->controller, b->path, sig, true);
+        return cg_kill_recursive(b->controller, b->path, sig, true, false);
 }
 
 int cgroup_bonding_kill_list(CGroupBonding *first, int sig) {
@@ -215,13 +215,7 @@ int manager_setup_cgroup(Manager *m) {
 
         assert(m);
 
-        /* 1. Initialize libcg */
-        if ((r = cg_init()) < 0) {
-                log_error("Failed to initialize libcg: %s", strerror(-r));
-                goto finish;
-        }
-
-        /* 2. Determine hierarchy */
+        /* 1. Determine hierarchy */
         if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &current)) < 0)
                 goto finish;
 
@@ -243,13 +237,13 @@ int manager_setup_cgroup(Manager *m) {
                 }
         }
 
-        /* 3. Show data */
+        /* 2. Show data */
         if ((r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, NULL, &path)) < 0)
                 goto finish;
 
         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
 
-        /* 4. Install agent */
+        /* 3. Install agent */
         if ((r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, CGROUP_AGENT_PATH)) < 0)
                 log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
         else if (r > 0)
@@ -257,13 +251,13 @@ int manager_setup_cgroup(Manager *m) {
         else
                 log_debug("Release agent already installed.");
 
-        /* 5. Realize the group */
+        /* 4. Realize the group */
         if ((r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, 0)) < 0) {
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
                 goto finish;
         }
 
-        /* 6. And pin it, so that it cannot be unmounted */
+        /* 5. And pin it, so that it cannot be unmounted */
         if (m->pin_cgroupfs_fd >= 0)
                 close_nointr_nofail(m->pin_cgroupfs_fd);
 

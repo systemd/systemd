@@ -22,7 +22,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int show_cgroup(const char *path, const char *prefix, unsigned columns);
-int show_cgroup_recursive(const char *path, const char *prefix, unsigned columns);
+int show_cgroup_by_path(const char *path, const char *prefix, unsigned columns);
+int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned columns);
 
 #endif

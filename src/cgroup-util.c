@@ -24,62 +24,13 @@
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
-
-#include <libcgroup.h>
+#include <dirent.h>
 
 #include "cgroup-util.h"
 #include "log.h"
 #include "set.h"
 #include "macro.h"
 #include "util.h"
-
-/*
-   Currently, the only remaining functionality from libcgroup we call
-   here is:
-
-   - cgroup_walk_tree_begin()/cgroup_walk_tree_next()
-   - cgroup_delete_cgroup_ext()
- */
-
-int cg_translate_error(int error, int _errno) {
-
-        switch (error) {
-
-        case ECGROUPNOTCOMPILED:
-        case ECGROUPNOTMOUNTED:
-        case ECGROUPNOTEXIST:
-        case ECGROUPNOTCREATED:
-                return -ENOENT;
-
-        case ECGINVAL:
-                return -EINVAL;
-
-        case ECGROUPNOTALLOWED:
-                return -EPERM;
-
-        case ECGOTHER:
-                return -_errno;
-        }
-
-        return -EIO;
-}
-
-static struct cgroup* cg_new(const char *controller, const char *path) {
-        struct cgroup *cgroup;
-
-        assert(path);
-        assert(controller);
-
-        if (!(cgroup = cgroup_new_cgroup(path)))
-                return NULL;
-
-        if (!cgroup_add_controller(cgroup, controller)) {
-                cgroup_free(&cgroup);
-                return NULL;
-        }
-
-        return cgroup;
-}
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         char *fs;
@@ -147,11 +98,77 @@ int cg_read_pid(FILE *f, pid_t *_pid) {
         return 1;
 }
 
+int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
+        char *fs;
+        int r;
+        DIR *d;
+
+        assert(controller);
+        assert(path);
+        assert(_d);
+
+        /* This is not recursive! */
+
+        if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
+                return r;
+
+        d = opendir(fs);
+        free(fs);
+
+        if (!d)
+                return -errno;
+
+        *_d = d;
+        return 0;
+}
+
+int cg_read_subgroup(DIR *d, char **fn) {
+        struct dirent *de;
+
+        assert(d);
+
+        errno = 0;
+        while ((de = readdir(d))) {
+                char *b;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                if (streq(de->d_name, ".") ||
+                    streq(de->d_name, ".."))
+                        continue;
+
+                if (!(b = strdup(de->d_name)))
+                        return -ENOMEM;
+
+                *fn = b;
+                return 1;
+        }
+
+        if (errno)
+                return -errno;
+
+        return 0;
+}
+
+int cg_rmdir(const char *controller, const char *path) {
+        char *p;
+        int r;
+
+        if ((r = cg_get_path(controller, path, NULL, &p)) < 0)
+                return r;
+
+        r = rmdir(p);
+        free(p);
+
+        return r < 0 ? -errno : 0;
+}
+
 int cg_kill(const char *controller, const char *path, int sig, bool ignore_self) {
-        bool killed = false, done = false;
+        bool done = false;
         Set *s;
-        pid_t my_pid;
         int r, ret = 0;
+        pid_t my_pid;
         FILE *f = NULL;
 
         assert(controller);
@@ -171,8 +188,12 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
                 pid_t pid;
                 done = true;
 
-                if ((r = cg_enumerate_processes(controller, path, &f)) < 0)
+                if ((r = cg_enumerate_processes(controller, path, &f)) < 0) {
+                        if (ret >= 0)
+                                ret = r;
+
                         goto finish;
+                }
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
 
@@ -185,15 +206,26 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
                         /* If we haven't killed this process yet, kill
                          * it */
                         if (kill(pid, sig) < 0 && errno != ESRCH) {
-                                if (ret == 0)
+                                if (ret >= 0)
                                         ret = -errno;
-                        }
+                        } else if (ret == 0)
+                                ret = 1;
 
-                        killed = true;
                         done = false;
 
-                        if ((r = set_put(s, LONG_TO_PTR(pid))) < 0)
-                                break;
+                        if ((r = set_put(s, LONG_TO_PTR(pid))) < 0) {
+                                if (ret >= 0)
+                                        ret = r;
+
+                                goto finish;
+                        }
+                }
+
+                if (r < 0) {
+                        if (ret >= 0)
+                                ret = r;
+
+                        goto finish;
                 }
 
                 fclose(f);
@@ -203,7 +235,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
                  * quicker than we can kill them we repeat this until
                  * no new pids need to be killed. */
 
-        } while (!done && r >= 0);
+        } while (!done);
 
 finish:
         set_free(s);
@@ -211,69 +243,64 @@ finish:
         if (f)
                 fclose(f);
 
-        if (r < 0)
-                return r;
-
-        if (ret < 0)
-                return ret;
-
-        return !!killed;
+        return ret;
 }
 
-int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self) {
-        struct cgroup_file_info info;
-        int level = 0, r, ret = 0;
-        void *iterator = NULL;
-        bool killed = false;
+int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self, bool rem) {
+        int r, ret = 0;
+        DIR *d = NULL;
+        char *fn;
 
         assert(path);
         assert(controller);
         assert(sig >= 0);
 
-        zero(info);
+        ret = cg_kill(controller, path, sig, ignore_self);
 
-        r = cgroup_walk_tree_begin(controller, path, 0, &iterator, &info, &level);
-        while (r == 0) {
-                int k;
-                char *p;
+        if ((r = cg_enumerate_subgroups(controller, path, &d)) < 0) {
+                if (ret >= 0)
+                        ret = r;
 
-                if (info.type != CGROUP_FILE_TYPE_DIR)
-                        goto next;
+                goto finish;
+        }
 
-                if (asprintf(&p, "%s/%s", path, info.path) < 0) {
-                        ret = -ENOMEM;
-                        break;
+        while ((r = cg_read_subgroup(d, &fn)) > 0) {
+                char *p = NULL;
+
+                r = asprintf(&p, "%s/%s", path, fn);
+                free(fn);
+
+                if (r < 0) {
+                        if (ret >= 0)
+                                ret = -ENOMEM;
+
+                        goto finish;
                 }
 
-                k = cg_kill(controller, p, sig, ignore_self);
+                r = cg_kill_recursive(controller, p, sig, ignore_self, rem);
                 free(p);
 
-                if (k < 0) {
-                        if (ret == 0)
-                                ret = k;
-                } else if (k > 0)
-                        killed = true;
-
-        next:
-
-                r = cgroup_walk_tree_next(0, &iterator, &info, level);
+                if (r != 0 && ret >= 0)
+                        ret = r;
         }
 
-        if (ret == 0) {
-                if (r == 0 || r == ECGEOF)
-                        ret = !!killed;
-                else if (r == ECGOTHER && errno == ENOENT)
-                        ret = -ESRCH;
-                else
-                        ret = cg_translate_error(r, errno);
-        }
+        if (r < 0 && ret >= 0)
+                ret = r;
 
-        assert_se(cgroup_walk_tree_end(&iterator) == 0);
+        if (rem)
+                if ((r = cg_rmdir(controller, path)) < 0) {
+                        if (ret >= 0)
+                                ret = r;
+                }
+
+finish:
+        if (d)
+                closedir(d);
 
         return ret;
 }
 
-int cg_kill_recursive_and_wait(const char *controller, const char *path) {
+int cg_kill_recursive_and_wait(const char *controller, const char *path, bool rem) {
         unsigned i;
 
         assert(path);
@@ -294,7 +321,7 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path) {
                 else
                         sig = 0;
 
-                if ((r = cg_kill_recursive(controller, path, sig, true)) <= 0)
+                if ((r = cg_kill_recursive(controller, path, sig, true, rem)) <= 0)
                         return r;
 
                 usleep(50 * USEC_PER_MSEC);
@@ -304,7 +331,8 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path) {
 }
 
 int cg_migrate(const char *controller, const char *from, const char *to, bool ignore_self) {
-        bool migrated = false, done = false;
+        bool done = false;
+        Set *s;
         int r, ret = 0;
         pid_t my_pid;
         FILE *f = NULL;
@@ -313,96 +341,119 @@ int cg_migrate(const char *controller, const char *from, const char *to, bool ig
         assert(from);
         assert(to);
 
+        if (!(s = set_new(trivial_hash_func, trivial_compare_func)))
+                return -ENOMEM;
+
         my_pid = getpid();
 
         do {
                 pid_t pid;
                 done = true;
 
-                if ((r = cg_enumerate_tasks(controller, from, &f)) < 0)
+                if ((r = cg_enumerate_tasks(controller, from, &f)) < 0) {
+                        if (ret >= 0)
+                                ret = r;
+
                         goto finish;
+                }
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
 
+                        /* This might do weird stuff if we aren't a
+                         * single-threaded program. However, we
+                         * luckily know we are not */
                         if (pid == my_pid && ignore_self)
                                 continue;
 
-                        if ((r = cg_attach(controller, to, pid)) < 0) {
-                                if (ret == 0)
-                                        ret = -r;
-                        }
+                        if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
+                                continue;
 
-                        migrated = true;
+                        if ((r = cg_attach(controller, to, pid)) < 0) {
+                                if (ret >= 0)
+                                        ret = r;
+                        } else if (ret == 0)
+                                ret = 1;
+
                         done = false;
+
+                        if ((r = set_put(s, LONG_TO_PTR(pid))) < 0) {
+                                if (ret >= 0)
+                                        ret = r;
+
+                                goto finish;
+                        }
+                }
+
+                if (r < 0) {
+                        if (ret >= 0)
+                                ret = r;
+
+                        goto finish;
                 }
 
                 fclose(f);
                 f = NULL;
 
-        } while (!done && r >= 0);
+        } while (!done);
 
 finish:
+        set_free(s);
 
         if (f)
                 fclose(f);
 
-        if (r < 0)
-                return r;
-
-        if (ret < 0)
-                return ret;
-
-        return !!migrated;
+        return ret;
 }
 
-int cg_migrate_recursive(const char *controller, const char *from, const char *to, bool ignore_self) {
-        struct cgroup_file_info info;
-        int level = 0, r, ret = 0;
-        void *iterator = NULL;
-        bool migrated = false;
+int cg_migrate_recursive(const char *controller, const char *from, const char *to, bool ignore_self, bool rem) {
+        int r, ret = 0;
+        DIR *d = NULL;
+        char *fn;
 
         assert(controller);
         assert(from);
         assert(to);
 
-        zero(info);
+        ret = cg_migrate(controller, from, to, ignore_self);
 
-        r = cgroup_walk_tree_begin(controller, from, 0, &iterator, &info, &level);
-        while (r == 0) {
-                int k;
-                char *p;
+        if ((r = cg_enumerate_subgroups(controller, from, &d)) < 0) {
+                if (ret >= 0)
+                        ret = r;
+                goto finish;
+        }
 
-                if (info.type != CGROUP_FILE_TYPE_DIR)
-                        goto next;
+        while ((r = cg_read_subgroup(d, &fn)) > 0) {
+                char *p = NULL;
 
-                if (asprintf(&p, "%s/%s", from, info.path) < 0) {
-                        ret = -ENOMEM;
-                        break;
+                r = asprintf(&p, "%s/%s", from, fn);
+                free(fn);
+
+                if (r < 0) {
+                        if (ret >= 0)
+                                ret = -ENOMEM;
+
+                        goto finish;
                 }
 
-                k = cg_migrate(controller, p, to, ignore_self);
+                r = cg_migrate_recursive(controller, p, to, ignore_self, rem);
                 free(p);
 
-                if (k < 0) {
-                        if (ret == 0)
-                                ret = k;
-                } else if (k > 0)
-                        migrated = true;
-
-        next:
-                r = cgroup_walk_tree_next(0, &iterator, &info, level);
+                if (r != 0 && ret >= 0)
+                        ret = r;
         }
 
-        if (ret == 0) {
-                if (r == 0 || r == ECGEOF)
-                        r = !!migrated;
-                else if (r == ECGOTHER && errno == ENOENT)
-                        r = -ESRCH;
-                else
-                        r = cg_translate_error(r, errno);
-        }
+        if (r < 0 && ret >= 0)
+                ret = r;
 
-        assert_se(cgroup_walk_tree_end(&iterator) == 0);
+        if (rem)
+                if ((r = cg_rmdir(controller, from)) < 0) {
+                        if (ret >= 0)
+                                ret = r;
+                }
+
+finish:
+        if (d)
+                closedir(d);
 
         return ret;
 }
@@ -470,24 +521,17 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
 }
 
 int cg_delete(const char *controller, const char *path) {
-        struct cgroup *cg;
+        char *parent;
         int r;
 
         assert(controller);
         assert(path);
 
-        if (!(cg = cg_new(controller, path)))
-                return -ENOMEM;
+        if ((r = parent_of_path(path, &parent)) < 0)
+                return r;
 
-        if ((r = cgroup_delete_cgroup_ext(cg, CGFLAG_DELETE_RECURSIVE|CGFLAG_DELETE_IGNORE_MIGRATION)) != 0) {
-                r = cg_translate_error(r, errno);
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
-        cgroup_free(&cg);
+        r = cg_migrate_recursive(controller, path, parent, false, true);
+        free(parent);
 
         return r;
 }
@@ -739,63 +783,154 @@ int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
 }
 
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
-        struct cgroup_file_info info;
-        int level = 0, r, ret = 0;
-        void *iterator = NULL;
-        bool empty = true;
+        int r;
+        DIR *d = NULL;
+        char *fn;
 
         assert(controller);
         assert(path);
 
-        zero(info);
+        if ((r = cg_is_empty(controller, path, ignore_self)) <= 0)
+                return r;
 
-        r = cgroup_walk_tree_begin(controller, path, 0, &iterator, &info, &level);
-        while (r == 0) {
-                int k;
-                char *p;
+        if ((r = cg_enumerate_subgroups(controller, path, &d)) < 0)
+                return r;
 
-                if (info.type != CGROUP_FILE_TYPE_DIR)
-                        goto next;
+        while ((r = cg_read_subgroup(d, &fn)) > 0) {
+                char *p = NULL;
 
-                if (asprintf(&p, "%s/%s", path, info.path) < 0) {
-                        ret = -ENOMEM;
-                        break;
+                r = asprintf(&p, "%s/%s", path, fn);
+                free(fn);
+
+                if (r < 0) {
+                        r = -ENOMEM;
+                        goto finish;
                 }
 
-                k = cg_is_empty(controller, p, ignore_self);
+                r = cg_is_empty_recursive(controller, p, ignore_self);
                 free(p);
 
-                if (k < 0) {
-                        ret = k;
-                        break;
-                } else if (k == 0) {
-                        empty = false;
-                        break;
-                }
-
-        next:
-                r = cgroup_walk_tree_next(0, &iterator, &info, level);
+                if (r <= 0)
+                        goto finish;
         }
 
-        if (ret == 0) {
-                if (r == 0 || r == ECGEOF)
-                        ret = !!empty;
-                else if (r == ECGOTHER && errno == ENOENT)
-                        ret = -ESRCH;
-                else
-                        ret = cg_translate_error(r, errno);
-        }
+        if (r >= 0)
+                r = 1;
 
-        assert_se(cgroup_walk_tree_end(&iterator) == 0);
+finish:
 
-        return ret;
+        if (d)
+                closedir(d);
+
+        return r;
 }
 
-int cg_init(void) {
-        int r;
+int cg_split_spec(const char *spec, char **controller, char **path) {
+        const char *e;
+        char *t = NULL, *u = NULL;
 
-        if ((r = cgroup_init()) != 0)
-                return cg_translate_error(r, errno);
+        assert(spec);
+        assert(controller || path);
+
+        if (*spec == '/') {
+
+                if (path) {
+                        if (!(t = strdup(spec)))
+                                return -ENOMEM;
+
+                        *path = t;
+                }
+
+                if (controller)
+                        *controller = NULL;
+
+                return 0;
+        }
+
+        if (!(e = strchr(spec, ':'))) {
+
+                if (strchr(spec, '/') || spec[0] == 0)
+                        return -EINVAL;
+
+                if (controller) {
+                        if (!(t = strdup(spec)))
+                                return -ENOMEM;
+
+                        *controller = t;
+                }
+
+                if (path)
+                        *path = NULL;
+
+                return 0;
+        }
+
+        if (e[1] != '/' ||
+            e == spec ||
+            memchr(spec, '/', e-spec))
+                return -EINVAL;
+
+        if (controller)
+                if (!(t = strndup(spec, e-spec)))
+                        return -ENOMEM;
+
+        if (path)
+                if (!(u = strdup(e+1))) {
+                        free(t);
+                        return -ENOMEM;
+                }
+
+        if (controller)
+                *controller = t;
+
+        if (path)
+                *path = u;
 
         return 0;
+}
+
+int cg_join_spec(const char *controller, const char *path, char **spec) {
+        assert(controller);
+        assert(path);
+
+        if (!path_is_absolute(path) ||
+            controller[0] == 0 ||
+            strchr(controller, ':') ||
+            strchr(controller, '/'))
+                return -EINVAL;
+
+        if (asprintf(spec, "%s:%s", controller, path) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+int cg_fix_path(const char *path, char **result) {
+        char *t, *c, *p;
+        int r;
+
+        assert(path);
+        assert(result);
+
+        /* First check if it already is a filesystem path */
+        if (path_is_absolute(path) &&
+            path_startswith(path, "/cgroup") &&
+            access(path, F_OK) >= 0) {
+
+                if (!(t = strdup(path)))
+                        return -ENOMEM;
+
+                *result = t;
+                return 0;
+        }
+
+        /* Otherwise treat it as cg spec */
+        if ((r = cg_split_spec(path, &c, &p)) < 0)
+                return r;
+
+        r = cg_get_path(c ? c : SYSTEMD_CGROUP_CONTROLLER, p ? p : "/", NULL, result);
+        free(c);
+        free(p);
+
+        return r;
 }

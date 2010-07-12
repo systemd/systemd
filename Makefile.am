@@ -285,14 +285,12 @@ libsystemd_core_la_SOURCES = \
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(CGROUP_CFLAGS)
+	$(UDEV_CFLAGS)
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS) \
-	$(CGROUP_LIBS) \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS)
 
@@ -396,8 +394,7 @@ systemd_SOURCES = \
 systemd_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(CGROUP_CFLAGS)
+	$(UDEV_CFLAGS)
 
 systemd_LDADD = \
 	libsystemd-core.la
@@ -439,12 +436,10 @@ test_cgroup_SOURCES = \
 	src/cgroup-util.c
 
 test_cgroup_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CGROUP_CFLAGS)
+	$(AM_CFLAGS)
 
 test_cgroup_LDADD = \
-	libsystemd-basic.la \
-	$(CGROUP_LIBS)
+	libsystemd-basic.la
 
 systemd_logger_SOURCES = \
 	src/logger.c \
@@ -488,13 +483,11 @@ systemctl_SOURCES = \
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS) \
-	$(CGROUP_CLAGS)
+	$(DBUS_CFLAGS)
 
 systemctl_LDADD = \
 	libsystemd-basic.la \
-	$(DBUS_LIBS) \
-	$(CGROUP_LIBS)
+	$(DBUS_LIBS)
 
 systemd_notify_SOURCES = \
 	src/notify.c \
@@ -523,12 +516,10 @@ systemd_cgls_SOURCES = \
 	src/cgroup-util.c
 
 systemd_cgls_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CGROUP_CLAGS)
+	$(AM_CFLAGS)
 
 systemd_cgls_LDADD = \
-	libsystemd-basic.la \
-	$(CGROUP_LIBS)
+	libsystemd-basic.la
 
 systemadm_SOURCES = \
 	src/systemadm.vala \
@@ -559,8 +550,7 @@ pam_systemd_la_SOURCES = \
 	src/sd-daemon.c
 
 pam_systemd_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CGROUP_CFLAGS) \
+	$(AM_CFLAGS)
 	-fvisibility=hidden
 
 pam_systemd_la_LDFLAGS = \
@@ -572,8 +562,7 @@ pam_systemd_la_LDFLAGS = \
 
 pam_systemd_la_LIBADD = \
 	libsystemd-basic.la \
-	$(PAM_LIBS) \
-	$(CGROUP_LIBS)
+	$(PAM_LIBS)
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \

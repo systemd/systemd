@@ -83,11 +83,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (cg_init() < 0) {
-                log_error("Failed to initialize libcg: %s", strerror(-r));
-                goto finish;
-        }
-
         if (optind < argc) {
                 unsigned i;
 
@@ -95,7 +90,7 @@ int main(int argc, char *argv[]) {
                         int q;
                         printf("%s:\n", argv[i]);
 
-                        if ((q = show_cgroup_recursive(argv[i], NULL, 0)) < 0)
+                        if ((q = show_cgroup_by_path(argv[i], NULL, 0)) < 0)
                                 r = q;
                 }
 
@@ -109,9 +104,9 @@ int main(int argc, char *argv[]) {
 
                 if (path_startswith(p, "/cgroup")) {
                         printf("Working Directory %s:\n", p);
-                        r = show_cgroup_recursive(p, NULL, 0);
+                        r = show_cgroup_by_path(p, NULL, 0);
                 } else
-                        r = show_cgroup_recursive(NULL, NULL, 0);
+                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, "/", NULL, 0);
 
                 free(p);
         }

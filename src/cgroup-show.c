@@ -39,20 +39,6 @@ static int compare(const void *a, const void *b) {
         return 0;
 }
 
-static char *get_cgroup_path(const char *name) {
-
-        if (!name)
-                return strdup("/cgroup/systemd");
-
-        if (startswith(name, SYSTEMD_CGROUP_CONTROLLER ":"))
-                name += sizeof(SYSTEMD_CGROUP_CONTROLLER);
-
-        if (path_startswith(name, "/cgroup"))
-                return strdup(name);
-
-        return strappend("/cgroup/systemd/", name);
-}
-
 static unsigned ilog10(unsigned long ul) {
         int n = 0;
 
@@ -64,7 +50,7 @@ static unsigned ilog10(unsigned long ul) {
         return n;
 }
 
-static int show_cgroup_full(const char *path, const char *prefix, unsigned n_columns, bool more) {
+static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigned n_columns, bool more) {
         char *fn;
         FILE *f;
         size_t n = 0, n_allocated = 0;
@@ -79,8 +65,8 @@ static int show_cgroup_full(const char *path, const char *prefix, unsigned n_col
         if (!prefix)
                 prefix = "";
 
-        if (!(p = get_cgroup_path(path)))
-                return -ENOMEM;
+        if ((r = cg_fix_path(path, &p)) < 0)
+                return r;
 
         r = asprintf(&fn, "%s/cgroup.procs", p);
         free(p);
@@ -171,15 +157,10 @@ finish:
         return r;
 }
 
-int show_cgroup(const char *path, const char *prefix, unsigned n_columns) {
-        return show_cgroup_full(path, prefix, n_columns, false);
-}
-
-int show_cgroup_recursive(const char *path, const char *prefix, unsigned n_columns) {
+int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns) {
         DIR *d;
         char *last = NULL;
-        char *p1 = NULL, *p2 = NULL, *fn = NULL;
-        struct dirent *de;
+        char *p1 = NULL, *p2 = NULL, *fn = NULL, *gn = NULL;
         bool shown_pids = false;
         int r;
 
@@ -189,24 +170,18 @@ int show_cgroup_recursive(const char *path, const char *prefix, unsigned n_colum
         if (!prefix)
                 prefix = "";
 
-        if (!(fn = get_cgroup_path(path)))
-                return -ENOMEM;
+        if ((r = cg_fix_path(path, &fn)) < 0)
+                return r;
 
         if (!(d = opendir(fn))) {
                 free(fn);
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
-
-                if (de->d_type != DT_DIR)
-                        continue;
-
-                if (ignore_file(de->d_name))
-                        continue;
+        while ((r = cg_read_subgroup(d, &gn)) > 0) {
 
                 if (!shown_pids) {
-                        show_cgroup_full(path, prefix, n_columns, true);
+                        show_cgroup_one_by_path(path, prefix, n_columns, true);
                         shown_pids = true;
                 }
 
@@ -219,20 +194,26 @@ int show_cgroup_recursive(const char *path, const char *prefix, unsigned n_colum
                                         goto finish;
                                 }
 
-                        show_cgroup_recursive(last, p1, n_columns-2);
+                        show_cgroup_by_path(last, p1, n_columns-2);
 
                         free(last);
                         last = NULL;
                 }
 
-                if (asprintf(&last, "%s/%s", strempty(path), de->d_name) < 0) {
+                r = asprintf(&last, "%s/%s", fn, gn);
+                free(gn);
+
+                if (r < 0) {
                         r = -ENOMEM;
                         goto finish;
                 }
         }
 
+        if (r < 0)
+                goto finish;
+
         if (!shown_pids)
-                show_cgroup_full(path, prefix, n_columns, !!last);
+                show_cgroup_one_by_path(path, prefix, n_columns, !!last);
 
         if (last) {
                 printf("%s\342\224\224 %s\n", prefix, file_name_from_path(last));
@@ -243,7 +224,7 @@ int show_cgroup_recursive(const char *path, const char *prefix, unsigned n_colum
                                 goto finish;
                         }
 
-                show_cgroup_recursive(last, p2, n_columns-2);
+                show_cgroup_by_path(last, p2, n_columns-2);
         }
 
         r = 0;
@@ -255,6 +236,22 @@ finish:
         free(fn);
 
         closedir(d);
+
+        return r;
+}
+
+int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned n_columns) {
+        char *p;
+        int r;
+
+        assert(controller);
+        assert(path);
+
+        if ((r = cg_get_path(controller, path, NULL, &p)) < 0)
+                return r;
+
+        r = show_cgroup_by_path(p, prefix, n_columns);
+        free(p);
 
         return r;
 }
