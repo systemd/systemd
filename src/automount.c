@@ -568,6 +568,13 @@ static void automount_enter_runnning(Automount *a) {
 
         dbus_error_init(&error);
 
+        /* We don't take mount requests anymore if we are supposed to
+         * shut down anyway */
+        if (a->meta.job && a->meta.job->type == JOB_STOP) {
+                automount_send_ready(a, -EHOSTDOWN);
+                return;
+        }
+
         mkdir_p(a->where, a->directory_mode);
 
         /* Before we do anything, let's see if somebody is playing games with us? */

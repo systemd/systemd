@@ -268,6 +268,10 @@ static void timer_enter_running(Timer *t) {
         assert(t);
         dbus_error_init(&error);
 
+        /* Don't start job if we are supposed to go down */
+        if (t->meta.job && t->meta.job->type == JOB_STOP)
+                return;
+
         if ((r = manager_add_job(t->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 

@@ -304,6 +304,10 @@ static void path_enter_running(Path *p) {
         assert(p);
         dbus_error_init(&error);
 
+        /* Don't start job if we are supposed to go down */
+        if (p->meta.job && p->meta.job->type == JOB_STOP)
+                return;
+
         if ((r = manager_add_job(p->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
