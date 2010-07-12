@@ -37,9 +37,9 @@
 
 * systemctl status $PID, systemctl stop $PID!
 
-* make shutdown go on even if conflicting units fail to shut down.
-
 * sulogin in den single user mode, mit plymouth --hide davor
+
+* replace remaining libcgroup use
 
 External:
 

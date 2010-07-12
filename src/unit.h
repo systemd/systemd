@@ -184,6 +184,9 @@ struct Meta {
         /* Create default depedencies */
         bool default_dependencies;
 
+        /* Bring up this unit even if a dependency fails to start */
+        bool ignore_dependency_failure;
+
         /* When deserializing, temporarily store the job type for this
          * unit here, if there was a job scheduled */
         int deserialized_job; /* This is actually of type JobType */

@@ -626,11 +626,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tRecursive Stop: %s\n"
                         "%s\tStopWhenUnneeded: %s\n"
                         "%s\tOnlyByDependency: %s\n"
-                        "%s\tDefaultDependencies: %s\n",
+                        "%s\tDefaultDependencies: %s\n"
+                        "%s\tIgnoreDependencyFailure: %s\n",
                         prefix, yes_no(u->meta.recursive_stop),
                         prefix, yes_no(u->meta.stop_when_unneeded),
                         prefix, yes_no(u->meta.only_by_dependency),
-                        prefix, yes_no(u->meta.default_dependencies));
+                        prefix, yes_no(u->meta.default_dependencies),
+                        prefix, yes_no(u->meta.ignore_dependency_failure));
 
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",

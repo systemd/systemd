@@ -482,6 +482,19 @@
                                 ones.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>IgnoreDependencyFailure=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option> and
+                                a requirement dependency of this unit
+                                fails to start up this unit will be
+                                started nonetheless, ignoring that
+                                failure. If <option>false</option>
+                                (the default) and a dependency unit
+                                fails the unit will immediately fail
+                                too and the job is removed.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>Unit file may include a [Install] section, which

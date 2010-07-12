@@ -10,3 +10,4 @@
 [Unit]
 Description=Shutdown
 OnlyByDependency=yes
+IgnoreDependencyFailure=yes

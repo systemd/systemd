@@ -10,3 +10,4 @@
 [Unit]
 Description=Unmount All Filesystems
 OnlyByDependency=yes
+IgnoreDependencyFailure=yes

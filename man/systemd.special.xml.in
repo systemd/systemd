@@ -84,7 +84,8 @@
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
                 <filename>systemd-logger.service</filename>,
-                <filename>systemd-logger.socket</filename></para>
+                <filename>systemd-logger.socket</filename>,
+                <filename>umount.target</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -499,8 +500,10 @@
                                         terminated on system shutdown
                                         shall add Conflicts
                                         dependencies to this unit for
-                                        their service unit during
-                                        installation.</para>
+                                        their service unit, which is
+                                        implicitly done when
+                                        <varname>DefaultDependencies=yes</varname>
+                                        is set (the default).</para>
 
                                         <para>systemd automatically
                                         adds dependencies of type
@@ -651,6 +654,24 @@
                                         stdout or stderr to be
                                         connected to syslog or the
                                         kernel log buffer.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>umount.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that umounts all mount and
+                                        automount points on system
+                                        shutdown.</para>
+
+                                        <para>Mounts that shall be
+                                        unmounted on system shutdown
+                                        shall add Conflicts
+                                        dependencies to this unit for
+                                        their mount unit, which is
+                                        implicitly done when
+                                        <varname>DefaultDependencies=yes</varname>
+                                        is set (the default).</para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>
