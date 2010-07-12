@@ -2030,7 +2030,7 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                         }
 
                         if (e.wd != wd || !(e.mask & IN_CLOSE)) {
-                                r = -errno;
+                                r = -EIO;
                                 goto fail;
                         }
 
