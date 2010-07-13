@@ -46,6 +46,7 @@ static enum {
         ACTION_INVALID,
         ACTION_ENABLE,
         ACTION_DISABLE,
+        ACTION_REALIZE,
         ACTION_TEST
 } arg_action = ACTION_INVALID;
 
@@ -81,6 +82,8 @@ static int help(void) {
                "Commands:\n"
                "  enable [NAME...]    Enable one or more units\n"
                "  disable [NAME...]   Disable one or more units\n"
+               "  realize [NAME...]   Test whether any of the specified units are enabled\n"
+               "                      and the start/stop/restart units accordingly\n"
                "  test [NAME...]      Test whether any of the specified units are enabled\n",
                program_invocation_short_name);
 
@@ -108,6 +111,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c;
+        bool realize_switch = false;
 
         assert(argc >= 1);
         assert(argv);
@@ -137,6 +141,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REALIZE:
+
+                        realize_switch = true;
 
                         if (!optarg)
                                 arg_realize = REALIZE_MAYBE;
@@ -177,7 +183,12 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_action = ACTION_DISABLE;
         else if (streq(argv[optind], "test"))
                 arg_action = ACTION_TEST;
-        else {
+        else if (streq(argv[optind], "realize")) {
+                arg_action = ACTION_REALIZE;
+
+                if (!realize_switch)
+                        arg_realize = REALIZE_MAYBE;
+        } else {
                 log_error("Unknown verb %s.", argv[optind]);
                 return -EINVAL;
         }
@@ -297,7 +308,7 @@ finish:
         return r;
 }
 
-static int install_info_run(DBusConnection *bus, InstallInfo *i) {
+static int install_info_run(DBusConnection *bus, InstallInfo *i, bool enabled) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
@@ -308,7 +319,8 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i) {
 
         dbus_error_init(&error);
 
-        if (arg_action == ACTION_ENABLE) {
+        if (arg_action == ACTION_ENABLE ||
+            (arg_action == ACTION_REALIZE && enabled)) {
 
                 if (arg_realize == REALIZE_MAYBE) {
                         char **k;
@@ -436,7 +448,8 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i) {
                 }
 
 
-        } else if (arg_action == ACTION_DISABLE) {
+        } else if (arg_action == ACTION_DISABLE ||
+                   (arg_action == ACTION_REALIZE && !enabled)) {
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -456,10 +469,11 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i) {
                         r = -ENOMEM;
                         goto finish;
                 }
-        }
+        } else
+                assert_not_reached("install_info_run() called but nothing to do?");
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to reload configuration: %s", error.message);
+                log_error("Failed to realize unit: %s", error.message);
                 r = -EIO;
                 goto finish;
         }
@@ -591,7 +605,7 @@ static int create_symlink(const char *old_path, const char *new_path) {
                 log_error("Cannot unlink %s: %m", new_path);
                 return -errno;
 
-        } else if (arg_action == ACTION_TEST) {
+        } else if (arg_action == ACTION_TEST || arg_action == ACTION_REALIZE) {
                 char *dest;
 
                 if ((r = readlink_and_make_absolute(new_path, &dest)) < 0) {
@@ -773,7 +787,7 @@ static char *get_config_path(void) {
         }
 }
 
-static int do_realize(void) {
+static int do_realize(bool enabled) {
         DBusConnection *bus = NULL;
         DBusError error;
         int r, q;
@@ -790,7 +804,7 @@ static int do_realize(void) {
                 return 0;
         }
 
-        if (arg_action != ACTION_ENABLE && arg_action != ACTION_DISABLE) {
+        if (arg_action == ACTION_TEST) {
                 log_warning("Warning: --realize has no effect with test.");
                 return 0;
         }
@@ -812,13 +826,13 @@ static int do_realize(void) {
 
         r = 0;
 
-        if (arg_action == ACTION_ENABLE)
+        if (arg_action == ACTION_ENABLE || arg_action == ACTION_REALIZE)
                 if ((r = daemon_reload(bus)) < 0)
                         goto finish;
 
         if (arg_realize != REALIZE_RELOAD) {
                 HASHMAP_FOREACH(j, have_installed, i)
-                        if ((q = install_info_run(bus, j)) < 0)
+                        if ((q = install_info_run(bus, j, enabled)) < 0)
                                 r = q;
         }
 
@@ -887,14 +901,12 @@ int main(int argc, char *argv[]) {
 
                         /* In test mode and found something */
                         retval = 0;
-                        goto finish;
+                        break;
                 }
         }
 
-        if (do_realize() < 0)
+        if (do_realize(!retval) < 0)
                 goto finish;
-
-        retval = arg_action == ACTION_TEST ? 1 : 0;
 
 finish:
         install_info_hashmap_free(will_install);

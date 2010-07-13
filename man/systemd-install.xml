@@ -56,6 +56,9 @@
                         <command>systemd-install <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">disable</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
                 </cmdsynopsis>
                 <cmdsynopsis>
+                        <command>systemd-install <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">realize</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
+                </cmdsynopsis>
+                <cmdsynopsis>
                         <command>systemd-install <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">test</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
                 </cmdsynopsis>
         </refsynopsisdiv>
@@ -168,8 +171,10 @@
                                 <option>yes</option> starts the unit
                                 unconditionally after enabling. This
                                 setting defaults to
-                                <option>no</option>. If the mode value
-                                is omitted defaults to
+                                <option>no</option>. If
+                                <option>--realize</option> is
+                                specifieed but the mode value is
+                                omitted defaults to
                                 <option>maybe</option>. This option
                                 has no effect when
                                 <option>--global</option> or
@@ -177,7 +182,9 @@
                                 when systemd is not running or the
                                 command is executed in a
                                 <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                environment.</para></listitem>
+                                environment. This option is implied if
+                                the <command>realize</command> command
+                                is used.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -187,9 +194,9 @@
                         <varlistentry>
                                 <term><command>enable</command></term>
 
-                                <listitem><para>Enable a unit. This
-                                will create a number of symlinks as
-                                encoded in the
+                                <listitem><para>Enable one or more
+                                units. This will create a number of
+                                symlinks as encoded in the
                                 <literal>[Install]</literal> section
                                 of a unit file.</para></listitem>
                         </varlistentry>
@@ -197,24 +204,51 @@
                         <varlistentry>
                                 <term><command>disable</command></term>
 
-                                <listitem><para>Disable a unit. This
-                                will remove a number of symlinks as
-                                encoded in the
+                                <listitem><para>Disable or more
+                                units. This will remove a number of
+                                symlinks as encoded in the
                                 <literal>[Install]</literal> section
                                 of a unit file.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
+                                <term><command>realize</command></term>
+
+                                <listitem><para>Does not enable or
+                                disable any unit. Checks whether any
+                                of the units specified are enabled,
+                                and then starts/stops/restarts the
+                                units accordingly. This will check for
+                                the existence of a number of symlinks
+                                as encoded in the
+                                <literal>[Install]</literal> section
+                                of a unit file, and then executes the
+                                action normally specified by
+                                <option>--realize</option>. If
+                                <option>--realize</option> is not
+                                specified implies
+                                <option>maybe</option> mode. To
+                                override this mode specify
+                                <option>--realize=</option> in
+                                addition to
+                                <command>realize</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><command>test</command></term>
 
-                                <listitem><para>Checks whether any of
-                                the units specified are
-                                installed. This will check for the
+                                <listitem><para>Does not enable or
+                                disable any unit. Checks whether any
+                                of the units specified are
+                                enabled. This will check for the
                                 existence of a number of symlinks as
                                 encoded in the
                                 <literal>[Install]</literal> section
-                                of a unit file.</para></listitem>
+                                of a unit file, and return with an
+                                exit code of 0 if a unit is enabled, 1
+                                otherwise.</para></listitem>
                         </varlistentry>
+
                 </variablelist>
 
         </refsect1>
