@@ -39,7 +39,7 @@ typedef enum UnitDependency UnitDependency;
 #include "socket-util.h"
 #include "execute.h"
 
-#define UNIT_NAME_MAX 128
+#define UNIT_NAME_MAX 256
 #define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
