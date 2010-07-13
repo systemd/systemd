@@ -189,7 +189,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
                 done = true;
 
                 if ((r = cg_enumerate_processes(controller, path, &f)) < 0) {
-                        if (ret >= 0)
+                        if (ret >= 0 && r != -ENOENT)
                                 ret = r;
 
                         goto finish;
@@ -205,8 +205,8 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
 
                         /* If we haven't killed this process yet, kill
                          * it */
-                        if (kill(pid, sig) < 0 && errno != ESRCH) {
-                                if (ret >= 0)
+                        if (kill(pid, sig) < 0) {
+                                if (ret >= 0 && errno != ESRCH)
                                         ret = -errno;
                         } else if (ret == 0)
                                 ret = 1;
@@ -258,7 +258,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool ig
         ret = cg_kill(controller, path, sig, ignore_self);
 
         if ((r = cg_enumerate_subgroups(controller, path, &d)) < 0) {
-                if (ret >= 0)
+                if (ret >= 0 && r != -ENOENT)
                         ret = r;
 
                 goto finish;
@@ -289,7 +289,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool ig
 
         if (rem)
                 if ((r = cg_rmdir(controller, path)) < 0) {
-                        if (ret >= 0)
+                        if (ret >= 0 && r != -ENOENT)
                                 ret = r;
                 }
 
@@ -351,7 +351,7 @@ int cg_migrate(const char *controller, const char *from, const char *to, bool ig
                 done = true;
 
                 if ((r = cg_enumerate_tasks(controller, from, &f)) < 0) {
-                        if (ret >= 0)
+                        if (ret >= 0 && r != -ENOENT)
                                 ret = r;
 
                         goto finish;
@@ -369,7 +369,7 @@ int cg_migrate(const char *controller, const char *from, const char *to, bool ig
                                 continue;
 
                         if ((r = cg_attach(controller, to, pid)) < 0) {
-                                if (ret >= 0)
+                                if (ret >= 0 && r != -ESRCH)
                                         ret = r;
                         } else if (ret == 0)
                                 ret = 1;
@@ -417,7 +417,7 @@ int cg_migrate_recursive(const char *controller, const char *from, const char *t
         ret = cg_migrate(controller, from, to, ignore_self);
 
         if ((r = cg_enumerate_subgroups(controller, from, &d)) < 0) {
-                if (ret >= 0)
+                if (ret >= 0 && r != -ENOENT)
                         ret = r;
                 goto finish;
         }
@@ -447,7 +447,7 @@ int cg_migrate_recursive(const char *controller, const char *from, const char *t
 
         if (rem)
                 if ((r = cg_rmdir(controller, from)) < 0) {
-                        if (ret >= 0)
+                        if (ret >= 0 && r != -ENOENT)
                                 ret = r;
                 }
 
@@ -517,7 +517,7 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         r = rm_rf(fs, true, delete_root);
         free(fs);
 
-        return r;
+        return r == -ENOENT ? 0 : r;
 }
 
 int cg_delete(const char *controller, const char *path) {
@@ -533,7 +533,7 @@ int cg_delete(const char *controller, const char *path) {
         r = cg_migrate_recursive(controller, path, parent, false, true);
         free(parent);
 
-        return r;
+        return r == -ENOENT ? 0 : r;
 }
 
 int cg_create(const char *controller, const char *path) {
@@ -645,6 +645,9 @@ int cg_get_by_pid(const char *controller, pid_t pid, char **path) {
 
         f = fopen(fs, "re");
         free(fs);
+
+        if (!f)
+                return errno == ENOENT ? -ESRCH : -errno;
 
         cs = strlen(controller);
 
@@ -763,7 +766,7 @@ int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
         assert(path);
 
         if ((r = cg_enumerate_tasks(controller, path, &f)) < 0)
-                return r;
+                return r == -ENOENT ? 1 : r;
 
         while ((r = cg_read_pid(f, &pid)) > 0) {
 
@@ -794,7 +797,7 @@ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_
                 return r;
 
         if ((r = cg_enumerate_subgroups(controller, path, &d)) < 0)
-                return r;
+                return r == -ENOENT ? 1 : r;
 
         while ((r = cg_read_subgroup(d, &fn)) > 0) {
                 char *p = NULL;

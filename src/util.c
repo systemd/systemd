@@ -2565,7 +2565,8 @@ static int rm_rf_children(int fd, bool only_dirs) {
 
         if (!(d = fdopendir(fd))) {
                 close_nointr_nofail(fd);
-                return -errno;
+
+                return errno == ENOENT ? 0 : -errno;
         }
 
         for (;;) {
@@ -2589,7 +2590,7 @@ static int rm_rf_children(int fd, bool only_dirs) {
                         struct stat st;
 
                         if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                                if (ret == 0)
+                                if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
                         }
@@ -2602,7 +2603,7 @@ static int rm_rf_children(int fd, bool only_dirs) {
                         int subdir_fd;
 
                         if ((subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC)) < 0) {
-                                if (ret == 0)
+                                if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
                         }
@@ -2613,13 +2614,13 @@ static int rm_rf_children(int fd, bool only_dirs) {
                         }
 
                         if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
-                                if (ret == 0)
+                                if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                         }
                 } else  if (!only_dirs) {
 
                         if (unlinkat(fd, de->d_name, 0) < 0) {
-                                if (ret == 0)
+                                if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                         }
                 }
