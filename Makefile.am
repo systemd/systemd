@@ -145,7 +145,9 @@ dist_systemunit_DATA = \
 	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
 	units/var-lock.mount \
-	units/var-run.mount
+	units/var-run.mount \
+	units/printer.target \
+	units/bluetooth.target
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -709,11 +711,13 @@ install-data-hook:
 		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
 	( cd $(DESTDIR)$(sessionunitdir) && \
-		rm -f shutdown.target sockets.target local-fs.target swap.target && \
+		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
 		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \
 		$(LN_S) $(systemunitdir)/local-fs.target local-fs.target && \
-		$(LN_S) $(systemunitdir)/swap.target swap.target )
+		$(LN_S) $(systemunitdir)/swap.target swap.target && \
+		$(LN_S) $(systemunitdir)/bluetooth.target bluetooth.target && \
+		$(LN_S) $(systemunitdir)/printer.target printer.target)
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel0.target runlevel1.target runlevel6.target && \
 		$(LN_S) poweroff.target runlevel0.target && \

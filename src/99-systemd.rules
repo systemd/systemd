@@ -25,4 +25,7 @@ SUBSYSTEM=="block", TAG="systemd"
 
 SUBSYSTEM=="net", KERNEL!="lo", TAG="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/%k"
 
+SUBSYSTEM=="bluetooth", TAG="systemd", ENV{SYSTEMD_WANTS}="bluetooth.target"
+SUBSYSTEM=="printer", TAG="systemd", ENV{SYSTEMD_WANTS}="printer.target"
+
 LABEL="systemd_end"
