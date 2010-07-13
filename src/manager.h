@@ -192,7 +192,7 @@ struct Manager {
 
         bool utmp_reboot_written:1;
 
-        bool deserializing:1;
+        int n_deserializing;
 
         bool show_status;
         bool confirm_spawn;

@@ -1043,14 +1043,16 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         assert_not_reached("Job type unknown");
                 }
 
-                /* If this state change happened without being
-                 * requested by a job, then let's retroactively start
-                 * or stop dependencies */
-
         } else
                 unexpected = true;
 
-        if (unexpected) {
+        /* If this state change happened without being requested by a
+         * job, then let's retroactively start or stop
+         * dependencies. We skip that step when deserializing, since
+         * we don't want to create any additional jobs just because
+         * something is already activated. */
+
+        if (unexpected && u->meta.manager->n_deserializing <= 0) {
                 if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
                         retroactively_start_dependencies(u);
                 else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))

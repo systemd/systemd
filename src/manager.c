@@ -544,6 +544,12 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         manager_build_unit_path_cache(m);
 
+        /* If we will deserialize make sure that during enumeration
+         * this is already known, so we increase the counter here
+         * already */
+        if (serialization)
+                m->n_deserializing ++;
+
         /* First, enumerate what we can from all config files */
         r = manager_enumerate(m);
 
@@ -555,6 +561,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         /* Third, fire things up! */
         if ((q = manager_coldplug(m)) < 0)
                 r = q;
+
+        if (serialization) {
+                assert(m->n_deserializing > 0);
+                m->n_deserializing --;
+        }
 
         /* Now that the initial devices are available, let's see if we
          * can write the utmp file */
@@ -2334,7 +2345,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
         log_debug("Deserializing state...");
 
-        m->deserializing = true;
+        m->n_deserializing ++;
 
         for (;;) {
                 Unit *u;
@@ -2366,7 +2377,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         r = 0;
 
 finish:
-        m->deserializing = false;
+        assert(m->n_deserializing > 0);
+        m->n_deserializing --;
 
         return r;
 }
@@ -2402,6 +2414,8 @@ int manager_reload(Manager *m) {
         if ((q = lookup_paths_init(&m->lookup_paths, m->running_as)) < 0)
                 r = q;
 
+        m->n_deserializing ++;
+
         /* First, enumerate what we can from all config files */
         if ((q = manager_enumerate(m)) < 0)
                 r = q;
@@ -2416,6 +2430,9 @@ int manager_reload(Manager *m) {
         /* Third, fire things up! */
         if ((q = manager_coldplug(m)) < 0)
                 r = q;
+
+        assert(m->n_deserializing > 0);
+        m->n_deserializing ++;
 
 finish:
         if (f)
