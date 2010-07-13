@@ -733,10 +733,13 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 method =
-                        streq(args[0], "stop")    ? "StopUnit" :
-                        streq(args[0], "reload")  ? "ReloadUnit" :
-                        streq(args[0], "restart") ? "RestartUnit" :
-                                                    "StartUnit";
+                        streq(args[0], "stop")                  ? "StopUnit" :
+                        streq(args[0], "reload")                ? "ReloadUnit" :
+                        streq(args[0], "restart")               ? "RestartUnit" :
+                        streq(args[0], "try-restart")           ? "TryRestartUnit" :
+                        streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
+                        streq(args[0], "reload-or-try-restart") ? "ReloadOrTryRestartUnit" :
+                                                                  "StartUnit";
 
                 mode =
                         (streq(args[0], "isolate") ||
@@ -2497,7 +2500,8 @@ static int systemctl_help(void) {
                "  -t --type=TYPE     List only units of a particular type\n"
                "  -p --property=NAME Show only properties by this name\n"
                "  -a --all           Show all units/properties, including dead/empty ones\n"
-               "     --fail          When installing a new job, fail if conflicting jobs are pending\n"
+               "     --fail          When installing a new job, fail if conflicting jobs are\n"
+               "                     pending\n"
                "     --system        Connect to system bus\n"
                "     --session       Connect to session bus\n"
                "  -q --quiet         Suppress output\n"
@@ -2507,12 +2511,18 @@ static int systemctl_help(void) {
                "  list-units                      List units\n"
                "  start [NAME...]                 Start one or more units\n"
                "  stop [NAME...]                  Stop one or more units\n"
-               "  restart [NAME...]               Restart one or more units\n"
                "  reload [NAME...]                Reload one or more units\n"
+               "  restart [NAME...]               Start or restart one or more units\n"
+               "  try-restart [NAME...]           Restart one or more units if active\n"
+               "  reload-or-restart [NAME...]     Reload one or more units is possible,\n"
+               "                                  otherwise start or restart\n"
+               "  reload-or-try-restart [NAME...] Reload one or more units is possible,\n"
+               "                                  otherwise restart if active\n"
                "  isolate [NAME]                  Start one unit and stop all others\n"
-               "  check [NAME...]                 Check whether any of the passed units are active\n"
+               "  check [NAME...]                 Check whether units are active\n"
                "  status [NAME...]                Show status of one or more units\n"
-               "  show [NAME...|JOB...]           Show properties of one or more units/jobs/manager\n"
+               "  show [NAME...|JOB...]           Show properties of one or more\n"
+               "                                  units/jobs/manager\n"
                "  load [NAME...]                  Load one or more units\n"
                "  list-jobs                       List jobs\n"
                "  cancel [JOB...]                 Cancel one or more jobs\n"
@@ -2530,9 +2540,9 @@ static int systemctl_help(void) {
                "  halt                            Shut down and halt the system\n"
                "  poweroff                        Shut down and power-off the system\n"
                "  reboot                          Shut down and reboot the system\n"
-               "  default                         Enter default mode\n"
-               "  rescue                          Enter rescue mode\n"
-               "  emergency                       Enter emergency mode\n",
+               "  rescue                          Enter system rescue mode\n"
+               "  emergency                       Enter system emergency mode\n"
+               "  default                         Enter system default mode\n",
                program_invocation_short_name);
 
         return 0;
@@ -3193,6 +3203,9 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "stop",              MORE,  2, start_unit      },
                 { "reload",            MORE,  2, start_unit      },
                 { "restart",           MORE,  2, start_unit      },
+                { "try-restart",       MORE,  2, start_unit      },
+                { "reload-or-restart", MORE,  2, start_unit      },
+                { "reload-or-try-restart", MORE, 2, start_unit   },
                 { "isolate",           EQUAL, 2, start_unit      },
                 { "check",             MORE,  2, check_unit      },
                 { "show",              MORE,  1, show            },

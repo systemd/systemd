@@ -260,6 +260,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
         DBusError error;
         JobType job_type = _JOB_TYPE_INVALID;
         char *path = NULL;
+        bool reload_if_possible = false;
 
         dbus_error_init(&error);
 
@@ -273,7 +274,13 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 job_type = JOB_RESTART;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "TryRestart"))
                 job_type = JOB_TRY_RESTART;
-        else if (UNIT_VTABLE(u)->bus_message_handler)
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ReloadOrRestart")) {
+                reload_if_possible = true;
+                job_type = JOB_RESTART;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ReloadOrTryRestart")) {
+                reload_if_possible = true;
+                job_type = JOB_TRY_RESTART;
+        } else if (UNIT_VTABLE(u)->bus_message_handler)
                 return UNIT_VTABLE(u)->bus_message_handler(u, connection, message);
         else
                 return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -295,6 +302,13 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     DBUS_TYPE_STRING, &smode,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if (reload_if_possible && unit_can_reload(u)) {
+                        if (job_type == JOB_RESTART)
+                                job_type = JOB_RELOAD_OR_START;
+                        else if (job_type == JOB_TRY_RESTART)
+                                job_type = JOB_RELOAD;
+                }
 
                 if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
                         dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);

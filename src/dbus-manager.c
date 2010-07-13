@@ -62,6 +62,16 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"ReloadOrRestartUnit\">\n"                     \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReloadOrTryRestartUnit\">\n"                  \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
@@ -239,6 +249,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         DBusMessage *reply = NULL;
         char * path = NULL;
         JobType job_type = _JOB_TYPE_INVALID;
+        bool reload_if_possible = false;
 
         assert(connection);
         assert(message);
@@ -310,7 +321,13 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 job_type = JOB_RESTART;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "TryRestartUnit"))
                 job_type = JOB_TRY_RESTART;
-        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadOrRestartUnit")) {
+                reload_if_possible = true;
+                job_type = JOB_RESTART;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadOrTryRestartUnit")) {
+                reload_if_possible = true;
+                job_type = JOB_TRY_RESTART;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
                 uint32_t id;
                 Job *j;
 
@@ -738,6 +755,13 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if ((r = manager_load_unit(m, name, NULL, &error, &u)) < 0)
                         return bus_send_error_reply(m, connection, message, &error, r);
+
+                if (reload_if_possible && unit_can_reload(u)) {
+                        if (job_type == JOB_RESTART)
+                                job_type = JOB_RELOAD_OR_START;
+                        else if (job_type == JOB_TRY_RESTART)
+                                job_type = JOB_RELOAD;
+                }
 
                 if (job_type == JOB_START && u->meta.only_by_dependency) {
                         dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Unit may be activated by dependency only.");
