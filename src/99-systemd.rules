@@ -28,6 +28,7 @@ SUBSYSTEM=="block", ENV{DM_NAME}!="", ENV{SYSTEMD_ALIAS}="/dev/mapper/$env{DM_NA
 # http://git.kernel.org/?p=linux/hotplug/udev.git;a=blob;f=libudev/libudev-enumerate.c;h=da831449dcaf5e936a14409e8e68ab12d30a98e2;hb=HEAD#l742
 
 SUBSYSTEM=="net", KERNEL!="lo", TAG="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/%k"
+SUBSYSTEM=="bluetooth", TAG="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/bluetooth/devices/%k"
 
 SUBSYSTEM=="bluetooth", TAG="systemd", ENV{SYSTEMD_WANTS}="bluetooth.target"
 SUBSYSTEM=="printer", TAG="systemd", ENV{SYSTEMD_WANTS}="printer.target"
