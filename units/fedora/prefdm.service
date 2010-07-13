@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Display Manager
-After=syslog.target dbus.target haldaemon.service
+After=syslog.target haldaemon.service
 
 [Service]
 ExecStart=/etc/X11/prefdm -nodaemon

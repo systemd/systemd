@@ -8,9 +8,8 @@
 [Unit]
 Description=Power-Off
 DefaultDependencies=no
-Requires=shutdown.target
-After=shutdown.target
-Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount sys-kernel-security.automount
+Requires=shutdown.target umount.target
+After=shutdown.target umount.target
 
 [Service]
 Type=finish
