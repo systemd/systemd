@@ -1,7 +1,5 @@
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
 
-* complete dbus exposure
-
 * implicitly import "defaults" settings file into all types
 
 * add #ifdefs for non-sysv builds
@@ -36,8 +34,6 @@
 * selinux
 
 * systemctl status $PID, systemctl stop $PID!
-
-* sulogin in den single user mode, mit plymouth --hide davor
 
 External:
 
