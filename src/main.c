@@ -545,7 +545,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_COLOR,
                 ARG_LOG_LOCATION,
                 ARG_UNIT,
-                ARG_RUNNING_AS,
+                ARG_SYSTEM,
+                ARG_SESSION,
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_DUMP_CORE,
@@ -562,7 +563,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-color",                optional_argument, NULL, ARG_LOG_COLOR                },
                 { "log-location",             optional_argument, NULL, ARG_LOG_LOCATION             },
                 { "unit",                     required_argument, NULL, ARG_UNIT                     },
-                { "running-as",               required_argument, NULL, ARG_RUNNING_AS               },
+                { "system",                   no_argument,       NULL, ARG_SYSTEM                   },
+                { "session",                  no_argument,       NULL, ARG_SESSION                  },
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
@@ -634,17 +636,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_RUNNING_AS: {
-                        ManagerRunningAs as;
-
-                        if ((as = manager_running_as_from_string(optarg)) < 0) {
-                                log_error("Failed to parse running as value %s", optarg);
-                                return -EINVAL;
-                        }
-
-                        arg_running_as = as;
+                case ARG_SYSTEM:
+                        arg_running_as = MANAGER_SYSTEM;
                         break;
-                }
+
+                case ARG_SESSION:
+                        arg_running_as = MANAGER_SESSION;
+                        break;
 
                 case ARG_TEST:
                         arg_action = ACTION_TEST;
@@ -746,7 +744,8 @@ static int help(void) {
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --introspect[=INTERFACE]    Extract D-Bus interface data\n"
                "     --unit=UNIT                 Set default unit\n"
-               "     --running-as=AS             Set running as (system, session)\n"
+               "     --system                    Run a system instance, even if PID != 1\n"
+               "     --session                   Run a session instance\n"
                "     --dump-core                 Dump core on crash\n"
                "     --crash-shell               Run shell on crash\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
@@ -1042,7 +1041,7 @@ finish:
         dbus_shutdown();
 
         if (reexecute) {
-                const char *args[11];
+                const char *args[14];
                 unsigned i = 0;
                 char sfd[16];
 
@@ -1057,17 +1056,28 @@ finish:
                 args[i++] = "--log-target";
                 args[i++] = log_target_to_string(log_get_target());
 
-                args[i++] = "--running-as";
-                args[i++] = manager_running_as_to_string(arg_running_as);
+                if (arg_running_as == MANAGER_SYSTEM)
+                        args[i++] = "--system";
+                else
+                        args[i++] = "--session";
+
+                if (arg_dump_core)
+                        args[i++] = "--dump-core";
+
+                if (arg_crash_shell)
+                        args[i++] = "--crash-shell";
+
+                if (arg_confirm_spawn)
+                        args[i++] = "--confirm-spawn";
+
+                if (arg_show_status)
+                        args[i++] = "--show-status";
 
                 snprintf(sfd, sizeof(sfd), "%i", fileno(serialization));
                 char_array_0(sfd);
 
                 args[i++] = "--deserialize";
                 args[i++] = sfd;
-
-                if (arg_confirm_spawn)
-                        args[i++] = "--confirm-spawn";
 
                 args[i++] = NULL;
 

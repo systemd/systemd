@@ -135,17 +135,19 @@
                                 <filename>default.target</filename>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><option>--running-as=</option></term>
+                                <term><option>--system</option></term>
+                                <term><option>--session</option></term>
 
-                                <listitem><para>Tell systemd to run in
-                                a particular mode. Argument is one of
-                                <option>system</option>,
-                                <option>session</option>. Normally it
-                                should not be necessary to pass this
-                                option, as systemd automatically
-                                detects the mode it is started
-                                in. This call is hence of little use
-                                except for
+                                <listitem><para>Tell systemd to run a
+                                system instance (resp. session
+                                instance), even if the process ID is
+                                not 1 (resp. is 1), i.e. system is not
+                                (resp. is) run as init process.
+                                Normally it should not be necessary to
+                                pass these options, as systemd
+                                automatically detects the mode it is
+                                started in. These options are hence of
+                                little use except for
                                 debugging.</para></listitem>
                         </varlistentry>
                         <varlistentry>
@@ -466,7 +468,7 @@
                                 when figuring out whether a service
                                 shall be enabled. Note that a service
                                 unit with a native unit configuration
-                                file can be started by activating it
+                                file cannot be started by activating it
                                 in the SysV runlevel link
                                 farm.</para></listitem>
                         </varlistentry>

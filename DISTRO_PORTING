@@ -10,7 +10,8 @@ HOWTO:
         you need to add/change things.
 
         1) Patch src/hostname-setup.c so that systemd knows where to
-        read your host name from.
+        read your host name from. You might also want to update
+        status_welcome() in util.c.
 
         2) Check the unit files in units/ if they match your
         distribution. Most likely you will have to make additions to
@@ -23,11 +24,11 @@ HOWTO:
         and you should be able to find the places where you need to
         add/change things.
 
-        4) Try it out. Play around with 'systemd --test
-        --running-as=init' for a test run of systemd without
-        booting. This will read the unit files and print the initial
-        transaction it would execute during boot-up. This will also
-        inform you about ordering loops and suchlike.
+        4) Try it out. Play around with 'systemd --test --system' for
+        a test run of systemd without booting. This will read the unit
+        files and print the initial transaction it would execute
+        during boot-up. This will also inform you about ordering loops
+        and suchlike.
 
 CONTRIBUTING UPSTREAM:
         We are interested in merging your changes upstream, if they
