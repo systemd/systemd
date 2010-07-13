@@ -1328,7 +1328,8 @@ static int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
-        if (unit->meta.load_state != UNIT_LOADED) {
+        if (type != JOB_STOP &&
+            unit->meta.load_state != UNIT_LOADED) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load. See logs for details.", unit->meta.id);
                 return -EINVAL;
         }
