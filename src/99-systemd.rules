@@ -10,7 +10,7 @@ ACTION!="add|change", GOTO="systemd_end"
 KERNEL=="tty[0-9]|tty1[0-2]", TAG="systemd"
 KERNEL=="ttyS*", TAG="systemd"
 
-SUBSYSTEM=="block", TAG="systemd"
+SUBSYSTEM=="block", KERNEL!="ram*|loop*", TAG="systemd"
 
 # DM finds it funny to create additional device nodes, we need to
 merge them here, so that we recognize identical devices.
