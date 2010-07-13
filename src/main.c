@@ -582,7 +582,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hD", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -713,6 +713,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         arg_action = ACTION_HELP;
+                        break;
+
+                case 'D':
+                        log_set_max_level(LOG_DEBUG);
                         break;
 
                 case '?':
