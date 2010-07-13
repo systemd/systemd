@@ -949,6 +949,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         dual_timestamp ts;
+        bool unexpected;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -983,7 +984,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         path_unit_notify(u, ns);
 
         if (u->meta.job) {
-                bool unexpected = false;
+                unexpected = false;
 
                 if (u->meta.job->state == JOB_WAITING)
 
@@ -1046,12 +1047,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                  * requested by a job, then let's retroactively start
                  * or stop dependencies */
 
-                if (unexpected) {
-                        if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
-                                retroactively_start_dependencies(u);
-                        else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
-                                retroactively_stop_dependencies(u);
-                }
+        } else
+                unexpected = true;
+
+        if (unexpected) {
+                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
+                        retroactively_start_dependencies(u);
+                else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
+                        retroactively_stop_dependencies(u);
         }
 
         /* Some names are special */
