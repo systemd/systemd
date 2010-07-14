@@ -41,6 +41,11 @@ External:
 
   if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
 
+https://bugzilla.redhat.com/show_bug.cgi?id=614245
+https://bugzilla.redhat.com/show_bug.cgi?id=612789
+https://bugzilla.redhat.com/show_bug.cgi?id=612728
+https://bugzilla.redhat.com/show_bug.cgi?id=612712
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
