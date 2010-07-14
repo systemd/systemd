@@ -976,7 +976,8 @@ int exec_spawn(ExecCommand *command,
                 /* Close sockets very early to make sure we don't
                  * block init reexecution because it cannot bind its
                  * sockets */
-                if (close_all_fds(fds, n_fds) < 0) {
+                if (close_all_fds(socket_fd >= 0 ? &socket_fd : fds,
+                                  socket_fd >= 0 ? 1 : n_fds) < 0) {
                         r = EXIT_FDS;
                         goto fail;
                 }
