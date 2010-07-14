@@ -515,7 +515,7 @@ systemd_install_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_cgls_SOURCES = \
-	src/systemd-cgls.c \
+	src/cgls.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c
 
