@@ -37,12 +37,10 @@ SUBSYSTEM=="dvb", TAG+="udev-acl"
 
 # IIDC devices: industrial cameras and some webcams
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*",  TAG+="udev-acl"
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*",  TAG+="udev-acl"
 # AV/C devices: camcorders, set-top boxes, TV sets, audio devices, and more
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", TAG+="udev-acl"
-
-# old style firewire devices
-KERNEL=="dv1394-[0-9]*", TAG+="udev-acl"
-KERNEL=="video1394-[0-9]*", TAG+="udev-acl"
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", TAG+="udev-acl"
 
 # fingerprint readers
 SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="2016", TAG+="udev-acl"
