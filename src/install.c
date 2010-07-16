@@ -24,6 +24,7 @@
 #include <getopt.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "log.h"
 #include "path-lookup.h"
@@ -722,22 +723,32 @@ static int install_info_apply(LookupPaths *paths, InstallInfo *i, const char *co
         assert(i);
 
         STRV_FOREACH(p, paths->unit_path) {
+                int fd;
 
                 if (!(filename = path_make_absolute(i->name, *p))) {
                         log_error("Out of memory");
                         return -ENOMEM;
                 }
 
-                if ((f = fopen(filename, "re")))
-                        break;
+                /* Ensure that we don't follow symlinks */
+                if ((fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOCTTY)) >= 0)
+                        if ((f = fdopen(fd, "re")))
+                                break;
 
-                free(filename);
-                filename = NULL;
+                if (errno == ELOOP) {
+                        log_error("Refusing to operate on symlinks, please pass unit names or absolute paths to unit files.");
+                        free(filename);
+                        return -errno;
+                }
 
                 if (errno != ENOENT) {
                         log_error("Failed to open %s: %m", filename);
+                        free(filename);
                         return -errno;
                 }
+
+                free(filename);
+                filename = NULL;
         }
 
         if (!f) {
@@ -810,7 +821,7 @@ static int do_realize(bool enabled) {
         }
 
         if (arg_where == WHERE_SYSTEM && sd_booted() <= 0) {
-                log_info("systemd is not running, --realize has not effect.");
+                log_info("systemd is not running, --realize has no effect.");
                 return 0;
         }
 
