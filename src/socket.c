@@ -160,6 +160,11 @@ static int socket_verify(Socket *s) {
                 return -EINVAL;
         }
 
+        if (s->accept && have_non_accept_socket(s)) {
+                log_error("%s configured for accepting sockets, but sockets are non-accepting. Refusing.", s->meta.id);
+                return -EINVAL;
+        }
+
         if (s->accept && s->max_connections <= 0) {
                 log_error("%s's MaxConnection setting too small. Refusing.", s->meta.id);
                 return -EINVAL;
