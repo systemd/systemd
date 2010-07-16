@@ -188,7 +188,8 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_message_iter_recurse(&iter, &sub);
 
-        printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
+        if (isatty(STDOUT_FILENO))
+                printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *id, *description, *load_state, *active_state, *sub_state, *unit_path, *job_type, *job_path, *dot;
@@ -249,15 +250,18 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                 dbus_message_iter_next(&sub);
         }
 
-        printf("\nLOAD   = Load State, reflects whether the unit configuration was properly loaded.\n"
-               "ACTIVE = Active State, the high-level unit activation state, i.e. generalization of the substate.\n"
-               "SUB    = Substate, the low-level unit activation state, possible values depend on unit type.\n"
-               "JOB    = Job, shows scheduled jobs for the unit.\n");
+        if (isatty(STDOUT_FILENO)) {
 
-        if (arg_all)
-                printf("\n%u units listed.\n", k);
-        else
-                printf("\n%u units listed. Pass --all to see inactive units, too.\n", k);
+                printf("\nLOAD   = Load State, reflects whether the unit configuration was properly loaded.\n"
+                       "ACTIVE = Active State, the high-level unit activation state, i.e. generalization of the substate.\n"
+                       "SUB    = Substate, the low-level unit activation state, possible values depend on unit type.\n"
+                       "JOB    = Job, shows pending jobs for the unit.\n");
+
+                if (arg_all)
+                        printf("\n%u units listed.\n", k);
+                else
+                        printf("\n%u units listed. Pass --all to see inactive units, too.\n", k);
+        }
 
         r = 0;
 
