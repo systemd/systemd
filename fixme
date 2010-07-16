@@ -65,6 +65,10 @@
 
 * debian deadlock when partition auf noauto is.
 
+* maintenance units müssen vergessen werden
+
+* maintenance muss dokumentiert werden
+
 External:
 
 * patch /etc/init.d/functions with:

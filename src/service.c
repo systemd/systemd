@@ -1896,6 +1896,14 @@ static int service_start(Unit *u) {
                 return -ECANCELED;
         }
 
+        if ((s->exec_context.std_input == EXEC_INPUT_SOCKET ||
+             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
+             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) &&
+            s->socket_fd < 0) {
+                log_warning("%s can only be started with a per-connection socket.", u->meta.id);
+                return -EINVAL;
+        }
+
         s->failure = false;
         s->main_pid_known = false;
         s->allow_restart = true;
