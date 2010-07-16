@@ -71,6 +71,7 @@ int socket_address_listen(
                 bool free_bind,
                 mode_t directory_mode,
                 mode_t socket_mode,
+                /* FIXME SELINUX: pass SELinux context object here */
                 int *ret);
 
 bool socket_address_is(const SocketAddress *a, const char *s, int type);

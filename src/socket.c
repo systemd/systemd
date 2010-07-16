@@ -129,6 +129,42 @@ static void socket_done(Unit *u) {
         }
 }
 
+static int socket_instantiate_service(Socket *s) {
+        char *prefix, *name;
+        int r;
+        Unit *u;
+
+        assert(s);
+
+        /* This fills in s->service if it isn't filled in yet. For
+         * Accept=yes sockets we create the next connection service
+         * here. For Accept=no this is mostly a NOP since the service
+         * is figured out at load time anyway. */
+
+        if (s->service)
+                return 0;
+
+        assert(s->accept);
+
+        if (!(prefix = unit_name_to_prefix(s->meta.id)))
+                return -ENOMEM;
+
+        r = asprintf(&name, "%s@%u.service", prefix, s->n_accepted);
+        free(prefix);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        r = manager_load_unit(s->meta.manager, name, NULL, NULL, &u);
+        free(name);
+
+        if (r < 0)
+                return r;
+
+        s->service = SERVICE(u);
+        return 0;
+}
+
 static bool have_non_accept_socket(Socket *s) {
         SocketPort *p;
 
@@ -460,8 +496,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                         b = ntohl(remote.in.sin_addr.s_addr);
 
                 if (asprintf(&r,
-                             "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
-                             nr,
+                             "%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                              a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
                              ntohs(local.in.sin_port),
                              b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
@@ -483,8 +518,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                                 *b = remote.in6.sin6_addr.s6_addr+12;
 
                         if (asprintf(&r,
-                                     "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
-                                     nr,
+                                     "%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                                      a[0], a[1], a[2], a[3],
                                      ntohs(local.in6.sin6_port),
                                      b[0], b[1], b[2], b[3],
@@ -494,8 +528,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                         char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
 
                         if (asprintf(&r,
-                                     "%u-%s:%u-%s:%u",
-                                     nr,
+                                     "%s:%u-%s:%u",
                                      inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
                                      ntohs(local.in6.sin6_port),
                                      inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
@@ -600,7 +633,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 }
 
-static void socket_apply_pipe_options(Socket *s, int fd) {
+static void socket_apply_fifo_options(Socket *s, int fd) {
         assert(s);
         assert(fd >= 0);
 
@@ -609,11 +642,89 @@ static void socket_apply_pipe_options(Socket *s, int fd) {
                         log_warning("F_SETPIPE_SZ: %m");
 }
 
+static int fifo_address_create(
+                const char *path,
+                mode_t directory_mode,
+                mode_t socket_mode,
+                /* FIXME SELINUX: pass SELinux context object here */
+                int *_fd) {
+
+        int fd = -1, r;
+        struct stat st;
+        mode_t old_mask;
+
+        assert(path);
+        assert(_fd);
+
+        mkdir_parents(path, directory_mode);
+
+        /* FIXME SELINUX: The mkfifo here should be done with
+         * the right SELinux context set */
+
+        /* Enforce the right access mode for the fifo */
+        old_mask = umask(~ socket_mode);
+
+        /* Include the original umask in our mask */
+        umask(~socket_mode | old_mask);
+
+        r = mkfifo(path, socket_mode);
+        umask(old_mask);
+
+        if (r < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if ((fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if (fstat(fd, &st) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if (!S_ISFIFO(st.st_mode) ||
+            st.st_mode != (socket_mode & ~old_mask) ||
+            st.st_uid != getuid() ||
+            st.st_gid != getgid()) {
+
+                r = -EEXIST;
+                goto fail;
+        }
+
+        *_fd = fd;
+        return 0;
+
+fail:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        return r;
+}
+
 static int socket_open_fds(Socket *s) {
         SocketPort *p;
         int r;
 
         assert(s);
+
+        /* FIXME SELINUX: Somewhere here we must set the the SELinux
+           context for the created sockets and FIFOs. To figure out
+           the executable name for this, use
+           socket_instantiate_service() and then access the executable
+           path name via
+           s->service->exec_command[SERVICE_EXEC_START]->path. Example:
+
+        if ((r = socket_instantiate_service(s)) < 0)
+                return r;
+
+        log_debug("Socket unit %s will spawn service unit %s with executable path %s.",
+                  s->meta.id,
+                  s->service->meta.id,
+                  s->service->exec_command[SERVICE_EXEC_START]->path);
+        */
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -630,41 +741,26 @@ static int socket_open_fds(Socket *s) {
                                              s->free_bind,
                                              s->directory_mode,
                                              s->socket_mode,
+                                             /* FIXME SELINUX: Pass the SELinux context object here */
                                              &p->fd)) < 0)
                                 goto rollback;
 
                         socket_apply_socket_options(s, p->fd);
 
-                } else {
-                        struct stat st;
-                        assert(p->type == SOCKET_FIFO);
+                } else  if (p->type == SOCKET_FIFO) {
 
-                        mkdir_parents(p->path, s->directory_mode);
-
-                        if (mkfifo(p->path, s->socket_mode) < 0 && errno != EEXIST) {
-                                r = -errno;
+                        if ((r = fifo_address_create(
+                                             p->path,
+                                             s->directory_mode,
+                                             s->socket_mode,
+                                             /* FIXME SELINUX: Pass the SELinux context object here */
+                                             &p->fd)) < 0)
                                 goto rollback;
-                        }
 
-                        if ((p->fd = open(p->path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
-                                r = -errno;
-                                goto rollback;
-                        }
+                        socket_apply_fifo_options(s, p->fd);
 
-                        if (fstat(p->fd, &st) < 0) {
-                                r = -errno;
-                                goto rollback;
-                        }
-
-                        /* FIXME verify user, access mode */
-
-                        if (!S_ISFIFO(st.st_mode)) {
-                                r = -EEXIST;
-                                goto rollback;
-                        }
-
-                        socket_apply_pipe_options(s, p->fd);
-                }
+                } else
+                        assert_not_reached("Unknown port type");
         }
 
         return 0;
@@ -1059,8 +1155,8 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 socket_set_state(s, SOCKET_RUNNING);
         } else {
-                Unit *u;
                 char *prefix, *instance = NULL, *name;
+                Service *service;
 
                 if (s->n_connections >= s->max_connections) {
                         log_warning("Too many incoming connections (%u)", s->n_connections);
@@ -1068,7 +1164,10 @@ static void socket_enter_running(Socket *s, int cfd) {
                         return;
                 }
 
-                if ((r = instance_from_socket(cfd, s->n_accepted++, &instance)) < 0)
+                if ((r = socket_instantiate_service(s)) < 0)
+                        goto fail;
+
+                if ((r = instance_from_socket(cfd, s->n_accepted, &instance)) < 0)
                         goto fail;
 
                 if (!(prefix = unit_name_to_prefix(s->meta.id))) {
@@ -1086,20 +1185,25 @@ static void socket_enter_running(Socket *s, int cfd) {
                         goto fail;
                 }
 
-                r = manager_load_unit(s->meta.manager, name, NULL, NULL, &u);
+                if ((r = unit_add_name(UNIT(s->service), name)) < 0) {
+                        free(name);
+                        goto fail;
+                }
+
+                service = s->service;
+                s->service = NULL;
+                s->n_accepted ++;
+
+                unit_choose_id(UNIT(service), name);
                 free(name);
 
-                if (r < 0)
-                        goto fail;
-
-                if ((r = service_set_socket_fd(SERVICE(u), cfd, s)) < 0)
+                if ((r = service_set_socket_fd(service, cfd, s)) < 0)
                         goto fail;
 
                 cfd = -1;
-
                 s->n_connections ++;
 
-                if ((r = manager_add_job(u->meta.manager, JOB_START, u, JOB_REPLACE, true, &error, NULL)) < 0)
+                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL)) < 0)
                         goto fail;
         }
 

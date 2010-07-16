@@ -305,6 +305,7 @@ int socket_address_listen(
                 bool free_bind,
                 mode_t directory_mode,
                 mode_t socket_mode,
+                /* FIXME SELINUX: pass SELinux context object here */
                 int *ret) {
 
         int r, fd, one;
@@ -313,6 +314,9 @@ int socket_address_listen(
 
         if ((r = socket_address_verify(a)) < 0)
                 return r;
+
+        /* FIXME SELINUX: The socket() here should be done with the
+         * right SELinux context set */
 
         if ((fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0)) < 0)
                 return -errno;
