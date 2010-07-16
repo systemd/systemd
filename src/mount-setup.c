@@ -51,6 +51,16 @@ static const MountPoint mount_table[] = {
         { "cgroup",   "/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 };
 
+/* These are API file systems that might be mounted by other software,
+ * we just list them here so that we know that we should igore them */
+
+static const char * const ignore_paths[] = {
+        "/selinux",
+        "/proc/bus/usb",
+        "/var/lib/nfs/rpc_pipefs",
+        "/proc/fs/nfsd"
+};
+
 bool mount_point_is_api(const char *path) {
         unsigned i;
 
@@ -59,6 +69,10 @@ bool mount_point_is_api(const char *path) {
 
         for (i = 0; i < ELEMENTSOF(mount_table); i ++)
                 if (path_startswith(path, mount_table[i].where))
+                        return true;
+
+        for (i = 0; i < ELEMENTSOF(ignore_paths); i++)
+                if (path_startswith(path, ignore_paths[i]))
                         return true;
 
         return path_startswith(path, "/cgroup/");
