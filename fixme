@@ -47,8 +47,6 @@
 
 * default.target must be %ghosted...
 
-* systemd.path muss irgendwie nen sinvolles Defaultdependencies=True kriegen, genaus timer usw.
-
 * In command lines, support both "$FOO" and $FOO
 
 * systemd-install disable should recursively kill all symlinks
