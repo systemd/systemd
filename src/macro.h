@@ -40,6 +40,7 @@
 #define _unlikely_(x) (__builtin_expect(!!(x),0))
 #define _public_ __attribute__ ((visibility("default")))
 #define _hidden_ __attribute__ ((visibility("hidden")))
+#define _weakref_(x) __attribute__((weakref(#x)))
 
 /* Rounds up */
 static inline size_t ALIGN(size_t l) {

@@ -44,6 +44,7 @@
 #include "special.h"
 #include "conf-parser.h"
 #include "bus-errors.h"
+#include "missing.h"
 
 static enum {
         ACTION_RUN,
@@ -935,13 +936,24 @@ int main(int argc, char *argv[]) {
 
         log_info(PACKAGE_STRING " running in %s mode.", manager_running_as_to_string(arg_running_as));
 
-        if (arg_running_as == MANAGER_SYSTEM && !serialization) {
-                if (arg_show_status)
-                        status_welcome();
-                modprobe_setup(arg_nomodules);
-                kmod_setup();
-                hostname_setup();
-                loopback_setup();
+        if (arg_running_as == MANAGER_SYSTEM) {
+
+                /* Disable nscd, to avoid deadlocks when systemd uses
+                 * NSS and the nscd socket is maintained by us. */
+                if (nss_disable_nscd) {
+                        log_debug("Disabling nscd");
+                        nss_disable_nscd();
+                } else
+                        log_debug("Hmm, can't disable nscd.");
+
+                if (!serialization) {
+                        if (arg_show_status)
+                                status_welcome();
+                        modprobe_setup(arg_nomodules);
+                        kmod_setup();
+                        hostname_setup();
+                        loopback_setup();
+                }
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {

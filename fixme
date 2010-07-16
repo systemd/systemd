@@ -53,8 +53,6 @@
 
 * systemd-install disable should recursively kill all symlinks
 
-* __nss_disable_nscd() aufrufen um loops zu verhindern
-
 * in %post create all symlinks manually and use inittab data
 
 * check mtimes of dirs and unit files in systemctl
