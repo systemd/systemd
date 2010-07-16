@@ -32,7 +32,7 @@
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD] = UNIT_INACTIVE,
-        [DEVICE_AVAILABLE] = UNIT_ACTIVE
+        [DEVICE_PLUGGED] = UNIT_ACTIVE
 };
 
 static void device_done(Unit *u) {
@@ -67,7 +67,7 @@ static int device_coldplug(Unit *u) {
         assert(d->state == DEVICE_DEAD);
 
         if (d->sysfs)
-                device_set_state(d, DEVICE_AVAILABLE);
+                device_set_state(d, DEVICE_PLUGGED);
 
         return 0;
 }
@@ -262,7 +262,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
 
         if (update_state) {
                 manager_dispatch_load_queue(u->meta.manager);
-                device_set_state(DEVICE(u), DEVICE_AVAILABLE);
+                device_set_state(DEVICE(u), DEVICE_PLUGGED);
         }
 
         unit_add_to_dbus_queue(u);
@@ -443,7 +443,7 @@ fail:
 
 static const char* const device_state_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD] = "dead",
-        [DEVICE_AVAILABLE] = "available"
+        [DEVICE_PLUGGED] = "plugged"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);

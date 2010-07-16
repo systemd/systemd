@@ -30,7 +30,7 @@ typedef struct Device Device;
  * simplifies the state engine greatly */
 typedef enum DeviceState {
         DEVICE_DEAD,
-        DEVICE_AVAILABLE,
+        DEVICE_PLUGGED,
         _DEVICE_STATE_MAX,
         _DEVICE_STATE_INVALID = -1
 } DeviceState;
