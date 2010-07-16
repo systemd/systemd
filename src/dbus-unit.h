@@ -88,6 +88,7 @@
         "  <property name=\"DefaultDependencies\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"NeedDaemonReload\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define BUS_UNIT_PROPERTIES \
@@ -121,7 +122,8 @@
         { "org.freedesktop.systemd1.Unit", "OnlyByDependency",     bus_property_append_bool,       "b",    &u->meta.only_by_dependency       }, \
         { "org.freedesktop.systemd1.Unit", "DefaultDependencies",  bus_property_append_bool,       "b",    &u->meta.default_dependencies     }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
-        { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }
+        { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data);
@@ -134,6 +136,7 @@ int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *prope
 int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_default_cgroup(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_need_daemon_reload(Manager *m, DBusMessageIter *i, const char *property, void *data);
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);

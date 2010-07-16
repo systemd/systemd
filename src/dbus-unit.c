@@ -254,6 +254,23 @@ int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property
         return 0;
 }
 
+int bus_unit_append_need_daemon_reload(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        b = unit_need_daemon_reload(u);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *connection, DBusMessage *message) {
         DBusMessage *reply = NULL;
         Manager *m = u->meta.manager;

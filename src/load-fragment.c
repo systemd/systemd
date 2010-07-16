@@ -29,6 +29,7 @@
 #include <sys/prctl.h>
 #include <sys/mount.h>
 #include <linux/fs.h>
+#include <sys/stat.h>
 
 #include "unit.h"
 #include "strv.h"
@@ -1558,6 +1559,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                     "Unit"    },
                 { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                        "Unit"    },
                 { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Unit"    },
+                { "OnFailure",              config_parse_deps,            UINT_TO_PTR(UNIT_ON_FAILURE),                    "Unit"    },
                 { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Unit"    },
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
                 { "OnlyByDependency",       config_parse_bool,            &u->meta.only_by_dependency,                     "Unit"    },
@@ -1653,6 +1655,7 @@ static int load_from_path(Unit *u, const char *path) {
         FILE *f = NULL;
         char *filename = NULL, *id = NULL;
         Unit *merged;
+        struct stat st;
 
         if (!u) {
                 /* Dirty dirty hack. */
@@ -1740,6 +1743,17 @@ static int load_from_path(Unit *u, const char *path) {
                 goto finish;
         }
 
+        zero(st);
+        if (fstat(fileno(f), &st) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (!S_ISREG(st.st_mode)) {
+                r = -ENOENT;
+                goto finish;
+        }
+
         /* Now, parse the file contents */
         if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
                 goto finish;
@@ -1747,6 +1761,8 @@ static int load_from_path(Unit *u, const char *path) {
         free(u->meta.fragment_path);
         u->meta.fragment_path = filename;
         filename = NULL;
+
+        u->meta.fragment_mtime = timespec_load(&st.st_mtim);
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;

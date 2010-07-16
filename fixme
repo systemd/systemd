@@ -37,21 +37,11 @@
 
 * timeout waiting for mount devices?
 
-* default logic for serial getty, ck logging, ssh readahead
-
 * place /etc/inittab with explaining blurb.
-
-* OnFailure=foo.unit
-
-* default.target must be %ghosted...
 
 * In command lines, support both "$FOO" and $FOO
 
 * systemd-install disable should recursively kill all symlinks
-
-* in %post create all symlinks manually and use inittab data
-
-* check mtimes of dirs and unit files in systemctl
 
 * /etc must always take precedence even if we follow symlinks!
 
@@ -68,6 +58,12 @@
 * fingerprint.target, smartcard.target, wireless.target, gps.target
 
 External:
+
+* default.target must be %ghosted...
+
+* in %post create all symlinks manually and use inittab data
+
+* default logic for serial getty, ck logging, ssh readahead
 
 * patch /etc/init.d/functions with:
 

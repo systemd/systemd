@@ -742,6 +742,77 @@ finish:
         return r;
 }
 
+static bool unit_need_daemon_reload(DBusConnection *bus, const char *unit) {
+        DBusMessage *m, *reply;
+        dbus_bool_t b = FALSE;
+        DBusMessageIter iter, sub;
+        const char
+                *interface = "org.freedesktop.systemd1.Unit",
+                *property = "NeedDaemonReload",
+                *path;
+
+        /* We ignore all errors here, since this is used to show a warning only */
+
+        if (!(m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              "/org/freedesktop/systemd1",
+                              "org.freedesktop.systemd1.Manager",
+                              "GetUnit")))
+                goto finish;
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &unit,
+                                      DBUS_TYPE_INVALID))
+                goto finish;
+
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, NULL)))
+                goto finish;
+
+        if (!dbus_message_get_args(reply, NULL,
+                                   DBUS_TYPE_OBJECT_PATH, &path,
+                                   DBUS_TYPE_INVALID))
+                goto finish;
+
+        dbus_message_unref(m);
+        if (!(m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              path,
+                              "org.freedesktop.DBus.Properties",
+                              "Get")))
+                goto finish;
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &interface,
+                                      DBUS_TYPE_STRING, &property,
+                                      DBUS_TYPE_INVALID)) {
+                goto finish;
+        }
+
+        dbus_message_unref(reply);
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, NULL)))
+                goto finish;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)
+                goto finish;
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_BOOLEAN)
+                goto finish;
+
+        dbus_message_iter_get_basic(&sub, &b);
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        return b;
+}
+
 typedef struct WaitData {
         Set *set;
         bool failed;
@@ -860,6 +931,7 @@ static int start_unit_one(
 
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
+        const char *path;
         int r;
 
         assert(bus);
@@ -903,17 +975,20 @@ static int start_unit_one(
                 goto finish;
         }
 
-        if (!arg_no_block) {
-                const char *path;
-                char *p;
+        if (!dbus_message_get_args(reply, &error,
+                                   DBUS_TYPE_OBJECT_PATH, &path,
+                                   DBUS_TYPE_INVALID)) {
+                log_error("Failed to parse reply: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
 
-                if (!dbus_message_get_args(reply, &error,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
-                        r = -EIO;
-                        goto finish;
-                }
+        if (unit_need_daemon_reload(bus, name))
+                log_warning("Unit file of created job changed on disk, 'systemctl %s daemon-reload' recommended.",
+                            arg_session ? "--session" : "--system");
+
+        if (!arg_no_block) {
+                char *p;
 
                 if (!(p = strdup(path))) {
                         log_error("Failed to duplicate path.");
@@ -1287,6 +1362,8 @@ typedef struct UnitStatusInfo {
         const char *fragment_path;
         const char *default_control_group;
 
+        bool need_daemon_reload;
+
         /* Service */
         pid_t main_pid;
         pid_t control_pid;
@@ -1449,6 +1526,10 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
         }
+
+        if (i->need_daemon_reload)
+                printf("\n" ANSI_HIGHLIGHT_ON "Warning:" ANSI_HIGHLIGHT_OFF " Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",
+                       arg_session ? "--session" : "--system");
 }
 
 static int status_property(const char *name, DBusMessageIter *iter, UnitStatusInfo *i) {
@@ -1495,6 +1576,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                 if (streq(name, "Accept"))
                         i->accept = b;
+                else if (streq(name, "NeedDaemonReload"))
+                        i->need_daemon_reload = b;
 
                 break;
         }

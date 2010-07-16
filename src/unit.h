@@ -141,6 +141,7 @@ struct Meta {
 
         char *description;
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
+        usec_t fragment_mtime;
 
         /* If there is something to do with this unit, then this is
          * the job for it */
@@ -457,6 +458,8 @@ int unit_add_node_link(Unit *u, const char *what, bool wants);
 int unit_coldplug(Unit *u);
 
 void unit_status_printf(Unit *u, const char *format, ...);
+
+bool unit_need_daemon_reload(Unit *u);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);

@@ -27,6 +27,7 @@
 #include <sys/poll.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "set.h"
 #include "unit.h"
@@ -606,7 +607,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
-                "%s\tGC Check Good: %s\n",
+                "%s\tGC Check Good: %s\n"
+                "%s\tNeed Daemon Reload: %s\n",
                 prefix, u->meta.id,
                 prefix, unit_description(u),
                 prefix, strna(u->meta.instance),
@@ -616,7 +618,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp.realtime)),
-                prefix, yes_no(unit_check_gc(u)));
+                prefix, yes_no(unit_check_gc(u)),
+                prefix, yes_no(unit_need_daemon_reload(u)));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -2027,6 +2030,24 @@ void unit_status_printf(Unit *u, const char *format, ...) {
         va_start(ap, format);
         status_vprintf(format, ap);
         va_end(ap);
+}
+
+bool unit_need_daemon_reload(Unit *u) {
+        struct stat st;
+
+        assert(u);
+
+        if (!u->meta.fragment_path)
+                return false;
+
+        zero(st);
+        if (stat(u->meta.fragment_path, &st) < 0)
+                /* What, cannot access this anymore? */
+                return true;
+
+        return
+                u->meta.fragment_mtime &&
+                timespec_load(&st.st_mtim) != u->meta.fragment_mtime;
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
