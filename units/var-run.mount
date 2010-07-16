@@ -13,6 +13,7 @@ Before=local-fs.target
 What=tmpfs
 Where=/var/run
 Type=tmpfs
+Options=mode=755
 
 [Install]
 WantedBy=local-fs.target
