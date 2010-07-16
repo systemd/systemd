@@ -68,7 +68,8 @@
 
                 <para><command>systemd-install</command> enables or
                 disables systemd units, or checks whether they are
-                enabled.</para>
+                enabled, according to the installation suggestions
+                included in the unit files.</para>
 
                 <para>This command is useful to apply or undo the
                 installation instructions encoded in the <literal>[Install]</literal>
@@ -83,6 +84,15 @@
                 files in the configuration tree, but does not start
                 them. The latter equals starting them, but does not
                 necessarily require them to be enabled.</para>
+
+                <para>Note that while
+                <command>systemd-install</command> is the recommended
+                tool to create or remove symlinks in the systemd
+                configuration directory the administrator can also
+                create links there manually, which is particularly
+                useful to use configurations that deviate from the
+                installation suggestions included in the unit
+                files.</para>
         </refsect1>
 
         <refsect1>
