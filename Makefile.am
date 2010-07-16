@@ -147,7 +147,8 @@ dist_systemunit_DATA = \
 	units/var-lock.mount \
 	units/var-run.mount \
 	units/printer.target \
-	units/bluetooth.target
+	units/bluetooth.target \
+	units/smartcard.target
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
