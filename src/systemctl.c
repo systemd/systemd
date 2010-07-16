@@ -59,7 +59,7 @@ static bool arg_no_wall = false;
 static bool arg_dry = false;
 static bool arg_quiet = false;
 static char **arg_wall = NULL;
-enum action {
+static enum action {
         ACTION_INVALID,
         ACTION_SYSTEMCTL,
         ACTION_HALT,
@@ -77,6 +77,11 @@ enum action {
         ACTION_RUNLEVEL,
         _ACTION_MAX
 } arg_action = ACTION_SYSTEMCTL;
+static enum dot {
+        DOT_ALL,
+        DOT_ORDER,
+        DOT_REQUIRE
+} arg_dot = DOT_ALL;
 
 static bool private_bus = false;
 
@@ -186,7 +191,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
         printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *id, *description, *load_state, *active_state, *sub_state, *unit_state, *job_type, *job_path, *dot;
+                const char *id, *description, *load_state, *active_state, *sub_state, *unit_path, *job_type, *job_path, *dot;
                 uint32_t job_id;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
@@ -202,7 +207,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &load_state, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &active_state, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &sub_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &job_id, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &job_type, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &job_path, false) < 0) {
@@ -247,7 +252,247 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
         if (arg_all)
                 printf("\n%u units listed.\n", k);
         else
-                printf("\n%u live units listed. Pass --all to see dead units, too.\n", k);
+                printf("\n%u units listed. Pass --all to see inactive units, too.\n", k);
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int dot_one_property(const char *name, const char *prop, DBusMessageIter *iter) {
+        static const char * const colors[] = {
+                "Requires",              "[color=\"black\"]",
+                "RequiresOverridable",   "[color=\"black\"]",
+                "Requisite",             "[color=\"darkblue\"]",
+                "RequisiteOverridable",  "[color=\"darkblue\"]",
+                "Wants",                 "[color=\"darkgrey\"]",
+                "Conflicts",             "[color=\"red\"]",
+                "After",                 "[color=\"green\"]"
+        };
+
+        const char *c = NULL;
+        unsigned i;
+
+        assert(name);
+        assert(prop);
+        assert(iter);
+
+        for (i = 0; i < ELEMENTSOF(colors); i += 2)
+                if (streq(colors[i], prop)) {
+                        c = colors[i+1];
+                        break;
+                }
+
+        if (!c)
+                return 0;
+
+        if (arg_dot != DOT_ALL)
+                if ((arg_dot == DOT_ORDER) != streq(prop, "After"))
+                        return 0;
+
+        switch (dbus_message_iter_get_arg_type(iter)) {
+
+        case DBUS_TYPE_ARRAY:
+
+                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING) {
+                        DBusMessageIter sub;
+
+                        dbus_message_iter_recurse(iter, &sub);
+
+                        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                const char *s;
+
+                                assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
+                                dbus_message_iter_get_basic(&sub, &s);
+                                printf("\t\"%s\"->\"%s\" %s;\n", name, s, c);
+
+                                dbus_message_iter_next(&sub);
+                        }
+
+                        return 0;
+                }
+        }
+
+        return 0;
+}
+
+static int dot_one(DBusConnection *bus, const char *name, const char *path) {
+        DBusMessage *m = NULL, *reply = NULL;
+        const char *interface = "org.freedesktop.systemd1.Unit";
+        int r;
+        DBusError error;
+        DBusMessageIter iter, sub, sub2, sub3;
+
+        assert(bus);
+        assert(path);
+
+        dbus_error_init(&error);
+
+        if (!(m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              path,
+                              "org.freedesktop.DBus.Properties",
+                              "GetAll"))) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &interface,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                log_error("Failed to issue method call: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
+                log_error("Failed to parse reply.");
+                r = -EIO;
+                goto finish;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *prop;
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_DICT_ENTRY) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &prop, true) < 0) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT)  {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&sub2, &sub3);
+
+                if (dot_one_property(name, prop, &sub3)) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_next(&sub);
+        }
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int dot(DBusConnection *bus, char **args, unsigned n) {
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        int r;
+        DBusMessageIter iter, sub, sub2;
+
+        dbus_error_init(&error);
+
+        assert(bus);
+
+        if (!(m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              "/org/freedesktop/systemd1",
+                              "org.freedesktop.systemd1.Manager",
+                              "ListUnits"))) {
+                log_error("Could not allocate message.");
+                return -ENOMEM;
+        }
+
+        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                log_error("Failed to issue method call: %s", error.message);
+                r = -EIO;
+                goto finish;
+        }
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
+                log_error("Failed to parse reply.");
+                r = -EIO;
+                goto finish;
+        }
+
+        printf("digraph systemd {\n");
+
+        dbus_message_iter_recurse(&iter, &sub);
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *id, *description, *load_state, *active_state, *sub_state, *unit_path;
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &id, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &description, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &load_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &active_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &sub_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path, true) < 0) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if ((r = dot_one(bus, id, unit_path)) < 0)
+                        goto finish;
+
+                /* printf("\t\"%s\";\n", id); */
+                dbus_message_iter_next(&sub);
+        }
+
+        printf("}\n");
+
+        log_info("   Color legend: black     = Requires\n"
+                 "                 dark blue = Requisite\n"
+                 "                 dark grey = Wants\n"
+                 "                 red       = Conflicts\n"
+                 "                 green     = After\n");
+
+        if (isatty(fileno(stdout)))
+                log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
+                           "-- Try a shell pipeline like 'systemctl dot | dot -Tsvg > systemd.svg'!\n");
 
         r = 0;
 
@@ -2504,6 +2749,8 @@ static int systemctl_help(void) {
                "                     pending\n"
                "     --system        Connect to system bus\n"
                "     --session       Connect to session bus\n"
+               "     --order         When generating graph for dot, show only order\n"
+               "     --require        When generating graph for dot, show only requirement\n"
                "  -q --quiet         Suppress output\n"
                "     --no-block      Do not wait until operation finished\n"
                "     --no-wall       Don't send wall message before halt/power-off/reboot\n\n"
@@ -2529,6 +2776,7 @@ static int systemctl_help(void) {
                "  clear-jobs                      Cancel all jobs\n"
                "  monitor                         Monitor unit/job changes\n"
                "  dump                            Dump server status\n"
+               "  dot                             Dump dependency graph for dot(1)\n"
                "  snapshot [NAME]                 Create a snapshot\n"
                "  delete [NAME...]                Remove one or more snapshots\n"
                "  daemon-reload                   Reload systemd manager configuration\n"
@@ -2620,7 +2868,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_SESSION,
                 ARG_SYSTEM,
                 ARG_NO_BLOCK,
-                ARG_NO_WALL
+                ARG_NO_WALL,
+                ARG_ORDER,
+                ARG_REQUIRE
         };
 
         static const struct option options[] = {
@@ -2634,6 +2884,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL  },
                 { "quiet",     no_argument,       NULL, 'q'          },
+                { "order",     no_argument,       NULL, ARG_ORDER    },
+                { "require",   no_argument,       NULL, ARG_REQUIRE  },
                 { NULL,        0,                 NULL, 0            }
         };
 
@@ -2685,6 +2937,14 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_WALL:
                         arg_no_wall = true;
+                        break;
+
+                case ARG_ORDER:
+                        arg_dot = DOT_ORDER;
+                        break;
+
+                case ARG_REQUIRE:
+                        arg_dot = DOT_REQUIRE;
                         break;
 
                 case 'q':
@@ -3212,6 +3472,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "status",            MORE,  2, show            },
                 { "monitor",           EQUAL, 1, monitor         },
                 { "dump",              EQUAL, 1, dump            },
+                { "dot",               EQUAL, 1, dot             },
                 { "snapshot",          LESS,  2, snapshot        },
                 { "delete",            MORE,  2, delete_snapshot },
                 { "daemon-reload",     EQUAL, 1, clear_jobs      },
@@ -3225,7 +3486,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "reboot",            EQUAL, 1, start_special   },
                 { "default",           EQUAL, 1, start_special   },
                 { "rescue",            EQUAL, 1, start_special   },
-                { "emergency",         EQUAL, 1, start_special   }
+                { "emergency",         EQUAL, 1, start_special   },
         };
 
         int left;

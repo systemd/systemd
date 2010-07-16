@@ -35,6 +35,38 @@
 
 * systemctl status $PID, systemctl stop $PID!
 
+* systemctl list-units doesn't show units with actvie jobs?
+
+* timeout waiting for mount devices?
+
+* default logic for serial getty, ck logging, ssk readahead
+
+* place /etc/inittab with explaining blurb.
+
+* OnFailure=foo.unit
+
+* default.target must be %ghosted...
+
+* systemd.path muss irgendwie nen sinvolles Defaultdependencies=True kriegen, genaus timer usw.
+
+* In command lines, support both "$FOO" and $FOO
+
+* systemd-install disable should recursively kill all symlinks
+
+* __nss_disable_nscd() aufrufen um loops zu verhindern
+
+* in %post create all symlinks manually and use inittab data
+
+* check mtimes of dirs and unit files in systemctl
+
+* /etc must always take precedence even if we follow symlinks!
+
+* when adding default deps to targets, check if they are already there and skip
+
+* /lib/init/rw
+
+* vielleicht implizit immer auf syslog dependen?
+
 External:
 
 * patch /etc/init.d/functions with:
