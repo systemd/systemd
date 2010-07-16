@@ -84,7 +84,7 @@ bool unit_has_name(Unit *u, const char *name) {
 
 int unit_add_name(Unit *u, const char *text) {
         UnitType t;
-        char *s = NULL, *i = NULL;
+        char *s, *i = NULL;
         int r;
 
         assert(u);
@@ -119,7 +119,9 @@ int unit_add_name(Unit *u, const char *text) {
         if (i && unit_vtable[t]->no_instances)
                 goto fail;
 
-        if (u->meta.type != _UNIT_TYPE_INVALID && !streq_ptr(u->meta.instance, i)) {
+        /* Ensure that this unit is either instanced or not instanced,
+         * but not both. */
+        if (u->meta.type != _UNIT_TYPE_INVALID && !u->meta.instance != !i) {
                 r = -EINVAL;
                 goto fail;
         }
@@ -171,7 +173,8 @@ fail:
 }
 
 int unit_choose_id(Unit *u, const char *name) {
-        char *s, *t = NULL;
+        char *s, *t = NULL, *i;
+        int r;
 
         assert(u);
         assert(name);
@@ -194,7 +197,14 @@ int unit_choose_id(Unit *u, const char *name) {
         if (!s)
                 return -ENOENT;
 
+        if ((r = unit_name_to_instance(s, &i)) < 0)
+                return r;
+
         u->meta.id = s;
+
+        free(u->meta.instance);
+        u->meta.instance = i;
+
         unit_add_to_dbus_queue(u);
 
         return 0;
@@ -460,7 +470,7 @@ int unit_merge(Unit *u, Unit *other) {
         if (u->meta.type != other->meta.type)
                 return -EINVAL;
 
-        if (!streq_ptr(u->meta.instance, other->meta.instance))
+        if (!u->meta.instance != !other->meta.instance)
                 return -EINVAL;
 
         if (other->meta.load_state != UNIT_STUB &&
