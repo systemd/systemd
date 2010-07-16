@@ -987,9 +987,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
                 u->meta.active_exit_timestamp = ts;
 
-        if (ns != os && ns == UNIT_MAINTENANCE)
-                log_notice("Unit %s entered maintenance state.", u->meta.id);
-
         if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
                 cgroup_bonding_trim_list(u->meta.cgroup_bondings, true);
 
@@ -1070,6 +1067,16 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         retroactively_start_dependencies(u);
                 else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
                         retroactively_stop_dependencies(u);
+        }
+
+        if (ns != os && ns == UNIT_MAINTENANCE) {
+                Iterator i;
+                Unit *other;
+
+                SET_FOREACH(other, u->meta.dependencies[UNIT_ON_FAILURE], i)
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
+
+                log_notice("Unit %s entered maintenance state.", u->meta.id);
         }
 
         /* Some names are special */
@@ -1294,6 +1301,7 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_CONFLICTS] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
                 [UNIT_AFTER] = UNIT_BEFORE,
+                [UNIT_ON_FAILURE] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
                 [UNIT_REFERENCED_BY] = UNIT_REFERENCES
         };
@@ -1301,7 +1309,6 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
 
         assert(u);
         assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
-        assert(inverse_table[d] != _UNIT_DEPENDENCY_INVALID);
         assert(other);
 
         /* We won't allow dependencies on ourselves. We will not
@@ -1317,9 +1324,12 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                     return -EINVAL;
         }
 
-        if ((r = set_ensure_allocated(&u->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0 ||
-            (r = set_ensure_allocated(&other->meta.dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func)) < 0)
+        if ((r = set_ensure_allocated(&u->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0)
                 return r;
+
+        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID)
+                if ((r = set_ensure_allocated(&other->meta.dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func)) < 0)
+                        return r;
 
         if (add_reference)
                 if ((r = set_ensure_allocated(&u->meta.dependencies[UNIT_REFERENCES], trivial_hash_func, trivial_compare_func)) < 0 ||
@@ -1329,10 +1339,11 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
         if ((q = set_put(u->meta.dependencies[d], other)) < 0)
                 return q;
 
-        if ((v = set_put(other->meta.dependencies[inverse_table[d]], u)) < 0) {
-                r = v;
-                goto fail;
-        }
+        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID)
+                if ((v = set_put(other->meta.dependencies[inverse_table[d]], u)) < 0) {
+                        r = v;
+                        goto fail;
+                }
 
         if (add_reference) {
                 if ((w = set_put(u->meta.dependencies[UNIT_REFERENCES], other)) < 0) {
@@ -2097,7 +2108,8 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_BEFORE] = "Before",
         [UNIT_AFTER] = "After",
         [UNIT_REFERENCES] = "References",
-        [UNIT_REFERENCED_BY] = "ReferencedBy"
+        [UNIT_REFERENCED_BY] = "ReferencedBy",
+        [UNIT_ON_FAILURE] = "OnFailure"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);

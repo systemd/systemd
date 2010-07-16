@@ -70,6 +70,7 @@
         "  <property name=\"Conflicts\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Before\" type=\"as\" access=\"read\"/>\n"   \
         "  <property name=\"After\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"OnFailure\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>\n" \
@@ -105,6 +106,7 @@
         { "org.freedesktop.systemd1.Unit", "Conflicts",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_CONFLICTS] }, \
         { "org.freedesktop.systemd1.Unit", "Before",               bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_BEFORE] }, \
         { "org.freedesktop.systemd1.Unit", "After",                bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_AFTER]  }, \
+        { "org.freedesktop.systemd1.Unit", "OnFailure",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_ON_FAILURE] }, \
         { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,    "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,     "s",    &u->meta.load_state               }, \
         { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                                 }, \
