@@ -35,8 +35,6 @@
 
 * systemctl status $PID, systemctl stop $PID!
 
-* systemctl list-units doesn't show units with actvie jobs?
-
 * timeout waiting for mount devices?
 
 * default logic for serial getty, ck logging, ssh readahead
@@ -61,13 +59,13 @@
 
 * vielleicht implizit immer auf syslog dependen?
 
-* für selinux muss der socket wissen was für service geexeced wird.
-
 * debian deadlock when partition auf noauto is.
 
 * maintenance units müssen vergessen werden
 
 * maintenance muss dokumentiert werden
+
+* fingerprint.target, smartcard.target, wireless.target, gps.target
 
 External:
 

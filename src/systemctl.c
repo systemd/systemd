@@ -218,7 +218,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
                 if ((!arg_type || ((dot = strrchr(id, '.')) &&
                                    streq(dot+1, arg_type))) &&
-                    (arg_all || !streq(active_state, "inactive"))) {
+                    (arg_all || !streq(active_state, "inactive") || job_id > 0)) {
 
                         int a = 0, b = 0;
 
@@ -228,7 +228,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                         printf("%-45s %-6s %-12s %-12s%n", id, load_state, active_state, sub_state, &a);
 
                         if (job_id != 0)
-                                printf(" %-15s%n", job_type, &b);
+                                printf(" => %-12s%n", job_type, &b);
                         else
                                 b = 1 + 15;
 
@@ -248,6 +248,11 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
                 dbus_message_iter_next(&sub);
         }
+
+        printf("\nLOAD   = Load State, reflects whether the unit configuration was properly loaded.\n"
+               "ACTIVE = Active State, the high-level unit activation state, i.e. generalization of the substate.\n"
+               "SUB    = Substate, the low-level unit activation state, possible values depend on unit type.\n"
+               "JOB    = Job, shows scheduled jobs for the unit.\n");
 
         if (arg_all)
                 printf("\n%u units listed.\n", k);
