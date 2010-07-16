@@ -55,18 +55,23 @@ static int target_add_default_dependencies(Target *t) {
         Unit *other;
         int r;
 
-        /* Imply ordering for requirement dependencies
-         * on target units. */
+        /* Imply ordering for requirement dependencies on target
+         * units. Note that when the user created a contradicting
+         * ordering manually we won't add anything in here to make
+         * sure we don't create a loop. */
 
         SET_FOREACH(other, t->meta.dependencies[UNIT_REQUIRES], i)
-                if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
-                        return r;
+                if (!set_get(t->meta.dependencies[UNIT_BEFORE], other))
+                        if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
+                                return r;
         SET_FOREACH(other, t->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
-                        return r;
+                if (!set_get(t->meta.dependencies[UNIT_BEFORE], other))
+                        if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
+                                return r;
         SET_FOREACH(other, t->meta.dependencies[UNIT_WANTS], i)
-                if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
-                        return r;
+                if (!set_get(t->meta.dependencies[UNIT_BEFORE], other))
+                        if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
+                                return r;
 
         return 0;
 }

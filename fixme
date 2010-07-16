@@ -39,7 +39,7 @@
 
 * timeout waiting for mount devices?
 
-* default logic for serial getty, ck logging, ssk readahead
+* default logic for serial getty, ck logging, ssh readahead
 
 * place /etc/inittab with explaining blurb.
 
@@ -59,11 +59,13 @@
 
 * /etc must always take precedence even if we follow symlinks!
 
-* when adding default deps to targets, check if they are already there and skip
-
 * /lib/init/rw
 
 * vielleicht implizit immer auf syslog dependen?
+
+* für selinux muss der socket wissen was für service geexeced wird.
+
+* debian deadlock when partition auf noauto is.
 
 External:
 
