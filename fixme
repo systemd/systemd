@@ -39,8 +39,6 @@
 
 * In command lines, support both "$FOO" and $FOO
 
-* systemd-install disable should recursively kill all symlinks
-
 * /etc must always take precedence even if we follow symlinks!
 
 * /lib/init/rw
@@ -51,11 +49,15 @@
 
 * maintenance units müssen vergessen werden
 
-* maintenance muss dokumentiert werden
+* maintenance muss dokumentiert werden, ebenso OnStartup= und JobTimeoutSec=
 
 * fingerprint.target, wireless.target, gps.target
 
 * fix merging of device units
+
+* set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
+
+* pahole
 
 External:
 

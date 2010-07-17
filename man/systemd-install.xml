@@ -196,6 +196,27 @@
                                 the <command>realize</command> command
                                 is used.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--all</option></term>
+
+                                <listitem><para>If set makes sure that
+                                all symlinks on the specified unit are
+                                removed from the configuration
+                                directory and its subdirectories, not
+                                just those specified in the
+                                <literal>[Install]</literal>
+                                section.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--verbose</option></term>
+                                <term><option>-v</option></term>
+
+                                <listitem><para>Show what is done as
+                                it is done.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
                 <para>The following commands are understood:</para>

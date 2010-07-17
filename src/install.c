@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 #include "log.h"
 #include "path-lookup.h"
@@ -36,6 +37,8 @@
 #include "sd-daemon.h"
 
 static bool arg_force = false;
+static bool arg_all = false;
+static bool arg_verbose = false;
 
 static enum {
         WHERE_SYSTEM,
@@ -67,7 +70,8 @@ typedef struct {
         char **wanted_by;
 } InstallInfo;
 
-Hashmap *will_install = NULL, *have_installed = NULL;
+static Hashmap *will_install = NULL, *have_installed = NULL;
+static Set *remove_symlinks_to = NULL;
 
 static int help(void) {
 
@@ -75,9 +79,12 @@ static int help(void) {
                "Install init system units.\n\n"
                "  -h --help           Show this help\n"
                "     --force          Override existing links\n"
+               "     --verbose        Show what is being done as it is done\n"
                "     --system         Install into system\n"
                "     --session        Install into session\n"
                "     --global         Install into all sessions\n"
+               "     --all            When disabling, remove all symlinks, not\n"
+               "                      just those listed in the [Install] section\n"
                "     --realize[=MODE] Start/stop/restart unit after installation\n"
                "                      Takes 'no', 'minimal', 'maybe' or 'yes'\n\n"
                "Commands:\n"
@@ -98,7 +105,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_FORCE,
-                ARG_REALIZE
+                ARG_REALIZE,
+                ARG_ALL
         };
 
         static const struct option options[] = {
@@ -108,6 +116,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "global",    no_argument,       NULL, ARG_GLOBAL  },
                 { "force",     no_argument,       NULL, ARG_FORCE   },
                 { "realize",   optional_argument, NULL, ARG_REALIZE },
+                { "all",       no_argument,       NULL, ARG_ALL     },
+                { "verbose",   no_argument,       NULL, 'v'         },
                 { NULL,        0,                 NULL, 0           }
         };
 
@@ -117,7 +127,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hv", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -162,6 +172,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
+                        break;
+
+                case ARG_ALL:
+                        arg_all = true;
+                        break;
+
+                case 'v':
+                        arg_verbose = true;
                         break;
 
                 case '?':
@@ -279,6 +297,9 @@ static int daemon_reload(DBusConnection *bus) {
         assert(bus);
 
         dbus_error_init(&error);
+
+        if (arg_verbose)
+                log_info("Reloading daemon configuration.");
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -429,6 +450,9 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i, bool enabled) {
                         }
                 }
 
+                if (arg_verbose)
+                        log_info("Restarting %s.", i->name);
+
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
                                       "/org/freedesktop/systemd1",
@@ -451,6 +475,9 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i, bool enabled) {
 
         } else if (arg_action == ACTION_DISABLE ||
                    (arg_action == ACTION_REALIZE && !enabled)) {
+
+                if (arg_verbose)
+                        log_info("Stopping %s.", i->name);
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -527,6 +554,184 @@ static int config_parse_also(
         return 0;
 }
 
+static int mark_symlink_for_removal(const char *p) {
+        char *n;
+        int r;
+
+        assert(p);
+        assert(path_is_absolute(p));
+
+        if (!remove_symlinks_to)
+                return 0;
+
+        if (!(n = canonicalize_file_name(p)))
+                if (!(n = strdup(p)))
+                        return -ENOMEM;
+
+        path_kill_slashes(n);
+
+        if ((r = set_put(remove_symlinks_to, n)) < 0) {
+                free(n);
+                return r;
+        }
+
+        return 0;
+}
+
+static int remove_marked_symlinks_fd(int fd, const char *config_path, const char *root, bool *deleted) {
+        int r = 0;
+        DIR *d;
+        struct dirent *de;
+
+        assert(fd >= 0);
+        assert(root);
+        assert(deleted);
+
+        if (!(d = fdopendir(fd)))
+                return -errno;
+
+        rewinddir(d);
+
+        while ((de = readdir(d))) {
+                bool is_dir = false, is_link = false;
+
+                if (ignore_file(de->d_name))
+                        continue;
+
+                if (de->d_type == DT_LNK)
+                        is_link = true;
+                else if (de->d_type == DT_DIR)
+                        is_dir = true;
+                else if (de->d_type == DT_UNKNOWN) {
+                        struct stat st;
+
+                        if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                log_error("Failed to stat %s/%s: %m", root, de->d_name);
+
+                                if (r == 0)
+                                        r = -errno;
+                                continue;
+                        }
+
+                        is_link = S_ISLNK(st.st_mode);
+                        is_dir = S_ISDIR(st.st_mode);
+                } else
+                        continue;
+
+                if (is_dir) {
+                        int nfd, q;
+                        char *p;
+
+                        if ((nfd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW)) < 0) {
+                                log_error("Failed to open %s/%s: %m", root, de->d_name);
+
+                                if (r == 0)
+                                        r = -errno;
+                                continue;
+                        }
+
+                        if (asprintf(&p, "%s/%s", root, de->d_name) < 0) {
+                                log_error("Failed to allocate directory string.");
+                                close_nointr_nofail(nfd);
+                                r = -ENOMEM;
+                                break;
+                        }
+
+                        q = remove_marked_symlinks_fd(nfd, config_path, p, deleted);
+                        free(p);
+                        close_nointr_nofail(nfd);
+
+                        if (r == 0)
+                                q = r;
+
+                } else if (is_link) {
+                        char *p, *dest, *c;
+                        int q;
+
+                        if (asprintf(&p, "%s/%s", root, de->d_name) < 0) {
+                                log_error("Failed to allocate symlink string.");
+                                r = -ENOMEM;
+                                break;
+                        }
+
+                        if ((q = readlink_and_make_absolute(p, &dest)) < 0) {
+                                log_error("Cannot read symlink %s: %s", p, strerror(-q));
+                                free(p);
+
+                                if (r == 0)
+                                        r = q;
+                                continue;
+                        }
+
+                        if ((c = canonicalize_file_name(dest))) {
+                                /* This might fail if the destination
+                                 * is already removed */
+
+                                free(dest);
+                                dest = c;
+                        }
+
+                        path_kill_slashes(dest);
+                        if (set_get(remove_symlinks_to, dest)) {
+
+                                if (arg_verbose)
+                                        log_info("rm '%s'", p);
+
+                                if (unlink(p) < 0) {
+                                        log_error("Cannot unlink symlink %s: %m", p);
+
+                                        if (r == 0)
+                                                r = -errno;
+                                } else {
+                                        rmdir_parents(p, config_path);
+                                        path_kill_slashes(p);
+
+                                        if (!set_get(remove_symlinks_to, p)) {
+
+                                                if ((r = mark_symlink_for_removal(p)) < 0) {
+                                                        if (r == 0)
+                                                                r = q;
+                                                } else
+                                                        *deleted = true;
+                                        }
+                                }
+                        }
+
+                        free(p);
+                        free(dest);
+                }
+        }
+
+        return r;
+}
+
+static int remove_marked_symlinks(const char *config_path) {
+        int fd, r = 0;
+        bool deleted;
+
+        assert(config_path);
+
+        if (set_size(remove_symlinks_to) <= 0)
+                return 0;
+
+        if ((fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW)) < 0)
+                return -errno;
+
+        do {
+                int q;
+                deleted = false;
+
+                if ((q = remove_marked_symlinks_fd(fd, config_path, config_path, &deleted)) < 0) {
+                        if (r == 0)
+                                r = q;
+                }
+        } while (deleted);
+
+        close_nointr_nofail(fd);
+
+        return r;
+}
+
 static int create_symlink(const char *old_path, const char *new_path) {
         int r;
 
@@ -571,6 +776,9 @@ static int create_symlink(const char *old_path, const char *new_path) {
                 free(dest);
                 unlink(new_path);
 
+                if (arg_verbose)
+                        log_info("ln -s '%s' '%s'", old_path, new_path);
+
                 if (symlink(old_path, new_path) >= 0)
                         return 0;
 
@@ -579,6 +787,9 @@ static int create_symlink(const char *old_path, const char *new_path) {
 
         } else if (arg_action == ACTION_DISABLE) {
                 char *dest;
+
+                if ((r = mark_symlink_for_removal(old_path)) < 0)
+                        return r;
 
                 if ((r = readlink_and_make_absolute(new_path, &dest)) < 0) {
                         if (errno == ENOENT)
@@ -599,7 +810,15 @@ static int create_symlink(const char *old_path, const char *new_path) {
                         return 0;
                 }
 
+
                 free(dest);
+
+                if ((r = mark_symlink_for_removal(new_path)) < 0)
+                        return r;
+
+                if (arg_verbose)
+                        log_info("rm '%s'", new_path);
+
                 if (unlink(new_path) >= 0)
                         return 0;
 
@@ -771,6 +990,12 @@ static int install_info_apply(LookupPaths *paths, InstallInfo *i, const char *co
         if ((r = install_info_symlink_wants(i, config_path)) != 0)
                 return r;
 
+        if ((r = mark_symlink_for_removal(filename)) < 0)
+                return r;
+
+        if ((r = remove_marked_symlinks(config_path)) < 0)
+                return r;
+
         return 0;
 }
 
@@ -898,9 +1123,16 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (arg_all)
+                if (!(remove_symlinks_to = set_new(string_hash_func, string_compare_func))) {
+                        log_error("Failed to allocate symlink sets.");
+                        goto finish;
+                }
+
         for (j = optind; j < argc; j++)
                 if ((r = install_info_add(argv[j])) < 0)
                         goto finish;
+
 
         while ((i = hashmap_first(will_install))) {
                 assert_se(hashmap_move_one(have_installed, will_install, i->name) == 0);
@@ -922,6 +1154,8 @@ int main(int argc, char *argv[]) {
 finish:
         install_info_hashmap_free(will_install);
         install_info_hashmap_free(have_installed);
+
+        set_free_free(remove_symlinks_to);
 
         lookup_paths_free(&paths);
 
