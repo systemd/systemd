@@ -102,6 +102,8 @@ struct Job {
         JobType type;
         JobState state;
 
+        Watch timer_watch;
+
         /* Note that this bus object is not ref counted here. */
         DBusConnection *bus;
         char *bus_client;
@@ -138,8 +140,13 @@ bool job_is_runnable(Job *j);
 void job_add_to_run_queue(Job *j);
 void job_add_to_dbus_queue(Job *j);
 
+int job_start_timer(Job *j);
+void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w);
+
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, bool success);
+
+char *job_dbus_path(Job *j);
 
 const char* job_type_to_string(JobType t);
 JobType job_type_from_string(const char *s);
@@ -149,7 +156,5 @@ JobState job_state_from_string(const char *s);
 
 const char* job_mode_to_string(JobMode t);
 JobMode job_mode_from_string(const char *s);
-
-char *job_dbus_path(Job *j);
 
 #endif

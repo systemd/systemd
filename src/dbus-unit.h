@@ -90,6 +90,7 @@
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NeedDaemonReload\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"JobTimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define BUS_UNIT_PROPERTIES \
@@ -125,7 +126,8 @@
         { "org.freedesktop.systemd1.Unit", "DefaultDependencies",  bus_property_append_bool,       "b",    &u->meta.default_dependencies     }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }, \
-        { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }
+        { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }, \
+        { "org.freedesktop.systemd1.Unit", "JobTimeoutUSec",       bus_property_append_usec,       "t",    &u->meta.job_timeout              }
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data);

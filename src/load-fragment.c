@@ -1565,6 +1565,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "OnlyByDependency",       config_parse_bool,            &u->meta.only_by_dependency,                     "Unit"    },
                 { "DefaultDependencies",    config_parse_bool,            &u->meta.default_dependencies,                   "Unit"    },
                 { "IgnoreDependencyFailure",config_parse_bool,            &u->meta.ignore_dependency_failure,              "Unit"    },
+                { "JobTimeoutSec",          config_parse_usec,            &u->meta.job_timeout,                            "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },

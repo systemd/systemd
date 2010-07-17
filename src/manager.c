@@ -1124,6 +1124,7 @@ static int transaction_apply(Manager *m) {
 
                 job_add_to_run_queue(j);
                 job_add_to_dbus_queue(j);
+                job_start_timer(j);
         }
 
         /* As last step, kill all remaining job dependencies. */
@@ -2022,7 +2023,8 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 UNIT_VTABLE(w->data.unit)->fd_event(w->data.unit, w->fd, ev->events, w);
                 break;
 
-        case WATCH_TIMER: {
+        case WATCH_UNIT_TIMER:
+        case WATCH_JOB_TIMER: {
                 uint64_t v;
                 ssize_t k;
 
@@ -2035,7 +2037,10 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                         return k < 0 ? -errno : -EIO;
                 }
 
-                UNIT_VTABLE(w->data.unit)->timer_event(w->data.unit, v, w);
+                if (w->type == WATCH_UNIT_TIMER)
+                        UNIT_VTABLE(w->data.unit)->timer_event(w->data.unit, v, w);
+                else
+                        job_timer_event(w->data.job, v, w);
                 break;
         }
 

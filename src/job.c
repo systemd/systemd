@@ -21,6 +21,8 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <sys/timerfd.h>
+#include <sys/epoll.h>
 
 #include "set.h"
 #include "unit.h"
@@ -45,6 +47,8 @@ Job* job_new(Manager *m, JobType type, Unit *unit) {
         j->id = m->current_job_id++;
         j->type = type;
         j->unit = unit;
+
+        j->timer_watch.type = WATCH_INVALID;
 
         /* We don't link it here, that's what job_dependency() is for */
 
@@ -75,6 +79,15 @@ void job_free(Job *j) {
 
         if (j->in_dbus_queue)
                 LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
+
+        if (j->timer_watch.type != WATCH_INVALID) {
+                assert(j->timer_watch.type == WATCH_JOB_TIMER);
+                assert(j->timer_watch.data.job == j);
+                assert(j->timer_watch.fd >= 0);
+
+                assert_se(epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_DEL, j->timer_watch.fd, NULL) >= 0);
+                close_nointr_nofail(j->timer_watch.fd);
+        }
 
         free(j->bus_client);
         free(j);
@@ -472,8 +485,6 @@ int job_finish_and_invalidate(Job *j, bool success) {
 
                 j->state = JOB_WAITING;
                 j->type = JOB_START;
-
-                job_add_to_run_queue(j);
                 return 0;
         }
 
@@ -534,6 +545,53 @@ int job_finish_and_invalidate(Job *j, bool success) {
         return 0;
 }
 
+int job_start_timer(Job *j) {
+        struct itimerspec its;
+        struct epoll_event ev;
+        int fd, r;
+        assert(j);
+
+        if (j->unit->meta.job_timeout <= 0 ||
+            j->timer_watch.type == WATCH_JOB_TIMER)
+                return 0;
+
+        assert(j->timer_watch.type == WATCH_INVALID);
+
+        if ((fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        zero(its);
+        timespec_store(&its.it_value, j->unit->meta.job_timeout);
+
+        if (timerfd_settime(fd, 0, &its, NULL) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        zero(ev);
+        ev.data.ptr = &j->timer_watch;
+        ev.events = EPOLLIN;
+
+        if (epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        j->timer_watch.type = WATCH_JOB_TIMER;
+        j->timer_watch.fd = fd;
+        j->timer_watch.data.job = j;
+
+        return 0;
+
+fail:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        return r;
+}
+
 void job_add_to_run_queue(Job *j) {
         assert(j);
         assert(j->installed);
@@ -569,6 +627,14 @@ char *job_dbus_path(Job *j) {
                 return NULL;
 
         return p;
+}
+
+void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w) {
+        assert(j);
+        assert(w == &j->timer_watch);
+
+        log_warning("Job %s/%s timed out.", j->unit->meta.id, job_type_to_string(j->type));
+        job_finish_and_invalidate(j, false);
 }
 
 static const char* const job_state_table[_JOB_STATE_MAX] = {

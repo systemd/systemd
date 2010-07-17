@@ -143,12 +143,15 @@ struct Meta {
         Set *dependencies[_UNIT_DEPENDENCY_MAX];
 
         char *description;
+
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         usec_t fragment_mtime;
 
         /* If there is something to do with this unit, then this is
          * the job for it */
         Job *job;
+
+        usec_t job_timeout;
 
         dual_timestamp inactive_exit_timestamp;
         dual_timestamp active_enter_timestamp;

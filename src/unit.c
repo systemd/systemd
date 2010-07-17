@@ -587,7 +587,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 timestamp1[FORMAT_TIMESTAMP_MAX],
                 timestamp2[FORMAT_TIMESTAMP_MAX],
                 timestamp3[FORMAT_TIMESTAMP_MAX],
-                timestamp4[FORMAT_TIMESTAMP_MAX];
+                timestamp4[FORMAT_TIMESTAMP_MAX],
+                timespan[FORMAT_TIMESPAN_MAX];
 
         assert(u);
         assert(u->meta.type >= 0);
@@ -626,6 +627,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->meta.fragment_path)
                 fprintf(f, "%s\tFragment Path: %s\n", prefix, u->meta.fragment_path);
+
+        if (u->meta.job_timeout > 0)
+                fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->meta.job_timeout));
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 Unit *other;
@@ -1003,7 +1007,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                          * failed previously due to EAGAIN. */
                         job_add_to_run_queue(u->meta.job);
 
-
                 /* Let's check whether this state change constitutes a
                  * finished job, or maybe cotradicts a running job and
                  * hence needs to invalidate jobs. */
@@ -1189,18 +1192,23 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
 
         assert(u);
         assert(w);
-        assert(w->type == WATCH_INVALID || (w->type == WATCH_TIMER && w->data.unit == u));
+        assert(w->type == WATCH_INVALID || (w->type == WATCH_UNIT_TIMER && w->data.unit == u));
 
         /* This will try to reuse the old timer if there is one */
 
-        if (w->type == WATCH_TIMER) {
+        if (w->type == WATCH_UNIT_TIMER) {
+                assert(w->data.unit == u);
+                assert(w->fd >= 0);
+
                 ours = false;
                 fd = w->fd;
-        } else {
+        } else if (w->type == WATCH_INVALID) {
+
                 ours = true;
                 if ((fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0)
                         return -errno;
-        }
+        } else
+                assert_not_reached("Invalid watch type");
 
         zero(its);
 
@@ -1231,8 +1239,8 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
                         goto fail;
         }
 
+        w->type = WATCH_UNIT_TIMER;
         w->fd = fd;
-        w->type = WATCH_TIMER;
         w->data.unit = u;
 
         return 0;
@@ -1251,7 +1259,9 @@ void unit_unwatch_timer(Unit *u, Watch *w) {
         if (w->type == WATCH_INVALID)
                 return;
 
-        assert(w->type == WATCH_TIMER && w->data.unit == u);
+        assert(w->type == WATCH_UNIT_TIMER);
+        assert(w->data.unit == u);
+        assert(w->fd >= 0);
 
         assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
         close_nointr_nofail(w->fd);

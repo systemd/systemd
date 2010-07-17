@@ -57,7 +57,8 @@ enum WatchType {
         WATCH_SIGNAL,
         WATCH_NOTIFY,
         WATCH_FD,
-        WATCH_TIMER,
+        WATCH_UNIT_TIMER,
+        WATCH_JOB_TIMER,
         WATCH_MOUNT,
         WATCH_UDEV,
         WATCH_DBUS_WATCH,
@@ -69,6 +70,7 @@ struct Watch {
         WatchType type;
         union {
                 union Unit *unit;
+                struct Job *job;
                 DBusWatch *bus_watch;
                 DBusTimeout *bus_timeout;
         } data;

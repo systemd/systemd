@@ -35,8 +35,6 @@
 
 * systemctl status $PID, systemctl stop $PID!
 
-* timeout waiting for mount devices?
-
 * place /etc/inittab with explaining blurb.
 
 * In command lines, support both "$FOO" and $FOO

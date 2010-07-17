@@ -35,6 +35,15 @@ static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_PLUGGED] = UNIT_ACTIVE
 };
 
+static void device_init(Unit *u) {
+        Device *d = DEVICE(u);
+
+        assert(d);
+        assert(d->meta.load_state == UNIT_STUB);
+
+        d->meta.job_timeout = DEFAULT_TIMEOUT_USEC;
+}
+
 static void device_done(Unit *u) {
         Device *d = DEVICE(u);
 
@@ -455,6 +464,8 @@ const UnitVTable device_vtable = {
         .no_instances = true,
         .no_snapshots = true,
         .no_isolate = true,
+
+        .init = device_init,
 
         .load = unit_load_fragment_and_dropin_optional,
         .done = device_done,
