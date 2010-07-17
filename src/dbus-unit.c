@@ -128,7 +128,8 @@ int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *proper
         assert(property);
         assert(u);
 
-        b = unit_can_start(u);
+        b = unit_can_start(u) &&
+                !u->meta.only_by_dependency;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
