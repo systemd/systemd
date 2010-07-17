@@ -2199,7 +2199,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 success = true;
                 }
 
-                log_debug("%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                log_full(success ? LOG_DEBUG : LOG_NOTICE,
+                         "%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
                 /* The service exited, so the service is officially
@@ -2256,7 +2257,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 s->control_pid = 0;
 
-                log_debug("%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                log_full(success ? LOG_DEBUG : LOG_NOTICE,
+                         "%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
                 /* If we are shutting things down anyway we
@@ -2476,7 +2478,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
              s->state == SERVICE_RELOAD)) {
 
                 if (parse_pid(e + 8, &pid) < 0)
-                        log_warning("Failed to parse %s", e);
+                        log_warning("Failed to parse notification message %s", e);
                 else {
                         log_debug("%s: got %s", u->meta.id, e);
                         service_set_main_pid(s, pid);

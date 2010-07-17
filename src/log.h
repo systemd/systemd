@@ -83,6 +83,8 @@ int log_dump_internal(
         const char *func,
         char *buffer);
 
+#define log_full(level, ...) log_meta(level, __FILE__, __LINE__, __func__, __VA_ARGS__)
+
 #define log_debug(...)   log_meta(LOG_DEBUG,   __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_info(...)    log_meta(LOG_INFO,    __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_notice(...)  log_meta(LOG_NOTICE,  __FILE__, __LINE__, __func__, __VA_ARGS__)

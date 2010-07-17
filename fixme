@@ -55,6 +55,8 @@
 
 * fingerprint.target, wireless.target, gps.target
 
+* fix merging of device units
+
 External:
 
 * default.target must be %ghosted...
