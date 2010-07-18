@@ -49,8 +49,6 @@
 
 * maintenance units müssen vergessen werden
 
-* maintenance muss dokumentiert werden, ebenso OnStartup= und JobTimeoutSec=
-
 * fingerprint.target, wireless.target, gps.target
 
 * fix merging of device units

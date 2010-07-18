@@ -141,7 +141,7 @@
                                 <listitem><para>Tell systemd to run a
                                 system instance (resp. session
                                 instance), even if the process ID is
-                                not 1 (resp. is 1), i.e. system is not
+                                not 1 (resp. is 1), i.e. systemd is not
                                 (resp. is) run as init process.
                                 Normally it should not be necessary to
                                 pass these options, as systemd
@@ -232,12 +232,23 @@
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 however some are created automatically from other
                 configuration or dynamically from system state. Units
-                may be active (meaning started, bound, plugged in, ...
-                depending on the unit type), or inactive (meaning
-                stopped, unbound, unplugged, ...), as well as in the
-                process of being activated or deactivated,
-                i.e. between the two states. The following unit types
-                are available:</para>
+                may be 'active' (meaning started, bound, plugged in,
+                ...  depending on the unit type, see below), or
+                'inactive' (meaning stopped, unbound, unplugged, ...),
+                as well as in the process of being activated or
+                deactivated, i.e. between the two states (these states
+                are called 'activating', 'deactivating'). A special
+                'maintenance' state is available as well which is very
+                similar to 'inactive' and is entered when the service
+                failed in some way (process returned error code on
+                exit, or crashed, or an operation timed out). If this
+                state is entered the cause will be logged, for later
+                reference. Note that the various unit types may have a
+                number of additional substates, which are mapped to
+                the five generalized unit states described
+                here.</para>
+
+                <para>The following unit types are available:</para>
 
                 <orderedlist>
                         <listitem><para>Service units, which control
@@ -303,6 +314,35 @@
                 files. Some units have special semantics. A detailed
                 list you may find in
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+                <para>systemd knows various kinds of dependencies,
+                including positive and negative requirement
+                dependencies (i.e. <varname>Requires=</varname> and
+                <varname>Conflicts=</varname>) as well as ordering
+                dependencies (<varname>After=</varname> and
+                <varname>Before=</varname>). NB: ordering and
+                requirement dependencies are orthogonal. If only a
+                requirement dependency exists between two units
+                (e.g. <filename>foo.service</filename> requires
+                <filename>bar.service</filename>), but no ordering
+                dependency (e.g. <filename>foo.service</filename>
+                after <filename>bar.service</filename>) and both are
+                requested to start, they will be started in
+                parallel. It is a common pattern that both requirement
+                and ordering dependencies are placed between two
+                units. Also note that the majority of dependencies are
+                implicitly created and maintained by systemd. In most
+                cases it should be unnecessary to declare additional
+                dependencies manually, however it is possible to do
+                this.</para>
+
+                <para>Application programs and units (via
+                dependencies) may requests state changes of units. In
+                systemd, these requests are encapsulated as 'jobs' and
+                maintained in a job queue. Jobs may succeed or can
+                fail, their execution is ordered based on the ordering
+                dependencies of the units they have been scheduled
+                for.</para>
 
                 <para>On boot systemd activates the target unit
                 <filename>default.target</filename> whose job is to
