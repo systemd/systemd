@@ -560,6 +560,17 @@ fail:
         log_error("Failed find path unit: %s", strerror(-r));
 }
 
+static void path_reset_maintenance(Unit *u) {
+        Path *p = PATH(u);
+
+        assert(p);
+
+        if (p->state == PATH_MAINTENANCE)
+                path_set_state(p, PATH_DEAD);
+
+        p->failure = false;
+}
+
 static const char* const path_state_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = "dead",
         [PATH_WAITING] = "waiting",
@@ -597,6 +608,8 @@ const UnitVTable path_vtable = {
         .sub_state_to_string = path_sub_state_to_string,
 
         .fd_event = path_fd_event,
+
+        .reset_maintenance = path_reset_maintenance,
 
         .bus_message_handler = bus_path_message_handler
 };

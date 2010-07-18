@@ -542,14 +542,6 @@ static void swap_shutdown(Manager *m) {
         }
 }
 
-static const char* const swap_state_table[_SWAP_STATE_MAX] = {
-        [SWAP_DEAD] = "dead",
-        [SWAP_ACTIVE] = "active",
-        [SWAP_MAINTENANCE] = "maintenance"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);
-
 static int swap_enumerate(Manager *m) {
         int r;
         assert(m);
@@ -563,6 +555,23 @@ static int swap_enumerate(Manager *m) {
 
         return r;
 }
+
+static void swap_reset_maintenance(Unit *u) {
+        Swap *s = SWAP(u);
+
+        assert(s);
+
+        if (s->state == SWAP_MAINTENANCE)
+                swap_set_state(s, SWAP_DEAD);
+}
+
+static const char* const swap_state_table[_SWAP_STATE_MAX] = {
+        [SWAP_DEAD] = "dead",
+        [SWAP_ACTIVE] = "active",
+        [SWAP_MAINTENANCE] = "maintenance"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);
 
 const UnitVTable swap_vtable = {
         .suffix = ".swap",
@@ -591,6 +600,8 @@ const UnitVTable swap_vtable = {
         .check_gc = swap_check_gc,
 
         .bus_message_handler = bus_swap_message_handler,
+
+        .reset_maintenance = swap_reset_maintenance,
 
         .enumerate = swap_enumerate,
         .shutdown = swap_shutdown

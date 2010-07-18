@@ -2466,6 +2466,16 @@ bool manager_is_booting_or_shutting_down(Manager *m) {
         return false;
 }
 
+void manager_reset_maintenance(Manager *m) {
+        Unit *u;
+        Iterator i;
+
+        assert(m);
+
+        HASHMAP_FOREACH(u, m->units, i)
+                unit_reset_maintenance(u);
+}
+
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
         [MANAGER_SYSTEM] = "system",
         [MANAGER_SESSION] = "session"

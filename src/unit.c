@@ -2071,6 +2071,13 @@ bool unit_need_daemon_reload(Unit *u) {
                 timespec_load(&st.st_mtim) != u->meta.fragment_mtime;
 }
 
+void unit_reset_maintenance(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->reset_maintenance)
+                UNIT_VTABLE(u)->reset_maintenance(u);
+}
+
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",
         [UNIT_TIMER] = "timer",

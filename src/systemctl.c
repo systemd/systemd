@@ -2639,10 +2639,11 @@ static int clear_jobs(DBusConnection *bus, char **args, unsigned n) {
                 assert(arg_action == ACTION_SYSTEMCTL);
 
                 method =
-                        streq(args[0], "clear-jobs")    ? "ClearJobs" :
-                        streq(args[0], "daemon-reload") ? "Reload" :
-                        streq(args[0], "daemon-reexec") ? "Reexecute" :
-                                                          "Exit";
+                        streq(args[0], "clear-jobs")        ? "ClearJobs" :
+                        streq(args[0], "daemon-reload")     ? "Reload" :
+                        streq(args[0], "daemon-reexec")     ? "Reexecute" :
+                        streq(args[0], "reset-maintenance") ? "ResetMaintenance" :
+                                                              "Exit";
         }
 
         if (!(m = dbus_message_new_method_call(
@@ -2669,6 +2670,63 @@ static int clear_jobs(DBusConnection *bus, char **args, unsigned n) {
         }
 
         r = 1;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int reset_maintenance(DBusConnection *bus, char **args, unsigned n) {
+        DBusMessage *m = NULL, *reply = NULL;
+        unsigned i;
+        int r;
+        DBusError error;
+
+        assert(bus);
+        dbus_error_init(&error);
+
+        if (n <= 1)
+                return clear_jobs(bus, args, n);
+
+        for (i = 1; i < n; i++) {
+
+                if (!(m = dbus_message_new_method_call(
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "ResetMaintenanceUnit"))) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, args + i,
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                        log_error("Failed to issue method call: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_unref(m);
+                dbus_message_unref(reply);
+                m = reply = NULL;
+        }
+
+        r = 0;
 
 finish:
         if (m)
@@ -2832,7 +2890,7 @@ finish:
 static int systemctl_help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to the systemd manager.\n\n"
+               "Send control commands to or query the systemd manager.\n\n"
                "  -h --help          Show this help\n"
                "  -t --type=TYPE     List only units of a particular type\n"
                "  -p --property=NAME Show only properties by this name\n"
@@ -2862,6 +2920,8 @@ static int systemctl_help(void) {
                "  status [NAME...]                Show status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs/manager\n"
+               "  reset-maintenance [NAME...]     Reset maintenance state for all, one\n"
+               "                                  or more units\n"
                "  load [NAME...]                  Load one or more units\n"
                "  list-jobs                       List jobs\n"
                "  cancel [JOB...]                 Cancel one or more jobs\n"
@@ -3579,6 +3639,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "default",           EQUAL, 1, start_special   },
                 { "rescue",            EQUAL, 1, start_special   },
                 { "emergency",         EQUAL, 1, start_special   },
+                { "reset-maintenance", MORE,  1, reset_maintenance },
         };
 
         int left;

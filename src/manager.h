@@ -247,6 +247,8 @@ int manager_reload(Manager *m);
 
 bool manager_is_booting_or_shutting_down(Manager *m);
 
+void manager_reset_maintenance(Manager *m);
+
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);
 

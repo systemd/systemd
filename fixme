@@ -47,8 +47,6 @@
 
 * debian deadlock when partition auf noauto is.
 
-* maintenance units müssen vergessen werden
-
 * fingerprint.target, wireless.target, gps.target
 
 * fix merging of device units
@@ -56,6 +54,8 @@
 * set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
 
 * pahole
+
+* color aus bei stdout auf !tty
 
 External:
 

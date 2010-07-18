@@ -314,6 +314,25 @@
                                 properties of the job is
                                 shown.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><command>reset-maintenance [NAME...]</command></term>
+
+                                <listitem><para>Reset maintenance
+                                state of the specified units, or if no
+                                unit name is passed of all units. When
+                                a unit fails in some way (i.e. process
+                                exiting with non-zero error code,
+                                terminating abnormally or timing out)
+                                it will automatically enter
+                                maintenance state and its exit codes
+                                and status is recorded for
+                                introspection by the administrator
+                                until the service is restarted or
+                                reset with this
+                                command.</para></listitem>
+                        </varlistentry>
+
                         <varlistentry>
                                 <term><command>load [NAME...]</command></term>
 

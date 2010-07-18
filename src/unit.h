@@ -290,6 +290,9 @@ struct UnitVTable {
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
+        /* Reset maintenance state if we are in maintainance state */
+        void (*reset_maintenance)(Unit *u);
+
         /* Called whenever any of the cgroups this unit watches for
          * ran empty */
         void (*cgroup_notify_empty)(Unit *u);
@@ -466,6 +469,8 @@ int unit_coldplug(Unit *u);
 void unit_status_printf(Unit *u, const char *format, ...);
 
 bool unit_need_daemon_reload(Unit *u);
+
+void unit_reset_maintenance(Unit *u);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);

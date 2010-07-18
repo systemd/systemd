@@ -791,6 +791,17 @@ static void automount_shutdown(Manager *m) {
                 close_nointr_nofail(m->dev_autofs_fd);
 }
 
+static void automount_reset_maintenance(Unit *u) {
+        Automount *a = AUTOMOUNT(u);
+
+        assert(a);
+
+        if (a->state == AUTOMOUNT_MAINTENANCE)
+                automount_set_state(a, AUTOMOUNT_DEAD);
+
+        a->failure = false;
+}
+
 static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = "dead",
         [AUTOMOUNT_WAITING] = "waiting",
@@ -826,6 +837,8 @@ const UnitVTable automount_vtable = {
         .check_gc = automount_check_gc,
 
         .fd_event = automount_fd_event,
+
+        .reset_maintenance = automount_reset_maintenance,
 
         .bus_message_handler = bus_automount_message_handler,
 

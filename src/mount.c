@@ -1538,6 +1538,17 @@ finish:
         return r;
 }
 
+static void mount_reset_maintenance(Unit *u) {
+        Mount *m = MOUNT(u);
+
+        assert(m);
+
+        if (m->state == MOUNT_MAINTENANCE)
+                mount_set_state(m, MOUNT_DEAD);
+
+        m->failure = false;
+}
+
 static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = "dead",
         [MOUNT_MOUNTING] = "mounting",
@@ -1594,6 +1605,8 @@ const UnitVTable mount_vtable = {
 
         .sigchld_event = mount_sigchld_event,
         .timer_event = mount_timer_event,
+
+        .reset_maintenance = mount_reset_maintenance,
 
         .bus_message_handler = bus_mount_message_handler,
 

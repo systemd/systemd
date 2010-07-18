@@ -450,6 +450,17 @@ fail:
         log_error("Failed find timer unit: %s", strerror(-r));
 }
 
+static void timer_reset_maintenance(Unit *u) {
+        Timer *t = TIMER(u);
+
+        assert(t);
+
+        if (t->state == TIMER_MAINTENANCE)
+                timer_set_state(t, TIMER_DEAD);
+
+        t->failure = false;
+}
+
 static const char* const timer_state_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = "dead",
         [TIMER_WAITING] = "waiting",
@@ -491,6 +502,8 @@ const UnitVTable timer_vtable = {
         .sub_state_to_string = timer_sub_state_to_string,
 
         .timer_event = timer_timer_event,
+
+        .reset_maintenance = timer_reset_maintenance,
 
         .bus_message_handler = bus_timer_message_handler
 };

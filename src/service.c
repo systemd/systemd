@@ -2734,6 +2734,17 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
         return 0;
 }
 
+static void service_reset_maintenance(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        if (s->state == SERVICE_MAINTENANCE)
+                service_set_state(s, SERVICE_DEAD);
+
+        s->failure = false;
+}
+
 static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = "dead",
         [SERVICE_START_PRE] = "start-pre",
@@ -2820,6 +2831,8 @@ const UnitVTable service_vtable = {
 
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,
+
+        .reset_maintenance = service_reset_maintenance,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
         .notify_message = service_notify_message,

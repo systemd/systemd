@@ -56,6 +56,7 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"ResetMaintenance\"/>\n"                       \
         "  <signal name=\"Changed\"/>\n"                                \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"Names\" type=\"as\" access=\"read\"/>\n"    \

@@ -1698,6 +1698,17 @@ void socket_connection_unref(Socket *s) {
         log_debug("%s: One connection closed, %u left.", s->meta.id, s->n_connections);
 }
 
+static void socket_reset_maintenance(Unit *u) {
+        Socket *s = SOCKET(u);
+
+        assert(s);
+
+        if (s->state == SOCKET_MAINTENANCE)
+                socket_set_state(s, SOCKET_DEAD);
+
+        s->failure = false;
+}
+
 static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = "dead",
         [SOCKET_START_PRE] = "start-pre",
@@ -1749,6 +1760,8 @@ const UnitVTable socket_vtable = {
         .fd_event = socket_fd_event,
         .sigchld_event = socket_sigchld_event,
         .timer_event = socket_timer_event,
+
+        .reset_maintenance = socket_reset_maintenance,
 
         .bus_message_handler = bus_socket_message_handler
 };
