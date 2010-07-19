@@ -11,9 +11,9 @@ ATTR{bInterfaceClass}=="03", ATTR{bInterfaceSubClass}=="01", ATTR{bInterfaceProt
   RUN+="hid2hci --method=dell --devpath=%p", ENV{HID2HCI_SWITCH}="1"
 
 # Logitech devices (hidraw)
-KERNEL=="hiddev*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c70[345bce]|c71[34bc]", \
+KERNEL=="hiddev*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c70[35e]|c71[34]", \
   RUN+="hid2hci --method=logitech-hid --devpath=%p"
-KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c70a", \
+KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c70[4abc]|c71[bc]", \
   RUN+="hid2hci --method=logitech-hid --devpath=%p"
 
 ENV{DEVTYPE}!="usb_device", GOTO="hid2hci_end"
