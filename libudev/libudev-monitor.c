@@ -625,8 +625,11 @@ retry:
 	if (memcmp(buf, "libudev", 8) == 0) {
 		/* udev message needs proper version magic */
 		nlh = (struct udev_monitor_netlink_header *) buf;
-		if (nlh->magic != htonl(UDEV_MONITOR_MAGIC))
+		if (nlh->magic != htonl(UDEV_MONITOR_MAGIC)) {
+			err(udev_monitor->udev, "ignored a message from an invalid release of udevadm (%x != %x)\n",
+			    nlh->magic, htonl(UDEV_MONITOR_MAGIC));
 			return NULL;
+		}
 		if (nlh->properties_off+32 > buflen)
 			return NULL;
 		bufpos = nlh->properties_off;
