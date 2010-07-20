@@ -116,6 +116,15 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--full</option></term>
+
+                                <listitem><para>Do not ellipsize unit
+                                names in the output of
+                                <command>list-units</command> and
+                                <command>list-jobs</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--fail</option></term>
 
                                 <listitem><para>If the requested

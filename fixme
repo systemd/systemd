@@ -38,8 +38,11 @@
 * place /etc/inittab with explaining blurb.
 
 * In command lines, support both "$FOO" and $FOO
-
 * /etc must always take precedence even if we follow symlinks!
+* fix merging of device units
+* color aus bei stdout auf !tty
+
+getty before prefdm
 
 * /lib/init/rw
 
@@ -49,13 +52,17 @@
 
 * fingerprint.target, wireless.target, gps.target
 
-* fix merging of device units
-
 * set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
+
+* crash on missing hostname
+
+* fix merging in .swap units
 
 * pahole
 
-* color aus bei stdout auf !tty
+* io priority
+
+* network.target darf nm nicht unbedingt starten
 
 External:
 

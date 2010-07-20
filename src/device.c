@@ -35,12 +35,40 @@ static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_PLUGGED] = UNIT_ACTIVE
 };
 
+static void device_unset_sysfs(Device *d) {
+        Device *first;
+
+        assert(d);
+
+        if (d->sysfs) {
+                /* Remove this unit from the chain of devices which share the
+                 * same sysfs path. */
+                first = hashmap_get(d->meta.manager->devices_by_sysfs, d->sysfs);
+                LIST_REMOVE(Device, same_sysfs, first, d);
+
+                if (first)
+                        hashmap_remove_and_replace(d->meta.manager->devices_by_sysfs, d->sysfs, first->sysfs, first);
+                else
+                        hashmap_remove(d->meta.manager->devices_by_sysfs, d->sysfs);
+
+                free(d->sysfs);
+                d->sysfs = NULL;
+        }
+
+        d->meta.following = NULL;
+}
+
 static void device_init(Unit *u) {
         Device *d = DEVICE(u);
 
         assert(d);
         assert(d->meta.load_state == UNIT_STUB);
 
+        /* In contrast to all other unit types we timeout jobs waiting
+         * for devices by default. This is because they otherwise wait
+         * indefinetely for plugged in devices, something which cannot
+         * happen for the other units since their operations time out
+         * anyway. */
         d->meta.job_timeout = DEFAULT_TIMEOUT_USEC;
 }
 
@@ -49,8 +77,7 @@ static void device_done(Unit *u) {
 
         assert(d);
 
-        free(d->sysfs);
-        d->sysfs = NULL;
+        device_unset_sysfs(d);
 }
 
 static void device_set_state(Device *d, DeviceState state) {
@@ -105,7 +132,7 @@ static const char *device_sub_state_to_string(Unit *u) {
         return device_state_to_string(DEVICE(u)->state);
 }
 
-static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
+static int device_add_escaped_name(Unit *u, const char *dn) {
         char *e;
         int r;
 
@@ -117,10 +144,6 @@ static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
                 return -ENOMEM;
 
         r = unit_add_name(u, e);
-
-        if (r >= 0 && make_id)
-                unit_choose_id(u, e);
-
         free(e);
 
         if (r < 0 && r != -EEXIST)
@@ -152,13 +175,118 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
         return 0;
 }
 
-static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
-        const char *dn, *wants, *sysfs, *model, *alias;
+static int device_update_unit(Manager *m, struct udev_device *dev, const char *path, bool main) {
+        const char *sysfs, *model;
         Unit *u = NULL;
         int r;
-        char *w, *state;
-        size_t l;
         bool delete;
+
+        assert(m);
+
+        if (!(sysfs = udev_device_get_syspath(dev)))
+                return -ENOMEM;
+
+        if ((r = device_find_escape_name(m, path, &u)) < 0)
+                return r;
+
+        /* If this is a different unit, then let's not merge things */
+        if (u && DEVICE(u)->sysfs && !path_equal(DEVICE(u)->sysfs, sysfs)) {
+                log_error("Hmm, something's broken. Asked to create two devices with same name but different sysfs paths.");
+                return -EEXIST;
+        }
+
+        if (!u) {
+                Device *first;
+                delete = true;
+
+                if (!(u = unit_new(m)))
+                        return -ENOMEM;
+
+                if ((r = device_add_escaped_name(u, path)) < 0)
+                        goto fail;
+
+                if (!(DEVICE(u)->sysfs = strdup(sysfs))) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                unit_add_to_load_queue(u);
+
+                if (!m->devices_by_sysfs)
+                        if (!(m->devices_by_sysfs = hashmap_new(string_hash_func, string_compare_func))) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                first = hashmap_get(m->devices_by_sysfs, sysfs);
+                LIST_PREPEND(Device, same_sysfs, first, DEVICE(u));
+
+                if ((r = hashmap_replace(m->devices_by_sysfs, DEVICE(u)->sysfs, first)) < 0)
+                        goto fail;
+
+        } else
+                delete = false;
+
+        if ((model = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE")) ||
+            (model = udev_device_get_property_value(dev, "ID_MODEL"))) {
+                if ((r = unit_set_description(u, model)) < 0)
+                        goto fail;
+        } else
+                if ((r = unit_set_description(u, path)) < 0)
+                        goto fail;
+
+        if (main) {
+                /* The additional systemd udev properties we only
+                 * interpret for the main object */
+                const char *wants, *alias;
+
+                if ((alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS"))) {
+                        if (!is_path(alias))
+                                log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, alias);
+                        else {
+                                if ((r = device_add_escaped_name(u, alias)) < 0)
+                                        goto fail;
+                        }
+                }
+
+                if ((wants = udev_device_get_property_value(dev, "SYSTEMD_WANTS"))) {
+                        char *state, *w;
+                        size_t l;
+
+                        FOREACH_WORD_QUOTED(w, l, wants, state) {
+                                char *e;
+
+                                if (!(e = strndup(w, l))) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                r = unit_add_dependency_by_name(u, UNIT_WANTS, e, NULL, true);
+                                free(e);
+
+                                if (r < 0)
+                                        goto fail;
+                        }
+                }
+
+                u->meta.following = NULL;
+        } else
+                device_find_escape_name(m, sysfs, &u->meta.following);
+
+        unit_add_to_dbus_queue(u);
+        return 0;
+
+fail:
+        log_warning("Failed to load device unit: %s", strerror(-r));
+
+        if (delete && u)
+                unit_free(u);
+
+        return r;
+}
+
+static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
+        const char *sysfs, *dn;
         struct udev_list_entry *item = NULL, *first = NULL;
 
         assert(m);
@@ -166,126 +294,39 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
         if (!(sysfs = udev_device_get_syspath(dev)))
                 return -ENOMEM;
 
-        /* Check whether this entry is even relevant for us. */
-        dn = udev_device_get_devnode(dev);
-        wants = udev_device_get_property_value(dev, "SYSTEMD_WANTS");
-        alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
+        /* Add the main unit named after the sysfs path */
+        device_update_unit(m, dev, sysfs, true);
 
-        /* We allow exactly one alias to be configured a this time and
-         * it must be a path */
+        /* Add an additional unit for the device node */
+        if ((dn = udev_device_get_devnode(dev)))
+                device_update_unit(m, dev, dn, false);
 
-        if (alias && !is_path(alias)) {
-                log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, alias);
-                alias = NULL;
-        }
-
-        if ((r = device_find_escape_name(m, sysfs, &u)) < 0)
-                return r;
-
-        if (r == 0 && dn)
-                if ((r = device_find_escape_name(m, dn, &u)) < 0)
-                        return r;
-
-        if (r == 0) {
-                first = udev_device_get_devlinks_list_entry(dev);
-                udev_list_entry_foreach(item, first) {
-                        if ((r = device_find_escape_name(m, udev_list_entry_get_name(item), &u)) < 0)
-                                return r;
-
-                        if (r > 0)
-                                break;
-                }
-        }
-
-        if (r == 0 && alias)
-                if ((r = device_find_escape_name(m, alias, &u)) < 0)
-                        return r;
-
-        /* FIXME: this needs proper merging */
-
-        assert((r > 0) == !!u);
-
-        /* If this is a different unit, then let's not merge things */
-        if (u && DEVICE(u)->sysfs && !path_equal(DEVICE(u)->sysfs, sysfs))
-                u = NULL;
-
-        if (!u) {
-                delete = true;
-
-                if (!(u = unit_new(m)))
-                        return -ENOMEM;
-
-                if ((r = device_add_escaped_name(u, sysfs, true)) < 0)
-                        goto fail;
-
-                unit_add_to_load_queue(u);
-        } else
-                delete = false;
-
-        if (!(DEVICE(u)->sysfs))
-                if (!(DEVICE(u)->sysfs = strdup(sysfs))) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-        if (alias)
-                if ((r = device_add_escaped_name(u, alias, true)) < 0)
-                        goto fail;
-
-        if (dn)
-                if ((r = device_add_escaped_name(u, dn, true)) < 0)
-                        goto fail;
-
+        /* Add additional units for all symlinks */
         first = udev_device_get_devlinks_list_entry(dev);
-        udev_list_entry_foreach(item, first)
-                if ((r = device_add_escaped_name(u, udev_list_entry_get_name(item), false)) < 0)
-                        goto fail;
+        udev_list_entry_foreach(item, first) {
+                const char *p;
 
-        if ((model = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE")) ||
-            (model = udev_device_get_property_value(dev, "ID_MODEL"))) {
-                if ((r = unit_set_description(u, model)) < 0)
-                        goto fail;
-        } else if (dn) {
-                if ((r = unit_set_description(u, dn)) < 0)
-                        goto fail;
-        } else
-                if ((r = unit_set_description(u, sysfs)) < 0)
-                        goto fail;
+                /* Don't bother with the /dev/block links */
+                p = udev_list_entry_get_name(item);
 
-        if (wants) {
-                FOREACH_WORD_QUOTED(w, l, wants, state) {
-                        char *e;
+                if (path_startswith(p, "/dev/block/") ||
+                    path_startswith(p, "/dev/char/"))
+                        continue;
 
-                        if (!(e = strndup(w, l))) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        r = unit_add_dependency_by_name(u, UNIT_WANTS, e, NULL, true);
-                        free(e);
-
-                        if (r < 0)
-                                goto fail;
-                }
+                device_update_unit(m, dev, p, false);
         }
 
         if (update_state) {
-                manager_dispatch_load_queue(u->meta.manager);
-                device_set_state(DEVICE(u), DEVICE_PLUGGED);
+                Device *d, *l;
+
+                manager_dispatch_load_queue(m);
+
+                l = hashmap_get(m->devices_by_sysfs, sysfs);
+                LIST_FOREACH(same_sysfs, d, l)
+                        device_set_state(d, DEVICE_PLUGGED);
         }
 
-        unit_add_to_dbus_queue(u);
-
         return 0;
-
-fail:
-
-        log_warning("Failed to load device unit: %s", strerror(-r));
-
-        if (delete && u)
-                unit_free(u);
-
-        return r;
 }
 
 static int device_process_path(Manager *m, const char *path, bool update_state) {
@@ -307,8 +348,6 @@ static int device_process_path(Manager *m, const char *path, bool update_state) 
 
 static int device_process_removed_device(Manager *m, struct udev_device *dev) {
         const char *sysfs;
-        char *e;
-        Unit *u;
         Device *d;
 
         assert(m);
@@ -317,21 +356,12 @@ static int device_process_removed_device(Manager *m, struct udev_device *dev) {
         if (!(sysfs = udev_device_get_syspath(dev)))
                 return -ENOMEM;
 
-        assert(sysfs[0] == '/');
-        if (!(e = unit_name_from_path(sysfs, ".device")))
-                return -ENOMEM;
+        /* Remove all units of this sysfs path */
+        while ((d = hashmap_get(m->devices_by_sysfs, sysfs))) {
+                device_unset_sysfs(d);
+                device_set_state(d, DEVICE_DEAD);
+        }
 
-        u = manager_get_unit(m, e);
-        free(e);
-
-        if (!u)
-                return 0;
-
-        d = DEVICE(u);
-        free(d->sysfs);
-        d->sysfs = NULL;
-
-        device_set_state(d, DEVICE_DEAD);
         return 0;
 }
 
@@ -347,6 +377,9 @@ static void device_shutdown(Manager *m) {
                 udev_unref(m->udev);
                 m->udev = NULL;
         }
+
+        hashmap_free(m->devices_by_sysfs);
+        m->devices_by_sysfs = NULL;
 }
 
 static int device_enumerate(Manager *m) {
@@ -464,6 +497,7 @@ const UnitVTable device_vtable = {
         .no_instances = true,
         .no_snapshots = true,
         .no_isolate = true,
+        .no_alias = true,
 
         .init = device_init,
 

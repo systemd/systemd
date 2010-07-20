@@ -2912,6 +2912,38 @@ int running_in_chroot(void) {
                 a.st_ino != b.st_ino;
 }
 
+char *ellipsize(const char *s, unsigned length, unsigned percent) {
+        size_t l, x;
+        char *r;
+
+        assert(s);
+        assert(percent <= 100);
+        assert(length >= 3);
+
+        l = strlen(s);
+
+        if (l <= 3 || l <= length)
+                return strdup(s);
+
+        if (!(r = new0(char, length+1)))
+                return r;
+
+        x = (length * percent) / 100;
+
+        if (x > length - 3)
+                x = length - 3;
+
+        memcpy(r, s, x);
+        r[x] = '.';
+        r[x+1] = '.';
+        r[x+2] = '.';
+        memcpy(r + x + 3,
+               s + l - (length - x - 3),
+               length - x - 3);
+
+        return r;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

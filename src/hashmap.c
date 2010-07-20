@@ -296,6 +296,33 @@ int hashmap_remove_and_put(Hashmap *h, const void *old_key, const void *new_key,
         return 0;
 }
 
+int hashmap_remove_and_replace(Hashmap *h, const void *old_key, const void *new_key, void *value) {
+        struct hashmap_entry *e, *k;
+        unsigned old_hash, new_hash;
+
+        if (!h)
+                return -ENOENT;
+
+        old_hash = h->hash_func(old_key) % NBUCKETS;
+        if (!(e = hash_scan(h, old_hash, old_key)))
+                return -ENOENT;
+
+        new_hash = h->hash_func(new_key) % NBUCKETS;
+
+        if ((k = hash_scan(h, new_hash, new_key)))
+                if (e != k)
+                        remove_entry(h, k);
+
+        unlink_entry(h, e, old_hash);
+
+        e->key = new_key;
+        e->value = value;
+
+        link_entry(h, e, new_hash);
+
+        return 0;
+}
+
 void* hashmap_remove_value(Hashmap *h, const void *key, void *value) {
         struct hashmap_entry *e;
         unsigned hash;

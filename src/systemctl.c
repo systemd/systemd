@@ -58,6 +58,7 @@ static bool arg_no_sync = false;
 static bool arg_no_wall = false;
 static bool arg_dry = false;
 static bool arg_quiet = false;
+static char arg_full = false;
 static char **arg_wall = NULL;
 static enum action {
         ACTION_INVALID,
@@ -192,7 +193,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                 printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *id, *description, *load_state, *active_state, *sub_state, *unit_path, *job_type, *job_path, *dot;
+                const char *id, *description, *load_state, *active_state, *sub_state, *following, *unit_path, *job_type, *job_path, *dot;
                 uint32_t job_id;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
@@ -208,6 +209,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &load_state, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &active_state, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &sub_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &following, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &job_id, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &job_type, true) < 0 ||
@@ -219,14 +221,16 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
                 if ((!arg_type || ((dot = strrchr(id, '.')) &&
                                    streq(dot+1, arg_type))) &&
-                    (arg_all || !streq(active_state, "inactive") || job_id > 0)) {
-
+                    (arg_all || !(streq(active_state, "inactive") || following[0]) || job_id > 0)) {
+                        char *e;
                         int a = 0, b = 0;
 
                         if (streq(active_state, "maintenance"))
                                 fputs(ANSI_HIGHLIGHT_ON, stdout);
 
-                        printf("%-45s %-6s %-12s %-12s%n", id, load_state, active_state, sub_state, &a);
+                        e = arg_full ? NULL : ellipsize(id, 45, 33);
+                        printf("%-45s %-6s %-12s %-12s%n", e ? e : id, load_state, active_state, sub_state, &a);
+                        free(e);
 
                         if (job_id != 0)
                                 printf(" => %-12s%n", job_type, &b);
@@ -558,6 +562,7 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *name, *type, *state, *job_path, *unit_path;
                 uint32_t id;
+                char *e;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
@@ -578,7 +583,10 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                printf("%4u %-45s %-17s %-7s\n", id, name, type, state);
+                e = arg_full ? NULL : ellipsize(name, 45, 33);
+                printf("%4u %-45s %-17s %-7s\n", id, e ? e : name, type, state);
+                free(e);
+
                 k++;
 
                 dbus_message_iter_next(&sub);
@@ -2895,6 +2903,7 @@ static int systemctl_help(void) {
                "  -t --type=TYPE     List only units of a particular type\n"
                "  -p --property=NAME Show only properties by this name\n"
                "  -a --all           Show all units/properties, including dead/empty ones\n"
+               "     --full          Don't ellipsize unit names.\n"
                "     --fail          When installing a new job, fail if conflicting jobs are\n"
                "                     pending\n"
                "     --system        Connect to system bus\n"
@@ -3022,7 +3031,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_BLOCK,
                 ARG_NO_WALL,
                 ARG_ORDER,
-                ARG_REQUIRE
+                ARG_REQUIRE,
+                ARG_FULL
         };
 
         static const struct option options[] = {
@@ -3030,6 +3040,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "type",      required_argument, NULL, 't'          },
                 { "property",  required_argument, NULL, 'p'          },
                 { "all",       no_argument,       NULL, 'a'          },
+                { "full",      no_argument,       NULL, ARG_FULL     },
                 { "fail",      no_argument,       NULL, ARG_FAIL     },
                 { "session",   no_argument,       NULL, ARG_SESSION  },
                 { "system",    no_argument,       NULL, ARG_SYSTEM   },
@@ -3097,6 +3108,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_REQUIRE:
                         arg_dot = DOT_REQUIRE;
+                        break;
+
+                case ARG_FULL:
+                        arg_full = true;
                         break;
 
                 case 'q':

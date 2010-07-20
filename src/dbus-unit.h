@@ -60,6 +60,7 @@
         "  <signal name=\"Changed\"/>\n"                                \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"Names\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"Following\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Requires\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiresOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>\n" \
@@ -97,6 +98,7 @@
 #define BUS_UNIT_PROPERTIES \
         { "org.freedesktop.systemd1.Unit", "Id",                   bus_property_append_string,     "s",    u->meta.id                        }, \
         { "org.freedesktop.systemd1.Unit", "Names",                bus_unit_append_names,          "as",   u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "Following",            bus_unit_append_following,      "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "Requires",             bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRES] }, \
         { "org.freedesktop.systemd1.Unit", "RequiresOverridable",  bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE] }, \
         { "org.freedesktop.systemd1.Unit", "Requisite",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUISITE] }, \
@@ -131,6 +133,7 @@
         { "org.freedesktop.systemd1.Unit", "JobTimeoutUSec",       bus_property_append_usec,       "t",    &u->meta.job_timeout              }
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_following(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_load_state(Manager *m, DBusMessageIter *i, const char *property, void *data);

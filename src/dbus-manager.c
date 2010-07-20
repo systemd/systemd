@@ -82,7 +82,7 @@
         "  <method name=\"ClearJobs\"/>\n"                              \
         "  <method name=\"ResetMaintenance\"/>\n"                       \
         "  <method name=\"ListUnits\">\n"                               \
-        "   <arg name=\"units\" type=\"a(sssssouso)\" direction=\"out\"/>\n" \
+        "   <arg name=\"units\" type=\"a(ssssssouso)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"ListJobs\">\n"                                \
         "   <arg name=\"jobs\" type=\"a(usssoo)\" direction=\"out\"/>\n" \
@@ -405,12 +405,12 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 dbus_message_iter_init_append(reply, &iter);
 
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sssssouso)", &sub))
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ssssssouso)", &sub))
                         goto oom;
 
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                         char *u_path, *j_path;
-                        const char *description, *load_state, *active_state, *sub_state, *sjob_type;
+                        const char *description, *load_state, *active_state, *sub_state, *sjob_type, *following;
                         DBusMessageIter sub2;
                         uint32_t job_id;
 
@@ -424,6 +424,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         load_state = unit_load_state_to_string(u->meta.load_state);
                         active_state = unit_active_state_to_string(unit_active_state(u));
                         sub_state = unit_sub_state_to_string(u);
+                        following = u->meta.following ? u->meta.following->meta.id : "";
 
                         if (!(u_path = unit_dbus_path(u)))
                                 goto oom;
@@ -448,6 +449,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &load_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &active_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sub_state) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &following) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &u_path) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &job_id) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sjob_type) ||

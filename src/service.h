@@ -90,8 +90,6 @@ struct Service {
         ServiceType type;
         ServiceRestart restart;
 
-        NotifyAccess notify_access;
-
         /* If set we'll read the main daemon PID from this file */
         char *pid_file;
 
@@ -101,10 +99,6 @@ struct Service {
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
         ExecContext exec_context;
 
-        bool permissions_start_only;
-        bool root_directory_start_only;
-        bool valid_no_process;
-
         ServiceState state, deserialized_state;
 
         ExecStatus main_exec_status;
@@ -112,6 +106,11 @@ struct Service {
         ExecCommand *control_command;
         ServiceExecCommand control_command_id;
         pid_t main_pid, control_pid;
+
+        bool permissions_start_only;
+        bool root_directory_start_only;
+        bool valid_no_process;
+
         bool main_pid_known:1;
 
         /* If we shut down, remember why */
@@ -124,8 +123,11 @@ struct Service {
         bool got_socket_fd:1;
 
         bool sysv_has_lsb:1;
-        char *sysv_path;
+
+        int socket_fd;
         int sysv_start_priority;
+
+        char *sysv_path;
         char *sysv_runlevels;
 
         char *bus_name;
@@ -134,10 +136,11 @@ struct Service {
 
         RateLimit ratelimit;
 
-        int socket_fd;
         struct Socket *socket;
 
         Watch timer_watch;
+
+        NotifyAccess notify_access;
 };
 
 extern const UnitVTable service_vtable;

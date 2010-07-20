@@ -45,16 +45,18 @@ typedef enum PathType {
 } PathType;
 
 typedef struct PathSpec {
-        PathType type;
         char *path;
-
-        int inotify_fd;
-        int primary_wd;
-        bool previous_exists;
 
         Watch watch;
 
         LIST_FIELDS(struct PathSpec, spec);
+
+        PathType type;
+        int inotify_fd;
+        int primary_wd;
+
+        bool previous_exists;
+
 } PathSpec;
 
 struct Path {
@@ -62,8 +64,9 @@ struct Path {
 
         LIST_HEAD(PathSpec, specs);
 
-        PathState state, deserialized_state;
         Unit *unit;
+
+        PathState state, deserialized_state;
 
         bool failure;
 };

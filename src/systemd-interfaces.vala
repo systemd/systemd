@@ -28,6 +28,7 @@ public interface Manager : DBus.Object {
                 string load_state;
                 string active_state;
                 string sub_state;
+                string following;
                 ObjectPath unit_path;
                 uint32 job_id;
                 string job_type;

@@ -625,6 +625,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
 
+        if (u->meta.following)
+                fprintf(f, "%s\tFollowing: %s\n", prefix, u->meta.following->meta.id);
+
         if (u->meta.fragment_path)
                 fprintf(f, "%s\tFragment Path: %s\n", prefix, u->meta.fragment_path);
 

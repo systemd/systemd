@@ -334,6 +334,8 @@ int columns(void);
 
 int running_in_chroot(void);
 
+char *ellipsize(const char *s, unsigned length, unsigned percent);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

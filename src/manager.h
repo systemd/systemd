@@ -146,6 +146,7 @@ struct Manager {
         struct udev* udev;
         struct udev_monitor* udev_monitor;
         Watch udev_watch;
+        Hashmap *devices_by_sysfs;
 
         /* Data specific to the mount subsystem */
         FILE *proc_self_mountinfo;

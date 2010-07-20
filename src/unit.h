@@ -176,6 +176,9 @@ struct Meta {
         /* GC queue */
         LIST_FIELDS(Meta, gc_queue);
 
+        /* This follows another unit in state */
+        Unit *following;
+
         /* Used during GC sweeps */
         unsigned gc_marker;
 
