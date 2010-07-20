@@ -39,7 +39,6 @@
 
 * In command lines, support both "$FOO" and $FOO
 * /etc must always take precedence even if we follow symlinks!
-* color aus bei stdout auf !tty
 
 * vielleicht implizit immer auf syslog dependen?
 

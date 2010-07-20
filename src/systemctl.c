@@ -86,6 +86,18 @@ static enum dot {
 
 static bool private_bus = false;
 
+static const char *ansi_highlight(bool b) {
+        static int t = -1;
+
+        if (_unlikely_(t < 0))
+                t = isatty(STDOUT_FILENO) > 0;
+
+        if (!t)
+                return "";
+
+        return b ? ANSI_HIGHLIGHT_ON : ANSI_HIGHLIGHT_OFF;
+}
+
 static bool error_is_no_service(DBusError *error) {
 
         assert(error);
@@ -226,7 +238,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                         int a = 0, b = 0;
 
                         if (streq(active_state, "maintenance"))
-                                fputs(ANSI_HIGHLIGHT_ON, stdout);
+                                fputs(ansi_highlight(true), stdout);
 
                         e = arg_full ? NULL : ellipsize(id, 45, 33);
                         printf("%-45s %-6s %-12s %-12s%n", e ? e : id, load_state, active_state, sub_state, &a);
@@ -245,7 +257,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                         }
 
                         if (streq(active_state, "maintenance"))
-                                fputs(ANSI_HIGHLIGHT_OFF, stdout);
+                                fputs(ansi_highlight(false), stdout);
 
                         fputs("\n", stdout);
                         k++;
@@ -1422,18 +1434,25 @@ static void print_status_info(UnitStatusInfo *i) {
         if (i->fragment_path)
                 printf("\t  Loaded: %s (%s)\n", strna(i->load_state), i->fragment_path);
         else if (streq_ptr(i->load_state, "failed"))
-                printf("\t  Loaded: " ANSI_HIGHLIGHT_ON "%s" ANSI_HIGHLIGHT_OFF "\n", strna(i->load_state));
+                printf("\t  Loaded: %s%s%s\n",
+                       ansi_highlight(true),
+                       strna(i->load_state),
+                       ansi_highlight(false));
         else
                 printf("\t  Loaded: %s\n", strna(i->load_state));
 
         if (streq_ptr(i->active_state, "maintenance")) {
                         if (streq_ptr(i->active_state, i->sub_state))
-                                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s" ANSI_HIGHLIGHT_OFF "\n",
-                                       strna(i->active_state));
-                        else
-                                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s (%s)" ANSI_HIGHLIGHT_OFF "\n",
+                                printf("\t  Active: %s%s%s\n",
+                                       ansi_highlight(true),
                                        strna(i->active_state),
-                                       strna(i->sub_state));
+                                       ansi_highlight(false));
+                        else
+                                printf("\t  Active: %s%s (%s)%s\n",
+                                       ansi_highlight(true),
+                                       strna(i->active_state),
+                                       strna(i->sub_state),
+                                       ansi_highlight(false));
         } else {
                 if (streq_ptr(i->active_state, i->sub_state))
                         printf("\t  Active: %s\n",
@@ -1501,8 +1520,7 @@ static void print_status_info(UnitStatusInfo *i) {
                                         printf("status=%i", i->exit_status);
                                 else
                                         printf("signal=%s", signal_to_string(i->exit_status));
-                                printf(")");
-                        }
+                                printf(")");                        }
                 }
 
                 if (i->main_pid > 0 && i->control_pid > 0)
@@ -1540,7 +1558,9 @@ static void print_status_info(UnitStatusInfo *i) {
         }
 
         if (i->need_daemon_reload)
-                printf("\n" ANSI_HIGHLIGHT_ON "Warning:" ANSI_HIGHLIGHT_OFF " Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",
+                printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",
+                       ansi_highlight(true),
+                       ansi_highlight(false),
                        arg_session ? "--session" : "--system");
 }
 
