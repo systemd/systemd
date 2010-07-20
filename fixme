@@ -51,11 +51,11 @@
 
 * fix merging in .swap units
 
+* pam: fix double session cleanup
+
 * pahole
 
 * io priority
-
-* network.target darf nm nicht unbedingt starten
 
 External:
 

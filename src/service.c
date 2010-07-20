@@ -49,20 +49,28 @@ static const struct {
         const char *target;
         const RunlevelType type;
 } rcnd_table[] = {
-        /* Standard SysV runlevels */
-        { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
+        /* Standard SysV runlevels for start-up */
         { "rc1.d",  SPECIAL_RESCUE_TARGET,    RUNLEVEL_UP },
         { "rc2.d",  SPECIAL_RUNLEVEL2_TARGET, RUNLEVEL_UP },
         { "rc3.d",  SPECIAL_RUNLEVEL3_TARGET, RUNLEVEL_UP },
         { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
-        { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN },
 
         /* SUSE style boot.d */
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 
         /* Debian style rcS.d */
         { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
+
+        /* Standard SysV runlevels for shutdown */
+        { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
+        { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN }
+
+        /* Note that the order here matters, as we read the
+           directories in this order, and we want to make sure that
+           sysv_start_priority is known when we first load the
+           unit. And that value we only know from S links. Hence
+           UP/SYSINIT must be read before DOWN */
 };
 
 #define RUNLEVELS_UP "12345"
@@ -546,8 +554,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
+                                        else if (s->sysv_start_priority >= 0)
+                                                r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
                                         else
-                                                r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_REQUIRES, m, NULL, true);
+                                                r = unit_add_dependency_by_name_inverse(u, UNIT_AFTER, m, NULL, true);
 
                                         free(m);
 
