@@ -686,7 +686,7 @@ static int fifo_address_create(
         }
 
         if (!S_ISFIFO(st.st_mode) ||
-            st.st_mode != (socket_mode & ~old_mask) ||
+            (st.st_mode & 0777) != (socket_mode & ~old_mask) ||
             st.st_uid != getuid() ||
             st.st_gid != getgid()) {
 
