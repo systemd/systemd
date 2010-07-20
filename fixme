@@ -39,12 +39,7 @@
 
 * In command lines, support both "$FOO" and $FOO
 * /etc must always take precedence even if we follow symlinks!
-* fix merging of device units
 * color aus bei stdout auf !tty
-
-getty before prefdm
-
-* /lib/init/rw
 
 * vielleicht implizit immer auf syslog dependen?
 

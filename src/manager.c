@@ -2279,7 +2279,7 @@ void manager_dispatch_bus_query_pid_done(
         UNIT_VTABLE(u)->bus_query_pid_done(u, name, pid);
 }
 
-int manager_open_serialization(FILE **_f) {
+int manager_open_serialization(Manager *m, FILE **_f) {
         char *path;
         mode_t saved_umask;
         int fd;
@@ -2287,8 +2287,15 @@ int manager_open_serialization(FILE **_f) {
 
         assert(_f);
 
-        if (asprintf(&path, "/dev/shm/systemd-%u.dump-XXXXXX", (unsigned) getpid()) < 0)
-                return -ENOMEM;
+        if (m->running_as == MANAGER_SYSTEM) {
+                mkdir_p("/dev/.systemd", 0755);
+
+                if (asprintf(&path, "/dev/.systemd/dump-%lu-XXXXXX", (unsigned long) getpid()) < 0)
+                        return -ENOMEM;
+        } else {
+                if (asprintf(&path, "/tmp/systemd-dump-%lu-XXXXXX", (unsigned long) getpid()) < 0)
+                        return -ENOMEM;
+        }
 
         saved_umask = umask(0077);
         fd = mkostemp(path, O_RDWR|O_CLOEXEC);
@@ -2396,7 +2403,7 @@ int manager_reload(Manager *m) {
 
         assert(m);
 
-        if ((r = manager_open_serialization(&f)) < 0)
+        if ((r = manager_open_serialization(m, &f)) < 0)
                 return r;
 
         if (!(fds = fdset_new())) {

@@ -239,7 +239,7 @@ void manager_write_utmp_runlevel(Manager *m, Unit *t);
 void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
 void manager_dispatch_bus_query_pid_done(Manager *m, const char *name, pid_t pid);
 
-int manager_open_serialization(FILE **_f);
+int manager_open_serialization(Manager *m, FILE **_f);
 
 int manager_serialize(Manager *m, FILE *f, FDSet *fds);
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
