@@ -101,10 +101,11 @@ static int read_hostname(char **hn) {
                 }
 
                 *hn = k;
-                break;
+                r = 0;
+                goto finish;
         }
 
-        r = 0;
+        r = -ENOENT;
 
 finish:
         fclose(f);

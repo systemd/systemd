@@ -38,6 +38,7 @@
 * place /etc/inittab with explaining blurb.
 
 * In command lines, support both "$FOO" and $FOO
+
 * /etc must always take precedence even if we follow symlinks!
 
 * vielleicht implizit immer auf syslog dependen?
@@ -47,8 +48,6 @@
 * fingerprint.target, wireless.target, gps.target
 
 * set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
-
-* crash on missing hostname
 
 * fix merging in .swap units
 
