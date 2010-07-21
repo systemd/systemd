@@ -589,6 +589,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 timestamp3[FORMAT_TIMESTAMP_MAX],
                 timestamp4[FORMAT_TIMESTAMP_MAX],
                 timespan[FORMAT_TIMESPAN_MAX];
+        Unit *following;
 
         assert(u);
         assert(u->meta.type >= 0);
@@ -625,8 +626,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
 
-        if (u->meta.following)
-                fprintf(f, "%s\tFollowing: %s\n", prefix, u->meta.following->meta.id);
+        if ((following = unit_following(u)))
+                fprintf(f, "%s\tFollowing: %s\n", prefix, following->meta.id);
 
         if (u->meta.fragment_path)
                 fprintf(f, "%s\tFragment Path: %s\n", prefix, u->meta.fragment_path);
@@ -2079,6 +2080,15 @@ void unit_reset_maintenance(Unit *u) {
 
         if (UNIT_VTABLE(u)->reset_maintenance)
                 UNIT_VTABLE(u)->reset_maintenance(u);
+}
+
+Unit *unit_following(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->following)
+                return UNIT_VTABLE(u)->following(u);
+
+        return NULL;
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {

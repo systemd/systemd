@@ -40,22 +40,21 @@ static void device_unset_sysfs(Device *d) {
 
         assert(d);
 
-        if (d->sysfs) {
-                /* Remove this unit from the chain of devices which share the
-                 * same sysfs path. */
-                first = hashmap_get(d->meta.manager->devices_by_sysfs, d->sysfs);
-                LIST_REMOVE(Device, same_sysfs, first, d);
+        if (!d->sysfs)
+                return;
 
-                if (first)
-                        hashmap_remove_and_replace(d->meta.manager->devices_by_sysfs, d->sysfs, first->sysfs, first);
-                else
-                        hashmap_remove(d->meta.manager->devices_by_sysfs, d->sysfs);
+        /* Remove this unit from the chain of devices which share the
+         * same sysfs path. */
+        first = hashmap_get(d->meta.manager->devices_by_sysfs, d->sysfs);
+        LIST_REMOVE(Device, same_sysfs, first, d);
 
-                free(d->sysfs);
-                d->sysfs = NULL;
-        }
+        if (first)
+                hashmap_remove_and_replace(d->meta.manager->devices_by_sysfs, d->sysfs, first->sysfs, first);
+        else
+                hashmap_remove(d->meta.manager->devices_by_sysfs, d->sysfs);
 
-        d->meta.following = NULL;
+        free(d->sysfs);
+        d->sysfs = NULL;
 }
 
 static void device_init(Unit *u) {
@@ -268,10 +267,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                                         goto fail;
                         }
                 }
-
-                u->meta.following = NULL;
-        } else
-                device_find_escape_name(m, sysfs, &u->meta.following);
+        }
 
         unit_add_to_dbus_queue(u);
         return 0;
@@ -363,6 +359,30 @@ static int device_process_removed_device(Manager *m, struct udev_device *dev) {
         }
 
         return 0;
+}
+
+static Unit *device_following(Unit *u) {
+        Device *d = DEVICE(u);
+        Device *other, *first = NULL;
+
+        assert(d);
+
+        if (startswith(u->meta.id, "sys-"))
+                return NULL;
+
+        /* Make everybody follow the unit that's named after the sysfs path */
+        for (other = d->same_sysfs_next; other; other = other->same_sysfs_next)
+                if (startswith(other->meta.id, "sys-"))
+                        return UNIT(other);
+
+        for (other = d->same_sysfs_prev; other; other = other->same_sysfs_prev) {
+                if (startswith(other->meta.id, "sys-"))
+                        return UNIT(other);
+
+                first = other;
+        }
+
+        return UNIT(first);
 }
 
 static void device_shutdown(Manager *m) {
@@ -511,6 +531,8 @@ const UnitVTable device_vtable = {
         .sub_state_to_string = device_sub_state_to_string,
 
         .bus_message_handler = bus_device_message_handler,
+
+        .following = device_following,
 
         .enumerate = device_enumerate,
         .shutdown = device_shutdown

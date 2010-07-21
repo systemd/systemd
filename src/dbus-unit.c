@@ -48,7 +48,7 @@ int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, 
 }
 
 int bus_unit_append_following(Manager *m, DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
+        Unit *u = data, *f;
         const char *d;
 
         assert(m);
@@ -56,7 +56,8 @@ int bus_unit_append_following(Manager *m, DBusMessageIter *i, const char *proper
         assert(property);
         assert(u);
 
-        d = u->meta.following ? u->meta.following->meta.id : "";
+        f = unit_following(u);
+        d = f ? f->meta.id : "";
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
                 return -ENOMEM;

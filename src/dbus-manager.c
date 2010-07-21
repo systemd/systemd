@@ -413,6 +413,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         const char *description, *load_state, *active_state, *sub_state, *sjob_type, *following;
                         DBusMessageIter sub2;
                         uint32_t job_id;
+                        Unit *f;
 
                         if (k != u->meta.id)
                                 continue;
@@ -424,7 +425,9 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         load_state = unit_load_state_to_string(u->meta.load_state);
                         active_state = unit_active_state_to_string(unit_active_state(u));
                         sub_state = unit_sub_state_to_string(u);
-                        following = u->meta.following ? u->meta.following->meta.id : "";
+
+                        f = unit_following(u);
+                        following = f ? f->meta.id : "";
 
                         if (!(u_path = unit_dbus_path(u)))
                                 goto oom;

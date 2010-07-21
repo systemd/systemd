@@ -176,9 +176,6 @@ struct Meta {
         /* GC queue */
         LIST_FIELDS(Meta, gc_queue);
 
-        /* This follows another unit in state */
-        Unit *following;
-
         /* Used during GC sweeps */
         unsigned gc_marker;
 
@@ -312,6 +309,9 @@ struct UnitVTable {
 
         /* Called for each message received on the bus */
         DBusHandlerResult (*bus_message_handler)(Unit *u, DBusConnection *c, DBusMessage *message);
+
+        /* Return the unit this unit is following */
+        Unit *(*following)(Unit *u);
 
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
@@ -474,6 +474,8 @@ void unit_status_printf(Unit *u, const char *format, ...);
 bool unit_need_daemon_reload(Unit *u);
 
 void unit_reset_maintenance(Unit *u);
+
+Unit *unit_following(Unit *u);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);
