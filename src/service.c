@@ -2000,6 +2000,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
 
+        if (s->status_text)
+                unit_serialize_item(u, f, "status-text", s->status_text);
+
         /* There's a minor uncleanliness here: if there are multiple
          * commands attached here, we will start from the first one
          * again */
@@ -2084,6 +2087,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_debug("Failed to parse main-pid-known value %s", value);
                 else
                         s->main_pid_known = b;
+        } else if (streq(key, "status-text")) {
+                char *t;
+
+                if ((t = strdup(value))) {
+                        free(s->status_text);
+                        s->status_text = t;
+                }
+
         } else if (streq(key, "control-command")) {
                 ServiceExecCommand id;
 
@@ -2508,15 +2519,21 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         if ((e = strv_find_prefix(tags, "STATUS="))) {
                 char *t;
 
-                if (!(t = strdup(e+7))) {
-                        log_error("Failed to allocate string.");
-                        return;
+                if (e[7]) {
+                        if (!(t = strdup(e+7))) {
+                                log_error("Failed to allocate string.");
+                                return;
+                        }
+
+                        log_debug("%s: got %s", u->meta.id, e);
+
+                        free(s->status_text);
+                        s->status_text = t;
+                } else {
+                        free(s->status_text);
+                        s->status_text = NULL;
                 }
 
-                log_debug("%s: got %s", u->meta.id, e);
-
-                free(s->status_text);
-                s->status_text = t;
         }
 }
 
