@@ -485,6 +485,8 @@ int job_finish_and_invalidate(Job *j, bool success) {
 
                 j->state = JOB_WAITING;
                 j->type = JOB_START;
+
+                job_add_to_run_queue(j);
                 return 0;
         }
 
