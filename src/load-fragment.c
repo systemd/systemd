@@ -1780,68 +1780,69 @@ finish:
 
 int unit_load_fragment(Unit *u) {
         int r;
+        Iterator i;
+        const char *t;
 
         assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->meta.id);
 
-        if (u->meta.fragment_path) {
+        /* First, try to find the unit under its id. We always look
+         * for unit files in the default directories, to make it easy
+         * to override things by placing things in /etc/systemd/system */
+        if ((r = load_from_path(u, u->meta.id)) < 0)
+                return r;
 
+        /* Try to find an alias we can load this with */
+        if (u->meta.load_state == UNIT_STUB)
+                SET_FOREACH(t, u->meta.names, i) {
+
+                        if (t == u->meta.id)
+                                continue;
+
+                        if ((r = load_from_path(u, t)) < 0)
+                                return r;
+
+                        if (u->meta.load_state != UNIT_STUB)
+                                break;
+                }
+
+        /* And now, try looking for it under the suggested (originally linked) path */
+        if (u->meta.load_state == UNIT_STUB && u->meta.fragment_path)
                 if ((r = load_from_path(u, u->meta.fragment_path)) < 0)
                         return r;
 
-        } else {
-                Iterator i;
-                const char *t;
+        /* Look for a template */
+        if (u->meta.load_state == UNIT_STUB && u->meta.instance) {
+                char *k;
 
-                /* Try to find the unit under its id */
-                if ((r = load_from_path(u, u->meta.id)) < 0)
+                if (!(k = unit_name_template(u->meta.id)))
+                        return -ENOMEM;
+
+                r = load_from_path(u, k);
+                free(k);
+
+                if (r < 0)
                         return r;
 
-                /* Try to find an alias we can load this with */
                 if (u->meta.load_state == UNIT_STUB)
                         SET_FOREACH(t, u->meta.names, i) {
 
                                 if (t == u->meta.id)
                                         continue;
 
-                                if ((r = load_from_path(u, t)) < 0)
+                                if (!(k = unit_name_template(t)))
+                                        return -ENOMEM;
+
+                                r = load_from_path(u, k);
+                                free(k);
+
+                                if (r < 0)
                                         return r;
 
                                 if (u->meta.load_state != UNIT_STUB)
                                         break;
                         }
-
-                /* Now, follow the same logic, but look for a template */
-                if (u->meta.load_state == UNIT_STUB && u->meta.instance) {
-                        char *k;
-
-                        if (!(k = unit_name_template(u->meta.id)))
-                                return -ENOMEM;
-
-                        r = load_from_path(u, k);
-                        free(k);
-
-                        if (r < 0)
-                                return r;
-
-                        if (u->meta.load_state == UNIT_STUB)
-                                SET_FOREACH(t, u->meta.names, i) {
-
-                                        if (t == u->meta.id)
-                                                continue;
-
-                                        if (!(k = unit_name_template(t)))
-                                                return -ENOMEM;
-
-                                        r = load_from_path(u, k);
-                                        free(k);
-
-                                        if (r < 0)
-                                                return r;
-
-                                        if (u->meta.load_state != UNIT_STUB)
-                                                break;
-                                }
-                }
         }
 
         return 0;

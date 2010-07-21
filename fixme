@@ -37,8 +37,6 @@
 
 * place /etc/inittab with explaining blurb.
 
-* /etc must always take precedence even if we follow symlinks!
-
 * vielleicht implizit immer auf syslog dependen?
 
 * debian deadlock when partition auf noauto is.
