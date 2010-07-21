@@ -208,7 +208,7 @@ static int get_user_data(
         return PAM_SUCCESS;
 }
 
-static int create_user_group(pam_handle_t *handle, const char *group, struct passwd *pw, bool attach) {
+static int create_user_group(pam_handle_t *handle, const char *group, struct passwd *pw, bool attach, bool remember) {
         int r;
 
         assert(handle);
@@ -222,6 +222,17 @@ static int create_user_group(pam_handle_t *handle, const char *group, struct pas
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to create cgroup: %s", strerror(-r));
                 return PAM_SESSION_ERR;
+        }
+
+        if (r > 0 && remember) {
+                /* Remember that it was us who created this group, and
+                 * that hence we need to remove it too. This is a
+                 * protection against removing the cgroup when run
+                 * recursively. */
+                if ((r = pam_set_data(handle, "systemd.created", INT_TO_PTR(1), NULL)) != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to install created variable.");
+                        return r;
+                }
         }
 
         if ((r = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, group, 0755, pw->pw_uid, pw->pw_gid)) < 0 ||
@@ -247,7 +258,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         assert(handle);
 
-        pam_syslog(handle, LOG_INFO, "pam-systemd initializing");
+        /* pam_syslog(handle, LOG_DEBUG, "pam-systemd initializing"); */
 
         if (parse_argv(handle, argc, argv, &create_session, NULL, NULL) < 0)
                 return PAM_SESSION_ERR;
@@ -331,7 +342,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 goto finish;
         }
 
-        if ((r = create_user_group(handle, buf, pw, true)) != PAM_SUCCESS)
+        pam_syslog(handle, LOG_INFO, "Moving new user session for %s into control group %s.", username, buf);
+
+        if ((r = create_user_group(handle, buf, pw, true, true)) != PAM_SUCCESS)
                 goto finish;
 
         r = PAM_SUCCESS;
@@ -383,6 +396,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         char *session_path = NULL, *nosession_path = NULL, *user_path = NULL;
         const char *id;
         struct passwd *pw;
+        const void *created = NULL;
 
         assert(handle);
 
@@ -411,7 +425,9 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 goto finish;
         }
 
-        if ((id = pam_getenv(handle, "XDG_SESSION_ID"))) {
+        pam_get_data(handle, "systemd.created", &created);
+
+        if ((id = pam_getenv(handle, "XDG_SESSION_ID")) && created) {
 
                 if (asprintf(&session_path, "/user/%s/%s", username, id) < 0 ||
                     asprintf(&nosession_path, "/user/%s/no-session", username) < 0) {
@@ -420,15 +436,19 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 }
 
                 if (kill_session)  {
+                        pam_syslog(handle, LOG_INFO, "Killing remaining processes of user session %s of %s.", id, username);
+
                         /* Kill processes in session cgroup, and delete it */
                         if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, session_path, true)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to kill session cgroup: %s", strerror(-r));
                 } else {
+                        pam_syslog(handle, LOG_INFO, "Moving remaining processes of user session %s of %s into control group %s.", id, username, nosession_path);
+
                         /* Migrate processes from session to
                          * no-session cgroup. First, try to create the
                          * no-session group in case it doesn't exist
                          * yet. Also, delete the session group. */
-                        create_user_group(handle, nosession_path, pw, 0);
+                        create_user_group(handle, nosession_path, pw, false, false);
 
                         if ((r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, session_path, nosession_path, false, true)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to migrate session cgroup: %s", strerror(-r));
@@ -465,12 +485,12 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (r >= 0) {
                 const char *runtime_dir;
 
-                /* This will migrate us to the /user cgroup. */
-
                 if ((runtime_dir = pam_getenv(handle, "XDG_RUNTIME_DIR")))
                         if ((r = rm_rf(runtime_dir, false, true)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to remove runtime directory: %s", strerror(-r));
         }
+
+        /* pam_syslog(handle, LOG_DEBUG, "pam-systemd done"); */
 
         r = PAM_SUCCESS;
 

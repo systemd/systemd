@@ -279,7 +279,7 @@ static int write_to_syslog(
         msghdr.msg_iov = iovec;
         msghdr.msg_iovlen = ELEMENTSOF(iovec);
 
-        if (sendmsg(syslog_fd, &msghdr, 0) < 0)
+        if (sendmsg(syslog_fd, &msghdr, MSG_NOSIGNAL) < 0)
                 return -errno;
 
         return 1;

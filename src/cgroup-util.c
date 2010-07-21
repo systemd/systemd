@@ -25,6 +25,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "cgroup-util.h"
 #include "log.h"
@@ -546,7 +548,17 @@ int cg_create(const char *controller, const char *path) {
         if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
                 return r;
 
-        r = mkdir_p(fs, 0755);
+        r = mkdir_parents(fs, 0755);
+
+        if (r >= 0) {
+                if (mkdir(fs, 0755) >= 0)
+                        r = 1;
+                else if (errno == EEXIST)
+                        r = 0;
+                else
+                        r = -errno;
+        }
+
         free(fs);
 
         return r;
@@ -577,7 +589,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
 }
 
 int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
-        int r;
+        int r, q;
 
         assert(controller);
         assert(path);
@@ -586,8 +598,8 @@ int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
         if ((r = cg_create(controller, path)) < 0)
                 return r;
 
-        if ((r = cg_attach(controller, path, pid)) < 0)
-                return r;
+        if ((q = cg_attach(controller, path, pid)) < 0)
+                return q;
 
         /* This does not remove the cgroup on failure */
 
