@@ -77,7 +77,8 @@ noinst_PROGRAMS = \
 	test-ns \
 	test-loopback \
 	test-daemon \
-	test-cgroup
+	test-cgroup \
+	test-env-replace
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -444,6 +445,15 @@ test_cgroup_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_cgroup_LDADD = \
+	libsystemd-basic.la
+
+test_env_replace_SOURCES = \
+	src/test-env-replace.c
+
+test_env_replace_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_env_replace_LDADD = \
 	libsystemd-basic.la
 
 systemd_logger_SOURCES = \

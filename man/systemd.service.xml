@@ -274,10 +274,14 @@
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. On
                                 top of that basic environment variable
                                 substitution is supported, where
-                                <literal>$(FOO)</literal> is replaced
-                                by the value of the environment
-                                variable of the same
-                                name.</para></listitem>
+                                <literal>${FOO}</literal> is replaced
+                                by the string value of the environment
+                                variable of the same name. Also
+                                <literal>$FOO</literal> may appear as
+                                seperate word on the command line in
+                                which case the variable is replaced by
+                                its value split at
+                                whitespaces.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

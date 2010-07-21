@@ -2778,7 +2778,7 @@ void status_welcome(void) {
 char *replace_env(const char *format, char **env) {
         enum {
                 WORD,
-                DOLLAR,
+                CURLY,
                 VARIABLE
         } state = WORD;
 
@@ -2793,11 +2793,11 @@ char *replace_env(const char *format, char **env) {
 
                 case WORD:
                         if (*e == '$')
-                                state = DOLLAR;
+                                state = CURLY;
                         break;
 
-                case DOLLAR:
-                        if (*e == '(') {
+                case CURLY:
+                        if (*e == '{') {
                                 if (!(k = strnappend(r, word, e-word-1)))
                                         goto fail;
 
@@ -2821,7 +2821,7 @@ char *replace_env(const char *format, char **env) {
                         break;
 
                 case VARIABLE:
-                        if (*e == ')') {
+                        if (*e == '}') {
                                 char *t;
 
                                 if ((t = strv_env_get_with_length(env, word+2, e-word-2))) {
@@ -2853,12 +2853,49 @@ fail:
 
 char **replace_env_argv(char **argv, char **env) {
         char **r, **i;
-        unsigned k = 0;
+        unsigned k = 0, l = 0;
 
-        if (!(r = new(char*, strv_length(argv)+1)))
+        l = strv_length(argv);
+
+        if (!(r = new(char*, l+1)))
                 return NULL;
 
         STRV_FOREACH(i, argv) {
+
+                /* If $FOO appears as single word, replace it by the split up variable */
+                if ((*i)[0] == '$') {
+                        char *e = strv_env_get(env, *i+1);
+
+                        if (e) {
+                                char **w, **m;
+                                unsigned q;
+
+                                if (!(m = strv_split_quoted(e))) {
+                                        r[k] = NULL;
+                                        strv_free(r);
+                                        return NULL;
+                                }
+
+                                q = strv_length(m);
+                                l = l + q - 1;
+
+                                if (!(w = realloc(r, sizeof(char*) * (l+1)))) {
+                                        r[k] = NULL;
+                                        strv_free(r);
+                                        strv_free(m);
+                                        return NULL;
+                                }
+
+                                r = w;
+                                memcpy(r + k, m, q * sizeof(char*));
+                                free(m);
+
+                                k += q;
+                                continue;
+                        }
+                }
+
+                /* If ${FOO} appears as part of a word, replace it by the variable as-is */
                 if (!(r[k++] = replace_env(*i, env))) {
                         strv_free(r);
                         return NULL;

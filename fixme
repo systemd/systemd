@@ -35,9 +35,9 @@
 
 * systemctl status $PID, systemctl stop $PID!
 
-* place /etc/inittab with explaining blurb.
+/dev/null symlinks supporten
 
-* In command lines, support both "$FOO" and $FOO
+* place /etc/inittab with explaining blurb.
 
 * /etc must always take precedence even if we follow symlinks!
 
