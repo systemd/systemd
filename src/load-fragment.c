@@ -1312,16 +1312,20 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 path_kill_slashes(*filename);
 
                 /* Add the file name we are currently looking at to
-                 * the names of this unit */
+                 * the names of this unit, but only if it is a valid
+                 * unit name. */
                 name = file_name_from_path(*filename);
-                if (!(id = set_get(names, name))) {
 
-                        if (!(id = strdup(name)))
-                                return -ENOMEM;
+                if (unit_name_is_valid(name)) {
+                        if (!(id = set_get(names, name))) {
 
-                        if ((r = set_put(names, id)) < 0) {
-                                free(id);
-                                return r;
+                                if (!(id = strdup(name)))
+                                        return -ENOMEM;
+
+                                if ((r = set_put(names, id)) < 0) {
+                                        free(id);
+                                        return r;
+                                }
                         }
                 }
 
@@ -1340,7 +1344,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 *filename = target;
         }
 
-        if (!(f = fdopen(fd, "r"))) {
+        if (!(f = fdopen(fd, "re"))) {
                 r = -errno;
                 close_nointr_nofail(fd);
                 return r;
@@ -1730,6 +1734,7 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         if (!filename) {
+                /* Hmm, no suitable file found? */
                 r = 0;
                 goto finish;
         }
@@ -1747,11 +1752,6 @@ static int load_from_path(Unit *u, const char *path) {
         zero(st);
         if (fstat(fileno(f), &st) < 0) {
                 r = -errno;
-                goto finish;
-        }
-
-        if (!S_ISREG(st.st_mode)) {
-                r = -ENOENT;
                 goto finish;
         }
 
