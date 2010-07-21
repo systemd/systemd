@@ -31,7 +31,7 @@
 
 * follow property change dbus spec
 
-* selinux
+* selinux policy loading/socket stuff
 
 * systemctl status $PID, systemctl stop $PID!
 
@@ -39,7 +39,7 @@
 
 * vielleicht implizit immer auf syslog dependen?
 
-* debian deadlock when partition auf noauto is.
+* debian deadlock when partition set to noauto
 
 * fingerprint.target, wireless.target, gps.target
 
@@ -47,11 +47,11 @@
 
 * fix merging in .swap units
 
-* pam: fix double session cleanup
-
 * pahole
 
-* io priority
+* chkconfig/systemd-install glue
+
+* io priority during initialization
 
 External:
 
@@ -61,14 +61,20 @@ External:
 
 * default logic for serial getty, ck logging, ssh readahead
 
+* pam: fix double sudo session cleanup:
+  http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
+
 * patch /etc/init.d/functions with:
 
   if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
 
-https://bugzilla.redhat.com/show_bug.cgi?id=614245
-https://bugzilla.redhat.com/show_bug.cgi?id=612789
-https://bugzilla.redhat.com/show_bug.cgi?id=612728
-https://bugzilla.redhat.com/show_bug.cgi?id=612712
+https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
+https://bugzilla.redhat.com/show_bug.cgi?id=612789 -- umount /cgroup on halt
+https://bugzilla.redhat.com/show_bug.cgi?id=612728 -- /etc/rc.d/init.d/functions
+https://bugzilla.redhat.com/show_bug.cgi?id=612712 -- pam_systemd
+https://bugs.freedesktop.org/show_bug.cgi?id=29193 -- accountsservice
+https://bugs.freedesktop.org/show_bug.cgi?id=29194 -- ConsoleKit
+http://www.spinics.net/lists/linux-nfs/msg14371.html -- rpcbind
 
 Regularly:
 
