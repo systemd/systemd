@@ -7,3 +7,6 @@
 
 [Unit]
 Description=Login Prompts
+
+[Install]
+WantedBy=multi-user.target

@@ -15,3 +15,6 @@ m4_dnl When running in system mode we need the network up
 Requires=network.target
 After=network.target
 )m4_dnl
+
+[Install]
+WantedBy=multi-user.target
