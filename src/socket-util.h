@@ -26,6 +26,7 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <net/if.h>
+#include <selinux/selinux.h>
 
 #include "macro.h"
 #include "util.h"
@@ -71,7 +72,7 @@ int socket_address_listen(
                 bool free_bind,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                /* FIXME SELINUX: pass SELinux context object here */
+                security_context_t scon,
                 int *ret);
 
 bool socket_address_is(const SocketAddress *a, const char *s, int type);

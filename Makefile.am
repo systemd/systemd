@@ -298,7 +298,8 @@ libsystemd_core_la_LIBADD = \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS) \
 	$(LIBWRAP_LIBS) \
-	$(PAM_LIBS)
+	$(PAM_LIBS) \
+	$(SELINUX_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
