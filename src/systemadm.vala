@@ -297,7 +297,7 @@ public class MainWindow : Window {
 
                 bbox.pack_start(cancel_button, false, true, 0);
 
-                bus = Bus.get(session ? BusType.SESSION : BusType.SYSTEM);
+                bus = DBus.Bus.get(session ? DBus.BusType.SESSION : DBus.BusType.SYSTEM);
 
                 manager = bus.get_object(
                                 "org.freedesktop.systemd1",

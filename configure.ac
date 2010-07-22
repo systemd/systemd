@@ -183,7 +183,7 @@ if test "x$enable_gtk" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
 
-AM_PROG_VALAC([0.8])
+AM_PROG_VALAC([0.9])
 AC_SUBST(VAPIDIR)
 AM_CONDITIONAL(HAVE_VALAC, test x"$VALAC" != x)
 
