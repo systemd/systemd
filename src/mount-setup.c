@@ -46,7 +46,7 @@ static const MountPoint mount_table[] = {
         { "sysfs",    "/sys",            "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "devtmpfs", "/dev",            "devtmpfs", "mode=755",          MS_NOSUID,                    true },
         { "tmpfs",    "/dev/shm",        "tmpfs",    "mode=1777",         MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "devpts",   "/dev/pts",        "devpts",   NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
+        { "devpts",   "/dev/pts",        "devpts",   NULL,                MS_NOSUID|MS_NOEXEC,          false },
         { "tmpfs",    "/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "cgroup",   "/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 };
