@@ -74,6 +74,8 @@ https://bugzilla.redhat.com/show_bug.cgi?id=612728 -- /etc/rc.d/init.d/functions
 https://bugzilla.redhat.com/show_bug.cgi?id=612712 -- pam_systemd
 https://bugs.freedesktop.org/show_bug.cgi?id=29193 -- accountsservice
 https://bugs.freedesktop.org/show_bug.cgi?id=29194 -- ConsoleKit
+https://bugs.freedesktop.org/show_bug.cgi?id=29205 -- udisks
+http://article.gmane.org/gmane.linux.bluez.kernel/6479 -- bluez
 http://www.spinics.net/lists/linux-nfs/msg14371.html -- rpcbind
 
 Regularly:
