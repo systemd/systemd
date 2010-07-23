@@ -4426,7 +4426,6 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
         int left;
         unsigned i;
 
-        assert(bus);
         assert(argc >= 0);
         assert(argv);
         assert(error);
