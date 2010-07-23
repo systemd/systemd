@@ -61,6 +61,6 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
  * protect this with a weak ref just in case glibc takes this away
  * from us. */
 
-static void nss_disable_nscd(void) _weakref_(__nss_disable_nscd);
+/* static void nss_disable_nscd(void) _weakref_(__nss_disable_nscd); */
 
 #endif
