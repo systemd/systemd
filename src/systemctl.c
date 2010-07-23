@@ -1087,7 +1087,9 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                         streq(args[0], "restart")               ? "RestartUnit" :
                         streq(args[0], "try-restart")           ? "TryRestartUnit" :
                         streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
-                        streq(args[0], "reload-or-try-restart") ? "ReloadOrTryRestartUnit" :
+                        streq(args[0], "reload-or-try-restart") ||
+                        streq(args[0], "force-reload")          ||
+                        streq(args[0], "condrestart")           ? "ReloadOrTryRestartUnit" :
                                                                   "StartUnit";
 
                 mode =
@@ -3660,6 +3662,8 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "try-restart",       MORE,  2, start_unit      },
                 { "reload-or-restart", MORE,  2, start_unit      },
                 { "reload-or-try-restart", MORE, 2, start_unit   },
+                { "force-reload",      MORE,  2, start_unit      }, /* For compatibility with SysV */
+                { "condrestart",       MORE,  2, start_unit      }, /* For compatibility with RH */
                 { "isolate",           EQUAL, 2, start_unit      },
                 { "check",             MORE,  2, check_unit      },
                 { "show",              MORE,  1, show            },
