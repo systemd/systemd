@@ -543,10 +543,10 @@
                         the hardware of the respective kind is plugged
                         in or otherwise becomes available. In a
                         new-style init system it is possible to bind
-                        activation to hardware plug/unplug events. In systemd,
-                        kernel devices appearing in the sysfs/udev
-                        device tree can be exposed as units if they
-                        are tagged with the string
+                        activation to hardware plug/unplug events. In
+                        systemd, kernel devices appearing in the
+                        sysfs/udev device tree can be exposed as units
+                        if they are tagged with the string
                         "<literal>systemd</literal>". Like any other
                         kind of unit they may then pull in other units
                         when activated (i.e. Plugged in) and thus
@@ -570,8 +570,9 @@
                         <filename>bluetoothd.service</filename> via
                         controlling a
                         <filename>bluetooth.target.wants/</filename>
-                        symlink uniformly with a tool like
-                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        symlink uniformly with a command like
+                        <command>enable</command> of
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                         instead of manipulating the udev
                         ruleset.</para>
                 </refsect2>
@@ -756,9 +757,9 @@
                         install their systemd unit files in the
                         directory returned by <command>pkg-config
                         systemd
-                        --variable=systemdsystemunitdir</command>
-                        (for system services),
-                        resp. <command>pkg-config systemd
+                        --variable=systemdsystemunitdir</command> (for
+                        system services), resp. <command>pkg-config
+                        systemd
                         --variable=systemdsessionunitdir</command>
                         (for session services). This will make the
                         services available in the system on explicit
@@ -767,8 +768,9 @@
                         installation (e.g. <command>rpm -i</command>
                         by the administrator) symlinks should be
                         created in the systemd configuration
-                        directories via the
-                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        directories via the <command>enable</command>
+                        command of the
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                         tool, to activate them automatically on
                         boot.</para>
 
@@ -823,20 +825,32 @@ endif</programlisting>
                         package managers:</para>
 
                         <programlisting>%post
-/usr/bin/systemd-install --realize enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+if [ $1 -eq 1 ]; then
+        # Enable (but don't start) the units by default
+        /bin/systemctl enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+fi
 
 %preun
-if [ "$1" -eq 0 ]; then
-        /usr/bin/systemd-install --realize disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+if [ $1 -eq 0 ]; then
+        # Disable and stop the units
+        /bin/systemctl disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+        /bin/systemctl stop foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+fi
+
+%postun
+if [ $1 -ge 1 ] ; then
+        # On upgrade, reload init system configuration if we changed unit files
+        /bin/systemctl daemon-reload >/dev/null 2>&amp;1 || :
+        # On upgrade, restart the daemon
+        /bin/systemctl try-restart foobar.service >/dev/null 2>&amp;1 || :
 fi</programlisting>
 
                         <para>Depending on whether your service should
                         or should not be started/stopped/restarted
                         during package installation, deinstallation or
-                        upgrade, a different argument to
-                        <option>--realize=</option> may be
+                        upgrade, a different set of commands may be
                         specified. See
-                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                         for details.</para>
 
                 </refsect2>
@@ -909,7 +923,6 @@ fi</programlisting>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

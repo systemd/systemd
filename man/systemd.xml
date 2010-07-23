@@ -448,9 +448,12 @@
                                 --variable=systemdsystemconfdir</command>
                                 returns the path of the system
                                 configuration directory. Packages
-                                should alter the content of these directories
-                                only with the
-                                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                should alter the content of these
+                                directories only with the
+                                <command>enable</command> and
+                                <command>disable</command> commands of
+                                the
+                                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 tool.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -469,11 +472,14 @@
                                 unit files in the directory returned
                                 by <command>pkg-config systemd
                                 --variable=systemdsessionunitdir</command>. Global
-                                configuration is done in the
-                                directory reported by
-                                <command>pkg-config systemd
+                                configuration is done in the directory
+                                reported by <command>pkg-config
+                                systemd
                                 --variable=systemdsessionconfdir</command>. The
-                                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                <command>enable</command> and
+                                <command>disable</command> commands of
+                                the
+                                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 tool can handle both global (i.e. for
                                 all users) and private (for one user)
                                 enabling/disabling of
@@ -923,7 +929,6 @@
                 <para>
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-notify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,

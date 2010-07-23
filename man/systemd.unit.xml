@@ -136,8 +136,8 @@
                 <varname>Wanted=</varname> see below. The preferred
                 way to create symlinks in the
                 <filename>.wants/</filename> directory of a service is
-                with the
-                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                with the <command>enable</command> command of the
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 tool which reads information from the [Install]
                 section of unit files. (See below.)</para>
 
@@ -539,7 +539,9 @@
                 section is not interpreted by
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 during runtime. It is used exclusively by the
-                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <command>enable</command> and
+                <command>disable</command> commands of the
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 tool during installation of a unit:</para>
 
                 <variablelist>
@@ -554,7 +556,7 @@
                                 more than once, in which case all
                                 listed names are used. At installation
                                 time,
-                                <command>systemd-install</command>
+                                <command>systemctl enable</command>
                                 will create symlinks from these names
                                 to the unit file name. Note that this
                                 is different from the
@@ -567,8 +569,8 @@
                                 <varname>Alias=</varname> apply only
                                 if the unit has actually been
                                 installed with the
-                                <command>systemd-install</command>
-                                tool.  Also, if systemd searches for a
+                                <command>systemctl enable</command>
+                                command.  Also, if systemd searches for a
                                 unit, it will discover symlinked alias
                                 names as configured with
                                 <varname>Alias=</varname>, but not
@@ -607,7 +609,7 @@
                                 installed. If the user requests
                                 installation of a unit with this
                                 option configured,
-                                <command>systemd-install</command>
+                                <command>systemctl enable</command>
                                 will automatically install units
                                 listed in this option as
                                 well.</para></listitem>
@@ -621,7 +623,6 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
