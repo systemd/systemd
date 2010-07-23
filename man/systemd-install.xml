@@ -185,7 +185,7 @@
                                 <option>--realize</option> is
                                 specifieed but the mode value is
                                 omitted defaults to
-                                <option>maybe</option>. This option
+                                <option>minimal</option>. This option
                                 has no effect when
                                 <option>--global</option> or
                                 <command>test</command> is used, or
@@ -258,7 +258,7 @@
                                 <option>--realize</option>. If
                                 <option>--realize</option> is not
                                 specified implies
-                                <option>maybe</option> mode. To
+                                <option>minimal</option> mode. To
                                 override this mode specify
                                 <option>--realize=</option> in
                                 addition to

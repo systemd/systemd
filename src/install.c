@@ -156,7 +156,7 @@ static int parse_argv(int argc, char *argv[]) {
                         realize_switch = true;
 
                         if (!optarg)
-                                arg_realize = REALIZE_MAYBE;
+                                arg_realize = REALIZE_MINIMAL;
                         else if (streq(optarg, "no"))
                                 arg_realize = REALIZE_NO;
                         else if (streq(optarg, "minimal"))
@@ -206,7 +206,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_action = ACTION_REALIZE;
 
                 if (!realize_switch)
-                        arg_realize = REALIZE_MAYBE;
+                        arg_realize = REALIZE_MINIMAL;
         } else {
                 log_error("Unknown verb %s.", argv[optind]);
                 return -EINVAL;
