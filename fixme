@@ -53,6 +53,8 @@
 
 * io priority during initialization
 
+* if a service fails too often, make the service enter maintainence mode, and the socket, too.
+
 External:
 
 * default.target must be %ghosted...

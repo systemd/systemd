@@ -47,7 +47,7 @@
 #include "list.h"
 
 static const char *arg_type = NULL;
-static const char *arg_property = NULL;
+static char **arg_property = NULL;
 static bool arg_all = false;
 static bool arg_fail = false;
 static bool arg_session = false;
@@ -1702,7 +1702,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
         /* This is a low-level property printer, see
          * print_status_info() for the nicer output */
 
-        if (arg_property && !streq(name, arg_property))
+        if (arg_property && !strv_find(arg_property, name))
                 return 0;
 
         switch (dbus_message_iter_get_arg_type(iter)) {
@@ -3089,14 +3089,21 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_type = optarg;
                         break;
 
-                case 'p':
-                        arg_property = optarg;
+                case 'p': {
+                        char **l;
+
+                        if (!(l = strv_append(arg_property, optarg)))
+                                return -ENOMEM;
+
+                        strv_free(arg_property);
+                        arg_property = l;
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
                          * empty. */
                         arg_all = true;
                         break;
+                }
 
                 case 'a':
                         arg_all = true;
@@ -3926,6 +3933,8 @@ finish:
         dbus_error_free(&error);
 
         dbus_shutdown();
+
+        strv_free(arg_property);
 
         return retval;
 }

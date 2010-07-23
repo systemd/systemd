@@ -100,7 +100,10 @@
                                 not specified all set properties are
                                 shown. The argument should be a
                                 property name, such as
-                                <literal>MainPID</literal>.</para></listitem>
+                                <literal>MainPID</literal>. If
+                                specified more than once all
+                                properties with the specified names
+                                are shown.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
