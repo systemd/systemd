@@ -4516,17 +4516,16 @@ static int reload_with_fallback(DBusConnection *bus) {
 static int start_with_fallback(DBusConnection *bus) {
         int r;
 
-
         if (bus) {
                 /* First, try systemd via D-Bus. */
                 if ((r = start_unit(bus, NULL, 0)) > 0)
                         goto done;
-
-                /* Hmm, talking to systemd via D-Bus didn't work. Then
-                 * let's try to talk to Upstart via D-Bus. */
-                if ((r = talk_upstart()) > 0)
-                        goto done;
         }
+
+        /* Hmm, talking to systemd via D-Bus didn't work. Then
+         * let's try to talk to Upstart via D-Bus. */
+        if ((r = talk_upstart()) > 0)
+                goto done;
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
