@@ -4209,8 +4209,22 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_POWEROFF;
                         return shutdown_parse_argv(argc, argv);
                 } else if (strstr(program_invocation_short_name, "init")) {
-                        arg_action = ACTION_INVALID;
-                        return telinit_parse_argv(argc, argv);
+
+                        if (sd_booted() > 0) {
+                                arg_action = ACTION_INVALID;
+                                return telinit_parse_argv(argc, argv);
+                        } else {
+                                /* Hmm, so some other init system is
+                                 * running, we need to forward this
+                                 * request to it. For now we simply
+                                 * guess that it is Upstart. */
+
+                                execv("/lib/upstart/telinit", argv);
+
+                                log_error("Couldn't find an alternative telinit implementation to spawn.");
+                                return -EIO;
+                        }
+
                 } else if (strstr(program_invocation_short_name, "runlevel")) {
                         arg_action = ACTION_RUNLEVEL;
                         return runlevel_parse_argv(argc, argv);
