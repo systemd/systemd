@@ -56,6 +56,244 @@
 #include "log.h"
 #include "strv.h"
 
+#if HAVE_SELINUX
+#include <selinux/selinux.h>
+#include <selinux/label.h>
+
+static struct selabel_handle *label_hnd = NULL;
+
+static inline int use_selinux(void) {
+        static int use_selinux_ind = -1;
+
+        if (use_selinux_ind == -1)
+                use_selinux_ind = (is_selinux_enabled() == 1);
+
+        return use_selinux_ind;
+}
+
+static int label_get_file_label_from_path(
+                const char *label,
+                const char *path,
+                const char *class,
+                security_context_t *fcon) {
+
+        security_context_t dir_con = NULL;
+        security_class_t sclass;
+        int r = 0;
+
+        r = getfilecon(path, &dir_con);
+        if (r >= 0) {
+                r = -1;
+                if ((sclass = string_to_security_class(class)) != 0)
+                        r = security_compute_create((security_context_t) label, dir_con, sclass, fcon);
+        }
+        if (r < 0)
+                r = -errno;
+
+        freecon(dir_con);
+        return r;
+}
+
+#endif
+
+int label_init(void) {
+        int r = 0;
+
+#if HAVE_SELINUX
+        if (use_selinux()) {
+                label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
+                if (!label_hnd) {
+                        log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, "Failed to initialize SELinux context: %m");
+                        r = (security_getenforce() == 1) ? -errno : 0;
+                }
+        }
+#endif
+
+        return r;
+}
+
+int label_fix(const char *path) {
+        int r = 0;
+#if HAVE_SELINUX
+        struct stat st;
+        security_context_t fcon;
+        if (use_selinux()) {
+                r = lstat(path, &st);
+
+                if (r == 0) {
+                        r = selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode);
+
+                        if (r == 0) {
+                                r = setfilecon(path, fcon);
+                                freecon(fcon);
+                        }
+                }
+                if (r < 0) {
+                        log_error("Unable to fix label of %s: %m", path);
+                        r = (security_getenforce() == 1) ? -errno : 0;
+                }
+        }
+#endif
+        return r;
+}
+
+void label_finish(void) {
+
+#if HAVE_SELINUX
+        if (use_selinux())
+                selabel_close(label_hnd);
+#endif
+
+}
+
+int label_get_socket_label_from_exe(
+        const char *exe,
+        char **label) {
+        int r = 0;
+
+#if HAVE_SELINUX
+        security_context_t mycon = NULL, fcon = NULL;
+        security_class_t sclass;
+
+        r = getcon(&mycon);
+        if (r < 0)
+                goto fail;
+
+        r = getfilecon(exe, &fcon);
+        if (r < 0)
+                goto fail;
+
+        sclass = string_to_security_class("process");
+        r = security_compute_create(mycon, fcon, sclass, (security_context_t *) label);
+        if (r == 0)
+                log_debug("SELinux Socket context for %s will be set to %s", exe, *label);
+
+fail:
+        if (r< 0 && security_getenforce() == 1)
+                r = -errno;
+
+        freecon(mycon);
+        freecon(fcon);
+#endif
+
+        return r;
+}
+
+int label_fifofile_set(const char *label, const char *path) {
+        int r = 0;
+
+#if HAVE_SELINUX
+        security_context_t filecon = NULL;
+        if (use_selinux() && label) {
+                if (((r = label_get_file_label_from_path(label, path, "fifo_file", &filecon)) == 0)) {
+                        if ((r = setfscreatecon(filecon)) < 0) {
+                                log_error("Failed to set SELinux file context (%s) on %s: %m", label, path);
+                                r = -errno;
+                        }
+
+                        freecon(filecon);
+                }
+
+                if (r < 0  && security_getenforce() == 0)
+                        r = 0;
+        }
+#endif
+
+        return r;
+}
+
+int label_socket_set(const char *label) {
+
+#if HAVE_SELINUX
+        if (use_selinux() && setsockcreatecon((security_context_t) label) < 0) {
+                log_error("Failed to set SELinux context (%s) on socket: %m", label);
+                if (security_getenforce() == 1)
+                        return -errno;
+        }
+#endif
+
+        return 0;
+}
+
+void label_file_clear(void) {
+
+#if HAVE_SELINUX
+        if (use_selinux())
+                setfscreatecon(NULL);
+#endif
+
+        return;
+}
+
+void label_free(const char *label) {
+
+#if HAVE_SELINUX
+        if (use_selinux())
+                freecon((security_context_t) label);
+#endif
+
+        return;
+}
+
+void label_socket_clear(void) {
+
+#if HAVE_SELINUX
+        if (use_selinux())
+                setsockcreatecon(NULL);
+#endif
+
+        return;
+}
+
+static int label_mkdir(
+        const char *path,
+        mode_t mode) {
+
+#if HAVE_SELINUX
+        int r;
+        security_context_t fcon = NULL;
+
+        if (use_selinux()) {
+                if (path[0] == '/') {
+                        r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
+                }
+                else {
+                        char *cwd = NULL;
+                        char *newpath = NULL;
+                        cwd = getcwd(NULL,0);
+                        if ((! cwd) || (asprintf(&newpath, "%s/%s",cwd,path) < 0)) {
+                                free(cwd);
+                                return -errno;
+                        }
+                        r = selabel_lookup_raw(label_hnd, &fcon, newpath, mode);
+                        free(cwd);
+                        free(newpath);
+                }
+
+                if (r == 0)
+                        r = setfscreatecon(fcon);
+
+                if ((r < 0) && (errno != ENOENT)) {
+                        log_error("Failed to set security context %s for %s", fcon, path);
+
+                        if (security_getenforce() == 1)
+                                goto finish;
+                }
+        }
+        r = mkdir(path, mode);
+
+finish:
+        if (use_selinux()) {
+                setfscreatecon(NULL);
+                freecon(fcon);
+        }
+
+        return r;
+#else
+        return mkdir(path, mode);
+#endif
+}
+
 bool streq_ptr(const char *a, const char *b) {
 
         /* Like streq(), but tries to make sense of NULL pointers */
@@ -969,7 +1207,7 @@ char *file_in_same_dir(const char *path, const char *filename) {
 int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         struct stat st;
 
-        if (mkdir(path, mode) >= 0)
+        if (label_mkdir(path, mode) >= 0)
                 if (chmod_and_chown(path, mode, uid, gid) < 0)
                         return -errno;
 
@@ -1012,7 +1250,7 @@ int mkdir_parents(const char *path, mode_t mode) {
                 if (!(t = strndup(path, e - path)))
                         return -ENOMEM;
 
-                r = mkdir(t, mode);
+                r = label_mkdir(t, mode);
                 free(t);
 
                 if (r < 0 && errno != EEXIST)
@@ -1028,7 +1266,7 @@ int mkdir_p(const char *path, mode_t mode) {
         if ((r = mkdir_parents(path, mode)) < 0)
                 return r;
 
-        if (mkdir(path, mode) < 0 && errno != EEXIST)
+        if (label_mkdir(path, mode) < 0 && errno != EEXIST)
                 return -errno;
 
         return 0;

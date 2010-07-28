@@ -836,6 +836,9 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
+        if (label_init() < 0)
+                goto finish;
+
         log_show_color(isatty(STDERR_FILENO) > 0);
         log_show_location(false);
         log_set_max_level(LOG_INFO);
@@ -1112,6 +1115,8 @@ finish:
 
         if (getpid() == 1)
                 freeze();
+
+        label_finish();
 
         return retval;
 }

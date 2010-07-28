@@ -360,4 +360,14 @@ int ip_tos_from_string(const char *s);
 const char *signal_to_string(int i);
 int signal_from_string(const char *s);
 
+int label_init(void);
+int label_fix(const char *path);
+void label_finish(void);
+int label_socket_set(const char *label);
+void label_socket_clear(void);
+int label_fifofile_set(const char *label, const char *path);
+void label_file_clear(void);
+void label_free(const char *label);
+int label_get_socket_label_from_exe(const char *exe, char **label);
+
 #endif

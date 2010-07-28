@@ -105,14 +105,25 @@ PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
 AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
 
-PKG_CHECK_MODULES(SELINUX, [ libselinux ])
-AC_SUBST(SELINUX_CFLAGS)
-AC_SUBST(SELINUX_LIBS)
-AC_SEARCH_LIBS([is_selinux_enabled], [selinux], [], [AC_MSG_ERROR([*** libselinux library not found])])
-
 PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
 AC_SUBST(DBUSGLIB_CFLAGS)
 AC_SUBST(DBUSGLIB_LIBS)
+
+have_selinux=no
+AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
+if test "x$enable_selinux" != "xno"; then
+	# not using PKG_CHECK_MODULES as for some reason libselinux didn't
+	# install any pkg-config modules here
+	AC_SEARCH_LIBS([getcon], [selinux],
+                [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELINUX is available]) have_selinux=yes],
+		have_selinux=no)
+        AC_SUBST(SELINUX_CFLAGS)
+        AC_SUBST(SELINUX_LIBS)
+        if test "x$have_selinux" = xno -a "x$enable_selinux" = xyes; then
+                AC_MSG_ERROR([*** selinux support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
 
 AC_ARG_ENABLE([tcpwrap],
         AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),

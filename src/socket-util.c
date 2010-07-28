@@ -29,7 +29,6 @@
 #include <net/if.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <selinux/selinux.h>
 
 #include "macro.h"
 #include "util.h"
@@ -306,7 +305,7 @@ int socket_address_listen(
                 bool free_bind,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                security_context_t scon,
+                const char *label,
                 int *ret) {
 
         int r, fd, one;
@@ -316,16 +315,14 @@ int socket_address_listen(
         if ((r = socket_address_verify(a)) < 0)
                 return r;
 
-        if (setsockcreatecon(scon) < 0) {
-                log_error("Failed to set SELinux context (%s) on socket: %m", scon);
-                if (security_getenforce() == 1)
-                        return -errno;
-        }
+        r = label_socket_set(label);
+        if (r < 0)
+                return r;
 
         fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
         r = fd < 0 ? -errno : 0;
 
-        setsockcreatecon(NULL);
+        label_socket_clear();
 
         if (r < 0)
                 return r;
