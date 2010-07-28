@@ -128,7 +128,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		const char *val;
 		char buf[UTIL_PATH_SIZE];
 
-		option = getopt_long(argc, argv, "vng:o:t:hcp:s:S:a:A:y:", options, NULL);
+		option = getopt_long(argc, argv, "vng:o:t:hc:p:s:S:a:A:y:", options, NULL);
 		if (option == -1)
 			break;
 

@@ -242,7 +242,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		int option;
 		struct stat statbuf;
 
-		option = getopt_long(argc, argv, "aed:n:p:q:rxPVh", options, NULL);
+		option = getopt_long(argc, argv, "aed:n:p:q:rxP:Vh", options, NULL);
 		if (option == -1)
 			break;
 

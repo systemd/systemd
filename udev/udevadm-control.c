@@ -71,7 +71,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		int i;
 		char *endp;
 
-		option = getopt_long(argc, argv, "l:sSRp:m:M:h", options, NULL);
+		option = getopt_long(argc, argv, "l:sSRp:m:h", options, NULL);
 		if (option == -1)
 			break;
 
