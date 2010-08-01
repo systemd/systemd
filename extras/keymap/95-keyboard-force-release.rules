@@ -19,7 +19,7 @@ DRIVER!="atkbd", GOTO="force_release_end"
 ENV{DMI_VENDOR}="$attr{[dmi/id]sys_vendor}"
 
 
-ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*N128*|*N130*|*N140*|*N210*|*SR70S/SR71S*|*Q210/P210*", RUN+="keyboard-force-release.sh $devpath samsung-other"
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*E252*|*N120*|*N128*|*N130*|*N140*|*N148/N208*|*N150*|*N150/N210/N220*|*N220*|*N308*|*N310*|*N510*|*NB30*|*NC10/N110*|*ND10*|*Q210/P210*|*R410P*|*R425/R525*|*R428/P428*|*R460*|*R463*|*R468/R418*|*R480/R431/R481*|*R509*|*R518*|*R519/R719*|*R520/R522/R620*|*R528/R728*|*R530/R730*|*R530/R730/P590*|*R560*|*R580*|*R580/R590*|*R59/R60/R61*|*R59P/R60P/R61P*|*R710*|*R720*|*R780/R778*|*SR58P*|*SR700*|*SR70S/SR71S*|*SX22S*|*X118*|*X120*|*X460*", RUN+="keyboard-force-release.sh $devpath samsung-other"
 
 ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="Studio 1557|Studio 1558", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
 
