@@ -1761,13 +1761,18 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 
 	/* init token array and string buffer */
 	rules->tokens = malloc(PREALLOC_TOKEN * sizeof(struct token));
-	if (rules->tokens == NULL)
+	if (rules->tokens == NULL) {
+		free(rules);
 		return NULL;
+	}
 	rules->token_max = PREALLOC_TOKEN;
 
 	rules->buf = malloc(PREALLOC_STRBUF);
-	if (rules->buf == NULL)
+	if (rules->buf == NULL) {
+		free(rules->tokens);
+		free(rules);
 		return NULL;
+	}
 	rules->buf_max = PREALLOC_STRBUF;
 	/* offset 0 is always '\0' */
 	rules->buf[0] = '\0';
@@ -1776,8 +1781,12 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	    rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
 
 	rules->trie_nodes = malloc(PREALLOC_TRIE * sizeof(struct trie_node));
-	if (rules->trie_nodes == NULL)
+	if (rules->trie_nodes == NULL) {
+		free(rules->buf);
+		free(rules->tokens);
+		free(rules);
 		return NULL;
+	}
 	rules->trie_nodes_max = PREALLOC_TRIE;
 	/* offset 0 is the trie root, with an empty string */
 	memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));

@@ -227,8 +227,10 @@ static void worker_new(struct event *event)
 	udev_monitor_enable_receiving(worker_monitor);
 
 	worker = calloc(1, sizeof(struct worker));
-	if (worker == NULL)
+	if (worker == NULL) {
+		udev_monitor_unref(worker_monitor);
 		return;
+	}
 	/* worker + event reference */
 	worker->refcount = 2;
 	worker->udev = event->udev;
