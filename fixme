@@ -74,6 +74,10 @@ External:
 
 * patch /etc/init.d/functions with:
 
+* systemctl reboot von getty tty1 hämgt
+
+* keine meldung by wants vs. conflicts
+
   if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
 
 https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
