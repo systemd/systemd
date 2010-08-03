@@ -298,15 +298,15 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 
 	if (!add) {
 		dbg(udev, "removing index: '%s'\n", filename);
-		unlink(filename);
-		util_delete_path(udev, filename);
+		if (unlink(filename) == 0)
+			rmdir(dirname);
 	}
 
 	target = link_find_prioritized(dev, add, dirname, buf, sizeof(buf));
 	if (target == NULL) {
 		info(udev, "no reference left, remove '%s'\n", slink);
-		unlink(slink);
-		util_delete_path(udev, slink);
+		if (unlink(slink) == 0)
+			util_delete_path(udev, slink);
 	} else {
 		info(udev, "creating link '%s' to '%s'\n", slink, target);
 		node_symlink(udev, target, slink);
@@ -427,7 +427,8 @@ int udev_node_remove(struct udev_device *dev)
 
 	info(udev, "removing device node '%s'\n", devnode);
 	err = util_unlink_secure(udev, devnode);
-	util_delete_path(udev, devnode);
+	if (err == 0)
+		util_delete_path(udev, devnode);
 out:
 	return err;
 }

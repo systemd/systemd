@@ -74,7 +74,7 @@ int util_delete_path(struct udev *udev, const char *path)
 {
 	char p[UTIL_PATH_SIZE];
 	char *pos;
-	int retval;
+	int err = 0;
 
 	if (path[0] == '/')
 		while(path[1] == '/')
@@ -92,19 +92,14 @@ int util_delete_path(struct udev *udev, const char *path)
 		if ((pos == p) || (pos == NULL))
 			break;
 
-		/* remove if empty */
-		retval = rmdir(p);
-		if (errno == ENOENT)
-			retval = 0;
-		if (retval) {
-			if (errno == ENOTEMPTY)
-				return 0;
-			err(udev, "rmdir(%s) failed: %m\n", p);
+		err = rmdir(p);
+		if (err < 0) {
+			if (errno == ENOENT)
+				err = 0;
 			break;
 		}
-		dbg(udev, "removed '%s'\n", p);
 	}
-	return 0;
+	return err;
 }
 
 /* Reset permissions on the device node, before unlinking it to make sure,
