@@ -438,6 +438,18 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>TCPCongestion=</varname></term>
+                                <listitem><para>Takes a string
+                                value. Controls the TCP congestion
+                                algorithm used by this socket. Should
+                                be one of "westwood", "veno", "cubic",
+                                "lp" or any other available algorithm
+                                supported by the IP stack. This
+                                setting applies only to stream
+                                sockets.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>ExecStartPre=</varname></term>
                                 <term><varname>ExecStartPost=</varname></term>
                                 <listitem><para>Takes one or more

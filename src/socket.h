@@ -114,6 +114,7 @@ struct Socket {
         int mark;
         bool free_bind;
         char *bind_to_device;
+        char *tcp_congestion;
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
         SocketAddressBindIPv6Only bind_ipv6_only;

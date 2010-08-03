@@ -31,6 +31,7 @@
 
 #include "unit.h"
 #include "socket.h"
+#include "netinet/tcp.h"
 #include "log.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
@@ -115,6 +116,9 @@ static void socket_done(Unit *u) {
         socket_unwatch_control_pid(s);
 
         s->service = NULL;
+
+        free(s->tcp_congestion);
+        s->tcp_congestion = NULL;
 
         free(s->bind_to_device);
         s->bind_to_device = NULL;
@@ -371,14 +375,16 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n"
                 "%sKeepAlive: %s\n"
-                "%sFreeBind: %s\n",
+                "%sFreeBind: %s\n"
+                "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
                 prefix, s->backlog,
                 prefix, s->socket_mode,
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
-                prefix, yes_no(s->free_bind));
+                prefix, yes_no(s->free_bind),
+                prefix, s->tcp_congestion);
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -632,6 +638,10 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 if (r < 0 && x < 0)
                         log_warning("IP_TTL/IPV6_UNICAST_HOPS failed: %m");
         }
+
+        if (s->tcp_congestion)
+                if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
+                        log_warning("TCP_CONGESTION failed: %m");
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {

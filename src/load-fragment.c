@@ -1616,6 +1616,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Mark",                   config_parse_int,             &u->socket.mark,                                 "Socket"  },
                 { "PipeSize",               config_parse_size,            &u->socket.pipe_size,                            "Socket"  },
                 { "FreeBind",               config_parse_bool,            &u->socket.free_bind,                            "Socket"  },
+                { "TCPCongestion",          config_parse_string,          &u->socket.tcp_congestion,                       "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 { "What",                   config_parse_string,          &u->mount.parameters_fragment.what,              "Mount"   },
