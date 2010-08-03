@@ -1,3 +1,10 @@
+* have a simple syslog bridge providing /dev/log and forward messages
+  to /dev/kmsg. at the moment the real syslog can be started, the bridge
+  is stopped and the open /dev/log fd to the real syslog. that way we
+  don't lose any early log message, and simple systems have full syslog
+  support in the kernel ringbuffer, without any syslog service or disk
+  access
+
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
 
 * implicitly import "defaults" settings file into all types
@@ -14,7 +21,6 @@
 * port over to LISTEN_FDS/LISTEN_PID:
 
    - uuidd    DONE
-   - nscd     DONE
    - dbus     DONE
    - rsyslog  DONE
    - rpcbind (/var/run/rpcbind.sock!) DONE
