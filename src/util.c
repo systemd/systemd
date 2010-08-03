@@ -100,12 +100,15 @@ int label_init(void) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
-        if (use_selinux()) {
-                label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
-                if (!label_hnd) {
-                        log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, "Failed to initialize SELinux context: %m");
-                        r = (security_getenforce() == 1) ? -errno : 0;
-                }
+
+        if (!use_selinux())
+                return 0;
+
+        label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
+        if (!label_hnd) {
+                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
+                         "Failed to initialize SELinux context: %m");
+                r = (security_getenforce() == 1) ? -errno : 0;
         }
 #endif
 
@@ -114,26 +117,30 @@ int label_init(void) {
 
 int label_fix(const char *path) {
         int r = 0;
+
 #ifdef HAVE_SELINUX
         struct stat st;
         security_context_t fcon;
-        if (use_selinux()) {
-                r = lstat(path, &st);
+
+        if (!use_selinux())
+                return 0;
+
+        r = lstat(path, &st);
+        if (r == 0) {
+                r = selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode);
 
                 if (r == 0) {
-                        r = selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode);
-
-                        if (r == 0) {
-                                r = setfilecon(path, fcon);
-                                freecon(fcon);
-                        }
-                }
-                if (r < 0) {
-                        log_error("Unable to fix label of %s: %m", path);
-                        r = (security_getenforce() == 1) ? -errno : 0;
+                        r = setfilecon(path, fcon);
+                        freecon(fcon);
                 }
         }
+        if (r < 0) {
+                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
+                         "Unable to fix label of %s: %m", path);
+                r = (security_getenforce() == 1) ? -errno : 0;
+        }
 #endif
+
         return r;
 }
 
@@ -143,17 +150,20 @@ void label_finish(void) {
         if (use_selinux())
                 selabel_close(label_hnd);
 #endif
-
 }
 
-int label_get_socket_label_from_exe(
-        const char *exe,
-        char **label) {
+int label_get_socket_label_from_exe(const char *exe, char **label) {
+
         int r = 0;
 
 #ifdef HAVE_SELINUX
         security_context_t mycon = NULL, fcon = NULL;
         security_class_t sclass;
+
+        if (!use_selinux()) {
+                *label = NULL;
+                return 0;
+        }
 
         r = getcon(&mycon);
         if (r < 0)
@@ -169,7 +179,7 @@ int label_get_socket_label_from_exe(
                 log_debug("SELinux Socket context for %s will be set to %s", exe, *label);
 
 fail:
-        if (r< 0 && security_getenforce() == 1)
+        if (r < 0 && security_getenforce() == 1)
                 r = -errno;
 
         freecon(mycon);
@@ -184,19 +194,21 @@ int label_fifofile_set(const char *label, const char *path) {
 
 #ifdef HAVE_SELINUX
         security_context_t filecon = NULL;
-        if (use_selinux() && label) {
-                if (((r = label_get_file_label_from_path(label, path, "fifo_file", &filecon)) == 0)) {
-                        if ((r = setfscreatecon(filecon)) < 0) {
-                                log_error("Failed to set SELinux file context (%s) on %s: %m", label, path);
-                                r = -errno;
-                        }
 
-                        freecon(filecon);
+        if (!use_selinux() || !label)
+                return 0;
+
+        if (((r = label_get_file_label_from_path(label, path, "fifo_file", &filecon)) == 0)) {
+                if ((r = setfscreatecon(filecon)) < 0) {
+                        log_error("Failed to set SELinux file context (%s) on %s: %m", label, path);
+                        r = -errno;
                 }
 
-                if (r < 0  && security_getenforce() == 0)
-                        r = 0;
+                freecon(filecon);
         }
+
+        if (r < 0 && security_getenforce() == 0)
+                r = 0;
 #endif
 
         return r;
@@ -205,8 +217,13 @@ int label_fifofile_set(const char *label, const char *path) {
 int label_socket_set(const char *label) {
 
 #ifdef HAVE_SELINUX
-        if (use_selinux() && setsockcreatecon((security_context_t) label) < 0) {
-                log_error("Failed to set SELinux context (%s) on socket: %m", label);
+        if (!use_selinux())
+                return 0;
+
+        if (setsockcreatecon((security_context_t) label) < 0) {
+                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
+                         "Failed to set SELinux context (%s) on socket: %m", label);
+
                 if (security_getenforce() == 1)
                         return -errno;
         }
@@ -218,31 +235,31 @@ int label_socket_set(const char *label) {
 void label_file_clear(void) {
 
 #ifdef HAVE_SELINUX
-        if (use_selinux())
-                setfscreatecon(NULL);
+        if (!use_selinux())
+                return;
+
+        setfscreatecon(NULL);
 #endif
-
-        return;
-}
-
-void label_free(const char *label) {
-
-#ifdef HAVE_SELINUX
-        if (use_selinux())
-                freecon((security_context_t) label);
-#endif
-
-        return;
 }
 
 void label_socket_clear(void) {
 
 #ifdef HAVE_SELINUX
-        if (use_selinux())
-                setsockcreatecon(NULL);
-#endif
+        if (!use_selinux())
+                return;
 
-        return;
+        setsockcreatecon(NULL);
+#endif
+}
+
+void label_free(const char *label) {
+
+#ifdef HAVE_SELINUX
+        if (!use_selinux())
+                return;
+
+        freecon((security_context_t) label);
+#endif
 }
 
 static int label_mkdir(
