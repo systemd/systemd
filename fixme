@@ -61,6 +61,10 @@
 
 * if a service fails too often, make the service enter maintainence mode, and the socket, too.
 
+* systemctl reboot von getty tty1 hämgt
+
+* keine meldung by wants vs. conflicts
+
 External:
 
 * default.target must be %ghosted...
@@ -73,10 +77,6 @@ External:
   http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
 
 * patch /etc/init.d/functions with:
-
-* systemctl reboot von getty tty1 hämgt
-
-* keine meldung by wants vs. conflicts
 
   if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
 
