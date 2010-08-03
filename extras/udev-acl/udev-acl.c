@@ -224,14 +224,10 @@ static int consolekit_called(const char *ck_action, uid_t *uid, uid_t *uid2, con
 		if (s == NULL)
 			return -1;
 		u = strtoul(s, NULL, 10);
-		if (u == 0)
-			return 0;
 		s = getenv("CK_SEAT_SESSION_USER_UID");
 		if (s == NULL)
 			return -1;
 		u2 = strtoul(s, NULL, 10);
-		if (u2 == 0)
-			return 0;
 
 		s = getenv("CK_SEAT_OLD_SESSION_IS_LOCAL");
 		s2 = getenv("CK_SEAT_SESSION_IS_LOCAL");
@@ -263,12 +259,11 @@ static int consolekit_called(const char *ck_action, uid_t *uid, uid_t *uid2, con
 			a = ACTION_ADD;
 			u = u2;
 		}
-
 		break;
 	case ACTION_NONE:
 		break;
 	default:
-		g_assert_not_reached ();
+		g_assert_not_reached();
 		break;
 	}
 
