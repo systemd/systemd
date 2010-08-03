@@ -16,7 +16,6 @@ Description=Getty on %I
 Before=getty.target
 m4_ifdef(`TARGET_FEDORA',
 After=rc-local.service
-Before=prefdm.service
 )m4_dnl
 m4_ifdef(`TARGET_ARCH',
 After=rc-local.service
