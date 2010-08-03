@@ -56,7 +56,7 @@
 #include "log.h"
 #include "strv.h"
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #include <selinux/label.h>
 
@@ -99,7 +99,7 @@ static int label_get_file_label_from_path(
 int label_init(void) {
         int r = 0;
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         if (use_selinux()) {
                 label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
                 if (!label_hnd) {
@@ -114,7 +114,7 @@ int label_init(void) {
 
 int label_fix(const char *path) {
         int r = 0;
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         struct stat st;
         security_context_t fcon;
         if (use_selinux()) {
@@ -139,7 +139,7 @@ int label_fix(const char *path) {
 
 void label_finish(void) {
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         if (use_selinux())
                 selabel_close(label_hnd);
 #endif
@@ -151,7 +151,7 @@ int label_get_socket_label_from_exe(
         char **label) {
         int r = 0;
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         security_context_t mycon = NULL, fcon = NULL;
         security_class_t sclass;
 
@@ -182,7 +182,7 @@ fail:
 int label_fifofile_set(const char *label, const char *path) {
         int r = 0;
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         security_context_t filecon = NULL;
         if (use_selinux() && label) {
                 if (((r = label_get_file_label_from_path(label, path, "fifo_file", &filecon)) == 0)) {
@@ -204,7 +204,7 @@ int label_fifofile_set(const char *label, const char *path) {
 
 int label_socket_set(const char *label) {
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         if (use_selinux() && setsockcreatecon((security_context_t) label) < 0) {
                 log_error("Failed to set SELinux context (%s) on socket: %m", label);
                 if (security_getenforce() == 1)
@@ -217,7 +217,7 @@ int label_socket_set(const char *label) {
 
 void label_file_clear(void) {
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         if (use_selinux())
                 setfscreatecon(NULL);
 #endif
@@ -227,7 +227,7 @@ void label_file_clear(void) {
 
 void label_free(const char *label) {
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         if (use_selinux())
                 freecon((security_context_t) label);
 #endif
@@ -237,7 +237,7 @@ void label_free(const char *label) {
 
 void label_socket_clear(void) {
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         if (use_selinux())
                 setsockcreatecon(NULL);
 #endif
@@ -249,7 +249,7 @@ static int label_mkdir(
         const char *path,
         mode_t mode) {
 
-#if HAVE_SELINUX
+#ifdef HAVE_SELINUX
         int r;
         security_context_t fcon = NULL;
 
