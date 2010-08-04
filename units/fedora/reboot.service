@@ -16,4 +16,4 @@ Type=finish
 ValidNoProcess=yes
 Environment=RUNLEVEL=6
 ExecStart=/etc/init.d/reboot start
-StandardInput=tty
+StandardOutput=tty

@@ -61,9 +61,11 @@
 
 * if a service fails too often, make the service enter maintainence mode, and the socket, too.
 
-* systemctl reboot von getty tty1 hämgt
+* systemctl reboot von getty tty1 hängt
 
 * keine meldung by wants vs. conflicts
+
+* send cgroup msg directly
 
 External:
 
