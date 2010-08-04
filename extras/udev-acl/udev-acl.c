@@ -12,20 +12,18 @@
  * General Public License for more details:
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <inttypes.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <acl/libacl.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <getopt.h>
-#include <sys/stat.h>
 #include <glib.h>
-#include <acl/libacl.h>
+#include <inttypes.h>
 #include <libudev.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 static int debug;
 
@@ -44,6 +42,10 @@ static int set_facl(const char* filename, uid_t uid, int add)
 	acl_entry_t e;
 	acl_permset_t permset;
 	int ret;
+
+	/* don't touch ACLs for root */
+	if (uid == 0)
+		return 0;
 
 	/* read current record */
 	acl = acl_get_file(filename, ACL_TYPE_ACCESS);
@@ -190,8 +192,6 @@ static int consolekit_called(const char *ck_action, uid_t *uid, uid_t *uid2, con
 		if (s == NULL)
 			return -1;
 		u = strtoul(s, NULL, 10);
-		if (u == 0)
-			return 0;
 
 		s = getenv("CK_SEAT_SESSION_IS_LOCAL");
 		if (s == NULL)
@@ -205,8 +205,6 @@ static int consolekit_called(const char *ck_action, uid_t *uid, uid_t *uid2, con
 		if (s == NULL)
 			return -1;
 		u = strtoul(s, NULL, 10);
-		if (u == 0)
-			return 0;
 
 		s = getenv("CK_SEAT_OLD_SESSION_IS_LOCAL");
 		if (s == NULL)
@@ -331,6 +329,7 @@ int main (int argc, char* argv[])
 	};
 	int action = -1;
 	const char *device = NULL;
+	bool uid_given = false;
 	uid_t uid = 0;
 	uid_t uid2 = 0;
 	const char* remove_session_id = NULL;
@@ -357,6 +356,7 @@ int main (int argc, char* argv[])
 			device = optarg;
 			break;
 		case 'u':
+			uid_given = true;
 			uid = strtoul(optarg, NULL, 10);
 			break;
 		case 'd':
@@ -369,8 +369,9 @@ int main (int argc, char* argv[])
 		}
 	}
 
-	if (action < 0 && device == NULL && uid == 0)
-		consolekit_called(argv[optind], &uid, &uid2, &remove_session_id, &action);
+	if (action < 0 && device == NULL && !uid_given)
+		if (!consolekit_called(argv[optind], &uid, &uid2, &remove_session_id, &action))
+			uid_given = true;
 
 	if (action < 0) {
 		fprintf(stderr, "missing action\n\n");
@@ -378,13 +379,13 @@ int main (int argc, char* argv[])
 		goto out;
 	}
 
-	if (device != NULL && uid != 0) {
+	if (device != NULL && uid_given) {
 		fprintf(stderr, "only one option, --device=DEVICEFILE or --user=UID expected\n\n");
 		rc = 3;
 		goto out;
 	}
 
-	if (uid != 0) {
+	if (uid_given) {
 		switch (action) {
 		case ACTION_ADD:
 			/* Add ACL for given uid to all matching devices. */
