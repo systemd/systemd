@@ -16,4 +16,4 @@ Type=finish
 ValidNoProcess=yes
 Environment=COLD_BOOT=1
 ExecStart=/etc/init.d/reboot
-StandardInput=tty
+StandardOutput=tty
