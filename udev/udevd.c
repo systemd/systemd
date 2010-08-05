@@ -900,10 +900,14 @@ static void static_dev_create_links(struct udev *udev, DIR *dir)
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(stdlinks); i++) {
-		udev_selinux_setfscreateconat(udev, dirfd(dir), stdlinks[i].link, S_IFLNK);
-		if (symlinkat(stdlinks[i].target, dirfd(dir), stdlinks[i].link) < 0 && errno == EEXIST)
-			utimensat(dirfd(dir), stdlinks[i].link, NULL, AT_SYMLINK_NOFOLLOW);
-		udev_selinux_resetfscreatecon(udev);
+		struct stat sb;
+
+		if (stat(stdlinks[i].target, &sb) == 0) {
+			udev_selinux_setfscreateconat(udev, dirfd(dir), stdlinks[i].link, S_IFLNK);
+			if (symlinkat(stdlinks[i].target, dirfd(dir), stdlinks[i].link) < 0 && errno == EEXIST)
+				utimensat(dirfd(dir), stdlinks[i].link, NULL, AT_SYMLINK_NOFOLLOW);
+			udev_selinux_resetfscreatecon(udev);
+		}
 	}
 }
 
