@@ -3933,7 +3933,8 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
-                        arg_action = ACTION_POWEROFF;
+                        if (arg_action != ACTION_REBOOT)
+                                arg_action = ACTION_POWEROFF;
                         break;
 
                 case ARG_REBOOT:
