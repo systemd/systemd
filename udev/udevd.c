@@ -402,13 +402,13 @@ static void event_run(struct event *event, bool force)
 	worker_new(event);
 }
 
-static void event_queue_insert(struct udev_device *dev)
+static int event_queue_insert(struct udev_device *dev)
 {
 	struct event *event;
 
 	event = calloc(1, sizeof(struct event));
 	if (event == NULL)
-		return;
+		return -1;
 
 	event->udev = udev_device_get_udev(dev);
 	event->dev = dev;
@@ -429,8 +429,10 @@ static void event_queue_insert(struct udev_device *dev)
 	/* run all events with a timeout set immediately */
 	if (udev_device_get_timeout(dev) > 0) {
 		event_run(event, true);
-		return;
+		return 0;
 	}
+
+	return 0;
 }
 
 static void worker_kill(struct udev *udev, int retain)
@@ -1351,9 +1353,8 @@ int main(int argc, char *argv[])
 
 			dev = udev_monitor_receive_device(monitor);
 			if (dev != NULL)
-				event_queue_insert(dev);
-			else
-				udev_device_unref(dev);
+				if (event_queue_insert(dev) < 0)
+					udev_device_unref(dev);
 		}
 
 		/* start new events */
