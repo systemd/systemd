@@ -281,7 +281,7 @@ static int mount_add_default_dependencies(Mount *m) {
 
         if (m->meta.manager->running_as == MANAGER_SYSTEM) {
 
-                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_FSCK_TARGET, NULL, true)) < 0)
                         return r;
 
                 if (!path_equal(m->where, "/"))

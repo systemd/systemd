@@ -51,6 +51,7 @@
 #define SPECIAL_BASIC_TARGET "basic.target"
 #define SPECIAL_SOCKETS_TARGET "sockets.target"
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
+#define SPECIAL_FSCK_TARGET "fsck.target"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
 #define SPECIAL_EXIT_SERVICE "exit.service"
 #define SPECIAL_EMERGENCY_TARGET "emergency.target"
