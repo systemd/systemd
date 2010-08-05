@@ -885,7 +885,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
         /* Have we seen this before? */
         if (j->generation == generation) {
-                Job *k;
+                Job *k, *delete;
 
                 /* If the marker is NULL we have been here already and
                  * decided the job was loop-free from here. Hence
@@ -901,23 +901,30 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                  * in there. */
                 log_warning("Found ordering cycle on %s/%s", j->unit->meta.id, job_type_to_string(j->type));
 
+                delete = NULL;
                 for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
 
                         log_info("Walked on cycle path to %s/%s", k->unit->meta.id, job_type_to_string(k->type));
 
-                        if (!k->installed &&
+                        if (!delete &&
+                            !k->installed &&
                             !unit_matters_to_anchor(k->unit, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
-                                log_warning("Breaking order cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
-                                transaction_delete_unit(m, k->unit);
-                                return -EAGAIN;
+                                delete = k;
                         }
 
                         /* Check if this in fact was the beginning of
                          * the cycle */
                         if (k == j)
                                 break;
+                }
+
+
+                if (delete) {
+                        log_warning("Breaking ordering cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
+                        transaction_delete_unit(m, delete->unit);
+                        return -EAGAIN;
                 }
 
                 log_error("Unable to break cycle");
