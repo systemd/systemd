@@ -1068,7 +1068,7 @@ static void transaction_minimize_impact(Manager *m) {
                                         j->type == JOB_STOP && UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(j->unit));
 
                                 changes_existing_job =
-                                        j->unit->meta.job && job_type_is_conflicting(j->type, j->unit->meta.job->state);
+                                        j->unit->meta.job && job_type_is_conflicting(j->type, j->unit->meta.job->type);
 
                                 if (!stops_running_service && !changes_existing_job)
                                         continue;
