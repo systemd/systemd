@@ -42,14 +42,6 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*",  TAG+="udev-acl"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", TAG+="udev-acl"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", TAG+="udev-acl"
 
-# fingerprint readers
-SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="2016", TAG+="udev-acl"
-
-# GPS devices
- # Garmin GPSMap 60
-SUBSYSTEM=="usb", ATTR{idVendor}=="091e", ATTR{idProduct}=="0003", TAG+="udev-acl"
-
-
 # DRI video devices
 SUBSYSTEM=="drm", KERNEL=="card*", TAG+="udev-acl"
 
@@ -61,9 +53,6 @@ ENV{ID_SMARTCARD_READER}=="*?", TAG+="udev-acl"
 
 # joysticks
 SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", TAG+="udev-acl"
-
-# smart phones
-SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="0c02", TAG+="udev-acl"
 
 # color measurement devices
 ENV{COLOR_MEASUREMENT_DEVICE}=="*?", TAG+="udev-acl"
