@@ -56,11 +56,15 @@ static const struct {
         { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
 
+#ifdef TARGET_SUSE
         /* SUSE style boot.d */
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
+#endif
 
+#ifdef TARGET_DEBIAN
         /* Debian style rcS.d */
         { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
+#endif
 
         /* Standard SysV runlevels for shutdown */
         { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
