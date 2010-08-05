@@ -20,6 +20,6 @@ Restart=restart-always
 RestartSec=0
 KillMode=process-group
 
-# Bash ignores SIGTERM, so we send SIGHUP first, to ensure that bash
+# Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
 # terminates cleanly.
-ExecStop=-/bin/kill -HUP ${MAINPID}
+KillSignal=SIGHUP

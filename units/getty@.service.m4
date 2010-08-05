@@ -27,9 +27,10 @@ ExecStart=GETTY %I
 Restart=restart-always
 RestartSec=0
 KillMode=process-group
-m4_ifdef(`TARGET_SUSE',
+
+# Some login implementations ignore SIGTERM, so we send SIGHUP
+# instead, to ensure that login terminates cleanly.
 KillSignal=SIGHUP
-)m4_dnl
 
 [Install]
 Alias=getty.target.wants/getty@tty1.service getty.target.wants/getty@tty2.service getty.target.wants/getty@tty3.service getty.target.wants/getty@tty4.service getty.target.wants/getty@tty5.service getty.target.wants/getty@tty6.service
