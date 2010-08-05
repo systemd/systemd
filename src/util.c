@@ -122,7 +122,7 @@ int label_fix(const char *path) {
         struct stat st;
         security_context_t fcon;
 
-        if (!use_selinux())
+        if (!use_selinux() || !label_hnd)
                 return 0;
 
         r = lstat(path, &st);
@@ -147,7 +147,7 @@ int label_fix(const char *path) {
 void label_finish(void) {
 
 #ifdef HAVE_SELINUX
-        if (use_selinux())
+        if (use_selinux() && label_hnd)
                 selabel_close(label_hnd);
 #endif
 }
@@ -270,7 +270,7 @@ static int label_mkdir(
         int r;
         security_context_t fcon = NULL;
 
-        if (use_selinux()) {
+        if (use_selinux() && label_hnd) {
                 if (path[0] == '/') {
                         r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
                 }
@@ -300,7 +300,7 @@ static int label_mkdir(
         r = mkdir(path, mode);
 
 finish:
-        if (use_selinux()) {
+        if (use_selinux() && label_hnd) {
                 setfscreatecon(NULL);
                 freecon(fcon);
         }
