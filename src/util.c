@@ -62,11 +62,11 @@
 
 static struct selabel_handle *label_hnd = NULL;
 
-static inline int use_selinux(void) {
+static inline bool use_selinux(void) {
         static int use_selinux_ind = -1;
 
-        if (use_selinux_ind == -1)
-                use_selinux_ind = (is_selinux_enabled() == 1);
+        if (use_selinux_ind < 0)
+                use_selinux_ind = is_selinux_enabled() > 0;
 
         return use_selinux_ind;
 }
@@ -84,6 +84,8 @@ static int label_get_file_label_from_path(
         r = getfilecon(path, &dir_con);
         if (r >= 0) {
                 r = -1;
+                errno = EINVAL;
+
                 if ((sclass = string_to_security_class(class)) != 0)
                         r = security_compute_create((security_context_t) label, dir_con, sclass, fcon);
         }
