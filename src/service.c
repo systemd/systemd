@@ -292,6 +292,7 @@ static int sysv_fix_order(Service *s) {
         LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_SERVICE]) {
                 Service *t;
                 UnitDependency d;
+                bool special_s, special_t;
 
                 t = (Service*) other;
 
@@ -307,7 +308,14 @@ static int sysv_fix_order(Service *s) {
                     (!t->sysv_path || t->sysv_has_lsb))
                         continue;
 
-                if (t->sysv_start_priority < s->sysv_start_priority)
+                special_s = s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels);
+                special_t = t->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, t->sysv_runlevels);
+
+                if (special_t && !special_s)
+                        d = UNIT_AFTER;
+                else if (special_s && !special_t)
+                        d = UNIT_BEFORE;
+                else if (t->sysv_start_priority < s->sysv_start_priority)
                         d = UNIT_AFTER;
                 else if (t->sysv_start_priority > s->sysv_start_priority)
                         d = UNIT_BEFORE;
