@@ -61,11 +61,9 @@
 
 * if a service fails too often, make the service enter maintainence mode, and the socket, too.
 
-* keine meldung by wants vs. conflicts
-
 * send cgroup msg directly
 
-* fix graphical vs getty@tty1 output
+* don't show file not found msgs for irrelevant units
 
 External:
 

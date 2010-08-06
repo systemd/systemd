@@ -746,7 +746,7 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
                                 return -ENOEXEC;
 
                         /* Ok, we can drop one, so let's do so. */
-                        log_notice("Trying to fix job merging by deleting job %s/%s", d->unit->meta.id, job_type_to_string(d->type));
+                        log_debug("Fixing conflicting jobs by deleting job %s/%s", d->unit->meta.id, job_type_to_string(d->type));
                         transaction_delete_job(m, d, true);
                         return 0;
                 }
@@ -1309,7 +1309,7 @@ void manager_transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies
                 job_dependency_free(j->object_list);
 
                 if (other && delete_dependencies) {
-                        log_info("Deleting job %s/%s as dependency of job %s/%s",
+                        log_debug("Deleting job %s/%s as dependency of job %s/%s",
                                   other->unit->meta.id, job_type_to_string(other->type),
                                   j->unit->meta.id, job_type_to_string(j->type));
                         transaction_delete_job(m, other, delete_dependencies);
