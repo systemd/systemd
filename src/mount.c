@@ -279,14 +279,14 @@ static int mount_add_default_dependencies(Mount *m) {
 
         assert(m);
 
-        if (m->meta.manager->running_as == MANAGER_SYSTEM) {
+        if (m->meta.manager->running_as == MANAGER_SYSTEM &&
+            !path_equal(m->where, "/")) {
 
                 if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_FSCK_TARGET, NULL, true)) < 0)
                         return r;
 
-                if (!path_equal(m->where, "/"))
-                        if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
-                                return r;
+                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                        return r;
         }
 
         return 0;

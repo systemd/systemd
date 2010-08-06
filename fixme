@@ -61,19 +61,17 @@
 
 * if a service fails too often, make the service enter maintainence mode, and the socket, too.
 
-* systemctl reboot von getty tty1 hängt
-
 * keine meldung by wants vs. conflicts
 
 * send cgroup msg directly
 
+* fix graphical vs getty@tty1 output
+
 External:
 
-* default.target must be %ghosted...
+* agetty should not modify baudrate
 
-* in %post create all symlinks manually and use inittab data
-
-* default logic for serial getty, ck logging, ssh readahead
+* ck logging, ssh readahead
 
 * pam: fix double sudo session cleanup:
   http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
