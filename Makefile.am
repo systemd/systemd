@@ -479,7 +479,8 @@ systemd_initctl_LDADD = \
 	$(DBUS_LIBS)
 
 systemd_cgroups_agent_SOURCES = \
-	src/cgroups-agent.c
+	src/cgroups-agent.c \
+	src/dbus-common.c
 
 systemd_cgroups_agent_CFLAGS = \
 	$(AM_CFLAGS) \

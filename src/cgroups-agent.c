@@ -22,6 +22,7 @@
 #include <dbus/dbus.h>
 
 #include "log.h"
+#include "dbus-common.h"
 
 int main(int argc, char *argv[]) {
         DBusError error;
@@ -36,9 +37,25 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_parse_environment();
+
+        /* If possible we go via the system bus, to make sure that
+         * session instances get the messages. If not possible we talk
+         * to the system instance directly. */
         if (!(bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error))) {
-                log_error("Failed to get D-Bus connection: %s", error.message);
-                goto finish;
+
+                dbus_error_free(&error);
+
+                if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
+                        log_error("Failed to get D-Bus connection: %s", error.message);
+                        goto finish;
+                }
+
+                if (bus_check_peercred(bus) < 0) {
+                        log_error("Bus owner not root.");
+                        goto finish;
+                }
         }
 
         if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1/agent", "org.freedesktop.systemd1.Agent", "Released"))) {

@@ -474,10 +474,13 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
 
 static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, DBusMessage *message, void *data) {
         Manager *m = data;
+        DBusError error;
 
         assert(connection);
         assert(message);
         assert(m);
+
+        dbus_error_init(&error);
 
         if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL ||
             dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL)
@@ -488,6 +491,18 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected"))
                 shutdown_connection(m, connection);
+        else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
+                const char *cgroup;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_STRING, &cgroup,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse Released message: %s", error.message);
+                else
+                        cgroup_notify_empty(m, cgroup);
+        }
+
+        dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
