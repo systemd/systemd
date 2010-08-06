@@ -1936,6 +1936,12 @@ char *format_timespan(char *buf, size_t l, usec_t t) {
         if (t == (usec_t) -1)
                 return NULL;
 
+        if (t == 0) {
+                snprintf(p, l, "0");
+                p[l-1] = 0;
+                return p;
+        }
+
         /* The result of this function can be parsed with parse_usec */
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
