@@ -73,11 +73,13 @@
 
 * if a service fails too often, make the service enter maintainence mode, and the socket, too.
 
-* send cgroup msg directly
-
 * don't show file not found msgs for irrelevant units
 
+* getty doesn't respawn
+
 External:
+
+* sysv functions should color when stdout is tty, not stdin
 
 * agetty should not modify baudrate
 

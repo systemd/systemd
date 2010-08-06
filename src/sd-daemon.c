@@ -325,7 +325,7 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
 }
 
 int sd_notify(int unset_environment, const char *state) {
-#if defined(DISABLE_SYSTEMD) || !defined(__linux__)
+#if defined(DISABLE_SYSTEMD) || !defined(__linux__) || !defined(SOCK_CLOEXEC)
         return 0;
 #else
         int fd = -1, r;
