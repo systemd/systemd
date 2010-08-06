@@ -195,7 +195,6 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
         }
 
         if (!u) {
-                Device *first;
                 delete = true;
 
                 if (!(u = unit_new(m)))
@@ -204,12 +203,21 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                 if ((r = device_add_escaped_name(u, path)) < 0)
                         goto fail;
 
+                unit_add_to_load_queue(u);
+        } else
+                delete = false;
+
+        /* If this was created via some dependency and has not
+         * actually been seen yet ->sysfs will not be
+         * initialized. Hence initialize it if necessary. */
+
+        if (!DEVICE(u)->sysfs) {
+                Device *first;
+
                 if (!(DEVICE(u)->sysfs = strdup(sysfs))) {
                         r = -ENOMEM;
                         goto fail;
                 }
-
-                unit_add_to_load_queue(u);
 
                 if (!m->devices_by_sysfs)
                         if (!(m->devices_by_sysfs = hashmap_new(string_hash_func, string_compare_func))) {
@@ -222,9 +230,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
 
                 if ((r = hashmap_replace(m->devices_by_sysfs, DEVICE(u)->sysfs, first)) < 0)
                         goto fail;
-
-        } else
-                delete = false;
+        }
 
         if ((model = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE")) ||
             (model = udev_device_get_property_value(dev, "ID_MODEL"))) {
