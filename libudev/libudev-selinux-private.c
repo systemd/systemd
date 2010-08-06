@@ -83,7 +83,7 @@ void udev_selinux_resetfscreatecon(struct udev *udev)
 		err(udev, "setfscreatecon failed: %m\n");
 }
 
-void udev_selinux_setfscreateconat(struct udev *udev, int dirfd, const char *file, unsigned int mode)
+void udev_selinux_setfscreateconat(struct udev *udev, int dfd, const char *file, unsigned int mode)
 {
 	char filename[UTIL_PATH_SIZE];
 
