@@ -828,6 +828,10 @@ endif</programlisting>
 if [ $1 -eq 1 ]; then
         # Enable (but don't start) the units by default
         /bin/systemctl enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+
+        # Alternatively, just call /bin/systemctl daemon-reload here,
+        # if the daemon should not be enabled by default on package
+        # installation
 fi
 
 %preun
@@ -853,6 +857,29 @@ fi</programlisting>
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                         for details.</para>
 
+                        <para>To facilitate upgrades from a package
+                        version that shipped only SysV init scripts to
+                        a package version that ships both a SysV init
+                        script and a native systemd service file, use
+                        a fragment like the following:</para>
+
+                        <programlisting>%triggerin -- foobar &lt; 0.47.11-1
+if /sbin/chkconfig foobar ; then
+        /bin/systemctl enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+fi</programlisting>
+
+                        <para>Where 0.47.11-1 is the first package
+                        version that includes the native unit
+                        file. This fragment will ensure that the first
+                        time the unit file is installed it will be
+                        enabled if and only if the SysV init script is
+                        enabled, thus making sure that the the enable
+                        status is not changed. Note that
+                        <command>chkconfig</command> is a command
+                        specific Fedora which can be used to check
+                        whether a SysV init script is enabled. Other
+                        operating systems will have to use different
+                        commands here.</para>
                 </refsect2>
         </refsect1>
 
