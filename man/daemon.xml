@@ -876,7 +876,7 @@ fi</programlisting>
                         enabled, thus making sure that the the enable
                         status is not changed. Note that
                         <command>chkconfig</command> is a command
-                        specific Fedora which can be used to check
+                        specific to Fedora which can be used to check
                         whether a SysV init script is enabled. Other
                         operating systems will have to use different
                         commands here.</para>
