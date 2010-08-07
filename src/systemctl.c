@@ -489,7 +489,7 @@ static int dot(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_message_iter_recurse(&iter, &sub);
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *id, *description, *load_state, *active_state, *sub_state, *unit_path;
+                const char *id, *description, *load_state, *active_state, *sub_state, *following, *unit_path;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
@@ -504,6 +504,7 @@ static int dot(DBusConnection *bus, char **args, unsigned n) {
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &load_state, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &active_state, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &sub_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &following, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path, true) < 0) {
                         log_error("Failed to parse reply.");
                         r = -EIO;
