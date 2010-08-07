@@ -873,7 +873,7 @@ fi</programlisting>
                         file. This fragment will ensure that the first
                         time the unit file is installed it will be
                         enabled if and only if the SysV init script is
-                        enabled, thus making sure that the the enable
+                        enabled, thus making sure that the enable
                         status is not changed. Note that
                         <command>chkconfig</command> is a command
                         specific to Fedora which can be used to check
