@@ -573,10 +573,10 @@ static int cd_media_info(struct udev *udev, int fd)
 	if (!cd_media_cd_rom)
 		cd_media_state = media_status[header[2] & 3];
 
-	/* DVD+RW discs once formatted are always "complete", DVD-RAM are
-	 * "other" or "complete" if the disc is write protected; we need to
-	 * check the contents if it is blank */
-	if ((cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) && (header[2] & 3) > 1) {
+	/* DVD+RW discs (and DVD-RW in restricted mode) once formatted are
+	 * always "complete", DVD-RAM are "other" or "complete" if the disc is
+	 * write protected; we need to check the contents if it is blank */
+	if ((cd_media_dvd_rw || cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) && (header[2] & 3) > 1) {
 		unsigned char buffer[17 * 2048];
 		unsigned char result, len;
 		int block, offset;
