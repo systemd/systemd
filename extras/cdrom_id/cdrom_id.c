@@ -348,6 +348,41 @@ static int feature_profiles(struct udev *udev, const unsigned char *profiles, si
 	return 0;
 }
 
+static int cd_profiles_old_mmc(struct udev *udev, int fd)
+{
+	struct scsi_cmd sc;
+	int err;
+
+	unsigned char header[32];
+
+	scsi_cmd_init(udev, &sc, header, sizeof(header));
+	scsi_cmd_set(udev, &sc, 0, 0x51);
+	scsi_cmd_set(udev, &sc, 8, sizeof(header));
+	scsi_cmd_set(udev, &sc, 9, 0);
+	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
+	if ((err != 0)) {
+		info_scsi_cmd_err(udev, "READ DISC INFORMATION", err);
+		info(udev, "no current profile, assuming no media\n");
+		return -1;
+	};
+
+	cd_media = 1;
+
+	if (header[2] & 16) {
+		cd_media_cd_rw = 1;
+		info(udev, "profile 0x0a media_cd_rw\n");
+	}	
+	else if ((header[2] & 3) < 2 && cd_cd_r) { 
+		cd_media_cd_r = 1;
+		info(udev, "profile 0x09 media_cd_r\n");
+	}
+	else {
+	cd_media_cd_rom = 1;
+	info(udev, "profile 0x08 media_cd_rom\n");
+	}
+	return 0;
+}
+
 static int cd_profiles(struct udev *udev, int fd)
 {
 	struct scsi_cmd sc;
@@ -365,6 +400,12 @@ static int cd_profiles(struct udev *udev, int fd)
 	err = scsi_cmd_run(udev, &sc, fd, features, sizeof(features));
 	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
+		/* handle pre-MMC2 drives which do not support GET CONFIGURATION */
+		if (SK(err) == 0x5 && ASC(err) == 0x20) {
+			info(udev, "drive is pre-MMC2 and does not support 46h get configuration command\n");
+			info(udev, "trying to work around the problem\n");
+			return cd_profiles_old_mmc(udev, fd);
+		}
 		return -1;
 	}
 
