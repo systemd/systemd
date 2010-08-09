@@ -14,5 +14,5 @@ OnlyByDependency=yes
 [Service]
 Type=finish
 ValidNoProcess=yes
-ExecStart=/etc/init.d/killprocs start
+ExecStart=-/etc/init.d/killprocs start
 StandardOutput=tty
