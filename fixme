@@ -82,8 +82,6 @@
 
 * don't show file not found msgs for irrelevant units
 
-* getty doesn't respawn
-
 External:
 
 * sysv functions should color when stdout is tty, not stdin

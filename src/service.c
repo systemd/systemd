@@ -1500,7 +1500,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
                 s->failure = true;
 
         if (allow_restart &&
-            s->allow_restart &&
+            !s->forbid_restart &&
             (s->restart == SERVICE_RESTART_ALWAYS ||
              (s->restart == SERVICE_RESTART_ON_SUCCESS && !s->failure))) {
 
@@ -1510,6 +1510,8 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else
                 service_set_state(s, s->failure ? SERVICE_MAINTENANCE : SERVICE_DEAD);
+
+        s->forbid_restart = false;
 
         return;
 
@@ -1932,7 +1934,7 @@ static int service_start(Unit *u) {
 
         s->failure = false;
         s->main_pid_known = false;
-        s->allow_restart = true;
+        s->forbid_restart = false;
 
         service_enter_start_pre(s);
         return 0;
@@ -1945,7 +1947,7 @@ static int service_stop(Unit *u) {
 
         /* This is a user request, so don't do restarts on this
          * shutdown. */
-        s->allow_restart = false;
+        s->forbid_restart = true;
 
         /* Already on it */
         if (s->state == SERVICE_STOP ||
