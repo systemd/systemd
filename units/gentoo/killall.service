@@ -15,4 +15,4 @@ OnlyByDependency=yes
 Type=finish
 ValidNoProcess=yes
 ExecStart=/etc/init.d/killprocs start
-StandardInput=tty
+StandardOutput=tty

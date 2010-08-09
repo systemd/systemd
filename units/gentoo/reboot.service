@@ -15,4 +15,4 @@ After=shutdown.target umount.target killall.service
 Type=finish
 ValidNoProcess=yes
 ExecStart=/etc/init.d/reboot.sh
-StandardInput=tty
+StandardOutput=tty

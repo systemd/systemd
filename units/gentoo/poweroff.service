@@ -16,4 +16,4 @@ Type=finish
 ValidNoProcess=yes
 Environment=RC_DOWN_HARDDISK=yes
 ExecStart=/etc/init.d/shutdown.sh
-StandardInput=tty
+StandardOutput=tty

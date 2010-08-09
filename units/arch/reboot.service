@@ -16,4 +16,4 @@ Type=finish
 ValidNoProcess=yes
 Environment=RUNLEVEL=6
 ExecStart=/etc/rc.shutdown
-StandardInput=tty
+StandardOutput=tty
