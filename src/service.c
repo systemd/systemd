@@ -952,12 +952,14 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sValidNoProcess: %s\n"
                 "%sType: %s\n"
+                "%sRestart: %s\n"
                 "%sNotifyAccess: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->valid_no_process),
                 prefix, service_type_to_string(s->type),
+                prefix, service_restart_to_string(s->restart),
                 prefix, notify_access_to_string(s->notify_access));
 
         if (s->control_pid > 0)
