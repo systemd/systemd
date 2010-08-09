@@ -434,6 +434,9 @@ void bus_unit_send_change_signal(Unit *u) {
                 u->meta.in_dbus_queue = false;
         }
 
+        if (!u->meta.id)
+                return;
+
         if (!bus_has_subscriber(u->meta.manager)) {
                 u->meta.sent_dbus_new_signal = true;
                 return;
@@ -490,6 +493,9 @@ void bus_unit_send_removed_signal(Unit *u) {
 
         if (!u->meta.sent_dbus_new_signal)
                 bus_unit_send_change_signal(u);
+
+        if (!u->meta.id)
+                return;
 
         if (!(p = unit_dbus_path(u)))
                 goto oom;

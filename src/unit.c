@@ -1551,6 +1551,9 @@ char *unit_dbus_path(Unit *u) {
 
         assert(u);
 
+        if (!u->meta.id)
+                return NULL;
+
         if (!(e = bus_path_escape(u->meta.id)))
                 return NULL;
 
