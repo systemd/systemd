@@ -199,6 +199,7 @@ struct Manager {
 
         bool show_status;
         bool confirm_spawn;
+        bool sysv_console;
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);

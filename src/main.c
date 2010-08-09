@@ -64,6 +64,7 @@ static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_nomodules = false;
 static bool arg_show_status = true;
+static bool arg_sysv_console = true;
 
 static FILE* serialization = NULL;
 
@@ -241,7 +242,6 @@ static int parse_proc_cmdline_word(const char *word) {
                 "4",      SPECIAL_RUNLEVEL4_TARGET,
                 "5",      SPECIAL_RUNLEVEL5_TARGET
         };
-        bool ignore_quiet = false;
 
         if (startswith(word, "systemd.unit="))
                 return set_default_unit(word + 13);
@@ -303,10 +303,16 @@ static int parse_proc_cmdline_word(const char *word) {
 
                 if ((r = parse_boolean(word + 20)) < 0)
                         log_warning("Failed to parse show status switch %s, Ignoring.", word + 20);
-                else {
+                else
                         arg_show_status = r;
-                        ignore_quiet = true;
-                }
+
+        } else if (startswith(word, "systemd.sysv_console=")) {
+                int r;
+
+                if ((r = parse_boolean(word + 21)) < 0)
+                        log_warning("Failed to parse SysV console switch %s, Ignoring.", word + 20);
+                else
+                        arg_sysv_console = r;
 
         } else if (startswith(word, "systemd.")) {
 
@@ -314,16 +320,17 @@ static int parse_proc_cmdline_word(const char *word) {
 
                 log_info("Supported kernel switches:\n"
                          "systemd.unit=UNIT                        Default unit to start\n"
-                         "systemd.log_target=console|kmsg|syslog|  Log target\n"
-                         "                   syslog-org-kmsg|null\n"
-                         "systemd.log_level=LEVEL                  Log level\n"
-                         "systemd.log_color=0|1                    Highlight important log messages\n"
-                         "systemd.log_location=0|1                 Include code location in log messages\n"
                          "systemd.dump_core=0|1                    Dump core on crash\n"
                          "systemd.crash_shell=0|1                  Run shell on crash\n"
                          "systemd.crash_chvt=N                     Change to VT #N on crash\n"
                          "systemd.confirm_spawn=0|1                Confirm every process spawn\n"
-                         "systemd.show_status=0|1                  Show status updates on the console during bootup\n");
+                         "systemd.show_status=0|1                  Show status updates on the console during bootup\n"
+                         "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
+                         "systemd.log_target=console|kmsg|syslog|syslog-org-kmsg|null\n"
+                         "                                         Log target\n"
+                         "systemd.log_level=LEVEL                  Log level\n"
+                         "systemd.log_color=0|1                    Highlight important log messages\n"
+                         "systemd.log_location=0|1                 Include code location in log messages\n");
 
         } else if (streq(word, "nomodules"))
                 arg_nomodules = true;
@@ -347,8 +354,8 @@ static int parse_proc_cmdline_word(const char *word) {
                 arg_console = w;
 
         } else if (streq(word, "quiet")) {
-                if (!ignore_quiet)
-                        arg_show_status = false;
+                arg_show_status = false;
+                arg_sysv_console = false;
         } else {
                 unsigned i;
 
@@ -492,6 +499,7 @@ static int parse_config_file(void) {
                 { "DumpCore",    config_parse_bool,         &arg_dump_core,   "Manager" },
                 { "CrashShell",  config_parse_bool,         &arg_crash_shell, "Manager" },
                 { "ShowStatus",  config_parse_bool,         &arg_show_status, "Manager" },
+                { "SysVConsole", config_parse_bool,         &arg_sysv_console,"Manager" },
                 { "CrashChVT",   config_parse_int,          &arg_crash_chvt,  "Manager" },
                 { "CPUAffinity", config_parse_cpu_affinity, NULL,             "Manager" },
                 { NULL, NULL, NULL, NULL }
@@ -574,6 +582,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CRASH_SHELL,
                 ARG_CONFIRM_SPAWN,
                 ARG_SHOW_STATUS,
+                ARG_SYSV_CONSOLE,
                 ARG_DESERIALIZE,
                 ARG_INTROSPECT
         };
@@ -592,7 +601,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "dump-core",                no_argument,       NULL, ARG_DUMP_CORE                },
                 { "crash-shell",              no_argument,       NULL, ARG_CRASH_SHELL              },
                 { "confirm-spawn",            no_argument,       NULL, ARG_CONFIRM_SPAWN            },
-                { "show-status",              no_argument,       NULL, ARG_SHOW_STATUS              },
+                { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
+                { "sysv-console",             optional_argument, NULL, ARG_SYSV_CONSOLE             },
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
                 { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { NULL,                       0,                 NULL, 0                            }
@@ -686,7 +696,27 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SHOW_STATUS:
-                        arg_show_status = true;
+
+                        if (optarg) {
+                                if ((r = parse_boolean(optarg)) < 0) {
+                                        log_error("Failed to show status boolean %s.", optarg);
+                                        return r;
+                                }
+                                arg_show_status = r;
+                        } else
+                                arg_show_status = true;
+                        break;
+
+                case ARG_SYSV_CONSOLE:
+
+                        if (optarg) {
+                                if ((r = parse_boolean(optarg)) < 0) {
+                                        log_error("Failed to SysV console boolean %s.", optarg);
+                                        return r;
+                                }
+                                arg_sysv_console = r;
+                        } else
+                                arg_sysv_console = true;
                         break;
 
                 case ARG_DESERIALIZE: {
@@ -774,7 +804,8 @@ static int help(void) {
                "     --dump-core                 Dump core on crash\n"
                "     --crash-shell               Run shell on crash\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
-               "     --show-status               Show status updates on the console during bootup\n"
+               "     --show-status[=0|1]         Show status updates on the console during bootup\n"
+               "     --sysv-console[=0|1]        Connect output of SysV scripts to console\n"
                "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
@@ -985,6 +1016,7 @@ int main(int argc, char *argv[]) {
 
         m->confirm_spawn = arg_confirm_spawn;
         m->show_status = arg_show_status;
+        m->sysv_console = arg_sysv_console;
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
@@ -1095,7 +1127,7 @@ finish:
         dbus_shutdown();
 
         if (reexecute) {
-                const char *args[14];
+                const char *args[15];
                 unsigned i = 0;
                 char sfd[16];
 
@@ -1125,7 +1157,14 @@ finish:
                         args[i++] = "--confirm-spawn";
 
                 if (arg_show_status)
-                        args[i++] = "--show-status";
+                        args[i++] = "--show-status=1";
+                else
+                        args[i++] = "--show-status=0";
+
+                if (arg_sysv_console)
+                        args[i++] = "--sysv-console=1";
+                else
+                        args[i++] = "--sysv-console=0";
 
                 snprintf(sfd, sizeof(sfd), "%i", fileno(serialization));
                 char_array_0(sfd);

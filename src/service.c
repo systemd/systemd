@@ -708,7 +708,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->type = SERVICE_FORKING;
         s->valid_no_process = true;
         s->restart = SERVICE_ONCE;
-        s->exec_context.std_output = EXEC_OUTPUT_TTY;
+        s->exec_context.std_output = s->meta.manager->sysv_console ? EXEC_OUTPUT_TTY : EXEC_OUTPUT_NULL;
         s->exec_context.kill_mode = KILL_PROCESS_GROUP;
 
         u->meta.load_state = UNIT_LOADED;

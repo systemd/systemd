@@ -1,7 +1,5 @@
 * dot output for --test for 'initial description'
 
-* 'quiet' sets log_level=null
-
 * conflicted-by: to have a defined winner for conflicts:
 
 * check 'disable'

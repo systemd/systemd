@@ -131,6 +131,7 @@
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"SysVConsole\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
@@ -240,6 +241,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
                 { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
                 { "org.freedesktop.systemd1.Manager", "ShowStatus",    bus_property_append_bool,      "b",  &m->show_status    },
+                { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
                 { "org.freedesktop.systemd1.Manager", "UnitPath",      bus_property_append_strv,      "as", m->lookup_paths.unit_path },
                 { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
                 { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
