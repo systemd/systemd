@@ -1529,14 +1529,15 @@ static void print_status_info(UnitStatusInfo *i) {
                                         printf(" (%s)", t);
                                         free(t);
                                 }
-                        } else {
+                        } else if (i->exit_code > 0) {
                                 printf(" (code=%s, ", sigchld_code_to_string(i->exit_code));
 
                                 if (i->exit_code == CLD_EXITED)
                                         printf("status=%i", i->exit_status);
                                 else
                                         printf("signal=%s", signal_to_string(i->exit_status));
-                                printf(")");                        }
+                                printf(")");
+                        }
                 }
 
                 if (i->main_pid > 0 && i->control_pid > 0)
