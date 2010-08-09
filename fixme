@@ -82,6 +82,8 @@
 
 * don't show file not found msgs for irrelevant units
 
+* hide plymouth in multi-user mode
+
 External:
 
 * sysv functions should color when stdout is tty, not stdin
