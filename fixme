@@ -1,3 +1,14 @@
+* dot output for --test for 'initial description'
+
+* 'quiet' sets log_level=null
+
+* conflicted-by: to have a defined winner for conflicts:
+
+* check 'disable'
+  <Viking-Ice>    "Warning: Unit file changed in disk, 'systemctl --system daemon-reload' recomended
+  <kay>           when does it do that?
+  <Viking-Ice>    if you disable the service
+
 * fixup var-run/var-lock tmpfs mounts. we need:
     touch /var/run/utmp
     chown root:utmp /var/run/utmp
