@@ -166,9 +166,27 @@
                                 <listitem><para>Ask for confirmation when spawning processes. This switch has no effect when run as session instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><option>--show-status</option></term>
+                                <term><option>--show-status=</option></term>
 
-                                <listitem><para>Show terse service status information while booting. This switch has no effect when run as session instance.</para></listitem>
+                                <listitem><para>Show terse service
+                                status information while booting. This
+                                switch has no effect when run as
+                                session instance. Takes a boolean
+                                argument which may be omitted
+                                which is interpreted as
+                                <option>true</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--sysv-console=</option></term>
+
+                                <listitem><para>Controls whether
+                                output of SysV init scripts will be
+                                directed to the console. This switch
+                                has no effect when run as session
+                                instance. Takes a boolean argument
+                                which may be omitted which is
+                                interpreted as
+                                <option>true</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--log-target=</option></term>
@@ -806,18 +824,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>systemd.log_target=</varname></term>
-                                <term><varname>systemd.log_level=</varname></term>
-                                <term><varname>systemd.log_color=</varname></term>
-                                <term><varname>systemd.log_location=</varname></term>
-
-                                <listitem><para>Controls log output,
-                                with the same effect as the
-                                <varname>$SYSTEMD_LOG_TARGET</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>, <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LOCATION</varname>
-                                environment variables described above.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>systemd.dump_core=</varname></term>
 
                                 <listitem><para>Takes a boolean
@@ -853,6 +859,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>systemd.confirm_spawn=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                asks for confirmation when spawning
+                                processes. Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>systemd.show_status=</varname></term>
 
                                 <listitem><para>Takes a boolean
@@ -860,6 +876,32 @@
                                 shows terse service status updates on
                                 the console during bootup. Defaults to
                                 <option>true</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.sysv_console=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                output of SysV init scripts will be
+                                directed to the console. Defaults to
+                                <option>true</option>, unless
+                                <option>quiet</option> is passed as
+                                kernel command line option in which
+                                case it defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.log_target=</varname></term>
+                                <term><varname>systemd.log_level=</varname></term>
+                                <term><varname>systemd.log_color=</varname></term>
+                                <term><varname>systemd.log_location=</varname></term>
+
+                                <listitem><para>Controls log output,
+                                with the same effect as the
+                                <varname>$SYSTEMD_LOG_TARGET</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>, <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LOCATION</varname>
+                                environment variables described above.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

@@ -108,7 +108,8 @@ enum UnitDependency {
         UNIT_WANTED_BY,               /* inverse of 'wants' */
 
         /* Negative dependencies */
-        UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicts' */
+        UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */
+        UNIT_CONFLICTED_BY,
 
         /* Order */
         UNIT_BEFORE,                  /* inverse of 'before' is 'after' and vice versa */

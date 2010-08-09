@@ -93,7 +93,7 @@ void job_free(Job *j) {
         free(j);
 }
 
-JobDependency* job_dependency_new(Job *subject, Job *object, bool matters) {
+JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts) {
         JobDependency *l;
 
         assert(object);
@@ -109,6 +109,7 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters) {
         l->subject = subject;
         l->object = object;
         l->matters = matters;
+        l->conflicts = conflicts;
 
         if (subject)
                 LIST_PREPEND(JobDependency, subject, subject->subject_list, l);
@@ -527,6 +528,14 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 } else if (t == JOB_STOP) {
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
+                                if (!other->meta.ignore_dependency_failure &&
+                                    other->meta.job &&
+                                    (other->meta.job->type == JOB_START ||
+                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
+                                     other->meta.job->type == JOB_RELOAD_OR_START))
+                                        job_finish_and_invalidate(other->meta.job, false);
+
+                        SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTED_BY], i)
                                 if (!other->meta.ignore_dependency_failure &&
                                     other->meta.job &&
                                     (other->meta.job->type == JOB_START ||

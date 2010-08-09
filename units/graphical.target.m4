@@ -16,9 +16,6 @@ m4_dnl
 m4_ifdef(`TARGET_FEDORA',
 # On Fedora Runlevel 5 is graphical login
 Names=runlevel5.target
-# Pull in prefdm via requires, to make sure when it conflicts with
-# getty@tty1.service it takes precedence.
-Requires=prefdm.service
 )m4_dnl
 m4_ifdef(`TARGET_SUSE',
 Names=runlevel5.target

@@ -934,6 +934,10 @@ static void retroactively_start_dependencies(Unit *u) {
         SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTED_BY], i)
+                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                        manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -1312,7 +1316,8 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_REQUIRED_BY] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_REQUIRED_BY_OVERRIDABLE] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_WANTED_BY] = _UNIT_DEPENDENCY_INVALID,
-                [UNIT_CONFLICTS] = UNIT_CONFLICTS,
+                [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
+                [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
                 [UNIT_AFTER] = UNIT_BEFORE,
                 [UNIT_ON_FAILURE] = _UNIT_DEPENDENCY_INVALID,
@@ -2138,6 +2143,7 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REQUIRED_BY_OVERRIDABLE] = "RequiredByOverridable",
         [UNIT_WANTED_BY] = "WantedBy",
         [UNIT_CONFLICTS] = "Conflicts",
+        [UNIT_CONFLICTED_BY] = "ConflictedBy",
         [UNIT_BEFORE] = "Before",
         [UNIT_AFTER] = "After",
         [UNIT_REFERENCES] = "References",

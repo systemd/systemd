@@ -70,6 +70,7 @@
         "  <property name=\"RequiredByOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"WantedBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Conflicts\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"ConflictedBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Before\" type=\"as\" access=\"read\"/>\n"   \
         "  <property name=\"After\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"OnFailure\" type=\"as\" access=\"read\"/>\n"    \
@@ -108,6 +109,7 @@
         { "org.freedesktop.systemd1.Unit", "RequiredByOverridable",bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE] }, \
         { "org.freedesktop.systemd1.Unit", "WantedBy",             bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_WANTED_BY] }, \
         { "org.freedesktop.systemd1.Unit", "Conflicts",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_CONFLICTS] }, \
+        { "org.freedesktop.systemd1.Unit", "ConflictedBy",         bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_CONFLICTED_BY] }, \
         { "org.freedesktop.systemd1.Unit", "Before",               bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_BEFORE] }, \
         { "org.freedesktop.systemd1.Unit", "After",                bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_AFTER]  }, \
         { "org.freedesktop.systemd1.Unit", "OnFailure",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_ON_FAILURE] }, \

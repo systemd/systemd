@@ -336,7 +336,22 @@
                                 independent of and orthogonal to the
                                 <varname>After=</varname> and
                                 <varname>Before=</varname> ordering
-                                dependencies.</para></listitem>
+                                dependencies.</para>
+
+                                <para>If a unit A that conflicts with
+                                a unit B is scheduled to be started at
+                                the same time as B, the transaction
+                                will either fail (in case both are
+                                required part of the transaction) or
+                                be modified to be fixed (in case one
+                                or both jobs are not a required part
+                                of the transaction). In the latter
+                                case the job that is not the required
+                                will be removed, or in case both are
+                                not required the unit that conflicts
+                                will be started and the unit that is
+                                conflicted is
+                                stopped.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -715,6 +715,20 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         other->object_list = NULL;
         transaction_delete_job(m, other, true);
 }
+static bool job_is_conflicted_by(Job *j) {
+        JobDependency *l;
+
+        assert(j);
+
+        /* Returns true if this job is pulled in by a least one
+         * ConflictedBy dependency. */
+
+        LIST_FOREACH(object, l, j->object_list)
+                if (l->conflicts)
+                        return true;
+
+        return false;
+}
 
 static int delete_one_unmergeable_job(Manager *m, Job *j) {
         Job *k;
@@ -738,7 +752,36 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
 
                         /* Ok, we found two that conflict, let's see if we can
                          * drop one of them */
-                        if (!j->matters_to_anchor)
+                        if (!j->matters_to_anchor && !k->matters_to_anchor) {
+
+                                /* Both jobs don't matter, so let's
+                                 * find the one that is smarter to
+                                 * remove. Let's think positive and
+                                 * rather remove stops then starts --
+                                 * except if something is being
+                                 * stopped because it is conflicted by
+                                 * another unit in which case we
+                                 * rather remove the start. */
+
+                                log_debug("Looking at job %s/%s conflicted_by=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(j->type == JOB_STOP && job_is_conflicted_by(j)));
+                                log_debug("Looking at job %s/%s conflicted_by=%s", k->unit->meta.id, job_type_to_string(k->type), yes_no(k->type == JOB_STOP && job_is_conflicted_by(k)));
+
+                                if (j->type == JOB_STOP) {
+
+                                        if (job_is_conflicted_by(j))
+                                                d = k;
+                                        else
+                                                d = j;
+
+                                } else if (k->type == JOB_STOP) {
+
+                                        if (job_is_conflicted_by(k))
+                                                d = j;
+                                        else
+                                                d = k;
+                                }
+
+                        } else if (!j->matters_to_anchor)
                                 d = j;
                         else if (!k->matters_to_anchor)
                                 d = k;
@@ -1324,6 +1367,7 @@ static int transaction_add_job_and_dependencies(
                 Job *by,
                 bool matters,
                 bool override,
+                bool conflicts,
                 DBusError *e,
                 Job **_ret) {
         Job *ret;
@@ -1352,46 +1396,50 @@ static int transaction_add_job_and_dependencies(
                 return -ENOMEM;
 
         /* Then, add a link to the job. */
-        if (!job_dependency_new(by, ret, matters))
+        if (!job_dependency_new(by, ret, matters, conflicts))
                 return -ENOMEM;
 
         if (is_new) {
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, false, e, NULL)) < 0 && r != -EBADR) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
                                         dbus_error_free(e);
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
                                         dbus_error_free(e);
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, false, e, NULL)) < 0 && r != -EBADR) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
                                         dbus_error_free(e);
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, true, e, NULL)) < 0 && r != -EBADR)
+                                        goto fail;
+
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTED_BY], i)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
                 }
 
@@ -1432,7 +1480,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                 if (hashmap_get(m->transaction_jobs, u))
                         continue;
 
-                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, NULL, NULL)) < 0)
+                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, false, NULL, NULL)) < 0)
                         log_warning("Cannot add isolate job for unit %s, ignoring: %s", u->meta.id, strerror(-r));
         }
 
@@ -1455,7 +1503,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
 
         log_debug("Trying to enqueue job %s/%s", unit->meta.id, job_type_to_string(type));
 
-        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, e, &ret)) < 0) {
+        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, false, e, &ret)) < 0) {
                 transaction_abort(m);
                 return r;
         }

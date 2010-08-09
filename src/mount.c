@@ -285,7 +285,7 @@ static int mount_add_default_dependencies(Mount *m) {
                 if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_FSCK_TARGET, NULL, true)) < 0)
                         return r;
 
-                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
                         return r;
         }
 
