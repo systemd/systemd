@@ -57,6 +57,9 @@ SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", TAG+="udev-acl"
 # color measurement devices
 ENV{COLOR_MEASUREMENT_DEVICE}=="*?", TAG+="udev-acl"
 
+# DDC/CI device, usually high-end monitors such as the DreamColor
+ENV{DDC_DEVICE}=="*?", TAG+="udev-acl"
+
 # apply ACL for all locally logged in users
 LABEL="acl_apply", TAG=="udev-acl", TEST=="/var/run/ConsoleKit/database", \
   RUN+="udev-acl --action=$env{ACTION} --device=$env{DEVNAME}"
