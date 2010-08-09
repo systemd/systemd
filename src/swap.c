@@ -400,7 +400,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 static void swap_enter_dead(Swap *s, bool success) {
         assert(s);
 
-        swap_set_state(s, success ? SWAP_MAINTENANCE : SWAP_DEAD);
+        swap_set_state(s, success ? SWAP_DEAD : SWAP_MAINTENANCE);
 }
 
 static int swap_start(Unit *u) {
