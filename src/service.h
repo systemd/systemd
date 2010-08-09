@@ -111,18 +111,14 @@ struct Service {
         bool root_directory_start_only;
         bool valid_no_process;
 
-        bool main_pid_known:1;
-
         /* If we shut down, remember why */
         bool failure:1;
-
+        bool main_pid_known:1;
         bool bus_name_good:1;
-
         bool allow_restart:1;
-
         bool got_socket_fd:1;
-
         bool sysv_has_lsb:1;
+        bool sysv_enabled:1;
 
         int socket_fd;
         int sysv_start_priority;

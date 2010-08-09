@@ -566,7 +566,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
-                                        else if (s->sysv_start_priority >= 0)
+                                        else if (s->sysv_enabled)
                                                 r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
                                         else
                                                 r = unit_add_dependency_by_name_inverse(u, UNIT_AFTER, m, NULL, true);
@@ -1006,8 +1006,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->sysv_start_priority >= 0)
                 fprintf(f,
-                        "%sSysVStartPriority: %i\n",
-                        prefix, s->sysv_start_priority);
+                        "%sSysVStartPriority: %i\n"
+                        "%sSysVEnabled: %s\n",
+                        prefix, s->sysv_start_priority,
+                        prefix, yes_no(s->sysv_enabled));
 
         if (s->sysv_runlevels)
                 fprintf(f, "%sSysVRunLevels: %s\n",
@@ -2627,9 +2629,11 @@ static int service_enumerate(Manager *m) {
                                 }
 
                                 if (de->d_name[0] == 'S' &&
-                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT))
+                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
                                         SERVICE(service)->sysv_start_priority =
                                                 MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
+                                        SERVICE(service)->sysv_enabled = true;
+                                }
 
                                 manager_dispatch_load_queue(m);
                                 service = unit_follow_merge(service);
