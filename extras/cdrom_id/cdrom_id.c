@@ -85,6 +85,8 @@ static unsigned int cd_media_cd_rw = 0;
 static unsigned int cd_media_dvd_rom = 0;
 static unsigned int cd_media_dvd_r = 0;
 static unsigned int cd_media_dvd_rw = 0;
+static unsigned int cd_media_dvd_rw_ro = 0; /* restricted overwrite mode */
+static unsigned int cd_media_dvd_rw_seq = 0; /* sequential mode */
 static unsigned int cd_media_dvd_ram = 0;
 static unsigned int cd_media_dvd_plus_r = 0;
 static unsigned int cd_media_dvd_plus_rw = 0;
@@ -295,9 +297,14 @@ static int feature_profiles(struct udev *udev, const unsigned char *profiles, si
 			cd_dvd_ram = 1;
 			break;
 		case 0x13:
+			info(udev, "profile 0x%02x media_dvd_rw\n", profile);
+			cd_media_dvd_rw = 1;
+			cd_media_dvd_rw_ro = 1;
+			break;
 		case 0x14:
 			info(udev, "profile 0x%02x dvd_rw\n", profile);
 			cd_dvd_rw = 1;
+			cd_media_dvd_rw_seq = 1;
 			break;
 		case 0x1B:
 			info(udev, "profile 0x%02x dvd_plus_r\n", profile);
@@ -573,10 +580,16 @@ static int cd_media_info(struct udev *udev, int fd)
 	if (!cd_media_cd_rom)
 		cd_media_state = media_status[header[2] & 3];
 
+	/* fresh DVD-RW in restricted overwite mode reports itself as
+	 * "appendable"; change it to "blank" to make it consistent with what
+	 * gets reported after blanking, and what userspace expects  */
+	if (cd_media_dvd_rw_ro && (header[2] & 3) == 1)
+		cd_media_state = media_status[0];
+
 	/* DVD+RW discs (and DVD-RW in restricted mode) once formatted are
 	 * always "complete", DVD-RAM are "other" or "complete" if the disc is
 	 * write protected; we need to check the contents if it is blank */
-	if ((cd_media_dvd_rw || cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) && (header[2] & 3) > 1) {
+	if ((cd_media_dvd_rw_ro || cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) && (header[2] & 3) > 1) {
 		unsigned char buffer[17 * 2048];
 		unsigned char result, len;
 		int block, offset;
