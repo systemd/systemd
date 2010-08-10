@@ -6,16 +6,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Display Manager
-After=syslog.target haldaemon.service
-
-# On Fedora gdm/X11 is on tty1. We explicitly cancel the getty here to
-# avoid any races around that.
-Conflicts=getty@tty1.service plymouth-quit.service
+Description=Terminate Plymouth Boot Screen
+After=getty@tty1.service
 
 [Service]
-ExecStart=/etc/X11/prefdm -nodaemon
+ExecStart=-/usr/bin/plymouth quit
+Type=finish
 
 [Install]
-Alias=display-manager.service
-WantedBy=graphical.target
+WantedBy=multi-user.target
