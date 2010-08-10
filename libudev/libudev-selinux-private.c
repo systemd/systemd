@@ -96,7 +96,7 @@ void udev_selinux_setfscreateconat(struct udev *udev, int dfd, const char *file,
 		char target[UTIL_PATH_SIZE];
 		ssize_t len;
 
-		snprintf(procfd, sizeof(procfd), "/proc/%u/fd/%u", getpid(), dirfd);
+		snprintf(procfd, sizeof(procfd), "/proc/%u/fd/%u", getpid(), dfd);
 		len = readlink(procfd, target, sizeof(target));
 		if (len <= 0 || len == sizeof(target))
 			return;
