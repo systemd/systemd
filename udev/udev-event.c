@@ -465,6 +465,7 @@ static int rename_netif(struct udev_event *event)
 	int sk;
 	struct ifreq ifr;
 	int err;
+	char *newdup;
 
 	info(event->udev, "changing net interface name from '%s' to '%s'\n",
 	     udev_device_get_sysname(dev), event->name);
@@ -492,13 +493,16 @@ static int rename_netif(struct udev_event *event)
 		}
 
 		/* free our own name, another process may wait for us */
-		util_strscpyl(ifr.ifr_newname, IFNAMSIZ, udev_device_get_sysname(dev), "_rename", NULL);
+		newdup = strdup(ifr.ifr_newname);
+		util_strscpyl(ifr.ifr_newname, IFNAMSIZ, udev_device_get_sysname(dev), "-", newdup, NULL);
+		free(newdup);
 		err = ioctl(sk, SIOCSIFNAME, &ifr);
 		if (err != 0) {
 			err(event->udev, "error changing netif name %s to %s: %m\n",
 			    ifr.ifr_name, ifr.ifr_newname);
 			goto exit;
 		}
+		rename_netif_kernel_log(ifr);
 
 		/* wait 90 seconds for our target to become available */
 		util_strscpy(ifr.ifr_name, IFNAMSIZ, ifr.ifr_newname);
