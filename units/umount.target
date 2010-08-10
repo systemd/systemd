@@ -9,5 +9,5 @@
 
 [Unit]
 Description=Unmount All Filesystems
-OnlyByDependency=yes
+RefuseManualStart=yes
 IgnoreDependencyFailure=yes

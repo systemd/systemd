@@ -147,7 +147,28 @@ int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *proper
         assert(u);
 
         b = unit_can_start(u) &&
-                !u->meta.only_by_dependency;
+                !u->meta.refuse_manual_start;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_unit_append_can_stop(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        /* On the lower levels we assume that every unit we can start
+         * we can also stop */
+
+        b = unit_can_start(u) &&
+                !u->meta.refuse_manual_stop;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
@@ -334,8 +355,11 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 Job *j;
                 int r;
 
-                if (job_type == JOB_START && u->meta.only_by_dependency) {
-                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Unit may be activated by dependency only.");
+                if ((job_type == JOB_START && u->meta.refuse_manual_start) ||
+                    (job_type == JOB_STOP && u->meta.refuse_manual_stop) ||
+                    ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
+                     (u->meta.refuse_manual_start || u->meta.refuse_manual_stop))) {
+                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
                         return bus_send_error_reply(m, connection, message, &error, -EPERM);
                 }
 

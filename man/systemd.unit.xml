@@ -461,20 +461,26 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>OnlyByDependency=</varname></term>
+                                <term><varname>RefuseManualStart=</varname></term>
+                                <term><varname>RefuseManualStop=</varname></term>
 
                                 <listitem><para>Takes a boolean
                                 argument. If <option>true</option>
                                 this unit can only be activated
-                                indirectly. In this case explicit
-                                start-up requested by the user is
-                                denied, however if it is started as a
+                                (resp. deactivated) indirectly. In
+                                this case explicit start-up
+                                (resp. termination) requested by the
+                                user is denied, however if it is
+                                started (resp. stopped) as a
                                 dependency of another unit, start-up
-                                will succeed. This is mostly a safety
-                                feature to ensure that the user does
-                                not accidentally activate units that are
-                                not intended to be activated
-                                explicitly. This option defaults to
+                                (resp. termination) will succeed. This
+                                is mostly a safety feature to ensure
+                                that the user does not accidentally
+                                activate units that are not intended
+                                to be activated explicitly, and not
+                                accidentally deactivate units that are
+                                not intended to be deactivated.
+                                These options default to
                                 <option>false</option>.</para></listitem>
                         </varlistentry>
 

@@ -9,7 +9,7 @@
 Description=Kill All Processes
 DefaultDependencies=no
 After=shutdown.target
-OnlyByDependency=yes
+RefuseManualStart=yes
 
 [Service]
 Type=finish

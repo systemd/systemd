@@ -385,7 +385,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
                         r = manager_load_unit(m, name, NULL, &error, &u);
 
-                        if (r >= 0 && u->meta.only_by_dependency)
+                        if (r >= 0 && u->meta.refuse_manual_start)
                                 r = -EPERM;
 
                         if (r >= 0)

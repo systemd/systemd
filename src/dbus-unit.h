@@ -85,10 +85,12 @@
         "  <property name=\"InactiveEnterTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"CanStart\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"CanStop\" type=\"b\" access=\"read\"/>\n"   \
         "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>\n"    \
         "  <property name=\"RecursiveStop\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"StopWhenUneeded\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"OnlyByDependency\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"RefuseManualStart\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"RefuseManualStop\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultDependencies\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
@@ -123,11 +125,13 @@
         { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_uint64,     "t",    &u->meta.active_exit_timestamp.realtime    }, \
         { "org.freedesktop.systemd1.Unit", "InactiveEnterTimestamp",bus_property_append_uint64,    "t",    &u->meta.inactive_enter_timestamp.realtime }, \
         { "org.freedesktop.systemd1.Unit", "CanStart",             bus_unit_append_can_start,      "b",    u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "CanStop",              bus_unit_append_can_stop,       "b",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,     "b",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,            "(uo)", u                                 }, \
         { "org.freedesktop.systemd1.Unit", "RecursiveStop",        bus_property_append_bool,       "b",    &u->meta.recursive_stop           }, \
         { "org.freedesktop.systemd1.Unit", "StopWhenUneeded",      bus_property_append_bool,       "b",    &u->meta.stop_when_unneeded       }, \
-        { "org.freedesktop.systemd1.Unit", "OnlyByDependency",     bus_property_append_bool,       "b",    &u->meta.only_by_dependency       }, \
+        { "org.freedesktop.systemd1.Unit", "RefuseManualStart",    bus_property_append_bool,       "b",    &u->meta.refuse_manual_start      }, \
+        { "org.freedesktop.systemd1.Unit", "RefuseManualStop",     bus_property_append_bool,       "b",    &u->meta.refuse_manual_stop       }, \
         { "org.freedesktop.systemd1.Unit", "DefaultDependencies",  bus_property_append_bool,       "b",    &u->meta.default_dependencies     }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }, \
@@ -142,6 +146,7 @@ int bus_unit_append_load_state(Manager *m, DBusMessageIter *i, const char *prope
 int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_sub_state(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_can_stop(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_default_cgroup(Manager *m, DBusMessageIter *i, const char *property, void *data);

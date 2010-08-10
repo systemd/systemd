@@ -801,8 +801,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                 job_type = JOB_RELOAD;
                 }
 
-                if (job_type == JOB_START && u->meta.only_by_dependency) {
-                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Unit may be activated by dependency only.");
+                if ((job_type == JOB_START && u->meta.refuse_manual_start) ||
+                    (job_type == JOB_STOP && u->meta.refuse_manual_stop) ||
+                    ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
+                     (u->meta.refuse_manual_start || u->meta.refuse_manual_stop))) {
+                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
                         return bus_send_error_reply(m, connection, message, &error, -EPERM);
                 }
 

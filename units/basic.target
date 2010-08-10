@@ -11,4 +11,4 @@
 Description=Basic System
 Requires=sysinit.target local-fs.target swap.target sockets.target
 After=sysinit.target local-fs.target swap.target sockets.target
-OnlyByDependency=yes
+RefuseManualStart=yes

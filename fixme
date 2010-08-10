@@ -81,6 +81,10 @@
 
 * hide plymouth in multi-user mode
 
+* audit
+
+* env vars must be replaced by ""
+
 External:
 
 * sysv functions should color when stdout is tty, not stdin
@@ -105,6 +109,14 @@ https://bugs.freedesktop.org/show_bug.cgi?id=29194 -- ConsoleKit
 https://bugs.freedesktop.org/show_bug.cgi?id=29205 -- udisks
 http://article.gmane.org/gmane.linux.bluez.kernel/6479 -- bluez
 http://www.spinics.net/lists/linux-nfs/msg14371.html -- rpcbind
+https://bugzilla.redhat.com/show_bug.cgi?id=617328 -- ntp
+https://bugzilla.redhat.com/show_bug.cgi?id=617320 -- at
+https://bugzilla.redhat.com/show_bug.cgi?id=617326 -- fprintd
+https://bugzilla.redhat.com/show_bug.cgi?id=617333 -- yum
+https://bugzilla.redhat.com/show_bug.cgi?id=617317 -- acpid
+https://bugzilla.redhat.com/show_bug.cgi?id=617327 -- gpm
+https://bugzilla.redhat.com/show_bug.cgi?id=617330 -- pcsc-lite
+https://bugzilla.redhat.com/show_bug.cgi?id=617321 -- audit
 
 Regularly:
 

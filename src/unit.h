@@ -186,14 +186,17 @@ struct Meta {
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 
-        /* Refuse manual starting, allow starting only indirectly via dependency. */
-        bool only_by_dependency;
-
         /* Create default depedencies */
         bool default_dependencies;
 
         /* Bring up this unit even if a dependency fails to start */
         bool ignore_dependency_failure;
+
+        /* Refuse manual starting, allow starting only indirectly via dependency. */
+        bool refuse_manual_start;
+
+        /* Don't allow the user to stop this unit manually, allow stopping only indirectly via dependency. */
+        bool refuse_manual_stop;
 
         /* When deserializing, temporarily store the job type for this
          * unit here, if there was a job scheduled */

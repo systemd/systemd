@@ -9,5 +9,5 @@
 
 [Unit]
 Description=Shutdown
-OnlyByDependency=yes
+RefuseManualStart=yes
 IgnoreDependencyFailure=yes
