@@ -3085,18 +3085,18 @@ char *replace_env(const char *format, char **env) {
 
                 case VARIABLE:
                         if (*e == '}') {
-                                char *t;
+                                const char *t;
 
-                                if ((t = strv_env_get_with_length(env, word+2, e-word-2))) {
-                                        if (!(k = strappend(r, t)))
-                                                goto fail;
+                                if (!(t = strv_env_get_with_length(env, word+2, e-word-2)))
+                                        t = "";
 
-                                        free(r);
-                                        r = k;
+                                if (!(k = strappend(r, t)))
+                                        goto fail;
 
-                                        word = e+1;
-                                }
+                                free(r);
+                                r = k;
 
+                                word = e+1;
                                 state = WORD;
                         }
                         break;
@@ -3126,36 +3126,39 @@ char **replace_env_argv(char **argv, char **env) {
         STRV_FOREACH(i, argv) {
 
                 /* If $FOO appears as single word, replace it by the split up variable */
-                if ((*i)[0] == '$') {
-                        char *e = strv_env_get(env, *i+1);
+                if ((*i)[0] == '$' && (*i)[1] != '{') {
+                        char *e;
+                        char **w, **m;
+                        unsigned q;
 
-                        if (e) {
-                                char **w, **m;
-                                unsigned q;
+                        if ((e = strv_env_get(env, *i+1))) {
 
                                 if (!(m = strv_split_quoted(e))) {
                                         r[k] = NULL;
                                         strv_free(r);
                                         return NULL;
                                 }
+                        } else
+                                m = NULL;
 
-                                q = strv_length(m);
-                                l = l + q - 1;
+                        q = strv_length(m);
+                        l = l + q - 1;
 
-                                if (!(w = realloc(r, sizeof(char*) * (l+1)))) {
-                                        r[k] = NULL;
-                                        strv_free(r);
-                                        strv_free(m);
-                                        return NULL;
-                                }
+                        if (!(w = realloc(r, sizeof(char*) * (l+1)))) {
+                                r[k] = NULL;
+                                strv_free(r);
+                                strv_free(m);
+                                return NULL;
+                        }
 
-                                r = w;
+                        r = w;
+                        if (m) {
                                 memcpy(r + k, m, q * sizeof(char*));
                                 free(m);
-
-                                k += q;
-                                continue;
                         }
+
+                        k += q;
+                        continue;
                 }
 
                 /* If ${FOO} appears as part of a word, replace it by the variable as-is */
