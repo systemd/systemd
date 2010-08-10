@@ -1,3 +1,4 @@
+systemd-update-utmp
 test-env-replace
 systemd-cgls
 systemd.pc

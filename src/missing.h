@@ -63,4 +63,12 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 
 /* static void nss_disable_nscd(void) _weakref_(__nss_disable_nscd); */
 
+#ifndef AUDIT_SERVICE_START
+#define AUDIT_SERVICE_START     1130    /* Service (daemon) start */
+#endif
+
+#ifndef AUDIT_SERVICE_STOP
+#define AUDIT_SERVICE_STOP      1131    /* Service (daemon) stop */
+#endif
+
 #endif

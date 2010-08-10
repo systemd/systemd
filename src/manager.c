@@ -37,6 +37,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <libaudit.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -202,6 +203,10 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
 
+#ifdef HAVE_AUDIT
+        m->audit_fd = -1;
+#endif
+
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
@@ -244,6 +249,9 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         /* Try to connect to the busses, if possible. */
         if ((r = bus_init(m)) < 0)
                 goto fail;
+
+        if ((m->audit_fd = audit_open()) < 0)
+                log_error("Failed to connect to audit log: %m");
 
         *_m = m;
         return 0;
@@ -429,6 +437,11 @@ void manager_free(Manager *m) {
         if (m->notify_watch.fd >= 0)
                 close_nointr_nofail(m->notify_watch.fd);
 
+#ifdef HAVE_AUDIT
+        if (m->audit_fd >= 0)
+                audit_close(m->audit_fd);
+#endif
+
         free(m->notify_socket);
 
         lookup_paths_free(&m->lookup_paths);
@@ -566,10 +579,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 assert(m->n_deserializing > 0);
                 m->n_deserializing --;
         }
-
-        /* Now that the initial devices are available, let's see if we
-         * can write the utmp file */
-        manager_write_utmp_reboot(m);
 
         return r;
 }
@@ -2234,70 +2243,25 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
         return 0;
 }
 
-static bool manager_utmp_good(Manager *m) {
-        int r;
+void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
-        assert(m);
+#ifdef HAVE_AUDIT
+        char *p;
 
-        if ((r = mount_path_is_mounted(m, _PATH_UTMPX)) <= 0) {
-
-                if (r < 0)
-                        log_warning("Failed to determine whether " _PATH_UTMPX " is mounted: %s", strerror(-r));
-
-                return false;
-        }
-
-        return true;
-}
-
-void manager_write_utmp_reboot(Manager *m) {
-        int r;
-
-        assert(m);
-
-        if (m->utmp_reboot_written)
+        if (m->audit_fd < 0)
                 return;
 
-        if (m->running_as != MANAGER_SYSTEM)
-                return;
-
-        if (!manager_utmp_good(m))
-                return;
-
-        if ((r = utmp_put_reboot(m->startup_timestamp.realtime)) < 0) {
-
-                if (r != -ENOENT && r != -EROFS)
-                        log_warning("Failed to write utmp/wtmp: %s", strerror(-r));
-
+        if (!(p = unit_name_to_prefix_and_instance(u->meta.id))) {
+                log_error("Failed to allocate unit name for audit message: %s", strerror(ENOMEM));
                 return;
         }
 
-        m->utmp_reboot_written = true;
-}
+        if (audit_log_user_comm_message(m->audit_fd, type, "", p, NULL, NULL, NULL, success) < 0)
+                log_error("Failed to send audit message: %m");
 
-void manager_write_utmp_runlevel(Manager *m, Unit *u) {
-        int runlevel, r;
+        free(p);
+#endif
 
-        assert(m);
-        assert(u);
-
-        if (u->meta.type != UNIT_TARGET)
-                return;
-
-        if (m->running_as != MANAGER_SYSTEM)
-                return;
-
-        if (!manager_utmp_good(m))
-                return;
-
-        if ((runlevel = target_get_runlevel(TARGET(u))) <= 0)
-                return;
-
-        if ((r = utmp_put_runlevel(0, runlevel, 0)) < 0) {
-
-                if (r != -ENOENT && r != -EROFS)
-                        log_warning("Failed to write utmp/wtmp: %s", strerror(-r));
-        }
 }
 
 void manager_dispatch_bus_name_owner_changed(

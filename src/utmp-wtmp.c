@@ -202,10 +202,10 @@ int utmp_put_runlevel(usec_t t, int runlevel, int previous) {
 
                         previous = 0;
                 }
-
-                if (previous == runlevel)
-                        return 0;
         }
+
+        if (previous == runlevel)
+                return 0;
 
         init_entry(&store, t);
 

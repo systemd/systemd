@@ -79,9 +79,9 @@
 
 * don't show file not found msgs for irrelevant units
 
-* audit
+* j->installed issue
 
-* env vars must be replaced by ""
+* plymouth boot.log
 
 External:
 

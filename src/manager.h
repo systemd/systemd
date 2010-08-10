@@ -185,6 +185,11 @@ struct Manager {
          * file system */
         int pin_cgroupfs_fd;
 
+        /* Audit fd */
+#ifdef HAVE_AUDIT
+        int audit_fd;
+#endif
+
         /* Flags */
         ManagerRunningAs running_as;
         ManagerExitCode exit_code:4;
@@ -192,8 +197,6 @@ struct Manager {
         bool dispatching_load_queue:1;
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
-
-        bool utmp_reboot_written:1;
 
         int n_deserializing;
 
@@ -234,9 +237,6 @@ unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_loop(Manager *m);
 
-void manager_write_utmp_reboot(Manager *m);
-void manager_write_utmp_runlevel(Manager *m, Unit *t);
-
 void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
 void manager_dispatch_bus_query_pid_done(Manager *m, const char *name, pid_t pid);
 
@@ -250,6 +250,8 @@ int manager_reload(Manager *m);
 bool manager_is_booting_or_shutting_down(Manager *m);
 
 void manager_reset_maintenance(Manager *m);
+
+void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

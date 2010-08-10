@@ -186,6 +186,42 @@ fi
 AC_SUBST(PAM_LIBS)
 AM_CONDITIONAL([HAVE_PAM], [test "x$have_pam" != xno])
 
+AC_ARG_ENABLE([audit],
+        AS_HELP_STRING([--disable-audit],[Disable optional AUDIT support]),
+                [case "${enableval}" in
+                        yes) have_audit=yes ;;
+                        no) have_audit=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-audit) ;;
+                esac],
+                [have_audit=auto])
+
+if test "x${have_audit}" != xno ; then
+        AC_CHECK_HEADERS(
+                [libaudit.h],
+                [have_audit=yes],
+                [if test "x$have_audit" = xyes ; then
+                        AC_MSG_ERROR([*** AUDIT headers not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [audit],
+                [audit_open],
+                [have_audit=yes],
+                [if test "x$have_audit" = xyes ; then
+                        AC_MSG_ERROR([*** libaudit not found.])
+                fi])
+
+        if test "x$have_audit" = xyes ; then
+                AUDIT_LIBS="-laudit"
+                AC_DEFINE(HAVE_AUDIT, 1, [AUDIT available])
+        else
+                have_audit=no
+        fi
+else
+        AUDIT_LIBS=
+fi
+AC_SUBST(AUDIT_LIBS)
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then

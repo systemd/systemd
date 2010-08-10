@@ -68,7 +68,8 @@ endif
 rootlibexec_PROGRAMS = \
 	systemd-logger \
 	systemd-cgroups-agent \
-	systemd-initctl
+	systemd-initctl \
+	systemd-update-utmp
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -243,6 +244,13 @@ libsystemd_basic_la_SOURCES = \
         src/log.c \
         src/ratelimit.c
 
+libsystemd_basic_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SELINUX_CFLAGS)
+
+libsystemd_basic_la_LIBADD = \
+	$(SELINUX_LIBS)
+
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
         src/job.c \
@@ -282,7 +290,6 @@ libsystemd_core_la_SOURCES = \
 	src/loopback-setup.c \
 	src/kmod-setup.c \
 	src/modprobe-setup.c \
-	src/utmp-wtmp.c \
 	src/specifier.c \
 	src/unit-name.c \
 	src/fdset.c \
@@ -293,7 +300,10 @@ libsystemd_core_la_SOURCES = \
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(LIBWRAP_CFLAGS) \
+	$(PAM_CFLAGS) \
+	$(AUDIT_CFLAGS)
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-basic.la \
@@ -301,7 +311,7 @@ libsystemd_core_la_LIBADD = \
 	$(UDEV_LIBS) \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
-	$(SELINUX_LIBS)
+	$(AUDIT_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
@@ -479,6 +489,21 @@ systemd_initctl_CFLAGS = \
 systemd_initctl_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS)
+
+systemd_update_utmp_SOURCES = \
+	src/update-utmp.c \
+	src/dbus-common.c \
+	src/utmp-wtmp.c
+
+systemd_update_utmp_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	$(AUDIT_CFLAGS)
+
+systemd_update_utmp_LDADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS) \
+	$(AUDIT_LIBS)
 
 systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent.c \
