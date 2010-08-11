@@ -22,7 +22,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
-#include <libaudit.h>
 #include <sys/types.h>
 #include <unistd.h>
 
