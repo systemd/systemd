@@ -378,14 +378,12 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
 	if (header[2] & 16) {
 		cd_media_cd_rw = 1;
 		info(udev, "profile 0x0a media_cd_rw\n");
-	}	
-	else if ((header[2] & 3) < 2 && cd_cd_r) { 
+	} else if ((header[2] & 3) < 2 && cd_cd_r) {
 		cd_media_cd_r = 1;
 		info(udev, "profile 0x09 media_cd_r\n");
-	}
-	else {
-	cd_media_cd_rom = 1;
-	info(udev, "profile 0x08 media_cd_rom\n");
+	} else {
+		cd_media_cd_rom = 1;
+		info(udev, "profile 0x08 media_cd_rom\n");
 	}
 	return 0;
 }
