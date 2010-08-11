@@ -46,6 +46,7 @@
 #include "bus-errors.h"
 #include "missing.h"
 #include "label.h"
+#include "build.h"
 
 static enum {
         ACTION_RUN,
@@ -988,7 +989,8 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1)
                 install_crash_handler();
 
-        log_info(PACKAGE_STRING " running in %s mode.", manager_running_as_to_string(arg_running_as));
+        log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
+                 PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES ")", manager_running_as_to_string(arg_running_as));
 
         if (arg_running_as == MANAGER_SYSTEM) {
 

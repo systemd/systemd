@@ -337,7 +337,8 @@ EXTRA_DIST += \
 	src/dbus-common.h \
 	src/bus-errors.h \
 	src/cgroup-show.h \
-	src/utmp-wtmp.h
+	src/utmp-wtmp.h \
+	src/build.h
 
 MANPAGES = \
 	man/systemd.1 \
