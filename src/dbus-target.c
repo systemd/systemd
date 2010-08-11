@@ -26,7 +26,6 @@
 
 #define BUS_TARGET_INTERFACE                                            \
         " <interface name=\"org.freedesktop.systemd1.Target\">\n"       \
-        "  <property name=\"SysVRunLevel\" type=\"s\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -40,31 +39,9 @@
 
 const char bus_target_interface[] = BUS_TARGET_INTERFACE;
 
-static int bus_target_append_runlevel(Manager *n, DBusMessageIter *i, const char *property, void *data) {
-        Target *t = data;
-        const char *d;
-        char buf[2];
-
-        assert(n);
-        assert(i);
-        assert(property);
-        assert(t);
-
-        buf[0] = (char) target_get_runlevel(t);
-        buf[1] = 0;
-
-        d = buf;
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
-                return -ENOMEM;
-
-        return 0;
-}
-
 DBusHandlerResult bus_target_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Target", "SysVRunLevel", bus_target_append_runlevel, "s", u },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
