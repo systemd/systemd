@@ -53,23 +53,17 @@
 
 * follow property change dbus spec
 
-* selinux policy loading/socket stuff
+* selinux policy loading
 
 * systemctl status $PID, systemctl stop $PID!
 
 * place /etc/inittab with explaining blurb.
-
-* vielleicht implizit immer auf syslog dependen?
-
-* debian deadlock when partition set to noauto
 
 * fingerprint.target, wireless.target, gps.target
 
 * set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
 
 * fix merging in .swap units
-
-* pahole
 
 * chkconfig/systemd-install glue
 
@@ -129,3 +123,7 @@ Regularly:
 * Use PR_SET_PROCTITLE_AREA if it becomes available in the kernel
 
 * %m in printf() instead of strerror();
+
+* pahole
+
+* CFLAGS="-Wl,--gc-sections -Wl,--print-gc-sections -ffunction-sections -fdata-sections"

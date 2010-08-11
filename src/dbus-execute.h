@@ -127,7 +127,7 @@
         { interface, "SyslogPriority",                bus_property_append_int,    "i",     &(context).syslog_priority              }, \
         { interface, "SyslogIdentifier",              bus_property_append_string, "s",     (context).syslog_identifier             }, \
         { interface, "SyslogLevelPrefix",             bus_property_append_bool,   "b",     &(context).syslog_level_prefix          }, \
-        { interface, "Capabilities",                  bus_property_append_string, "s",     (context).capabilities                  }, \
+        { interface, "Capabilities",                  bus_execute_append_capabilities, "s", (context).capabilities                 }, \
         { interface, "SecureBits",                    bus_property_append_int,    "i",     &(context).secure_bits                  }, \
         { interface, "CapabilityBoundingSetDrop",     bus_property_append_uint64, "t",     &(context).capability_bounding_set_drop }, \
         { interface, "User",                          bus_property_append_string, "s",     (context).user                          }, \
