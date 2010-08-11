@@ -96,16 +96,29 @@ static bool private_bus = false;
 
 static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
 
-static const char *ansi_highlight(bool b) {
+static bool on_tty(void) {
         static int t = -1;
 
         if (_unlikely_(t < 0))
                 t = isatty(STDOUT_FILENO) > 0;
 
-        if (!t)
+        return t;
+}
+
+static const char *ansi_highlight(bool b) {
+
+        if (!on_tty())
                 return "";
 
         return b ? ANSI_HIGHLIGHT_ON : ANSI_HIGHLIGHT_OFF;
+}
+
+static const char *ansi_highlight_green(bool b) {
+
+        if (!on_tty())
+                return "";
+
+        return b ? ANSI_HIGHLIGHT_GREEN_ON : ANSI_HIGHLIGHT_OFF;
 }
 
 static bool error_is_no_service(DBusError *error) {
@@ -246,13 +259,19 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                     (arg_all || !(streq(active_state, "inactive") || following[0]) || job_id > 0)) {
                         char *e;
                         int a = 0, b = 0;
+                        const char *on, *off;
 
-                        if (streq(active_state, "maintenance"))
-                                fputs(ansi_highlight(true), stdout);
+                        if (streq(active_state, "maintenance")) {
+                                on = ansi_highlight(true);
+                                off = ansi_highlight(false);
+                        } else
+                                on = off = "";
 
                         e = arg_full ? NULL : ellipsize(id, 45, 33);
-                        printf("%-45s %-6s %-12s %-12s%n", e ? e : id, load_state, active_state, sub_state, &a);
+                        printf("%-45s %-6s %s%-12s %-12s%s%n", e ? e : id, load_state, on, active_state, sub_state, off, &a);
                         free(e);
+
+                        a -= strlen(on) + strlen(off);
 
                         if (job_id != 0)
                                 printf(" => %-12s%n", job_type, &b);
@@ -265,9 +284,6 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
                                 printf(" %.*s", columns() - a - b - 2, description);
                         }
-
-                        if (streq(active_state, "maintenance"))
-                                fputs(ansi_highlight(false), stdout);
 
                         fputs("\n", stdout);
                         k++;
@@ -1435,6 +1451,7 @@ typedef struct UnitStatusInfo {
 
 static void print_status_info(UnitStatusInfo *i) {
         ExecStatusInfo *p;
+        const char *on, *off, *ss;
 
         assert(i);
 
@@ -1458,27 +1475,28 @@ static void print_status_info(UnitStatusInfo *i) {
         else
                 printf("\t  Loaded: %s\n", strna(i->load_state));
 
+        ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
+
         if (streq_ptr(i->active_state, "maintenance")) {
-                        if (streq_ptr(i->active_state, i->sub_state))
-                                printf("\t  Active: %s%s%s\n",
-                                       ansi_highlight(true),
-                                       strna(i->active_state),
-                                       ansi_highlight(false));
-                        else
-                                printf("\t  Active: %s%s (%s)%s\n",
-                                       ansi_highlight(true),
-                                       strna(i->active_state),
-                                       strna(i->sub_state),
-                                       ansi_highlight(false));
-        } else {
-                if (streq_ptr(i->active_state, i->sub_state))
-                        printf("\t  Active: %s\n",
-                               strna(i->active_state));
-                else
-                        printf("\t  Active: %s (%s)\n",
-                               strna(i->active_state),
-                               strna(i->sub_state));
-        }
+                on = ansi_highlight(true);
+                off = ansi_highlight(false);
+        } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
+                on = ansi_highlight_green(true);
+                off = ansi_highlight_green(false);
+        } else
+                on = off = "";
+
+        if (ss)
+                printf("\t  Active: %s%s (%s)%s\n",
+                       on,
+                       strna(i->active_state),
+                       ss,
+                       off);
+        else
+                printf("\t  Active: %s%s%s\n",
+                       on,
+                       strna(i->active_state),
+                       off);
 
         if (i->sysfs_path)
                 printf("\t  Device: %s\n", i->sysfs_path);
