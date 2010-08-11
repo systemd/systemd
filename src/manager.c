@@ -251,8 +251,10 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         if ((r = bus_init(m)) < 0)
                 goto fail;
 
+#ifdef HAVE_AUDIT
         if ((m->audit_fd = audit_open()) < 0)
                 log_error("Failed to connect to audit log: %m");
+#endif
 
         *_m = m;
         return 0;
