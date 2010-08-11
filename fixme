@@ -10,10 +10,6 @@
     chown root:utmp /var/run/utmp
     mkdir -p /var/lock/subsys
 
-* downgrade warnings for non-existent services pulled-in
-  by soft dependencies, like:
-    init[1]: Failed to load configuration for isdn.service: No such file or directory
-
 * have a simple syslog bridge providing /dev/log and forward messages
   to /dev/kmsg. at the moment the real syslog can be started, the bridge
   is stopped and the open /dev/log fd to the real syslog. that way we
@@ -70,8 +66,6 @@
 * io priority during initialization
 
 * if a service fails too often, make the service enter maintainence mode, and the socket, too.
-
-* don't show file not found msgs for irrelevant units
 
 * j->installed issue
 

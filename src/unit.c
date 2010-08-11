@@ -672,6 +672,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tMerged into: %s\n",
                         prefix, u->meta.merged_into->meta.id);
+        else if (u->meta.load_state == UNIT_FAILED)
+                fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror(-u->meta.load_error));
+
 
         if (u->meta.job)
                 job_dump(u->meta.job, f, prefix2);
@@ -756,9 +759,10 @@ int unit_load(Unit *u) {
 
 fail:
         u->meta.load_state = UNIT_FAILED;
+        u->meta.load_error = r;
         unit_add_to_dbus_queue(u);
 
-        log_notice("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
+        log_debug("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
 
         return r;
 }

@@ -184,6 +184,9 @@ struct Meta {
          * unit here, if there was a job scheduled */
         int deserialized_job; /* This is actually of type JobType */
 
+        /* Error code when we didn't manage to load the unit (negative) */
+        int load_error;
+
         /* If we go down, pull down everything that depends on us, too */
         bool recursive_stop;
 
