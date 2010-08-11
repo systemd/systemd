@@ -868,12 +868,12 @@ int main(int argc, char *argv[])
 	if (cd_profiles(udev, fd) < 0)
 		goto print;
 
-	/* get writable media state */
-	if (cd_media_info(udev, fd) < 0)
-		goto print;
-
 	/* get session/track info */
 	if (cd_media_toc(udev, fd) < 0)
+		goto print;
+
+	/* get writable media state */
+	if (cd_media_info(udev, fd) < 0)
 		goto print;
 
 print:
