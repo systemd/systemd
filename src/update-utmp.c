@@ -28,6 +28,10 @@
 
 #include <dbus/dbus.h>
 
+#ifdef HAVE_AUDIT
+#include <libaudit.h>
+#endif
+
 #include "log.h"
 #include "macro.h"
 #include "util.h"
@@ -244,7 +248,7 @@ static int on_reboot(Context *c) {
 
 #ifdef HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", NULL, NULL, NULL, 1) < 0) {
+                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "init", NULL, NULL, NULL, 1) < 0) {
                         log_error("Failed to send audit message: %m");
                         r = -errno;
                 }
@@ -272,7 +276,7 @@ static int on_shutdown(Context *c) {
 
 #ifdef HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", NULL, NULL, NULL, 1) < 0) {
+                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "init", NULL, NULL, NULL, 1) < 0) {
                         log_error("Failed to send audit message: %m");
                         r = -errno;
                 }
@@ -308,7 +312,7 @@ static int on_runlevel(Context *c) {
                 previous = 0;
         }
 
-        /* Second get new runlevel */
+        /* Secondly, get new runlevel */
         if ((runlevel = get_current_runlevel(c)) < 0)
                 return runlevel;
 

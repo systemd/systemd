@@ -36,7 +36,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+
+#ifdef HAVE_AUDIT
 #include <libaudit.h>
+#endif
 
 #include "manager.h"
 #include "hashmap.h"
