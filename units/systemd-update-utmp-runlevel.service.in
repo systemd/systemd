@@ -1,0 +1,15 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Notify Audit System and Update UTMP about System Runlevel Changes
+DefaultDependencies=no
+After=runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target auditd.service
+
+[Service]
+Type=finish
+ExecStart=-@rootlibexecdir@/systemd-update-utmp runlevel

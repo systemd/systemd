@@ -27,7 +27,6 @@
 #include <sys/signalfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <utmpx.h>
 #include <sys/poll.h>
 #include <sys/reboot.h>
 #include <sys/ioctl.h>
@@ -48,7 +47,6 @@
 #include "ratelimit.h"
 #include "cgroup.h"
 #include "mount-setup.h"
-#include "utmp-wtmp.h"
 #include "unit-name.h"
 #include "dbus-unit.h"
 #include "dbus-job.h"

@@ -210,6 +210,8 @@ struct Meta {
         bool sent_dbus_new_signal:1;
 
         bool no_gc:1;
+
+        bool in_audit:1;
 };
 
 #include "service.h"

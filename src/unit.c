@@ -990,8 +990,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
          * even if they might map to the same high-level
          * UnitActiveState! That means that ns == os is OK an expected
          * behaviour here. For example: if a mount point is remounted
-         * this function will be called too and the utmp code below
-         * relies on that! */
+         * this function will be called too! */
 
         dual_timestamp_get(&ts);
 
@@ -1115,9 +1114,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         log_open();
 
                 if (u->meta.type == UNIT_SERVICE &&
-                    !UNIT_IS_ACTIVE_OR_RELOADING(os))
+                    !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
                         /* Write audit record if we have just finished starting up */
                         manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, 1);
+                        u->meta.in_audit = true;
+                }
 
         } else {
 
@@ -1132,10 +1133,22 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
                 if (u->meta.type == UNIT_SERVICE &&
                     UNIT_IS_INACTIVE_OR_MAINTENANCE(ns) &&
-                    !UNIT_IS_INACTIVE_OR_MAINTENANCE(os))
+                    !UNIT_IS_INACTIVE_OR_MAINTENANCE(os)) {
 
-                        /* Write audit record if we have just finished shutting down */
-                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
+                        /* Hmm, if there was no start record written
+                         * write it now, so that we always have a nice
+                         * pair */
+                        if (!u->meta.in_audit) {
+                                manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
+
+                                if (ns == UNIT_INACTIVE)
+                                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, true);
+                        } else
+                                /* Write audit record if we have just finished shutting down */
+                                manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
+
+                        u->meta.in_audit = false;
+                }
         }
 
         /* Maybe we finished startup and are now ready for being

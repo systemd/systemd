@@ -112,8 +112,6 @@ static int get_current_runlevel(Context *c) {
         } table[] = {
                 /* The first target of this list that is active or has
                  * a job scheduled wins */
-                { '0', SPECIAL_POWEROFF_TARGET },
-                { '6', SPECIAL_REBOOT_TARGET },
                 { '5', SPECIAL_RUNLEVEL5_TARGET },
                 { '4', SPECIAL_RUNLEVEL4_TARGET },
                 { '3', SPECIAL_RUNLEVEL3_TARGET },
@@ -321,7 +319,9 @@ static int on_runlevel(Context *c) {
         if (c->audit_fd >= 0) {
                 char *s = NULL;
 
-                if (asprintf(&s, "old-level=%c new-level=%c", previous, runlevel) < 0)
+                if (asprintf(&s, "old-level=%c new-level=%c",
+                             previous > 0 ? previous : 'N',
+                             runlevel > 0 ? runlevel : 'N') < 0)
                         return -ENOMEM;
 
                 if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, NULL, NULL, NULL, 1) < 0) {
@@ -353,10 +353,10 @@ int main(int argc, char *argv[]) {
         c.audit_fd = -1;
 #endif
 
-        /* if (getppid() != 1) { */
-        /*         log_error("This program should be invoked by init only."); */
-        /*         return 1; */
-        /* } */
+        if (getppid() != 1) {
+                log_error("This program should be invoked by init only.");
+                return 1;
+        }
 
         if (argc != 2) {
                 log_error("This program requires one argument.");
@@ -377,7 +377,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_info("systemd-update-utmp running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-update-utmp running as pid %lu", (unsigned long) getpid());
 
         if (streq(argv[1], "reboot"))
                 r = on_reboot(&c);
@@ -390,9 +390,9 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
         }
 
-        log_info("systemd-update-utmp stopped as pid %lu", (unsigned long) getpid());
-finish:
+        log_debug("systemd-update-utmp stopped as pid %lu", (unsigned long) getpid());
 
+finish:
 #ifdef HAVE_AUDIT
         if (c.audit_fd >= 0)
                 audit_close(c.audit_fd);

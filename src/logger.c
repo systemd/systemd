@@ -548,8 +548,6 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
 
-        log_info("systemd-logger running as pid %lu", (unsigned long) getpid());
-
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
                 return 1;
@@ -562,6 +560,8 @@ int main(int argc, char *argv[]) {
 
         if (server_init(&server, (unsigned) n) < 0)
                 return 3;
+
+        log_debug("systemd-logger running as pid %lu", (unsigned long) getpid());
 
         sd_notify(false,
                   "READY=1\n"
@@ -588,15 +588,16 @@ int main(int argc, char *argv[]) {
                 if ((k = process_event(&server, &event)) < 0)
                         goto fail;
         }
+
         r = 0;
+
+        log_info("systemd-logger stopped as pid %lu", (unsigned long) getpid());
 
 fail:
         sd_notify(false,
                   "STATUS=Shutting down...");
 
         server_done(&server);
-
-        log_info("systemd-logger stopped as pid %lu", (unsigned long) getpid());
 
         return r;
 }

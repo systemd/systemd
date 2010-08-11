@@ -6,4 +6,6 @@ graphical.target
 multi-user.target
 getty@.service
 remote-fs.target
+systemd-update-utmp-runlevel.service
+systemd-update-utmp-shutdown.service
 test-env-replace

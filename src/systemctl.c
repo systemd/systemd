@@ -4612,7 +4612,7 @@ static int runlevel_main(void) {
         int r, runlevel, previous;
 
         if ((r = utmp_get_runlevel(&runlevel, &previous)) < 0) {
-                printf("unknown");
+                printf("unknown\n");
                 return r;
         }
 

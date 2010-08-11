@@ -159,6 +159,8 @@ nodist_systemunit_DATA = \
 	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
+	units/systemd-update-utmp-runlevel.service \
+	units/systemd-update-utmp-shutdown.service \
 	units/syslog.target
 
 dist_sessionunit_DATA = \
@@ -176,6 +178,8 @@ EXTRA_DIST = \
 	units/remote-fs.target.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
+	units/systemd-update-utmp-runlevel.service.in \
+	units/systemd-update-utmp-shutdown.service.in \
 	units/syslog.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
@@ -331,7 +335,8 @@ EXTRA_DIST += \
 	src/special.h \
 	src/dbus-common.h \
 	src/bus-errors.h \
-	src/cgroup-show.h
+	src/cgroup-show.h \
+	src/utmp-wtmp.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -722,6 +727,12 @@ install-data-hook:
 		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
 		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
+		$(DESTDIR)$(systemunitdir)/shutdown.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel1.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel2.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel3.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel4.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel5.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
@@ -737,6 +748,24 @@ install-data-hook:
 		rm -f systemd-initctl.socket systemd-logger.socket && \
 		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel1.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel2.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel3.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel4.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel5.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
+		rm -f systemd-update-utmp-shutdown.service && \
+		$(LN_S) ../systemd-update-utmp-shutdown.service )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -789,8 +818,8 @@ install-data-hook:
 if TARGET_FEDORA
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
-		$(DESTDIR)$(systemunitdir)/rescue.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/system/shutdown.target.wants
+		$(DESTDIR)$(pkgsysconfdir)/system/shutdown.target.wants \
+		$(DESTDIR)$(systemunitdir)/rescue.target.wants
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
