@@ -209,11 +209,13 @@ int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *
         else
                 s = "";
 
-        if (!t)
+        if (!s)
                 return -ENOMEM;
 
         b = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &s);
-        cap_free(t);
+
+        if (t)
+                cap_free(t);
 
         if (!b)
                 return -ENOMEM;
