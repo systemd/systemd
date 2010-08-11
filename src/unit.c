@@ -236,6 +236,9 @@ bool unit_check_gc(Unit *u) {
         if (UNIT_VTABLE(u)->no_gc)
                 return true;
 
+        if (u->meta.no_gc)
+                return true;
+
         if (u->meta.job)
                 return true;
 

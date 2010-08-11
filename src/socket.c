@@ -165,6 +165,7 @@ static int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return r;
 
+        u->meta.no_gc = true;
         s->service = SERVICE(u);
         return 0;
 }
@@ -1201,6 +1202,8 @@ static void socket_enter_running(Socket *s, int cfd) {
                 service = s->service;
                 s->service = NULL;
                 s->n_accepted ++;
+
+                service->meta.no_gc = false;
 
                 unit_choose_id(UNIT(service), name);
                 free(name);
