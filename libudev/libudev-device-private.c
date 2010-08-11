@@ -177,19 +177,3 @@ int udev_device_delete_db(struct udev_device *udev_device)
 	unlink(filename);
 	return 0;
 }
-
-int udev_device_rename_db(struct udev_device *udev_device)
-{
-	struct udev *udev = udev_device_get_udev(udev_device);
-	char filename_old[UTIL_PATH_SIZE];
-	char filename[UTIL_PATH_SIZE];
-
-	if (strcmp(udev_device_get_sysname(udev_device), udev_device_get_sysname_old(udev_device)) == 0)
-		return 0;
-
-	util_strscpyl(filename_old, sizeof(filename_old), udev_get_dev_path(udev), "/.udev/db/",
-		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname_old(udev_device), NULL);
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
-		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
-	return rename(filename_old, filename);
-}
