@@ -1034,7 +1034,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                                 job_finish_and_invalidate(u->meta.job, true);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                                 unexpected = true;
-                                job_finish_and_invalidate(u->meta.job, false);
+
+                                if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+                                        job_finish_and_invalidate(u->meta.job, ns != UNIT_MAINTENANCE);
                         }
 
                         break;
@@ -1047,7 +1049,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                                         job_finish_and_invalidate(u->meta.job, true);
                                 else if (ns != UNIT_ACTIVATING && ns != UNIT_RELOADING) {
                                         unexpected = true;
-                                        job_finish_and_invalidate(u->meta.job, false);
+
+                                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+                                                job_finish_and_invalidate(u->meta.job, ns != UNIT_MAINTENANCE);
                                 }
                         }
 
@@ -1057,7 +1061,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 case JOB_RESTART:
                 case JOB_TRY_RESTART:
 
-                        if (ns == UNIT_INACTIVE || ns == UNIT_MAINTENANCE)
+                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
                                 job_finish_and_invalidate(u->meta.job, true);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
