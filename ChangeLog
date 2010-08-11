@@ -1,3 +1,65 @@
+Summary of changes from v160 to v161
+============================================
+
+Fortunato Ventre (1):
+      keymap: Add force-release quirks for a lot more Samsung models
+
+Harald Hoyer (3):
+      udev-event.c: rename interface to <src>-<dest>, if <dest> taken
+      rule_generator/write_net_rules: prevent interface to be named "eth"
+      cdrom_id: READ TOC before READ DISC INFORMATION fixes qemu
+
+Jan Drzewiecki (5):
+      cdrom_id: Fix detection of reblanked DVD+RW and DVD-RAM
+      cdrom_id: Handle pre-MMC2 drives
+      cdrom_id: Also apply format check to DVD-RW
+      cdrom_id: No "next session" for "other" media state
+      cdrom_id: Fix state for fresh DVD-RW
+
+Jerone Young (1):
+      Fix volume keys not releasing on Mivvy G310
+
+Kay Sievers (12):
+      version bump
+      rules: remove firewire rules for deprecated drivers
+      udev-acl: update firewire matches to recent rule changes
+      libudev: bump minor so version after adding symbols
+      call util_delete_path() only when we actually deleted stuff
+      udev-acl: properly handle CK change events for root user
+      udev-acl: remove specific device matches from the rules file
+      fix broken "compile warning fix"
+      always log error when renaming a network interface fails
+      do not rename the database on device rename
+      cdrom_id: whitespace fix
+      cdrom_id: do not bail out when we can not read the TOC like for empty CDRW
+
+Marco d'Itri (3):
+      hid2hci: fix Logitech diNovo, MX5500 and other keyboards
+      log an error when a message from the wrong version of udevadm is ignored
+      hid2hci: fix for Logitech diNovo Edge keyboard
+
+Martin Pitt (1):
+      keymap: Generalize Samsung keymaps
+
+Michal Schmidt (1):
+      udev-acl: really fix ACL assignment in CK events
+
+Richard Hughes (1):
+      udev-acl: add DDC_DEVICE to the types that are managed
+
+Stefan Richter (1):
+      rules: add more FireWire IDs: Point Grey IIDC; AV/C + vendor unique
+
+Yin Kangkai (7):
+      udevadm: fix short options in getopt()
+      udevd: fix some memory leaks in error path
+      malloc()+memset() -> calloc()
+      udevd: fix short options in getopt()
+      udevd: fix unref'ing of device in error path
+      udevd: create static device links only when the target exists
+      udev: fix compile warning
+
+
 Summary of changes from v159 to v160
 ============================================
 
