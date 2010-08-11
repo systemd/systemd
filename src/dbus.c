@@ -454,7 +454,7 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
                           dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-                log_error("Warning! System D-Bus connection terminated.");
+                log_debug("System D-Bus connection terminated.");
                 bus_done_system(m);
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
@@ -816,7 +816,7 @@ static int bus_init_system(Manager *m) {
 
         if (m->api_bus != m->system_bus) {
                 char *id;
-                log_info("Successfully connected to system D-Bus bus %s as %s",
+                log_debug("Successfully connected to system D-Bus bus %s as %s",
                          strnull((id = dbus_connection_get_server_id(m->system_bus))),
                          strnull(dbus_bus_get_unique_name(m->system_bus)));
                 dbus_free(id);
@@ -902,7 +902,7 @@ static int bus_init_api(Manager *m) {
 
         if (m->api_bus != m->system_bus) {
                 char *id;
-                log_info("Successfully connected to API D-Bus bus %s as %s",
+                log_debug("Successfully connected to API D-Bus bus %s as %s",
                          strnull((id = dbus_connection_get_server_id(m->api_bus))),
                          strnull(dbus_bus_get_unique_name(m->api_bus)));
                 dbus_free(id);
