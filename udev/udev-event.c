@@ -464,8 +464,8 @@ static int rename_netif(struct udev_event *event)
 	struct udev_device *dev = event->dev;
 	int sk;
 	struct ifreq ifr;
+	int loop;
 	int err;
-	char *newdup;
 
 	info(event->udev, "changing net interface name from '%s' to '%s'\n",
 	     udev_device_get_sysname(dev), event->name);
@@ -473,61 +473,58 @@ static int rename_netif(struct udev_event *event)
 	sk = socket(PF_INET, SOCK_DGRAM, 0);
 	if (sk < 0) {
 		err(event->udev, "error opening socket: %m\n");
-		return -1;
+		return -errno;
 	}
 
 	memset(&ifr, 0x00, sizeof(struct ifreq));
 	util_strscpy(ifr.ifr_name, IFNAMSIZ, udev_device_get_sysname(dev));
 	util_strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
 	err = ioctl(sk, SIOCSIFNAME, &ifr);
-	if (err == 0)
+	if (err == 0) {
 		rename_netif_kernel_log(ifr);
-	else {
-		int loop;
-
-		/* see if the destination interface name already exists */
-		if (errno != EEXIST) {
-			err(event->udev, "error changing netif name %s to %s: %m\n",
-			    ifr.ifr_name, ifr.ifr_newname);
-			goto exit;
-		}
-
-		/* free our own name, another process may wait for us */
-		newdup = strdup(ifr.ifr_newname);
-		util_strscpyl(ifr.ifr_newname, IFNAMSIZ, udev_device_get_sysname(dev), "-", newdup, NULL);
-		free(newdup);
-		err = ioctl(sk, SIOCSIFNAME, &ifr);
-		if (err != 0) {
-			err(event->udev, "error changing netif name %s to %s: %m\n",
-			    ifr.ifr_name, ifr.ifr_newname);
-			goto exit;
-		}
-		rename_netif_kernel_log(ifr);
-
-		/* wait 90 seconds for our target to become available */
-		util_strscpy(ifr.ifr_name, IFNAMSIZ, ifr.ifr_newname);
-		util_strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
-		loop = 90 * 20;
-		while (loop--) {
-			const struct timespec duration = { 0, 1000 * 1000 * 1000 / 20 };
-
-			err = ioctl(sk, SIOCSIFNAME, &ifr);
-			if (err == 0) {
-				rename_netif_kernel_log(ifr);
-				break;
-			}
-
-			if (errno != EEXIST) {
-				err(event->udev, "error changing net interface name %s to %s: %m\n",
-				    ifr.ifr_name, ifr.ifr_newname);
-				break;
-			}
-			dbg(event->udev, "wait for netif '%s' to become free, loop=%i\n",
-			    event->name, (90 * 20) - loop);
-			nanosleep(&duration, NULL);
-		}
+		goto out;
 	}
-exit:
+
+	/* keep trying if the destination interface name already exists */
+	err = -errno;
+	if (err != -EEXIST)
+		goto out;
+
+	/* free our own name, another process may wait for us */
+	util_strscpyl(ifr.ifr_newname, IFNAMSIZ, udev_device_get_sysname(dev), "-", event->name, NULL);
+	err = ioctl(sk, SIOCSIFNAME, &ifr);
+	if (err < 0) {
+		err = -errno;
+		goto out;
+	}
+
+	/* log temporary name */
+	rename_netif_kernel_log(ifr);
+
+	/* wait a maximum of 90 seconds for our target to become available */
+	util_strscpy(ifr.ifr_name, IFNAMSIZ, ifr.ifr_newname);
+	util_strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
+	loop = 90 * 20;
+	while (loop--) {
+		const struct timespec duration = { 0, 1000 * 1000 * 1000 / 20 };
+
+		dbg(event->udev, "wait for netif '%s' to become free, loop=%i\n",
+		    event->name, (90 * 20) - loop);
+		nanosleep(&duration, NULL);
+
+		err = ioctl(sk, SIOCSIFNAME, &ifr);
+		if (err == 0) {
+			rename_netif_kernel_log(ifr);
+			break;
+		}
+		err = -errno;
+		if (err != -EEXIST)
+			break;
+	}
+
+out:
+	if (err < 0)
+		err(event->udev, "error changing net interface name %s to %s: %m\n", ifr.ifr_name, ifr.ifr_newname);
 	close(sk);
 	return err;
 }
