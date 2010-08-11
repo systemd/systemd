@@ -37,6 +37,7 @@
 #include "dbus-automount.h"
 #include "bus-errors.h"
 #include "special.h"
+#include "label.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,

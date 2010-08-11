@@ -45,6 +45,7 @@
 #include "conf-parser.h"
 #include "bus-errors.h"
 #include "missing.h"
+#include "label.h"
 
 static enum {
         ACTION_RUN,

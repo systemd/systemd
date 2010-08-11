@@ -34,6 +34,7 @@
 #include "util.h"
 #include "socket-util.h"
 #include "missing.h"
+#include "label.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         int r;
