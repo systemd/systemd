@@ -2492,18 +2492,6 @@ char* gethostname_malloc(void) {
         return strdup(u.sysname);
 }
 
-int getmachineid_malloc(char **b) {
-        int r;
-
-        assert(b);
-
-        if ((r = read_one_line_file("/var/lib/dbus/machine-id", b)) < 0)
-                return r;
-
-        strstrip(*b);
-        return 0;
-}
-
 char* getlogname_malloc(void) {
         uid_t uid;
         long bufsize;

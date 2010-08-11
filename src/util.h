@@ -319,7 +319,6 @@ void sigset_add_many(sigset_t *ss, ...);
 char* gethostname_malloc(void);
 char* getlogname_malloc(void);
 int getttyname_malloc(char **r);
-int getmachineid_malloc(char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 

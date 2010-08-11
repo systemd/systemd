@@ -99,8 +99,6 @@ extern const UnitVTable mount_vtable;
 
 void mount_fd_event(Manager *m, int events);
 
-int mount_path_is_mounted(Manager *m, const char* path);
-
 const char* mount_state_to_string(MountState i);
 MountState mount_state_from_string(const char *s);
 

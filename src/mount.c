@@ -1487,57 +1487,6 @@ void mount_fd_event(Manager *m, int events) {
         }
 }
 
-int mount_path_is_mounted(Manager *m, const char* path) {
-        char *t;
-        int r;
-
-        assert(m);
-        assert(path);
-
-        if (path[0] != '/')
-                return 1;
-
-        if (!(t = strdup(path)))
-                return -ENOMEM;
-
-        path_kill_slashes(t);
-
-        for (;;) {
-                char *e, *slash;
-                Unit *u;
-
-                if (!(e = unit_name_from_path(t, ".mount"))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                u = manager_get_unit(m, e);
-                free(e);
-
-                if (u &&
-                    (MOUNT(u)->from_etc_fstab || MOUNT(u)->from_fragment) &&
-                    MOUNT(u)->state != MOUNT_MOUNTED) {
-                        r = 0;
-                        goto finish;
-                }
-
-                assert_se(slash = strrchr(t, '/'));
-
-                if (slash == t) {
-                        r = 1;
-                        goto finish;
-                }
-
-                *slash = 0;
-        }
-
-        r = 1;
-
-finish:
-        free(t);
-        return r;
-}
-
 static void mount_reset_maintenance(Unit *u) {
         Mount *m = MOUNT(u);
 

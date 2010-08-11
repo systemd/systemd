@@ -420,7 +420,6 @@ Unit *unit_follow_merge(Unit *u);
 
 int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
-int unit_load_nop(Unit *u);
 int unit_load(Unit *unit);
 
 const char *unit_description(Unit *u);
@@ -484,9 +483,6 @@ bool unit_need_daemon_reload(Unit *u);
 void unit_reset_maintenance(Unit *u);
 
 Unit *unit_following(Unit *u);
-
-const char *unit_type_to_string(UnitType i);
-UnitType unit_type_from_string(const char *s);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

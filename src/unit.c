@@ -722,16 +722,6 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
         return 0;
 }
 
-/* Common implementation for multiple backends */
-int unit_load_nop(Unit *u) {
-        assert(u);
-
-        if (u->meta.load_state == UNIT_STUB)
-                u->meta.load_state = UNIT_LOADED;
-
-        return 0;
-}
-
 int unit_load(Unit *u) {
         int r;
 
@@ -2123,20 +2113,6 @@ Unit *unit_following(Unit *u) {
 
         return NULL;
 }
-
-static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
-        [UNIT_SERVICE] = "service",
-        [UNIT_TIMER] = "timer",
-        [UNIT_SOCKET] = "socket",
-        [UNIT_TARGET] = "target",
-        [UNIT_DEVICE] = "device",
-        [UNIT_MOUNT] = "mount",
-        [UNIT_AUTOMOUNT] = "automount",
-        [UNIT_SNAPSHOT] = "snapshot",
-        [UNIT_SWAP] = "swap"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",

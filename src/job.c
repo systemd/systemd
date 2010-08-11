@@ -134,30 +134,6 @@ void job_dependency_free(JobDependency *l) {
         free(l);
 }
 
-void job_dependency_delete(Job *subject, Job *object, bool *matters) {
-        JobDependency *l;
-
-        assert(object);
-
-        LIST_FOREACH(object, l, object->object_list) {
-                assert(l->object == object);
-
-                if (l->subject == subject)
-                        break;
-        }
-
-        if (!l) {
-                if (matters)
-                        *matters = false;
-                return;
-        }
-
-        if (matters)
-                *matters = l->matters;
-
-        job_dependency_free(l);
-}
-
 void job_dump(Job *j, FILE*f, const char *prefix) {
         assert(j);
         assert(f);

@@ -124,7 +124,6 @@ void job_dump(Job *j, FILE*f, const char *prefix);
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);
 void job_dependency_free(JobDependency *l);
-void job_dependency_delete(Job *subject, Job *object, bool *matters);
 
 bool job_is_anchor(Job *j);
 
