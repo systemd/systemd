@@ -1983,6 +1983,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         return -errno;
                 }
 
+                char_array_0(line);
                 l = strstrip(line);
 
                 /* End marker */

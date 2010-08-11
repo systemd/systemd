@@ -2351,6 +2351,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        fprintf(f, "startup-timestamp=%llu %llu\n\n",
+                (unsigned long long) m->startup_timestamp.realtime,
+                (unsigned long long) m->startup_timestamp.monotonic);
+
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
                 if (u->meta.id != t)
                         continue;
@@ -2383,15 +2387,47 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         m->n_deserializing ++;
 
         for (;;) {
+                char line[1024], *l;
+
+                if (!fgets(line, sizeof(line), f)) {
+                        if (feof(f))
+                                r = 0;
+                        else
+                                r = -errno;
+
+                        goto finish;
+                }
+
+                char_array_0(line);
+                l = strstrip(line);
+
+                if (l[0] == 0)
+                        break;
+
+                if (startswith(l, "startup-timestamp=")) {
+                        unsigned long long a, b;
+
+                        if (sscanf(l+18, "%lli %llu", &a, &b) != 2)
+                                log_debug("Failed to parse startup timestamp value %s", l+18);
+                        else {
+                                m->startup_timestamp.realtime = a;
+                                m->startup_timestamp.monotonic = b;
+                        }
+                } else
+                        log_debug("Unknown serialization item '%s'", l);
+        }
+
+        for (;;) {
                 Unit *u;
                 char name[UNIT_NAME_MAX+2];
 
                 /* Start marker */
                 if (!fgets(name, sizeof(name), f)) {
                         if (feof(f))
-                                break;
+                                r = 0;
+                        else
+                                r = -errno;
 
-                        r = -errno;
                         goto finish;
                 }
 
@@ -2404,14 +2440,12 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         goto finish;
         }
 
+finish:
         if (ferror(f)) {
                 r = -EIO;
                 goto finish;
         }
 
-        r = 0;
-
-finish:
         assert(m->n_deserializing > 0);
         m->n_deserializing --;
 
