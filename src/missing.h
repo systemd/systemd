@@ -55,14 +55,6 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
 }
 
-/* This is an internal glibc function call. We are not supposed to
- * call this, because we are not nscd. However sometimes we feel
- * really dangerous and do it nonetheless. Muahahah! But at least we
- * protect this with a weak ref just in case glibc takes this away
- * from us. */
-
-/* static void nss_disable_nscd(void) _weakref_(__nss_disable_nscd); */
-
 #ifndef AUDIT_SERVICE_START
 #define AUDIT_SERVICE_START     1130    /* Service (daemon) start */
 #endif

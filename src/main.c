@@ -994,11 +994,7 @@ int main(int argc, char *argv[]) {
 
                 /* Disable nscd, to avoid deadlocks when systemd uses
                  * NSS and the nscd socket is maintained by us. */
-                /* if (nss_disable_nscd) { */
-                /*         log_debug("Disabling nscd"); */
-                /*         nss_disable_nscd(); */
-                /* } else */
-                /*         log_debug("Hmm, can't disable nscd."); */
+                nss_disable_nscd();
 
                 if (!serialization) {
                         if (arg_show_status)

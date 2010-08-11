@@ -79,8 +79,6 @@
 
 * plymouth different shut down msgs
 
-* fix nscd disable
-
 External:
 
 * sysv functions should color when stdout is tty, not stdin
