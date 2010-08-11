@@ -797,7 +797,7 @@ static int service_load_sysv(Service *s) {
                         if (t == s->meta.id)
                                 continue;
 
-                        if ((r == service_load_sysv_name(s, t)) < 0)
+                        if ((r = service_load_sysv_name(s, t)) < 0)
                                 return r;
 
                         if (s->meta.load_state != UNIT_STUB)
@@ -2063,7 +2063,6 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int service_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Service *s = SERVICE(u);
-        int r;
 
         assert(u);
         assert(key);
@@ -2087,14 +2086,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
-                if ((r = parse_pid(value, &pid)) < 0)
+                if (parse_pid(value, &pid) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
                         s->control_pid = pid;
         } else if (streq(key, "main-pid")) {
                 pid_t pid;
 
-                if ((r = parse_pid(value, &pid)) < 0)
+                if (parse_pid(value, &pid) < 0)
                         log_debug("Failed to parse main-pid value %s", value);
                 else
                         service_set_main_pid(s, (pid_t) pid);
@@ -2136,49 +2135,49 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
-                if ((r = parse_pid(value, &pid)) < 0)
+                if (parse_pid(value, &pid) < 0)
                         log_debug("Failed to parse main-exec-status-pid value %s", value);
                 else
                         s->main_exec_status.pid = pid;
         } else if (streq(key, "main-exec-status-code")) {
                 int i;
 
-                if ((r = safe_atoi(value, &i)) < 0)
+                if (safe_atoi(value, &i) < 0)
                         log_debug("Failed to parse main-exec-status-code value %s", value);
                 else
                         s->main_exec_status.code = i;
         } else if (streq(key, "main-exec-status-status")) {
                 int i;
 
-                if ((r = safe_atoi(value, &i)) < 0)
+                if (safe_atoi(value, &i) < 0)
                         log_debug("Failed to parse main-exec-status-status value %s", value);
                 else
                         s->main_exec_status.status = i;
         } else if (streq(key, "main-exec-status-start-realtime")) {
                 uint64_t k;
 
-                if ((r = safe_atou64(value, &k)) < 0)
+                if (safe_atou64(value, &k) < 0)
                         log_debug("Failed to parse main-exec-status-start-realtime value %s", value);
                 else
                         s->main_exec_status.start_timestamp.realtime = (usec_t) k;
         } else if (streq(key, "main-exec-status-start-monotonic")) {
                 uint64_t k;
 
-                if ((r = safe_atou64(value, &k)) < 0)
+                if (safe_atou64(value, &k) < 0)
                         log_debug("Failed to parse main-exec-status-start-monotonic value %s", value);
                 else
                         s->main_exec_status.start_timestamp.monotonic = (usec_t) k;
         } else if (streq(key, "main-exec-status-exit-realtime")) {
                 uint64_t k;
 
-                if ((r = safe_atou64(value, &k)) < 0)
+                if (safe_atou64(value, &k) < 0)
                         log_debug("Failed to parse main-exec-status-exit-realtime value %s", value);
                 else
                         s->main_exec_status.exit_timestamp.realtime = (usec_t) k;
         } else if (streq(key, "main-exec-status-exit-monotonic")) {
                 uint64_t k;
 
-                if ((r = safe_atou64(value, &k)) < 0)
+                if (safe_atou64(value, &k) < 0)
                         log_debug("Failed to parse main-exec-status-exit-monotonic value %s", value);
                 else
                         s->main_exec_status.exit_timestamp.monotonic = (usec_t) k;

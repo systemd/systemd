@@ -791,7 +791,8 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
                                                 d = j;
                                         else
                                                 d = k;
-                                }
+                                } else
+                                        d = j;
 
                         } else if (!j->matters_to_anchor)
                                 d = j;
@@ -824,7 +825,7 @@ static int transaction_merge_jobs(Manager *m, DBusError *e) {
 
                 t = j->type;
                 LIST_FOREACH(transaction, k, j->transaction_next) {
-                        if ((r = job_type_merge(&t, k->type)) >= 0)
+                        if (job_type_merge(&t, k->type) >= 0)
                                 continue;
 
                         /* OK, we could not merge all jobs for this
@@ -1293,7 +1294,6 @@ rollback:
 
 static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool override, bool *is_new) {
         Job *j, *f;
-        int r;
 
         assert(m);
         assert(unit);
@@ -1326,7 +1326,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool o
 
         LIST_PREPEND(Job, transaction, f, j);
 
-        if ((r = hashmap_replace(m->transaction_jobs, unit, f)) < 0) {
+        if (hashmap_replace(m->transaction_jobs, unit, f) < 0) {
                 job_free(j);
                 return NULL;
         }

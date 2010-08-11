@@ -457,6 +457,8 @@ static int dot_one(DBusConnection *bus, const char *name, const char *path) {
                 dbus_message_iter_next(&sub);
         }
 
+        r = 0;
+
 finish:
         if (m)
                 dbus_message_unref(m);
@@ -798,7 +800,7 @@ finish:
 }
 
 static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
-        DBusMessage *m, *reply;
+        DBusMessage *m = NULL, *reply = NULL;
         dbus_bool_t b = FALSE;
         DBusMessageIter iter, sub;
         const char
@@ -3154,7 +3156,7 @@ static int remove_marked_symlinks_fd(int fd, const char *config_path, const char
                         free(p);
 
                         if (r == 0)
-                                q = r;
+                                r = q;
 
                 } else if (is_link) {
                         char *p, *dest, *c;
@@ -4530,11 +4532,10 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 }
 
 static int reload_with_fallback(DBusConnection *bus) {
-        int r;
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if ((r = daemon_reload(bus, NULL, 0)) > 0)
+                if (daemon_reload(bus, NULL, 0) > 0)
                         return 0;
         }
 
@@ -4550,22 +4551,21 @@ static int reload_with_fallback(DBusConnection *bus) {
 }
 
 static int start_with_fallback(DBusConnection *bus) {
-        int r;
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if ((r = start_unit(bus, NULL, 0)) > 0)
+                if (start_unit(bus, NULL, 0) > 0)
                         goto done;
         }
 
         /* Hmm, talking to systemd via D-Bus didn't work. Then
          * let's try to talk to Upstart via D-Bus. */
-        if ((r = talk_upstart()) > 0)
+        if (talk_upstart() > 0)
                 goto done;
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
-        if ((r = talk_initctl()) != 0)
+        if (talk_initctl() != 0)
                 goto done;
 
         log_error("Failed to talk to init daemon.");

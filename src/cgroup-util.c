@@ -737,10 +737,8 @@ int cg_install_release_agent(const char *controller, const char *agent) {
 
         free(fs);
         fs = NULL;
-        if ((r = cg_get_path(controller, NULL, "notify_on_release", &fs)) < 0) {
-                r = -ENOMEM;
+        if ((r = cg_get_path(controller, NULL, "notify_on_release", &fs)) < 0)
                 goto finish;
-        }
 
         free(contents);
         contents = NULL;

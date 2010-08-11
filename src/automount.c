@@ -444,6 +444,8 @@ int automount_send_ready(Automount *a, int status) {
         else
                 log_debug("Sending success.");
 
+        r = 0;
+
         /* Autofs thankfully does not hand out 0 as a token */
         while ((token = PTR_TO_UINT(set_steal_first(a->tokens)))) {
                 int k;
@@ -459,8 +461,6 @@ int automount_send_ready(Automount *a, int status) {
                                            status)) < 0)
                         r = k;
         }
-
-        r = 0;
 
 fail:
         if (ioctl_fd >= 0)

@@ -445,14 +445,14 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 if (p->type == SOCKET_SOCKET) {
                         const char *t;
                         int r;
-                        char *k;
+                        char *k = NULL;
 
                         if ((r = socket_address_print(&p->address, &k)) < 0)
                                 t = strerror(-r);
                         else
                                 t = k;
 
-                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(p->address.type), k);
+                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(p->address.type), t);
                         free(k);
                 } else
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
@@ -1374,7 +1374,6 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int socket_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Socket *s = SOCKET(u);
-        int r;
 
         assert(u);
         assert(key);
@@ -1399,14 +1398,14 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
         } else if (streq(key, "n-accepted")) {
                 unsigned k;
 
-                if ((r = safe_atou(value, &k)) < 0)
+                if (safe_atou(value, &k) < 0)
                         log_debug("Failed to parse n-accepted value %s", value);
                 else
                         s->n_accepted += k;
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
-                if ((r = parse_pid(value, &pid)) < 0)
+                if (parse_pid(value, &pid) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
                         s->control_pid = pid;
@@ -1665,7 +1664,7 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
                 if (p->fd >= 0)
                         rn_fds++;
 
-        if (!(rfds = new(int, rn_fds)) < 0)
+        if (!(rfds = new(int, rn_fds)))
                 return -ENOMEM;
 
         k = 0;

@@ -151,6 +151,9 @@ static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_d
         case PRIVATE:
                 what = private_dir;
                 break;
+
+        default:
+                assert_not_reached("Unknown mode");
         }
 
         if ((r = mount(what, where, NULL, MS_BIND|MS_REC, NULL)) >= 0) {

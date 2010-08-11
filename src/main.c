@@ -117,10 +117,10 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
 
                 } else {
-                        int status, r;
+                        int status;
 
                         /* Order things nicely. */
-                        if ((r = waitpid(pid, &status, 0)) < 0)
+                        if (waitpid(pid, &status, 0) < 0)
                                 log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(errno));
                         else if (!WCOREDUMP(status))
                                 log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
@@ -540,7 +540,7 @@ static int parse_proc_cmdline(void) {
         char *state;
 
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(errno));
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return 0;
         }
 

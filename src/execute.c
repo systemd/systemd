@@ -1055,7 +1055,7 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (cgroup_bondings)
-                        if ((r = cgroup_bonding_install_list(cgroup_bondings, 0)) < 0) {
+                        if (cgroup_bonding_install_list(cgroup_bondings, 0) < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail;
                         }

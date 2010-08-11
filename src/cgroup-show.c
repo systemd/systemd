@@ -138,7 +138,7 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
                         printf("%s%s %*lu %s\n",
                                prefix,
                                (more || i < n-1) ? "\342\224\234" : "\342\224\224",
-                               ilog10(biggest),
+                               (int) ilog10(biggest),
                                (unsigned long) pids[i],
                                strna(t));
 

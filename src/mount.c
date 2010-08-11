@@ -789,6 +789,7 @@ static void mount_enter_remounting(Mount *m, bool success) {
         return;
 
 fail:
+        log_warning("%s failed to run 'remount' task: %s", m->meta.id, strerror(-r));
         mount_enter_mounted(m, false);
 }
 
@@ -876,7 +877,6 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int mount_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Mount *m = MOUNT(u);
-        int r;
 
         assert(u);
         assert(key);
@@ -901,7 +901,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
-                if ((r = parse_pid(value, &pid)) < 0)
+                if (parse_pid(value, &pid) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
                         m->control_pid = pid;
@@ -1422,7 +1422,7 @@ void mount_fd_event(Manager *m, int events) {
          * table changes */
 
         if ((r = mount_load_proc_self_mountinfo(m, true)) < 0) {
-                log_error("Failed to reread /proc/self/mountinfo: %s", strerror(errno));
+                log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-r));
 
                 /* Reset flags, just in case, for later calls */
                 LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_MOUNT]) {

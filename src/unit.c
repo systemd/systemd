@@ -859,10 +859,10 @@ int unit_reload(Unit *u) {
                 return -EBADR;
 
         state = unit_active_state(u);
-        if (unit_active_state(u) == UNIT_RELOADING)
+        if (state == UNIT_RELOADING)
                 return -EALREADY;
 
-        if (unit_active_state(u) != UNIT_ACTIVE)
+        if (state != UNIT_ACTIVE)
                 return -ENOEXEC;
 
         unit_add_to_dbus_queue(u);

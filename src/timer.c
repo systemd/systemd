@@ -114,14 +114,9 @@ static int timer_load(Unit *u) {
 
 static void timer_dump(Unit *u, FILE *f, const char *prefix) {
         Timer *t = TIMER(u);
-        const char *prefix2;
-        char *p2;
         TimerValue *v;
         char
                 timespan1[FORMAT_TIMESPAN_MAX];
-
-        p2 = strappend(prefix, "\t");
-        prefix2 = p2 ? p2 : prefix;
 
         fprintf(f,
                 "%sTimer State: %s\n"
@@ -135,8 +130,6 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix,
                         timer_base_to_string(v->base),
                         strna(format_timespan(timespan1, sizeof(timespan1), v->value)));
-
-        free(p2);
 }
 
 static void timer_set_state(Timer *t, TimerState state) {

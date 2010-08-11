@@ -387,7 +387,7 @@ int main(int argc, char *argv[]) {
                 if (k <= 0)
                         break;
 
-                if ((k = process_event(&server, &event)) < 0)
+                if (process_event(&server, &event) < 0)
                         goto fail;
         }
 

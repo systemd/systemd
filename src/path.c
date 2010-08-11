@@ -145,12 +145,10 @@ static int path_load(Unit *u) {
 
 static void path_dump(Unit *u, FILE *f, const char *prefix) {
         Path *p = PATH(u);
-        const char *prefix2;
-        char *p2;
         PathSpec *s;
 
-        p2 = strappend(prefix, "\t");
-        prefix2 = p2 ? p2 : prefix;
+        assert(p);
+        assert(f);
 
         fprintf(f,
                 "%sPath State: %s\n"
@@ -164,8 +162,6 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix,
                         path_type_to_string(s->type),
                         s->path);
-
-        free(p2);
 }
 
 static void path_unwatch_one(Path *p, PathSpec *s) {

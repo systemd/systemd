@@ -231,7 +231,7 @@ int manager_setup_cgroup(Manager *m) {
         } else {
                 /* We need a new root cgroup */
                 m->cgroup_hierarchy = NULL;
-                if ((r = asprintf(&m->cgroup_hierarchy, "%s%s", streq(current, "/") ? "" : current, suffix)) < 0) {
+                if (asprintf(&m->cgroup_hierarchy, "%s%s", streq(current, "/") ? "" : current, suffix) < 0) {
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -325,14 +325,13 @@ int cgroup_notify_empty(Manager *m, const char *group) {
 Unit* cgroup_unit_by_pid(Manager *m, pid_t pid) {
         CGroupBonding *l, *b;
         char *group = NULL;
-        int r;
 
         assert(m);
 
         if (pid <= 1)
                 return NULL;
 
-        if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &group)))
+        if (cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &group) < 0)
                 return NULL;
 
         l = hashmap_get(m->cgroup_bondings, group);
