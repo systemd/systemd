@@ -869,12 +869,10 @@ int main(int argc, char *argv[])
 		goto print;
 
 	/* get session/track info */
-	if (cd_media_toc(udev, fd) < 0)
-		goto print;
+	cd_media_toc(udev, fd);
 
 	/* get writable media state */
-	if (cd_media_info(udev, fd) < 0)
-		goto print;
+	cd_media_info(udev, fd);
 
 print:
 	printf("ID_CDROM=1\n");
