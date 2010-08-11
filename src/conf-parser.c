@@ -122,7 +122,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                 return 0;
         }
 
-        if (sections && !strv_contains((char**) sections, *section))
+        if (sections && (!*section || !strv_contains((char**) sections, *section)))
                 return 0;
 
         if (!(e = strchr(l, '='))) {
