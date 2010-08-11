@@ -180,6 +180,10 @@ struct Meta {
         /* Used during GC sweeps */
         unsigned gc_marker;
 
+        /* When deserializing, temporarily store the job type for this
+         * unit here, if there was a job scheduled */
+        int deserialized_job; /* This is actually of type JobType */
+
         /* If we go down, pull down everything that depends on us, too */
         bool recursive_stop;
 
@@ -197,10 +201,6 @@ struct Meta {
 
         /* Don't allow the user to stop this unit manually, allow stopping only indirectly via dependency. */
         bool refuse_manual_stop;
-
-        /* When deserializing, temporarily store the job type for this
-         * unit here, if there was a job scheduled */
-        int deserialized_job; /* This is actually of type JobType */
 
         bool in_load_queue:1;
         bool in_dbus_queue:1;

@@ -79,9 +79,9 @@ struct Mount {
 
         bool failure:1;
 
-        usec_t timeout_usec;
-
         mode_t directory_mode;
+
+        usec_t timeout_usec;
 
         ExecCommand exec_command[_MOUNT_EXEC_COMMAND_MAX];
         ExecContext exec_context;

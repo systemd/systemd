@@ -38,8 +38,6 @@ typedef enum DeviceState {
 struct Device {
         Meta meta;
 
-        DeviceState state;
-
         char *sysfs;
 
         /* In order to be able to distuingish dependencies on
@@ -47,6 +45,8 @@ struct Device {
         devices for the same sysfs path. We chain them up here. */
 
         LIST_FIELDS(struct Device, same_sysfs);
+
+        DeviceState state;
 };
 
 extern const UnitVTable device_vtable;

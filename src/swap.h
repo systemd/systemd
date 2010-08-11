@@ -51,11 +51,11 @@ struct Swap {
 
         char *what;
 
+        SwapState state, deserialized_state;
+
         bool from_etc_fstab:1;
         bool from_proc_swaps:1;
         bool from_fragment:1;
-
-        SwapState state, deserialized_state;
 };
 
 extern const UnitVTable swap_vtable;

@@ -87,8 +87,8 @@ struct ExecCommand {
         char *path;
         char **argv;
         ExecStatus exec_status;
-        bool ignore;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
+        bool ignore;
 };
 
 struct ExecContext {
@@ -105,15 +105,12 @@ struct ExecContext {
 
         cpu_set_t *cpuset;
         unsigned cpuset_ncpus;
-        unsigned long timer_slack_nsec;
 
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
 
-        int syslog_priority;
-        char *syslog_identifier;
-        bool syslog_level_prefix;
+        unsigned long timer_slack_nsec;
 
         char *tcpwrap_name;
 
@@ -134,18 +131,20 @@ struct ExecContext {
 
         uint64_t capability_bounding_set_drop;
 
+        /* Not relevant for spawning processes, just for killing */
+        KillMode kill_mode;
+        int kill_signal;
+
         cap_t capabilities;
         int secure_bits;
+
+        int syslog_priority;
+        char *syslog_identifier;
+        bool syslog_level_prefix;
 
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
         bool private_tmp;
-
-        bool oom_adjust_set:1;
-        bool nice_set:1;
-        bool ioprio_set:1;
-        bool cpu_sched_set:1;
-        bool timer_slack_nsec_set:1;
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn
@@ -154,9 +153,11 @@ struct ExecContext {
          * don't enter a trigger loop. */
         bool same_pgrp;
 
-        /* Not relevant for spawning processes, just for killing */
-        KillMode kill_mode;
-        int kill_signal;
+        bool oom_adjust_set:1;
+        bool nice_set:1;
+        bool ioprio_set:1;
+        bool cpu_sched_set:1;
+        bool timer_slack_nsec_set:1;
 };
 
 typedef enum ExitStatus {

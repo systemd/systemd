@@ -47,14 +47,13 @@ typedef enum TimerBase {
 } TimerBase;
 
 typedef struct TimerValue {
-        TimerBase base;
         usec_t value;
-
         usec_t next_elapse;
 
-        bool disabled;
-
         LIST_FIELDS(struct TimerValue, value);
+
+        TimerBase base;
+        bool disabled;
 } TimerValue;
 
 struct Timer {

@@ -87,8 +87,6 @@ struct Watch {
 #include "path-lookup.h"
 
 struct Manager {
-        uint32_t current_job_id;
-
         /* Note that the set of units we know of is allowed to be
          * incosistent. However the subset of it that is loaded may
          * not, and the list of jobs may neither. */
@@ -170,6 +168,8 @@ struct Manager {
         int32_t name_data_slot;
         int32_t subscribed_data_slot;
 
+        uint32_t current_job_id;
+
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
 
@@ -198,11 +198,11 @@ struct Manager {
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
 
-        int n_deserializing;
-
         bool show_status;
         bool confirm_spawn;
         bool sysv_console;
+
+        int n_deserializing;
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);
