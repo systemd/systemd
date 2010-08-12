@@ -79,6 +79,8 @@
 
 * be more forgiving when parsing unit files, when encountering incorrect lines with non assignments
 
+* ExecStart= mehrfach bei Type=finish
+
 External:
 
 * sysv functions should color when stdout is tty, not stdin
