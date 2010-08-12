@@ -573,6 +573,7 @@ static int cd_media_info(struct udev *udev, int fd)
 
 	cd_media = 1;
 	info(udev, "disk type %02x\n", header[8]);
+	info(udev, "hardware reported media status: %s\n", media_status[header[2] & 3]);
 
 	/* exclude plain CDROM, some fake cdroms return 0 for "blank" media here */
 	if (!cd_media_cd_rom)
