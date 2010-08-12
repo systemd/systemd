@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Terminate Plymouth Boot Screen
-After=getty@tty1.service
+Before=getty@tty1.service
 
 [Service]
 ExecStart=-/usr/bin/plymouth quit
