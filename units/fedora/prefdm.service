@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Display Manager
-After=syslog.target haldaemon.service
+After=syslog.target haldaemon.service livesys-late.service
 
 # On Fedora gdm/X11 is on tty1. We explicitly cancel the getty here to
 # avoid any races around that.
