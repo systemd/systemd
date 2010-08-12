@@ -4604,17 +4604,17 @@ static int halt_main(DBusConnection *bus) {
         switch (arg_action) {
 
         case ACTION_HALT:
-                log_info("Halting");
+                log_info("Halting.");
                 reboot(RB_HALT_SYSTEM);
                 break;
 
         case ACTION_POWEROFF:
-                log_info("Powering off");
+                log_info("Powering off.");
                 reboot(RB_POWER_OFF);
                 break;
 
         case ACTION_REBOOT:
-                log_info("Rebooting");
+                log_info("Rebooting.");
                 reboot(RB_AUTOBOOT);
                 break;
 

@@ -73,6 +73,10 @@
 
 * plymouth different shut down msgs
 
+* plymouth after/before getty?
+
+* in systemctl show sysv init script path
+
 External:
 
 * sysv functions should color when stdout is tty, not stdin
