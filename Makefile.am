@@ -537,6 +537,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/ibm-thinkpad-usb-keyboard-trackpoint \
 	extras/keymap/keymaps/inventec-symphony_6.0_7.0 \
 	extras/keymap/keymaps/lenovo-3000 \
+	extras/keymap/keymaps/lenovo-ideapad \
 	extras/keymap/keymaps/lenovo-thinkpad-usb-keyboard-trackpoint \
 	extras/keymap/keymaps/lenovo-thinkpad_x6_tablet \
 	extras/keymap/keymaps/lenovo-thinkpad_x200_tablet \
