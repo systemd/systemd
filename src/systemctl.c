@@ -1418,7 +1418,7 @@ typedef struct UnitStatusInfo {
 
         const char *description;
 
-        const char *fragment_path;
+        const char *path;
         const char *default_control_group;
 
         bool need_daemon_reload;
@@ -1467,15 +1467,16 @@ static void print_status_info(UnitStatusInfo *i) {
 
         printf("\n");
 
-        if (i->fragment_path)
-                printf("\t  Loaded: %s (%s)\n", strna(i->load_state), i->fragment_path);
-        else if (streq_ptr(i->load_state, "failed"))
-                printf("\t  Loaded: %s%s%s\n",
-                       ansi_highlight(true),
-                       strna(i->load_state),
-                       ansi_highlight(false));
+        if (streq_ptr(i->load_state, "failed")) {
+                on = ansi_highlight(true);
+                off = ansi_highlight(false);
+        } else
+                on = off = "";
+
+        if (i->path)
+                printf("\t  Loaded: %s%s%s (%s)\n", on, strna(i->load_state), off, i->path);
         else
-                printf("\t  Loaded: %s\n", strna(i->load_state));
+                printf("\t  Loaded: %s%s%s\n", on, strna(i->load_state), off);
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
 
@@ -1623,7 +1624,9 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         else if (streq(name, "Description"))
                                 i->description = s;
                         else if (streq(name, "FragmentPath"))
-                                i->fragment_path = s;
+                                i->path = s;
+                        else if (streq(name, "SysVPath"))
+                                i->path = s;
                         else if (streq(name, "DefaultControlGroup"))
                                 i->default_control_group = s;
                         else if (streq(name, "StatusText"))

@@ -75,7 +75,9 @@
 
 * plymouth after/before getty?
 
-* in systemctl show sysv init script path
+* D-Bus call GetUnitByPID
+
+* be more forgiving when parsing unit files, when encountering incorrect lines with non assignments
 
 External:
 
