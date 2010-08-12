@@ -2260,6 +2260,11 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (m->audit_fd < 0)
                 return;
 
+        /* Don't generate audit events if the service was already
+         * started and we're just deserializing */
+        if (m->n_deserializing > 0)
+                return;
+
         if (!(p = unit_name_to_prefix_and_instance(u->meta.id))) {
                 log_error("Failed to allocate unit name for audit message: %s", strerror(ENOMEM));
                 return;
