@@ -821,10 +821,11 @@ install-data-hook:
 if TARGET_FEDORA
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
-		$(DESTDIR)$(pkgsysconfdir)/system/reboot.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/system/poweroff.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/system/halt.target.wants \
-		$(DESTDIR)$(systemunitdir)/rescue.target.wants
+		$(DESTDIR)$(systemunitdir)/reboot.target.wants \
+		$(DESTDIR)$(systemunitdir)/poweroff.target.wants \
+		$(DESTDIR)$(systemunitdir)/halt.target.wants \
+		$(DESTDIR)$(systemunitdir)/rescue.target.wants \
+		$(DESTDIR)$(systemunitdir)/multi-user.target.wants
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
@@ -832,21 +833,23 @@ if TARGET_FEDORA
 		rm -f prefdm.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service prefdm.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
-		rm -f rc-local.service plymouth-quit.service && \
-		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service && \
-		$(LN_S) $(systemunitdir)/plymouth-quit.service plymouth-quit.service )
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
 	( cd $(DESTDIR)$(systemunitdir)/rescue.target.wants && \
 		rm -f single.service && \
 		$(LN_S) $(systemunitdir)/single.service single.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/reboot.target.wants && \
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f plymouth-quit.service && \
+		$(LN_S) ../plymouth-quit.service plymouth-quit.service )
+	( cd $(DESTDIR)$(systemunitdir)/reboot.target.wants && \
 		rm -f plymouth-reboot.service && \
-		$(LN_S) $(systemunitdir)/plymouth-reboot.service plymouth-reboot.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/poweroff.target.wants && \
+		$(LN_S) ../plymouth-reboot.service plymouth-reboot.service )
+	( cd $(DESTDIR)$(systemunitdir)/poweroff.target.wants && \
 		rm -f plymouth-poweroff.service && \
-		$(LN_S) $(systemunitdir)/plymouth-poweroff.service plymouth-poweroff.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/halt.target.wants && \
+		$(LN_S) ../plymouth-poweroff.service plymouth-poweroff.service )
+	( cd $(DESTDIR)$(systemunitdir)/halt.target.wants && \
 		rm -f plymouth-halt.service && \
-		$(LN_S) $(systemunitdir)/plymouth-halt.service plymouth-halt.service )
+		$(LN_S) ../plymouth-halt.service plymouth-halt.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
