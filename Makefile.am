@@ -779,20 +779,19 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/bluetooth.target bluetooth.target && \
 		$(LN_S) $(systemunitdir)/printer.target printer.target)
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f runlevel0.target runlevel1.target runlevel6.target && \
+		rm -f runlevel0.target runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target runlevel6.target && \
 		$(LN_S) poweroff.target runlevel0.target && \
 		$(LN_S) rescue.target runlevel1.target && \
+		$(LN_S) multi-user.target runlevel2.target && \
+		$(LN_S) multi-user.target runlevel3.target && \
+		$(LN_S) multi-user.target runlevel4.target && \
+		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f default.target ctrl-alt-del.target kbrequest.target && \
 		$(LN_S) $(systemunitdir)/graphical.target default.target && \
 		$(LN_S) $(systemunitdir)/reboot.target ctrl-alt-del.target && \
-		$(LN_S) $(systemunitdir)/rescue.target kbrequest.target && \
-		rm -f runlevel2.target runlevel3.target runlevel4.target runlevel5.target && \
-		$(LN_S) $(systemunitdir)/multi-user.target runlevel2.target && \
-		$(LN_S) $(systemunitdir)/multi-user.target runlevel3.target && \
-		$(LN_S) $(systemunitdir)/multi-user.target runlevel4.target && \
-		$(LN_S) $(systemunitdir)/graphical.target runlevel5.target )
+		$(LN_S) $(systemunitdir)/rescue.target kbrequest.target )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \

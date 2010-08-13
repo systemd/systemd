@@ -71,13 +71,13 @@
 
 * be more forgiving when parsing unit files, when encountering incorrect lines with assignments
 
-* move runlevel symlinks to /lib
-
 * agetty darf nicht mit emergency.service kollidieren
+
+* sort systemctl list-units/lis-jobs output
 
 External:
 
-* sysv functions should color when stdout is ttny, not stdin
+* sysv functions should color when stdout is tty, not stdin
 
 * agetty should not modify baudrate https://bugzilla.redhat.com/show_bug.cgi?id=623685
 
