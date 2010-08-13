@@ -690,8 +690,9 @@ static int cd_media_info(struct udev *udev, int fd)
 	}
 
 determined:
-	/* "other" is e. g. DVD-RAM, can't append sessions there either */
-	if ((header[2] & 3) < 2)
+	/* "other" is e. g. DVD-RAM, can't append sessions there; DVDs in
+	 * restricted overwrite mode can never append, only in sequential mode */
+	if ((header[2] & 3) < 2 && !cd_media_dvd_rw_ro)
 		cd_media_session_next = header[10] << 8 | header[5];
 	cd_media_session_count = header[9] << 8 | header[4];
 	cd_media_track_count = header[11] << 8 | header[6];
