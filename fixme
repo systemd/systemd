@@ -67,19 +67,21 @@
 
 * j->installed issue
 
-* plymouth after/before getty?
+* Ray: plymouth after/before getty? https://bugzilla.redhat.com/show_bug.cgi?id=623430
 
-* be more forgiving when parsing unit files, when encountering incorrect lines with non assignments
+* be more forgiving when parsing unit files, when encountering incorrect lines with assignments
 
 * ExecStart= mehrfach bei Type=finish
 
 * move runlevel symlinks to /lib
 
+* agetty darf nicht mit emergency.service kollidieren
+
 External:
 
-* sysv functions should color when stdout is tty, not stdin
+* sysv functions should color when stdout is ttny, not stdin
 
-* agetty should not modify baudrate
+* agetty should not modify baudrate https://bugzilla.redhat.com/show_bug.cgi?id=623685
 
 * ck logging, ssh readahead
 
