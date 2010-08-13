@@ -33,6 +33,10 @@
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
+        "  <method name=\"GetUnitByPID\">\n"                            \
+        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"         \
+        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
         "  <method name=\"LoadUnit\">\n"                                \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
@@ -290,7 +294,34 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_OBJECT_PATH, &path,
                                     DBUS_TYPE_INVALID))
                         goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitByPID")) {
+                const char *name;
+                Unit *u;
+                uint32_t pid;
 
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &pid,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if (!(u = cgroup_unit_by_pid(m, (pid_t) pid))) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "No unit for PID %lu is loaded.", (unsigned long) pid);
+                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                if (!(path = unit_dbus_path(u)))
+                        goto oom;
+
+                if (!dbus_message_append_args(
+                                    reply,
+                                    DBUS_TYPE_OBJECT_PATH, &path,
+                                    DBUS_TYPE_INVALID))
+                        goto oom;
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "LoadUnit")) {
                 const char *name;
                 Unit *u;

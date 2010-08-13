@@ -51,8 +51,6 @@
 
 * selinux policy loading
 
-* systemctl status $PID, systemctl stop $PID!
-
 * place /etc/inittab with explaining blurb.
 
 * fingerprint.target, wireless.target, gps.target
@@ -74,8 +72,6 @@
 * plymouth different shut down msgs
 
 * plymouth after/before getty?
-
-* D-Bus call GetUnitByPID
 
 * be more forgiving when parsing unit files, when encountering incorrect lines with non assignments
 

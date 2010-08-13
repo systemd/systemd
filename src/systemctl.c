@@ -2121,7 +2121,9 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 const char *path = NULL;
                 uint32_t id;
 
-                if (!show_properties || safe_atou32(args[i], &id) < 0) {
+                if (safe_atou32(args[i], &id) < 0) {
+
+                        /* Interpret as unit name */
 
                         if (!(m = dbus_message_new_method_call(
                                               "org.freedesktop.systemd1",
@@ -2177,13 +2179,42 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 }
                         }
 
-                } else {
+                } else if (show_properties) {
+
+                        /* Interpret as job id */
 
                         if (!(m = dbus_message_new_method_call(
                                               "org.freedesktop.systemd1",
                                               "/org/freedesktop/systemd1",
                                               "org.freedesktop.systemd1.Manager",
                                               "GetJob"))) {
+                                log_error("Could not allocate message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (!dbus_message_append_args(m,
+                                                      DBUS_TYPE_UINT32, &id,
+                                                      DBUS_TYPE_INVALID)) {
+                                log_error("Could not append arguments to message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                                log_error("Failed to issue method call: %s", error.message);
+                                r = -EIO;
+                                goto finish;
+                        }
+                } else {
+
+                        /* Interpret as PID */
+
+                        if (!(m = dbus_message_new_method_call(
+                                              "org.freedesktop.systemd1",
+                                              "/org/freedesktop/systemd1",
+                                              "org.freedesktop.systemd1.Manager",
+                                              "GetUnitByPID"))) {
                                 log_error("Could not allocate message.");
                                 r = -ENOMEM;
                                 goto finish;
