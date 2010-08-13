@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Show Plymouth Shutdown Screen
+Description=Show Plymouth Reboot Screen
 After=getty@tty1.service prefdm.service
 DefaultDependencies=no
 
@@ -14,8 +14,8 @@ DefaultDependencies=no
 ExecStart=/sbin/plymouthd --mode=shutdown
 ExecStartPost=-/usr/bin/plymouth --sysinit
 ExecStartPost=-/usr/bin/plymouth --show-splash
-ExecStartPost=-/usr/bin/plymouth message '--text=Shutting Down'
+ExecStartPost=-/usr/bin/plymouth message '--text=Rebooting...'
 Type=forking
 
 [Install]
-WantedBy=shutdown.target
+WantedBy=reboot.target

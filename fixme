@@ -67,15 +67,13 @@
 
 * j->installed issue
 
-* plymouth boot.log
-
-* plymouth different shut down msgs
-
 * plymouth after/before getty?
 
 * be more forgiving when parsing unit files, when encountering incorrect lines with non assignments
 
 * ExecStart= mehrfach bei Type=finish
+
+* move runlevel symlinks to /lib
 
 External:
 

@@ -195,7 +195,9 @@ dist_systemunit_DATA += \
 	units/fedora/sysinit.service \
 	units/fedora/single.service \
 	units/fedora/plymouth-quit.service \
-	units/fedora/plymouth-shutdown.service
+	units/fedora/plymouth-reboot.service \
+	units/fedora/plymouth-poweroff.service \
+	units/fedora/plymouth-halt.service
 endif
 
 if TARGET_SUSE
@@ -820,7 +822,9 @@ install-data-hook:
 if TARGET_FEDORA
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
-		$(DESTDIR)$(pkgsysconfdir)/system/shutdown.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/reboot.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/poweroff.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/halt.target.wants \
 		$(DESTDIR)$(systemunitdir)/rescue.target.wants
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
@@ -835,9 +839,15 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir)/rescue.target.wants && \
 		rm -f single.service && \
 		$(LN_S) $(systemunitdir)/single.service single.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/shutdown.target.wants && \
-		rm -f plymouth-shutdown.service && \
-		$(LN_S) $(systemunitdir)/plymouth-shutdown.service plymouth-shutdown.service )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/reboot.target.wants && \
+		rm -f plymouth-reboot.service && \
+		$(LN_S) $(systemunitdir)/plymouth-reboot.service plymouth-reboot.service )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/poweroff.target.wants && \
+		rm -f plymouth-poweroff.service && \
+		$(LN_S) $(systemunitdir)/plymouth-poweroff.service plymouth-poweroff.service )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/halt.target.wants && \
+		rm -f plymouth-halt.service && \
+		$(LN_S) $(systemunitdir)/plymouth-halt.service plymouth-halt.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
