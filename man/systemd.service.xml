@@ -119,7 +119,7 @@
                                 start-up type for this service
                                 unit. One of <option>simple</option>,
                                 <option>forking</option>,
-                                <option>finish</option>,
+                                <option>oneshot</option>,
                                 <option>dbus</option>,
                                 <option>notify</option>.</para>
 
@@ -158,7 +158,7 @@
                                 exits.</para>
 
                                 <para>Behaviour of
-                                <option>finish</option> is similar
+                                <option>oneshot</option> is similar
                                 to <option>simple</option>, however
                                 it is expected that the process has to
                                 exit before systemd starts follow-up

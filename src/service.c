@@ -834,8 +834,9 @@ static int service_verify(Service *s) {
                 return -EINVAL;
         }
 
-        if (s->exec_command[SERVICE_EXEC_START]->command_next) {
-                log_error("%s has more than one ExecStart setting. Refusing.", s->meta.id);
+        if (s->type != SERVICE_ONESHOT &&
+            s->exec_command[SERVICE_EXEC_START]->command_next) {
+                log_error("%s has more than one ExecStart setting, which is only allowed for Type=oneshot services. Refusing.", s->meta.id);
                 return -EINVAL;
         }
 
@@ -1250,7 +1251,7 @@ static int service_coldplug(Unit *u) {
                 if ((s->deserialized_state == SERVICE_START &&
                      (s->type == SERVICE_FORKING ||
                       s->type == SERVICE_DBUS ||
-                      s->type == SERVICE_FINISH ||
+                      s->type == SERVICE_ONESHOT ||
                       s->type == SERVICE_NOTIFY)) ||
                     s->deserialized_state == SERVICE_START_POST ||
                     s->deserialized_state == SERVICE_RUNNING ||
@@ -1711,15 +1712,18 @@ static void service_enter_start(Service *s) {
         assert(s);
 
         assert(s->exec_command[SERVICE_EXEC_START]);
-        assert(!s->exec_command[SERVICE_EXEC_START]->command_next);
+        assert(!s->exec_command[SERVICE_EXEC_START]->command_next || s->type == SERVICE_ONESHOT);
 
         if (s->type == SERVICE_FORKING)
                 service_unwatch_control_pid(s);
         else
                 service_unwatch_main_pid(s);
 
+        s->control_command_id = SERVICE_EXEC_START;
+        s->control_command = s->exec_command[SERVICE_EXEC_START];
+
         if ((r = service_spawn(s,
-                               s->exec_command[SERVICE_EXEC_START],
+                               s->control_command,
                                s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
                                true,
                                true,
@@ -1741,17 +1745,14 @@ static void service_enter_start(Service *s) {
                 /* For forking services we wait until the start
                  * process exited. */
 
-                s->control_command_id = SERVICE_EXEC_START;
-                s->control_command = s->exec_command[SERVICE_EXEC_START];
-
                 s->control_pid = pid;
                 service_set_state(s, SERVICE_START);
 
-        } else if (s->type == SERVICE_FINISH ||
+        } else if (s->type == SERVICE_ONESHOT ||
                    s->type == SERVICE_DBUS ||
                    s->type == SERVICE_NOTIFY) {
 
-                /* For finishing services we wait until the start
+                /* For oneshot services we wait until the start
                  * process exited, too, but it is our main process. */
 
                 /* For D-Bus services we know the main pid right away,
@@ -1854,7 +1855,7 @@ fail:
         service_enter_stop(s, false);
 }
 
-static void service_run_next(Service *s, bool success) {
+static void service_run_next_control(Service *s, bool success) {
         int r;
 
         assert(s);
@@ -1864,8 +1865,9 @@ static void service_run_next(Service *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        s->control_command = s->control_command->command_next;
+        assert(s->control_command_id != SERVICE_EXEC_START);
 
+        s->control_command = s->control_command->command_next;
         service_unwatch_control_pid(s);
 
         if ((r = service_spawn(s,
@@ -1883,7 +1885,7 @@ static void service_run_next(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run next task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run next control task: %s", s->meta.id, strerror(-r));
 
         if (s->state == SERVICE_START_PRE)
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
@@ -1893,6 +1895,43 @@ fail:
                 service_enter_dead(s, false, true);
         else
                 service_enter_stop(s, false);
+}
+
+static void service_run_next_main(Service *s, bool success) {
+        pid_t pid;
+        int r;
+
+        assert(s);
+        assert(s->control_command);
+        assert(s->control_command->command_next);
+
+        if (!success)
+                s->failure = true;
+
+        assert(s->control_command_id == SERVICE_EXEC_START);
+        assert(s->type == SERVICE_ONESHOT);
+
+        s->control_command = s->control_command->command_next;
+        service_unwatch_main_pid(s);
+
+        if ((r = service_spawn(s,
+                               s->control_command,
+                               false,
+                               true,
+                               true,
+                               true,
+                               true,
+                               s->notify_access != NOTIFY_NONE,
+                               &pid)) < 0)
+                goto fail;
+
+        service_set_main_pid(s, pid);
+
+        return;
+
+fail:
+        log_warning("%s failed to run next main task: %s", s->meta.id, strerror(-r));
+        service_enter_stop(s, false);
 }
 
 static int service_start(Unit *u) {
@@ -2226,14 +2265,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         if (s->main_pid == pid) {
 
-                exec_status_exit(&s->main_exec_status, pid, code, status);
                 s->main_pid = 0;
+                exec_status_exit(&s->main_exec_status, pid, code, status);
 
-                if (s->type != SERVICE_FORKING) {
-                        assert(s->exec_command[SERVICE_EXEC_START]);
-                        s->exec_command[SERVICE_EXEC_START]->exec_status = s->main_exec_status;
+                if (s->type != SERVICE_FORKING && s->control_command) {
+                        s->control_command->exec_status = s->main_exec_status;
 
-                        if (s->exec_command[SERVICE_EXEC_START]->ignore)
+                        if (s->control_command->ignore)
                                 success = true;
                 }
 
@@ -2241,50 +2279,68 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                          "%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
-                /* The service exited, so the service is officially
-                 * gone. */
+                if (s->control_command &&
+                    s->control_command->command_next &&
+                    success) {
 
-                switch (s->state) {
+                        /* There is another command to *
+                         * execute, so let's do that. */
 
-                case SERVICE_START_POST:
-                case SERVICE_RELOAD:
-                case SERVICE_STOP:
-                        /* Need to wait until the operation is
-                         * done */
-                        break;
+                        log_debug("%s running next main command for state %s", u->meta.id, service_state_to_string(s->state));
+                        service_run_next_main(s, success);
 
-                case SERVICE_START:
-                        if (s->type == SERVICE_FINISH) {
-                                /* This was our main goal, so let's go on */
-                                if (success)
-                                        service_enter_start_post(s);
-                                else
-                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                } else {
+
+                        /* The service exited, so the service is officially
+                         * gone. */
+
+                        s->control_command = NULL;
+                        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+
+                        switch (s->state) {
+
+                        case SERVICE_START_POST:
+                        case SERVICE_RELOAD:
+                        case SERVICE_STOP:
+                                /* Need to wait until the operation is
+                                 * done */
                                 break;
-                        } else {
-                                assert(s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY);
 
-                                /* Fall through */
+                        case SERVICE_START:
+                                if (s->type == SERVICE_ONESHOT) {
+                                        /* This was our main goal, so let's go on */
+                                        if (success)
+                                                service_enter_start_post(s);
+                                        else
+                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                        break;
+                                } else {
+                                        assert(s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY);
+
+                                        /* Fall through */
+                                }
+
+                        case SERVICE_RUNNING:
+                                service_enter_running(s, success);
+                                break;
+
+                        case SERVICE_STOP_SIGTERM:
+                        case SERVICE_STOP_SIGKILL:
+
+                                if (!control_pid_good(s))
+                                        service_enter_stop_post(s, success);
+
+                                /* If there is still a control process, wait for that first */
+                                break;
+
+                        default:
+                                assert_not_reached("Uh, main process died at wrong time.");
                         }
-
-                case SERVICE_RUNNING:
-                        service_enter_running(s, success);
-                        break;
-
-                case SERVICE_STOP_SIGTERM:
-                case SERVICE_STOP_SIGKILL:
-
-                        if (!control_pid_good(s))
-                                service_enter_stop_post(s, success);
-
-                        /* If there is still a control process, wait for that first */
-                        break;
-
-                default:
-                        assert_not_reached("Uh, main process died at wrong time.");
                 }
 
         } else if (s->control_pid == pid) {
+
+                s->control_pid = 0;
 
                 if (s->control_command) {
                         exec_status_exit(&s->control_command->exec_status, pid, code, status);
@@ -2293,22 +2349,19 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 success = true;
                 }
 
-                s->control_pid = 0;
-
-                log_full(success ? LOG_DEBUG : LOG_NOTICE,
+               log_full(success ? LOG_DEBUG : LOG_NOTICE,
                          "%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
-                /* If we are shutting things down anyway we
-                 * don't care about failing commands. */
-
-                if (s->control_command && s->control_command->command_next && success) {
+                if (s->control_command &&
+                    s->control_command->command_next &&
+                    success) {
 
                         /* There is another command to *
                          * execute, so let's do that. */
 
-                        log_debug("%s running next command for state %s", u->meta.id, service_state_to_string(s->state));
-                        service_run_next(s, success);
+                        log_debug("%s running next control command for state %s", u->meta.id, service_state_to_string(s->state));
+                        service_run_next_control(s, success);
 
                 } else {
                         /* No further commands for this step, so let's
@@ -2822,7 +2875,7 @@ DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_SIMPLE] = "simple",
         [SERVICE_FORKING] = "forking",
-        [SERVICE_FINISH] = "finish",
+        [SERVICE_ONESHOT] = "oneshot",
         [SERVICE_DBUS] = "dbus",
         [SERVICE_NOTIFY] = "notify"
 };

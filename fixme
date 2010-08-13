@@ -71,8 +71,6 @@
 
 * be more forgiving when parsing unit files, when encountering incorrect lines with assignments
 
-* ExecStart= mehrfach bei Type=finish
-
 * move runlevel symlinks to /lib
 
 * agetty darf nicht mit emergency.service kollidieren

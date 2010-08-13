@@ -12,7 +12,7 @@ After=shutdown.target
 RefuseManualStart=yes
 
 [Service]
-Type=finish
+Type=oneshot
 ValidNoProcess=yes
 ExecStart=-/etc/init.d/killall start
 StandardOutput=tty

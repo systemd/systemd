@@ -12,5 +12,5 @@ Before=killall.service
 Conflicts=systemd-update-utmp-runlevel.service
 
 [Service]
-Type=finish
+Type=oneshot
 ExecStart=-@rootlibexecdir@/systemd-update-utmp shutdown

@@ -12,7 +12,7 @@ Requires=shutdown.target umount.target killall.service
 After=shutdown.target umount.target killall.service
 
 [Service]
-Type=finish
+Type=oneshot
 ValidNoProcess=yes
 Environment=RC_DOWN_HARDDISK=yes
 ExecStart=/etc/init.d/shutdown.sh

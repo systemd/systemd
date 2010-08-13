@@ -11,7 +11,7 @@ Before=getty@tty1.service
 
 [Service]
 ExecStart=-/usr/bin/plymouth quit
-Type=finish
+Type=oneshot
 
 [Install]
 WantedBy=multi-user.target

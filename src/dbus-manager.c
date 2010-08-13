@@ -295,7 +295,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         goto oom;
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitByPID")) {
-                const char *name;
                 Unit *u;
                 uint32_t pid;
 

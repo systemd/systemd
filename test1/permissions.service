@@ -5,7 +5,7 @@ Description=Permission Enforcement checker
 ExecStart=/usr/bin/id
 ExecStartPost=/usr/bin/env
 ExecStartPost=/bin/sleep 5
-Type=finish
+Type=oneshot
 Capabilities=all= cap_dac_override=eip
 User=nobody
 Group=nobody

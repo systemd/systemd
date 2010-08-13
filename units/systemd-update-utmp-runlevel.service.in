@@ -11,5 +11,5 @@ DefaultDependencies=no
 After=runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target auditd.service
 
 [Service]
-Type=finish
+Type=oneshot
 ExecStart=-@rootlibexecdir@/systemd-update-utmp runlevel
