@@ -353,6 +353,8 @@ bool job_is_runnable(Job *j) {
 
 int job_run_and_invalidate(Job *j) {
         int r;
+        uint32_t id;
+        Manager *m;
 
         assert(j);
         assert(j->installed);
@@ -370,6 +372,14 @@ int job_run_and_invalidate(Job *j) {
 
         j->state = JOB_RUNNING;
         job_add_to_dbus_queue(j);
+
+        /* While we execute this operation the job might go away (for
+         * example: because it is replaced by a new, conflicting
+         * job.) To make sure we don't access a freed job later on we
+         * store the id here, so that we can verify the job is still
+         * valid. */
+        id = j->id;
+        m = j->manager;
 
         switch (j->type) {
 
@@ -431,13 +441,14 @@ int job_run_and_invalidate(Job *j) {
                         assert_not_reached("Unknown job type");
         }
 
-        if (r == -EALREADY)
-                r = job_finish_and_invalidate(j, true);
-        else if (r == -EAGAIN) {
-                j->state = JOB_WAITING;
-                return -EAGAIN;
-        } else if (r < 0)
-                r = job_finish_and_invalidate(j, false);
+        if ((j = manager_get_job(m, id))) {
+                if (r == -EALREADY)
+                        r = job_finish_and_invalidate(j, true);
+                else if (r == -EAGAIN)
+                        j->state = JOB_WAITING;
+                else if (r < 0)
+                        r = job_finish_and_invalidate(j, false);
+        }
 
         return r;
 }
