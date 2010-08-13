@@ -1171,7 +1171,10 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!arg_no_block)
-                r = wait_for_jobs(bus, s);
+                if ((r = wait_for_jobs(bus, s)) < 0)
+                        goto finish;
+
+        r = 1;
 
 finish:
         if (s)
@@ -4599,7 +4602,7 @@ static int start_with_fallback(DBusConnection *bus) {
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
-        if (talk_initctl() != 0)
+        if (talk_initctl() > 0)
                 goto done;
 
         log_error("Failed to talk to init daemon.");
