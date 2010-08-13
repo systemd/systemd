@@ -357,7 +357,7 @@
                                 state to STDOUT.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><command>status [NAME...]</command></term>
+                                <term><command>status [NAME...|PID...]</command></term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -365,7 +365,10 @@
                                 generate human-readable output. If you
                                 are looking for computer-parsable
                                 output, use <command>show</command>
-                                instead.</para></listitem>
+                                instead. If a PID is passed
+                                information about the unit the process
+                                of the PID belongs to is
+                                shown.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>show [NAME...|JOB...]</command></term>

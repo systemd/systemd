@@ -3709,7 +3709,7 @@ static int systemctl_help(void) {
                "                                  otherwise restart if active\n"
                "  isolate [NAME]                  Start one unit and stop all others\n"
                "  is-active [NAME...]             Check whether units are active\n"
-               "  status [NAME...]                Show runtime status of one or more units\n"
+               "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
                "  reset-maintenance [NAME...]     Reset maintenance state for all, one,\n"
