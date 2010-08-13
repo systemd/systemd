@@ -335,6 +335,21 @@ Unit* cgroup_unit_by_pid(Manager *m, pid_t pid) {
                 return NULL;
 
         l = hashmap_get(m->cgroup_bondings, group);
+
+        if (!l) {
+                char *slash;
+
+                while ((slash = strrchr(group, '/'))) {
+                        if (slash == group)
+                                break;
+
+                        *slash = 0;
+
+                        if ((l = hashmap_get(m->cgroup_bondings, group)))
+                                break;
+                }
+        }
+
         free(group);
 
         LIST_FOREACH(by_path, b, l) {
