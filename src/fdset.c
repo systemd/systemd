@@ -144,7 +144,6 @@ finish:
                 set_free(MAKE_SET(s));
 
         return r;
-
 }
 
 int fdset_cloexec(FDSet *fds, bool b) {

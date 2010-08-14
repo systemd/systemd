@@ -1,7 +1,7 @@
 * dot output for --test showing the 'initial transaction'
 
 * check 'disable'
-  <Viking-Ice>    "Warning: Unit file changed in disk, 'systemctl --system daemon-reload' recomended
+  <Viking-Ice>    "Warning: Unit file changed in disk, 'systemctl --system daemon-reload' recommended
   <kay>           when does it do that?
   <Viking-Ice>    if you disable the service
 
