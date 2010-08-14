@@ -15,7 +15,7 @@ Names=rc-local.service local.service
 [Service]
 ExecStart=/etc/rc.local start
 TimeoutSec=0
-StandardInput=tty
+StandardOutput=tty
 ValidNoProcess=yes
 SysVStartPriority=99
 
