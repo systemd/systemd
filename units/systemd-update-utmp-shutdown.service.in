@@ -8,7 +8,7 @@
 [Unit]
 Description=Notify Audit System and Update UTMP about System Shutdown
 DefaultDependencies=no
-Before=killall.service
+Before=poweroff.service reboot.service halt.service killall.service
 Conflicts=systemd-update-utmp-runlevel.service
 
 [Service]
