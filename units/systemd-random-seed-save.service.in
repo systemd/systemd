@@ -1,0 +1,19 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Save Random Seed
+DefaultDependencies=no
+Before=poweroff.service reboot.service halt.service killall.service
+Conflicts=systemd-random-seed-save.service
+
+[Service]
+Type=oneshot
+ExecStart=-@rootlibexecdir@/systemd-random-seed save
+
+[Install]
+WantedBy=shutdown.target

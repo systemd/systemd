@@ -23,7 +23,7 @@
 
 * add #ifdefs for non-sysv builds
 
-* reinvestigate random seed, hwclock
+* reinvestigate hwclock
 
 * "disabled" load state?
 

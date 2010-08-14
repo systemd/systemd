@@ -50,6 +50,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-DRUNTIME_DIR=\"$(localstatedir)/run\" \
+	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-I $(top_srcdir)/src
 
 rootbin_PROGRAMS = \
@@ -69,7 +70,8 @@ rootlibexec_PROGRAMS = \
 	systemd-logger \
 	systemd-cgroups-agent \
 	systemd-initctl \
-	systemd-update-utmp
+	systemd-update-utmp \
+	systemd-random-seed
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -161,6 +163,8 @@ nodist_systemunit_DATA = \
 	units/systemd-logger.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
+	units/systemd-random-seed-save.service \
+	units/systemd-random-seed-load.service \
 	units/syslog.target
 
 dist_sessionunit_DATA = \
@@ -180,6 +184,8 @@ EXTRA_DIST = \
 	units/systemd-logger.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
+	units/systemd-random-seed-save.service.in \
+	units/systemd-random-seed-load.service.in \
 	units/syslog.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
@@ -513,6 +519,15 @@ systemd_update_utmp_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS) \
 	$(AUDIT_LIBS)
+
+systemd_random_seed_SOURCES = \
+	src/random-seed.c
+
+systemd_random_seed_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_random_seed_LDADD = \
+	libsystemd-basic.la
 
 systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent.c \
