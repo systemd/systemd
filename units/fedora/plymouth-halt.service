@@ -8,6 +8,7 @@
 [Unit]
 Description=Show Plymouth Halt Screen
 After=getty@tty1.service prefdm.service
+Before=killall.service halt.service
 DefaultDependencies=no
 
 [Service]

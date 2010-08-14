@@ -8,6 +8,7 @@
 [Unit]
 Description=Show Plymouth Power Off Screen
 After=getty@tty1.service prefdm.service
+Before=killall.service poweroff.service
 DefaultDependencies=no
 
 [Service]
