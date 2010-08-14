@@ -65,15 +65,11 @@
 
 * if a service fails too often, make the service enter maintainence mode, and the socket, too.
 
-* j->installed issue
-
 * Ray: plymouth after/before getty? https://bugzilla.redhat.com/show_bug.cgi?id=623430
 
 * be more forgiving when parsing unit files, when encountering incorrect lines with assignments
 
 * agetty darf nicht mit emergency.service kollidieren
-
-* sort systemctl list-units/lis-jobs output
 
 External:
 

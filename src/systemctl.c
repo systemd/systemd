@@ -188,12 +188,43 @@ static void warn_wall(enum action action) {
         utmp_wall(table[action]);
 }
 
+struct unit_info {
+        const char *id;
+        const char *description;
+        const char *load_state;
+        const char *active_state;
+        const char *sub_state;
+        const char *following;
+        const char *unit_path;
+        uint32_t job_id;
+        const char *job_type;
+        const char *job_path;
+};
+
+static int compare_unit_info(const void *a, const void *b) {
+        const char *d1, *d2;
+        const struct unit_info *u = a, *v = b;
+
+        d1 = strrchr(u->id, '.');
+        d2 = strrchr(v->id, '.');
+
+        if (d1 && d2) {
+                int r;
+
+                if ((r = strcmp(d1, d2)) != 0)
+                        return r;
+        }
+
+        return strcmp(u->id, v->id);
+}
+
 static int list_units(DBusConnection *bus, char **args, unsigned n) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
         DBusMessageIter iter, sub, sub2;
-        unsigned k = 0;
+        unsigned c = 0, k, n_units = 0;
+        struct unit_info *unit_infos = NULL;
 
         dbus_error_init(&error);
 
@@ -224,12 +255,8 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_message_iter_recurse(&iter, &sub);
 
-        if (isatty(STDOUT_FILENO))
-                printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
-
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *id, *description, *load_state, *active_state, *sub_state, *following, *unit_path, *job_type, *job_path, *dot;
-                uint32_t job_id;
+                struct unit_info *u;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
@@ -237,59 +264,86 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
+                if (c >= n_units) {
+                        struct unit_info *w;
+
+                        n_units = MAX(2*c, 16);
+                        w = realloc(unit_infos, sizeof(struct unit_info) * n_units);
+
+                        if (!w) {
+                                log_error("Failed to allocate unit array.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        unit_infos = w;
+                }
+
+                u = unit_infos+c;
+
                 dbus_message_iter_recurse(&sub, &sub2);
 
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &id, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &description, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &load_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &active_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &sub_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &following, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &job_id, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &job_type, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &job_path, false) < 0) {
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->id, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->description, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->load_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->active_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->sub_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->following, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &u->unit_path, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &u->job_id, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->job_type, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &u->job_path, false) < 0) {
                         log_error("Failed to parse reply.");
                         r = -EIO;
                         goto finish;
                 }
 
-                if ((!arg_type || ((dot = strrchr(id, '.')) &&
+                dbus_message_iter_next(&sub);
+                c++;
+        }
+
+        qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+
+        if (isatty(STDOUT_FILENO))
+                printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
+
+        for (k = 0; k < c; k++) {
+                const char *dot;
+                struct unit_info *u = unit_infos+k;
+
+                if ((!arg_type || ((dot = strrchr(u->id, '.')) &&
                                    streq(dot+1, arg_type))) &&
-                    (arg_all || !(streq(active_state, "inactive") || following[0]) || job_id > 0)) {
+                    (arg_all || !(streq(u->active_state, "inactive") || u->following[0]) || u->job_id > 0)) {
                         char *e;
                         int a = 0, b = 0;
                         const char *on, *off;
 
-                        if (streq(active_state, "maintenance")) {
+                        if (streq(u->active_state, "maintenance")) {
                                 on = ansi_highlight(true);
                                 off = ansi_highlight(false);
                         } else
                                 on = off = "";
 
-                        e = arg_full ? NULL : ellipsize(id, 45, 33);
-                        printf("%-45s %-6s %s%-12s %-12s%s%n", e ? e : id, load_state, on, active_state, sub_state, off, &a);
+                        e = arg_full ? NULL : ellipsize(u->id, 45, 33);
+                        printf("%-45s %-6s %s%-12s %-12s%s%n", e ? e : u->id, u->load_state, on, u->active_state, u->sub_state, off, &a);
                         free(e);
 
                         a -= strlen(on) + strlen(off);
 
-                        if (job_id != 0)
-                                printf(" => %-12s%n", job_type, &b);
+                        if (u->job_id != 0)
+                                printf(" => %-12s%n", u->job_type, &b);
                         else
                                 b = 1 + 15;
 
                         if (a + b + 2 < columns()) {
-                                if (job_id == 0)
+                                if (u->job_id == 0)
                                         printf("                ");
 
-                                printf(" %.*s", columns() - a - b - 2, description);
+                                printf(" %.*s", columns() - a - b - 2, u->description);
                         }
 
                         fputs("\n", stdout);
-                        k++;
                 }
-
-                dbus_message_iter_next(&sub);
         }
 
         if (isatty(STDOUT_FILENO)) {
@@ -300,9 +354,9 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                        "JOB    = Job, shows pending jobs for the unit.\n");
 
                 if (arg_all)
-                        printf("\n%u units listed.\n", k);
+                        printf("\n%u units listed.\n", c);
                 else
-                        printf("\n%u units listed. Pass --all to see inactive units, too.\n", k);
+                        printf("\n%u units listed. Pass --all to see inactive units, too.\n", c);
         }
 
         r = 0;
@@ -313,6 +367,8 @@ finish:
 
         if (reply)
                 dbus_message_unref(reply);
+
+        free(unit_infos);
 
         dbus_error_free(&error);
 
