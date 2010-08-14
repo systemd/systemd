@@ -1,3 +1,5 @@
+systemd-random-seed-load.service
+systemd-random-seed-save.service
 systemd-initctl.service
 systemd-logger.service
 syslog.target
