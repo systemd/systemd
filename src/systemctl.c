@@ -216,11 +216,11 @@ static int compare_unit_info(const void *a, const void *b) {
         if (d1 && d2) {
                 int r;
 
-                if ((r = strcmp(d1, d2)) != 0)
+                if ((r = strcasecmp(d1, d2)) != 0)
                         return r;
         }
 
-        return strcmp(u->id, v->id);
+        return strcasecmp(u->id, v->id);
 }
 
 static int list_units(DBusConnection *bus, char **args, unsigned n) {
