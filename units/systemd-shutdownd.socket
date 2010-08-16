@@ -8,7 +8,7 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd Shutdown Socket
+Description=systemd Delayed Shutdown Socket
 DefaultDependencies=no
 Before=sockets.target
 

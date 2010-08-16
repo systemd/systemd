@@ -8,8 +8,9 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd Shutdown Daemon
+Description=systemd Delayed Shutdown Daemon
 DefaultDependencies=no
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-shutdownd
+NotifyAccess=all

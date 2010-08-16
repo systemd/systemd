@@ -13,3 +13,4 @@ After=@SPECIAL_SYSLOG_SERVICE@
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-logger
+NotifyAccess=all

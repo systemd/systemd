@@ -13,3 +13,4 @@ DefaultDependencies=no
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-initctl
+NotifyAccess=all
