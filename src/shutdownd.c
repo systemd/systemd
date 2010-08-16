@@ -107,14 +107,9 @@ static void warn_wall(struct shutdownd_command *c) {
         if (c->wall_message[0])
                 utmp_wall(c->wall_message);
         else {
-                time_t s;
-                char buf[27];
+                char date[FORMAT_TIMESTAMP_MAX];
                 const char* prefix;
                 char *l;
-
-                s = c->elapse / USEC_PER_SEC;
-                ctime_r(&s, buf);
-
 
                 if (c->mode == 'H')
                         prefix = "The system is going down for system halt at";
@@ -125,7 +120,9 @@ static void warn_wall(struct shutdownd_command *c) {
                 else
                         assert_not_reached("Unknown mode!");
 
-                if (asprintf(&l, "%s %s!", prefix, strstrip(buf)) < 0)
+                if (asprintf(&l, "%s %s!",
+                             prefix,
+                             format_timestamp(date, sizeof(date), c->elapse)) < 0)
                         log_error("Failed to allocate wall message");
                 else {
                         utmp_wall(l);
@@ -260,8 +257,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         else if (k > 0 && c.elapse > 0) {
                                 struct itimerspec its;
-                                char buf[27];
-
+                                char date[FORMAT_TIMESTAMP_MAX];
 
                                 if (c.warn_wall) {
                                         /* Send wall messages every so often */
@@ -294,11 +290,9 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
 
-                                ctime_r(&its.it_value.tv_sec, buf);
-
                                 sd_notifyf(false,
                                            "STATUS=Shutting down at %s...",
-                                           strstrip(buf));
+                                           format_timestamp(date, sizeof(date), c.elapse));
                         }
                 }
 

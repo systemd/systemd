@@ -290,10 +290,9 @@ finish:
 
 int utmp_wall(const char *message) {
         struct utmpx *u;
-        char date[26];
+        char date[FORMAT_TIMESTAMP_MAX];
         char *text = NULL, *hn = NULL, *un = NULL, *tty = NULL;
         int r;
-        time_t t;
 
         if (!(hn = gethostname_malloc()) ||
             !(un = getlogname_malloc())) {
@@ -301,18 +300,16 @@ int utmp_wall(const char *message) {
                 goto finish;
         }
 
-        if ((r = getttyname_malloc(&tty)) < 0)
-                goto finish;
-
-        time(&t);
-        assert_se(ctime_r(&t, date));
-        delete_chars(date, "\n\r");
+        getttyname_malloc(&tty);
 
         if (asprintf(&text,
                      "\a\r\n"
-                     "Broadcast message from %s@%s on %s (%s):\r\n\r\n"
+                     "Broadcast message from %s@%s%s%s (%s):\r\n\r\n"
                      "%s\r\n\r\n",
-                     un, hn, tty, date, message) < 0) {
+                     un, hn,
+                     tty ? " on " : "", strempty(tty),
+                     format_timestamp(date, sizeof(date), now(CLOCK_REALTIME)),
+                     message) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
