@@ -4696,7 +4696,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
-static int send_shutdownd(usec_t t, char mode) {
+static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
         int fd = -1;
         struct msghdr msghdr;
         struct iovec iovec;
@@ -4711,6 +4711,10 @@ static int send_shutdownd(usec_t t, char mode) {
         zero(c);
         c.elapse = t;
         c.mode = mode;
+        c.warn_wall = warn;
+
+        if (message)
+                strncpy(c.wall_message, message, sizeof(c.wall_message));
 
         if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0)
                 return -errno;
@@ -4814,10 +4818,18 @@ static int halt_main(DBusConnection *bus) {
         }
 
         if (arg_when > 0) {
-                if ((r = send_shutdownd(arg_when,
-                                        arg_action == ACTION_HALT ? 'H' :
-                                        arg_action == ACTION_POWEROFF ? 'P' :
-                                        'r')) < 0)
+                char *m;
+
+                m = strv_join(arg_wall, " ");
+                r = send_shutdownd(arg_when,
+                                   arg_action == ACTION_HALT     ? 'H' :
+                                   arg_action == ACTION_POWEROFF ? 'P' :
+                                                                   'r',
+                                   !arg_no_wall,
+                                   m);
+                free(m);
+
+                if (r < 0)
                         log_warning("Failed to talk to shutdownd, proceeding with immediate shutdown: %s", strerror(-r));
                 else
                         return 0;
@@ -4937,7 +4949,7 @@ int main(int argc, char*argv[]) {
                 break;
 
         case ACTION_CANCEL_SHUTDOWN:
-                retval = send_shutdownd(0, 0) < 0;
+                retval = send_shutdownd(0, 0, false, NULL) < 0;
                 break;
 
         case ACTION_INVALID:

@@ -25,11 +25,21 @@
 #include "util.h"
 #include "macro.h"
 
+/* This is a private message, we don't care much about ABI
+ * stability. */
+
 _packed_ struct shutdownd_command {
         usec_t elapse;
         char mode; /* H, P, r, i.e. the switches usually passed to
                     * shutdown to select whether to halt, power-off or
                     * reboot the machine */
+        bool warn_wall;
+
+        /* Yepp, sometimes we are lazy and use fixed-size strings like
+         * this one. Shame on us. But then again, we'd have to
+         * pre-allocate the receive buffer anyway, so there's nothing
+         * too bad here. */
+        char wall_message[4096];
 };
 
 #endif

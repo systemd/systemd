@@ -535,6 +535,7 @@ systemd_random_seed_LDADD = \
 	libsystemd-basic.la
 
 systemd_shutdownd_SOURCES = \
+	src/utmp-wtmp.c \
 	src/sd-daemon.c \
 	src/shutdownd.c
 

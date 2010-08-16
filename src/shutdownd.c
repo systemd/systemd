@@ -34,6 +34,7 @@
 #include "macro.h"
 #include "util.h"
 #include "sd-daemon.h"
+#include "utmp-wtmp.h"
 
 static int read_packet(int fd, struct shutdownd_command *_c) {
         struct msghdr msghdr;
@@ -92,24 +93,95 @@ static int read_packet(int fd, struct shutdownd_command *_c) {
                 return 0;
         }
 
+        char_array_0(c.wall_message);
+
         *_c = c;
         return 1;
+}
+
+static void warn_wall(struct shutdownd_command *c) {
+
+        assert(c);
+        assert(c->warn_wall);
+
+        if (c->wall_message[0])
+                utmp_wall(c->wall_message);
+        else {
+                time_t s;
+                char buf[27];
+                const char* prefix;
+                char *l;
+
+                s = c->elapse / USEC_PER_SEC;
+                ctime_r(&s, buf);
+
+
+                if (c->mode == 'H')
+                        prefix = "The system is going down for system halt at";
+                else if (c->mode == 'P')
+                        prefix = "The system is going down for power-off at";
+                else if (c->mode == 'r')
+                        prefix = "The system is going down for reboot at";
+                else
+                        assert_not_reached("Unknown mode!");
+
+                if (asprintf(&l, "%s %s!", prefix, strstrip(buf)) < 0)
+                        log_error("Failed to allocate wall message");
+                else {
+                        utmp_wall(l);
+                        free(l);
+                }
+        }
+}
+
+static usec_t when_wall(usec_t n, usec_t elapse) {
+
+        static const struct {
+                usec_t delay;
+                usec_t interval;
+        } table[] = {
+                { 10 * USEC_PER_MINUTE, USEC_PER_MINUTE      },
+                { USEC_PER_HOUR,        15 * USEC_PER_MINUTE },
+                { 3 * USEC_PER_HOUR,    30 * USEC_PER_MINUTE }
+        };
+
+        usec_t left, sub;
+        unsigned i;
+
+        /* If the time is already passed, then don't announce */
+        if (n >= elapse)
+                return 0;
+
+        left = elapse - n;
+        for (i = 0; i < ELEMENTSOF(table); i++)
+                if (n + table[i].delay >= elapse)
+                        sub = ((left / table[i].interval) * table[i].interval);
+
+        if (i >= ELEMENTSOF(table))
+                sub = ((left / USEC_PER_HOUR) * USEC_PER_HOUR);
+
+        return elapse > sub ? elapse - sub : 1;
+}
+
+static usec_t when_nologin(usec_t elapse) {
+        return elapse > 5*USEC_PER_MINUTE ? elapse - 5*USEC_PER_MINUTE : 1;
 }
 
 int main(int argc, char *argv[]) {
         enum {
                 FD_SOCKET,
-                FD_SHUTDOWN_TIMER,
+                FD_WALL_TIMER,
                 FD_NOLOGIN_TIMER,
+                FD_SHUTDOWN_TIMER,
                 _FD_MAX
         };
 
-        int r = 4, n;
+        int r = 4, n_fds;
         int one = 1;
-        unsigned n_fds = 1;
         struct shutdownd_command c;
         struct pollfd pollfd[_FD_MAX];
-        bool exec_shutdown = false, unlink_nologin = false;
+        bool exec_shutdown = false, unlink_nologin = false, failed = false;
+        unsigned i;
 
         if (getppid() != 1) {
                 log_error("This program should be invoked by init only.");
@@ -124,12 +196,12 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
 
-        if ((n = sd_listen_fds(true)) < 0) {
+        if ((n_fds = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
                 return 1;
         }
 
-        if (n != 1) {
+        if (n_fds != 1) {
                 log_error("Need exactly one file descriptor.");
                 return 2;
         }
@@ -144,10 +216,22 @@ int main(int argc, char *argv[]) {
 
         pollfd[FD_SOCKET].fd = SD_LISTEN_FDS_START;
         pollfd[FD_SOCKET].events = POLLIN;
-        pollfd[FD_SHUTDOWN_TIMER].fd = -1;
-        pollfd[FD_SHUTDOWN_TIMER].events = POLLIN;
-        pollfd[FD_NOLOGIN_TIMER].fd = -1;
-        pollfd[FD_NOLOGIN_TIMER].events = POLLIN;
+
+        for (i = 0; i < _FD_MAX; i++) {
+
+                if (i == FD_SOCKET)
+                        continue;
+
+                pollfd[i].events = POLLIN;
+
+                if ((pollfd[i].fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC)) < 0) {
+                        log_error("timerfd_create(): %m");
+                        failed = false;
+                }
+        }
+
+        if (failed)
+                goto finish;
 
         log_debug("systemd-shutdownd running as pid %lu", (unsigned long) getpid());
 
@@ -157,8 +241,9 @@ int main(int argc, char *argv[]) {
 
         do {
                 int k;
+                usec_t n;
 
-                if (poll(pollfd, n_fds, -1) < 0) {
+                if (poll(pollfd, _FD_MAX, -1) < 0) {
 
                         if (errno == EAGAIN || errno == EINTR)
                                 continue;
@@ -166,6 +251,8 @@ int main(int argc, char *argv[]) {
                         log_error("poll(): %m");
                         goto finish;
                 }
+
+                n = now(CLOCK_REALTIME);
 
                 if (pollfd[FD_SOCKET].revents) {
 
@@ -175,21 +262,25 @@ int main(int argc, char *argv[]) {
                                 struct itimerspec its;
                                 char buf[27];
 
-                                if (pollfd[FD_SHUTDOWN_TIMER].fd < 0)
-                                        if ((pollfd[FD_SHUTDOWN_TIMER].fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC)) < 0) {
-                                                log_error("timerfd_create(): %m");
+
+                                if (c.warn_wall) {
+                                        /* Send wall messages every so often */
+                                        zero(its);
+                                        timespec_store(&its.it_value, when_wall(n, c.elapse));
+                                        if (timerfd_settime(pollfd[FD_WALL_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
+                                                log_error("timerfd_settime(): %m");
                                                 goto finish;
                                         }
 
-                                if (pollfd[FD_NOLOGIN_TIMER].fd < 0)
-                                        if ((pollfd[FD_NOLOGIN_TIMER].fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC)) < 0) {
-                                                log_error("timerfd_create(): %m");
-                                                goto finish;
-                                        }
+                                        /* Warn immediately if less than 15 minutes are left */
+                                        if (n < c.elapse &&
+                                            n + 15*USEC_PER_MINUTE >= c.elapse)
+                                                warn_wall(&c);
+                                }
 
                                 /* Disallow logins 5 minutes prior to shutdown */
                                 zero(its);
-                                timespec_store(&its.it_value, c.elapse > 5*USEC_PER_MINUTE ? c.elapse - 5*USEC_PER_MINUTE : 0);
+                                timespec_store(&its.it_value, when_nologin(c.elapse));
                                 if (timerfd_settime(pollfd[FD_NOLOGIN_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
                                         log_error("timerfd_settime(): %m");
                                         goto finish;
@@ -203,8 +294,6 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
 
-                                n_fds = 3;
-
                                 ctime_r(&its.it_value.tv_sec, buf);
 
                                 sd_notifyf(false,
@@ -213,8 +302,22 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                if (pollfd[FD_NOLOGIN_TIMER].fd >= 0 &&
-                    pollfd[FD_NOLOGIN_TIMER].revents) {
+                if (pollfd[FD_WALL_TIMER].revents) {
+                        struct itimerspec its;
+
+                        warn_wall(&c);
+                        flush_fd(pollfd[FD_WALL_TIMER].fd);
+
+                        /* Restart timer */
+                        zero(its);
+                        timespec_store(&its.it_value, when_wall(n, c.elapse));
+                        if (timerfd_settime(pollfd[FD_WALL_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
+                                log_error("timerfd_settime(): %m");
+                                goto finish;
+                        }
+                }
+
+                if (pollfd[FD_NOLOGIN_TIMER].revents) {
                         int e;
 
                         if ((e = touch("/etc/nologin")) < 0)
@@ -222,15 +325,10 @@ int main(int argc, char *argv[]) {
                         else
                                 unlink_nologin = true;
 
-                        /* Disarm nologin timer */
-                        close_nointr_nofail(pollfd[FD_NOLOGIN_TIMER].fd);
-                        pollfd[FD_NOLOGIN_TIMER].fd = -1;
-                        n_fds = 2;
-
+                        flush_fd(pollfd[FD_NOLOGIN_TIMER].fd);
                 }
 
-                if (pollfd[FD_SHUTDOWN_TIMER].fd >= 0 &&
-                    pollfd[FD_SHUTDOWN_TIMER].revents) {
+                if (pollfd[FD_SHUTDOWN_TIMER].revents) {
                         exec_shutdown = true;
                         goto finish;
                 }
@@ -242,14 +340,10 @@ int main(int argc, char *argv[]) {
         log_debug("systemd-shutdownd stopped as pid %lu", (unsigned long) getpid());
 
 finish:
-        if (pollfd[FD_SOCKET].fd >= 0)
-                close_nointr_nofail(pollfd[FD_SOCKET].fd);
 
-        if (pollfd[FD_SHUTDOWN_TIMER].fd >= 0)
-                close_nointr_nofail(pollfd[FD_SHUTDOWN_TIMER].fd);
-
-        if (pollfd[FD_NOLOGIN_TIMER].fd >= 0)
-                close_nointr_nofail(pollfd[FD_NOLOGIN_TIMER].fd);
+        for (i = 0; i < _FD_MAX; i++)
+                if (pollfd[i].fd >= 0)
+                        close_nointr_nofail(pollfd[i].fd);
 
         if (exec_shutdown) {
                 char sw[3];
