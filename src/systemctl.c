@@ -4233,11 +4233,13 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (argc > optind)
+        if (argc > optind) {
                 if ((r = parse_time_spec(argv[optind], &arg_when)) < 0) {
                         log_error("Failed to parse time specification: %s", argv[optind]);
                         return r;
                 }
+        } else
+                arg_when = USEC_PER_MINUTE;
 
         /* We skip the time argument */
         if (argc > optind + 1)

@@ -88,7 +88,7 @@ static int read_packet(int fd, struct shutdownd_command *_c) {
         }
 
         if (n != sizeof(c)) {
-                log_warning("Message has invaliud size. Ignoring");
+                log_warning("Message has invalid size. Ignoring");
                 return 0;
         }
 

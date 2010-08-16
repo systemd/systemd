@@ -72,7 +72,7 @@
                 number of minutes m from now. <literal>now</literal>
                 is an alias for <literal>+0</literal>, i.e. for
                 triggering an immediate shutdown. If no time argument
-                is specified, <literal>now</literal> is
+                is specified, <literal>+1</literal> is
                 implied.</para>
 
                 <para>Note that to specify a wall message you must
