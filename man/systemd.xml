@@ -938,6 +938,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><filename>@/org/freedesktop/systemd1/shutdown</filename></term>
+
+                                <listitem><para>Used internally by the
+                                <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                tool to implement delayed
+                                shutdowns. This is an AF_UNIX datagram
+                                socket in the Linux abstract
+                                namespace.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><filename>@/org/freedesktop/systemd1/private</filename></term>
 
                                 <listitem><para>Used internally as

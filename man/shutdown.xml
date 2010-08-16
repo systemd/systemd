@@ -49,7 +49,7 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>shutdown <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">now</arg> <arg choice="opt" rep="repeat">WALL</arg></command>
+                        <command>shutdown <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">TIME</arg> <arg choice="opt" rep="repeat">WALL</arg></command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -59,11 +59,30 @@
                 <para><command>shutdown</command> may be used to halt,
                 power-off or reboot the machine.</para>
 
-                <para>The first argument should be the string
-                <command>now</command> which however is ignored by
-                this implementation. Optionally, this may be followed
-                by a wall message to be sent to all logged-in users
-                before going down.</para>
+                <para>The first argument may be a time string (which
+                is usually <literal>now</literal>). Optionally, this
+                may be followed by a wall message to be sent to all
+                logged-in users before going down.</para>
+
+                <para>The time string may either be in the format
+                <literal>hh:mm</literal> for hour/minutes specifying
+                the time to execute the shutdown at, specified in 24h
+                clock format. Alternatively it may be in the syntax
+                <literal>+m</literal> referring to the specified
+                number of minutes m from now. <literal>now</literal>
+                is an alias for <literal>+0</literal>, i.e. for
+                triggering an immediate shutdown. If no time argument
+                is specified, <literal>now</literal> is
+                implied.</para>
+
+                <para>Note that to specify a wall message you must
+                speciy a time argument, too.</para>
+
+                <para>If the time argument is used, 5 minutes
+                before the system goes down the
+                <filename>/etc/nologin</filename> file is created to
+                ensure that further logins shall not be
+                allowed.</para>
         </refsect1>
 
         <refsect1>
@@ -126,6 +145,39 @@
                                 message before
                                 halt, power-off, reboot.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-f</option></term>
+
+                                <listitem><para>Skip file system check
+                                on reboot. This is equivalent to
+                                creating the
+                                <filename>/fastboot</filename> file
+                                before going down.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-F</option></term>
+
+                                <listitem><para>Force file system
+                                check on reboot. This is equivalent to
+                                creating the
+                                <filename>/forcefsck</filename> file
+                                before going down.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-c</option></term>
+
+                                <listitem><para>Cancel a pending
+                                shutdown. This may be used cancel the
+                                effect of an invocation of
+                                <command>shutdown</command> with a
+                                time argument that is not
+                                <literal>+0</literal> or
+                                <literal>now</literal>.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
