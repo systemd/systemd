@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
+        log_open();
 
         /* If possible we go via the system bus, to make sure that
          * session instances get the messages. If not possible we talk

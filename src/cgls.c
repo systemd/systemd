@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
         int r = 0, retval = 1;
 
         log_parse_environment();
+        log_open();
 
         if ((r = parse_argv(argc, argv)) < 0)
                 goto finish;

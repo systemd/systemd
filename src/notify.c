@@ -134,6 +134,7 @@ int main(int argc, char* argv[]) {
         int r, retval = 1;
 
         log_parse_environment();
+        log_open();
 
         if ((r = parse_argv(argc, argv)) <= 0) {
                 retval = r < 0;

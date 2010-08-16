@@ -4903,6 +4903,7 @@ int main(int argc, char*argv[]) {
         dbus_error_init(&error);
 
         log_parse_environment();
+        log_open();
 
         if ((r = parse_argv(argc, argv)) < 0)
                 goto finish;

@@ -39,7 +39,9 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
+        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
+        log_open();
 
         /* When we load the seed we read it and write it to the device
          * and then immediately update the saved seed with new data,

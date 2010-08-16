@@ -73,7 +73,7 @@ static int log_open_console(void) {
                         return console_fd;
                 }
 
-                log_info("Succesfully opened /dev/console for logging.");
+                log_debug("Succesfully opened /dev/console for logging.");
         } else
                 console_fd = STDERR_FILENO;
 
@@ -99,7 +99,7 @@ static int log_open_kmsg(void) {
                 return -errno;
         }
 
-        log_info("Succesfully opened /dev/kmsg for logging.");
+        log_debug("Succesfully opened /dev/kmsg for logging.");
 
         return 0;
 }
@@ -146,7 +146,7 @@ static int log_open_syslog(void) {
                 goto fail;
         }
 
-        log_info("Succesfully opened syslog for logging.");
+        log_debug("Succesfully opened syslog for logging.");
 
         return 0;
 

@@ -368,6 +368,7 @@ int main(int argc, char *argv[]) {
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
+        log_open();
 
 #ifdef HAVE_AUDIT
         if ((c.audit_fd = audit_open()) < 0)
