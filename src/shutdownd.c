@@ -345,6 +345,9 @@ finish:
                 if (pollfd[i].fd >= 0)
                         close_nointr_nofail(pollfd[i].fd);
 
+        if (unlink_nologin)
+                unlink("/etc/nologin");
+
         if (exec_shutdown) {
                 char sw[3];
 
@@ -362,9 +365,6 @@ finish:
 
                 log_error("Failed to execute /sbin/shutdown: %m");
         }
-
-        if (unlink_nologin)
-                unlink("/etc/nologin");
 
         sd_notify(false,
                   "STATUS=Exiting...");
