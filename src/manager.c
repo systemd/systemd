@@ -1786,7 +1786,7 @@ static int manager_process_notify_fd(Manager *m) {
                         if (n >= 0)
                                 return -EIO;
 
-                        if (errno == EAGAIN)
+                        if (errno == EAGAIN || errno == EINTR)
                                 break;
 
                         return -errno;

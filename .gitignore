@@ -1,3 +1,4 @@
+systemd-shutdownd
 systemd-random-seed
 systemd-update-utmp
 test-env-replace

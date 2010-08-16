@@ -49,6 +49,7 @@
 #include "path-lookup.h"
 #include "conf-parser.h"
 #include "sd-daemon.h"
+#include "shutdownd.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -68,6 +69,9 @@ static bool arg_full = false;
 static bool arg_force = false;
 static bool arg_defaults = false;
 static char **arg_wall = NULL;
+static usec_t arg_when = 0;
+static bool arg_skip_fsck = false;
+static bool arg_force_fsck = false;
 static enum action {
         ACTION_INVALID,
         ACTION_SYSTEMCTL,
@@ -84,6 +88,7 @@ static enum action {
         ACTION_RELOAD,
         ACTION_REEXEC,
         ACTION_RUNLEVEL,
+        ACTION_CANCEL_SHUTDOWN,
         _ACTION_MAX
 } arg_action = ACTION_SYSTEMCTL;
 static enum dot {
@@ -3832,7 +3837,10 @@ static int shutdown_help(void) {
                "  -r --reboot    Reboot the machine\n"
                "  -h             Equivalent to --poweroff, overriden by --halt\n"
                "  -k             Don't halt/power-off/reboot, just send warnings\n"
-               "     --no-wall   Don't send wall message before halt/power-off/reboot\n",
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
+               "  -f             Skip fsck on reboot\n"
+               "  -F             Force fsck on reboot\n"
+               "  -c             Cancel a pending shutdown\n",
                program_invocation_short_name);
 
         return 0;
@@ -4099,6 +4107,53 @@ static int halt_parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int parse_time_spec(const char *t, usec_t *_u) {
+        assert(t);
+        assert(_u);
+
+        if (streq(t, "now"))
+                *_u = 0;
+        else if (t[0] == '+') {
+                uint64_t u;
+
+                if (safe_atou64(t + 1, &u) < 0)
+                        return -EINVAL;
+
+                *_u = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
+        } else {
+                char *e = NULL;
+                long hour, minute;
+                struct tm tm;
+                time_t s;
+                usec_t n;
+
+                errno = 0;
+                hour = strtol(t, &e, 10);
+                if (errno != 0 || *e != ':' || hour < 0 || hour > 23)
+                        return -EINVAL;
+
+                minute = strtol(e+1, &e, 10);
+                if (errno != 0 || *e != 0 || minute < 0 || minute > 59)
+                        return -EINVAL;
+
+                n = now(CLOCK_REALTIME);
+                s = (time_t) n / USEC_PER_SEC;
+                assert_se(localtime_r(&s, &tm));
+
+                tm.tm_hour = (int) hour;
+                tm.tm_min = (int) minute;
+
+                assert_se(s = mktime(&tm));
+
+                *_u = (usec_t) s * USEC_PER_SEC;
+
+                while (*_u <= n)
+                        *_u += USEC_PER_DAY;
+        }
+
+        return 0;
+}
+
 static int shutdown_parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -4115,12 +4170,12 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 { NULL,        0,                 NULL, 0           }
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkt:a", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "HPrhkt:afFc", options, NULL)) >= 0) {
                 switch (c) {
 
                 case ARG_HELP:
@@ -4157,6 +4212,18 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         /* Compatibility nops */
                         break;
 
+                case 'f':
+                        arg_skip_fsck = true;
+                        break;
+
+                case 'F':
+                        arg_force_fsck = true;
+                        break;
+
+                case 'c':
+                        arg_action = ACTION_CANCEL_SHUTDOWN;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -4166,10 +4233,13 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (argc > optind && !streq(argv[optind], "now"))
-                log_warning("First argument '%s' isn't 'now'. Ignoring.", argv[optind]);
+        if (argc > optind)
+                if ((r = parse_time_spec(argv[optind], &arg_when)) < 0) {
+                        log_error("Failed to parse time specification: %s", argv[optind]);
+                        return r;
+                }
 
-        /* We ignore the time argument */
+        /* We skip the time argument */
         if (argc > optind + 1)
                 arg_wall = argv + optind + 1;
 
@@ -4624,6 +4694,62 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
+static int send_shutdownd(usec_t t, char mode) {
+        int fd = -1;
+        struct msghdr msghdr;
+        struct iovec iovec;
+        union sockaddr_union sockaddr;
+        struct ucred *ucred;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+        } control;
+        struct shutdownd_command c;
+
+        zero(c);
+        c.elapse = t;
+        c.mode = mode;
+
+        if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0)
+                return -errno;
+
+        zero(sockaddr);
+        sockaddr.sa.sa_family = AF_UNIX;
+        sockaddr.un.sun_path[0] = 0;
+        strncpy(sockaddr.un.sun_path+1, "/org/freedesktop/systemd1/shutdownd", sizeof(sockaddr.un.sun_path)-1);
+
+        zero(iovec);
+        iovec.iov_base = (char*) &c;
+        iovec.iov_len = sizeof(c);
+
+        zero(control);
+        control.cmsghdr.cmsg_level = SOL_SOCKET;
+        control.cmsghdr.cmsg_type = SCM_CREDENTIALS;
+        control.cmsghdr.cmsg_len = CMSG_LEN(sizeof(struct ucred));
+
+        ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
+        ucred->pid = getpid();
+        ucred->uid = getuid();
+        ucred->gid = getgid();
+
+        zero(msghdr);
+        msghdr.msg_name = &sockaddr;
+        msghdr.msg_namelen = sizeof(sa_family_t) + 1 + sizeof("/org/freedesktop/systemd1/shutdownd") - 1;
+
+        msghdr.msg_iov = &iovec;
+        msghdr.msg_iovlen = 1;
+        msghdr.msg_control = &control;
+        msghdr.msg_controllen = control.cmsghdr.cmsg_len;
+
+        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        close_nointr_nofail(fd);
+        return 0;
+}
+
 static int reload_with_fallback(DBusConnection *bus) {
 
         if (bus) {
@@ -4675,6 +4801,24 @@ static int halt_main(DBusConnection *bus) {
         if (geteuid() != 0) {
                 log_error("Must to be root.");
                 return -EPERM;
+        }
+
+        if (arg_force_fsck) {
+                if ((r = touch("/forcefsck")) < 0)
+                        log_warning("Failed to create /forcefsck: %s", strerror(-r));
+        } else if (arg_skip_fsck) {
+                if ((r = touch("/fastboot")) < 0)
+                        log_warning("Failed to create /fastboot: %s", strerror(-r));
+        }
+
+        if (arg_when > 0) {
+                if ((r = send_shutdownd(arg_when,
+                                        arg_action == ACTION_HALT ? 'H' :
+                                        arg_action == ACTION_POWEROFF ? 'P' :
+                                        'r')) < 0)
+                        log_warning("Failed to talk to shutdownd, proceeding with immediate shutdown: %s", strerror(-r));
+                else
+                        return 0;
         }
 
         if (!arg_dry && !arg_immediate)
@@ -4788,6 +4932,10 @@ int main(int argc, char*argv[]) {
         case ACTION_RELOAD:
         case ACTION_REEXEC:
                 retval = reload_with_fallback(bus) < 0;
+                break;
+
+        case ACTION_CANCEL_SHUTDOWN:
+                retval = send_shutdownd(0, 0) < 0;
                 break;
 
         case ACTION_INVALID:

@@ -338,6 +338,8 @@ char *ellipsize(const char *s, unsigned length, unsigned percent);
 
 void nss_disable_nscd(void);
 
+int touch(const char *path);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

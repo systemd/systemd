@@ -8,8 +8,8 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd Logging Daemon
-After=@SPECIAL_SYSLOG_SERVICE@
+Description=systemd Shutdown Daemon
+DefaultDependencies=no
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-logger
+ExecStart=@rootlibexecdir@/systemd-shutdownd

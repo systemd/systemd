@@ -8,8 +8,9 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd Logging Daemon
-After=@SPECIAL_SYSLOG_SERVICE@
+Description=systemd Shutdown Socket
+DefaultDependencies=no
+Before=sockets.target
 
-[Service]
-ExecStart=@rootlibexecdir@/systemd-logger
+[Socket]
+ListenStream=@/org/freedesktop/systemd1/shutdownd

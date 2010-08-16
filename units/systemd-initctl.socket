@@ -10,7 +10,6 @@
 [Unit]
 Description=systemd /dev/initctl Compatibility Socket
 DefaultDependencies=no
-After=sysinit.target
 Before=sockets.target
 
 [Socket]

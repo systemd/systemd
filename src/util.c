@@ -2997,6 +2997,17 @@ void nss_disable_nscd(void) {
                 log_debug("Cannot disable nscd.");
 }
 
+int touch(const char *path) {
+        int fd;
+
+        assert(path);
+
+        if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666)) < 0)
+                return -errno;
+
+        close_nointr_nofail(fd);
+        return 0;
+}
 
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",

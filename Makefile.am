@@ -71,7 +71,8 @@ rootlibexec_PROGRAMS = \
 	systemd-cgroups-agent \
 	systemd-initctl \
 	systemd-update-utmp \
-	systemd-random-seed
+	systemd-random-seed \
+	systemd-shutdownd
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -137,6 +138,7 @@ dist_systemunit_DATA = \
 	units/dbus.target \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket \
+	units/systemd-shutdownd.socket \
 	units/dev-hugepages.automount \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.automount \
@@ -161,6 +163,7 @@ nodist_systemunit_DATA = \
 	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
+	units/systemd-shutdownd.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
 	units/systemd-random-seed-save.service \
@@ -182,6 +185,7 @@ EXTRA_DIST = \
 	units/remote-fs.target.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
+	units/systemd-shutdownd.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
 	units/systemd-random-seed-save.service.in \
@@ -346,7 +350,8 @@ EXTRA_DIST += \
 	src/bus-errors.h \
 	src/cgroup-show.h \
 	src/utmp-wtmp.h \
-	src/build.h
+	src/build.h \
+	src/shutdownd.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -527,6 +532,16 @@ systemd_random_seed_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_random_seed_LDADD = \
+	libsystemd-basic.la
+
+systemd_shutdownd_SOURCES = \
+	src/sd-daemon.c \
+	src/shutdownd.c
+
+systemd_shutdownd_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_shutdownd_LDADD = \
 	libsystemd-basic.la
 
 systemd_cgroups_agent_SOURCES = \

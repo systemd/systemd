@@ -30,14 +30,16 @@
 #include "macro.h"
 #include "util.h"
 
+union sockaddr_union {
+        struct sockaddr sa;
+        struct sockaddr_in in4;
+        struct sockaddr_in6 in6;
+        struct sockaddr_un un;
+        struct sockaddr_storage storage;
+};
+
 typedef struct SocketAddress {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_in in4;
-                struct sockaddr_in6 in6;
-                struct sockaddr_un un;
-                struct sockaddr_storage storage;
-        } sockaddr;
+        union sockaddr_union sockaddr;
 
         /* We store the size here explicitly due to the weird
          * sockaddr_un semantics for abstract sockets */
