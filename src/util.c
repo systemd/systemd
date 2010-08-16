@@ -2531,11 +2531,12 @@ char* getlogname_malloc(void) {
 
 int getttyname_malloc(char **r) {
         char path[PATH_MAX], *p, *c;
+        int k;
 
         assert(r);
 
-        if (ttyname_r(STDIN_FILENO, path, sizeof(path)) < 0)
-                return -errno;
+        if ((k = ttyname_r(STDIN_FILENO, path, sizeof(path))) != 0)
+                return -k;
 
         char_array_0(path);
 
