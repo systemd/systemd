@@ -779,9 +779,10 @@ install-data-hook:
 		rm -f session && \
 		$(LN_S) $(pkgsysconfdir)/session session )
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-initctl.socket systemd-logger.socket && \
+		rm -f systemd-initctl.socket systemd-logger.socket systemd-shutdownd.socket && \
 		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
-		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
+		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
+		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel1.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
 		$(LN_S) ../systemd-update-utmp-runlevel.service )
