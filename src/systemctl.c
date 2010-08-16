@@ -3829,7 +3829,7 @@ static int halt_help(void) {
 
 static int shutdown_help(void) {
 
-        printf("%s [OPTIONS...] [now] [WALL...]\n\n"
+        printf("%s [OPTIONS...] [TIME] [WALL...]\n\n"
                "Shut down the system.\n\n"
                "     --help      Show this help\n"
                "  -H --halt      Halt the machine\n"
@@ -4137,11 +4137,14 @@ static int parse_time_spec(const char *t, usec_t *_u) {
                         return -EINVAL;
 
                 n = now(CLOCK_REALTIME);
-                s = (time_t) n / USEC_PER_SEC;
+                s = (time_t) (n / USEC_PER_SEC);
+
+                zero(tm);
                 assert_se(localtime_r(&s, &tm));
 
                 tm.tm_hour = (int) hour;
                 tm.tm_min = (int) minute;
+                tm.tm_sec = 0;
 
                 assert_se(s = mktime(&tm));
 
@@ -4239,7 +4242,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         return r;
                 }
         } else
-                arg_when = USEC_PER_MINUTE;
+                arg_when = now(CLOCK_REALTIME) + USEC_PER_MINUTE;
 
         /* We skip the time argument */
         if (argc > optind + 1)
@@ -4819,6 +4822,7 @@ static int halt_main(DBusConnection *bus) {
 
         if (arg_when > 0) {
                 char *m;
+                char date[FORMAT_TIMESTAMP_MAX];
 
                 m = strv_join(arg_wall, " ");
                 r = send_shutdownd(arg_when,
@@ -4831,8 +4835,11 @@ static int halt_main(DBusConnection *bus) {
 
                 if (r < 0)
                         log_warning("Failed to talk to shutdownd, proceeding with immediate shutdown: %s", strerror(-r));
-                else
+                else {
+                        log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.",
+                                 format_timestamp(date, sizeof(date), arg_when));
                         return 0;
+                }
         }
 
         if (!arg_dry && !arg_immediate)

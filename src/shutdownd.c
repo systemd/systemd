@@ -99,30 +99,31 @@ static int read_packet(int fd, struct shutdownd_command *_c) {
         return 1;
 }
 
-static void warn_wall(struct shutdownd_command *c) {
+static void warn_wall(usec_t n, struct shutdownd_command *c) {
 
         assert(c);
         assert(c->warn_wall);
+
+        if (n >= c->elapse)
+                return;
 
         if (c->wall_message[0])
                 utmp_wall(c->wall_message);
         else {
                 char date[FORMAT_TIMESTAMP_MAX];
                 const char* prefix;
-                char *l;
+                char *l = NULL;
 
                 if (c->mode == 'H')
-                        prefix = "The system is going down for system halt at";
+                        prefix = "The system is going down for system halt at ";
                 else if (c->mode == 'P')
-                        prefix = "The system is going down for power-off at";
+                        prefix = "The system is going down for power-off at ";
                 else if (c->mode == 'r')
-                        prefix = "The system is going down for reboot at";
+                        prefix = "The system is going down for reboot at ";
                 else
                         assert_not_reached("Unknown mode!");
 
-                if (asprintf(&l, "%s %s!",
-                             prefix,
-                             format_timestamp(date, sizeof(date), c->elapse)) < 0)
+                if (asprintf(&l, "%s%s!", prefix, format_timestamp(date, sizeof(date), c->elapse)) < 0)
                         log_error("Failed to allocate wall message");
                 else {
                         utmp_wall(l);
@@ -151,8 +152,10 @@ static usec_t when_wall(usec_t n, usec_t elapse) {
 
         left = elapse - n;
         for (i = 0; i < ELEMENTSOF(table); i++)
-                if (n + table[i].delay >= elapse)
+                if (n + table[i].delay >= elapse) {
                         sub = ((left / table[i].interval) * table[i].interval);
+                        break;
+                }
 
         if (i >= ELEMENTSOF(table))
                 sub = ((left / USEC_PER_HOUR) * USEC_PER_HOUR);
@@ -272,7 +275,7 @@ int main(int argc, char *argv[]) {
                                         /* Warn immediately if less than 15 minutes are left */
                                         if (n < c.elapse &&
                                             n + 15*USEC_PER_MINUTE >= c.elapse)
-                                                warn_wall(&c);
+                                                warn_wall(n, &c);
                                 }
 
                                 /* Disallow logins 5 minutes prior to shutdown */
@@ -300,7 +303,7 @@ int main(int argc, char *argv[]) {
                 if (pollfd[FD_WALL_TIMER].revents) {
                         struct itimerspec its;
 
-                        warn_wall(&c);
+                        warn_wall(n, &c);
                         flush_fd(pollfd[FD_WALL_TIMER].fd);
 
                         /* Restart timer */
@@ -314,6 +317,8 @@ int main(int argc, char *argv[]) {
 
                 if (pollfd[FD_NOLOGIN_TIMER].revents) {
                         int e;
+
+                        log_info("Creating /etc/nologin, blocking further logins...");
 
                         if ((e = touch("/etc/nologin")) < 0)
                                 log_error("Failed to create /etc/nologin: %s", strerror(-e));
@@ -347,7 +352,14 @@ finish:
                 sw[1] = c.mode;
                 sw[2] = 0;
 
-                execl(SYSTEMCTL_BINARY_PATH, "shutdown", sw, "now", NULL);
+                execl(SYSTEMCTL_BINARY_PATH,
+                      "shutdown",
+                      sw,
+                      "now",
+                      (c.warn_wall && c.wall_message[0]) ? c.wall_message :
+                      (c.warn_wall ? NULL : "--no-wall"),
+                      NULL);
+
                 log_error("Failed to execute /sbin/shutdown: %m");
         }
 
