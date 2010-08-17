@@ -38,7 +38,6 @@
 #include "hostname-setup.h"
 #include "loopback-setup.h"
 #include "kmod-setup.h"
-#include "modprobe-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
@@ -63,7 +62,6 @@ static bool arg_dump_core = true;
 static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
-static bool arg_nomodules = false;
 static bool arg_show_status = true;
 static bool arg_sysv_console = true;
 
@@ -335,10 +333,7 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n");
 
-        } else if (streq(word, "nomodules"))
-                arg_nomodules = true;
-
-        else if (streq(word, "quiet")) {
+        } if (streq(word, "quiet")) {
                 arg_show_status = false;
                 arg_sysv_console = false;
         } else {
@@ -979,7 +974,6 @@ int main(int argc, char *argv[]) {
                 if (arg_show_status)
                         status_welcome();
 
-                modprobe_setup(arg_nomodules);
                 kmod_setup();
                 hostname_setup();
                 loopback_setup();
