@@ -9,7 +9,7 @@
 Description=Save Random Seed
 DefaultDependencies=no
 Before=poweroff.service reboot.service halt.service killall.service
-Conflicts=systemd-random-seed-save.service
+Conflicts=systemd-random-seed-load.service
 
 [Service]
 Type=oneshot
