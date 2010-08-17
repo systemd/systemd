@@ -190,7 +190,8 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
 
         /* If this is a different unit, then let's not merge things */
         if (u && DEVICE(u)->sysfs && !path_equal(DEVICE(u)->sysfs, sysfs)) {
-                log_error("Hmm, something's broken. Asked to create two devices with same name but different sysfs paths.");
+                log_error("Hmm, something's broken. Asked to create two devices with same name but different sysfs paths. (%s vs %s)",
+                          DEVICE(u)->sysfs, sysfs);
                 return -EEXIST;
         }
 
