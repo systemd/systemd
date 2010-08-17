@@ -9,12 +9,13 @@
 Description=Runtime Directory
 DefaultDependencies=no
 Requires=var-run.mount
+After=var-run.mount
 Before=local-fs.target
 
 [Service]
 Type=oneshot
 ValidNoProcess=yes
-ExecStart=/bin/touch /var/run/utmp ; /bin/chown root:utmp /var/run/utmp
+ExecStart=/bin/touch /var/run/utmp ; /bin/chmod 0664 /var/run/utmp ; /bin/chown root:utmp /var/run/utmp
 
 [Install]
 WantedBy=local-fs.target
