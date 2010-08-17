@@ -7,10 +7,14 @@
 
 [Unit]
 Description=Lock Directory
+DefaultDependencies=no
+Requires=var-lock.mount
 Before=local-fs.target
 
-[Mount]
-What=tmpfs
-Where=/var/lock
-Type=tmpfs
-Options=mode=775,gid=lock
+[Service]
+Type=oneshot
+ValidNoProcess=yes
+ExecStart=/bin/mkdir -p /var/lock/subsys
+
+[Install]
+WantedBy=local-fs.target
