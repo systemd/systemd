@@ -57,20 +57,26 @@
 
 * Ray: plymouth after/before getty? https://bugzilla.redhat.com/show_bug.cgi?id=623430
 
+* exit code 5, 6 von sysv diensten ignorieren
+
+* decode exit codes in systemctl status
+
 External:
 
 * nologin nach /var/run https://bugzilla.redhat.com/show_bug.cgi?id=624489
 
-* make sysinit honour forcefsck/fastboot from the kernel command line
+* make sysinit honour forcefsck/fastboot from the kernel command line fsck.mode=auto|force|skip
 
 * sysv functions should color when stdout is tty, not stdin
 
 * agetty should not modify baudrate https://bugzilla.redhat.com/show_bug.cgi?id=623685
 
-* ck logging, ssh readahead
+* ck logging, ssd readahead
 
 * pam: fix double sudo session cleanup:
   http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
+
+* kernel mount point move
 
 * patch /etc/init.d/functions with:
 
