@@ -1597,7 +1597,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Restart",                config_parse_service_restart, &u->service.restart,                             "Service" },
                 { "PermissionsStartOnly",   config_parse_bool,            &u->service.permissions_start_only,              "Service" },
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
-                { "ValidNoProcess",         config_parse_bool,            &u->service.valid_no_process,                    "Service" },
+                { "RemainAfterExit",        config_parse_bool,            &u->service.remain_after_exit,                   "Service" },
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
                 { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },

@@ -14,7 +14,7 @@ Before=local-fs.target
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
+RemainAfterExit=yes
 ExecStart=/bin/touch /var/run/utmp ; /bin/chmod 0664 /var/run/utmp ; /bin/chown root:utmp /var/run/utmp
 
 [Install]

@@ -33,7 +33,7 @@ typedef enum ServiceState {
         SERVICE_START,
         SERVICE_START_POST,
         SERVICE_RUNNING,
-        SERVICE_EXITED,            /* Nothing is running anymore, but ValidNoProcess is true, ehnce this is OK */
+        SERVICE_EXITED,            /* Nothing is running anymore, but RemainAfterExit is true, ehnce this is OK */
         SERVICE_RELOAD,
         SERVICE_STOP,              /* No STOP_PRE state, instead just register multiple STOP executables */
         SERVICE_STOP_SIGTERM,
@@ -109,7 +109,7 @@ struct Service {
 
         bool permissions_start_only;
         bool root_directory_start_only;
-        bool valid_no_process;
+        bool remain_after_exit;
 
         /* If we shut down, remember why */
         bool failure:1;

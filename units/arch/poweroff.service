@@ -13,7 +13,7 @@ After=shutdown.target umount.target
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
+RemainAfterExit=yes
 Environment=RUNLEVEL=0
 ExecStart=/etc/rc.shutdown
 StandardOutput=tty

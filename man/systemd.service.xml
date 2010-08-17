@@ -164,7 +164,7 @@
                                 to <option>simple</option>, however
                                 it is expected that the process has to
                                 exit before systemd starts follow-up
-                                units. <varname>ValidNoProcess=</varname>
+                                units. <varname>RemainAfterExit=</varname>
                                 is particularly useful for this type
                                 of service.</para>
 
@@ -205,7 +205,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>ValidNoProcess=</varname></term>
+                                <term><varname>RemainAfterExit=</varname></term>
 
                                 <listitem><para>Takes a boolean value
                                 that specifies whether the service

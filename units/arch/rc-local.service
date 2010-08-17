@@ -13,7 +13,7 @@ ExecStart=/etc/rc.local
 ExectStop=/etc/rc.local.shutdown
 TimeoutSec=0
 StandardInput=tty
-ValidNoProcess=yes
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target

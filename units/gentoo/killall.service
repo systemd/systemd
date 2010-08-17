@@ -13,6 +13,6 @@ RefuseManualStart=yes
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
+RemainAfterExit=yes
 ExecStart=-/etc/init.d/killprocs start
 StandardOutput=tty

@@ -13,7 +13,7 @@ After=shutdown.target umount.target killall.service
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
+RemainAfterExit=yes
 Environment=RC_DOWN_HARDDISK=yes
 ExecStart=/etc/init.d/shutdown.sh
 StandardOutput=tty

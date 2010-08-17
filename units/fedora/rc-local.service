@@ -16,7 +16,7 @@ Names=rc-local.service local.service
 ExecStart=/etc/rc.local start
 TimeoutSec=0
 StandardOutput=tty
-ValidNoProcess=yes
+RemainAfterExit=yes
 SysVStartPriority=99
 
 [Install]

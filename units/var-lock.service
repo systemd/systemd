@@ -14,7 +14,7 @@ Before=local-fs.target
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
+RemainAfterExit=yes
 ExecStart=/bin/mkdir -p /var/lock/subsys
 
 [Install]

@@ -706,7 +706,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
-        s->valid_no_process = true;
+        s->remain_after_exit = true;
         s->restart = SERVICE_ONCE;
         s->exec_context.std_output = s->meta.manager->sysv_console ? EXEC_OUTPUT_TTY : EXEC_OUTPUT_NULL;
         s->exec_context.kill_mode = KILL_PROCESS_GROUP;
@@ -951,14 +951,14 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sService State: %s\n"
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
-                "%sValidNoProcess: %s\n"
+                "%sRemainAfterExit: %s\n"
                 "%sType: %s\n"
                 "%sRestart: %s\n"
                 "%sNotifyAccess: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
-                prefix, yes_no(s->valid_no_process),
+                prefix, yes_no(s->remain_after_exit),
                 prefix, service_type_to_string(s->type),
                 prefix, service_restart_to_string(s->restart),
                 prefix, notify_access_to_string(s->notify_access));
@@ -1669,7 +1669,7 @@ static void service_enter_running(Service *s, bool success) {
         if ((main_pid_ok > 0 || (main_pid_ok < 0 && cgroup_ok != 0)) &&
             (s->bus_name_good || s->type != SERVICE_DBUS))
                 service_set_state(s, SERVICE_RUNNING);
-        else if (s->valid_no_process)
+        else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
         else
                 service_enter_stop(s, true);

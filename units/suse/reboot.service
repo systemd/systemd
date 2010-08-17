@@ -13,7 +13,7 @@ After=shutdown.target umount.target
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
+RemainAfterExit=yes
 Environment=COLD_BOOT=1
 ExecStart=/etc/init.d/reboot
 StandardOutput=tty

@@ -16,4 +16,4 @@ ExecStart=/etc/rc.sysinit
 Type=forking
 TimeoutSec=0
 StandardInput=tty
-ValidNoProcess=yes
+RemainAfterExit=yes

@@ -13,6 +13,6 @@ After=shutdown.target umount.target killall.service
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
+RemainAfterExit=yes
 ExecStart=/etc/init.d/reboot.sh
 StandardOutput=tty
