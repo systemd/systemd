@@ -70,8 +70,6 @@ static bool arg_force = false;
 static bool arg_defaults = false;
 static char **arg_wall = NULL;
 static usec_t arg_when = 0;
-static bool arg_skip_fsck = false;
-static bool arg_force_fsck = false;
 static enum action {
         ACTION_INVALID,
         ACTION_SYSTEMCTL,
@@ -3838,8 +3836,6 @@ static int shutdown_help(void) {
                "  -h             Equivalent to --poweroff, overriden by --halt\n"
                "  -k             Don't halt/power-off/reboot, just send warnings\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
-               "  -f             Skip fsck on reboot\n"
-               "  -F             Force fsck on reboot\n"
                "  -c             Cancel a pending shutdown\n",
                program_invocation_short_name);
 
@@ -4213,14 +4209,6 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 case 't':
                 case 'a':
                         /* Compatibility nops */
-                        break;
-
-                case 'f':
-                        arg_skip_fsck = true;
-                        break;
-
-                case 'F':
-                        arg_force_fsck = true;
                         break;
 
                 case 'c':
@@ -4810,14 +4798,6 @@ static int halt_main(DBusConnection *bus) {
         if (geteuid() != 0) {
                 log_error("Must to be root.");
                 return -EPERM;
-        }
-
-        if (arg_force_fsck) {
-                if ((r = touch("/forcefsck")) < 0)
-                        log_warning("Failed to create /forcefsck: %s", strerror(-r));
-        } else if (arg_skip_fsck) {
-                if ((r = touch("/fastboot")) < 0)
-                        log_warning("Failed to create /fastboot: %s", strerror(-r));
         }
 
         if (arg_when > 0) {

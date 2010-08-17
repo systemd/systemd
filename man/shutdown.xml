@@ -147,26 +147,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-f</option></term>
-
-                                <listitem><para>Skip file system check
-                                on reboot. This is equivalent to
-                                creating the
-                                <filename>/fastboot</filename> file
-                                before going down.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-F</option></term>
-
-                                <listitem><para>Force file system
-                                check on reboot. This is equivalent to
-                                creating the
-                                <filename>/forcefsck</filename> file
-                                before going down.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>-c</option></term>
 
                                 <listitem><para>Cancel a pending
