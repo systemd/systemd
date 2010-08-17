@@ -1,3 +1,5 @@
+* ValidNoProcess= ? ContinueAfterExit=, ActiveAfterExit=, KeepAfterExit=
+
 * systemd.log_level=debug should overwrite 'quiet' ?
 
 * implicit 'default.target' ?
