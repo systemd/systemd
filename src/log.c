@@ -331,7 +331,7 @@ static int log_dispatch(
 
         do {
                 char *e;
-                int k;
+                int k = 0;
 
                 buffer += strspn(buffer, NEWLINE);
 
@@ -344,24 +344,26 @@ static int log_dispatch(
                 if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                     log_target == LOG_TARGET_SYSLOG) {
 
-                        if ((r = write_to_syslog(level, file, line, func, buffer)) < 0) {
+                        if ((k = write_to_syslog(level, file, line, func, buffer)) < 0) {
                                 log_close_syslog();
                                 log_open_kmsg();
-                        } else if (r > 0)
+                        } else if (k > 0)
                                 r++;
                 }
 
-                if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
-                    log_target == LOG_TARGET_KMSG) {
+                if (k <= 0 &&
+                    (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                     log_target == LOG_TARGET_KMSG)) {
 
-                        if ((r = write_to_kmsg(level, file, line, func, buffer)) < 0) {
+                        if ((k = write_to_kmsg(level, file, line, func, buffer)) < 0) {
                                 log_close_kmsg();
                                 log_open_console();
-                        } else if (r > 0)
+                        } else if (k > 0)
                                 r++;
                 }
 
-                if ((k = write_to_console(level, file, line, func, buffer)) < 0)
+                if (k <= 0 &&
+                    (k = write_to_console(level, file, line, func, buffer)) < 0)
                         return k;
 
                 buffer = e;
