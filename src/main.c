@@ -333,7 +333,7 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n");
 
-        } if (streq(word, "quiet")) {
+        } else if (streq(word, "quiet")) {
                 arg_show_status = false;
                 arg_sysv_console = false;
         } else {
