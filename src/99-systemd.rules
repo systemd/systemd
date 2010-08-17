@@ -12,10 +12,6 @@ KERNEL=="ttyS*", TAG="systemd"
 
 SUBSYSTEM=="block", KERNEL!="ram*|loop*", TAG="systemd"
 
-# DM finds it funny to create additional device nodes, we need to
-# merge them here, so that we recognize identical devices.
-SUBSYSTEM=="block", ENV{DM_NAME}!="", ENV{SYSTEMD_ALIAS}="/dev/mapper/$env{DM_NAME}"
-
 # We need a hardware independent way to identify network devices. We
 # use the /sys/subsystem path for this. Current vanilla kernels don't
 # actually support that hierarchy right now, however upcoming kernels
