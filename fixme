@@ -1,4 +1,5 @@
 * ValidNoProcess= ? ContinueAfterExit=, ActiveAfterExit=, KeepAfterExit=
+  (after this change update udev service files)
 
 * systemd.log_level=debug should overwrite 'quiet' ?
 
