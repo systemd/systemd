@@ -156,6 +156,8 @@ dist_systemunit_DATA = \
 	units/var-lock.service \
 	units/var-run.mount \
 	units/var-run.service \
+	units/hwclock-save.service \
+	units/sysctl.service \
 	units/printer.target \
 	units/bluetooth.target \
 	units/smartcard.target

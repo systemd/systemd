@@ -15,8 +15,6 @@
 
 * add #ifdefs for non-sysv builds
 
-* reinvestigate hwclock
-
 * "disabled" load state?
 
 * ability to kill services? i.e. in contrast to stopping them, go directly
