@@ -351,10 +351,10 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
         if (isatty(STDOUT_FILENO)) {
 
-                printf("\nLOAD   = Load State, reflects whether the unit configuration was properly loaded.\n"
-                       "ACTIVE = Active State, the high-level unit activation state, i.e. generalization of the substate.\n"
-                       "SUB    = Substate, the low-level unit activation state, possible values depend on unit type.\n"
-                       "JOB    = Job, shows pending jobs for the unit.\n");
+                printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
+                       "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
+                       "SUB    = The low-level unit activation state, values depend on unit type.\n"
+                       "JOB    = Pending job for the unit.\n");
 
                 if (arg_all)
                         printf("\n%u units listed.\n", c);

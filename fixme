@@ -14,11 +14,6 @@
   <kay>           when does it do that?
   <Viking-Ice>    if you disable the service
 
-* fixup var-run/var-lock tmpfs mounts. we need:
-    touch /var/run/utmp
-    chown root:utmp /var/run/utmp
-    mkdir -p /var/lock/subsys
-
 * have a simple syslog bridge providing /dev/log and forward messages
   to /dev/kmsg. at the moment the real syslog can be started, the bridge
   is stopped and the open /dev/log fd to the real syslog. that way we
@@ -78,7 +73,9 @@
 
 External:
 
-* nomodules nach udev umziehen
+* nologin nach /var/run https://bugzilla.redhat.com/show_bug.cgi?id=624489
+
+* make sysinit honour forcefsck/fastboot from the kernel command line
 
 * sysv functions should color when stdout is tty, not stdin
 
