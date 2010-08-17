@@ -5,7 +5,7 @@ After=udev.service
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
+RemainAfterExit=yes
 ExecStart=@sbindir@/udevadm settle
 
 [Install]

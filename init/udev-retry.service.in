@@ -5,7 +5,6 @@ After=local-fs.target udev.service
 
 [Service]
 Type=oneshot
-ValidNoProcess=yes
 ExecStart=@sbindir@/udevadm trigger --type=failed --action=add
 
 [Install]
