@@ -488,7 +488,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         t[k-1] = 0;
                                 }
 
-                                if (!(d = strdup(strstrip(t+12)))) {
+                                if (!(d = strappend("LSB: ", strstrip(t+12)))) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
@@ -635,7 +635,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 state = LSB_DESCRIPTION;
 
-                                if (!(d = strdup(strstrip(t+12)))) {
+                                if (!(d = strappend("LSB: ", strstrip(t+12)))) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
@@ -648,7 +648,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 state = LSB;
 
-                                if (!(d = strdup(strstrip(t+18)))) {
+                                if (!(d = strappend("LSB: ", strstrip(t+18)))) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
