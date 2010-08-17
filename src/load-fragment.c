@@ -77,10 +77,14 @@ static int config_parse_deps(
                         return -ENOMEM;
 
                 r = unit_add_dependency_by_name(u, d, k, NULL, true);
-                free(k);
 
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_error("Failed to add dependency on %s, ignoring: %s", k, strerror(-r));
+                        free(k);
+                        return 0;
+                }
+
+                free(k);
         }
 
         return 0;
@@ -119,10 +123,14 @@ static int config_parse_names(
                         return -ENOMEM;
 
                 r = unit_merge_by_name(u, k);
-                free(k);
 
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_error("Failed to add name %s, ignoring: %s", k, strerror(-r));
+                        free(k);
+                        return 0;
+                }
+
+                free(k);
         }
 
         return 0;
@@ -197,9 +205,9 @@ static int config_parse_listen(
                 p->type = SOCKET_SOCKET;
 
                 if ((r = socket_address_parse(&p->address, rvalue)) < 0) {
-                        log_error("[%s:%u] Failed to parse address value: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
-                        return r;
+                        return 0;
                 }
 
                 if (streq(lvalue, "ListenStream"))
@@ -212,8 +220,9 @@ static int config_parse_listen(
                 }
 
                 if (socket_address_family(&p->address) != AF_LOCAL && p->address.type == SOCK_SEQPACKET) {
+                        log_error("[%s:%u] Address family not supported, ignoring: %s", filename, line, rvalue);
                         free(p);
-                        return -EPROTONOSUPPORT;
+                        return 0;
                 }
         }
 
@@ -246,8 +255,8 @@ static int config_parse_socket_bind(
                 int r;
 
                 if ((r = parse_boolean(rvalue)) < 0) {
-                        log_error("[%s:%u] Failed to parse bind IPv6 only value: %s", filename, line, rvalue);
-                        return -EBADMSG;
+                        log_error("[%s:%u] Failed to parse bind IPv6 only value, ignoring: %s", filename, line, rvalue);
+                        return 0;
                 }
 
                 s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
@@ -275,13 +284,13 @@ static int config_parse_nice(
         assert(data);
 
         if ((r = safe_atoi(rvalue, &priority)) < 0) {
-                log_error("[%s:%u] Failed to parse nice priority: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse nice priority, ignoring: %s. ", filename, line, rvalue);
+                return 0;
         }
 
         if (priority < PRIO_MIN || priority >= PRIO_MAX) {
-                log_error("[%s:%u] Nice priority out of range: %s", filename, line, rvalue);
-                return -ERANGE;
+                log_error("[%s:%u] Nice priority out of range, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         c->nice = priority;
@@ -308,13 +317,13 @@ static int config_parse_oom_adjust(
         assert(data);
 
         if ((r = safe_atoi(rvalue, &oa)) < 0) {
-                log_error("[%s:%u] Failed to parse OOM adjust value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse OOM adjust value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if (oa < OOM_DISABLE || oa > OOM_ADJUST_MAX) {
-                log_error("[%s:%u] OOM adjust value out of range: %s", filename, line, rvalue);
-                return -ERANGE;
+                log_error("[%s:%u] OOM adjust value out of range, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         c->oom_adjust = oa;
@@ -344,13 +353,13 @@ static int config_parse_mode(
         errno = 0;
         l = strtol(rvalue, &x, 8);
         if (!x || *x || errno) {
-                log_error("[%s:%u] Failed to parse mode value: %s", filename, line, rvalue);
-                return errno ? -errno : -EINVAL;
+                log_error("[%s:%u] Failed to parse mode value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if (l < 0000 || l > 07777) {
-                log_error("[%s:%u] mode value out of range: %s", filename, line, rvalue);
-                return -ERANGE;
+                log_error("[%s:%u] mode value out of range, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         *m = (mode_t) l;
@@ -405,8 +414,8 @@ static int config_parse_exec(
                 }
 
                 if (*rvalue != '/') {
-                        log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
-                        return -EINVAL;
+                        log_error("[%s:%u] Invalid executable path in command line, ignoring: %s", filename, line, rvalue);
+                        return 0;
                 }
 
                 k = 0;
@@ -438,9 +447,9 @@ static int config_parse_exec(
                 n[k] = NULL;
 
                 if (!n[0]) {
-                        log_error("[%s:%u] Invalid command line: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Invalid command line, ignoring: %s", filename, line, rvalue);
                         strv_free(n);
-                        return -EINVAL;
+                        return 0;
                 }
 
                 if (!path)
@@ -492,8 +501,8 @@ static int config_parse_usec(
         assert(data);
 
         if ((r = parse_usec(rvalue, usec)) < 0) {
-                log_error("[%s:%u] Failed to parse time value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse time value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         return 0;
@@ -552,8 +561,8 @@ static int config_parse_facility(
         assert(data);
 
         if ((x = log_facility_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse log facility: %s", filename, line, rvalue);
-                return -EBADMSG;
+                log_error("[%s:%u] Failed to parse log facility, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         *o = LOG_MAKEPRI(x, LOG_PRI(*o));
@@ -579,8 +588,8 @@ static int config_parse_level(
         assert(data);
 
         if ((x = log_level_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse log level: %s", filename, line, rvalue);
-                return -EBADMSG;
+                log_error("[%s:%u] Failed to parse log level, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         *o = LOG_MAKEPRI(LOG_FAC(*o), x);
@@ -605,8 +614,8 @@ static int config_parse_io_class(
         assert(data);
 
         if ((x = ioprio_class_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse IO scheduling class: %s", filename, line, rvalue);
-                return -EBADMSG;
+                log_error("[%s:%u] Failed to parse IO scheduling class, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         c->ioprio = IOPRIO_PRIO_VALUE(x, IOPRIO_PRIO_DATA(c->ioprio));
@@ -633,8 +642,8 @@ static int config_parse_io_priority(
         assert(data);
 
         if (safe_atoi(rvalue, &i) < 0 || i < 0 || i >= IOPRIO_BE_NR) {
-                log_error("[%s:%u] Failed to parse io priority: %s", filename, line, rvalue);
-                return -EBADMSG;
+                log_error("[%s:%u] Failed to parse io priority, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_PRIO_CLASS(c->ioprio), i);
@@ -662,8 +671,8 @@ static int config_parse_cpu_sched_policy(
         assert(data);
 
         if ((x = sched_policy_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse CPU scheduling policy: %s", filename, line, rvalue);
-                return -EBADMSG;
+                log_error("[%s:%u] Failed to parse CPU scheduling policy, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         c->cpu_sched_policy = x;
@@ -691,8 +700,8 @@ static int config_parse_cpu_sched_prio(
 
         /* On Linux RR/FIFO have the same range */
         if (safe_atoi(rvalue, &i) < 0 || i < sched_get_priority_min(SCHED_RR) || i > sched_get_priority_max(SCHED_RR)) {
-                log_error("[%s:%u] Failed to parse CPU scheduling priority: %s", filename, line, rvalue);
-                return -EBADMSG;
+                log_error("[%s:%u] Failed to parse CPU scheduling priority, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         c->cpu_sched_priority = i;
@@ -736,8 +745,8 @@ static int config_parse_cpu_affinity(
                                 return -ENOMEM;
 
                 if (r < 0 || cpu >= c->cpuset_ncpus) {
-                        log_error("[%s:%u] Failed to parse CPU affinity: %s", filename, line, rvalue);
-                        return -EBADMSG;
+                        log_error("[%s:%u] Failed to parse CPU affinity, ignoring: %s", filename, line, rvalue);
+                        return 0;
                 }
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset);
@@ -767,8 +776,8 @@ static int config_parse_capabilities(
                 if (errno == ENOMEM)
                         return -ENOMEM;
 
-                log_error("[%s:%u] Failed to parse capabilities: %s", filename, line, rvalue);
-                return -EBADMSG;
+                log_error("[%s:%u] Failed to parse capabilities, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if (c->capabilities)
@@ -811,8 +820,8 @@ static int config_parse_secure_bits(
                 else if (first_word(w, "noroot-locked"))
                         c->secure_bits |= SECURE_NOROOT_LOCKED;
                 else {
-                        log_error("[%s:%u] Failed to parse secure bits: %s", filename, line, rvalue);
-                        return -EBADMSG;
+                        log_error("[%s:%u] Failed to parse secure bits, ignoring: %s", filename, line, rvalue);
+                        return 0;
                 }
         }
 
@@ -850,8 +859,8 @@ static int config_parse_bounding_set(
                 free(t);
 
                 if (r < 0) {
-                        log_error("[%s:%u] Failed to parse capability bounding set: %s", filename, line, rvalue);
-                        return -EBADMSG;
+                        log_error("[%s:%u] Failed to parse capability bounding set, ignoring: %s", filename, line, rvalue);
+                        return 0;
                 }
 
                 c->capability_bounding_set_drop |= 1 << cap;
@@ -879,8 +888,8 @@ static int config_parse_timer_slack_nsec(
         assert(data);
 
         if ((r = safe_atolu(rvalue, &u)) < 0) {
-                log_error("[%s:%u] Failed to parse time slack value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse time slack value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         c->timer_slack_nsec = u;
@@ -907,8 +916,8 @@ static int config_parse_limit(
         assert(data);
 
         if ((r = safe_atollu(rvalue, &u)) < 0) {
-                log_error("[%s:%u] Failed to parse resource value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse resource value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if (!*rl)
@@ -943,8 +952,10 @@ static int config_parse_cgroup(
                 r = unit_add_cgroup_from_text(u, t);
                 free(t);
 
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to parse cgroup value, ignoring: %s", filename, line, rvalue);
+                        return 0;
+                }
         }
 
         return 0;
@@ -968,8 +979,8 @@ static int config_parse_sysv_priority(
         assert(data);
 
         if ((r = safe_atoi(rvalue, &i)) < 0 || i < 0) {
-                log_error("[%s:%u] Failed to parse SysV start priority: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse SysV start priority, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         *priority = (int) i;
@@ -1000,8 +1011,8 @@ static int config_parse_kill_signal(
                         r = signal_from_string(rvalue+3);
 
         if (r <= 0) {
-                log_error("[%s:%u] Failed to parse kill signal: %s", filename, line, rvalue);
-                return -EINVAL;
+                log_error("[%s:%u] Failed to parse kill signal, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         *sig = r;
@@ -1036,8 +1047,8 @@ static int config_parse_mount_flags(
                 else if (strncmp(w, "private", l) == 0)
                         flags |= MS_PRIVATE;
                 else {
-                        log_error("[%s:%u] Failed to parse mount flags: %s", filename, line, rvalue);
-                        return -EINVAL;
+                        log_error("[%s:%u] Failed to parse mount flags, ignoring: %s", filename, line, rvalue);
+                        return 0;
                 }
         }
 
@@ -1066,13 +1077,13 @@ static int config_parse_timer(
         assert(data);
 
         if ((b = timer_base_from_string(lvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse timer base: %s", filename, line, lvalue);
-                return -EINVAL;
+                log_error("[%s:%u] Failed to parse timer base, ignoring: %s", filename, line, lvalue);
+                return 0;
         }
 
         if ((r = parse_usec(rvalue, &u)) < 0) {
-                log_error("[%s:%u] Failed to parse timer value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse timer value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if (!(v = new0(TimerValue, 1)))
@@ -1107,14 +1118,14 @@ static int config_parse_timer_unit(
         dbus_error_init(&error);
 
         if (endswith(rvalue, ".timer")) {
-                log_error("[%s:%u] Unit cannot be of type timer: %s", filename, line, rvalue);
-                return -EINVAL;
+                log_error("[%s:%u] Unit cannot be of type timer, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, NULL, &t->unit)) < 0) {
-                log_error("[%s:%u] Failed to load unit %s: %s", filename, line, rvalue, bus_error(&error, r));
+                log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
-                return r;
+                return 0;
         }
 
         return 0;
@@ -1139,13 +1150,13 @@ static int config_parse_path_spec(
         assert(data);
 
         if ((b = path_type_from_string(lvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse path type: %s", filename, line, lvalue);
-                return -EINVAL;
+                log_error("[%s:%u] Failed to parse path type, ignoring: %s", filename, line, lvalue);
+                return 0;
         }
 
         if (!path_is_absolute(rvalue)) {
-                log_error("[%s:%u] Path is not absolute: %s", filename, line, rvalue);
-                return -EINVAL;
+                log_error("[%s:%u] Path is not absolute, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if (!(s = new0(PathSpec, 1)))
@@ -1187,14 +1198,14 @@ static int config_parse_path_unit(
         dbus_error_init(&error);
 
         if (endswith(rvalue, ".path")) {
-                log_error("[%s:%u] Unit cannot be of type path: %s", filename, line, rvalue);
-                return -EINVAL;
+                log_error("[%s:%u] Unit cannot be of type path, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &error, &t->unit)) < 0) {
-                log_error("[%s:%u] Failed to load unit %s: %s", filename, line, rvalue, bus_error(&error, r));
+                log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
-                return r;
+                return 0;
         }
 
         return 0;
@@ -1219,8 +1230,8 @@ static int config_parse_env_file(
         assert(data);
 
         if (!(f = fopen(rvalue, "re"))) {
-                log_error("[%s:%u] Failed to open environment file '%s': %m", filename, line, rvalue);
-                return -errno;
+                log_error("[%s:%u] Failed to open environment file '%s', ignoring: %m", filename, line, rvalue);
+                return 0;
         }
 
         while (!feof(f)) {
@@ -1232,7 +1243,8 @@ static int config_parse_env_file(
                                 break;
 
                         r = -errno;
-                        log_error("[%s:%u] Failed to read environment file '%s': %m", filename, line, rvalue);
+                        log_error("[%s:%u] Failed to read environment file '%s', ignoring: %m", filename, line, rvalue);
+                        r = 0;
                         goto finish;
                 }
 
@@ -1277,8 +1289,8 @@ static int config_parse_ip_tos(
 
         if ((x = ip_tos_from_string(rvalue)) < 0)
                 if ((r = safe_atoi(rvalue, &x)) < 0) {
-                        log_error("[%s:%u] Failed to parse IP TOS value: %s", filename, line, rvalue);
-                        return r;
+                        log_error("[%s:%u] Failed to parse IP TOS value, ignoring: %s", filename, line, rvalue);
+                        return 0;
                 }
 
         *ip_tos = x;
