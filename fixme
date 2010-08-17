@@ -1,9 +1,5 @@
 * systemd.log_level=debug should overwrite 'quiet' ?
 
-* implicit 'default.target' ?
-  systemd currently fails to boot when the link is dangling, like
-  after the move of the runlevel targets from /etc to /lib
-
 * dot output for --test showing the 'initial transaction'
 
 * check 'disable'

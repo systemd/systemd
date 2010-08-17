@@ -851,7 +851,6 @@ fail:
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        Unit *target = NULL;
         int r, retval = 1;
         FDSet *fds = NULL;
         bool reexecute = false;
@@ -1004,6 +1003,7 @@ int main(int argc, char *argv[]) {
                 serialization = NULL;
         } else {
                 DBusError error;
+                Unit *target = NULL;
 
                 dbus_error_init(&error);
 
@@ -1012,11 +1012,18 @@ int main(int argc, char *argv[]) {
                 if ((r = manager_load_unit(m, arg_default_unit, NULL, &error, &target)) < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
+                } else if (target->meta.load_state != UNIT_LOADED)
+                        log_error("Failed to load default target: %s", strerror(-target->meta.load_error));
 
+                if (!target || target->meta.load_state != UNIT_LOADED) {
                         log_info("Trying to load rescue target...");
+
                         if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target)) < 0) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
+                                goto finish;
+                        } else if (target->meta.load_state != UNIT_LOADED) {
+                                log_error("Failed to load rescue target: %s", strerror(-target->meta.load_error));
                                 goto finish;
                         }
                 }
