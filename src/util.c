@@ -2981,23 +2981,6 @@ char *ellipsize(const char *s, unsigned length, unsigned percent) {
         return r;
 }
 
-void nss_disable_nscd(void) {
-
-        void (*func)(void);
-
-        /* This is an internal glibc function call. We are not
-         * supposed to call this, because we are not nscd. However
-         * sometimes we feel really dangerous and do it
-         * nonetheless. Muahahah! But at least we protect this with a
-         * dlsym() just in case glibc takes this away from us. */
-
-        if ((func = dlsym(RTLD_DEFAULT, "__nss_disable_nscd"))) {
-                log_debug("Disabling nscd.");
-                func();
-        } else
-                log_debug("Cannot disable nscd.");
-}
-
 int touch(const char *path) {
         int fd;
 

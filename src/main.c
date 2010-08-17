@@ -975,20 +975,14 @@ int main(int argc, char *argv[]) {
         log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
                  PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES ")", manager_running_as_to_string(arg_running_as));
 
-        if (arg_running_as == MANAGER_SYSTEM) {
+        if (arg_running_as == MANAGER_SYSTEM && !serialization) {
+                if (arg_show_status)
+                        status_welcome();
 
-                /* Disable nscd, to avoid deadlocks when systemd uses
-                 * NSS and the nscd socket is maintained by us. */
-                nss_disable_nscd();
-
-                if (!serialization) {
-                        if (arg_show_status)
-                                status_welcome();
-                        modprobe_setup(arg_nomodules);
-                        kmod_setup();
-                        hostname_setup();
-                        loopback_setup();
-                }
+                modprobe_setup(arg_nomodules);
+                kmod_setup();
+                hostname_setup();
+                loopback_setup();
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {
