@@ -346,7 +346,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                           dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-                log_error("Warning! API D-Bus connection terminated.");
+                log_debug("API D-Bus connection terminated.");
                 bus_done_api(m);
 
         } else if (dbus_message_is_signal(message, DBUS_INTERFACE_DBUS, "NameOwnerChanged")) {
