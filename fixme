@@ -2,11 +2,6 @@
 
 * dot output for --test showing the 'initial transaction'
 
-* check 'disable'
-  <Viking-Ice>    "Warning: Unit file changed in disk, 'systemctl --system daemon-reload' recommended
-  <kay>           when does it do that?
-  <Viking-Ice>    if you disable the service
-
 * have a simple syslog bridge providing /dev/log and forward messages
   to /dev/kmsg. at the moment the real syslog can be started, the bridge
   is stopped and the open /dev/log fd to the real syslog. that way we
