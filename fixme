@@ -67,8 +67,6 @@
 
 * Ray: plymouth after/before getty? https://bugzilla.redhat.com/show_bug.cgi?id=623430
 
-* fix systemctl daemon-reload in part of boot
-
 External:
 
 * nomodules nach udev umziehen
