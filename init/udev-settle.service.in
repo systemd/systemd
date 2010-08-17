@@ -4,7 +4,7 @@ DefaultDependencies=no
 After=udev.service
 
 [Service]
-Type=finish
+Type=oneshot
 ValidNoProcess=yes
 ExecStart=@sbindir@/udevadm settle
 
