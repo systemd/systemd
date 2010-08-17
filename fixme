@@ -73,6 +73,8 @@
 
 External:
 
+* nomodules nach udev umziehen
+
 * sysv functions should color when stdout is tty, not stdin
 
 * agetty should not modify baudrate https://bugzilla.redhat.com/show_bug.cgi?id=623685
