@@ -6,14 +6,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Save Random Seed
-DefaultDependencies=no
-Before=poweroff.service reboot.service halt.service killall.service
-Conflicts=systemd-random-seed-save.service
+Description=Automatically Spawn getty on Kernel Console
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-random-seed save
+ExecStart=@rootlibexecdir@/systemd-auto-console-getty
 
 [Install]
-WantedBy=shutdown.target
+WantedBy=getty.target

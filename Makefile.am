@@ -72,7 +72,8 @@ rootlibexec_PROGRAMS = \
 	systemd-initctl \
 	systemd-update-utmp \
 	systemd-random-seed \
-	systemd-shutdownd
+	systemd-shutdownd \
+	systemd-auto-console-getty
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -139,6 +140,7 @@ dist_systemunit_DATA = \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket \
 	units/systemd-shutdownd.socket \
+	units/systemd-auto-console-getty.service \
 	units/dev-hugepages.automount \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.automount \
@@ -164,6 +166,7 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
+	units/systemd-auto-console-getty.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
 	units/systemd-random-seed-save.service \
@@ -186,6 +189,7 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
+	units/systemd-auto-console-getty.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
 	units/systemd-random-seed-save.service.in \
@@ -545,6 +549,18 @@ systemd_shutdownd_CFLAGS = \
 systemd_shutdownd_LDADD = \
 	libsystemd-basic.la
 
+systemd_auto_console_getty_SOURCES = \
+	src/auto-console-getty.c \
+	src/dbus-common.c
+
+systemd_auto_console_getty_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_auto_console_getty_LDADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS)
+
 systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent.c \
 	src/dbus-common.c
@@ -825,13 +841,14 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/reboot.target ctrl-alt-del.target && \
 		$(LN_S) $(systemunitdir)/rescue.target kbrequest.target )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
-		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
+		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service systemd-auto-console-getty.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty2.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty3.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty4.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service && \
+		$(LN_S) $(systemunitdir)/systemd-auto-console-getty.service systemd-auto-console-getty.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f getty.target remote-fs.target && \
 		$(LN_S) $(systemunitdir)/getty.target getty.target && \

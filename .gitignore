@@ -1,3 +1,4 @@
+systemd-auto-console-getty
 systemd-shutdownd
 systemd-random-seed
 systemd-update-utmp

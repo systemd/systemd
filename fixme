@@ -63,13 +63,13 @@
 
 * io priority during initialization
 
-* if a service fails too often, make the service enter maintainence mode, and the socket, too.
+* if a service fails too often, make the service enter maintenance mode, and the socket, too.
 
 * Ray: plymouth after/before getty? https://bugzilla.redhat.com/show_bug.cgi?id=623430
 
-* be more forgiving when parsing unit files, when encountering incorrect lines with assignments
+* add no-tab header to .h
 
-* agetty darf nicht mit emergency.service kollidieren
+* fix systemctl daemon-reload in part of boot
 
 External:
 

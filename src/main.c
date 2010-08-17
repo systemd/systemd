@@ -57,7 +57,6 @@ static enum {
 } arg_action = ACTION_RUN;
 
 static char *arg_default_unit = NULL;
-static char *arg_console = NULL;
 static ManagerRunningAs arg_running_as = _MANAGER_RUNNING_AS_INVALID;
 
 static bool arg_dump_core = true;
@@ -245,6 +244,8 @@ static int parse_proc_cmdline_word(const char *word) {
                 "5",      SPECIAL_RUNLEVEL5_TARGET
         };
 
+        assert(word);
+
         if (startswith(word, "systemd.unit="))
                 return set_default_unit(word + 13);
 
@@ -336,26 +337,8 @@ static int parse_proc_cmdline_word(const char *word) {
 
         } else if (streq(word, "nomodules"))
                 arg_nomodules = true;
-        else if (startswith(word, "console=")) {
-                const char *k;
-                size_t l;
-                char *w = NULL;
 
-                k = word + 8;
-                l = strcspn(k, ",");
-
-                if (l < 4 ||
-                    !startswith(k, "tty") ||
-                    k[3+strspn(k+3, "0123456789")] != 0) {
-
-                        if (!(w = strndup(k, l)))
-                                return -ENOMEM;
-                }
-
-                free(arg_console);
-                arg_console = w;
-
-        } else if (streq(word, "quiet")) {
+        else if (streq(word, "quiet")) {
                 arg_show_status = false;
                 arg_sysv_console = false;
         } else {
@@ -1061,21 +1044,6 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (arg_console && arg_running_as == MANAGER_SYSTEM) {
-                        char *name;
-
-                        if (asprintf(&name, "getty@%s.service", arg_console) < 0)
-                                log_error("Out of memory while generating console getty service name.");
-                        else {
-                                if ((r = manager_add_job_by_name(m, JOB_START, name, JOB_FAIL, false, &error, NULL)) < 0) {
-                                        log_error("Failed to start console getty target: %s", bus_error(&error, r));
-                                        dbus_error_free(&error);
-                                }
-
-                                free(name);
-                        }
-                }
-
                 if (arg_action == ACTION_TEST) {
                         printf("-> By jobs:\n");
                         manager_dump_jobs(m, stdout, "\t");
@@ -1121,7 +1089,6 @@ finish:
                 manager_free(m);
 
         free(arg_default_unit);
-        free(arg_console);
 
         dbus_shutdown();
 

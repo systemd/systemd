@@ -14,7 +14,7 @@ Before=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=-@rootlibexecdir@/systemd-random-seed load
+ExecStart=@rootlibexecdir@/systemd-random-seed load
 
 [Install]
 WantedBy=sysinit.target

@@ -119,7 +119,7 @@ static void change_runlevel(Server *s, int runlevel) {
                                       DBUS_TYPE_STRING, &target,
                                       DBUS_TYPE_STRING, &replace,
                                       DBUS_TYPE_INVALID)) {
-                log_error("Could not attach target and flag information to signal message.");
+                log_error("Could not attach target and flag information to message.");
                 goto finish;
         }
 

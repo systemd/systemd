@@ -13,4 +13,4 @@ Conflicts=systemd-update-utmp-runlevel.service
 
 [Service]
 Type=oneshot
-ExecStart=-@rootlibexecdir@/systemd-update-utmp shutdown
+ExecStart=@rootlibexecdir@/systemd-update-utmp shutdown
