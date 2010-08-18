@@ -1,0 +1,31 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Apply System Clock UTC Offset
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target udev.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/hwclock --systz
+
+# Note the weird semantics if hwclock and the kernel here: the first
+# settimeofday() invocation from userspace is special and may be used
+# to set the offset from UTC of the system clock. It is independent
+# of any specific RTC device. This is mostly a crufty hack to support
+# legacy operating systems which insist on storing local time in the
+# RTC.
+
+# Note that we do not run --hctosys here, we assume the kernel
+# includes a compiled in RTC module which is used to initialize the
+# system time as part of kernel setup.
+
+[Install]
+WantedBy=sysinit.target
