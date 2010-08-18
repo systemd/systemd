@@ -13,11 +13,7 @@ SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:060101:*", TAG+="udev-acl"
 # digicams with proprietary protocol
 ENV{ID_GPHOTO2}=="*?", TAG+="udev-acl"
 
-# SCSI scanners
-KERNEL=="sg[0-9]*", ATTRS{type}=="6", TAG+="udev-acl"
-KERNEL=="sg[0-9]*", ATTRS{type}=="3", ATTRS{vendor}=="HP|EPSON|Epson", TAG+="udev-acl"
-
-# USB scanners
+# SCSI and USB scanners
 ENV{libsane_matched}=="yes", TAG+="udev-acl"
 
 # HPLIP devices (necessary for ink level check and HP tool maintenance)
