@@ -96,7 +96,7 @@
         "  <method name=\"Dump\"/>\n"                                   \
         "  <method name=\"CreateSnapshot\">\n"                          \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg nane=\"cleanup\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"cleanup\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"Reload\"/>\n"                                 \
