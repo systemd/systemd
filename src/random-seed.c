@@ -28,11 +28,15 @@
 #include "log.h"
 #include "util.h"
 
+#define POOL_SIZE_MIN 512
+
 int main(int argc, char *argv[]) {
         int seed_fd = -1, random_fd = -1;
         int ret = 1;
-        uint8_t buf[512];
+        void* buf;
+        size_t buf_size = 0;
         ssize_t r;
+        FILE *f;
 
         if (argc != 2) {
                 log_error("This program requires one argument.");
@@ -42,6 +46,20 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
+
+        /* Read pool size, if possible */
+        if ((f = fopen("/proc/sys/kernel/random/poolsize", "re"))) {
+                fscanf(f, "%zu", &buf_size);
+                fclose(f);
+        }
+
+        if (buf_size <= POOL_SIZE_MIN)
+                buf_size = POOL_SIZE_MIN;
+
+        if (!(buf = malloc(buf_size))) {
+                log_error("Failed to allocate buffer.");
+                goto finish;
+        }
 
         /* When we load the seed we read it and write it to the device
          * and then immediately update the saved seed with new data,
@@ -63,12 +81,12 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                if ((r = loop_read(seed_fd, buf, sizeof(buf), false)) != sizeof(buf))
+                if ((r = loop_read(seed_fd, buf, buf_size, false)) <= 0)
                         log_error("Failed to read seed file: %s", r < 0 ? strerror(errno) : "EOF");
                 else {
                         lseek(seed_fd, 0, SEEK_SET);
 
-                        if ((r = loop_write(random_fd, buf, sizeof(buf), false)) != sizeof(buf))
+                        if ((r = loop_write(random_fd, buf, (size_t) r, false)) <= 0)
                                 log_error("Failed to write seed to /dev/random: %s", r < 0 ? strerror(errno) : "short write");
                 }
 
@@ -94,10 +112,10 @@ int main(int argc, char *argv[]) {
         fchmod(seed_fd, 0600);
         fchown(seed_fd, 0, 0);
 
-        if ((r = loop_read(random_fd, buf, sizeof(buf), false)) != sizeof(buf))
+        if ((r = loop_read(random_fd, buf, buf_size, false)) <= 0)
                 log_error("Failed to read new seed from /dev/urandom: %s", r < 0 ? strerror(errno) : "EOF");
         else {
-                if ((r = loop_write(seed_fd, buf, sizeof(buf), false)) != sizeof(buf))
+                if ((r = loop_write(seed_fd, buf, (size_t) r, false)) <= 0)
                         log_error("Failed to write new random seed file: %s", r < 0 ? strerror(errno) : "short write");
         }
 
@@ -109,6 +127,8 @@ finish:
 
         if (seed_fd >= 0)
                 close_nointr_nofail(seed_fd);
+
+        free(buf);
 
         return ret;
 }

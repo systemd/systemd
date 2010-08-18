@@ -61,7 +61,17 @@
 
 * decode exit codes in systemctl status
 
+* systemctl: ln -s output muss abschaltbar sein, und warning wenn [Install] leer ist.
+
+* /etc/modules.d/*.modules in systemd-modules-load
+
+* X-Interactive is kaputt
+
+* universal fallback for hostname
+
 External:
+
+* procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 
 * nologin nach /var/run https://bugzilla.redhat.com/show_bug.cgi?id=624489
 
