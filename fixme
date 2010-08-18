@@ -77,6 +77,8 @@ External:
 
 * make sysinit honour forcefsck/fastboot from the kernel command line fsck.mode=auto|force|skip
 
+* get mount point kernel patch into f14
+
 * sysv functions should color when stdout is tty, not stdin
 
 * agetty should not modify baudrate https://bugzilla.redhat.com/show_bug.cgi?id=623685
