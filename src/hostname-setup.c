@@ -57,6 +57,34 @@ static char* strip_bad_chars(char *s) {
         return s;
 }
 
+static int read_and_strip_hostname(const char *path, char **hn) {
+        char *s, *k;
+        int r;
+
+        assert(path);
+        assert(hn);
+
+        if ((r = read_one_line_file(path, &s)) < 0)
+                return r;
+
+        k = strdup(strstrip(s));
+        free(s);
+
+        if (!k)
+                return -ENOMEM;
+
+        strip_bad_chars(k);
+
+        if (k[0] == 0) {
+                free(k);
+                return -ENOENT;
+        }
+
+        *hn = k;
+
+        return 0;
+}
+
 static int read_distro_hostname(char **hn) {
 
 #if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO)
@@ -110,30 +138,7 @@ finish:
         return r;
 
 #elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
-        int r;
-        char *s, *k;
-
-        assert(hn);
-
-        if ((r = read_one_line_file(FILENAME, &s)) < 0)
-                return r;
-
-        k = strdup(strstrip(s));
-        free(s);
-
-        if (!k)
-                return -ENOMEM;
-
-        strip_bad_chars(k);
-
-        if (k[0] == 0) {
-                free(k);
-                return -ENOENT;
-        }
-
-        *hn = k;
-        return 0;
-
+        return read_and_strip_hostname(FILENAME, hn);
 #else
         return -ENOENT;
 #endif
@@ -141,14 +146,13 @@ finish:
 
 static int read_hostname(char **hn) {
         int r;
-        char *s, *k;
 
         assert(hn);
 
         /* First, try to load the generic hostname configuration file,
          * that we support on all distributions */
 
-        if ((r = read_one_line_file("/etc/hostname", &s)) < 0) {
+        if ((r = read_and_strip_hostname("/etc/hostname", hn)) < 0) {
 
                 if (r == -ENOENT)
                         return read_distro_hostname(hn);
@@ -156,43 +160,31 @@ static int read_hostname(char **hn) {
                 return r;
         }
 
-        k = strdup(strstrip(s));
-        free(s);
-
-        if (!k)
-                return -ENOMEM;
-
-        strip_bad_chars(k);
-
-        if (k[0] == 0) {
-                free(k);
-                return -ENOENT;
-        }
-
-        *hn = k;
-
         return 0;
 }
 
 int hostname_setup(void) {
         int r;
-        char *hn;
+        char *b = NULL;
+        const char *hn = NULL;
 
-        if ((r = read_hostname(&hn)) < 0) {
-                if (r != -ENOENT)
+        if ((r = read_hostname(&b)) < 0) {
+                if (r == -ENOENT)
+                        log_info("No hostname configured.");
+                else
                         log_warning("Failed to read configured hostname: %s", strerror(-r));
 
-                return r;
-        }
+                hn = "localhost";
+        } else
+                hn = b;
 
-        r = sethostname(hn, strlen(hn)) < 0 ? -errno : 0;
-
-        if (r < 0)
-                log_warning("Failed to set hostname to <%s>: %s", hn, strerror(-r));
-        else
+        if (sethostname(hn, strlen(hn)) < 0) {
+                log_warning("Failed to set hostname to <%s>: %m", hn);
+                r = -errno;
+        } else
                 log_info("Set hostname to <%s>.", hn);
 
-        free(hn);
+        free(b);
 
         return r;
 }
