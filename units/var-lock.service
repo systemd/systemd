@@ -9,7 +9,7 @@
 Description=Lock Directory
 DefaultDependencies=no
 Requires=var-lock.mount
-After=var-run.mount
+After=var-lock.mount
 Before=local-fs.target
 
 [Service]
