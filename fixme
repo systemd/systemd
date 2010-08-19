@@ -1,3 +1,6 @@
+* oneshot services which do not remain: 'exited' instead of 'dead'?
+  it should be visible in 'systemctl' that they have been run
+
 * systemd.log_level=debug should overwrite 'quiet' ?
 
 * dot output for --test showing the 'initial transaction'
