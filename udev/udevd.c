@@ -1298,7 +1298,7 @@ int main(int argc, char *argv[])
 
 	f = fopen("/dev/kmsg", "w");
 	if (f != NULL) {
-		fprintf(f, "<6>udev: starting version " VERSION "\n");
+		fprintf(f, "<6>udev[%u]: starting version " VERSION "\n", getpid());
 		fclose(f);
 	}
 
