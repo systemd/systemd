@@ -34,8 +34,6 @@
 #define FILENAME "/etc/sysconfig/network"
 #elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
 #define FILENAME "/etc/HOSTNAME"
-#elif defined(TARGET_DEBIAN)
-#define FILENAME "/etc/hostname"
 #elif defined(TARGET_ARCH)
 #define FILENAME "/etc/rc.conf"
 #elif defined(TARGET_GENTOO)
@@ -59,7 +57,7 @@ static char* strip_bad_chars(char *s) {
         return s;
 }
 
-static int read_hostname(char **hn) {
+static int read_distro_hostname(char **hn) {
 
 #if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO)
         int r;
@@ -111,7 +109,7 @@ finish:
         fclose(f);
         return r;
 
-#elif defined(TARGET_SUSE) || defined(TARGET_DEBIAN) || defined(TARGET_SLACKWARE)
+#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
         int r;
         char *s, *k;
 
@@ -134,12 +132,44 @@ finish:
         }
 
         *hn = k;
+        return 0;
 
 #else
-#warning "Don't know how to read the hostname"
-
         return -ENOENT;
 #endif
+}
+
+static int read_hostname(char **hn) {
+        int r;
+        char *s, *k;
+
+        assert(hn);
+
+        /* First, try to load the generic hostname configuration file,
+         * that we support on all distributions */
+
+        if ((r = read_one_line_file("/etc/hostname", &s)) < 0) {
+
+                if (r == -ENOENT)
+                        return read_distro_hostname(hn);
+
+                return r;
+        }
+
+        k = strdup(strstrip(s));
+        free(s);
+
+        if (!k)
+                return -ENOMEM;
+
+        strip_bad_chars(k);
+
+        if (k[0] == 0) {
+                free(k);
+                return -ENOENT;
+        }
+
+        *hn = k;
 
         return 0;
 }

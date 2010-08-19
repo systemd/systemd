@@ -1,3 +1,4 @@
+test-hostname
 systemd-modules-load
 systemd-auto-console-getty
 systemd-shutdownd

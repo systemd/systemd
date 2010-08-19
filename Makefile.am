@@ -81,6 +81,7 @@ noinst_PROGRAMS = \
 	test-job-type \
 	test-ns \
 	test-loopback \
+	test-hostname \
 	test-daemon \
 	test-cgroup \
 	test-env-replace
@@ -471,6 +472,13 @@ test_loopback_SOURCES = \
 	src/loopback-setup.c
 
 test_loopback_LDADD = \
+	libsystemd-basic.la
+
+test_hostname_SOURCES = \
+	src/test-hostname.c \
+	src/hostname-setup.c
+
+test_hostname_LDADD = \
 	libsystemd-basic.la
 
 test_daemon_SOURCES = \
