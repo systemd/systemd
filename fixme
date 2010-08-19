@@ -55,8 +55,6 @@
 
 * if a service fails too often, make the service enter maintenance mode, and the socket, too.
 
-* Ray: plymouth after/before getty? https://bugzilla.redhat.com/show_bug.cgi?id=623430
-
 * exit code 5, 6 von sysv diensten ignorieren
 
 * decode exit codes in systemctl status
