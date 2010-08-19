@@ -73,7 +73,8 @@ rootlibexec_PROGRAMS = \
 	systemd-update-utmp \
 	systemd-random-seed \
 	systemd-shutdownd \
-	systemd-auto-console-getty
+	systemd-auto-console-getty \
+	systemd-modules-load
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -140,7 +141,6 @@ dist_systemunit_DATA = \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket \
 	units/systemd-shutdownd.socket \
-	units/systemd-auto-console-getty.service \
 	units/dev-hugepages.automount \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.automount \
@@ -173,6 +173,7 @@ nodist_systemunit_DATA = \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
 	units/systemd-auto-console-getty.service \
+	units/systemd-modules-load.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
 	units/systemd-random-seed-save.service \
@@ -196,6 +197,7 @@ EXTRA_DIST = \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-auto-console-getty.service.in \
+	units/systemd-modules-load.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
 	units/systemd-random-seed-save.service.in \
@@ -565,6 +567,15 @@ systemd_auto_console_getty_CFLAGS = \
 systemd_auto_console_getty_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS)
+
+systemd_modules_load_SOURCES = \
+	src/modules-load.c
+
+systemd_modules_load_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_modules_load_LDADD = \
+	libsystemd-basic.la
 
 systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent.c \

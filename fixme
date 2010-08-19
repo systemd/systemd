@@ -63,11 +63,11 @@
 
 * systemctl: ln -s output muss abschaltbar sein, und warning wenn [Install] leer ist.
 
-* /etc/modules.d/*.modules in systemd-modules-load
-
 * X-Interactive is kaputt
 
 * universal fallback for hostname
+
+* bash completion a la gdbus
 
 External:
 

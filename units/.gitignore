@@ -1,3 +1,4 @@
+systemd-modules-load.service
 systemd-auto-console-getty.service
 systemd-shutdownd.service
 systemd-random-seed-load.service

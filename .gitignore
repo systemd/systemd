@@ -1,3 +1,4 @@
+systemd-modules-load
 systemd-auto-console-getty
 systemd-shutdownd
 systemd-random-seed
