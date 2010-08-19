@@ -299,6 +299,7 @@ libsystemd_core_la_SOURCES = \
 	src/path.c \
         src/load-dropin.c \
         src/execute.c \
+	src/exit-status.c \
         src/dbus.c \
         src/dbus-manager.c \
         src/dbus-unit.c \
@@ -604,7 +605,8 @@ systemctl_SOURCES = \
 	src/path-lookup.c \
 	src/sd-daemon.c \
 	src/cgroup-show.c \
-	src/cgroup-util.c
+	src/cgroup-util.c \
+	src/exit-status.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \

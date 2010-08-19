@@ -58,11 +58,7 @@
 
 * if a service fails too often, make the service enter maintenance mode, and the socket, too.
 
-* exit code 5, 6 von sysv diensten ignorieren
-
-* decode exit codes in systemctl status
-
-* systemctl: ln -s output muss abschaltbar sein, und warning wenn [Install] leer ist.
+* systemctl: warning wenn [Install] leer ist bei enable
 
 * bash completion a la gdbus
 

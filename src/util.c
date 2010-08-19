@@ -57,6 +57,7 @@
 #include "log.h"
 #include "strv.h"
 #include "label.h"
+#include "exit-status.h"
 
 bool streq_ptr(const char *a, const char *b) {
 
@@ -2396,6 +2397,16 @@ bool is_clean_exit(int code, int status) {
                         status == SIGPIPE;
 
         return false;
+}
+
+bool is_clean_exit_lsb(int code, int status) {
+
+        if (is_clean_exit(code, status))
+                return true;
+
+        return
+                code == CLD_EXITED &&
+                (status == EXIT_NOTINSTALLED || status == EXIT_NOTCONFIGURED);
 }
 
 bool is_device_path(const char *path) {

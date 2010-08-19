@@ -2263,7 +2263,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        success = is_clean_exit(code, status);
+        if (s->sysv_path)
+                success = is_clean_exit_lsb(code, status);
+        else
+                success = is_clean_exit(code, status);
 
         if (s->main_pid == pid) {
 

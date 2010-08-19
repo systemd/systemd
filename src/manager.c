@@ -57,6 +57,7 @@
 #include "path-lookup.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "exit-status.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -1885,7 +1886,9 @@ static int manager_dispatch_sigchld(Manager *m) {
                           (long unsigned) si.si_pid,
                           sigchld_code_to_string(si.si_code),
                           si.si_status,
-                          strna(si.si_code == CLD_EXITED ? exit_status_to_string(si.si_status) : signal_to_string(si.si_status)));
+                          strna(si.si_code == CLD_EXITED
+                                ? exit_status_to_string(si.si_status, EXIT_STATUS_FULL)
+                                : signal_to_string(si.si_status)));
 
                 if (!u)
                         continue;

@@ -253,6 +253,7 @@ char *format_timespan(char *buf, size_t l, usec_t t);
 int make_stdio(int fd);
 
 bool is_clean_exit(int code, int status);
+bool is_clean_exit_lsb(int code, int status);
 
 unsigned long long random_ull(void);
 

@@ -160,50 +160,6 @@ struct ExecContext {
         bool timer_slack_nsec_set:1;
 };
 
-typedef enum ExitStatus {
-        /* EXIT_SUCCESS defined by libc */
-        /* EXIT_FAILURE defined by libc */
-        EXIT_INVALIDARGUMENT = 2,
-        EXIT_NOTIMPLEMENTED = 3,
-        EXIT_NOPERMISSION = 4,
-        EXIT_NOTINSTALLED = 5,
-        EXIT_NOTCONFIGURED = 6,
-        EXIT_NOTRUNNING = 7,
-
-        /* The LSB suggests that error codes >= 200 are "reserved". We
-         * use them here under the assumption that they hence are
-         * unused by init scripts.
-         *
-         * http://refspecs.freestandards.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html */
-
-        EXIT_CHDIR = 200,
-        EXIT_NICE,
-        EXIT_FDS,
-        EXIT_EXEC,
-        EXIT_MEMORY,
-        EXIT_LIMITS,
-        EXIT_OOM_ADJUST,
-        EXIT_SIGNAL_MASK,
-        EXIT_STDIN,
-        EXIT_STDOUT,
-        EXIT_CHROOT,   /* 210 */
-        EXIT_IOPRIO,
-        EXIT_TIMERSLACK,
-        EXIT_SECUREBITS,
-        EXIT_SETSCHEDULER,
-        EXIT_CPUAFFINITY,
-        EXIT_GROUP,
-        EXIT_USER,
-        EXIT_CAPABILITIES,
-        EXIT_CGROUP,
-        EXIT_SETSID,   /* 220 */
-        EXIT_CONFIRM,
-        EXIT_STDERR,
-        EXIT_TCPWRAP,
-        EXIT_PAM
-
-} ExitStatus;
-
 int exec_spawn(ExecCommand *command,
                char **argv,
                const ExecContext *context,
@@ -242,7 +198,5 @@ int exec_output_from_string(const char *s);
 
 const char* exec_input_to_string(ExecInput i);
 int exec_input_from_string(const char *s);
-
-const char* exit_status_to_string(ExitStatus status);
 
 #endif

@@ -50,6 +50,7 @@
 #include "conf-parser.h"
 #include "sd-daemon.h"
 #include "shutdownd.h"
+#include "exit-status.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -1489,7 +1490,8 @@ typedef struct UnitStatusInfo {
         pid_t main_pid;
         pid_t control_pid;
         const char *status_text;
-        bool running;
+        bool running:1;
+        bool is_sysv:1;
 
         usec_t start_timestamp;
         usec_t exit_timestamp;
@@ -1584,9 +1586,15 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\t  Exited: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
                 free(t);
 
-                if (p->code == CLD_EXITED)
+                if (p->code == CLD_EXITED) {
+                        const char *c;
+
                         printf("status=%i", p->status);
-                else
+
+                        if ((c = exit_status_to_string(p->status, i->is_sysv ? EXIT_STATUS_LSB : EXIT_STATUS_SYSTEMD)))
+                                printf("/%s", c);
+
+                } else
                         printf("signal=%s", signal_to_string(p->status));
                 printf(")\n");
 
@@ -1616,9 +1624,15 @@ static void print_status_info(UnitStatusInfo *i) {
                         } else if (i->exit_code > 0) {
                                 printf(" (code=%s, ", sigchld_code_to_string(i->exit_code));
 
-                                if (i->exit_code == CLD_EXITED)
+                                if (i->exit_code == CLD_EXITED) {
+                                        const char *c;
+
                                         printf("status=%i", i->exit_status);
-                                else
+
+                                        if ((c = exit_status_to_string(i->exit_status, i->is_sysv ? EXIT_STATUS_LSB : EXIT_STATUS_SYSTEMD)))
+                                                printf("/%s", c);
+
+                                } else
                                         printf("signal=%s", signal_to_string(i->exit_status));
                                 printf(")");
                         }
@@ -1687,9 +1701,10 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->description = s;
                         else if (streq(name, "FragmentPath"))
                                 i->path = s;
-                        else if (streq(name, "SysVPath"))
+                        else if (streq(name, "SysVPath")) {
+                                i->is_sysv = true;
                                 i->path = s;
-                        else if (streq(name, "DefaultControlGroup"))
+                        } else if (streq(name, "DefaultControlGroup"))
                                 i->default_control_group = s;
                         else if (streq(name, "StatusText"))
                                 i->status_text = s;
