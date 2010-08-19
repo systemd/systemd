@@ -64,8 +64,6 @@
 
 * systemctl: ln -s output muss abschaltbar sein, und warning wenn [Install] leer ist.
 
-* X-Interactive is kaputt
-
 * bash completion a la gdbus
 
 External:
