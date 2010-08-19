@@ -48,9 +48,9 @@ int kmod_setup(void) {
                 if (access(kmod_table[i+1], F_OK) >= 0)
                         continue;
 
-                log_info("Your kernel apparently lacks built-in %s support. Please fix that. "
-                         "We'll now try to work around this by calling '/sbin/modprobe %s'...",
-                         kmod_table[i], kmod_table[i]);
+                log_debug("Your kernel apparently lacks built-in %s support. Might be a good idea to compile it in. "
+                          "We'll now try to work around this by calling '/sbin/modprobe %s'...",
+                          kmod_table[i], kmod_table[i]);
 
                 cmdline[3 + n++] = kmod_table[i];
         }
