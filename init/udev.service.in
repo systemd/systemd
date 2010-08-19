@@ -1,5 +1,5 @@
 [Unit]
-Description=udev - /dev and kernel device manager
+Description=udev Kernel Device Manager
 DefaultDependencies=no
 Before=sysinit.target
 
