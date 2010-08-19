@@ -1,5 +1,5 @@
 [Unit]
-Description=wait until full initialization
+Description=udev - wait until full initialization
 DefaultDependencies=no
 After=udev.service
 

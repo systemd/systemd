@@ -1,5 +1,5 @@
 [Unit]
-Description=re-trigger failed events after filesystems are available
+Description=udev - re-trigger failed events after filesystems are available
 DefaultDependencies=no
 After=local-fs.target udev.service
 
