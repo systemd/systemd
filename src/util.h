@@ -339,6 +339,8 @@ char *ellipsize(const char *s, unsigned length, unsigned percent);
 
 int touch(const char *path);
 
+char *unquote(const char *s, const char quote);
+
 #define NULSTR_FOREACH(i, l) \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

@@ -1175,7 +1175,7 @@ fail:
 }
 
 static char *fstab_node_to_udev_node(char *p) {
-        char *dn, *t;
+        char *dn, *t, *u;
         int r;
 
         /* FIXME: to follow udev's logic 100% we need to leave valid
@@ -1183,7 +1183,13 @@ static char *fstab_node_to_udev_node(char *p) {
 
         if (startswith(p, "LABEL=")) {
 
-                if (!(t = xescape(p+6, "/ ")))
+                if (!(u = unquote(p+6, '"')))
+                        return NULL;
+
+                t = xescape(u, "/ ");
+                free(u);
+
+                if (!t)
                         return NULL;
 
                 r = asprintf(&dn, "/dev/disk/by-label/%s", t);
@@ -1197,7 +1203,13 @@ static char *fstab_node_to_udev_node(char *p) {
 
         if (startswith(p, "UUID=")) {
 
-                if (!(t = xescape(p+5, "/ ")))
+                if (!(u = unquote(p+5, '"')))
+                        return NULL;
+
+                t = xescape(u, "/ ");
+                free(u);
+
+                if (!t)
                         return NULL;
 
                 r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));

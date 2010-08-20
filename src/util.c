@@ -3004,6 +3004,19 @@ int touch(const char *path) {
         return 0;
 }
 
+char *unquote(const char *s, const char quote) {
+        size_t l;
+        assert(s);
+
+        if ((l = strlen(s)) < 2)
+                return strdup(s);
+
+        if (s[0] == quote && s[l-1] == quote)
+                return strndup(s+1, l-2);
+
+        return strdup(s);
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

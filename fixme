@@ -60,8 +60,6 @@
 
 * bash completion a la gdbus
 
-* fstab mit tüdelchen
-
 * api mounts gegen fstab mergen und remounten
 
 External:
