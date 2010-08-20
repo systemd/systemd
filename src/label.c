@@ -41,31 +41,6 @@ static inline bool use_selinux(void) {
         return use_selinux_ind;
 }
 
-static int label_get_file_label_from_path(
-                const char *label,
-                const char *path,
-                const char *class,
-                security_context_t *fcon) {
-
-        security_context_t dir_con = NULL;
-        security_class_t sclass;
-        int r = 0;
-
-        r = getfilecon(path, &dir_con);
-        if (r >= 0) {
-                r = -1;
-                errno = EINVAL;
-
-                if ((sclass = string_to_security_class(class)) != 0)
-                        r = security_compute_create((security_context_t) label, dir_con, sclass, fcon);
-        }
-        if (r < 0)
-                r = -errno;
-
-        freecon(dir_con);
-        return r;
-}
-
 #endif
 
 int label_init(void) {
@@ -80,7 +55,7 @@ int label_init(void) {
         if (!label_hnd) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
                          "Failed to initialize SELinux context: %m");
-                r = (security_getenforce() == 1) ? -errno : 0;
+                r = security_getenforce() == 1 ? -errno : 0;
         }
 #endif
 
@@ -109,7 +84,7 @@ int label_fix(const char *path) {
         if (r < 0) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
                          "Unable to fix label of %s: %m", path);
-                r = (security_getenforce() == 1) ? -errno : 0;
+                r = security_getenforce() == 1 ? -errno : 0;
         }
 #endif
 
@@ -161,18 +136,18 @@ fail:
         return r;
 }
 
-int label_fifofile_set(const char *label, const char *path) {
+int label_fifofile_set(const char *path) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
         security_context_t filecon = NULL;
 
-        if (!use_selinux() || !label)
+        if (!use_selinux() || !label_hnd)
                 return 0;
 
-        if (((r = label_get_file_label_from_path(label, path, "fifo_file", &filecon)) == 0)) {
+        if ((r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFIFO)) == 0) {
                 if ((r = setfscreatecon(filecon)) < 0) {
-                        log_error("Failed to set SELinux file context (%s) on %s: %m", label, path);
+                        log_error("Failed to set SELinux file context on %s: %m", path);
                         r = -errno;
                 }
 

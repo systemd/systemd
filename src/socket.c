@@ -724,14 +724,9 @@ static int socket_open_fds(Socket *s) {
         SocketPort *p;
         int r;
         char *label = NULL;
+        bool know_label = false;
 
         assert(s);
-
-        if ((r = socket_instantiate_service(s)) < 0)
-                return r;
-
-        if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0)
-                return r;
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -739,6 +734,17 @@ static int socket_open_fds(Socket *s) {
                         continue;
 
                 if (p->type == SOCKET_SOCKET) {
+
+                        if (!know_label) {
+
+                                if ((r = socket_instantiate_service(s)) < 0)
+                                        return r;
+
+                                if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0)
+                                        return r;
+
+                                know_label = true;
+                        }
 
                         if ((r = socket_address_listen(
                                              &p->address,
@@ -760,7 +766,6 @@ static int socket_open_fds(Socket *s) {
                                              p->path,
                                              s->directory_mode,
                                              s->socket_mode,
-                                             label,
                                              &p->fd)) < 0)
                                 goto rollback;
 
