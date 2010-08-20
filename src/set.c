@@ -38,12 +38,7 @@ void set_free(Set* s) {
 }
 
 void set_free_free(Set *s) {
-        void *p;
-
-        while ((p = set_steal_first(s)))
-                free(p);
-
-        set_free(s);
+        hashmap_free_free(MAKE_HASHMAP(s));
 }
 
 int set_ensure_allocated(Set **s, hash_func_t hash_func, compare_func_t compare_func) {

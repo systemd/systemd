@@ -42,8 +42,6 @@
 
 * selinux policy loading
 
-* place /etc/inittab with explaining blurb.
-
 * fingerprint.target, wireless.target, gps.target
 
 * set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
@@ -60,9 +58,9 @@
 
 * bash completion a la gdbus
 
-* api mounts gegen fstab mergen und remounten
-
 External:
+
+* place /etc/inittab with explaining blurb.
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 

@@ -6,15 +6,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Load Kernel Modules
+Description=Remount API VFS
 DefaultDependencies=no
 Conflicts=shutdown.target
-Before=shutdown.target
+Before=shutdown.target local-fs.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-modules-load
+ExecStart=@rootlibexecdir@/systemd-remount-vfs
 
 [Install]
 WantedBy=sysinit.target

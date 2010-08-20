@@ -74,7 +74,8 @@ rootlibexec_PROGRAMS = \
 	systemd-random-seed \
 	systemd-shutdownd \
 	systemd-auto-console-getty \
-	systemd-modules-load
+	systemd-modules-load \
+	systemd-remount-api-vfs
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -175,6 +176,7 @@ nodist_systemunit_DATA = \
 	units/systemd-shutdownd.service \
 	units/systemd-auto-console-getty.service \
 	units/systemd-modules-load.service \
+	units/systemd-remount-api-vfs.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
 	units/systemd-random-seed-save.service \
@@ -199,6 +201,7 @@ EXTRA_DIST = \
 	units/systemd-shutdownd.service.in \
 	units/systemd-auto-console-getty.service.in \
 	units/systemd-modules-load.service.in \
+	units/systemd-remount-api-vfs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
 	units/systemd-random-seed-save.service.in \
@@ -584,6 +587,16 @@ systemd_modules_load_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_modules_load_LDADD = \
+	libsystemd-basic.la
+
+systemd_remount_api_vfs_SOURCES = \
+	src/remount-api-vfs.c \
+	src/mount-setup.c
+
+systemd_remount_api_vfs_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_remount_api_vfs_LDADD = \
 	libsystemd-basic.la
 
 systemd_cgroups_agent_SOURCES = \

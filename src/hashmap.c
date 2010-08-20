@@ -173,6 +173,15 @@ void hashmap_free(Hashmap*h) {
         free(h);
 }
 
+void hashmap_free_free(Hashmap *h) {
+        void *p;
+
+        while ((p = hashmap_steal_first(h)))
+                free(p);
+
+        hashmap_free(h);
+}
+
 void hashmap_clear(Hashmap *h) {
         if (!h)
                 return;

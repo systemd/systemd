@@ -1,3 +1,4 @@
+systemd-remount-api-vfs
 test-hostname
 systemd-modules-load
 systemd-auto-console-getty

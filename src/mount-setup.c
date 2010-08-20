@@ -68,11 +68,11 @@ bool mount_point_is_api(const char *path) {
          * should be ignored */
 
         for (i = 0; i < ELEMENTSOF(mount_table); i ++)
-                if (path_startswith(path, mount_table[i].where))
+                if (path_equal(path, mount_table[i].where))
                         return true;
 
         for (i = 0; i < ELEMENTSOF(ignore_paths); i++)
-                if (path_startswith(path, ignore_paths[i]))
+                if (path_equal(path, ignore_paths[i]))
                         return true;
 
         return path_startswith(path, "/cgroup/");
