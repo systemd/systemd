@@ -161,6 +161,7 @@ dist_systemunit_DATA = \
 	units/hwclock-load.service \
 	units/hwclock-save.service \
 	units/sysctl.service \
+	units/remount-rootfs.service \
 	units/printer.target \
 	units/bluetooth.target \
 	units/smartcard.target

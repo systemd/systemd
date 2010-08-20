@@ -1,0 +1,20 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Remount Root FS
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/mount / -o remount
+
+[Install]
+WantedBy=sysinit.target
