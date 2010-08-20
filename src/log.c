@@ -249,6 +249,11 @@ static int write_to_syslog(
         char header_priority[16], header_time[64], header_pid[16];
         struct iovec iovec[5];
         struct msghdr msghdr;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+        } control;
+        struct ucred *ucred;
         time_t t;
         struct tm *tm;
 
@@ -275,9 +280,21 @@ static int write_to_syslog(
         IOVEC_SET_STRING(iovec[3], header_pid);
         IOVEC_SET_STRING(iovec[4], buffer);
 
+        zero(control);
+        control.cmsghdr.cmsg_level = SOL_SOCKET;
+        control.cmsghdr.cmsg_type = SCM_CREDENTIALS;
+        control.cmsghdr.cmsg_len = CMSG_LEN(sizeof(struct ucred));
+
+        ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
+        ucred->pid = getpid();
+        ucred->uid = getuid();
+        ucred->gid = getgid();
+
         zero(msghdr);
         msghdr.msg_iov = iovec;
         msghdr.msg_iovlen = ELEMENTSOF(iovec);
+        msghdr.msg_control = &control;
+        msghdr.msg_controllen = control.cmsghdr.cmsg_len;
 
         if (sendmsg(syslog_fd, &msghdr, MSG_NOSIGNAL) < 0)
                 return -errno;

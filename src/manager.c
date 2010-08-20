@@ -1931,7 +1931,7 @@ static int manager_process_signal_fd(Manager *m) {
                         if (n >= 0)
                                 return -EIO;
 
-                        if (errno == EAGAIN)
+                        if (errno == EINTR || errno == EAGAIN)
                                 break;
 
                         return -errno;

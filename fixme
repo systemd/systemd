@@ -58,6 +58,20 @@
 
 * bash completion a la gdbus
 
+* use sulogin
+
+* [Install] section rausmachen für early boot krams, uznd per default nach /lib linken
+
+* s/Exited/Process/ in systemctl status
+
+* systemctl status: "active since 5min"
+
+* systemctl list-jobs deps anzeigen
+
+* /etc/systemd/system.conf: mounten per default option
+
+* ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= mit !
+
 External:
 
 * place /etc/inittab with explaining blurb.
@@ -103,6 +117,7 @@ https://bugzilla.redhat.com/show_bug.cgi?id=617327 -- gpm
 https://bugzilla.redhat.com/show_bug.cgi?id=617330 -- pcsc-lite
 https://bugzilla.redhat.com/show_bug.cgi?id=617321 -- audit
 https://bugzilla.redhat.com/show_bug.cgi?id=617316 -- abrt
+http://sources.redhat.com/bugzilla/show_bug.cgi?id=11930 -- glibc
 
 Regularly:
 
