@@ -361,7 +361,7 @@ static int mount_load(Unit *u) {
                 else if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
                         what = m->parameters_proc_self_mountinfo.what;
 
-                if (what)
+                if (what && !path_equal(m->where, "/"))
                         if ((r = unit_add_node_link(u, what, u->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
                                 return r;
 
