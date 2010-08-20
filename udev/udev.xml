@@ -75,12 +75,13 @@
       the custom rules directory <filename>/etc/udev/rules.d/</filename>
       and the temporary rules directory <filename>/dev/.udev/rules.d/</filename>.
       All rule files are sorted and processed in lexical order, regardless
-      in which of these directories they live.</para>
+      in which of these directories they live. Files in
+      <filename>/etc/udev/rules.d/</filename> have precedence over files with
+      the same name in <filename>/lib/udev/rules.d/</filename>. This can be
+      used to ignore a default rules file if needed.</para>
 
-      <para>Rule files are required to have a unique name, duplicate file names
-      are ignored. Files in <filename>/etc/udev/rules.d/</filename> have precedence
-      over files with the same name in <filename>/lib/udev/rules.d/</filename>. This
-      can be used to ignore a default rules file if needed.</para>
+      <para>Rule files must end in <filename>.rules</filename>, other extensions
+      are ignored.</para>
 
       <para>Every line in the rules file contains at least one key value pair.
       There are two kind of keys, match and assignment keys.
