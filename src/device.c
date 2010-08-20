@@ -188,12 +188,12 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
         if ((r = device_find_escape_name(m, path, &u)) < 0)
                 return r;
 
-        /* If this is a different unit, then let's not merge things */
-        if (u && DEVICE(u)->sysfs && !path_equal(DEVICE(u)->sysfs, sysfs)) {
-                log_error("Hmm, something's broken. Asked to create two devices with same name but different sysfs paths. (%s vs %s)",
-                          DEVICE(u)->sysfs, sysfs);
+        /* If a different unit already claimed this name then let's do
+         * nothing. This can happen for example when two disks with
+         * the same label are plugged in, and which hence try to get
+         * conflicting symlinks in /dev/disk/by-label/xxxx */
+        if (u && DEVICE(u)->sysfs && !path_equal(DEVICE(u)->sysfs, sysfs))
                 return -EEXIST;
-        }
 
         if (!u) {
                 delete = true;
@@ -308,6 +308,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
         first = udev_device_get_devlinks_list_entry(dev);
         udev_list_entry_foreach(item, first) {
                 const char *p;
+                struct stat st;
 
                 /* Don't bother with the /dev/block links */
                 p = udev_list_entry_get_name(item);
@@ -315,6 +316,18 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 if (path_startswith(p, "/dev/block/") ||
                     path_startswith(p, "/dev/char/"))
                         continue;
+
+                /* Verify that the symlink in the FS actually belongs
+                 * to this device. This is useful to deal with
+                 * conflicting devices, e.g. when two disks want the
+                 * same /dev/disk/by-label/xxx link because they have
+                 * the same label. We want to make sure that the same
+                 * device that won the symlink wins in systemd, so we
+                 * check the device node major/minor*/
+                if (stat(p, &st) >= 0)
+                        if ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
+                            st.st_rdev != udev_device_get_devnum(dev))
+                                continue;
 
                 device_update_unit(m, dev, p, false);
         }
