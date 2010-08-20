@@ -843,6 +843,7 @@ const UnitVTable automount_vtable = {
 
         .reset_maintenance = automount_reset_maintenance,
 
+        .bus_interface = "org.freedesktop.systemd1.Automount",
         .bus_message_handler = bus_automount_message_handler,
 
         .shutdown = automount_shutdown

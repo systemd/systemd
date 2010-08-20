@@ -498,5 +498,7 @@ const UnitVTable timer_vtable = {
 
         .reset_maintenance = timer_reset_maintenance,
 
-        .bus_message_handler = bus_timer_message_handler
+        .bus_interface = "org.freedesktop.systemd1.Timer",
+        .bus_message_handler = bus_timer_message_handler,
+        .bus_invalidating_properties =  bus_timer_invalidating_properties
 };

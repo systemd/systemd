@@ -34,6 +34,7 @@
         BUS_UNIT_INTERFACE                                           \
         BUS_AUTOMOUNT_INTERFACE                                      \
         BUS_PROPERTIES_INTERFACE                                     \
+        BUS_PEER_INTERFACE                                           \
         BUS_INTROSPECTABLE_INTERFACE                                 \
         "</node>\n"
 

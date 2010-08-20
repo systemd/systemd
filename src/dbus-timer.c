@@ -38,10 +38,16 @@
         BUS_UNIT_INTERFACE                                              \
         BUS_TIMER_INTERFACE                                             \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
 const char bus_timer_interface[] = BUS_TIMER_INTERFACE;
+
+const char bus_timer_invalidating_properties[] =
+        "Timers\0"
+        "NextElapseUSec\0"
+        "\0";
 
 static int bus_timer_append_timers(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Timer *p = data;

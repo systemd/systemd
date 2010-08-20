@@ -148,6 +148,7 @@
         "<node>\n"                                                      \
         BUS_MANAGER_INTERFACE                                           \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE
 
 #define INTROSPECTION_END                                               \

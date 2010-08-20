@@ -334,6 +334,14 @@ struct UnitVTable {
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
 
+        /* When sending out PropertiesChanged signal, which properties
+         * shall be invalidated? This is a NUL seperated list of
+         * strings, to minimize relocations a little. */
+        const char *bus_invalidating_properties;
+
+        /* The interface name */
+        const char *bus_interface;
+
         /* Can units of this type have multiple names? */
         bool no_alias:1;
 

@@ -607,5 +607,6 @@ const UnitVTable path_vtable = {
 
         .reset_maintenance = path_reset_maintenance,
 
+        .bus_interface = "org.freedesktop.systemd1.Path",
         .bus_message_handler = bus_path_message_handler
 };

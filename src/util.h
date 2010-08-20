@@ -339,6 +339,9 @@ char *ellipsize(const char *s, unsigned length, unsigned percent);
 
 int touch(const char *path);
 
+#define NULSTR_FOREACH(i, l) \
+        for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

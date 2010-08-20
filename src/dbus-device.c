@@ -33,10 +33,15 @@
         BUS_UNIT_INTERFACE                                              \
         BUS_DEVICE_INTERFACE                                            \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
 const char bus_device_interface[] = BUS_DEVICE_INTERFACE;
+
+const char bus_device_invalidating_properties[] =
+        "SysFSPath\0"
+        "\0";
 
 DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {

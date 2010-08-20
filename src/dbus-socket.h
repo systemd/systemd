@@ -29,5 +29,6 @@
 DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_socket_interface[];
+extern const char bus_socket_invalidating_properties[];
 
 #endif

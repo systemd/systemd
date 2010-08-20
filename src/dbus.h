@@ -47,6 +47,11 @@ typedef struct BusProperty {
         "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
         "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
         "  </method>\n"                                                 \
+        "  <signal name=\"PropertiesChanged\">\n"                       \
+        "   <arg type=\"s\" name=\"interface\"/>\n"                     \
+        "   <arg type=\"a{sv}\" name=\"changed_properties\"/>\n"        \
+        "   <arg type=\"as\" name=\"invalidated_properties\"/>\n"       \
+        "  </signal>\n"                                                 \
         " </interface>\n"
 
 #define BUS_INTROSPECTABLE_INTERFACE                                    \
@@ -55,6 +60,14 @@ typedef struct BusProperty {
         "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         " </interface>\n"
+
+#define BUS_PEER_INTERFACE                                              \
+        "<interface name=\"org.freedesktop.DBus.Peer\">\n"              \
+        " <method name=\"Ping\"/>\n"                                    \
+        " <method name=\"GetMachineId\">\n"                             \
+        "  <arg type=\"s\" name=\"machine_uuid\" direction=\"out\"/>\n" \
+        " </method>\n"                                                  \
+        "</interface>\n"
 
 int bus_init(Manager *m);
 void bus_done(Manager *m);
@@ -107,6 +120,8 @@ int bus_parse_strv(DBusMessage *m, char ***_l);
 
 bool bus_has_subscriber(Manager *m);
 bool bus_connection_has_subscriber(Manager *m, DBusConnection *c);
+
+DBusMessage* bus_properties_changed_new(const char *path, const char *interface, const char *properties);
 
 #define BUS_CONNECTION_SUBSCRIBED(m, c) dbus_connection_get_data((c), (m)->subscribed_data_slot)
 #define BUS_PENDING_CALL_NAME(m, p) dbus_pending_call_get_data((p), (m)->name_data_slot)

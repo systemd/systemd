@@ -599,7 +599,9 @@ const UnitVTable swap_vtable = {
 
         .check_gc = swap_check_gc,
 
+        .bus_interface = "org.freedesktop.systemd1.Swap",
         .bus_message_handler = bus_swap_message_handler,
+        .bus_invalidating_properties =  bus_swap_invalidating_properties,
 
         .reset_maintenance = swap_reset_maintenance,
 

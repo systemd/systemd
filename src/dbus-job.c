@@ -28,7 +28,6 @@
 #define BUS_JOB_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Job\">\n"        \
         "  <method name=\"Cancel\"/>\n"                               \
-        "  <signal name=\"Changed\"/>\n"                              \
         "  <property name=\"Id\" type=\"u\" access=\"read\"/>\n"      \
         "  <property name=\"Unit\" type=\"(so)\" access=\"read\"/>\n" \
         "  <property name=\"JobType\" type=\"s\" access=\"read\"/>\n" \
@@ -40,10 +39,15 @@
         "<node>\n"                                                    \
         BUS_JOB_INTERFACE                                             \
         BUS_PROPERTIES_INTERFACE                                      \
+        BUS_PEER_INTERFACE                                            \
         BUS_INTROSPECTABLE_INTERFACE                                  \
         "</node>\n"
 
 const char bus_job_interface[] = BUS_JOB_INTERFACE;
+
+#define INVALIDATING_PROPERTIES                 \
+        "State\0"                               \
+        "\0"                                    \
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_state, job_state, JobState);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_type, job_type, JobType);
@@ -187,10 +191,11 @@ void bus_job_send_change_signal(Job *j) {
                 goto oom;
 
         if (j->sent_dbus_new_signal) {
-                /* Send a change signal */
+                /* Send a properties changed signal */
 
-                if (!(m = dbus_message_new_signal(p, "org.freedesktop.systemd1.Job", "Changed")))
+                if (!(m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Job", INVALIDATING_PROPERTIES)))
                         goto oom;
+
         } else {
                 /* Send a new signal */
 

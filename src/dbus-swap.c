@@ -37,10 +37,16 @@
         BUS_UNIT_INTERFACE                                              \
         BUS_SWAP_INTERFACE                                              \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
 const char bus_swap_interface[] = BUS_SWAP_INTERFACE;
+
+const char bus_swap_invalidating_properties[] =
+        "What\0"
+        "Priority\0"
+        "\0";
 
 static int bus_swap_append_priority(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Swap *s = data;

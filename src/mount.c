@@ -1005,6 +1005,9 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         default:
                 assert_not_reached("Uh, control process died at wrong time.");
         }
+
+        /* Notify clients about changed exit status */
+        unit_add_to_dbus_queue(u);
 }
 
 static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
@@ -1557,7 +1560,9 @@ const UnitVTable mount_vtable = {
 
         .reset_maintenance = mount_reset_maintenance,
 
+        .bus_interface = "org.freedesktop.systemd1.Mount",
         .bus_message_handler = bus_mount_message_handler,
+        .bus_invalidating_properties =  bus_mount_invalidating_properties,
 
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown

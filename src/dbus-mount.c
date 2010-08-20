@@ -46,10 +46,21 @@
         BUS_UNIT_INTERFACE                                              \
         BUS_MOUNT_INTERFACE                                             \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
 const char bus_mount_interface[] = BUS_MOUNT_INTERFACE;
+
+const char bus_mount_invalidating_properties[] =
+        "What\0"
+        "Options\0"
+        "Type\0"
+        "ExecMount\0"
+        "ExecUnmount\0"
+        "ExecRemount\0"
+        "ControlPID\0"
+        "\0";
 
 static int bus_mount_append_what(Manager *n, DBusMessageIter *i, const char *property, void *data) {
         Mount *m = data;

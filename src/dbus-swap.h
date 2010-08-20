@@ -30,5 +30,6 @@
 DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_swap_interface[];
+extern const char bus_swap_invalidating_properties[];
 
 #endif

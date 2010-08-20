@@ -1247,6 +1247,7 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
                         if (!dbus_message_iter_close_container(&iter, &sub))
                                 goto oom;
                 }
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "GetAll") && properties) {
                 const char *interface;
                 const BusProperty *p;
@@ -1610,4 +1611,42 @@ bool bus_connection_has_subscriber(Manager *m, DBusConnection *c) {
         assert(c);
 
         return !set_isempty(BUS_CONNECTION_SUBSCRIBED(m, c));
+}
+
+DBusMessage* bus_properties_changed_new(const char *path, const char *interface, const char *properties) {
+        DBusMessage *m;
+        DBusMessageIter iter, sub;
+        const char *i;
+
+        assert(interface);
+        assert(properties);
+
+        if (!(m = dbus_message_new_signal(path, "org.freedesktop.DBus.Properties", "PropertiesChanged")))
+                goto oom;
+
+        dbus_message_iter_init_append(m, &iter);
+
+        /* We won't send any property values, since they might be
+         * large and sometimes not cheap to generated */
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &interface) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &sub) ||
+            !dbus_message_iter_close_container(&iter, &sub) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "s", &sub))
+                goto oom;
+
+        NULSTR_FOREACH(i, properties)
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &i))
+                        goto oom;
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
+                goto oom;
+
+        return m;
+
+oom:
+        if (m)
+                dbus_message_unref(m);
+
+        return NULL;
 }

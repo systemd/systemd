@@ -60,10 +60,21 @@
         BUS_UNIT_INTERFACE                                              \
         BUS_SOCKET_INTERFACE                                            \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
 const char bus_socket_interface[] = BUS_SOCKET_INTERFACE;
+
+const char bus_socket_invalidating_properties[] =
+        "ExecStartPre\0"
+        "ExecStartPost\0"
+        "ExecStopPre\0"
+        "ExecStopPost\0"
+        "ControlPID\0"
+        "NAccepted\0"
+        "NConnections\0"
+        "\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 

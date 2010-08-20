@@ -59,10 +59,24 @@
         BUS_UNIT_INTERFACE                                              \
         BUS_SERVICE_INTERFACE                                           \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
 const char bus_service_interface[] = BUS_SERVICE_INTERFACE;
+
+const char bus_service_invalidating_properties[] =
+        "ExecStartPre\0"
+        "ExecStart\0"
+        "ExecStartPost\0"
+        "ExecReload\0"
+        "ExecStop\0"
+        "ExecStopPost\0"
+        "ExecMain\0"
+        "MainPID\0"
+        "ControlPID\0"
+        "StatusText\0"
+        "\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);

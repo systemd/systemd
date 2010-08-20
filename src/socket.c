@@ -659,7 +659,6 @@ static int fifo_address_create(
                 const char *path,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                const char *label,
                 int *_fd) {
 
         int fd = -1, r = 0;
@@ -671,7 +670,7 @@ static int fifo_address_create(
 
         mkdir_parents(path, directory_mode);
 
-        if ((r = label_fifofile_set(label, path)) < 0)
+        if ((r = label_fifofile_set(path)) < 0)
                 goto fail;
 
         /* Enforce the right access mode for the fifo */
@@ -1217,6 +1216,9 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL)) < 0)
                         goto fail;
+
+                /* Notify clients about changed counters */
+                unit_add_to_dbus_queue(UNIT(s));
         }
 
         return;
@@ -1594,6 +1596,9 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         assert_not_reached("Uh, control process died at wrong time.");
                 }
         }
+
+        /* Notify clients about changed exit status */
+        unit_add_to_dbus_queue(u);
 }
 
 static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
@@ -1774,5 +1779,7 @@ const UnitVTable socket_vtable = {
 
         .reset_maintenance = socket_reset_maintenance,
 
-        .bus_message_handler = bus_socket_message_handler
+        .bus_interface = "org.freedesktop.systemd1.Socket",
+        .bus_message_handler = bus_socket_message_handler,
+        .bus_invalidating_properties =  bus_socket_invalidating_properties
 };

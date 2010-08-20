@@ -40,8 +40,6 @@
 
 * write utmp record a la upstart for processes
 
-* follow property change dbus spec
-
 * selinux policy loading
 
 * place /etc/inittab with explaining blurb.
@@ -61,6 +59,10 @@
 * systemctl: warning wenn [Install] leer ist bei enable
 
 * bash completion a la gdbus
+
+* fstab mit tüdelchen
+
+* api mounts gegen fstab mergen und remounten
 
 External:
 

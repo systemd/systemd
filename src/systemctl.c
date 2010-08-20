@@ -2390,14 +2390,23 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                         printf("Job %u removed.\n", id);
 
 
-        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Unit", "Changed") ||
-                   dbus_message_is_signal(message, "org.freedesktop.systemd1.Job", "Changed")) {
+        } else if (dbus_message_is_signal(message, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
 
                 const char *path, *interface, *property = "Id";
                 DBusMessageIter iter, sub;
 
                 path = dbus_message_get_path(message);
-                interface = dbus_message_get_interface(message);
+
+                if (!dbus_message_get_args(message, &error,
+                                          DBUS_TYPE_STRING, &interface,
+                                          DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse message: %s", error.message);
+                        goto finish;
+                }
+
+                if (!streq(interface, "org.freedesktop.systemd1.Job") &&
+                    !streq(interface, "org.freedesktop.systemd1.Unit"))
+                        goto finish;
 
                 if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -2497,21 +2506,8 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
                 dbus_bus_add_match(bus,
                                    "type='signal',"
                                    "sender='org.freedesktop.systemd1',"
-                                   "interface='org.freedesktop.systemd1.Unit',"
-                                   "member='Changed'",
-                                   &error);
-
-                if (dbus_error_is_set(&error)) {
-                        log_error("Failed to add match: %s", error.message);
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_bus_add_match(bus,
-                                   "type='signal',"
-                                   "sender='org.freedesktop.systemd1',"
-                                   "interface='org.freedesktop.systemd1.Job',"
-                                   "member='Changed'",
+                                   "interface='org.freedesktop.DBus.Properties',"
+                                   "member='PropertiesChanged'",
                                    &error);
 
                 if (dbus_error_is_set(&error)) {

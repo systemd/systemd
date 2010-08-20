@@ -2454,6 +2454,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         }
                 }
         }
+
+        /* Notify clients about changed exit status */
+        unit_add_to_dbus_queue(u);
 }
 
 static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
@@ -2610,6 +2613,9 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 }
 
         }
+
+        /* Notify clients about changed status or main pid */
+        unit_add_to_dbus_queue(u);
 }
 
 static int service_enumerate(Manager *m) {
@@ -2944,7 +2950,9 @@ const UnitVTable service_vtable = {
         .bus_name_owner_change = service_bus_name_owner_change,
         .bus_query_pid_done = service_bus_query_pid_done,
 
+        .bus_interface = "org.freedesktop.systemd1.Service",
         .bus_message_handler = bus_service_message_handler,
+        .bus_invalidating_properties =  bus_service_invalidating_properties,
 
         .enumerate = service_enumerate
 };

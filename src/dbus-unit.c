@@ -28,6 +28,18 @@
 
 const char bus_unit_interface[] = BUS_UNIT_INTERFACE;
 
+#define INVALIDATING_PROPERTIES                 \
+        "LoadState\0"                           \
+        "ActiveState\0"                         \
+        "SubState\0"                            \
+        "InactiveExitTimestamp\0"               \
+        "ActiveEnterTimestamp\0"                \
+        "ActiveExitTimestamp\0"                 \
+        "InactiveEnterTimestamp\0"              \
+        "Job\0"                                 \
+        "NeedDaemonReload\0"                    \
+        "\0"
+
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         char *t;
         Iterator j;
@@ -470,10 +482,27 @@ void bus_unit_send_change_signal(Unit *u) {
                 goto oom;
 
         if (u->meta.sent_dbus_new_signal) {
-                /* Send a change signal */
+                /* Send a properties changed signal. First for the
+                 * specific type, then for the generic unit. The
+                 * clients may rely on this order to get atomic
+                 * behaviour if needed. */
 
-                if (!(m = dbus_message_new_signal(p, "org.freedesktop.systemd1.Unit", "Changed")))
+                if (UNIT_VTABLE(u)->bus_invalidating_properties) {
+
+                        if (!(m = bus_properties_changed_new(p,
+                                                             UNIT_VTABLE(u)->bus_interface,
+                                                             UNIT_VTABLE(u)->bus_invalidating_properties)))
+                                goto oom;
+
+                        if (bus_broadcast(u->meta.manager, m) < 0)
+                                goto oom;
+
+                        dbus_message_unref(m);
+                }
+
+                if (!(m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Unit", INVALIDATING_PROPERTIES)))
                         goto oom;
+
         } else {
                 /* Send a new signal */
 

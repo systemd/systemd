@@ -50,13 +50,19 @@ public interface Manager : DBus.Object {
         public abstract JobInfo[] list_jobs() throws DBus.Error;
 
         public abstract ObjectPath get_unit(string name) throws DBus.Error;
+        public abstract ObjectPath get_unit_by_pid(uint32 pid) throws DBus.Error;
         public abstract ObjectPath load_unit(string name) throws DBus.Error;
         public abstract ObjectPath get_job(uint32 id) throws DBus.Error;
 
-        public abstract ObjectPath start_unit(string name, string mode) throws DBus.Error;
-        public abstract ObjectPath stop_unit(string name, string mode) throws DBus.Error;
-        public abstract ObjectPath reload_unit(string name, string mode) throws DBus.Error;
-        public abstract ObjectPath restart_unit(string name, string mode) throws DBus.Error;
+        public abstract ObjectPath start_unit(string name, string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath stop_unit(string name, string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath reload_unit(string name, string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath restart_unit(string name, string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath try_restart_unit(string name, string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath reload_or_restart_unit(string name, string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath reload_or_try_restart_unit(string name, string mode = "replace") throws DBus.Error;
+
+        public abstract void reset_maintenance_unit(string name = "") throws DBus.Error;
 
         public abstract void clear_jobs() throws DBus.Error;
 
@@ -89,6 +95,7 @@ public interface Unit : DBus.Object {
 
         public abstract string id { owned get; }
         public abstract string[] names { owned get; }
+        public abstract string following { owned get; }
         public abstract string[] requires { owned get; }
         public abstract string[] requires_overridable { owned get; }
         public abstract string[] requisite { owned get; }
@@ -98,8 +105,10 @@ public interface Unit : DBus.Object {
         public abstract string[] required_by_overridable { owned get; }
         public abstract string[] wanted_by { owned get; }
         public abstract string[] conflicts { owned get; }
+        public abstract string[] conflicted_by { owned get; }
         public abstract string[] before { owned get; }
         public abstract string[] after { owned get; }
+        public abstract string[] on_failure { owned get; }
         public abstract string description { owned get; }
         public abstract string load_state { owned get; }
         public abstract string active_state { owned get; }
@@ -110,19 +119,28 @@ public interface Unit : DBus.Object {
         public abstract uint64 active_exit_timestamp { owned get; }
         public abstract uint64 inactive_enter_timestamp { owned get; }
         public abstract bool can_start { owned get; }
+        public abstract bool can_stop { owned get; }
         public abstract bool can_reload { owned get; }
         public abstract JobLink job { owned get; }
         public abstract bool recursive_stop { owned get; }
         public abstract bool stop_when_unneeded { owned get; }
+        public abstract bool refuse_manual_start { owned get; }
+        public abstract bool refuse_manual_stop { owned get; }
+        public abstract bool default_dependencies { owned get; }
         public abstract string default_control_group { owned get; }
         public abstract string[] control_groups { owned get; }
+        public abstract bool need_daemon_reload { owned get; }
+        public abstract uint64 job_timeout_usec { owned get; }
 
-        public abstract ObjectPath start(string mode) throws DBus.Error;
-        public abstract ObjectPath stop(string mode) throws DBus.Error;
-        public abstract ObjectPath restart(string mode) throws DBus.Error;
-        public abstract ObjectPath reload(string mode) throws DBus.Error;
+        public abstract ObjectPath start(string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath stop(string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath reload(string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath restart(string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath try_restart(string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath reload_or_restart(string mode = "replace") throws DBus.Error;
+        public abstract ObjectPath reload_or_try_restart(string mode = "replace") throws DBus.Error;
 
-        public abstract signal void changed();
+        public abstract void reset_maintenance() throws DBus.Error;
 }
 
 [DBus (name = "org.freedesktop.systemd1.Job")]
@@ -138,6 +156,10 @@ public interface Job : DBus.Object {
         public abstract UnitLink unit { owned get; }
 
         public abstract void cancel() throws DBus.Error;
+}
 
-        public abstract signal void changed();
+[DBus (name = "org.freedesktop.DBus.Properties")]
+public interface Properties : DBus.Object {
+        public abstract Value? get(string iface, string property) throws DBus.Error;
+        public abstract signal void properties_changed(string iface, HashTable<string, Value?> changed_properties, string[] invalidated_properties);
 }

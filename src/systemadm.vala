@@ -325,12 +325,18 @@ public class MainWindow : Window {
                 foreach (var i in list) {
                         TreeIter iter;
 
+                        Properties p = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        i.unit_path,
+                                        "org.freedesktop.DBus.Properties") as Properties;
+
+
+                        p.properties_changed.connect(on_unit_changed);
+
                         Unit u = bus.get_object(
                                         "org.freedesktop.systemd1",
                                         i.unit_path,
                                         "org.freedesktop.systemd1.Unit") as Unit;
-
-                        u.changed.connect(on_unit_changed);
 
                         unit_model.append(out iter);
                         unit_model.set(iter,
@@ -352,12 +358,17 @@ public class MainWindow : Window {
                 foreach (var i in list) {
                         TreeIter iter;
 
+                        Properties p = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        i.job_path,
+                                        "org.freedesktop.DBus.Properties") as Properties;
+
+                        p.properties_changed.connect(on_job_changed);
+
                         Job j = bus.get_object(
                                         "org.freedesktop.systemd1",
                                         i.job_path,
                                         "org.freedesktop.systemd1.Job") as Job;
-
-                        j.changed.connect(on_job_changed);
 
                         job_model.append(out iter);
                         job_model.set(iter,
@@ -672,15 +683,21 @@ public class MainWindow : Window {
         }
 
         public void on_unit_new(string id, ObjectPath path) {
+                Properties p = bus.get_object(
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.DBus.Properties") as Properties;
+
+                p.properties_changed.connect(on_unit_changed);
+
+                TreeIter iter;
+                unit_model.append(out iter);
+
                 Unit u = bus.get_object(
                                 "org.freedesktop.systemd1",
                                 path,
                                 "org.freedesktop.systemd1.Unit") as Unit;
 
-                u.changed.connect(on_unit_changed);
-
-                TreeIter iter;
-                unit_model.append(out iter);
                 update_unit_iter(iter, id, u);
         }
 
@@ -695,15 +712,22 @@ public class MainWindow : Window {
         }
 
         public void on_job_new(uint32 id, ObjectPath path) {
+
+                Properties p = bus.get_object(
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.DBus.Properties") as Properties;
+
+                p.properties_changed.connect(on_job_changed);
+
+                TreeIter iter;
+                job_model.append(out iter);
+
                 Job j = bus.get_object(
                                 "org.freedesktop.systemd1",
                                 path,
                                 "org.freedesktop.systemd1.Job") as Job;
 
-                j.changed.connect(on_job_changed);
-
-                TreeIter iter;
-                job_model.append(out iter);
                 update_job_iter(iter, id, j);
         }
 
@@ -750,9 +774,14 @@ public class MainWindow : Window {
                 } while (job_model.iter_next(ref iter));
         }
 
-        public void on_unit_changed(Unit u) {
+        public void on_unit_changed(Properties p, string iface, HashTable<string, Value?> changed_properties, string[] invalidated_properties) {
                 TreeIter iter;
                 string id;
+
+                Unit u = bus.get_object(
+                                p.get_bus_name(),
+                                p.get_path(),
+                                "org.freedesktop.systemd1.Unit") as Unit;
 
                 if (!(unit_model.get_iter_first(out iter)))
                         return;
@@ -776,9 +805,14 @@ public class MainWindow : Window {
                 } while (unit_model.iter_next(ref iter));
         }
 
-        public void on_job_changed(Job j) {
+        public void on_job_changed(Properties p, string iface, HashTable<string, Value?> changed_properties, string[] invalidated_properties) {
                 TreeIter iter;
                 uint32 id;
+
+                Job j = bus.get_object(
+                                p.get_bus_name(),
+                                p.get_path(),
+                                "org.freedesktop.systemd1.Job") as Job;
 
                 if (!(job_model.get_iter_first(out iter)))
                         return;
