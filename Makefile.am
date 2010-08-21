@@ -75,7 +75,8 @@ rootlibexec_PROGRAMS = \
 	systemd-shutdownd \
 	systemd-auto-console-getty \
 	systemd-modules-load \
-	systemd-remount-api-vfs
+	systemd-remount-api-vfs \
+	systemd-kmsg-syslogd
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -143,6 +144,7 @@ dist_systemunit_DATA = \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket \
 	units/systemd-shutdownd.socket \
+	units/systemd-kmsg-syslogd.socket \
 	units/dev-hugepages.automount \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.automount \
@@ -175,6 +177,7 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
+	units/systemd-kmsg-syslogd.service \
 	units/systemd-auto-console-getty.service \
 	units/systemd-modules-load.service \
 	units/systemd-remount-api-vfs.service \
@@ -200,6 +203,7 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
+	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-auto-console-getty.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-remount-api-vfs.service.in \
@@ -611,6 +615,17 @@ systemd_cgroups_agent_CFLAGS = \
 systemd_cgroups_agent_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS)
+
+systemd_kmsg_syslogd_SOURCES = \
+	src/kmsg-syslogd.c \
+	src/sd-daemon.c \
+	src/fdset.c
+
+systemd_kmsg_syslogd_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_kmsg_syslogd_LDADD = \
+	libsystemd-basic.la
 
 systemctl_SOURCES = \
 	src/systemctl.c \

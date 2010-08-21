@@ -49,7 +49,7 @@ void fdset_free(FDSet *s) {
                  * here, so that the EBADFD that valgrind will return
                  * us on close() doesn't influence us */
 
-                log_warning("Closing left-over fd %i", PTR_TO_FD(p));
+                /* log_warning("Closing left-over fd %i", PTR_TO_FD(p)); */
                 close_nointr(PTR_TO_FD(p));
         }
 

@@ -32,7 +32,6 @@
 #include "macro.h"
 
 #define SYSLOG_TIMEOUT_USEC (5*USEC_PER_SEC)
-#define LOG_BUFFER_MAX 1024
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
@@ -417,7 +416,7 @@ int log_meta(
         const char *func,
         const char *format, ...) {
 
-        char buffer[LOG_BUFFER_MAX];
+        char buffer[LINE_MAX];
         int saved_errno, r;
         va_list ap;
 
@@ -444,7 +443,7 @@ void log_assert(
         const char *func,
         const char *format, ...) {
 
-        static char buffer[LOG_BUFFER_MAX];
+        static char buffer[LINE_MAX];
         int saved_errno = errno;
         va_list ap;
 

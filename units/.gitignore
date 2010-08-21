@@ -1,3 +1,4 @@
+systemd-kmsg-syslogd.service
 systemd-modules-load.service
 systemd-remount-api-vfs.service
 systemd-auto-console-getty.service

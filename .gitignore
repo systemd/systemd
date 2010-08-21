@@ -1,3 +1,4 @@
+systemd-kmsg-syslogd
 systemd-remount-api-vfs
 test-hostname
 systemd-modules-load

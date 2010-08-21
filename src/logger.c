@@ -38,7 +38,6 @@
 #include "sd-daemon.h"
 #include "tcpwrap.h"
 
-#define STREAM_BUFFER 2048
 #define STREAMS_MAX 256
 #define SERVER_FD_MAX 16
 #define TIMEOUT ((int) (10*MSEC_PER_SEC))
@@ -85,7 +84,7 @@ struct Stream {
 
         bool prefix;
 
-        char buffer[STREAM_BUFFER];
+        char buffer[LINE_MAX];
         size_t length;
 
         LIST_FIELDS(Stream, stream);
@@ -297,7 +296,7 @@ static int stream_process(Stream *s, usec_t ts) {
         int r;
         assert(s);
 
-        if ((l = read(s->fd, s->buffer+s->length, STREAM_BUFFER-s->length)) < 0) {
+        if ((l = read(s->fd, s->buffer+s->length, LINE_MAX-s->length)) < 0) {
 
                 if (errno == EAGAIN)
                         return 0;
@@ -617,7 +616,7 @@ int main(int argc, char *argv[]) {
 
         r = 0;
 
-        log_info("systemd-logger stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-logger stopped as pid %lu", (unsigned long) getpid());
 
 fail:
         sd_notify(false,
