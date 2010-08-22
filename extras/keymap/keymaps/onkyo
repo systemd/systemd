@@ -1,0 +1,14 @@
+0xA0 mute # Fn+D
+0xAE volumedown # Fn+F
+0xB0 volumeup # Fn+G
+0xDF sleep # Fn+W
+0xE0 bluetooth # Fn+H
+0xE2 cyclewindows # Fn+Esc
+0xEE battery # Fn+Q
+0xF0 media # Fn+R
+0xF5 switchvideomode # Fn+E
+0xF6 camera # Fn+T
+0xF7 f22 # Fn+Y (touchpad toggle)
+0xF8 brightnessup # Fn+S
+0xF9 brightnessdown # Fn+A
+0xFB wlan # Fn+J

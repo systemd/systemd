@@ -127,6 +127,8 @@ ENV{DMI_VENDOR}=="TOSHIBA", ATTR{[dmi/id]product_name}=="Satellite M30X", RUN+="
 
 ENV{DMI_VENDOR}=="OQO Inc.*", ATTR{[dmi/id]product_name}=="OQO Model 2*", RUN+="keymap $name oqo-model2"
 
+ENV{DMI_VENDOR}=="ONKYO CORPORATION", ATTR{[dmi/id]product_name}=="ONKYOPC", RUN+="keymap $name onkyo"
+
 ENV{DMI_VENDOR}=="ASUS", RUN+="keymap $name asus"
 
 ENV{DMI_VENDOR}=="VIA", ATTR{[dmi/id]product_name}=="K8N800", ATTR{[dmi/id]product_version}=="VT8204B", RUN+="keymap $name 0x81 prog1"
