@@ -1285,12 +1285,19 @@ int main(int argc, char *argv[])
 		fclose(f);
 	}
 
-	/* OOM_DISABLE == -17 */
-	fd = open("/proc/self/oom_adj", O_RDWR);
+	fd = open("/proc/self/oom_score_adj", O_RDWR);
 	if (fd < 0) {
-		err(udev, "error disabling OOM: %m\n");
+		/* Fallback to old interface */
+		fd = open("/proc/self/oom_adj", O_RDWR);
+		if (fd < 0) {
+			err(udev, "error disabling OOM: %m\n");
+		} else {
+			/* OOM_DISABLE == -17 */
+			write(fd, "-17", 3);
+			close(fd);
+		}
 	} else {
-		write(fd, "-17", 3);
+		write(fd, "-1000", 5);
 		close(fd);
 	}
 
