@@ -1613,7 +1613,7 @@ static void print_status_info(UnitStatusInfo *i) {
                         continue;
 
                 t = strv_join(p->argv, " ");
-                printf("\t  Exited: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
+                printf("\t Process: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
                 free(t);
 
                 if (p->code == CLD_EXITED) {
@@ -1642,7 +1642,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\t");
 
                 if (i->main_pid > 0) {
-                        printf("    Main: %u", (unsigned) i->main_pid);
+                        printf("Main PID: %u", (unsigned) i->main_pid);
 
                         if (i->running) {
                                 char *t = NULL;
