@@ -52,12 +52,15 @@ typedef struct dual_timestamp {
 #define USEC_PER_HOUR (60ULL*USEC_PER_MINUTE)
 #define USEC_PER_DAY (24ULL*USEC_PER_HOUR)
 #define USEC_PER_WEEK (7ULL*USEC_PER_DAY)
+#define USEC_PER_MONTH (2629800ULL*USEC_PER_SEC)
+#define USEC_PER_YEAR (31557600ULL*USEC_PER_SEC)
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
 
 #define FORMAT_TIMESTAMP_MAX 64
+#define FORMAT_TIMESTAMP_PRETTY_MAX 256
 #define FORMAT_TIMESPAN_MAX 64
 
 #define ANSI_HIGHLIGHT_ON "\x1B[1;31m"
@@ -248,6 +251,7 @@ bool ignore_file(const char *filename);
 bool chars_intersect(const char *a, const char *b);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
+char *format_timestamp_pretty(char *buf, size_t l, usec_t t);
 char *format_timespan(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);

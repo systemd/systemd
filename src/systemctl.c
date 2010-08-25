@@ -1489,6 +1489,11 @@ typedef struct UnitStatusInfo {
         const char *path;
         const char *default_control_group;
 
+        usec_t inactive_exit_timestamp;
+        usec_t active_enter_timestamp;
+        usec_t active_exit_timestamp;
+        usec_t inactive_enter_timestamp;
+
         bool need_daemon_reload;
 
         /* Service */
@@ -1523,6 +1528,9 @@ typedef struct UnitStatusInfo {
 static void print_status_info(UnitStatusInfo *i) {
         ExecStatusInfo *p;
         const char *on, *off, *ss;
+        usec_t timestamp;
+        char since1[FORMAT_TIMESTAMP_PRETTY_MAX], *s1;
+        char since2[FORMAT_TIMESTAMP_MAX], *s2;
 
         assert(i);
 
@@ -1559,16 +1567,33 @@ static void print_status_info(UnitStatusInfo *i) {
                 on = off = "";
 
         if (ss)
-                printf("\t  Active: %s%s (%s)%s\n",
+                printf("\t  Active: %s%s (%s)%s",
                        on,
                        strna(i->active_state),
                        ss,
                        off);
         else
-                printf("\t  Active: %s%s%s\n",
+                printf("\t  Active: %s%s%s",
                        on,
                        strna(i->active_state),
                        off);
+
+        timestamp = (streq_ptr(i->active_state, "active")      ||
+                     streq_ptr(i->active_state, "reloading"))   ? i->active_enter_timestamp :
+                    (streq_ptr(i->active_state, "inactive")    ||
+                     streq_ptr(i->active_state, "maintenance")) ? i->inactive_enter_timestamp :
+                    streq_ptr(i->active_state, "activating")    ? i->inactive_exit_timestamp :
+                                                                  i->active_exit_timestamp;
+
+        s1 = format_timestamp_pretty(since1, sizeof(since1), timestamp);
+        s2 = format_timestamp(since2, sizeof(since2), timestamp);
+
+        if (s1)
+                printf(" since [%s; %s]\n", s2, s1);
+        else if (s2)
+                printf(" since [%s]\n", s2);
+        else
+                printf("\n");
 
         if (i->sysfs_path)
                 printf("\t  Device: %s\n", i->sysfs_path);
@@ -1782,6 +1807,14 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->start_timestamp = (usec_t) u;
                 else if (streq(name, "ExecMainExitTimestamp"))
                         i->exit_timestamp = (usec_t) u;
+                else if (streq(name, "ActiveEnterTimestamp"))
+                        i->active_enter_timestamp = (usec_t) u;
+                else if (streq(name, "InactiveEnterTimestamp"))
+                        i->inactive_enter_timestamp = (usec_t) u;
+                else if (streq(name, "InactiveExitTimestamp"))
+                        i->inactive_exit_timestamp = (usec_t) u;
+                else if (streq(name, "ActiveExitTimestamp"))
+                        i->active_exit_timestamp = (usec_t) u;
 
                 break;
         }
