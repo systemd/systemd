@@ -116,10 +116,10 @@ static int get_current_runlevel(Context *c) {
                 /* The first target of this list that is active or has
                  * a job scheduled wins */
                 { '5', SPECIAL_RUNLEVEL5_TARGET },
-                { '4', SPECIAL_RUNLEVEL4_TARGET },
                 { '3', SPECIAL_RUNLEVEL3_TARGET },
+                { '4', SPECIAL_RUNLEVEL4_TARGET },
                 { '2', SPECIAL_RUNLEVEL2_TARGET },
-                { '1', SPECIAL_RESCUE_TARGET },
+                { 'S', SPECIAL_RESCUE_TARGET },
         };
         const char
                 *interface = "org.freedesktop.systemd1.Unit",
