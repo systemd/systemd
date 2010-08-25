@@ -17,7 +17,7 @@ Before=multi-user.target
 [Service]
 ExecStartPre=-/bin/plymouth --hide-splash
 ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" to activate default mode.'
-ExecStart=/bin/sh
+ExecStart=-/sbin/sulogin
 StandardInput=tty-force
 Restart=restart-always
 RestartSec=0
