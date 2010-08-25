@@ -449,7 +449,7 @@
                         activation of daemons. However, the primary
                         advantage of this scheme is that all providers
                         and all consumers of the sockets can be
-                        started in parallel as soon als all sockets
+                        started in parallel as soon as all sockets
                         are established. In addition to that daemons
                         can be restarted with losing only a minimal
                         number of client transactions or even any

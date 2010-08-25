@@ -58,23 +58,41 @@
 
 * bash completion a la gdbus
 
-* use sulogin
-
 * [Install] section rausmachen für early boot krams, uznd per default nach /lib linken
-
-* s/Exited/Process/ in systemctl status
-
-* systemctl status: "active since 5min"
 
 * systemctl list-jobs deps anzeigen
 
-* /etc/systemd/system.conf: mounten per default option
-
 * ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= mit !
+
+* oom_score_adj
+
+* accountsservice is dod
+
+* follow LSB exit codes spec in "systemctl start"
+
+* auditd service files
+
+* override the human readable dbus error code for permission denied.
+
+* discuss reexec on shutdown, async. vs. sync?
+
+* auto-serial-getty vs. isolate
+
+* add RefuseManualIsolate= (default on?)
+
+* add systemctl switch to dump transaction without executing it
+
+* shell wenn fsck im arsch is
+
+* system.conf/session.conf brauch ne man page
 
 External:
 
+* make sure MountOnPlug und MountAuto und SwapOnPlug is off in Fedora
+
 * place /etc/inittab with explaining blurb.
+
+* pam_securetty should honour console=
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 

@@ -124,9 +124,9 @@
                                 <filename>runlevel2.target</filename>,
                                 <filename>runlevel3.target</filename>,
                                 ... and is equivalent to
-                                <command>systemctl start
+                                <command>systemctl isolate
                                 runlevel2.target</command>,
-                                <command>systemctl start
+                                <command>systemctl isolate
                                 runlevel3.target</command>,
                                 ...</para></listitem>
                         </varlistentry>
