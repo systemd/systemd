@@ -42,13 +42,13 @@ typedef struct MountPoint {
 } MountPoint;
 
 static const MountPoint mount_table[] = {
-        { "proc",     "/proc",           "proc",     NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "sysfs",    "/sys",            "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "devtmpfs", "/dev",            "devtmpfs", "mode=755",          MS_NOSUID,                    true },
-        { "tmpfs",    "/dev/shm",        "tmpfs",    "mode=1777",         MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "devpts",   "/dev/pts",        "devpts",   NULL,                MS_NOSUID|MS_NOEXEC,          false },
-        { "tmpfs",    "/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "cgroup",   "/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "proc",     "/proc",                  "proc",     NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "sysfs",    "/sys",                   "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "devtmpfs", "/dev",                   "devtmpfs", "mode=755",          MS_NOSUID,                    true },
+        { "tmpfs",    "/dev/shm",               "tmpfs",    "mode=1777",         MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "devpts",   "/dev/pts",               "devpts",   NULL,                MS_NOSUID|MS_NOEXEC,          false },
+        { "tmpfs",    "/sys/fs/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "cgroup",   "/sys/fs/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 };
 
 /* These are API file systems that might be mounted by other software,
@@ -75,7 +75,7 @@ bool mount_point_is_api(const char *path) {
                 if (path_equal(path, ignore_paths[i]))
                         return true;
 
-        return path_startswith(path, "/cgroup/");
+        return path_startswith(path, "/sys/fs/cgroup/");
 }
 
 static int mount_one(const MountPoint *p) {
@@ -138,7 +138,7 @@ static int mount_cgroup_controllers(void) {
                         goto finish;
                 }
 
-                if (asprintf(&where, "/cgroup/%s", controller) < 0) {
+                if (asprintf(&where, "/sys/fs/cgroup/%s", controller) < 0) {
                         free(controller);
                         r = -ENOMEM;
                         goto finish;

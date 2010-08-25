@@ -388,7 +388,7 @@
                 track of processes. Control group information is
                 maintained in the kernel, and is accessible via the
                 file system hierarchy (beneath
-                <filename>/cgroup/systemd/</filename>), or in tools
+                <filename>/sys/fs/cgroup/systemd/</filename>), or in tools
                 such as
                 <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 (<command>ps xawf -eo pid,user,cgroup,args</command>

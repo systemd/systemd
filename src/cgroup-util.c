@@ -481,7 +481,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         else
                 p = controller;
 
-        if (asprintf(&mp, "/cgroup/%s", p) < 0)
+        if (asprintf(&mp, "/sys/fs/cgroup/%s", p) < 0)
                 return -ENOMEM;
 
         if ((r = path_is_mount_point(mp)) <= 0) {
@@ -927,7 +927,7 @@ int cg_fix_path(const char *path, char **result) {
 
         /* First check if it already is a filesystem path */
         if (path_is_absolute(path) &&
-            path_startswith(path, "/cgroup") &&
+            path_startswith(path, "/sys/fs/cgroup") &&
             access(path, F_OK) >= 0) {
 
                 if (!(t = strdup(path)))

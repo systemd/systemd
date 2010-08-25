@@ -85,11 +85,11 @@
                 implementation.</para>
 
                 <para>Internally, this function checks whether the
-                <filename>/cgroup/systemd</filename> virtual file
+                <filename>/sys/fs/cgroup/systemd</filename> virtual file
                 system is mounted, by comparing the st_dev value of
                 the <function>stat()</function> data of
-                <filename>/cgroup</filename> and
-                <filename>/cgroup/systemd</filename>.</para>
+                <filename>/sys/fs/cgroup</filename> and
+                <filename>/sys/fs/cgroup/systemd</filename>.</para>
 
                 <para>For details about the algorithm check the
                 liberally licensed reference implementation sources:

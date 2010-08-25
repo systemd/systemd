@@ -65,7 +65,7 @@
                 file paths or are assumed in the systemd control group
                 hierarchy. If no argument is specified and the current
                 working directory is beneath the control group mount
-                point <filename>/cgroup</filename> shows the contents
+                point <filename>/sys/fs/cgroup</filename> shows the contents
                 of the control group the working directory refers
                 to. Otherwise the full systemd control group hierarchy
                 is shown.</para>
