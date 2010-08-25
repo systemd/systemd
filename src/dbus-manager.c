@@ -141,9 +141,8 @@
         "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"MountOnPlug\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SwapOnPlug\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"MountAuto\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -255,9 +254,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
                 { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
                 { "org.freedesktop.systemd1.Manager", "ControlGroupHierarchy", bus_property_append_string, "s", m->cgroup_hierarchy },
-                { "org.freedesktop.systemd1.Manager", "MountOnPlug",   bus_property_append_bool,      "b",  &m->mount_on_plug  },
-                { "org.freedesktop.systemd1.Manager", "SwapOnPlug",    bus_property_append_bool,      "b",  &m->swap_on_plug   },
                 { "org.freedesktop.systemd1.Manager", "MountAuto",     bus_property_append_bool,      "b",  &m->mount_auto     },
+                { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto     },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

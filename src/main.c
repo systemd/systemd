@@ -64,9 +64,8 @@ static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_show_status = true;
 static bool arg_sysv_console = true;
-static bool arg_mount_on_plug = true;
-static bool arg_swap_on_plug = true;
 static bool arg_mount_auto = true;
+static bool arg_swap_auto = true;
 
 static FILE* serialization = NULL;
 
@@ -485,9 +484,8 @@ static int parse_config_file(void) {
                 { "SysVConsole", config_parse_bool,         &arg_sysv_console,  "Manager" },
                 { "CrashChVT",   config_parse_int,          &arg_crash_chvt,    "Manager" },
                 { "CPUAffinity", config_parse_cpu_affinity, NULL,               "Manager" },
-                { "MountOnPlug", config_parse_bool,         &arg_mount_on_plug, "Manager" },
-                { "SwapOnPlug",  config_parse_bool,         &arg_swap_on_plug,  "Manager" },
                 { "MountAuto",   config_parse_bool,         &arg_mount_auto,    "Manager" },
+                { "SwapAuto",    config_parse_bool,         &arg_swap_auto,     "Manager" },
                 { NULL, NULL, NULL, NULL }
         };
 
@@ -992,9 +990,8 @@ int main(int argc, char *argv[]) {
         m->confirm_spawn = arg_confirm_spawn;
         m->show_status = arg_show_status;
         m->sysv_console = arg_sysv_console;
-        m->mount_on_plug = arg_mount_on_plug;
-        m->swap_on_plug = arg_swap_on_plug;
         m->mount_auto = arg_mount_auto;
+        m->swap_auto = arg_swap_auto;
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));

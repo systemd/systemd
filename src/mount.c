@@ -275,6 +275,30 @@ static int mount_add_target_links(Mount *m) {
         }
 }
 
+static int mount_add_device_links(Mount *m) {
+        MountParameters *p;
+        bool nofail, noauto;
+
+        assert(m);
+
+        if (m->from_fragment)
+                p = &m->parameters_fragment;
+        else if (m->from_etc_fstab)
+                p = &m->parameters_etc_fstab;
+        else
+                return 0;
+
+        if (!p->what || path_equal(m->where, "/"))
+                return 0;
+
+        noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
+        nofail = !!mount_test_option(p->options, "nofail");
+
+        return unit_add_node_link(UNIT(m), p->what,
+                                  !noauto && nofail &&
+                                  UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM);
+}
+
 static int mount_add_default_dependencies(Mount *m) {
         int r;
 
@@ -362,11 +386,8 @@ static int mount_load(Unit *u) {
                 else if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
                         what = m->parameters_proc_self_mountinfo.what;
 
-                if (what && !path_equal(m->where, "/"))
-                        if ((r = unit_add_node_link(u, what,
-                                                    u->meta.manager->running_as == MANAGER_SYSTEM &&
-                                                    u->meta.manager->mount_on_plug)) < 0)
-                                return r;
+                if ((r = mount_add_device_links(m)) < 0)
+                        return r;
 
                 if ((r = mount_add_mount_links(m)) < 0)
                         return r;
@@ -1289,6 +1310,7 @@ static int mount_load_etc_fstab(Manager *m) {
                                                  what,
                                                  pri,
                                                  !!mount_test_option(me->mnt_opts, MNTOPT_NOAUTO),
+                                                 !!mount_test_option(me->mnt_opts, "nofail"),
                                                  !!mount_test_option(me->mnt_opts, "comment=systemd.swapon"),
                                                  false);
                 } else
