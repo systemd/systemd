@@ -114,7 +114,10 @@ static int get_current_runlevel(Context *c) {
                 const char *special;
         } table[] = {
                 /* The first target of this list that is active or has
-                 * a job scheduled wins */
+                 * a job scheduled wins. We prefer runlevels 5 and 3
+                 * here over the others, since these are the main
+                 * runlevels used on Fedora. It might make sense to
+                 * change the order on some distributions. */
                 { '5', SPECIAL_RUNLEVEL5_TARGET },
                 { '3', SPECIAL_RUNLEVEL3_TARGET },
                 { '4', SPECIAL_RUNLEVEL4_TARGET },
