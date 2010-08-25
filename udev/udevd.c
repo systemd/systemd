@@ -964,15 +964,10 @@ static int init_notify(const char *state)
 	int fd = -1, r;
 	struct msghdr msghdr;
 	struct iovec iovec;
-	struct ucred *ucred;
 	union {
 		struct sockaddr sa;
 		struct sockaddr_un un;
 	} sockaddr;
-	union {
-		struct cmsghdr cmsghdr;
-		uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-	} control;
 	const char *e;
 
 	if (!(e = getenv("NOTIFY_SOCKET"))) {
@@ -1002,16 +997,6 @@ static int init_notify(const char *state)
 	iovec.iov_base = (char*) state;
 	iovec.iov_len = strlen(state);
 
-	memset(&control, 0, sizeof(control));
-	control.cmsghdr.cmsg_level = SOL_SOCKET;
-	control.cmsghdr.cmsg_type = SCM_CREDENTIALS;
-	control.cmsghdr.cmsg_len = CMSG_LEN(sizeof(struct ucred));
-
-	ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
-	ucred->pid = getpid();
-	ucred->uid = getuid();
-	ucred->gid = getgid();
-
 	memset(&msghdr, 0, sizeof(msghdr));
 	msghdr.msg_name = &sockaddr;
 	msghdr.msg_namelen = sizeof(sa_family_t) + strlen(e);
@@ -1019,8 +1004,6 @@ static int init_notify(const char *state)
 		msghdr.msg_namelen = sizeof(struct sockaddr_un);
 	msghdr.msg_iov = &iovec;
 	msghdr.msg_iovlen = 1;
-	msghdr.msg_control = &control;
-	msghdr.msg_controllen = control.cmsghdr.cmsg_len;
 
 	if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0) {
 		r = -errno;
