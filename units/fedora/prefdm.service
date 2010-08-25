@@ -15,6 +15,8 @@ Conflicts=getty@tty1.service plymouth-quit.service
 
 [Service]
 ExecStart=/etc/X11/prefdm -nodaemon
+Restart=restart-always
+RestartSec=0
 
 [Install]
 Alias=display-manager.service
