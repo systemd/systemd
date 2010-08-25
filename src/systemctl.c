@@ -69,6 +69,11 @@ static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_force = false;
 static bool arg_defaults = false;
+static bool arg_sysv_compat = false; /* this is undocumented, and
+                                      * exists simply to make
+                                      * implementation of SysV
+                                      * compatible shell glue
+                                      * easier */
 static char **arg_wall = NULL;
 static usec_t arg_when = 0;
 static enum action {
@@ -1359,7 +1364,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                 if (!arg_quiet)
                         puts(state);
 
-                if (streq(state, "active") || startswith(state, "reloading"))
+                if (streq(state, "active") || streq(state, "reloading"))
                         r = 0;
 
                 dbus_message_unref(m);
@@ -2150,15 +2155,26 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
                 dbus_message_iter_next(&sub);
         }
 
-        if (!show_properties)
-                print_status_info(&info);
+        r = 0;
+
+        if (!show_properties) {
+                if (arg_sysv_compat &&
+                    !streq_ptr(info.active_state, "active") &&
+                    !streq_ptr(info.active_state, "reloading")) {
+
+                        /* If the SysV compatibility mode is on, we
+                         * will refuse to run "status" on units that
+                         * aren't active */
+                        log_error("Unit not active.");
+                        r = -EADDRNOTAVAIL;
+                } else
+                        print_status_info(&info);
+        }
 
         while ((p = info.exec)) {
                 LIST_REMOVE(ExecStatusInfo, exec, info.exec, p);
                 exec_status_info_free(p);
         }
-
-        r = 0;
 
 finish:
         if (m)
@@ -3895,7 +3911,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_FULL,
                 ARG_FORCE,
                 ARG_NO_RELOAD,
-                ARG_DEFAULTS
+                ARG_DEFAULTS,
+                ARG_SYSV_COMPAT
         };
 
         static const struct option options[] = {
@@ -3915,7 +3932,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "require",   no_argument,       NULL, ARG_REQUIRE   },
                 { "force",     no_argument,       NULL, ARG_FORCE     },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
-                { "defaults",   no_argument,      NULL, ARG_DEFAULTS  },
+                { "defaults",  no_argument,       NULL, ARG_DEFAULTS  },
+                { "sysv-compat", no_argument,     NULL, ARG_SYSV_COMPAT },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4007,6 +4025,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEFAULTS:
                         arg_defaults = true;
+                        break;
+
+                case ARG_SYSV_COMPAT:
+                        arg_sysv_compat = true;
                         break;
 
                 case '?':
