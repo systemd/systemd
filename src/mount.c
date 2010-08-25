@@ -244,7 +244,8 @@ static int mount_add_target_links(Mount *m) {
 
         noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
         user = mount_test_option(p->options, "user") || mount_test_option(p->options, "users");
-        handle = !!mount_test_option(p->options, "comment=systemd.mount");
+        handle = !!mount_test_option(p->options, "comment=systemd.mount") ||
+                m->meta.manager->mount_auto;
         automount = !!mount_test_option(p->options, "comment=systemd.automount");
 
         if (mount_test_option(p->options, "_netdev") ||
@@ -362,7 +363,9 @@ static int mount_load(Unit *u) {
                         what = m->parameters_proc_self_mountinfo.what;
 
                 if (what && !path_equal(m->where, "/"))
-                        if ((r = unit_add_node_link(u, what, u->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
+                        if ((r = unit_add_node_link(u, what,
+                                                    u->meta.manager->running_as == MANAGER_SYSTEM &&
+                                                    u->meta.manager->mount_on_plug)) < 0)
                                 return r;
 
                 if ((r = mount_add_mount_links(m)) < 0)

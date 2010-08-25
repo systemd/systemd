@@ -195,7 +195,9 @@ static int swap_load(Unit *u) {
                         if ((r = unit_set_description(u, s->what)) < 0)
                                 return r;
 
-                if ((r = unit_add_node_link(u, s->what, u->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
+                if ((r = unit_add_node_link(u, s->what,
+                                            u->meta.manager->running_as == MANAGER_SYSTEM &&
+                                            u->meta.manager->swap_on_plug)) < 0)
                         return r;
 
                 if ((r = swap_add_mount_links(s)) < 0)

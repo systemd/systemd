@@ -64,6 +64,9 @@ static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_show_status = true;
 static bool arg_sysv_console = true;
+static bool arg_mount_on_plug = true;
+static bool arg_swap_on_plug = true;
+static bool arg_mount_auto = true;
 
 static FILE* serialization = NULL;
 
@@ -472,16 +475,19 @@ static int config_parse_cpu_affinity(
 static int parse_config_file(void) {
 
         const ConfigItem items[] = {
-                { "LogLevel",    config_parse_level,        NULL,             "Manager" },
-                { "LogTarget",   config_parse_target,       NULL,             "Manager" },
-                { "LogColor",    config_parse_color,        NULL,             "Manager" },
-                { "LogLocation", config_parse_location,     NULL,             "Manager" },
-                { "DumpCore",    config_parse_bool,         &arg_dump_core,   "Manager" },
-                { "CrashShell",  config_parse_bool,         &arg_crash_shell, "Manager" },
-                { "ShowStatus",  config_parse_bool,         &arg_show_status, "Manager" },
-                { "SysVConsole", config_parse_bool,         &arg_sysv_console,"Manager" },
-                { "CrashChVT",   config_parse_int,          &arg_crash_chvt,  "Manager" },
-                { "CPUAffinity", config_parse_cpu_affinity, NULL,             "Manager" },
+                { "LogLevel",    config_parse_level,        NULL,               "Manager" },
+                { "LogTarget",   config_parse_target,       NULL,               "Manager" },
+                { "LogColor",    config_parse_color,        NULL,               "Manager" },
+                { "LogLocation", config_parse_location,     NULL,               "Manager" },
+                { "DumpCore",    config_parse_bool,         &arg_dump_core,     "Manager" },
+                { "CrashShell",  config_parse_bool,         &arg_crash_shell,   "Manager" },
+                { "ShowStatus",  config_parse_bool,         &arg_show_status,   "Manager" },
+                { "SysVConsole", config_parse_bool,         &arg_sysv_console,  "Manager" },
+                { "CrashChVT",   config_parse_int,          &arg_crash_chvt,    "Manager" },
+                { "CPUAffinity", config_parse_cpu_affinity, NULL,               "Manager" },
+                { "MountOnPlug", config_parse_bool,         &arg_mount_on_plug, "Manager" },
+                { "SwapOnPlug",  config_parse_bool,         &arg_swap_on_plug,  "Manager" },
+                { "MountAuto",   config_parse_bool,         &arg_mount_auto,    "Manager" },
                 { NULL, NULL, NULL, NULL }
         };
 
@@ -986,6 +992,9 @@ int main(int argc, char *argv[]) {
         m->confirm_spawn = arg_confirm_spawn;
         m->show_status = arg_show_status;
         m->sysv_console = arg_sysv_console;
+        m->mount_on_plug = arg_mount_on_plug;
+        m->swap_on_plug = arg_swap_on_plug;
+        m->mount_auto = arg_mount_auto;
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));

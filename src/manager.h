@@ -202,6 +202,10 @@ struct Manager {
         bool confirm_spawn;
         bool sysv_console;
 
+        bool mount_on_plug;
+        bool swap_on_plug;
+        bool mount_auto;
+
         int n_deserializing;
 };
 
