@@ -332,11 +332,6 @@ int sd_notify(int unset_environment, const char *state) {
         struct msghdr msghdr;
         struct iovec iovec;
         union sockaddr_union sockaddr;
-        struct ucred *ucred;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-        } control;
         const char *e;
 
         if (!state) {
@@ -369,16 +364,6 @@ int sd_notify(int unset_environment, const char *state) {
         iovec.iov_base = (char*) state;
         iovec.iov_len = strlen(state);
 
-        memset(&control, 0, sizeof(control));
-        control.cmsghdr.cmsg_level = SOL_SOCKET;
-        control.cmsghdr.cmsg_type = SCM_CREDENTIALS;
-        control.cmsghdr.cmsg_len = CMSG_LEN(sizeof(struct ucred));
-
-        ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
-        ucred->pid = getpid();
-        ucred->uid = getuid();
-        ucred->gid = getgid();
-
         memset(&msghdr, 0, sizeof(msghdr));
         msghdr.msg_name = &sockaddr;
         msghdr.msg_namelen = sizeof(sa_family_t) + strlen(e);
@@ -388,8 +373,6 @@ int sd_notify(int unset_environment, const char *state) {
 
         msghdr.msg_iov = &iovec;
         msghdr.msg_iovlen = 1;
-        msghdr.msg_control = &control;
-        msghdr.msg_controllen = control.cmsghdr.cmsg_len;
 
         if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0) {
                 r = -errno;

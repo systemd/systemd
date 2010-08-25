@@ -80,11 +80,17 @@
 
 * add RefuseManualIsolate= (default on?)
 
+* nofail
+
 * add systemctl switch to dump transaction without executing it
 
 * shell wenn fsck im arsch is
 
 * system.conf/session.conf brauch ne man page
+
+* sd-daemon ohne SCM_CREDENTIALS bitte
+
+* exec /sbin/poweroff als PID 1 und shutdown
 
 External:
 
