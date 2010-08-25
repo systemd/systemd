@@ -2,7 +2,7 @@ serial-getty@.service
 systemd-kmsg-syslogd.service
 systemd-modules-load.service
 systemd-remount-api-vfs.service
-systemd-auto-console-getty.service
+systemd-auto-serial-getty.service
 systemd-shutdownd.service
 systemd-random-seed-load.service
 systemd-random-seed-save.service
