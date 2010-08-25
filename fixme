@@ -76,8 +76,6 @@
 
 * add RefuseManualIsolate= (default on?)
 
-* fstab nofail
-
 * add systemctl switch to dump transaction without executing it
 
 * shell wenn fsck im arsch is
@@ -100,22 +98,10 @@ External:
 
 * make sysinit honour forcefsck/fastboot from the kernel command line fsck.mode=auto|force|skip
 
-* get mount point kernel patch into f14
-
-* sysv functions should color when stdout is tty, not stdin
-
-* agetty should not modify baudrate https://bugzilla.redhat.com/show_bug.cgi?id=623685
-
 * ck logging, ssd readahead
 
 * pam: fix double sudo session cleanup:
   http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
-
-* kernel mount point move
-
-* patch /etc/init.d/functions with:
-
-  if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
 
 https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
 https://bugzilla.redhat.com/show_bug.cgi?id=612789 -- umount /cgroup on halt
