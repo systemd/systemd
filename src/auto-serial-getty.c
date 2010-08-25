@@ -42,7 +42,7 @@ static int spawn_getty(DBusConnection *bus, const char *console) {
         assert(console);
 
         /* FIXME: we probably should escape the tty name properly here */
-        if (asprintf(&name, "getty@%s.service", console) < 0)
+        if (asprintf(&name, "serial-getty@%s.service", console) < 0)
                 return -ENOMEM;
 
         if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnit"))) {
@@ -115,7 +115,7 @@ static int parse_proc_cmdline(char **console) {
 
         assert(console);
 
-        if ((r = read_one_line_file("/tmp/cmdline", &line)) < 0) {
+        if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return 0;
         }

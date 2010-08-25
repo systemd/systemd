@@ -6,11 +6,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Automatically Spawn getty on Kernel Console
+Description=Automatically Spawn getty on Serial Kernel Console
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-auto-console-getty
+ExecStart=@rootlibexecdir@/systemd-auto-serial-getty
 
 [Install]
 WantedBy=getty.target

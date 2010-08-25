@@ -73,7 +73,7 @@ rootlibexec_PROGRAMS = \
 	systemd-update-utmp \
 	systemd-random-seed \
 	systemd-shutdownd \
-	systemd-auto-console-getty \
+	systemd-auto-serial-getty \
 	systemd-modules-load \
 	systemd-remount-api-vfs \
 	systemd-kmsg-syslogd
@@ -171,6 +171,7 @@ dist_systemunit_DATA = \
 nodist_systemunit_DATA = \
 	units/sysinit.target \
 	units/getty@.service \
+	units/serial-getty@.service \
 	units/graphical.target \
 	units/remote-fs.target \
 	units/multi-user.target \
@@ -178,7 +179,7 @@ nodist_systemunit_DATA = \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
 	units/systemd-kmsg-syslogd.service \
-	units/systemd-auto-console-getty.service \
+	units/systemd-auto-serial-getty.service \
 	units/systemd-modules-load.service \
 	units/systemd-remount-api-vfs.service \
 	units/systemd-update-utmp-runlevel.service \
@@ -197,6 +198,7 @@ nodist_sessionunit_DATA = \
 EXTRA_DIST = \
 	units/sysinit.target.m4 \
 	units/getty@.service.m4 \
+	units/serial-getty@.service.m4 \
 	units/graphical.target.m4 \
 	units/multi-user.target.m4 \
 	units/remote-fs.target.m4 \
@@ -204,7 +206,7 @@ EXTRA_DIST = \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-kmsg-syslogd.service.in \
-	units/systemd-auto-console-getty.service.in \
+	units/systemd-auto-serial-getty.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-remount-api-vfs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
@@ -573,15 +575,15 @@ systemd_shutdownd_CFLAGS = \
 systemd_shutdownd_LDADD = \
 	libsystemd-basic.la
 
-systemd_auto_console_getty_SOURCES = \
-	src/auto-console-getty.c \
+systemd_auto_serial_getty_SOURCES = \
+	src/auto-serial-getty.c \
 	src/dbus-common.c
 
-systemd_auto_console_getty_CFLAGS = \
+systemd_auto_serial_getty_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
 
-systemd_auto_console_getty_LDADD = \
+systemd_auto_serial_getty_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS)
 
@@ -896,14 +898,14 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/reboot.target ctrl-alt-del.target && \
 		$(LN_S) $(systemunitdir)/rescue.target kbrequest.target )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
-		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service systemd-auto-console-getty.service && \
+		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service systemd-auto-serial-getty.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty2.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty3.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty4.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service && \
-		$(LN_S) $(systemunitdir)/systemd-auto-console-getty.service systemd-auto-console-getty.service )
+		$(LN_S) $(systemunitdir)/systemd-auto-serial-getty.service systemd-auto-serial-getty.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f getty.target remote-fs.target && \
 		$(LN_S) $(systemunitdir)/getty.target getty.target && \

@@ -1,3 +1,4 @@
+serial-getty@.service
 systemd-kmsg-syslogd.service
 systemd-modules-load.service
 systemd-remount-api-vfs.service
