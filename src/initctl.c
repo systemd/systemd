@@ -124,7 +124,7 @@ static void change_runlevel(Server *s, int runlevel) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(s->bus, m, -1, &error))) {
-                log_error("Failed to start unit: %s", error.message);
+                log_error("Failed to start unit: %s", bus_error_message(&error));
                 goto finish;
         }
 
@@ -298,7 +298,7 @@ static int server_init(Server *s, unsigned n_sockets) {
         }
 
         if (bus_connect(DBUS_BUS_SYSTEM, &s->bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", error.message);
+                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
                 goto fail;
         }
 

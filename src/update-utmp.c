@@ -77,7 +77,7 @@ static usec_t get_startup_time(Context *c) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(c->bus, m, -1, &error))) {
-                log_error("Failed to send command: %s", error.message);
+                log_error("Failed to send command: %s", bus_error_message(&error));
                 goto finish;
         }
 
@@ -167,7 +167,7 @@ static int get_current_runlevel(Context *c) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -194,7 +194,7 @@ static int get_current_runlevel(Context *c) {
 
                 dbus_message_unref(reply);
                 if (!(reply = dbus_connection_send_with_reply_and_block(c->bus, m, -1, &error))) {
-                        log_error("Failed to send command: %s", error.message);
+                        log_error("Failed to send command: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -379,7 +379,7 @@ int main(int argc, char *argv[]) {
 #endif
 
         if (bus_connect(DBUS_BUS_SYSTEM, &c.bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", error.message);
+                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }

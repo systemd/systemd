@@ -88,3 +88,14 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
         *_bus = bus;
         return 0;
 }
+
+const char *bus_error_message(const DBusError *error) {
+        assert(error);
+
+        /* Sometimes the D-Bus server is a little bit too verbose with
+         * its error messages, so let's override them here */
+        if (dbus_error_has_name(error, DBUS_ERROR_ACCESS_DENIED))
+                return "Access denied";
+
+        return error->message;
+}

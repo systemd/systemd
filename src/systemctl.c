@@ -249,7 +249,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -473,7 +473,7 @@ static int dot_one(DBusConnection *bus, const char *name, const char *path) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -556,7 +556,7 @@ static int dot(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -649,7 +649,7 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -746,7 +746,7 @@ static int load_unit(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -814,7 +814,7 @@ static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -822,7 +822,7 @@ static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -840,7 +840,7 @@ static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
 
                 dbus_message_unref(reply);
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -969,7 +969,7 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_BOOLEAN, &success,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse message: %s", error.message);
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
                 else {
                         char *p;
 
@@ -1003,7 +1003,7 @@ static int enable_wait_for_jobs(DBusConnection *bus) {
                            &error);
 
         if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match: %s", error.message);
+                log_error("Failed to add match: %s", bus_error_message(&error));
                 dbus_error_free(&error);
                 return -EIO;
         }
@@ -1092,7 +1092,7 @@ static int start_unit_one(
                         goto finish;
                 }
 
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -1100,7 +1100,7 @@ static int start_unit_one(
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", error.message);
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -1312,7 +1312,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -1339,7 +1339,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
 
                 dbus_message_unref(reply);
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2129,7 +2129,7 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2272,7 +2272,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
 
                                 if (!dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED)) {
-                                        log_error("Failed to issue method call: %s", error.message);
+                                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                                         r = -EIO;
                                         goto finish;
                                 }
@@ -2299,7 +2299,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 }
 
                                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                                        log_error("Failed to issue method call: %s", error.message);
+                                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                                         r = -EIO;
                                         goto finish;
                                 }
@@ -2328,7 +2328,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         }
 
                         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                                log_error("Failed to issue method call: %s", error.message);
+                                log_error("Failed to issue method call: %s", bus_error_message(&error));
                                 r = -EIO;
                                 goto finish;
                         }
@@ -2355,7 +2355,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         }
 
                         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                                log_error("Failed to issue method call: %s", error.message);
+                                log_error("Failed to issue method call: %s", bus_error_message(&error));
                                 r = -EIO;
                                 goto finish;
                         }
@@ -2364,7 +2364,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2417,7 +2417,7 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                                            DBUS_TYPE_STRING, &id,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse message: %s", error.message);
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
                 else if (streq(dbus_message_get_member(message), "UnitNew"))
                         printf("Unit %s added.\n", id);
                 else
@@ -2432,7 +2432,7 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                                            DBUS_TYPE_UINT32, &id,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse message: %s", error.message);
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
                 else if (streq(dbus_message_get_member(message), "JobNew"))
                         printf("Job %u added.\n", id);
                 else
@@ -2449,7 +2449,7 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                 if (!dbus_message_get_args(message, &error,
                                           DBUS_TYPE_STRING, &interface,
                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse message: %s", error.message);
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
                         goto finish;
                 }
 
@@ -2475,7 +2475,7 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(connection, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         goto finish;
                 }
 
@@ -2547,7 +2547,7 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
                                    &error);
 
                 if (dbus_error_is_set(&error)) {
-                        log_error("Failed to add match: %s", error.message);
+                        log_error("Failed to add match: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2560,7 +2560,7 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
                                    &error);
 
                 if (dbus_error_is_set(&error)) {
-                        log_error("Failed to add match: %s", error.message);
+                        log_error("Failed to add match: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2583,7 +2583,7 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2626,7 +2626,7 @@ static int dump(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2634,7 +2634,7 @@ static int dump(DBusConnection *bus, char **args, unsigned n) {
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_STRING, &text,
                                    DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", error.message);
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2690,7 +2690,7 @@ static int snapshot(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2698,7 +2698,7 @@ static int snapshot(DBusConnection *bus, char **args, unsigned n) {
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", error.message);
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2724,7 +2724,7 @@ static int snapshot(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_message_unref(reply);
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2795,7 +2795,7 @@ static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2803,7 +2803,7 @@ static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2821,7 +2821,7 @@ static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
 
                 dbus_message_unref(reply);
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2887,7 +2887,7 @@ static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2939,7 +2939,7 @@ static int reset_maintenance(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2993,7 +2993,7 @@ static int show_enviroment(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -3091,7 +3091,7 @@ static int set_environment(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -4526,7 +4526,7 @@ static int talk_upstart(void) {
                         goto finish;
                 }
 
-                log_error("Failed to connect to Upstart bus: %s", error.message);
+                log_error("Failed to connect to Upstart bus: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -4570,7 +4570,7 @@ static int talk_upstart(void) {
                         goto finish;
                 }
 
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }

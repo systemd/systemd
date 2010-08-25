@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
                 dbus_error_free(&error);
 
                 if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
-                        log_error("Failed to get D-Bus connection: %s", error.message);
+                        log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
                         goto finish;
                 }
 

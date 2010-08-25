@@ -59,7 +59,7 @@ static int spawn_getty(DBusConnection *bus, const char *console) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to start unit: %s", error.message);
+                log_error("Failed to start unit: %s", bus_error_message(&error));
                 goto finish;
         }
 
@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         if (bus_connect(DBUS_BUS_SYSTEM, &bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", error.message);
+                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
                 goto finish;
         }
 
