@@ -72,10 +72,6 @@
 
 * auditd service files
 
-* override the human readable dbus error code for permission denied.
-
-* discuss reexec on shutdown, async. vs. sync?
-
 * auto-serial-getty vs. isolate
 
 * add RefuseManualIsolate= (default on?)
