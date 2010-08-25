@@ -266,7 +266,11 @@ static int mount_add_target_links(Mount *m) {
                 return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_WANTS, UNIT(am), true);
         } else {
 
-                if (!noauto && handle)
+                /* Automatically add mount points that aren't natively
+                 * configured to local-fs.target */
+                if (!noauto &&
+                    handle &&
+                    !m->from_fragment)
                         if (user || m->meta.manager->running_as == MANAGER_SYSTEM)
                                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
                                         return r;

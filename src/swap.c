@@ -113,7 +113,10 @@ static int swap_add_target_links(Swap *s) {
         if ((r = manager_load_unit(s->meta.manager, SPECIAL_SWAP_TARGET, NULL, NULL, &tu)) < 0)
                 return r;
 
-        if (!p->noauto && (p->handle || s->meta.manager->swap_auto) && s->meta.manager->running_as == MANAGER_SYSTEM)
+        if (!p->noauto &&
+            (p->handle || s->meta.manager->swap_auto) &&
+            !s->from_fragment &&
+            s->meta.manager->running_as == MANAGER_SYSTEM)
                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
                         return r;
 
