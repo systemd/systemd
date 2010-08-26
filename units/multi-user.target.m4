@@ -22,4 +22,4 @@ Names=runlevel3.target
 )m4_dnl
 
 [Install]
-Alias=default.target m4_ifdef(`TARGET_FEDORA', runlevel2.target runlevel3.target runlevel4.target)
+Alias=default.target
