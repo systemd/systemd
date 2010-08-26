@@ -572,7 +572,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 r = unit_add_dependency_by_name_inverse(u, UNIT_AFTER, m, NULL, true);
 
                                         if (r < 0)
-                                                log_error("[%s:%u] Failed to add LSB Provides name %s: %s. Ignoring.", path, line, m, strerror(-r));
+                                                log_error("[%s:%u] Failed to add LSB Provides name %s, ignoring: %s", path, line, m, strerror(-r));
 
                                         free(m);
                                 }
@@ -606,7 +606,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         r = unit_add_dependency_by_name(u, startswith_no_case(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
 
                                         if (r < 0)
-                                                log_error("Failed to add dependency on %s, ignoring: %s", m, strerror(-r));
+                                                log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s", path, line, m, strerror(-r));
 
                                         free(m);
                                 }
