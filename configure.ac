@@ -421,6 +421,8 @@ echo "
         Gtk:                     ${have_gtk}
         tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
+        AUDIT:                   ${have_audit}
+        SELinux:                 ${have_selinux}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}
