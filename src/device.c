@@ -537,7 +537,6 @@ const UnitVTable device_vtable = {
         .no_instances = true,
         .no_snapshots = true,
         .no_isolate = true,
-        .no_alias = true,
 
         .init = device_init,
 
