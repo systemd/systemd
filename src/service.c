@@ -251,9 +251,17 @@ static int sysv_translate_facility(const char *name, char **_r) {
                 "$time",      SPECIAL_RTC_SET_TARGET,
 
                 /* Debian extensions */
+#ifdef TARGET_DEBIAN
                 "$mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+#endif
                 "$mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "$x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE
+                "$x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
+
+#ifdef TARGET_FEDORA
+                /* Fedora extensions, lacking the $ prefix */
+                "MTA",        SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "smtpdaemon", SPECIAL_MAIL_TRANSFER_AGENT_TARGET
+#endif
         };
 
         unsigned i;
