@@ -93,6 +93,8 @@ monitor_event (GIOChannel *source,
   GUdevDevice *device;
   struct udev_device *udevice;
 
+  if (client->priv->monitor == NULL)
+    goto out;
   udevice = udev_monitor_receive_device (client->priv->monitor);
   if (udevice == NULL)
     goto out;
@@ -216,17 +218,21 @@ g_udev_client_constructed (GObject *object)
               *s = '\0';
             }
 
-          udev_monitor_filter_add_match_subsystem_devtype (client->priv->monitor, subsystem, devtype);
+          if (client->priv->monitor != NULL)
+              udev_monitor_filter_add_match_subsystem_devtype (client->priv->monitor, subsystem, devtype);
 
           g_free (subsystem);
         }
 
       /* listen to events, and buffer them */
-      udev_monitor_enable_receiving (client->priv->monitor);
-
-      channel = g_io_channel_unix_new (udev_monitor_get_fd (client->priv->monitor));
-      client->priv->watch_id = g_io_add_watch (channel, G_IO_IN, monitor_event, client);
-      g_io_channel_unref (channel);
+      if (client->priv->monitor != NULL)
+        {
+          udev_monitor_enable_receiving (client->priv->monitor);
+          channel = g_io_channel_unix_new (udev_monitor_get_fd (client->priv->monitor));
+          client->priv->watch_id = g_io_add_watch (channel, G_IO_IN, monitor_event, client);
+          g_io_channel_unref (channel);
+        } else
+          client->priv->watch_id = NULL;
     }
 
   if (G_OBJECT_CLASS (g_udev_client_parent_class)->constructed != NULL)
