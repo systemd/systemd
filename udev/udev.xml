@@ -578,8 +578,9 @@
           <listitem>
             <para>The value of a sysfs attribute found at the device, where
             all keys of the rule have matched. If the matching device does not have
-            such an attribute, follow the chain of parent devices and use the value
-            of the first attribute that matches.
+            such an attribute, and a previous KERNELS, SUBSYSTEMS, DRIVERS, or
+            ATTRS test selected a parent device, use the attribute from that
+            parent device.
             If the attribute is a symlink, the last element of the symlink target is
             returned as the value.</para>
           </listitem>
