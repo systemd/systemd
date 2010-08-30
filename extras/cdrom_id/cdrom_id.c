@@ -297,14 +297,9 @@ static int feature_profiles(struct udev *udev, const unsigned char *profiles, si
 			cd_dvd_ram = 1;
 			break;
 		case 0x13:
-			info(udev, "profile 0x%02x media_dvd_rw\n", profile);
-			cd_media_dvd_rw = 1;
-			cd_media_dvd_rw_ro = 1;
-			break;
 		case 0x14:
 			info(udev, "profile 0x%02x dvd_rw\n", profile);
 			cd_dvd_rw = 1;
-			cd_media_dvd_rw_seq = 1;
 			break;
 		case 0x1B:
 			info(udev, "profile 0x%02x dvd_plus_r\n", profile);
@@ -486,10 +481,16 @@ static int cd_profiles(struct udev *udev, int fd)
 		cd_media_dvd_ram = 1;
 		break;
 	case 0x13:
-	case 0x14:
-		info(udev, "profile 0x%02x media_dvd_rw\n", cur_profile);
+		info(udev, "profile 0x%02x media_dvd_rw_ro\n", cur_profile);
 		cd_media = 1;
 		cd_media_dvd_rw = 1;
+		cd_media_dvd_rw_ro = 1;
+		break;
+	case 0x14:
+		info(udev, "profile 0x%02x media_dvd_rw_seq\n", cur_profile);
+		cd_media = 1;
+		cd_media_dvd_rw = 1;
+		cd_media_dvd_rw_seq = 1;
 		break;
 	case 0x1B:
 		info(udev, "profile 0x%02x media_dvd_plus_r\n", cur_profile);
