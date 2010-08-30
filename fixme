@@ -84,6 +84,12 @@
 
 * exec /sbin/poweroff als PID 1 und shutdown
 
+* MTA IS KAPUTT
+
+* kill-mode=cgroup muss auch die mainpid killen!
+
+* o_ndelay ausschalten für stdin/stderr/stdout auf socket
+
 External:
 
 * make sure MountOnPlug und MountAuto und SwapOnPlug is off in Fedora
