@@ -590,7 +590,7 @@ static int cd_media_info(struct udev *udev, int fd)
 	 * always "complete", DVD-RAM are "other" or "complete" if the disc is
 	 * write protected; we need to check the contents if it is blank */
 	if ((cd_media_dvd_rw_ro || cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) && (header[2] & 3) > 1) {
-		unsigned char buffer[17 * 2048];
+		unsigned char buffer[32 * 2048];
 		unsigned char result, len;
 		int block, offset;
 
@@ -661,7 +661,7 @@ static int cd_media_info(struct udev *udev, int fd)
 		scsi_cmd_init(udev, &sc, buffer, sizeof(buffer));
 		scsi_cmd_set(udev, &sc, 0, 0x28);
 		scsi_cmd_set(udev, &sc, 5, 0);
-		scsi_cmd_set(udev, &sc, 8, 17);
+		scsi_cmd_set(udev, &sc, 8, 32);
 		scsi_cmd_set(udev, &sc, 9, 0);
 		err = scsi_cmd_run(udev, &sc, fd, buffer, sizeof(buffer));
 		if ((err != 0)) {
