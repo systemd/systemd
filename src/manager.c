@@ -1226,7 +1226,8 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
         /* Second step: Try not to stop any running services if
          * we don't have to. Don't try to reverse running
          * jobs if we don't have to. */
-        transaction_minimize_impact(m);
+        if (mode != JOB_ISOLATE)
+                transaction_minimize_impact(m);
 
         /* Third step: Drop redundant jobs */
         transaction_drop_redundant(m);

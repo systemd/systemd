@@ -80,13 +80,9 @@ v9:
 
 * kill-mode=cgroup muss auch die mainpid killen! https://bugzilla.redhat.com/show_bug.cgi?id=626477
 
-* o_ndelay ausschalten für stdin/stderr/stdout auf socket
-
 * follow LSB exit codes spec in "systemctl start"
 
 * oom_score_adj
-
-* fix isolate as runlevel  https://bugzilla.redhat.com/show_bug.cgi?id=627014
 
 * rename failed/maintenance https://bugzilla.redhat.com/show_bug.cgi?id=614619
 
