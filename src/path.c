@@ -36,7 +36,7 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
         [PATH_WAITING] = UNIT_ACTIVE,
         [PATH_RUNNING] = UNIT_ACTIVE,
-        [PATH_MAINTENANCE] = UNIT_MAINTENANCE
+        [PATH_FAILED] = UNIT_FAILED
 };
 
 static void path_done(Unit *u) {
@@ -301,7 +301,7 @@ static void path_enter_dead(Path *p, bool success) {
         if (!success)
                 p->failure = true;
 
-        path_set_state(p, p->failure ? PATH_MAINTENANCE : PATH_DEAD);
+        path_set_state(p, p->failure ? PATH_FAILED : PATH_DEAD);
 }
 
 static void path_enter_running(Path *p) {
@@ -383,7 +383,7 @@ static int path_start(Unit *u) {
         Path *p = PATH(u);
 
         assert(p);
-        assert(p->state == PATH_DEAD || p->state == PATH_MAINTENANCE);
+        assert(p->state == PATH_DEAD || p->state == PATH_FAILED);
 
         if (p->unit->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
@@ -556,12 +556,12 @@ fail:
         log_error("Failed find path unit: %s", strerror(-r));
 }
 
-static void path_reset_maintenance(Unit *u) {
+static void path_reset_failed(Unit *u) {
         Path *p = PATH(u);
 
         assert(p);
 
-        if (p->state == PATH_MAINTENANCE)
+        if (p->state == PATH_FAILED)
                 path_set_state(p, PATH_DEAD);
 
         p->failure = false;
@@ -571,7 +571,7 @@ static const char* const path_state_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = "dead",
         [PATH_WAITING] = "waiting",
         [PATH_RUNNING] = "running",
-        [PATH_MAINTENANCE] = "maintenance"
+        [PATH_FAILED] = "failed"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);
@@ -605,7 +605,7 @@ const UnitVTable path_vtable = {
 
         .fd_event = path_fd_event,
 
-        .reset_maintenance = path_reset_maintenance,
+        .reset_failed = path_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Path",
         .bus_message_handler = bus_path_message_handler

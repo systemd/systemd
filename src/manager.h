@@ -255,7 +255,7 @@ int manager_reload(Manager *m);
 
 bool manager_is_booting_or_shutting_down(Manager *m);
 
-void manager_reset_maintenance(Manager *m);
+void manager_reset_failed(Manager *m);
 
 void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success);
 

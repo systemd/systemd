@@ -38,7 +38,7 @@
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,
         [SWAP_ACTIVE] = UNIT_ACTIVE,
-        [SWAP_MAINTENANCE] = UNIT_MAINTENANCE
+        [SWAP_FAILED] = UNIT_FAILED
 };
 
 static void swap_init(Unit *u) {
@@ -428,7 +428,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 static void swap_enter_dead(Swap *s, bool success) {
         assert(s);
 
-        swap_set_state(s, success ? SWAP_DEAD : SWAP_MAINTENANCE);
+        swap_set_state(s, success ? SWAP_DEAD : SWAP_FAILED);
 }
 
 static int swap_start(Unit *u) {
@@ -437,7 +437,7 @@ static int swap_start(Unit *u) {
         int r;
 
         assert(s);
-        assert(s->state == SWAP_DEAD || s->state == SWAP_MAINTENANCE);
+        assert(s->state == SWAP_DEAD || s->state == SWAP_FAILED);
 
         if (s->from_fragment)
                 priority = s->parameters_fragment.priority;
@@ -584,19 +584,19 @@ static int swap_enumerate(Manager *m) {
         return r;
 }
 
-static void swap_reset_maintenance(Unit *u) {
+static void swap_reset_failed(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);
 
-        if (s->state == SWAP_MAINTENANCE)
+        if (s->state == SWAP_FAILED)
                 swap_set_state(s, SWAP_DEAD);
 }
 
 static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = "dead",
         [SWAP_ACTIVE] = "active",
-        [SWAP_MAINTENANCE] = "maintenance"
+        [SWAP_FAILED] = "failed"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);
@@ -631,7 +631,7 @@ const UnitVTable swap_vtable = {
         .bus_message_handler = bus_swap_message_handler,
         .bus_invalidating_properties =  bus_swap_invalidating_properties,
 
-        .reset_maintenance = swap_reset_maintenance,
+        .reset_failed = swap_reset_failed,
 
         .enumerate = swap_enumerate,
         .shutdown = swap_shutdown

@@ -1397,12 +1397,12 @@ static int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
-        if (unit->meta.load_state != UNIT_LOADED && unit->meta.load_state != UNIT_FAILED) {
+        if (unit->meta.load_state != UNIT_LOADED && unit->meta.load_state != UNIT_ERROR) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->meta.id);
                 return -EINVAL;
         }
 
-        if (type != JOB_STOP && unit->meta.load_state == UNIT_FAILED) {
+        if (type != JOB_STOP && unit->meta.load_state == UNIT_ERROR) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load: %s. You might find more information in the logs.",
                                unit->meta.id,
                                strerror(-unit->meta.load_error));
@@ -1496,7 +1496,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                         continue;
 
                 /* No need to stop inactive jobs */
-                if (UNIT_IS_INACTIVE_OR_MAINTENANCE(unit_active_state(u)))
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
                         continue;
 
                 /* Is there already something listed for this? */
@@ -2552,14 +2552,14 @@ bool manager_is_booting_or_shutting_down(Manager *m) {
         return false;
 }
 
-void manager_reset_maintenance(Manager *m) {
+void manager_reset_failed(Manager *m) {
         Unit *u;
         Iterator i;
 
         assert(m);
 
         HASHMAP_FOREACH(u, m->units, i)
-                unit_reset_maintenance(u);
+                unit_reset_failed(u);
 }
 
 int manager_set_console(Manager *m, const char *console) {

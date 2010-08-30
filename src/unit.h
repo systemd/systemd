@@ -61,7 +61,7 @@ enum UnitType {
 enum UnitLoadState {
         UNIT_STUB,
         UNIT_LOADED,
-        UNIT_FAILED,
+        UNIT_ERROR,
         UNIT_MERGED,
         _UNIT_LOAD_STATE_MAX,
         _UNIT_LOAD_STATE_INVALID = -1
@@ -71,7 +71,7 @@ enum UnitActiveState {
         UNIT_ACTIVE,
         UNIT_RELOADING,
         UNIT_INACTIVE,
-        UNIT_MAINTENANCE,
+        UNIT_FAILED,
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
         _UNIT_ACTIVE_STATE_MAX,
@@ -87,11 +87,11 @@ static inline bool UNIT_IS_ACTIVE_OR_ACTIVATING(UnitActiveState t) {
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
-        return t == UNIT_INACTIVE || t == UNIT_MAINTENANCE || t == UNIT_DEACTIVATING;
+        return t == UNIT_INACTIVE || t == UNIT_FAILED || t == UNIT_DEACTIVATING;
 }
 
-static inline bool UNIT_IS_INACTIVE_OR_MAINTENANCE(UnitActiveState t) {
-        return t == UNIT_INACTIVE || t == UNIT_MAINTENANCE;
+static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
+        return t == UNIT_INACTIVE || t == UNIT_FAILED;
 }
 
 enum UnitDependency {
@@ -304,8 +304,8 @@ struct UnitVTable {
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
-        /* Reset maintenance state if we are in maintainance state */
-        void (*reset_maintenance)(Unit *u);
+        /* Reset failed state if we are in failed state */
+        void (*reset_failed)(Unit *u);
 
         /* Called whenever any of the cgroups this unit watches for
          * ran empty */
@@ -495,7 +495,7 @@ void unit_status_printf(Unit *u, const char *format, ...);
 
 bool unit_need_daemon_reload(Unit *u);
 
-void unit_reset_maintenance(Unit *u);
+void unit_reset_failed(Unit *u);
 
 Unit *unit_following(Unit *u);
 

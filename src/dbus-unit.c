@@ -367,9 +367,9 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ReloadOrTryRestart")) {
                 reload_if_possible = true;
                 job_type = JOB_TRY_RESTART;
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ResetMaintenance")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ResetFailed")) {
 
-                unit_reset_maintenance(u);
+                unit_reset_failed(u);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;

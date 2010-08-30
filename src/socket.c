@@ -54,7 +54,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
         [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_MAINTENANCE] = UNIT_MAINTENANCE
+        [SOCKET_FAILED] = UNIT_FAILED
 };
 
 static void socket_init(Unit *u) {
@@ -964,7 +964,7 @@ static void socket_enter_dead(Socket *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        socket_set_state(s, s->failure ? SOCKET_MAINTENANCE : SOCKET_DEAD);
+        socket_set_state(s, s->failure ? SOCKET_FAILED : SOCKET_DEAD);
 }
 
 static void socket_enter_signal(Socket *s, SocketState state, bool success);
@@ -1295,12 +1295,12 @@ static int socket_start(Unit *u) {
                 /* If the service is alredy actvie we cannot start the
                  * socket */
                 if (s->service->state != SERVICE_DEAD &&
-                    s->service->state != SERVICE_MAINTENANCE &&
+                    s->service->state != SERVICE_FAILED &&
                     s->service->state != SERVICE_AUTO_RESTART)
                         return -EBUSY;
         }
 
-        assert(s->state == SOCKET_DEAD || s->state == SOCKET_MAINTENANCE);
+        assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);
 
         s->failure = false;
         socket_enter_start_pre(s);
@@ -1650,7 +1650,7 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_FINAL_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering maintenance mode.", u->meta.id);
+                log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->meta.id);
                 socket_enter_dead(s, false);
                 break;
 
@@ -1719,12 +1719,12 @@ void socket_connection_unref(Socket *s) {
         log_debug("%s: One connection closed, %u left.", s->meta.id, s->n_connections);
 }
 
-static void socket_reset_maintenance(Unit *u) {
+static void socket_reset_failed(Unit *u) {
         Socket *s = SOCKET(u);
 
         assert(s);
 
-        if (s->state == SOCKET_MAINTENANCE)
+        if (s->state == SOCKET_FAILED)
                 socket_set_state(s, SOCKET_DEAD);
 
         s->failure = false;
@@ -1742,7 +1742,7 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = "stop-post",
         [SOCKET_FINAL_SIGTERM] = "final-sigterm",
         [SOCKET_FINAL_SIGKILL] = "final-sigkill",
-        [SOCKET_MAINTENANCE] = "maintenance"
+        [SOCKET_FAILED] = "failed"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);
@@ -1782,7 +1782,7 @@ const UnitVTable socket_vtable = {
         .sigchld_event = socket_sigchld_event,
         .timer_event = socket_timer_event,
 
-        .reset_maintenance = socket_reset_maintenance,
+        .reset_failed = socket_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Socket",
         .bus_message_handler = bus_socket_message_handler,

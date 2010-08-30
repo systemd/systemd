@@ -41,7 +41,7 @@ typedef enum ServiceState {
         SERVICE_STOP_POST,
         SERVICE_FINAL_SIGTERM,     /* In case the STOP_POST executable hangs, we shoot that down, too */
         SERVICE_FINAL_SIGKILL,
-        SERVICE_MAINTENANCE,
+        SERVICE_FAILED,
         SERVICE_AUTO_RESTART,
         _SERVICE_STATE_MAX,
         _SERVICE_STATE_INVALID = -1

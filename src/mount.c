@@ -50,7 +50,7 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
-        [MOUNT_MAINTENANCE] = UNIT_MAINTENANCE
+        [MOUNT_FAILED] = UNIT_FAILED
 };
 
 static void mount_init(Unit *u) {
@@ -468,7 +468,7 @@ static void mount_set_state(Mount *m, MountState state) {
                  state == MOUNT_REMOUNTING_SIGKILL ||
                  state == MOUNT_UNMOUNTING_SIGTERM ||
                  state == MOUNT_UNMOUNTING_SIGKILL ||
-                 state == MOUNT_MAINTENANCE)
+                 state == MOUNT_FAILED)
                 mount_notify_automount(m, -ENODEV);
 
         if (state != old_state)
@@ -608,7 +608,7 @@ static void mount_enter_dead(Mount *m, bool success) {
         if (!success)
                 m->failure = true;
 
-        mount_set_state(m, m->failure ? MOUNT_MAINTENANCE : MOUNT_DEAD);
+        mount_set_state(m, m->failure ? MOUNT_FAILED : MOUNT_DEAD);
 }
 
 static void mount_enter_mounted(Mount *m, bool success) {
@@ -839,7 +839,7 @@ static int mount_start(Unit *u) {
             m->state == MOUNT_MOUNTING_SIGKILL)
                 return 0;
 
-        assert(m->state == MOUNT_DEAD || m->state == MOUNT_MAINTENANCE);
+        assert(m->state == MOUNT_DEAD || m->state == MOUNT_FAILED);
 
         m->failure = false;
         mount_enter_mounting(m);
@@ -1507,7 +1507,7 @@ void mount_fd_event(Manager *m, int events) {
                         switch (mount->state) {
 
                         case MOUNT_DEAD:
-                        case MOUNT_MAINTENANCE:
+                        case MOUNT_FAILED:
                                 mount_enter_mounted(mount, true);
                                 break;
 
@@ -1531,12 +1531,12 @@ void mount_fd_event(Manager *m, int events) {
         }
 }
 
-static void mount_reset_maintenance(Unit *u) {
+static void mount_reset_failed(Unit *u) {
         Mount *m = MOUNT(u);
 
         assert(m);
 
-        if (m->state == MOUNT_MAINTENANCE)
+        if (m->state == MOUNT_FAILED)
                 mount_set_state(m, MOUNT_DEAD);
 
         m->failure = false;
@@ -1555,7 +1555,7 @@ static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_REMOUNTING_SIGKILL] = "remounting-sigkill",
         [MOUNT_UNMOUNTING_SIGTERM] = "unmounting-sigterm",
         [MOUNT_UNMOUNTING_SIGKILL] = "unmounting-sigkill",
-        [MOUNT_MAINTENANCE] = "maintenance"
+        [MOUNT_FAILED] = "failed"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_state, MountState);
@@ -1599,7 +1599,7 @@ const UnitVTable mount_vtable = {
         .sigchld_event = mount_sigchld_event,
         .timer_event = mount_timer_event,
 
-        .reset_maintenance = mount_reset_maintenance,
+        .reset_failed = mount_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Mount",
         .bus_message_handler = bus_mount_message_handler,

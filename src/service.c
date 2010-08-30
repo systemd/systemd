@@ -95,7 +95,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_STOP_POST] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SERVICE_MAINTENANCE] = UNIT_MAINTENANCE,
+        [SERVICE_FAILED] = UNIT_FAILED,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING
 };
 
@@ -1197,7 +1197,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_STOP_POST ||
             state == SERVICE_FINAL_SIGTERM ||
             state == SERVICE_FINAL_SIGKILL ||
-            state == SERVICE_MAINTENANCE ||
+            state == SERVICE_FAILED ||
             state == SERVICE_AUTO_RESTART)
                 service_notify_sockets_dead(s);
 
@@ -1521,7 +1521,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else
-                service_set_state(s, s->failure ? SERVICE_MAINTENANCE : SERVICE_DEAD);
+                service_set_state(s, s->failure ? SERVICE_FAILED : SERVICE_DEAD);
 
         s->forbid_restart = false;
 
@@ -1966,7 +1966,7 @@ static int service_start(Unit *u) {
             s->state == SERVICE_START_POST)
                 return 0;
 
-        assert(s->state == SERVICE_DEAD || s->state == SERVICE_MAINTENANCE || s->state == SERVICE_AUTO_RESTART);
+        assert(s->state == SERVICE_DEAD || s->state == SERVICE_FAILED || s->state == SERVICE_AUTO_RESTART);
 
         /* Make sure we don't enter a busy loop of some kind. */
         if (!ratelimit_test(&s->ratelimit)) {
@@ -2520,7 +2520,7 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_FINAL_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering maintenance mode.", u->meta.id);
+                log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->meta.id);
                 service_enter_dead(s, false, true);
                 break;
 
@@ -2853,12 +2853,12 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
         return 0;
 }
 
-static void service_reset_maintenance(Unit *u) {
+static void service_reset_failed(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
 
-        if (s->state == SERVICE_MAINTENANCE)
+        if (s->state == SERVICE_FAILED)
                 service_set_state(s, SERVICE_DEAD);
 
         s->failure = false;
@@ -2878,7 +2878,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_STOP_POST] = "stop-post",
         [SERVICE_FINAL_SIGTERM] = "final-sigterm",
         [SERVICE_FINAL_SIGKILL] = "final-sigkill",
-        [SERVICE_MAINTENANCE] = "maintenance",
+        [SERVICE_FAILED] = "failed",
         [SERVICE_AUTO_RESTART] = "auto-restart",
 };
 
@@ -2951,7 +2951,7 @@ const UnitVTable service_vtable = {
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,
 
-        .reset_maintenance = service_reset_maintenance,
+        .reset_failed = service_reset_failed,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
         .notify_message = service_notify_message,

@@ -388,7 +388,7 @@ UnitActiveState unit_active_state(Unit *u) {
 
         /* After a reload it might happen that a unit is not correctly
          * loaded but still has a process around. That's why we won't
-         * shortcut failed loading to UNIT_INACTIVE_MAINTENANCE. */
+         * shortcut failed loading to UNIT_INACTIVE_FAILED. */
 
         return UNIT_VTABLE(u)->active_state(u);
 }
@@ -479,13 +479,13 @@ int unit_merge(Unit *u, Unit *other) {
                 return -EINVAL;
 
         if (other->meta.load_state != UNIT_STUB &&
-            other->meta.load_state != UNIT_FAILED)
+            other->meta.load_state != UNIT_ERROR)
                 return -EEXIST;
 
         if (other->meta.job)
                 return -EEXIST;
 
-        if (!UNIT_IS_INACTIVE_OR_MAINTENANCE(unit_active_state(other)))
+        if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
                 return -EEXIST;
 
         /* Merge names */
@@ -672,7 +672,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tMerged into: %s\n",
                         prefix, u->meta.merged_into->meta.id);
-        else if (u->meta.load_state == UNIT_FAILED)
+        else if (u->meta.load_state == UNIT_ERROR)
                 fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror(-u->meta.load_error));
 
 
@@ -758,7 +758,7 @@ int unit_load(Unit *u) {
         return 0;
 
 fail:
-        u->meta.load_state = UNIT_FAILED;
+        u->meta.load_state = UNIT_ERROR;
         u->meta.load_error = r;
         unit_add_to_dbus_queue(u);
 
@@ -830,7 +830,7 @@ int unit_stop(Unit *u) {
         assert(u);
 
         state = unit_active_state(u);
-        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(state))
+        if (UNIT_IS_INACTIVE_OR_FAILED(state))
                 return -EALREADY;
 
         if (!UNIT_VTABLE(u)->stop)
@@ -995,9 +995,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
         dual_timestamp_get(&ts);
 
-        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(os) && !UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+        if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
                 u->meta.inactive_exit_timestamp = ts;
-        else if (!UNIT_IS_INACTIVE_OR_MAINTENANCE(os) && UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+        else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_INACTIVE_OR_FAILED(ns))
                 u->meta.inactive_enter_timestamp = ts;
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
@@ -1005,7 +1005,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
                 u->meta.active_exit_timestamp = ts;
 
-        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                 cgroup_bonding_trim_list(u->meta.cgroup_bondings, true);
 
         timer_unit_notify(u, ns);
@@ -1035,8 +1035,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                                 unexpected = true;
 
-                                if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
-                                        job_finish_and_invalidate(u->meta.job, ns != UNIT_MAINTENANCE);
+                                if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                                        job_finish_and_invalidate(u->meta.job, ns != UNIT_FAILED);
                         }
 
                         break;
@@ -1050,8 +1050,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                                 else if (ns != UNIT_ACTIVATING && ns != UNIT_RELOADING) {
                                         unexpected = true;
 
-                                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
-                                                job_finish_and_invalidate(u->meta.job, ns != UNIT_MAINTENANCE);
+                                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                                                job_finish_and_invalidate(u->meta.job, ns != UNIT_FAILED);
                                 }
                         }
 
@@ -1061,7 +1061,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 case JOB_RESTART:
                 case JOB_TRY_RESTART:
 
-                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                                 job_finish_and_invalidate(u->meta.job, true);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
@@ -1090,14 +1090,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         retroactively_stop_dependencies(u);
         }
 
-        if (ns != os && ns == UNIT_MAINTENANCE) {
+        if (ns != os && ns == UNIT_FAILED) {
                 Iterator i;
                 Unit *other;
 
                 SET_FOREACH(other, u->meta.dependencies[UNIT_ON_FAILURE], i)
                         manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
 
-                log_notice("Unit %s entered maintenance state.", u->meta.id);
+                log_notice("Unit %s entered failed state.", u->meta.id);
         }
 
         /* Some names are special */
@@ -1133,8 +1133,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                  * asynchronous notification for it anyway. */
 
                 if (u->meta.type == UNIT_SERVICE &&
-                    UNIT_IS_INACTIVE_OR_MAINTENANCE(ns) &&
-                    !UNIT_IS_INACTIVE_OR_MAINTENANCE(os)) {
+                    UNIT_IS_INACTIVE_OR_FAILED(ns) &&
+                    !UNIT_IS_INACTIVE_OR_FAILED(os)) {
 
                         /* Hmm, if there was no start record written
                          * write it now, so that we always have a nice
@@ -2109,11 +2109,11 @@ bool unit_need_daemon_reload(Unit *u) {
                 timespec_load(&st.st_mtim) != u->meta.fragment_mtime;
 }
 
-void unit_reset_maintenance(Unit *u) {
+void unit_reset_failed(Unit *u) {
         assert(u);
 
-        if (UNIT_VTABLE(u)->reset_maintenance)
-                UNIT_VTABLE(u)->reset_maintenance(u);
+        if (UNIT_VTABLE(u)->reset_failed)
+                UNIT_VTABLE(u)->reset_failed(u);
 }
 
 Unit *unit_following(Unit *u) {
@@ -2128,7 +2128,7 @@ Unit *unit_following(Unit *u) {
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
-        [UNIT_FAILED] = "failed",
+        [UNIT_ERROR] = "error",
         [UNIT_MERGED] = "merged"
 };
 
@@ -2138,7 +2138,7 @@ static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE] = "active",
         [UNIT_RELOADING] = "reloading",
         [UNIT_INACTIVE] = "inactive",
-        [UNIT_MAINTENANCE] = "maintenance",
+        [UNIT_FAILED] = "failed",
         [UNIT_ACTIVATING] = "activating",
         [UNIT_DEACTIVATING] = "deactivating"
 };

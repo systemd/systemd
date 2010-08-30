@@ -76,7 +76,7 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"ResetMaintenanceUnit\">\n"                    \
+        "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
@@ -84,7 +84,7 @@
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
         "  <method name=\"ClearJobs\"/>\n"                              \
-        "  <method name=\"ResetMaintenance\"/>\n"                       \
+        "  <method name=\"ResetFailed\"/>\n"                            \
         "  <method name=\"ListUnits\">\n"                               \
         "   <arg name=\"units\" type=\"a(ssssssouso)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
@@ -403,14 +403,14 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetMaintenance")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetFailed")) {
 
-                manager_reset_maintenance(m);
+                manager_reset_failed(m);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetMaintenanceUnit")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetFailedUnit")) {
                 const char *name;
                 Unit *u;
 
@@ -426,7 +426,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         return bus_send_error_reply(m, connection, message, &error, -ENOENT);
                 }
 
-                unit_reset_maintenance(u);
+                unit_reset_failed(u);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;

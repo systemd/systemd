@@ -327,7 +327,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                         int a = 0, b = 0;
                         const char *on, *off;
 
-                        if (streq(u->active_state, "maintenance")) {
+                        if (streq(u->active_state, "failed")) {
                                 on = ansi_highlight(true);
                                 off = ansi_highlight(false);
                         } else
@@ -1557,7 +1557,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
 
-        if (streq_ptr(i->active_state, "maintenance")) {
+        if (streq_ptr(i->active_state, "failed")) {
                 on = ansi_highlight(true);
                 off = ansi_highlight(false);
         } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
@@ -1581,7 +1581,7 @@ static void print_status_info(UnitStatusInfo *i) {
         timestamp = (streq_ptr(i->active_state, "active")      ||
                      streq_ptr(i->active_state, "reloading"))   ? i->active_enter_timestamp :
                     (streq_ptr(i->active_state, "inactive")    ||
-                     streq_ptr(i->active_state, "maintenance")) ? i->inactive_enter_timestamp :
+                     streq_ptr(i->active_state, "failed"))      ? i->inactive_enter_timestamp :
                     streq_ptr(i->active_state, "activating")    ? i->inactive_exit_timestamp :
                                                                   i->active_exit_timestamp;
 
@@ -2864,7 +2864,7 @@ static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
                         streq(args[0], "clear-jobs")        ||
                         streq(args[0], "cancel")            ? "ClearJobs" :
                         streq(args[0], "daemon-reexec")     ? "Reexecute" :
-                        streq(args[0], "reset-maintenance") ? "ResetMaintenance" :
+                        streq(args[0], "reset-failed")      ? "ResetFailed" :
                         streq(args[0], "daemon-exit")       ? "Exit" :
                                                               "Reload";
         }
@@ -2906,7 +2906,7 @@ finish:
         return r;
 }
 
-static int reset_maintenance(DBusConnection *bus, char **args, unsigned n) {
+static int reset_failed(DBusConnection *bus, char **args, unsigned n) {
         DBusMessage *m = NULL, *reply = NULL;
         unsigned i;
         int r;
@@ -2924,7 +2924,7 @@ static int reset_maintenance(DBusConnection *bus, char **args, unsigned n) {
                                       "org.freedesktop.systemd1",
                                       "/org/freedesktop/systemd1",
                                       "org.freedesktop.systemd1.Manager",
-                                      "ResetMaintenanceUnit"))) {
+                                      "ResetFailedUnit"))) {
                         log_error("Could not allocate message.");
                         r = -ENOMEM;
                         goto finish;
@@ -3834,8 +3834,8 @@ static int systemctl_help(void) {
                "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
-               "  reset-maintenance [NAME...]     Reset maintenance state for all, one,\n"
-               "                                  or more units\n"
+               "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
+               "                                  units\n"
                "  enable [NAME...]                Enable one or more unit files\n"
                "  disable [NAME...]               Disable one or more unit files\n"
                "  is-enabled [NAME...]            Check whether unit files are enabled\n"
@@ -4677,7 +4677,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "default",               EQUAL, 1, start_special     },
                 { "rescue",                EQUAL, 1, start_special     },
                 { "emergency",             EQUAL, 1, start_special     },
-                { "reset-maintenance",     MORE,  1, reset_maintenance },
+                { "reset-failed",          MORE,  1, reset_failed      },
                 { "enable",                MORE,  2, enable_unit       },
                 { "disable",               MORE,  2, enable_unit       },
                 { "is-enabled",            MORE,  2, enable_unit       }

@@ -33,7 +33,7 @@ static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_WAITING] = UNIT_ACTIVE,
         [TIMER_RUNNING] = UNIT_ACTIVE,
         [TIMER_ELAPSED] = UNIT_ACTIVE,
-        [TIMER_MAINTENANCE] = UNIT_MAINTENANCE
+        [TIMER_FAILED] = UNIT_FAILED
 };
 
 static void timer_init(Unit *u) {
@@ -178,7 +178,7 @@ static void timer_enter_dead(Timer *t, bool success) {
         if (!success)
                 t->failure = true;
 
-        timer_set_state(t, t->failure ? TIMER_MAINTENANCE : TIMER_DEAD);
+        timer_set_state(t, t->failure ? TIMER_FAILED : TIMER_DEAD);
 }
 
 static void timer_enter_waiting(Timer *t, bool initial) {
@@ -293,7 +293,7 @@ static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
 
         assert(t);
-        assert(t->state == TIMER_DEAD || t->state == TIMER_MAINTENANCE);
+        assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
 
         if (t->unit->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
@@ -421,7 +421,7 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
 
                 case TIMER_RUNNING:
 
-                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(new_state)) {
+                        if (UNIT_IS_INACTIVE_OR_FAILED(new_state)) {
                                 log_debug("%s got notified about unit deactivation.", t->meta.id);
                                 timer_enter_waiting(t, false);
                         }
@@ -429,7 +429,7 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
                         break;
 
                 case TIMER_DEAD:
-                case TIMER_MAINTENANCE:
+                case TIMER_FAILED:
                         ;
 
                 default:
@@ -443,12 +443,12 @@ fail:
         log_error("Failed find timer unit: %s", strerror(-r));
 }
 
-static void timer_reset_maintenance(Unit *u) {
+static void timer_reset_failed(Unit *u) {
         Timer *t = TIMER(u);
 
         assert(t);
 
-        if (t->state == TIMER_MAINTENANCE)
+        if (t->state == TIMER_FAILED)
                 timer_set_state(t, TIMER_DEAD);
 
         t->failure = false;
@@ -459,7 +459,7 @@ static const char* const timer_state_table[_TIMER_STATE_MAX] = {
         [TIMER_WAITING] = "waiting",
         [TIMER_RUNNING] = "running",
         [TIMER_ELAPSED] = "elapsed",
-        [TIMER_MAINTENANCE] = "maintenance"
+        [TIMER_FAILED] = "failed"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState);
@@ -496,7 +496,7 @@ const UnitVTable timer_vtable = {
 
         .timer_event = timer_timer_event,
 
-        .reset_maintenance = timer_reset_maintenance,
+        .reset_failed = timer_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Timer",
         .bus_message_handler = bus_timer_message_handler,

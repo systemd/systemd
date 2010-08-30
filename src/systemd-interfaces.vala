@@ -62,7 +62,7 @@ public interface Manager : DBus.Object {
         public abstract ObjectPath reload_or_restart_unit(string name, string mode = "replace") throws DBus.Error;
         public abstract ObjectPath reload_or_try_restart_unit(string name, string mode = "replace") throws DBus.Error;
 
-        public abstract void reset_maintenance_unit(string name = "") throws DBus.Error;
+        public abstract void reset_failed_unit(string name = "") throws DBus.Error;
 
         public abstract void clear_jobs() throws DBus.Error;
 
@@ -140,7 +140,7 @@ public interface Unit : DBus.Object {
         public abstract ObjectPath reload_or_restart(string mode = "replace") throws DBus.Error;
         public abstract ObjectPath reload_or_try_restart(string mode = "replace") throws DBus.Error;
 
-        public abstract void reset_maintenance() throws DBus.Error;
+        public abstract void reset_failed() throws DBus.Error;
 }
 
 [DBus (name = "org.freedesktop.systemd1.Job")]
