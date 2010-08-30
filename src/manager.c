@@ -112,6 +112,8 @@ static int manager_setup_notify(Manager *m) {
         if (!(m->notify_socket = strdup(sa.un.sun_path+1)))
                 return -ENOMEM;
 
+        log_debug("Using notification socket %s", m->notify_socket);
+
         return 0;
 }
 
@@ -447,6 +449,7 @@ void manager_free(Manager *m) {
 #endif
 
         free(m->notify_socket);
+        free(m->console);
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
@@ -2551,6 +2554,22 @@ void manager_reset_maintenance(Manager *m) {
 
         HASHMAP_FOREACH(u, m->units, i)
                 unit_reset_maintenance(u);
+}
+
+int manager_set_console(Manager *m, const char *console) {
+        char *c;
+
+        assert(m);
+
+        if (!(c = strdup(console)))
+                return -ENOMEM;
+
+        free(m->console);
+        m->console = c;
+
+        log_debug("Using kernel console %s", c);
+
+        return 0;
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

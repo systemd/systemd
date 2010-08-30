@@ -66,6 +66,7 @@ static bool arg_show_status = true;
 static bool arg_sysv_console = true;
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
+static char *arg_console = NULL;
 
 static FILE* serialization = NULL;
 
@@ -334,6 +335,26 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n");
+
+        } else if (startswith(word, "console=")) {
+                const char *k;
+                size_t l;
+                char *w = NULL;
+
+                k = word + 8;
+                l = strcspn(k, ",");
+
+                /* Ignore the console setting if set to a VT */
+                if (l < 4 ||
+                    !startswith(k, "tty") ||
+                    k[3+strspn(k+3, "0123456789")] != 0) {
+
+                        if (!(w = strndup(k, l)))
+                                return -ENOMEM;
+                }
+
+                free(arg_console);
+                arg_console = w;
 
         } else if (streq(word, "quiet")) {
                 arg_show_status = false;
@@ -993,6 +1014,9 @@ int main(int argc, char *argv[]) {
         m->mount_auto = arg_mount_auto;
         m->swap_auto = arg_swap_auto;
 
+        if (arg_console)
+                manager_set_console(m, arg_console);
+
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
 
@@ -1090,8 +1114,11 @@ finish:
                 manager_free(m);
 
         free(arg_default_unit);
+        free(arg_console);
 
         dbus_shutdown();
+
+        label_finish();
 
         if (reexecute) {
                 const char *args[15];
@@ -1156,8 +1183,6 @@ finish:
 
         if (getpid() == 1)
                 freeze();
-
-        label_finish();
 
         return retval;
 }

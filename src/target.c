@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include "unit.h"
 #include "target.h"
@@ -28,6 +29,7 @@
 #include "log.h"
 #include "dbus-target.h"
 #include "special.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD] = UNIT_INACTIVE,
@@ -76,6 +78,46 @@ static int target_add_default_dependencies(Target *t) {
         return 0;
 }
 
+static int target_add_getty_dependencies(Target *t) {
+        char *n;
+        int r;
+
+        assert(t);
+
+        if (!unit_has_name(UNIT(t), SPECIAL_GETTY_TARGET))
+                return 0;
+
+        /* Automatically add in a serial getty on the kernel
+         * console */
+        if (t->meta.manager->console) {
+                log_debug("Automatically adding serial getty for %s", t->meta.manager->console);
+                if (!(n = unit_name_replace_instance(SPECIAL_SERIAL_GETTY_SERVICE, t->meta.manager->console)))
+                        return -ENOMEM;
+
+                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_WANTS, n, NULL, true);
+                free(n);
+
+                if (r < 0)
+                        return r;
+        }
+
+        /* Automatically add in a serial getty on the first
+         * virtualizer console */
+        if (access("/sys/class/tty/hvc0", F_OK) == 0) {
+                log_debug("Automatic adding serial getty for hvc0");
+                if (!(n = unit_name_replace_instance(SPECIAL_SERIAL_GETTY_SERVICE, "hvc0")))
+                        return -ENOMEM;
+
+                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_WANTS, n, NULL, true);
+                free(n);
+
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int target_load(Unit *u) {
         Target *t = TARGET(u);
         int r;
@@ -90,6 +132,9 @@ static int target_load(Unit *u) {
                 if (u->meta.default_dependencies)
                         if ((r = target_add_default_dependencies(t)) < 0)
                                 return r;
+
+                if ((r = target_add_getty_dependencies(t)) < 0)
+                        return r;
         }
 
         return 0;

@@ -59,6 +59,8 @@
 #define SPECIAL_POWEROFF_TARGET "poweroff.target"
 #define SPECIAL_REBOOT_TARGET "reboot.target"
 #define SPECIAL_DBUS_SERVICE "dbus.service"
+#define SPECIAL_GETTY_TARGET "getty.target"
+#define SPECIAL_SERIAL_GETTY_SERVICE "serial-getty@.service"
 
 #ifndef SPECIAL_SYSLOG_SERVICE
 #define SPECIAL_SYSLOG_SERVICE "syslog.service"

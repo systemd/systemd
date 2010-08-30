@@ -140,6 +140,8 @@ struct Manager {
 
         dual_timestamp startup_timestamp;
 
+        char *console;
+
         /* Data specific to the device subsystem */
         struct udev* udev;
         struct udev_monitor* udev_monitor;
@@ -236,6 +238,8 @@ void manager_clear_jobs(Manager *m);
 unsigned manager_dispatch_load_queue(Manager *m);
 unsigned manager_dispatch_run_queue(Manager *m);
 unsigned manager_dispatch_dbus_queue(Manager *m);
+
+int manager_set_console(Manager *m, const char *console);
 
 int manager_loop(Manager *m);
 
