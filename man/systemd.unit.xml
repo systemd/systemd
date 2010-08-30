@@ -418,8 +418,9 @@
 
                                 <listitem><para>Lists one or more
                                 units that are activated when this
-                                unit fails (i.e. enters maintenance
-                                state).</para></listitem>
+                                unit enters the
+                                '<literal>failed</literal>'
+                                state.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -552,22 +553,23 @@
                                 time. If this time limit is reached
                                 the job will be cancelled, the unit
                                 however will not change state or even
-                                enter maintenance mode. This value
-                                defaults to 0 (job timeouts disabled),
-                                except for device units. NB: this
-                                timeout is independent from any
-                                unit-specific timeout (for example,
-                                the timeout set with
+                                enter the '<literal>failed</literal>'
+                                mode. This value defaults to 0 (job
+                                timeouts disabled), except for device
+                                units. NB: this timeout is independent
+                                from any unit-specific timeout (for
+                                example, the timeout set with
                                 <varname>Timeout=</varname> in service
-                                units) as the job timeout has no effect
-                                on the unit itself, only on the job
-                                that might be pending for it. Or in
-                                other words: unit-specific timeouts
+                                units) as the job timeout has no
+                                effect on the unit itself, only on the
+                                job that might be pending for it. Or
+                                in other words: unit-specific timeouts
                                 are useful to abort unit state
                                 changes, and revert them. The job
                                 timeout set with this option however
-                                is useful to abort only the job waiting
-                                for the unit state to change.</para></listitem>
+                                is useful to abort only the job
+                                waiting for the unit state to
+                                change.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

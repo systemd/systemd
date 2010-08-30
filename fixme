@@ -50,7 +50,7 @@
 
 * io priority during initialization
 
-* if a service fails too often, make the service enter maintenance mode, and the socket, too.
+* if a service fails too often, make the service enter failed mode, and the socket, too.
 
 * systemctl: warning wenn [Install] leer ist bei enable
 

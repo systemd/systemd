@@ -256,7 +256,7 @@
                 as well as in the process of being activated or
                 deactivated, i.e. between the two states (these states
                 are called 'activating', 'deactivating'). A special
-                'maintenance' state is available as well which is very
+                'failed' state is available as well which is very
                 similar to 'inactive' and is entered when the service
                 failed in some way (process returned error code on
                 exit, or crashed, or an operation timed out). If this

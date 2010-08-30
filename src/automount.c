@@ -43,7 +43,7 @@ static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
         [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
         [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
-        [AUTOMOUNT_MAINTENANCE] = UNIT_MAINTENANCE
+        [AUTOMOUNT_FAILED] = UNIT_FAILED
 };
 
 static int open_dev_autofs(Manager *m);
@@ -294,7 +294,7 @@ static void automount_enter_dead(Automount *a, bool success) {
         if (!success)
                 a->failure = true;
 
-        automount_set_state(a, a->failure ? AUTOMOUNT_MAINTENANCE : AUTOMOUNT_DEAD);
+        automount_set_state(a, a->failure ? AUTOMOUNT_FAILED : AUTOMOUNT_DEAD);
 }
 
 static int open_dev_autofs(Manager *m) {
@@ -606,7 +606,7 @@ static int automount_start(Unit *u) {
 
         assert(a);
 
-        assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_MAINTENANCE);
+        assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
 
         if (path_is_mount_point(a->where)) {
                 log_error("Path %s is already a mount point, refusing start for %s", a->where, u->meta.id);
@@ -794,12 +794,12 @@ static void automount_shutdown(Manager *m) {
                 close_nointr_nofail(m->dev_autofs_fd);
 }
 
-static void automount_reset_maintenance(Unit *u) {
+static void automount_reset_failed(Unit *u) {
         Automount *a = AUTOMOUNT(u);
 
         assert(a);
 
-        if (a->state == AUTOMOUNT_MAINTENANCE)
+        if (a->state == AUTOMOUNT_FAILED)
                 automount_set_state(a, AUTOMOUNT_DEAD);
 
         a->failure = false;
@@ -809,7 +809,7 @@ static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = "dead",
         [AUTOMOUNT_WAITING] = "waiting",
         [AUTOMOUNT_RUNNING] = "running",
-        [AUTOMOUNT_MAINTENANCE] = "maintenance"
+        [AUTOMOUNT_FAILED] = "failed"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
@@ -841,7 +841,7 @@ const UnitVTable automount_vtable = {
 
         .fd_event = automount_fd_event,
 
-        .reset_maintenance = automount_reset_maintenance,
+        .reset_failed = automount_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Automount",
         .bus_message_handler = bus_automount_message_handler,
