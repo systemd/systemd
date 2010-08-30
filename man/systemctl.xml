@@ -341,8 +341,12 @@
 
                                 <listitem><para>Start the unit
                                 specified on the command line and its
-                                dependencies and stop all
-                                others.</para></listitem>
+                                dependencies and stop all others. Note
+                                that this works only on units where
+                                <option>AllowIsolate=</option> is
+                                enabled. See
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>is-active [NAME...]</command></term>

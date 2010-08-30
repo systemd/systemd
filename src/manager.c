@@ -1523,6 +1523,11 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                 return -EINVAL;
         }
 
+        if (mode == JOB_ISOLATE && !unit->meta.allow_isolate) {
+                dbus_set_error(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
+                return -EPERM;
+        }
+
         log_debug("Trying to enqueue job %s/%s", unit->meta.id, job_type_to_string(type));
 
         if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, false, e, &ret)) < 0) {

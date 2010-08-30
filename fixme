@@ -72,10 +72,6 @@
 
 * auditd service files
 
-* auto-serial-getty vs. isolate
-
-* add RefuseManualIsolate= (default on?)
-
 * add systemctl switch to dump transaction without executing it
 
 * shell wenn fsck im arsch is
@@ -90,9 +86,9 @@
 
 * o_ndelay ausschalten für stdin/stderr/stdout auf socket
 
-External:
+* kexec, suspend, resume
 
-* make sure MountOnPlug und MountAuto und SwapOnPlug is off in Fedora
+External:
 
 * place /etc/inittab with explaining blurb.
 

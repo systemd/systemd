@@ -205,6 +205,9 @@ struct Meta {
         /* Don't allow the user to stop this unit manually, allow stopping only indirectly via dependency. */
         bool refuse_manual_stop;
 
+        /* Allow isolation requests */
+        bool allow_isolate;
+
         bool in_load_queue:1;
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
@@ -359,7 +362,7 @@ struct UnitVTable {
         /* Exclude from automatic gc */
         bool no_gc:1;
 
-        /* Exclude from isolation requests */
+        /* Exclude from stopping on isolation requests */
         bool no_isolate:1;
 
         /* Show status updates on the console */
@@ -445,6 +448,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix);
 
 bool unit_can_reload(Unit *u);
 bool unit_can_start(Unit *u);
+bool unit_can_isolate(Unit *u);
 
 int unit_start(Unit *u);
 int unit_stop(Unit *u);

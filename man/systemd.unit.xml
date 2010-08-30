@@ -485,6 +485,23 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>AllowIsolate=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                this unit may be used with the
+                                <command>systemctl isolate</command>
+                                command. Otherwise this will be
+                                refused. It probably is a good idea to
+                                leave this disabled except for target
+                                units that shall be used similar to
+                                runlevels in SysV init systems, just
+                                as a precaution to avoid unusable
+                                system states. This option defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>DefaultDependencies=</varname></term>
 
                                 <listitem><para>Takes a boolean

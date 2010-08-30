@@ -205,6 +205,24 @@ int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *prope
         return 0;
 }
 
+int bus_unit_append_can_isolate(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        b = unit_can_isolate(u) &&
+                !u->meta.refuse_manual_start;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         DBusMessageIter sub;

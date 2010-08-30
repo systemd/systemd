@@ -1580,6 +1580,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
                 { "RefuseManualStart",      config_parse_bool,            &u->meta.refuse_manual_start,                    "Unit"    },
                 { "RefuseManualStop",       config_parse_bool,            &u->meta.refuse_manual_stop,                     "Unit"    },
+                { "AllowIsolate",           config_parse_bool,            &u->meta.allow_isolate,                          "Unit"    },
                 { "DefaultDependencies",    config_parse_bool,            &u->meta.default_dependencies,                   "Unit"    },
                 { "IgnoreDependencyFailure",config_parse_bool,            &u->meta.ignore_dependency_failure,              "Unit"    },
                 { "JobTimeoutSec",          config_parse_usec,            &u->meta.job_timeout,                            "Unit"    },

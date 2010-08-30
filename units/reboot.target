@@ -12,6 +12,7 @@ Description=Reboot
 Names=runlevel6.target
 Requires=reboot.service
 After=reboot.service
+AllowIsolate=yes
 
 [Install]
 Alias=ctrl-alt-del.target

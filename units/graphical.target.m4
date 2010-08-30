@@ -20,6 +20,7 @@ Names=runlevel5.target
 m4_ifdef(`TARGET_SUSE',
 Names=runlevel5.target
 )m4_dnl
+AllowIsolate=yes
 
 [Install]
 Alias=default.target

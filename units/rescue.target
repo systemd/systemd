@@ -12,6 +12,7 @@ Description=Rescue Mode
 Requires=sysinit.target local-fs.target swap.target
 After=sysinit.target local-fs.target swap.target
 Names=runlevel1.target
+AllowIsolate=yes
 
 [Install]
 Alias=kbrequest.target

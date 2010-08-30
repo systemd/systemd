@@ -812,6 +812,13 @@ bool unit_can_start(Unit *u) {
         return !!UNIT_VTABLE(u)->start;
 }
 
+bool unit_can_isolate(Unit *u) {
+        assert(u);
+
+        return unit_can_start(u) &&
+                u->meta.allow_isolate;
+}
+
 /* Errors:
  *         -EBADR:    This unit type does not support stopping.
  *         -EALREADY: Unit is already stopped.
