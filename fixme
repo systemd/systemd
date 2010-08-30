@@ -1,8 +1,6 @@
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
-* systemd.log_level=debug should overwrite 'quiet' ?
-
 * dot output for --test showing the 'initial transaction'
 
 * have a simple syslog bridge providing /dev/log and forward messages
@@ -64,29 +62,35 @@
 
 * ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= mit !
 
-* oom_score_adj
-
 * accountsservice is dod
-
-* follow LSB exit codes spec in "systemctl start"
 
 * auditd service files
 
 * add systemctl switch to dump transaction without executing it
 
-* shell wenn fsck im arsch is
-
 * system.conf/session.conf brauch ne man page
 
 * exec /sbin/poweroff als PID 1 und shutdown
 
+* kexec, suspend, resume
+
+v9:
+
 * MTA IS KAPUTT
 
-* kill-mode=cgroup muss auch die mainpid killen!
+* kill-mode=cgroup muss auch die mainpid killen! https://bugzilla.redhat.com/show_bug.cgi?id=626477
 
 * o_ndelay ausschalten für stdin/stderr/stdout auf socket
 
-* kexec, suspend, resume
+* follow LSB exit codes spec in "systemctl start"
+
+* oom_score_adj
+
+* fix isolate as runlevel  https://bugzilla.redhat.com/show_bug.cgi?id=627014
+
+* rename failed/maintenance https://bugzilla.redhat.com/show_bug.cgi?id=614619
+
+* systemctl wrapping https://bugzilla.redhat.com/show_bug.cgi?id=626891 https://bugzilla.redhat.com/show_bug.cgi?id=626443
 
 External:
 

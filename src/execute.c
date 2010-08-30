@@ -1038,6 +1038,11 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                 }
 
+                /* If a socket is connected to STDIN/STDOUT/STDERR, we
+                 * must sure to drop O_NONBLOCK */
+                if (socket_fd >= 0)
+                        fd_nonblock(socket_fd, false);
+
                 if (!keep_stdin)
                         if (setup_input(context, socket_fd, apply_tty_stdin) < 0) {
                                 r = EXIT_STDIN;
