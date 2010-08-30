@@ -146,13 +146,13 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>OOMAdjust=</varname></term>
+                                <term><varname>OOMScoreAdjust=</varname></term>
 
                                 <listitem><para>Sets the adjustment
                                 level for the Out-Of-Memory killer for
                                 executed processes. Takes an integer
-                                between -17 (to disable OOM killing
-                                for this process) and 15 (to make
+                                between -1000 (to disable OOM killing
+                                for this process) and 1000 (to make
                                 killing of this process under memory
                                 pressure very likely). See <ulink
                                 url="http://www.kernel.org/doc/Documentation/filesystems/proc.txt">proc.txt</ulink>

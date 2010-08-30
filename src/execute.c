@@ -36,6 +36,7 @@
 #include <pwd.h>
 #include <sys/mount.h>
 #include <linux/fs.h>
+#include <linux/oom.h>
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -52,6 +53,7 @@
 #include "namespace.h"
 #include "tcpwrap.h"
 #include "exit-status.h"
+#include "missing.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -1066,15 +1068,27 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                if (context->oom_adjust_set) {
+                if (context->oom_score_adjust_set) {
                         char t[16];
 
-                        snprintf(t, sizeof(t), "%i", context->oom_adjust);
+                        snprintf(t, sizeof(t), "%i", context->oom_score_adjust);
                         char_array_0(t);
 
-                        if (write_one_line_file("/proc/self/oom_adj", t) < 0) {
-                                r = EXIT_OOM_ADJUST;
-                                goto fail;
+                        if (write_one_line_file("/proc/self/oom_score_adj", t) < 0) {
+                                /* Compatibility with Linux <= 2.6.35 */
+
+                                int adj;
+
+                                adj = (context->oom_score_adjust * -OOM_DISABLE) / OOM_SCORE_ADJ_MAX;
+                                adj = CLAMP(adj, OOM_DISABLE, OOM_ADJUST_MAX);
+
+                                snprintf(t, sizeof(t), "%i", adj);
+                                char_array_0(t);
+
+                                if (write_one_line_file("/proc/self/oom_adj", t) < 0) {
+                                        r = EXIT_OOM_ADJUST;
+                                        goto fail;
+                                }
                         }
                 }
 
@@ -1461,10 +1475,10 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sNice: %i\n",
                         prefix, c->nice);
 
-        if (c->oom_adjust_set)
+        if (c->oom_score_adjust_set)
                 fprintf(f,
-                        "%sOOMAdjust: %i\n",
-                        prefix, c->oom_adjust);
+                        "%sOOMScoreAdjust: %i\n",
+                        prefix, c->oom_score_adjust);
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i])

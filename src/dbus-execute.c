@@ -33,7 +33,7 @@ DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_kill_mode, kill_mode, KillMod
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);
 
-int bus_execute_append_oom_adjust(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_execute_append_oom_score_adjust(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         int32_t n;
 
@@ -42,15 +42,23 @@ int bus_execute_append_oom_adjust(Manager *m, DBusMessageIter *i, const char *pr
         assert(property);
         assert(c);
 
-        if (c->oom_adjust_set)
-                n = c->oom_adjust;
+        if (c->oom_score_adjust_set)
+                n = c->oom_score_adjust;
         else {
                 char *t;
 
                 n = 0;
-                if (read_one_line_file("/proc/self/oom_adj", &t) >= 0) {
+                if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0) {
                         safe_atoi(t, &n);
                         free(t);
+                } else if (read_one_line_file("/proc/self/oom_adj", &t) >= 0) {
+                        safe_atoi(t, &n);
+                        free(t);
+
+                        if (n == OOM_ADJUST_MAX)
+                                n = OOM_SCORE_ADJ_MAX;
+                        else
+                                n = (n * OOM_SCORE_ADJ_MAX) / -OOM_DISABLE;
                 }
         }
 

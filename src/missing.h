@@ -28,6 +28,11 @@
 #include <sys/syscall.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <linux/oom.h>
+
+#ifdef HAVE_AUDIT
+#include <libaudit.h>
+#endif
 
 #include "macro.h"
 
@@ -51,16 +56,24 @@
 #define IP_FREEBIND 15
 #endif
 
-static inline int pivot_root(const char *new_root, const char *put_old) {
-        return syscall(SYS_pivot_root, new_root, put_old);
-}
+#ifndef OOM_SCORE_ADJ_MIN
+#define OOM_SCORE_ADJ_MIN (-1000)
+#endif
+
+#ifndef OOM_SCORE_ADJ_MAX
+#define OOM_SCORE_ADJ_MAX 1000
+#endif
 
 #ifndef AUDIT_SERVICE_START
-#define AUDIT_SERVICE_START     1130    /* Service (daemon) start */
+#define AUDIT_SERVICE_START 1130 /* Service (daemon) start */
 #endif
 
 #ifndef AUDIT_SERVICE_STOP
-#define AUDIT_SERVICE_STOP      1131    /* Service (daemon) stop */
+#define AUDIT_SERVICE_STOP 1131 /* Service (daemon) stop */
 #endif
+
+static inline int pivot_root(const char *new_root, const char *put_old) {
+        return syscall(SYS_pivot_root, new_root, put_old);
+}
 
 #endif

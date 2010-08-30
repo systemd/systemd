@@ -97,7 +97,7 @@ struct ExecContext {
         char *working_directory, *root_directory;
 
         mode_t umask;
-        int oom_adjust;
+        int oom_score_adjust;
         int nice;
         int ioprio;
         int cpu_sched_policy;
@@ -153,7 +153,7 @@ struct ExecContext {
          * don't enter a trigger loop. */
         bool same_pgrp;
 
-        bool oom_adjust_set:1;
+        bool oom_score_adjust_set:1;
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;

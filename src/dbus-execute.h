@@ -54,7 +54,7 @@
         "  <property name=\"LimitRTTIME\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"WorkingDirectory\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RootDirectory\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"OOMAdjust\" type=\"i\" access=\"read\"/>\n" \
+        "  <property name=\"OOMScoreAdjust\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"Nice\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"IOScheduling\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"CPUSchedulingPolicy\" type=\"i\" access=\"read\"/>\n" \
@@ -111,7 +111,7 @@
         { interface, "LimitRTTIME",                   bus_execute_append_rlimits, "t",     &(context)                              }, \
         { interface, "WorkingDirectory",              bus_property_append_string, "s",     (context).working_directory             }, \
         { interface, "RootDirectory",                 bus_property_append_string, "s",     (context).root_directory                }, \
-        { interface, "OOMAdjust",                     bus_execute_append_oom_adjust, "i",  &(context)                              }, \
+        { interface, "OOMScoreAdjust",                bus_execute_append_oom_score_adjust, "i", &(context)                         }, \
         { interface, "Nice",                          bus_execute_append_nice,    "i",     &(context)                              }, \
         { interface, "IOScheduling",                  bus_execute_append_ioprio,  "i",     &(context)                              }, \
         { interface, "CPUSchedulingPolicy",           bus_execute_append_cpu_sched_policy, "i", &(context)                         }, \
@@ -156,7 +156,7 @@
 
 int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_input(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_oom_adjust(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_oom_score_adjust(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_nice(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_ioprio(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_cpu_sched_policy(Manager *m, DBusMessageIter *i, const char *property, void *data);

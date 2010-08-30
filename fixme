@@ -82,10 +82,6 @@ v9:
 
 * follow LSB exit codes spec in "systemctl start"
 
-* oom_score_adj
-
-* rename failed/maintenance https://bugzilla.redhat.com/show_bug.cgi?id=614619
-
 * systemctl wrapping https://bugzilla.redhat.com/show_bug.cgi?id=626891 https://bugzilla.redhat.com/show_bug.cgi?id=626443
 
 External:

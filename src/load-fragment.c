@@ -299,7 +299,7 @@ static int config_parse_nice(
         return 0;
 }
 
-static int config_parse_oom_adjust(
+static int config_parse_oom_score_adjust(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -317,17 +317,17 @@ static int config_parse_oom_adjust(
         assert(data);
 
         if ((r = safe_atoi(rvalue, &oa)) < 0) {
-                log_error("[%s:%u] Failed to parse OOM adjust value, ignoring: %s", filename, line, rvalue);
+                log_error("[%s:%u] Failed to parse the OOM score adjust value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        if (oa < OOM_DISABLE || oa > OOM_ADJUST_MAX) {
-                log_error("[%s:%u] OOM adjust value out of range, ignoring: %s", filename, line, rvalue);
+        if (oa < OOM_SCORE_ADJ_MIN || oa > OOM_SCORE_ADJ_MAX) {
+                log_error("[%s:%u] OOM score adjust value out of range, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        c->oom_adjust = oa;
-        c->oom_adjust_set = true;
+        c->oom_score_adjust = oa;
+        c->oom_score_adjust_set = true;
 
         return 0;
 }
@@ -1425,7 +1425,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_path,             "PATH" },
                 { config_parse_strv,             "STRING [...]" },
                 { config_parse_nice,             "NICE" },
-                { config_parse_oom_adjust,       "OOMADJUST" },
+                { config_parse_oom_score_adjust, "OOMSCOREADJUST" },
                 { config_parse_io_class,         "IOCLASS" },
                 { config_parse_io_priority,      "IOPRIORITY" },
                 { config_parse_cpu_sched_policy, "CPUSCHEDPOLICY" },
@@ -1515,7 +1515,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Group",                  config_parse_string_printf,   &(context).group,                                section   }, \
                 { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                 section   }, \
                 { "Nice",                   config_parse_nice,            &(context),                                      section   }, \
-                { "OOMAdjust",              config_parse_oom_adjust,      &(context),                                      section   }, \
+                { "OOMScoreAdjust",         config_parse_oom_score_adjust,&(context),                                      section   }, \
                 { "IOSchedulingClass",      config_parse_io_class,        &(context),                                      section   }, \
                 { "IOSchedulingPriority",   config_parse_io_priority,     &(context),                                      section   }, \
                 { "CPUSchedulingPolicy",    config_parse_cpu_sched_policy,&(context),                                      section   }, \
