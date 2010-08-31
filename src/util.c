@@ -2988,7 +2988,7 @@ int columns(void) {
                 struct winsize ws;
                 zero(ws);
 
-                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
+                if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
                         parsed_columns = ws.ws_col;
         }
 
