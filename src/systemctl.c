@@ -130,8 +130,7 @@ static const char *ansi_highlight_green(bool b) {
         return b ? ANSI_HIGHLIGHT_GREEN_ON : ANSI_HIGHLIGHT_OFF;
 }
 
-static bool error_is_no_service(DBusError *error) {
-
+static bool error_is_no_service(const DBusError *error) {
         assert(error);
 
         if (!dbus_error_is_set(error))
@@ -313,8 +312,12 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
         qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
 
-        if (isatty(STDOUT_FILENO))
-                printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
+        if (isatty(STDOUT_FILENO)) {
+                if (columns() >= 80+12 || arg_full)
+                        printf("%-25s %-6s %-12s %-18s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
+                else
+                        printf("%-25s %-6s %-12s %-18s %-15s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB");
+        }
 
         for (k = 0; k < c; k++) {
                 const char *dot;
@@ -325,30 +328,47 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                     (arg_all || !(streq(u->active_state, "inactive") || u->following[0]) || u->job_id > 0)) {
                         char *e;
                         int a = 0, b = 0;
-                        const char *on, *off;
+                        const char *on_loaded, *off_loaded;
+                        const char *on_active, *off_active;
+
+                        if (!streq(u->load_state, "loaded")) {
+                                on_loaded = ansi_highlight(true);
+                                off_loaded = ansi_highlight(false);
+                        } else
+                                on_loaded = off_loaded = "";
 
                         if (streq(u->active_state, "failed")) {
-                                on = ansi_highlight(true);
-                                off = ansi_highlight(false);
+                                on_active = ansi_highlight(true);
+                                off_active = ansi_highlight(false);
                         } else
-                                on = off = "";
+                                on_active = off_active = "";
 
-                        e = arg_full ? NULL : ellipsize(u->id, 45, 33);
-                        printf("%-45s %-6s %s%-12s %-12s%s%n", e ? e : u->id, u->load_state, on, u->active_state, u->sub_state, off, &a);
+                        e = arg_full ? NULL : ellipsize(u->id, 25, 33);
+
+                        printf("%-25s %s%-6s%s %s%-12s %-18s%s%n",
+                               e ? e : u->id,
+                               on_loaded, u->load_state, off_loaded,
+                               on_active, u->active_state, u->sub_state, off_active,
+                               &a);
+
                         free(e);
 
-                        a -= strlen(on) + strlen(off);
+                        a -= strlen(on_loaded) + strlen(off_loaded);
+                        a -= strlen(on_active) + strlen(off_active);
 
                         if (u->job_id != 0)
-                                printf(" => %-12s%n", u->job_type, &b);
+                                printf(" %-15s%n", u->job_type, &b);
                         else
                                 b = 1 + 15;
 
-                        if (a + b + 2 < columns()) {
+                        if (a + b + 1 < columns()) {
                                 if (u->job_id == 0)
                                         printf("                ");
 
-                                printf(" %.*s", columns() - a - b - 2, u->description);
+                                if (arg_full)
+                                        printf(" %s", u->description);
+                                else
+                                        printf(" %.*s", columns() - a - b - 1, u->description);
                         }
 
                         fputs("\n", stdout);
@@ -664,7 +684,8 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_message_iter_recurse(&iter, &sub);
 
-        printf("%4s %-45s %-17s %-7s\n", "JOB", "UNIT", "TYPE", "STATE");
+        if (isatty(STDOUT_FILENO))
+                printf("%4s %-25s %-15s %-7s\n", "JOB", "UNIT", "TYPE", "STATE");
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *name, *type, *state, *job_path, *unit_path;
@@ -690,8 +711,8 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                e = arg_full ? NULL : ellipsize(name, 45, 33);
-                printf("%4u %-45s %-17s %-7s\n", id, e ? e : name, type, state);
+                e = arg_full ? NULL : ellipsize(name, 25, 33);
+                printf("%4u %-25s %-15s %-7s\n", id, e ? e : name, type, state);
                 free(e);
 
                 k++;
@@ -699,7 +720,9 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
                 dbus_message_iter_next(&sub);
         }
 
-        printf("\n%u jobs listed.\n", k);
+        if (isatty(STDOUT_FILENO))
+                printf("\n%u jobs listed.\n", k);
+
         r = 0;
 
 finish:

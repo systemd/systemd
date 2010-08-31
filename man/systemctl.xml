@@ -123,7 +123,8 @@
                                 <term><option>--full</option></term>
 
                                 <listitem><para>Do not ellipsize unit
-                                names in the output of
+                                names and truncate unit descriptions
+                                in the output of
                                 <command>list-units</command> and
                                 <command>list-jobs</command>.</para></listitem>
                         </varlistentry>
