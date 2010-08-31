@@ -1917,9 +1917,9 @@ int reset_terminal(int fd) {
 
         assert(fd >= 0);
 
-        /* First, unlock termios */
-        zero(termios);
-        ioctl(fd, TIOCSLCKTRMIOS, &termios);
+        /* We leave locked terminal attributes untouched, so that
+         * Plymouth may set whatever it wants to set, and we don't
+         * interfere with that. */
 
         /* Disable exclusive mode, just in case */
         ioctl(fd, TIOCNXCL);
