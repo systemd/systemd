@@ -56,10 +56,17 @@ int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_
 				info(udev, "set permissions %s, %#o, uid=%u, gid=%u\n", file, mode, uid, gid);
 				chmod(file, mode);
 				chown(file, uid, gid);
-				udev_selinux_lsetfilecon(udev, file, mode);
 			} else {
 				info(udev, "preserve permissions %s, %#o, uid=%u, gid=%u\n", file, mode, uid, gid);
 			}
+			/*
+			 * Set initial selinux file context only on add events.
+			 * We set the proper context on bootup (triger) or for newly
+			 * added devices, but we don't change it later, in case
+			 * something else has set a custom context in the meantime.
+			 */
+			if (strcmp(udev_device_get_action(dev), "add") == 0)
+				udev_selinux_lsetfilecon(udev, file, mode);
 			/* always update timestamp when we re-use the node, like on media change events */
 			utimensat(AT_FDCWD, file, NULL, 0);
 		} else {
