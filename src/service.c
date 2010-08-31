@@ -2572,6 +2572,13 @@ static void service_cgroup_notify_event(Unit *u) {
                 service_enter_running(s, true);
                 break;
 
+        case SERVICE_STOP_SIGTERM:
+        case SERVICE_STOP_SIGKILL:
+                if (main_pid_good(s) <= 0 && !control_pid_good(s))
+                        service_enter_stop_post(s, true);
+
+                break;
+
         default:
                 ;
         }
