@@ -1841,7 +1841,7 @@ static void service_enter_restart(Service *s) {
 
         service_enter_dead(s, true, false);
 
-        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL, NULL)) < 0)
+        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, &error, NULL)) < 0)
                 goto fail;
 
         log_debug("%s scheduled restart job.", s->meta.id);
