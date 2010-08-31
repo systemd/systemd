@@ -1620,7 +1620,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                         if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, pid_set)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
-                        } else
+                        } else if (r > 0)
                                 wait_for_exit = true;
 
                         set_free(pid_set);
