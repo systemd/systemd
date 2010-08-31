@@ -342,9 +342,18 @@
 
                                 <listitem><para>Start the unit
                                 specified on the command line and its
-                                dependencies and stop all others. Note
-                                that this works only on units where
-                                <option>AllowIsolate=</option> is
+                                dependencies and stop all others.</para>
+
+                                <para>This is similar to changing the
+                                runlevel in a traditional init system. The
+                                <command>isolate</command> command will
+                                immediately stop processes that are not
+                                enabled in the new unit, possibly including
+                                the graphical environment or terminal you
+                                are currently using.</para>
+
+                                <para>Note that this works only on units
+                                where <option>AllowIsolate=</option> is
                                 enabled. See
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details.</para></listitem>
