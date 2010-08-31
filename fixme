@@ -78,11 +78,7 @@ v9:
 
 * MTA IS KAPUTT
 
-* kill-mode=cgroup muss auch die mainpid killen! https://bugzilla.redhat.com/show_bug.cgi?id=626477
-
-* follow LSB exit codes spec in "systemctl start"
-
-* systemctl wrapping https://bugzilla.redhat.com/show_bug.cgi?id=626891 https://bugzilla.redhat.com/show_bug.cgi?id=626443
+* fix terminal setup
 
 External:
 

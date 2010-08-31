@@ -32,7 +32,7 @@
 
 int main(int argc, char *argv[]) {
         int seed_fd = -1, random_fd = -1;
-        int ret = 1;
+        int ret = EXIT_FAILURE;
         void* buf;
         size_t buf_size = 0;
         ssize_t r;
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 
         if (argc != 2) {
                 log_error("This program requires one argument.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to write new random seed file: %s", r < 0 ? strerror(errno) : "short write");
         }
 
-        ret = 0;
+        ret = EXIT_SUCCESS;
 
 finish:
         if (random_fd >= 0)

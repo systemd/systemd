@@ -131,13 +131,13 @@ int main(int argc, char* argv[]) {
         char* our_env[4], **final_env = NULL;
         unsigned i = 0;
         char *status = NULL, *cpid = NULL, *n = NULL;
-        int r, retval = 1;
+        int r, retval = EXIT_FAILURE;
 
         log_parse_environment();
         log_open();
 
         if ((r = parse_argv(argc, argv)) <= 0) {
-                retval = r < 0;
+                retval = r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
                 goto finish;
         }
 
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (strv_length(final_env) <= 0) {
-                retval = 0;
+                retval = EXIT_SUCCESS;
                 goto finish;
         }
 
@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        retval = r <= 0;
+        retval = r <= 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
 finish:
         free(status);

@@ -21,6 +21,8 @@
 
 #include <dbus/dbus.h>
 
+#include <stdlib.h>
+
 #include "log.h"
 #include "dbus-common.h"
 
@@ -28,7 +30,7 @@ int main(int argc, char *argv[]) {
         DBusError error;
         DBusConnection *bus = NULL;
         DBusMessage *m = NULL;
-        int r = 1;
+        int r = EXIT_FAILURE;
 
         dbus_error_init(&error);
 
@@ -76,7 +78,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = 0;
+        r = EXIT_SUCCESS;
 
 finish:
         if (bus) {

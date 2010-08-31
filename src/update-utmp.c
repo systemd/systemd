@@ -361,12 +361,12 @@ int main(int argc, char *argv[]) {
 
         if (getppid() != 1) {
                 log_error("This program should be invoked by init only.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         if (argc != 2) {
                 log_error("This program requires one argument.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
@@ -413,5 +413,5 @@ finish:
         dbus_error_free(&error);
         dbus_shutdown();
 
-        return r < 0 ? 1 : 0;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -37,14 +37,14 @@
  * respected */
 
 int main(int argc, char *argv[]) {
-        int ret = 1;
+        int ret = EXIT_FAILURE;
         FILE *f = NULL;
         struct mntent* me;
         Hashmap *pids = NULL;
 
         if (argc > 1) {
                 log_error("This program takes no argument.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        ret = 0;
+        ret = EXIT_SUCCESS;
 
         while ((me = getmntent(f))) {
                 pid_t pid;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
                         execv("/bin/mount", (char **) arguments);
 
                         log_error("Failed to execute /bin/mount: %m");
-                        _exit(1);
+                        _exit(EXIT_FAILURE);
                 }
 
                 /* Parent */
@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 
                 if ((k = hashmap_put(pids, UINT_TO_PTR(pid), s)) < 0) {
                         log_error("Failed to add PID to set: %s", strerror(-k));
-                        ret = 1;
+                        ret = EXIT_FAILURE;
                         continue;
                 }
         }
@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
                                 continue;
 
                         log_error("waitid() failed: %m");
-                        ret = 1;
+                        ret = EXIT_FAILURE;
                         break;
                 }
 
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
                                 else
                                         log_error("/bin/mount for %s terminated by signal %s.", s, signal_to_string(si.si_status));
 
-                                ret = 1;
+                                ret = EXIT_FAILURE;
                         }
 
                         free(s);

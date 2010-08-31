@@ -72,7 +72,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r = 0, retval = 1;
+        int r = 0, retval = EXIT_FAILURE;
 
         log_parse_environment();
         log_open();
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
         if ((r = parse_argv(argc, argv)) < 0)
                 goto finish;
         else if (r == 0) {
-                retval = 0;
+                retval = EXIT_SUCCESS;
                 goto finish;
         }
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error("Failed to list cgroup tree: %s", strerror(-r));
 
-        retval = 0;
+        retval = EXIT_SUCCESS;
 
 finish:
 

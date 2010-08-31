@@ -335,16 +335,16 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
 int main(int argc, char *argv[]) {
         Server server;
-        int r = 3, n;
+        int r = EXIT_FAILURE, n;
 
         if (getppid() != 1) {
                 log_error("This program should be invoked by init only.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         if (argc > 1) {
                 log_error("This program does not take arguments.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
@@ -353,16 +353,16 @@ int main(int argc, char *argv[]) {
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
-                return 1;
+                return EXIT_FAILURE;
         }
 
         if (n <= 0 || n > SERVER_FD_MAX) {
                 log_error("No or too many file descriptors passed.");
-                return 2;
+                return EXIT_FAILURE;
         }
 
         if (server_init(&server, (unsigned) n) < 0)
-                return 2;
+                return EXIT_FAILURE;
 
         log_debug("systemd-initctl running as pid %lu", (unsigned long) getpid());
 
@@ -392,7 +392,7 @@ int main(int argc, char *argv[]) {
                         goto fail;
         }
 
-        r = 0;
+        r = EXIT_SUCCESS;
 
         log_debug("systemd-initctl stopped as pid %lu", (unsigned long) getpid());
 

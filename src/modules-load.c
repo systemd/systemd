@@ -51,13 +51,13 @@ static int scandir_filter(const struct dirent *d) {
 
 int main(int argc, char *argv[]) {
         struct dirent **de = NULL;
-        int r = 1, n, i;
+        int r = EXIT_FAILURE, n, i;
         char **arguments = NULL;
         unsigned n_arguments = 0, n_allocated = 0;
 
         if (argc > 1) {
                 log_error("This program takes no argument.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
@@ -74,14 +74,14 @@ int main(int argc, char *argv[]) {
         if ((n = scandir("/etc/modules.d/", &de, scandir_filter, alphasort)) < 0) {
 
                 if (errno == ENOENT)
-                        r = 0;
+                        r = EXIT_SUCCESS;
                 else
                         log_error("Failed to enumerate /etc/modules.d/ files: %m");
 
                 goto finish;
         }
 
-        r = 0;
+        r = EXIT_SUCCESS;
 
         for (i = 0; i < n; i++) {
                 int k;
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 
                 if (k < 0) {
                         log_error("Failed to allocate file name.");
-                        r = 1;
+                        r = EXIT_FAILURE;
                         continue;
                 }
 
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
 
                 if (!f) {
                         log_error("Failed to open %s: %m", fn);
-                        r = 1;
+                        r = EXIT_FAILURE;
                         continue;
                 }
 
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
                                 if (!(a = realloc(arguments, sizeof(char*) * (m+1)))) {
                                         log_error("Failed to increase module array size.");
                                         free(t);
-                                        r = 1;
+                                        r = EXIT_FAILURE;
                                         continue;
                                 }
 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (ferror(f)) {
-                        r = 1;
+                        r = EXIT_FAILURE;
                         log_error("Failed to read from file: %m");
                 }
 
@@ -158,7 +158,7 @@ finish:
                 execv("/sbin/modprobe", arguments);
 
                 log_error("Failed to execute /sbin/modprobe: %m");
-                r = 1;
+                r = EXIT_FAILURE;
         }
 
         strv_free(arguments);

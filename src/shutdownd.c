@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
                 _FD_MAX
         };
 
-        int r = 4, n_fds;
+        int r = EXIT_FAILURE, n_fds;
         int one = 1;
         struct shutdownd_command c;
         struct pollfd pollfd[_FD_MAX];
@@ -185,12 +185,12 @@ int main(int argc, char *argv[]) {
 
         if (getppid() != 1) {
                 log_error("This program should be invoked by init only.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         if (argc > 1) {
                 log_error("This program does not take arguments.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
@@ -199,17 +199,17 @@ int main(int argc, char *argv[]) {
 
         if ((n_fds = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
-                return 1;
+                return EXIT_FAILURE;
         }
 
         if (n_fds != 1) {
                 log_error("Need exactly one file descriptor.");
-                return 2;
+                return EXIT_FAILURE;
         }
 
         if (setsockopt(SD_LISTEN_FDS_START, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
                 log_error("SO_PASSCRED failed: %m");
-                return 3;
+                return EXIT_FAILURE;
         }
 
         zero(c);
@@ -335,7 +335,7 @@ int main(int argc, char *argv[]) {
 
         } while (c.elapse > 0);
 
-        r = 0;
+        r = EXIT_SUCCESS;
 
         log_debug("systemd-shutdownd stopped as pid %lu", (unsigned long) getpid());
 

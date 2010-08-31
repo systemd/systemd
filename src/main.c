@@ -876,7 +876,7 @@ fail:
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        int r, retval = 1;
+        int r, retval = EXIT_FAILURE;
         FDSet *fds = NULL;
         bool reexecute = false;
 
@@ -937,10 +937,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);
-                retval = 0;
+                retval = EXIT_SUCCESS;
                 goto finish;
         } else if (arg_action == ACTION_DONE) {
-                retval = 0;
+                retval = EXIT_SUCCESS;
                 goto finish;
         }
 
@@ -1072,7 +1072,7 @@ int main(int argc, char *argv[]) {
                 if (arg_action == ACTION_TEST) {
                         printf("-> By jobs:\n");
                         manager_dump_jobs(m, stdout, "\t");
-                        retval = 0;
+                        retval = EXIT_SUCCESS;
                         goto finish;
                 }
         }
@@ -1086,7 +1086,7 @@ int main(int argc, char *argv[]) {
                 switch (m->exit_code) {
 
                 case MANAGER_EXIT:
-                        retval = 0;
+                        retval = EXIT_SUCCESS;
                         log_debug("Exit.");
                         goto finish;
 
