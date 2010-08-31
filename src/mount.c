@@ -622,7 +622,8 @@ static void mount_enter_mounted(Mount *m, bool success) {
 
 static void mount_enter_signal(Mount *m, MountState state, bool success) {
         int r;
-        bool sent = false;
+        Set *pid_set = NULL;
+        bool wait_for_exit = false;
 
         assert(m);
 
@@ -634,26 +635,39 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                            state == MOUNT_UNMOUNTING_SIGTERM ||
                            state == MOUNT_REMOUNTING_SIGTERM) ? m->exec_context.kill_signal : SIGKILL;
 
-                if (m->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+                if (m->control_pid > 0) {
+                        if (kill(m->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                 -m->control_pid :
+                                 m->control_pid, sig) < 0 && errno != ESRCH)
 
-                        if ((r = cgroup_bonding_kill_list(m->meta.cgroup_bondings, sig)) < 0) {
-                                if (r != -EAGAIN && r != -ESRCH)
-                                        goto fail;
-                        } else
-                                sent = true;
+                                log_warning("Failed to kill control process %li: %m", (long) m->control_pid);
+                        else
+                                wait_for_exit = true;
                 }
 
-                if (!sent && m->control_pid > 0)
-                        if (kill(m->exec_context.kill_mode == KILL_PROCESS ?
-                                 m->control_pid :
-                                 -m->control_pid, sig) < 0 && errno != ESRCH) {
+                if (m->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
-                                r = -errno;
+                        if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
+                                r = -ENOMEM;
                                 goto fail;
                         }
+
+                        /* Exclude the control pid from being killed via the cgroup */
+                        if (m->control_pid > 0)
+                                if ((r = set_put(pid_set, LONG_TO_PTR(m->control_pid))) < 0)
+                                        goto fail;
+
+                        if ((r = cgroup_bonding_kill_list(m->meta.cgroup_bondings, sig, pid_set)) < 0) {
+                                if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                                        log_warning("Failed to kill control group: %s", strerror(-r));
+                        } else if (r > 0)
+                                wait_for_exit = true;
+
+                        set_free(pid_set);
+                }
         }
 
-        if (sent) {
+        if (wait_for_exit) {
                 if ((r = unit_watch_timer(UNIT(m), m->timeout_usec, &m->timer_watch)) < 0)
                         goto fail;
 
@@ -672,6 +686,9 @@ fail:
                 mount_enter_mounted(m, false);
         else
                 mount_enter_dead(m, false);
+
+        if (pid_set)
+                set_free(pid_set);
 }
 
 static void mount_enter_unmounting(Mount *m, bool success) {

@@ -37,8 +37,8 @@ int cg_read_pid(FILE *f, pid_t *_pid);
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
 int cg_read_subgroup(DIR *d, char **fn);
 
-int cg_kill(const char *controller, const char *path, int sig, bool ignore_self);
-int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self, bool remove);
+int cg_kill(const char *controller, const char *path, int sig, bool ignore_self, Set *s);
+int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self, bool remove, Set *s);
 int cg_kill_recursive_and_wait(const char *controller, const char *path, bool remove);
 
 int cg_migrate(const char *controller, const char *from, const char *to, bool ignore_self);

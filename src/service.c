@@ -1570,7 +1570,8 @@ fail:
 
 static void service_enter_signal(Service *s, ServiceState state, bool success) {
         int r;
-        bool sent = false;
+        Set *pid_set = NULL;
+        bool wait_for_exit = false;
 
         assert(s);
 
@@ -1580,38 +1581,53 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         if (s->exec_context.kill_mode != KILL_NONE) {
                 int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
-                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+                if (s->main_pid > 0) {
+                        if (kill(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                 -s->main_pid :
+                                 s->main_pid, sig) < 0 && errno != ESRCH)
 
-                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
-                                if (r != -EAGAIN && r != -ESRCH)
-                                        goto fail;
-                        } else
-                                sent = true;
+                                log_warning("Failed to kill main process %li: %m", (long) s->main_pid);
+                        else
+                                wait_for_exit = true;
                 }
 
-                if (!sent) {
-                        r = 0;
+                if (s->control_pid > 0) {
+                        if (kill(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                 -s->control_pid :
+                                 s->control_pid, sig) < 0 && errno != ESRCH)
 
-                        if (s->main_pid > 0) {
-                                if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->main_pid : -s->main_pid, sig) < 0 && errno != ESRCH)
-                                        r = -errno;
-                                else
-                                        sent = true;
-                        }
+                                log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
+                        else
+                                wait_for_exit = true;
+                }
 
-                        if (s->control_pid > 0) {
-                                if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH)
-                                        r = -errno;
-                                else
-                                        sent = true;
-                        }
+                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
-                        if (r < 0)
+                        if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
+                                r = -ENOMEM;
                                 goto fail;
+                        }
+
+                        /* Exclude the main/control pids from being killed via the cgroup */
+                        if (s->main_pid > 0)
+                                if ((r = set_put(pid_set, LONG_TO_PTR(s->main_pid))) < 0)
+                                        goto fail;
+
+                        if (s->control_pid > 0)
+                                if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
+                                        goto fail;
+
+                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, pid_set)) < 0) {
+                                if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                                        log_warning("Failed to kill control group: %s", strerror(-r));
+                        } else
+                                wait_for_exit = true;
+
+                        set_free(pid_set);
                 }
         }
 
-        if (sent && (s->main_pid > 0 || s->control_pid > 0)) {
+        if (wait_for_exit) {
                 if (s->timeout_usec > 0)
                         if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
                                 goto fail;
@@ -1631,6 +1647,9 @@ fail:
                 service_enter_stop_post(s, false);
         else
                 service_enter_dead(s, false, true);
+
+        if (pid_set)
+                set_free(pid_set);
 }
 
 static void service_enter_stop(Service *s, bool success) {

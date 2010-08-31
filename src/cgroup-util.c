@@ -166,12 +166,12 @@ int cg_rmdir(const char *controller, const char *path) {
         return r < 0 ? -errno : 0;
 }
 
-int cg_kill(const char *controller, const char *path, int sig, bool ignore_self) {
+int cg_kill(const char *controller, const char *path, int sig, bool ignore_self, Set *s) {
         bool done = false;
-        Set *s;
         int r, ret = 0;
         pid_t my_pid;
         FILE *f = NULL;
+        Set *allocated_set = NULL;
 
         assert(controller);
         assert(path);
@@ -181,8 +181,9 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
          * is repeated until no further processes are added to the
          * tasks list, to properly handle forking processes */
 
-        if (!(s = set_new(trivial_hash_func, trivial_compare_func)))
-                return -ENOMEM;
+        if (!s)
+                if (!(s = allocated_set = set_new(trivial_hash_func, trivial_compare_func)))
+                        return -ENOMEM;
 
         my_pid = getpid();
 
@@ -240,7 +241,8 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self)
         } while (!done);
 
 finish:
-        set_free(s);
+        if (allocated_set)
+                set_free(allocated_set);
 
         if (f)
                 fclose(f);
@@ -248,16 +250,21 @@ finish:
         return ret;
 }
 
-int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self, bool rem) {
+int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self, bool rem, Set *s) {
         int r, ret = 0;
         DIR *d = NULL;
         char *fn;
+        Set *allocated_set = NULL;
 
         assert(path);
         assert(controller);
         assert(sig >= 0);
 
-        ret = cg_kill(controller, path, sig, ignore_self);
+        if (!s)
+                if (!(s = allocated_set = set_new(trivial_hash_func, trivial_compare_func)))
+                        return -ENOMEM;
+
+        ret = cg_kill(controller, path, sig, ignore_self, s);
 
         if ((r = cg_enumerate_subgroups(controller, path, &d)) < 0) {
                 if (ret >= 0 && r != -ENOENT)
@@ -279,7 +286,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool ig
                         goto finish;
                 }
 
-                r = cg_kill_recursive(controller, p, sig, ignore_self, rem);
+                r = cg_kill_recursive(controller, p, sig, ignore_self, rem, s);
                 free(p);
 
                 if (r != 0 && ret >= 0)
@@ -298,6 +305,9 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool ig
 finish:
         if (d)
                 closedir(d);
+
+        if (allocated_set)
+                set_free(allocated_set);
 
         return ret;
 }
@@ -323,7 +333,7 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path, bool re
                 else
                         sig = 0;
 
-                if ((r = cg_kill_recursive(controller, path, sig, true, rem)) <= 0)
+                if ((r = cg_kill_recursive(controller, path, sig, true, rem, NULL)) <= 0)
                         return r;
 
                 usleep(50 * USEC_PER_MSEC);

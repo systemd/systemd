@@ -61,16 +61,16 @@ int main(int argc, char*argv[]) {
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", false) > 0);
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", false) == 0);
 
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false, false) == 0);
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false, false) > 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false, false, NULL) == 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false, false, NULL) > 0);
 
         assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", "/test-a", false, false) > 0);
 
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", false) == 0);
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", false) > 0);
 
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false, false) > 0);
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false, false) == 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", 0, false, false, NULL) > 0);
+        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0, false, false, NULL) == 0);
 
         cg_trim(SYSTEMD_CGROUP_CONTROLLER, "/", false);
 

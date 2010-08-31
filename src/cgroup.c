@@ -138,7 +138,7 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid) {
         return 0;
 }
 
-int cgroup_bonding_kill(CGroupBonding *b, int sig) {
+int cgroup_bonding_kill(CGroupBonding *b, int sig, Set *s) {
         int r;
 
         assert(b);
@@ -149,25 +149,36 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig) {
 
         assert(b->realized);
 
-        return cg_kill_recursive(b->controller, b->path, sig, true, false);
+        return cg_kill_recursive(b->controller, b->path, sig, true, false, s);
 }
 
-int cgroup_bonding_kill_list(CGroupBonding *first, int sig) {
+int cgroup_bonding_kill_list(CGroupBonding *first, int sig, Set *s) {
         CGroupBonding *b;
-        int r = -EAGAIN;
+        Set *allocated_set = NULL;
+        int ret = -EAGAIN, r;
+
+        if (!s)
+                if (!(s = allocated_set = set_new(trivial_hash_func, trivial_compare_func)))
+                        return -ENOMEM;
 
         LIST_FOREACH(by_unit, b, first) {
-                if ((r = cgroup_bonding_kill(b, sig)) < 0) {
+                if ((r = cgroup_bonding_kill(b, sig, s)) < 0) {
                         if (r == -EAGAIN || r == -ESRCH)
                                 continue;
 
-                        return r;
+                        ret = r;
+                        goto finish;
                 }
 
-                return 0;
+                if (ret < 0 || r > 0)
+                        ret = r;
         }
 
-        return r;
+finish:
+        if (allocated_set)
+                set_free(allocated_set);
+
+        return ret;
 }
 
 /* Returns 1 if the group is empty, 0 if it is not, -EAGAIN if we
