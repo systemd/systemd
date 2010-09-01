@@ -2584,6 +2584,26 @@ int manager_set_console(Manager *m, const char *console) {
         return 0;
 }
 
+bool manager_unit_pending_inactive(Manager *m, const char *name) {
+        Unit *u;
+
+        assert(m);
+        assert(name);
+
+        /* Returns true if the unit is inactive or going down */
+
+        if (!(u = manager_get_unit(m, name)))
+                return true;
+
+        if (UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)))
+                return true;
+
+        if (u->meta.job && u->meta.job->type == JOB_STOP)
+                return true;
+
+        return false;
+}
+
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
         [MANAGER_SYSTEM] = "system",
         [MANAGER_SESSION] = "session"

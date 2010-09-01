@@ -259,6 +259,8 @@ void manager_reset_failed(Manager *m);
 
 void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success);
 
+bool manager_unit_pending_inactive(Manager *m, const char *name);
+
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);
 

@@ -43,6 +43,7 @@
 #include "dbus-timer.h"
 #include "dbus-path.h"
 #include "bus-errors.h"
+#include "special.h"
 
 #define CONNECTIONS_MAX 52
 
@@ -383,13 +384,19 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
                         log_debug("Got D-Bus activation request for %s", name);
 
-                        r = manager_load_unit(m, name, NULL, &error, &u);
+                        if (manager_unit_pending_inactive(m, SPECIAL_DBUS_SERVICE) ||
+                            manager_unit_pending_inactive(m, SPECIAL_DBUS_SOCKET)) {
+                                r = -EADDRNOTAVAIL;
+                                dbus_set_error(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
+                        } else {
+                                r = manager_load_unit(m, name, NULL, &error, &u);
 
-                        if (r >= 0 && u->meta.refuse_manual_start)
-                                r = -EPERM;
+                                if (r >= 0 && u->meta.refuse_manual_start)
+                                        r = -EPERM;
 
-                        if (r >= 0)
-                                r = manager_add_job(m, JOB_START, u, JOB_REPLACE, true, &error, NULL);
+                                if (r >= 0)
+                                        r = manager_add_job(m, JOB_START, u, JOB_REPLACE, true, &error, NULL);
+                        }
 
                         if (r < 0) {
                                 const char *id, *text;

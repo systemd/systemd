@@ -41,6 +41,7 @@
 #define BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE "org.freedesktop.systemd1.TransactionIsDestructive"
 #define BUS_ERROR_TRANSACTION_JOBS_CONFLICTING "org.freedesktop.systemd1.TransactionJobsConflicting"
 #define BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC "org.freedesktop.systemd1.TransactionOrderIsCyclic"
+#define BUS_ERROR_SHUTTING_DOWN "org.freedesktop.systemd1.ShuttingDown"
 
 static inline const char *bus_error(const DBusError *e, int r) {
         if (e && e->message)

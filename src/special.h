@@ -59,6 +59,7 @@
 #define SPECIAL_POWEROFF_TARGET "poweroff.target"
 #define SPECIAL_REBOOT_TARGET "reboot.target"
 #define SPECIAL_DBUS_SERVICE "dbus.service"
+#define SPECIAL_DBUS_SOCKET "dbus.socket"
 #define SPECIAL_GETTY_TARGET "getty.target"
 #define SPECIAL_SERIAL_GETTY_SERVICE "serial-getty@.service"
 
