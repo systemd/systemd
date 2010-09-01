@@ -1167,7 +1167,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
         /* We don't take connections anymore if we are supposed to
          * shut down anyway */
-        if (s->meta.job && s->meta.job->type == JOB_STOP) {
+        if (unit_pending_inactive(UNIT(s))) {
                 if (cfd >= 0)
                         close_nointr_nofail(cfd);
                 else  {

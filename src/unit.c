@@ -2125,6 +2125,20 @@ Unit *unit_following(Unit *u) {
         return NULL;
 }
 
+bool unit_pending_inactive(Unit *u) {
+        assert(u);
+
+        /* Returns true if the unit is inactive or going down */
+
+        if (UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)))
+                return true;
+
+        if (u->meta.job && u->meta.job->type == JOB_STOP)
+                return true;
+
+        return false;
+}
+
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
