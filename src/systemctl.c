@@ -2928,7 +2928,7 @@ static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
                 if (arg_action != ACTION_SYSTEMCTL && error_is_no_service(&error)) {
                         /* There's always a fallback possible for
                          * legacy actions. */
-                        r = 0;
+                        r = -EADDRNOTAVAIL;
                         goto finish;
                 }
 
@@ -2937,7 +2937,7 @@ static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
                 goto finish;
         }
 
-        r = 1;
+        r = 0;
 
 finish:
         if (m)
@@ -4605,7 +4605,7 @@ static int talk_upstart(void) {
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
 
                 if (error_is_no_service(&error)) {
-                        r = 0;
+                        r = -EADDRNOTAVAIL;
                         goto finish;
                 }
 
@@ -4614,7 +4614,7 @@ static int talk_upstart(void) {
                 goto finish;
         }
 
-        r = 1;
+        r = 0;
 
 finish:
         if (m)
