@@ -1134,7 +1134,7 @@ static int start_unit_one(
                 if (arg_action != ACTION_SYSTEMCTL && error_is_no_service(error)) {
                         /* There's always a fallback possible for
                          * legacy actions. */
-                        r = 0;
+                        r = -EADDRNOTAVAIL;
                         goto finish;
                 }
 
@@ -1171,11 +1171,7 @@ static int start_unit_one(
                 }
         }
 
-        r = 1;
-
-        /* Returns 1 if we managed to issue the request, and 0 if we
-         * failed due to systemd not being around. This is then used
-         * as indication to try a fallback mechanism. */
+        r = 0;
 
 finish:
         if (m)
@@ -1281,12 +1277,7 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
         } else {
                 for (i = 1; i < n; i++)
                         if ((r = start_unit_one(bus, method, args[i], mode, &error, s)) != 0) {
-
-                                if (r > 0)
-                                        ret = r;
-                                else
-                                        ret = translate_bus_error_to_exit_status(r, &error);
-
+                                ret = translate_bus_error_to_exit_status(r, &error);
                                 dbus_error_free(&error);
                         }
         }
@@ -4867,7 +4858,7 @@ static int start_with_fallback(DBusConnection *bus) {
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if (start_unit(bus, NULL, 0) > 0)
+                if (start_unit(bus, NULL, 0) >= 0)
                         goto done;
         }
 
