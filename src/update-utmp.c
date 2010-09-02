@@ -406,8 +406,9 @@ finish:
 #endif
 
         if (c.bus) {
-               dbus_connection_close(c.bus);
-               dbus_connection_unref(c.bus);
+                dbus_connection_flush(c.bus);
+                dbus_connection_close(c.bus);
+                dbus_connection_unref(c.bus);
         }
 
         dbus_error_free(&error);

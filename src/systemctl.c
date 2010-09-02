@@ -4624,6 +4624,7 @@ finish:
                 dbus_message_unref(reply);
 
         if (bus) {
+                dbus_connection_flush(bus);
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
         }
@@ -5039,6 +5040,7 @@ int main(int argc, char*argv[]) {
 finish:
 
         if (bus) {
+                dbus_connection_flush(bus);
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
         }

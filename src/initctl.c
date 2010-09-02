@@ -232,8 +232,9 @@ static void server_done(Server *s) {
                 close_nointr_nofail(s->epoll_fd);
 
         if (s->bus) {
-               dbus_connection_close(s->bus);
-               dbus_connection_unref(s->bus);
+                dbus_connection_flush(s->bus);
+                dbus_connection_close(s->bus);
+                dbus_connection_unref(s->bus);
         }
 }
 

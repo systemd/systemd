@@ -80,11 +80,7 @@ v9:
 
 * fix terminal setup
 
-* figure out ssh disconnect hang
-
 * home.mount failing should not be able to cancel umount.target (IgnoreDependencyFailure=yes borked?)
-
-* disallow further dbus+socket activation on shutdown
 
 External:
 
