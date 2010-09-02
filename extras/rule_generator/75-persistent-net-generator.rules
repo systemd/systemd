@@ -31,6 +31,8 @@ ENV{MATCHIFTYPE}="$attr{type}"
 
 # ignore KVM virtual interfaces
 ENV{MATCHADDR}=="52:54:00:*", GOTO="persistent_net_generator_end"
+# ignore VMWare virtual interfaces
+ENV{MATCHADDR}=="00:0c:29:*|00:50:56:*", GOTO="persistent_net_generator_end"
 
 # These vendors are known to violate the local MAC address assignment scheme
 # Interlan, DEC (UNIBUS or QBUS), Apollo, Cisco, Racal-Datacom
