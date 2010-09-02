@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Halt
+DefaultDependencies=no
 Requires=halt.service
 After=halt.service
 AllowIsolate=yes

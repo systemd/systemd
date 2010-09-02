@@ -9,5 +9,6 @@
 
 [Unit]
 Description=Shutdown
+DefaultDependencies=no
 RefuseManualStart=yes
 IgnoreDependencyFailure=yes

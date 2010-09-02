@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Power-Off
+DefaultDependencies=no
 Names=runlevel0.target
 Requires=poweroff.service
 After=poweroff.service
