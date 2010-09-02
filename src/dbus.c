@@ -464,7 +464,9 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
                 log_debug("System D-Bus connection terminated.");
                 bus_done_system(m);
 
-        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
+        } else if (m->running_as != MANAGER_SYSTEM &&
+                   dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
+
                 const char *cgroup;
 
                 if (!dbus_message_get_args(message, &error,
@@ -498,7 +500,9 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected"))
                 shutdown_connection(m, connection);
-        else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
+        else if (m->running_as == MANAGER_SYSTEM &&
+                 dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
+
                 const char *cgroup;
 
                 if (!dbus_message_get_args(message, &error,
@@ -507,6 +511,12 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
                         log_error("Failed to parse Released message: %s", error.message);
                 else
                         cgroup_notify_empty(m, cgroup);
+
+                /* Forward the message to the system bus, so that user
+                 * instances are notified as well */
+
+                if (m->system_bus)
+                        dbus_connection_send(m->system_bus, message, NULL);
         }
 
         dbus_error_free(&error);
@@ -808,17 +818,19 @@ static int bus_init_system(Manager *m) {
                 goto fail;
         }
 
-        dbus_bus_add_match(m->system_bus,
-                           "type='signal',"
-                           "interface='org.freedesktop.systemd1.Agent',"
-                           "member='Released',"
-                           "path='/org/freedesktop/systemd1/agent'",
-                           &error);
+        if (m->running_as != MANAGER_SYSTEM) {
+                dbus_bus_add_match(m->system_bus,
+                                   "type='signal',"
+                                   "interface='org.freedesktop.systemd1.Agent',"
+                                   "member='Released',"
+                                   "path='/org/freedesktop/systemd1/agent'",
+                                   &error);
 
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to register match: %s", error.message);
-                r = -EIO;
-                goto fail;
+                if (dbus_error_is_set(&error)) {
+                        log_error("Failed to register match: %s", error.message);
+                        r = -EIO;
+                        goto fail;
+                }
         }
 
         if (m->api_bus != m->system_bus) {

@@ -82,6 +82,8 @@ v9:
 
 * home.mount failing should not be able to cancel umount.target (IgnoreDependencyFailure=yes borked?)
 
+* verify ssh disconnect now works
+
 External:
 
 * place /etc/inittab with explaining blurb.
