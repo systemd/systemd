@@ -1024,7 +1024,6 @@ Kay Sievers (46):
       test-libudev: update monitor source
       TODO: add packet filter
       update NEWS
-      udevd: at startup create /dev/null, /dev/console, /dev/kmsg
       cdrom_id: add and use ID_CDROM_MEDIA to decide if we run vol_id
       libudev: monitor - add client socket filter for subsystem value
       udevadm: monitor - print error if we can not bind to socket
