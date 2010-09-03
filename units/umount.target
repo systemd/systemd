@@ -9,5 +9,6 @@
 
 [Unit]
 Description=Unmount All Filesystems
+DefaultDependencies=no
 RefuseManualStart=yes
 IgnoreDependencyFailure=yes
