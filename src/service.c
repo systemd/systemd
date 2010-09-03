@@ -574,10 +574,16 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
-                                        else if (s->sysv_enabled)
-                                                r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
-                                        else
-                                                r = unit_add_dependency_by_name_inverse(u, UNIT_AFTER, m, NULL, true);
+                                        else {
+                                                r = unit_add_dependency_by_name(u, UNIT_BEFORE, m, NULL, true);
+
+                                                if (s->sysv_enabled) {
+                                                        int k;
+
+                                                        if ((k = unit_add_dependency_by_name_inverse(u, UNIT_WANTS, m, NULL, true)) < 0)
+                                                                r = k;
+                                                }
+                                        }
 
                                         if (r < 0)
                                                 log_error("[%s:%u] Failed to add LSB Provides name %s, ignoring: %s", path, line, m, strerror(-r));
@@ -2665,9 +2671,14 @@ static int service_enumerate(Manager *m) {
         unsigned i;
         DIR *d = NULL;
         char *path = NULL, *fpath = NULL, *name = NULL;
+        Set *runlevel_services[ELEMENTSOF(rcnd_table)], *shutdown_services = NULL;
+        Unit *service;
+        Iterator j;
         int r;
 
         assert(m);
+
+        zero(runlevel_services);
 
         STRV_FOREACH(p, m->lookup_paths.sysvrcnd_path)
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
@@ -2691,7 +2702,6 @@ static int service_enumerate(Manager *m) {
                         }
 
                         while ((de = readdir(d))) {
-                                Unit *service;
                                 int a, b;
 
                                 if (ignore_file(de->d_name))
@@ -2735,53 +2745,68 @@ static int service_enumerate(Manager *m) {
                                         continue;
                                 }
 
-                                if (de->d_name[0] == 'S' &&
-                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
+                                if (de->d_name[0] == 'S')  {
+
                                         SERVICE(service)->sysv_start_priority =
                                                 MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
-                                        SERVICE(service)->sysv_enabled = true;
-                                }
 
-                                manager_dispatch_load_queue(m);
-                                service = unit_follow_merge(service);
+                                        if (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT)
+                                                SERVICE(service)->sysv_enabled = true;
 
-                                /* If this is a native service, rely
-                                 * on native ways to pull in a
-                                 * service, don't pull it in via sysv
-                                 * rcN.d links. */
-                                if (service->meta.fragment_path)
-                                        continue;
+                                        if ((r = set_ensure_allocated(&runlevel_services[i], trivial_hash_func, trivial_compare_func)) < 0)
+                                                goto finish;
 
-                                if (de->d_name[0] == 'S') {
-
-                                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, rcnd_table[i].target, NULL, true)) < 0)
+                                        if ((r = set_put(runlevel_services[i], service)) < 0)
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
                                            (rcnd_table[i].type == RUNLEVEL_DOWN ||
                                             rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
 
-                                        /* We honour K links only for
-                                         * halt/reboot. For the normal
-                                         * runlevels we assume the
-                                         * stop jobs will be
-                                         * implicitly added by the
-                                         * core logic. Also, we don't
-                                         * really distuingish here
-                                         * between the runlevels 0 and
-                                         * 6 and just add them to the
-                                         * special shutdown target. On
-                                         * SUSE the boot.d/ runlevel
-                                         * is also used for shutdown,
-                                         * so we add links for that
-                                         * too to the shutdown
-                                         * target.*/
+                                        if ((r = set_ensure_allocated(&shutdown_services, trivial_hash_func, trivial_compare_func)) < 0)
+                                                goto finish;
 
-                                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                                        if ((r = set_put(shutdown_services, service)) < 0)
                                                 goto finish;
                                 }
                         }
                 }
+
+        /* Now we loaded all stubs and are aware of the lowest
+        start-up priority for all services, not let's actually load
+        the services, this will also tell us which services are
+        actually native now */
+        manager_dispatch_load_queue(m);
+
+        /* If this is a native service, rely on native ways to pull in
+         * a service, don't pull it in via sysv rcN.d links. */
+        for (i = 0; i < ELEMENTSOF(rcnd_table); i ++)
+                SET_FOREACH(service, runlevel_services[i], j) {
+                        service = unit_follow_merge(service);
+
+                        if (service->meta.fragment_path)
+                                continue;
+
+                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, rcnd_table[i].target, NULL, true)) < 0)
+                                goto finish;
+                }
+
+        /* We honour K links only for halt/reboot. For the normal
+         * runlevels we assume the stop jobs will be implicitly added
+         * by the core logic. Also, we don't really distuingish here
+         * between the runlevels 0 and 6 and just add them to the
+         * special shutdown target. On SUSE the boot.d/ runlevel is
+         * also used for shutdown, so we add links for that too to the
+         * shutdown target.*/
+        SET_FOREACH(service, shutdown_services, j) {
+                service = unit_follow_merge(service);
+
+                if (service->meta.fragment_path)
+                        continue;
+
+                if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                        goto finish;
+        }
 
         r = 0;
 
@@ -2789,6 +2814,10 @@ finish:
         free(path);
         free(fpath);
         free(name);
+
+        for (i = 0; i < ELEMENTSOF(rcnd_table); i++)
+                set_free(runlevel_services[i]);
+        set_free(shutdown_services);
 
         if (d)
                 closedir(d);
