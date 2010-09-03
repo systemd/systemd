@@ -26,6 +26,7 @@ typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
 
+#include <linux/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/capability.h>
