@@ -7,7 +7,3 @@ After=udev.service
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@sbindir@/udevadm settle
-
-[Install]
-WantedBy=sysinit.target
-Also=udev.service udev-retry.service

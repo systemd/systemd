@@ -26,6 +26,11 @@ DISTCHECK_CONFIGURE_FLAGS = \
 
 CLEANFILES =
 
+INSTALL_EXEC_HOOKS =
+INSTALL_DATA_HOOKS =
+UNINSTALL_EXEC_HOOKS =
+DISTCHECK_HOOKS =
+
 # ------------------------------------------------------------------------------
 # libudev
 # ------------------------------------------------------------------------------
@@ -84,15 +89,17 @@ libudev-install-move-hook:
 libudev-uninstall-move-hook:
 	rm -f $(DESTDIR)$(rootlib_execdir)/libudev.so*
 
-INSTALL_EXEC_HOOKS = libudev-install-move-hook
-UNINSTALL_EXEC_HOOKS = libudev-uninstall-move-hook
+INSTALL_EXEC_HOOKS += libudev-install-move-hook
+UNINSTALL_EXEC_HOOKS += libudev-uninstall-move-hook
 
 # ------------------------------------------------------------------------------
 # main udev
 # ------------------------------------------------------------------------------
-install-data-local:
+udev-confdirs:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
 	-mkdir -p $(DESTDIR)$(libexecdir)/devices
+
+INSTALL_DATA_HOOKS += udev-confdirs
 
 EXTRA_DIST += \
 	rules/arch \
@@ -120,6 +127,14 @@ systemdsystemunit_DATA = \
 	init/udev.service \
 	init/udev-settle.service \
 	init/udev-retry.service
+
+systemd-install-hook:
+	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/sysinit.target.wants
+	ln -sf ../udev.service $(DESTDIR)$(systemdsystemunitdir)/sysinit.target.wants/udev.service
+	ln -sf ../udev-settle.service $(DESTDIR)$(systemdsystemunitdir)/sysinit.target.wants/udev-settle.service
+	ln -sf ../udev-retry.service $(DESTDIR)$(systemdsystemunitdir)/sysinit.target.wants/udev-retry.service
+
+INSTALL_DATA_HOOKS += systemd-install-hook
 endif
 
 sbin_PROGRAMS = \
@@ -585,7 +600,7 @@ extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
 
 keymaps-distcheck-hook: extras/keymap/keys.txt
 	$(top_srcdir)/extras/keymap/check-keymaps.sh $(top_srcdir) $^
-DISTCHECK_HOOKS = keymaps-distcheck-hook
+DISTCHECK_HOOKS += keymaps-distcheck-hook
 
 endif # ENABLE_EXTRAS
 
@@ -606,6 +621,8 @@ CLEANFILES += \
 EXTRA_DIST += $(TESTS)
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
+
+install-data-hook: $(INSTALL_DATA_HOOKS)
 
 uninstall-hook: $(UNINSTALL_EXEC_HOOKS)
 
