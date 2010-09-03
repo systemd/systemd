@@ -74,10 +74,6 @@
 
 * kexec, suspend, resume
 
-v9:
-
-* MTA IS KAPUTT
-
 External:
 
 * place /etc/inittab with explaining blurb.
