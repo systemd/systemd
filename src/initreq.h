@@ -58,7 +58,7 @@ struct init_request_bsd {
 
 /*
  *	Because of legacy interfaces, "runlevel" and "sleeptime"
- *	aren't in a seperate struct in the union.
+ *	aren't in a separate struct in the union.
  *
  *	The weird sizes are because init expects the whole
  *	struct to be 384 bytes.

@@ -171,7 +171,7 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
 
 /*
   Informs systemd about changed daemon state. This takes a number of
-  newline seperated environment-style variable assignments in a
+  newline separated environment-style variable assignments in a
   string. The following variables are known:
 
      READY=1      Tells systemd that daemon startup is finished (only

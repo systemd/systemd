@@ -290,7 +290,7 @@
                                 by the string value of the environment
                                 variable of the same name. Also
                                 <literal>$FOO</literal> may appear as
-                                seperate word on the command line in
+                                separate word on the command line in
                                 which case the variable is replaced by
                                 its value split at
                                 whitespaces.</para></listitem>
@@ -306,7 +306,7 @@
                                 command lines may be concatenated in a
                                 single directive, by seperating them
                                 by semicolons (these semicolons must
-                                be passed as seperate words). In that
+                                be passed as separate words). In that
                                 case, the commands are executed one
                                 after the other,
                                 serially. Alternatively, these

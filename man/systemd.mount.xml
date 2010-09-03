@@ -180,7 +180,7 @@
 
                                 <listitem><para>Mount options to use
                                 when mounting. This takes a comma
-                                seperated list of options. This
+                                separated list of options. This
                                 setting is optional.</para></listitem>
                         </varlistentry>
 

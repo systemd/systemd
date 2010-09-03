@@ -445,7 +445,7 @@
                                 does not have the effect that any of
                                 the units enabled are also started at
                                 the same time. If this is desired a
-                                seperate <command>start</command>
+                                separate <command>start</command>
                                 command must be invoked for the
                                 unit.</para>
 

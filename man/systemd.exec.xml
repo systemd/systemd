@@ -122,7 +122,7 @@
 
                                 <listitem><para>Sets the supplementary
                                 Unix groups the processes are executed
-                                as. This takes a space seperated list
+                                as. This takes a space separated list
                                 of group names or IDs. This option may
                                 be specified more than once in which
                                 case all listed groups are set as
@@ -234,7 +234,7 @@
 
                                 <listitem><para>Controls the CPU
                                 affinity of the executed
-                                processes. Takes a space-seperated
+                                processes. Takes a space-separated
                                 list of CPU indexes. See
                                 <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details.</para></listitem>
@@ -256,7 +256,7 @@
 
                                 <listitem><para>Sets environment
                                 variables for executed
-                                processes. Takes a space-seperated
+                                processes. Takes a space-separated
                                 list of variable assignments. This
                                 option may be specified more than once
                                 in which case all listed variables
@@ -272,7 +272,7 @@
                                 <varname>Environment=</varname> but
                                 reads the environment variables from a
                                 text file. The text file should
-                                contain new-line seperated variable
+                                contain new-line separated variable
                                 assignments. Empty lines and lines
                                 starting with ; or # will be ignored,
                                 which may be used for
@@ -618,7 +618,7 @@
                                 <listitem><para>Controls the control
                                 groups the executed processes shall be
                                 made members of. Takes a
-                                space-seperated list of cgroup
+                                space-separated list of cgroup
                                 identifiers. A cgroup identifier has a
                                 format like
                                 <filename>cpu:/foo/bar</filename>,
@@ -637,7 +637,7 @@
                                 arbitrary hierachies -- which can be
                                 configured externally with additional execution limits. By default
                                 systemd will place all executed
-                                processes in seperate per-unit control
+                                processes in separate per-unit control
                                 groups (named after the unit) in the
                                 systemd named hierarchy. Since every
                                 process can be in one group per
@@ -660,7 +660,7 @@
                                 to limit access a process might have
                                 to the main file-system
                                 hierarchy. Each setting takes a
-                                space-seperated list of absolute
+                                space-separated list of absolute
                                 directory paths. Directories listed in
                                 <varname>ReadWriteDirectories=</varname>
                                 are accessible from within the
@@ -677,7 +677,7 @@
                                 restricting access with these options
                                 does not extend to submounts of a
                                 directory. You must list submounts
-                                seperately in these setttings to
+                                separately in these setttings to
                                 ensure the same limited access. These
                                 options may be specified more than
                                 once in which case all directories

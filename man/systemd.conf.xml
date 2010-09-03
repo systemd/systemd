@@ -96,7 +96,7 @@
 
                                 <listitem><para>Configures the initial
                                 CPU affinity for the init
-                                process. Takes a space-seperated list
+                                process. Takes a space-separated list
                                 of CPU indexes.</para></listitem>
                         </varlistentry>
                 </variablelist>

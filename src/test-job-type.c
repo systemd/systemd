@@ -50,7 +50,7 @@ int main(int argc, char*argv[]) {
 
                                         /* Verify that merged entries can be
                                          * merged with the same entries they
-                                         * can be merged with seperately */
+                                         * can be merged with separately */
                                         assert(!job_type_is_mergeable(a, c) || job_type_is_mergeable(d, c));
                                         assert(!job_type_is_mergeable(b, c) || job_type_is_mergeable(d, c));
 

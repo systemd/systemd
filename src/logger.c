@@ -514,7 +514,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
         /* Yes, this is a bit ugly, we assume that that valid pointers
          * are > SD_LISTEN_FDS_START+SERVER_FD_MAX. Which is certainly
          * true on Linux (and probably most other OSes, too, since the
-         * first 4k usually are part of a seperate null pointer
+         * first 4k usually are part of a separate null pointer
          * dereference page. */
 
         if (PTR_TO_INT(ev->data.ptr) >= SD_LISTEN_FDS_START &&

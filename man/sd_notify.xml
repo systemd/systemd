@@ -87,7 +87,7 @@
                 processes.</para>
 
                 <para>The <parameter>state</parameter> parameter
-                should contain an newline-seperated list of variable
+                should contain an newline-separated list of variable
                 assignments, similar in style to an environment
                 block. A trailing newline is implied if none is
                 specified. The string may contain any kind of variable

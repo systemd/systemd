@@ -338,7 +338,7 @@ struct UnitVTable {
         void (*shutdown)(Manager *m);
 
         /* When sending out PropertiesChanged signal, which properties
-         * shall be invalidated? This is a NUL seperated list of
+         * shall be invalidated? This is a NUL separated list of
          * strings, to minimize relocations a little. */
         const char *bus_invalidating_properties;
 

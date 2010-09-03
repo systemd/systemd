@@ -59,7 +59,7 @@
                 <para><command>runlevel</command> prints the previous
                 and current SysV runlevel if they are known.</para>
 
-                <para>The two runlevel characters are seperated by a
+                <para>The two runlevel characters are separated by a
                 single space character. If a runlevel cannot be
                 determined, N is printed instead. If neither can be
                 determined, the word "unknown" is printed.</para>
