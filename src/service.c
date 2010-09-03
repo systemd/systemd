@@ -2747,11 +2747,12 @@ static int service_enumerate(Manager *m) {
 
                                 if (de->d_name[0] == 'S')  {
 
-                                        SERVICE(service)->sysv_start_priority =
-                                                MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
+                                        if (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT) {
+                                                SERVICE(service)->sysv_start_priority =
+                                                        MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
 
-                                        if (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT)
                                                 SERVICE(service)->sysv_enabled = true;
+                                        }
 
                                         if ((r = set_ensure_allocated(&runlevel_services[i], trivial_hash_func, trivial_compare_func)) < 0)
                                                 goto finish;
