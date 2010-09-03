@@ -1,3 +1,53 @@
+Summary of changes from v161 to v162
+============================================
+
+David Woodhouse (1):
+      Add keymap for Lenovo IdeaPad S10-3
+
+Jan Drzewiecki (2):
+      cdrom_id: Drop MEDIA_SESSION_NEXT for DVD-RW-RO
+      cdrom_id: Fix DVD blank detection for sloppy firmware
+
+Kay Sievers (10):
+      init: update systemd service files
+      init: update systemd service files
+      init: add 'udev -' to description in systemd service files
+      udevd: add pid to kmsg logs
+      init: edit systemd service descriptions
+      version bump
+      udevd: remove unneeded credential passing from init_notify()
+      set SELinux context on 'add' but not on 'change' events
+      systemd: enable all udev services unconditionally
+      Revert "Add alternative KVM MAC address blacklist"
+
+Luca Tettamanti (1):
+      Add support for oom_score_adj
+
+Marco d'Itri (2):
+      udev-acl: do not mistake all SCSI "processor" devices for scanner
+      do not create persistent name rules for KVM network interfaces
+
+Martin Pitt (12):
+      cdrom_id: Add media status debugging
+      udev(7): Point out required extension, and remove some confusion
+      keymap: Add Onkyo PC
+      keymap: Add HP G60
+      keymap: Fix Sony VAIO VGN-SZ2HP/B
+      udev(7) manpage: Fix description of $attr
+      gudev: fix crash if netlink is not available
+      keymap: Fix Acer TravelMate 4720
+      cdrom_id: Fix DVD-RW media detection
+      Fix KVM MAC address range
+      do not create persistent name rules for VMWare network interfaces
+      Add alternative KVM MAC address blacklist
+
+Michael Forney (1):
+      Don't install systemd scripts with --without-systemdsystemunitdir
+
+Michal Soltys (1):
+      ChangeLog fix
+
+
 Summary of changes from v160 to v161
 ============================================
 

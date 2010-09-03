@@ -2,6 +2,13 @@ udev 162
 ========
 Bugfixes.
 
+Persistent network naming rules are disabled inside of Qemu/KVM now.
+
+New and updated keymaps.
+
+Udev gets unconditionally enabled on systemd installations now. There
+is no longer the need to to run 'systemctl enable udev.service'.
+
 udev 161
 ========
 Bugfixes.
