@@ -24,6 +24,8 @@ Requires=sysinit.service
 After=sysinit.service
 )m4_dnl
 m4_ifdef(`TARGET_SUSE',`',
-m4_dnl On Suse, fsck.target is seperate, everywhere else it is just an alias for sysinit.target
+m4_ifdef(`TARGET_DEBIAN',`',
+m4_dnl On Suse and Debian fsck.target is separate, everywhere else it is just an alias for sysinit.target
 Names=fsck.target
+)m4_dnl
 )m4_dnl

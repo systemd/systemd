@@ -235,7 +235,8 @@ dist_systemunit_DATA += \
 	units/debian/halt.service \
 	units/debian/killall.service \
 	units/debian/poweroff.service \
-	units/debian/reboot.service
+	units/debian/reboot.service \
+	units/debian/fsck.target
 endif
 
 if TARGET_SUSE
@@ -961,9 +962,11 @@ if TARGET_GENTOO
 		$(LN_S) $(systemunitdir)/xdm.service xdm.service )
 endif
 if !TARGET_SUSE
+if !TARGET_DEBIAN
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f fsck.target && \
 		$(LN_S) sysinit.target fsck.target )
+endif
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
