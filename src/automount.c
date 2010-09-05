@@ -735,6 +735,9 @@ static bool automount_check_gc(Unit *u) {
 
         assert(a);
 
+        if (!a->mount)
+                return false;
+
         return UNIT_VTABLE(UNIT(a->mount))->check_gc(UNIT(a->mount));
 }
 
