@@ -262,6 +262,7 @@ if test "z$with_distro" = "z"; then
         fi
 fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
+AC_DEFINE_UNQUOTED(DISTRIBUTION, ["${with_distro}"], [Target Distribution])
 
 # Default generic names
 SPECIAL_SYSLOG_SERVICE=syslog.service

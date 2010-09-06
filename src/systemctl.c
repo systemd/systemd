@@ -52,6 +52,7 @@
 #include "shutdownd.h"
 #include "exit-status.h"
 #include "bus-errors.h"
+#include "build.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -4031,6 +4032,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
+                        puts(DISTRIBUTION);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case 't':

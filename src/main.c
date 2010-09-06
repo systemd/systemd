@@ -992,7 +992,7 @@ int main(int argc, char *argv[]) {
                 install_crash_handler();
 
         log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
-                 PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES ")", manager_running_as_to_string(arg_running_as));
+                 PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
 
         if (arg_running_as == MANAGER_SYSTEM && !serialization) {
                 if (arg_show_status)
