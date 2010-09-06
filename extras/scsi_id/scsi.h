@@ -54,6 +54,11 @@ struct scsi_ioctl_command {
 #define SCSI_ID_T10_VENDOR	1
 #define SCSI_ID_EUI_64		2
 #define SCSI_ID_NAA		3
+#define SCSI_ID_RELPORT		4
+#define SCSI_ID_TGTGROUP	5
+#define SCSI_ID_LUNGROUP	6
+#define SCSI_ID_MD5		7
+#define SCSI_ID_NAME		8
 
 /*
  * Supported NAA values. These fit in 4 bits, so the "don't care" value

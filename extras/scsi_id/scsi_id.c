@@ -575,6 +575,9 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 				printf("ID_WWN_WITH_EXTENSION=0x%s\n", dev_scsi.wwn);
 			}
 		}
+		if (dev_scsi.tgpt_group[0] != '\0') {
+			printf("ID_TARGET_PORT=%s\n", dev_scsi.tgpt_group);
+		}
 		if (dev_scsi.unit_serial_number[0] != '\0') {
 			printf("ID_SCSI_SERIAL=%s\n", dev_scsi.unit_serial_number);
 		}

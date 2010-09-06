@@ -53,6 +53,9 @@ struct scsi_id_device {
 
         /* NULs if not set - otherwise hex encoding using lower-case e.g. '0xe00000d80000' */
         char wwn_vendor_extension[17];
+
+	/* NULs if not set - otherwise decimal number */
+	char tgpt_group[8];
 };
 
 extern int scsi_std_inquiry(struct udev *udev, struct scsi_id_device *dev_scsi, const char *devname);
