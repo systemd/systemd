@@ -8,9 +8,8 @@
 [Unit]
 Description=Notify Audit System and Update UTMP about System Runlevel Changes
 DefaultDependencies=no
+Before=poweroff.service reboot.service halt.service killall.service
 After=runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target auditd.service
-Conflicts=shutdown.target
-Before=shutdown.target
 
 [Service]
 Type=oneshot
