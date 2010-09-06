@@ -3845,6 +3845,7 @@ static int systemctl_help(void) {
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the systemd manager.\n\n"
                "  -h --help          Show this help\n"
+               "     --version       Show package version\n"
                "  -t --type=TYPE     List only units of a particular type\n"
                "  -p --property=NAME Show only properties by this name\n"
                "  -a --all           Show all units/properties, including dead/empty ones\n"
@@ -3979,6 +3980,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_FAIL = 0x100,
+                ARG_VERSION,
                 ARG_SESSION,
                 ARG_SYSTEM,
                 ARG_GLOBAL,
@@ -3994,6 +3996,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "type",      required_argument, NULL, 't'           },
                 { "property",  required_argument, NULL, 'p'           },
                 { "all",       no_argument,       NULL, 'a'           },
@@ -4024,6 +4027,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         systemctl_help();
+                        return 0;
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
                         return 0;
 
                 case 't':
