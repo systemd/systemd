@@ -236,7 +236,10 @@ dist_systemunit_DATA += \
 	units/debian/killall.service \
 	units/debian/poweroff.service \
 	units/debian/reboot.service \
-	units/debian/fsck.target
+	units/debian/fsck.target \
+	units/debian/umountfs.service \
+	units/debian/umountnfs.service \
+	units/debian/umountroot.service
 endif
 
 if TARGET_SUSE
@@ -960,6 +963,15 @@ if TARGET_GENTOO
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
 		rm -f xdm.service && \
 		$(LN_S) $(systemunitdir)/xdm.service xdm.service )
+endif
+if TARGET_DEBIAN
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(systemunitdir)/umount.target.wants
+	( cd $(DESTDIR)$(systemunitdir)/umount.target.wants && \
+		rm -f umountfs.service umountnfs.service umountroot.service && \
+		$(LN_S) ../umountfs.service umountfs.service && \
+		$(LN_S) ../umountnfs.service umountnfs.service && \
+		$(LN_S) ../umountroot.service umountroot.service )
 endif
 if !TARGET_SUSE
 if !TARGET_DEBIAN
