@@ -74,6 +74,10 @@
 
 * kexec, suspend, resume
 
+* passphrase agent https://bugs.freedesktop.org/show_bug.cgi?id=30038
+
+* emergency.service should start default.target after C-d.
+
 External:
 
 * place /etc/inittab with explaining blurb.
