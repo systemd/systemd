@@ -972,6 +972,9 @@ if TARGET_DEBIAN
 		$(LN_S) ../umountfs.service umountfs.service && \
 		$(LN_S) ../umountnfs.service umountnfs.service && \
 		$(LN_S) ../umountroot.service umountroot.service )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f runlevel5.target && \
+		$(LN_S) multi-user.target runlevel5.target )
 endif
 if !TARGET_SUSE
 if !TARGET_DEBIAN
