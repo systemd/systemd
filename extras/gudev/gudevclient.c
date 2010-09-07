@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
- * Copyright (C) 2008 David Zeuthen <davidz@redhat.com>
+ * Copyright (C) 2008-2010 David Zeuthen <davidz@redhat.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -59,7 +59,7 @@
 
 struct _GUdevClientPrivate
 {
-  guint watch_id;
+  GSource *watch_source;
   struct udev *udev;
   struct udev_monitor *monitor;
 
@@ -117,10 +117,10 @@ g_udev_client_finalize (GObject *object)
 {
   GUdevClient *client = G_UDEV_CLIENT (object);
 
-  if (client->priv->watch_id != 0)
+  if (client->priv->watch_source != NULL)
     {
-      g_source_remove (client->priv->watch_id);
-      client->priv->watch_id = 0;
+      g_source_destroy (client->priv->watch_source);
+      client->priv->watch_source = NULL;
     }
 
   if (client->priv->monitor != NULL)
@@ -229,10 +229,16 @@ g_udev_client_constructed (GObject *object)
         {
           udev_monitor_enable_receiving (client->priv->monitor);
           channel = g_io_channel_unix_new (udev_monitor_get_fd (client->priv->monitor));
-          client->priv->watch_id = g_io_add_watch (channel, G_IO_IN, monitor_event, client);
+          client->priv->watch_source = g_io_create_watch (channel, G_IO_IN);
           g_io_channel_unref (channel);
-        } else
-          client->priv->watch_id = NULL;
+          g_source_set_callback (client->priv->watch_source, (GSourceFunc) monitor_event, client, NULL);
+          g_source_attach (client->priv->watch_source, g_main_context_get_thread_default ());
+          g_source_unref (client->priv->watch_source);
+        }
+      else
+        {
+          client->priv->watch_source = NULL;
+        }
     }
 
   if (G_OBJECT_CLASS (g_udev_client_parent_class)->constructed != NULL)
@@ -280,6 +286,10 @@ g_udev_client_class_init (GUdevClientClass *klass)
    * @device: Details about the #GUdevDevice the event is for.
    *
    * Emitted when @client receives an uevent.
+   *
+   * This signal is emitted in the
+   * <link linkend="g-main-context-push-thread-default">thread-default main loop</link>
+   * of the thread that @client was created in.
    */
   signals[UEVENT_SIGNAL] = g_signal_new ("uevent",
                                          G_TYPE_FROM_CLASS (klass),
@@ -310,7 +320,9 @@ g_udev_client_init (GUdevClient *client)
  *
  * Constructs a #GUdevClient object that can be used to query
  * information about devices. Connect to the #GUdevClient::uevent
- * signal to listen for uevents.
+ * signal to listen for uevents. Note that signals are emitted in the
+ * <link linkend="g-main-context-push-thread-default">thread-default main loop</link>
+ * of the thread that you call this constructor from.
  *
  * Returns: A new #GUdevClient object. Free with g_object_unref().
  */
