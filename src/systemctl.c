@@ -337,7 +337,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
         qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
 
-        if (isatty(STDOUT_FILENO)) {
+        if (on_tty()) {
                 if (columns() >= 80+12 || arg_full)
                         printf("%-25s %-6s %-12s %-18s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
                 else
@@ -400,7 +400,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                 }
         }
 
-        if (isatty(STDOUT_FILENO)) {
+        if (on_tty()) {
 
                 printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
                        "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
