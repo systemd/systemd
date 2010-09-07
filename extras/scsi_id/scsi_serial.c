@@ -496,11 +496,12 @@ static int check_fill_0x83_id(struct udev *udev,
 	 * ASSOCIATION must be with the device (value 0)
 	 * or with the target port for SCSI_ID_TGTPORT
 	 */
-	if (page_83[1] & 0x30 == 0x10)
+	if ((page_83[1] & 0x30) == 0x10) {
 		if (id_search->id_type != SCSI_ID_TGTGROUP)
 			return 1;
-	else if ((page_83[1] & 0x30) != 0)
+	} else if ((page_83[1] & 0x30) != 0) {
 		return 1;
+	}
 
 	if ((page_83[1] & 0x0f) != id_search->id_type)
 		return 1;
