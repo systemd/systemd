@@ -251,20 +251,39 @@ static int compare_unit_info(const void *a, const void *b) {
         return strcasecmp(u->id, v->id);
 }
 
+static bool output_show_job(const struct unit_info *u) {
+        const char *dot;
+        return (!arg_type || ((dot = strrchr(u->id, '.')) &&
+                              streq(dot+1, arg_type))) &&
+                (arg_all || !(streq(u->active_state, "inactive") || u->following[0]) || u->job_id > 0);
+}
+
 static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
+        unsigned active_len, sub_len, job_len;
+
+        active_len = strlen("ACTIVE");
+        sub_len = strlen("SUB");
+        job_len = strlen("JOB");
+        for (const struct unit_info *u = unit_infos; u < unit_infos + c; u++) {
+                if (output_show_job(u)) {
+                        active_len = MAX(active_len, strlen(u->active_state));
+                        sub_len = MAX(sub_len, strlen(u->sub_state));
+                        if (u->job_id != 0)
+                                job_len = MAX(job_len, strlen(u->job_type));
+                }
+        }
+
         if (on_tty()) {
+                printf("%-25s %-6s %-*s %-*s %-*s", "UNIT", "LOAD",
+                       active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
                 if (columns() >= 80+12 || arg_full)
-                        printf("%-25s %-6s %-12s %-18s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
+                        printf(" %s\n", "DESCRIPTION");
                 else
-                        printf("%-25s %-6s %-12s %-18s %-15s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB");
+                        printf("\n");
         }
 
         for (const struct unit_info *u = unit_infos; u < unit_infos + c; u++) {
-                const char *dot;
-
-                if ((!arg_type || ((dot = strrchr(u->id, '.')) &&
-                                   streq(dot+1, arg_type))) &&
-                    (arg_all || !(streq(u->active_state, "inactive") || u->following[0]) || u->job_id > 0)) {
+                if (output_show_job(u)) {
                         char *e;
                         int a = 0, b = 0;
                         const char *on_loaded, *off_loaded;
@@ -284,10 +303,11 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                         e = arg_full ? NULL : ellipsize(u->id, 25, 33);
 
-                        printf("%-25s %s%-6s%s %s%-12s %-18s%s%n",
+                        printf("%-25s %s%-6s%s %s%-*s %-*s%s%n",
                                e ? e : u->id,
                                on_loaded, u->load_state, off_loaded,
-                               on_active, u->active_state, u->sub_state, off_active,
+                               on_active, active_len, u->active_state,
+                                          sub_len, u->sub_state, off_active,
                                &a);
 
                         free(e);
@@ -296,13 +316,13 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         a -= strlen(on_active) + strlen(off_active);
 
                         if (u->job_id != 0)
-                                printf(" %-15s%n", u->job_type, &b);
+                                printf(" %-*s", job_len, u->job_type);
                         else
-                                b = 1 + 15;
+                                b = 1 + job_len;
 
                         if (a + b + 1 < columns()) {
                                 if (u->job_id == 0)
-                                        printf("                ");
+                                        printf(" %-*s", job_len, "");
 
                                 if (arg_full)
                                         printf(" %s", u->description);
