@@ -80,7 +80,7 @@ if test "x$enable_extras" = xyes; then
 		AC_MSG_ERROR([gperf is needed])
 	fi
 
-	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.7.0 gobject-2.0 >= 2.7.0])
+	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
 	AC_SUBST([GLIB_CFLAGS])
 	AC_SUBST([GLIB_LIBS])
 
