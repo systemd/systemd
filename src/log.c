@@ -40,6 +40,8 @@ static int console_fd = STDERR_FILENO;
 static int syslog_fd = -1;
 static int kmsg_fd = -1;
 
+static bool syslog_is_stream = false;
+
 static bool show_color = false;
 static bool show_location = false;
 
@@ -112,38 +114,62 @@ void log_close_syslog(void) {
         syslog_fd = -1;
 }
 
+static int create_log_socket(int type) {
+        struct timeval tv;
+        int fd;
+
+        if ((fd = socket(AF_UNIX, type|SOCK_CLOEXEC, 0)) < 0)
+                return -errno;
+
+        /* Make sure we don't block for more than 5s when talking to
+         * syslog */
+        timeval_store(&tv, SYSLOG_TIMEOUT_USEC);
+        if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        return fd;
+}
+
 static int log_open_syslog(void) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_un un;
         } sa;
-        struct timeval tv;
         int r;
 
         if (syslog_fd >= 0)
                 return 0;
 
-        if ((syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        /* Make sure we don't block for more than 5s when talking to
-         * syslog */
-        timeval_store(&tv, SYSLOG_TIMEOUT_USEC);
-        if (setsockopt(syslog_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
         zero(sa);
         sa.un.sun_family = AF_UNIX;
         strncpy(sa.un.sun_path, "/dev/log", sizeof(sa.un.sun_path));
 
-        if (connect(syslog_fd, &sa.sa, sizeof(sa)) < 0) {
+        if ((syslog_fd = create_log_socket(SOCK_DGRAM)) < 0) {
                 r = -errno;
                 goto fail;
         }
+
+        if (connect(syslog_fd, &sa.sa, sizeof(sa)) < 0) {
+                close_nointr_nofail(syslog_fd);
+
+                /* Some legacy syslog systems still use stream
+                 * sockets. They really shouldn't. But what can we
+                 * do... */
+                if ((syslog_fd = create_log_socket(SOCK_STREAM)) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                if (connect(syslog_fd, &sa.sa, sizeof(sa)) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                syslog_is_stream = true;
+        } else
+                syslog_is_stream = false;
 
         log_debug("Succesfully opened syslog for logging.");
 
@@ -274,12 +300,26 @@ static int write_to_syslog(
         IOVEC_SET_STRING(iovec[3], header_pid);
         IOVEC_SET_STRING(iovec[4], buffer);
 
+        /* When using syslog via SOCK_STREAM seperate the messages by NUL chars */
+        if (syslog_is_stream)
+                iovec[4].iov_len++;
+
         zero(msghdr);
         msghdr.msg_iov = iovec;
         msghdr.msg_iovlen = ELEMENTSOF(iovec);
 
-        if (sendmsg(syslog_fd, &msghdr, MSG_NOSIGNAL) < 0)
-                return -errno;
+        for (;;) {
+                ssize_t n;
+
+                if ((n = sendmsg(syslog_fd, &msghdr, MSG_NOSIGNAL)) < 0)
+                        return -errno;
+
+                if (!syslog_is_stream ||
+                    (size_t) n >= IOVEC_TOTAL_SIZE(iovec, ELEMENTSOF(iovec)))
+                        break;
+
+                IOVEC_INCREMENT(iovec, ELEMENTSOF(iovec), n);
+        }
 
         return 1;
 }

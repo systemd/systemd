@@ -24,6 +24,8 @@
 
 #include <assert.h>
 #include <sys/types.h>
+#include <sys/uio.h>
+#include <inttypes.h>
 
 #define _printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
 #define _sentinel_ __attribute__ ((sentinel))
@@ -133,6 +135,34 @@ static inline size_t ALIGN(size_t l) {
                 _i->iov_base = _s;              \
                 _i->iov_len = strlen(_s);       \
         } while(false);
+
+static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, unsigned n) {
+        unsigned j;
+        size_t r = 0;
+
+        for (j = 0; j < n; j++)
+                r += i[j].iov_len;
+
+        return r;
+}
+
+static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
+        unsigned j;
+
+        for (j = 0; j < n; j++) {
+                size_t sub;
+
+                if (_unlikely_(k <= 0))
+                        break;
+
+                sub = MIN(i[j].iov_len, k);
+                i[j].iov_len -= sub;
+                i[j].iov_base = (uint8_t*) i[j].iov_base + sub;
+                k -= sub;
+        }
+
+        return k;
+}
 
 #include "log.h"
 
