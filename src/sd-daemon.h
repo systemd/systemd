@@ -67,11 +67,15 @@ extern "C" {
   See sd-daemon(7) for more information.
 */
 
-#if (__GNUC__ >= 4) && !defined(SD_EXPORT_SYMBOLS)
+#if __GNUC__ >= 4
 #define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
-#define _sd_hidden_ __attribute__ ((visibility("hidden")))
 #else
 #define _sd_printf_attr_(a,b)
+#endif
+
+#if (__GNUC__ >= 4) && !defined(SD_EXPORT_SYMBOLS)
+#define _sd_hidden_ __attribute__ ((visibility("hidden")))
+#else
 #define _sd_hidden_
 #endif
 
