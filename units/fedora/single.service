@@ -15,6 +15,7 @@ After=sysinit.target
 Before=multi-user.target
 
 [Service]
+Environment=HOME=/root
 ExecStartPre=-/bin/plymouth --hide-splash
 ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" to activate default mode.'
 ExecStart=-/sbin/sulogin
