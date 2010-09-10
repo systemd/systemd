@@ -9,7 +9,8 @@
 
 [Unit]
 Description=systemd Logging Daemon
-After=@SPECIAL_SYSLOG_SERVICE@ syslog.target
+Wants=syslog.target
+After=syslog.target @SPECIAL_SYSLOG_SERVICE@
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-logger
