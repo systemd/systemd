@@ -1,6 +1,7 @@
 * do not throw error when .service file is linked to /dev/null
 
 * read /etc/locale, and export LANG= and friends to started services
+  allow overwrite of setting by kernel commandline: locale.LANG=, ...
 
 * ABI: tcpwrap "legacy", disable D-Bus export if not compiled-in
 
