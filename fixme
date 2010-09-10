@@ -1,3 +1,9 @@
+* do not throw error when .service file is linked to /dev/null
+
+* read /etc/locale, and export LANG= and friends to started services
+
+* ABI: tcpwrap "legacy", disable D-Bus export if not compiled-in
+
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
@@ -15,6 +21,7 @@
 * implicitly import "defaults" settings file into all types
 
 * add #ifdefs for non-sysv builds
+  ABI: sysv "legacy", disable D-Bus export if not compiled-in
 
 * "disabled" load state?
 
