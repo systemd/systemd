@@ -13,6 +13,7 @@ DefaultDependencies=no
 
 [Service]
 Environment=HOME=/root
+WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth --hide-splash
 ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" to activate default mode.'
 ExecStart=-/sbin/sulogin
