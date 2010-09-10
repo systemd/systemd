@@ -14,5 +14,4 @@ Description=Syslog
 # dependency should be dropped, and replaced by alias symlinks in the
 # .wants/ directory, to either the .service or .socket unit of the
 # syslog service.
-Requires=@SPECIAL_SYSLOG_SERVICE@
 After=@SPECIAL_SYSLOG_SERVICE@
