@@ -86,6 +86,8 @@
 
 * emergency.service should start default.target after C-d.
 
+* support dbus introspection in mid-level object paths, i.e. in /org/freedesktop/systemd/units/.
+
 External:
 
 * place /etc/inittab with explaining blurb.

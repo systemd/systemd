@@ -51,6 +51,8 @@ typedef struct Server {
 
         unsigned n_server_fd;
 
+        bool syslog_is_stream;
+
         LIST_HEAD(Stream, streams);
         unsigned n_streams;
 } Server;
@@ -172,14 +174,28 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
                 IOVEC_SET_STRING(iovec[3], header_pid);
                 IOVEC_SET_STRING(iovec[4], p);
 
+                /* When using syslog via SOCK_STREAM seperate the messages by NUL chars */
+                if (s->server->syslog_is_stream)
+                        iovec[4].iov_len++;
+
                 zero(msghdr);
                 msghdr.msg_iov = iovec;
                 msghdr.msg_iovlen = ELEMENTSOF(iovec);
                 msghdr.msg_control = &control;
                 msghdr.msg_controllen = control.cmsghdr.cmsg_len;
 
-                if (sendmsg(s->server->syslog_fd, &msghdr, MSG_NOSIGNAL) < 0)
-                        return -errno;
+                for (;;) {
+                        ssize_t n;
+
+                        if ((n = sendmsg(s->server->syslog_fd, &msghdr, MSG_NOSIGNAL)) < 0)
+                                return -errno;
+
+                        if (!s->server->syslog_is_stream ||
+                            (size_t) n >= IOVEC_TOTAL_SIZE(iovec, ELEMENTSOF(iovec)))
+                                break;
+
+                        IOVEC_INCREMENT(iovec, ELEMENTSOF(iovec), n);
+                }
 
         } else if (s->target == STREAM_KMSG) {
                 IOVEC_SET_STRING(iovec[1], s->process);
@@ -479,21 +495,34 @@ static int server_init(Server *s, unsigned n_sockets) {
                 }
         }
 
+        zero(sa);
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, "/dev/log", sizeof(sa.un.sun_path));
+
         if ((s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0) {
                 r = -errno;
                 log_error("Failed to create log fd: %m");
                 goto fail;
         }
 
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, "/dev/log", sizeof(sa.un.sun_path));
-
         if (connect(s->syslog_fd, &sa.sa, sizeof(sa)) < 0) {
-                r = -errno;
-                log_error("Failed to connect log socket to /dev/log: %m");
-                goto fail;
-        }
+                close_nointr_nofail(s->syslog_fd);
+
+                if ((s->syslog_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0)) < 0) {
+                        r = -errno;
+                        log_error("Failed to create log fd: %m");
+                        goto fail;
+                }
+
+                if (connect(s->syslog_fd, &sa.sa, sizeof(sa)) < 0) {
+                        r = -errno;
+                        log_error("Failed to connect log socket to /dev/log: %m");
+                        goto fail;
+                }
+
+                s->syslog_is_stream = true;
+        } else
+                s->syslog_is_stream = false;
 
         /* /dev/kmsg logging is strictly optional */
         if ((s->kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
