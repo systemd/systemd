@@ -824,22 +824,6 @@ static int service_load_sysv(Service *s) {
         return 0;
 }
 
-static int service_add_bus_name(Service *s) {
-        char *n;
-        int r;
-
-        assert(s);
-        assert(s->bus_name);
-
-        if (asprintf(&n, "dbus-%s.service", s->bus_name) < 0)
-                return 0;
-
-        r = unit_merge_by_name(UNIT(s), n);
-        free(n);
-
-        return r;
-}
-
 static int service_verify(Service *s) {
         assert(s);
 
@@ -929,13 +913,9 @@ static int service_load(Unit *u) {
                 if ((r = sysv_fix_order(s)) < 0)
                         return r;
 
-                if (s->bus_name) {
-                        if ((r = service_add_bus_name(s)) < 0)
-                                return r;
-
+                if (s->bus_name)
                         if ((r = unit_watch_bus_name(u, s->bus_name)) < 0)
                                 return r;
-                }
 
                 if (s->type == SERVICE_NOTIFY && s->notify_access == NOTIFY_NONE)
                         s->notify_access = NOTIFY_MAIN;
