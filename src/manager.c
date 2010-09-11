@@ -982,7 +982,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
 
                 if (delete) {
-                        log_warning("Breaking ordering cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
+                        log_warning("Breaking ordering cycle by deleting job %s/%s", delete->unit->meta.id, job_type_to_string(delete->type));
                         transaction_delete_unit(m, delete->unit);
                         return -EAGAIN;
                 }
