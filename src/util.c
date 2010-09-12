@@ -2835,6 +2835,7 @@ void status_welcome(void) {
 
         status_printf("Welcome to \x1B[0;32m%s\x1B[0m!\n", r); /* Green for SUSE */
         free(r);
+
 #elif defined(TARGET_GENTOO)
         char *r;
 
@@ -2846,6 +2847,18 @@ void status_welcome(void) {
         status_printf("Welcome to \x1B[1;34m%s\x1B[0m!\n", r); /* Light Blue for Gentoo */
 
         free(r);
+
+#elif defined(TARGET_DEBIAN)
+	char *r;
+
+	if (read_one_line_file("/etc/debian_version", &r) < 0)
+		return;
+
+	truncate_nl(r);
+
+	status_printf("Welcome to Debian \x1B[1;31m%s\x1B[0m!\n", r); /* Light Red for Debian */
+
+	free(r);
 #else
 #warning "You probably should add a welcome text logic here."
 #endif
