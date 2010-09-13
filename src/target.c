@@ -53,27 +53,7 @@ static void target_set_state(Target *t, TargetState state) {
 }
 
 static int target_add_default_dependencies(Target *t) {
-        Iterator i;
-        Unit *other;
-        int r;
-
-        /* Imply ordering for requirement dependencies on target
-         * units. Note that when the user created a contradicting
-         * ordering manually we won't add anything in here to make
-         * sure we don't create a loop. */
-
-        SET_FOREACH(other, t->meta.dependencies[UNIT_REQUIRES], i)
-                if (!set_get(t->meta.dependencies[UNIT_BEFORE], other))
-                        if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
-                                return r;
-        SET_FOREACH(other, t->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                if (!set_get(t->meta.dependencies[UNIT_BEFORE], other))
-                        if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
-                                return r;
-        SET_FOREACH(other, t->meta.dependencies[UNIT_WANTS], i)
-                if (!set_get(t->meta.dependencies[UNIT_BEFORE], other))
-                        if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
-                                return r;
+        assert(t);
 
         /* Make sure targets are unloaded on shutdown */
         return unit_add_dependency_by_name(UNIT(t), UNIT_CONFLICTED_BY, SPECIAL_SHUTDOWN_TARGET, NULL, true);

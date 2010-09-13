@@ -725,6 +725,42 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
         return 0;
 }
 
+static int unit_add_one_default_dependency(Unit *u, Unit *target) {
+        assert(u);
+        assert(target);
+
+        if (target->meta.type != UNIT_TARGET)
+                return 0;
+
+        /* Don't create loops */
+        if (set_get(target->meta.dependencies[UNIT_BEFORE], u))
+                return 0;
+
+        return unit_add_dependency(target, UNIT_AFTER, u, true);
+}
+
+static int unit_add_default_dependencies(Unit *u) {
+        Unit *other;
+        Iterator i;
+        int r;
+
+        assert(u);
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
+                if ((r = unit_add_one_default_dependency(u, other)) < 0)
+                        return r;
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
+                if ((r = unit_add_one_default_dependency(u, other)) < 0)
+                        return r;
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_WANTED_BY], i)
+                if ((r = unit_add_one_default_dependency(u, other)) < 0)
+                        return r;
+
+        return 0;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -749,6 +785,11 @@ int unit_load(Unit *u) {
                 r = -ENOENT;
                 goto fail;
         }
+
+        if (u->meta.load_state == UNIT_LOADED &&
+            u->meta.default_dependencies)
+                if ((r = unit_add_default_dependencies(u)) < 0)
+                        goto fail;
 
         assert((u->meta.load_state != UNIT_MERGED) == !u->meta.merged_into);
 
