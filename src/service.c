@@ -260,7 +260,8 @@ static int sysv_translate_facility(const char *name, char **_r) {
 #ifdef TARGET_FEDORA
                 /* Fedora extensions, lacking the $ prefix */
                 "MTA",        SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "smtpdaemon", SPECIAL_MAIL_TRANSFER_AGENT_TARGET
+                "smtpdaemon", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "httpd",      SPECIAL_HTTP_DAEMON_TARGET,
 #endif
         };
 

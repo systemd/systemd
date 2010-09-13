@@ -47,6 +47,7 @@
 #define SPECIAL_RTC_SET_TARGET "rtc-set.target"           /* LSB's $time */
 #define SPECIAL_DISPLAY_MANAGER_SERVICE "display-manager.service"       /* Debian's $x-display-manager */
 #define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Debian's $mail-{transport|transfer-agent */
+#define SPECIAL_HTTP_DAEMON_TARGET "http-daemon.target"
 #define SPECIAL_DBUS_TARGET "dbus.target"
 #define SPECIAL_BASIC_TARGET "basic.target"
 #define SPECIAL_SOCKETS_TARGET "sockets.target"
