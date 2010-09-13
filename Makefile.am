@@ -129,6 +129,7 @@ dist_systemunit_DATA = \
 	units/network.target \
 	units/nss-lookup.target \
 	units/mail-transfer-agent.target \
+	units/http-daemon.target \
 	units/poweroff.target \
 	units/reboot.target \
 	units/rescue.target \
