@@ -863,7 +863,7 @@ fi</programlisting>
                         script and a native systemd service file, use
                         a fragment like the following:</para>
 
-                        <programlisting>%triggerin -- foobar &lt; 0.47.11-1
+                        <programlisting>%triggerun -- foobar &lt; 0.47.11-1
 if /sbin/chkconfig foobar ; then
         /bin/systemctl enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 fi</programlisting>
