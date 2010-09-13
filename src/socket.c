@@ -385,7 +385,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
                 prefix, yes_no(s->free_bind),
-                prefix, s->tcp_congestion);
+                prefix, strna(s->tcp_congestion));
 
         if (s->control_pid > 0)
                 fprintf(f,

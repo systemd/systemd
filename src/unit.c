@@ -440,6 +440,7 @@ static void merge_dependencies(Unit *u, Unit *other, UnitDependency d) {
         assert(other);
         assert(d < _UNIT_DEPENDENCY_MAX);
 
+        /* Fix backwards pointers */
         SET_FOREACH(back, other->meta.dependencies[d], i) {
                 UnitDependency k;
 
