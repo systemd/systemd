@@ -277,9 +277,11 @@ static int sysv_translate_facility(const char *name, char **_r) {
                 }
 
         if (*name == '$')
-                return 0;
+                r = unit_name_build(name+1, NULL, ".target");
+        else
+                r = sysv_translate_name(name);
 
-        if (!(r = sysv_translate_name(name)))
+        if (!r)
                 return -ENOMEM;
 
 finish:
