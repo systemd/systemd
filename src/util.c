@@ -2859,6 +2859,8 @@ void status_welcome(void) {
 	status_printf("Welcome to Debian \x1B[1;31m%s\x1B[0m!\n", r); /* Light Red for Debian */
 
 	free(r);
+#elif defined(TARGET_ARCH)
+	status_printf("Welcome to \x1B[1;36mArch Linux\x1B[0m!\n"); /* Cyan for Arch */
 #else
 #warning "You probably should add a welcome text logic here."
 #endif
