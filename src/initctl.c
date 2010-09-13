@@ -68,27 +68,32 @@ struct Fifo {
         LIST_FIELDS(Fifo, fifo);
 };
 
-static const char *translate_runlevel(int runlevel) {
+static const char *translate_runlevel(int runlevel, bool *isolate) {
         static const struct {
                 const int runlevel;
                 const char *special;
+                bool isolate;
         } table[] = {
-                { '0', SPECIAL_POWEROFF_TARGET },
-                { '1', SPECIAL_RESCUE_TARGET },
-                { 's', SPECIAL_RESCUE_TARGET },
-                { 'S', SPECIAL_RESCUE_TARGET },
-                { '2', SPECIAL_RUNLEVEL2_TARGET },
-                { '3', SPECIAL_RUNLEVEL3_TARGET },
-                { '4', SPECIAL_RUNLEVEL4_TARGET },
-                { '5', SPECIAL_RUNLEVEL5_TARGET },
-                { '6', SPECIAL_REBOOT_TARGET },
+                { '0', SPECIAL_POWEROFF_TARGET,  false },
+                { '1', SPECIAL_RESCUE_TARGET,    true  },
+                { 's', SPECIAL_RESCUE_TARGET,    true  },
+                { 'S', SPECIAL_RESCUE_TARGET,    true  },
+                { '2', SPECIAL_RUNLEVEL2_TARGET, true  },
+                { '3', SPECIAL_RUNLEVEL3_TARGET, true  },
+                { '4', SPECIAL_RUNLEVEL4_TARGET, true  },
+                { '5', SPECIAL_RUNLEVEL5_TARGET, true  },
+                { '6', SPECIAL_REBOOT_TARGET,    false },
         };
 
         unsigned i;
 
+        assert(isolate);
+
         for (i = 0; i < ELEMENTSOF(table); i++)
-                if (table[i].runlevel == runlevel)
+                if (table[i].runlevel == runlevel) {
+                        *isolate = table[i].isolate;
                         return table[i].special;
+                }
 
         return NULL;
 }
@@ -97,16 +102,22 @@ static void change_runlevel(Server *s, int runlevel) {
         const char *target;
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        const char *replace = "replace";
+        const char *mode;
+        bool isolate = false;
 
         assert(s);
 
         dbus_error_init(&error);
 
-        if (!(target = translate_runlevel(runlevel))) {
+        if (!(target = translate_runlevel(runlevel, &isolate))) {
                 log_warning("Got request for unknown runlevel %c, ignoring.", runlevel);
                 goto finish;
         }
+
+        if (isolate)
+                mode = "isolate";
+        else
+                mode = "replace";
 
         log_debug("Running request %s", target);
 
@@ -117,7 +128,7 @@ static void change_runlevel(Server *s, int runlevel) {
 
         if (!dbus_message_append_args(m,
                                       DBUS_TYPE_STRING, &target,
-                                      DBUS_TYPE_STRING, &replace,
+                                      DBUS_TYPE_STRING, &mode,
                                       DBUS_TYPE_INVALID)) {
                 log_error("Could not attach target and flag information to message.");
                 goto finish;
