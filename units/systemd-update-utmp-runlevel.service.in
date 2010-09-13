@@ -8,8 +8,9 @@
 [Unit]
 Description=Notify Audit System and Update UTMP about System Runlevel Changes
 DefaultDependencies=no
+Wants=local-fs.target sysinit.target
+After=local-fs.target sysinit.target auditd.service runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target
 Before=poweroff.service reboot.service halt.service killall.service
-After=runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target auditd.service
 
 [Service]
 Type=oneshot
