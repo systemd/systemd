@@ -726,11 +726,17 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
         return 0;
 }
 
-static int unit_add_one_default_dependency(Unit *u, Unit *target) {
+int unit_add_default_target_dependency(Unit *u, Unit *target) {
         assert(u);
         assert(target);
 
         if (target->meta.type != UNIT_TARGET)
+                return 0;
+
+        /* Only add the dependency if boths units are loaded, so that
+         * that loop check below is reliable */
+        if (u->meta.load_state != UNIT_LOADED ||
+            target->meta.load_state != UNIT_LOADED)
                 return 0;
 
         /* Don't create loops */
@@ -741,22 +747,22 @@ static int unit_add_one_default_dependency(Unit *u, Unit *target) {
 }
 
 static int unit_add_default_dependencies(Unit *u) {
-        Unit *other;
+        Unit *target;
         Iterator i;
         int r;
 
         assert(u);
 
-        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
-                if ((r = unit_add_one_default_dependency(u, other)) < 0)
+        SET_FOREACH(target, u->meta.dependencies[UNIT_REQUIRED_BY], i)
+                if ((r = unit_add_default_target_dependency(u, target)) < 0)
                         return r;
 
-        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
-                if ((r = unit_add_one_default_dependency(u, other)) < 0)
+        SET_FOREACH(target, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
+                if ((r = unit_add_default_target_dependency(u, target)) < 0)
                         return r;
 
-        SET_FOREACH(other, u->meta.dependencies[UNIT_WANTED_BY], i)
-                if ((r = unit_add_one_default_dependency(u, other)) < 0)
+        SET_FOREACH(target, u->meta.dependencies[UNIT_WANTED_BY], i)
+                if ((r = unit_add_default_target_dependency(u, target)) < 0)
                         return r;
 
         return 0;
