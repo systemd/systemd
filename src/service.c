@@ -319,8 +319,8 @@ static int sysv_fix_order(Service *s) {
 
                 /* If both units have modern headers we don't care
                  * about the priorities */
-                if ((!s->sysv_path || s->sysv_has_lsb) &&
-                    (!t->sysv_path || t->sysv_has_lsb))
+                if ((s->meta.fragment_path || s->sysv_has_lsb) &&
+                    (t->meta.fragment_path || t->sysv_has_lsb))
                         continue;
 
                 special_s = s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels);
@@ -2280,7 +2280,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        if (s->sysv_path)
+        if (!s->meta.fragment_path)
                 success = is_clean_exit_lsb(code, status);
         else
                 success = is_clean_exit(code, status);
