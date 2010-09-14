@@ -12,6 +12,7 @@ After=syslog.target livesys-late.service
 # On Fedora gdm/X11 is on tty1. We explicitly cancel the getty here to
 # avoid any races around that.
 Conflicts=getty@tty1.service plymouth-quit.service
+After=getty@tty1.service plymouth-quit.service
 
 [Service]
 ExecStart=/etc/X11/prefdm -nodaemon
