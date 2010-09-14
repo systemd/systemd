@@ -3214,7 +3214,9 @@ static const char *const signal_table[] = {
         [SIGPIPE] = "PIPE",
         [SIGALRM] = "ALRM",
         [SIGTERM] = "TERM",
-        [SIGSTKFLT] = "STKFLT",
+#ifdef SIGSTKFLT
+        [SIGSTKFLT] = "STKFLT",  /* Linux on SPARC doesn't know SIGSTKFLT */
+#endif
         [SIGCHLD] = "CHLD",
         [SIGCONT] = "CONT",
         [SIGSTOP] = "STOP",
