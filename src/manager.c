@@ -1535,7 +1535,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                 return -EPERM;
         }
 
-        log_debug("Trying to enqueue job %s/%s", unit->meta.id, job_type_to_string(type));
+        log_debug("Trying to enqueue job %s/%s/%s", unit->meta.id, job_type_to_string(type), job_mode_to_string(mode));
 
         if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, false, e, &ret)) < 0) {
                 transaction_abort(m);
