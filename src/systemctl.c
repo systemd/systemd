@@ -1254,7 +1254,11 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 method = "StartUnit";
 
                 mode = (arg_action == ACTION_EMERGENCY ||
-                        arg_action == ACTION_RESCUE) ? "isolate" : "replace";
+                        arg_action == ACTION_RESCUE ||
+                        arg_action == ACTION_RUNLEVEL2 ||
+                        arg_action == ACTION_RUNLEVEL3 ||
+                        arg_action == ACTION_RUNLEVEL4 ||
+                        arg_action == ACTION_RUNLEVEL5) ? "isolate" : "replace";
 
                 one_name = table[arg_action];
         }
