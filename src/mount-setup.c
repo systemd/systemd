@@ -31,6 +31,7 @@
 #include "log.h"
 #include "macro.h"
 #include "util.h"
+#include "label.h"
 
 typedef struct MountPoint {
         const char *what;
@@ -107,6 +108,8 @@ static int mount_one(const MountPoint *p) {
                 log_error("Failed to mount %s: %s", p->where, strerror(errno));
                 return p->fatal ? -errno : 0;
         }
+
+        label_fix(p->where);
 
         return 0;
 }
