@@ -292,8 +292,11 @@
                                 <literal>$FOO</literal> may appear as
                                 separate word on the command line in
                                 which case the variable is replaced by
-                                its value split at
-                                whitespaces.</para></listitem>
+                                its value split at whitespaces. Note
+                                that the first argument (i.e. the
+                                binary to execute) may not be a
+                                variable, and must be a literal and
+                                absolute path name.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
