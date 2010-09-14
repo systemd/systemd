@@ -440,6 +440,11 @@
                 ideas behind systemd please refer to the <ulink
                 url="http://0pointer.de/blog/projects/systemd.html">Original
                 Design Document</ulink>.</para>
+
+                <para>Note that some but not all interfaces provided
+                by systemd are covered by the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
+                Stability Promise</ulink>.</para>
         </refsect1>
 
         <refsect1>

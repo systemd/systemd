@@ -189,6 +189,11 @@
                 respectively. The prefix name here refers to the
                 string before the @, i.e. "getty" in the example
                 above, where "tty3" is the instance name.</para>
+
+                <para>The unit file format is covered by the
+                <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
+                Stability Promise</ulink>.</para>
         </refsect1>
 
         <refsect1>
