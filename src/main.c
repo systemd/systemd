@@ -38,6 +38,7 @@
 #include "hostname-setup.h"
 #include "loopback-setup.h"
 #include "kmod-setup.h"
+#include "locale-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
@@ -997,6 +998,8 @@ int main(int argc, char *argv[]) {
                  PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
 
         if (arg_running_as == MANAGER_SYSTEM && !serialization) {
+                locale_setup();
+
                 if (arg_show_status)
                         status_welcome();
 

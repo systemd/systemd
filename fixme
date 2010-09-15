@@ -1,8 +1,5 @@
 * do not throw error when .service file is linked to /dev/null
 
-* read /etc/locale, and export LANG= and friends to started services
-  allow overwrite of setting by kernel commandline: locale.LANG=, ...
-
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
@@ -89,8 +86,6 @@
 * default.target auch in /lib linken
 
 * systemctl auto-pager a la git
-
-* console setup
 
 * fsck setup
 
