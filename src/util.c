@@ -3101,12 +3101,14 @@ char *unquote(const char *s, const char quote) {
         return strdup(s);
 }
 
-int waitpid_loop(pid_t pid, int *status) {
+int wait_for_terminate(pid_t pid, siginfo_t *status) {
         assert(pid >= 1);
         assert(status);
 
         for (;;) {
-                if (waitpid(pid, status, 0) < 0) {
+                zero(*status);
+
+                if (waitid(P_PID, pid, status, WEXITED) < 0) {
 
                         if (errno == EINTR)
                                 continue;

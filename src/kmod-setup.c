@@ -41,7 +41,8 @@ int kmod_setup(void) {
         ExecCommand command;
         ExecContext context;
         pid_t pid;
-        int status, r;
+        int r;
+        siginfo_t status;
 
         for (i = 0; i < ELEMENTSOF(kmod_table); i += 2) {
 
@@ -76,21 +77,22 @@ int kmod_setup(void) {
         if (r < 0)
                 return r;
 
-        if ((r = waitpid_loop(pid, &status)) < 0)
+        if ((r = wait_for_terminate(pid, &status)) < 0)
                 return -errno;
 
-        if (WIFEXITED(status)) {
-                if (WEXITSTATUS(status) != 0) {
-                        log_warning("/sbin/modprobe failed with error code %i.", WEXITSTATUS(status));
+        if (status.si_code == CLD_EXITED) {
+                if (status.si_status != 0) {
+                        log_warning("/sbin/modprobe failed with error code %i.", status.si_status);
                         return -EPROTO;
                 }
 
                 log_debug("/sbin/modprobe succeeded.");
                 return 0;
-        }
 
-        if (WIFSIGNALED(status)) {
-                log_warning("/sbin/modprobe terminated by signal %s.", signal_to_string(WTERMSIG(status)));
+        } else if (status.si_code == CLD_KILLED ||
+                   status.si_code == CLD_DUMPED) {
+
+                log_warning("/sbin/modprobe terminated by signal %s.", signal_to_string(status.si_status));
                 return -EPROTO;
         }
 

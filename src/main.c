@@ -119,12 +119,13 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
 
                 } else {
-                        int status;
+                        siginfo_t status;
+                        int r;
 
                         /* Order things nicely. */
-                        if (waitpid(pid, &status, 0) < 0)
-                                log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(errno));
-                        else if (!WCOREDUMP(status))
+                        if ((r = wait_for_terminate(pid, &status)) < 0)
+                                log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(-r));
+                        else if (status.si_code != CLD_DUMPED)
                                 log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
                         else
                                 log_error("Caught <%s>, dumped core as pid %lu.", signal_to_string(sig), (unsigned long) pid);
