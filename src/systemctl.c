@@ -253,6 +253,7 @@ static int compare_unit_info(const void *a, const void *b) {
 
 static bool output_show_job(const struct unit_info *u) {
         const char *dot;
+
         return (!arg_type || ((dot = strrchr(u->id, '.')) &&
                               streq(dot+1, arg_type))) &&
                 (arg_all || !(streq(u->active_state, "inactive") || u->following[0]) || u->job_id > 0);
@@ -260,17 +261,20 @@ static bool output_show_job(const struct unit_info *u) {
 
 static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         unsigned active_len, sub_len, job_len;
+        const struct unit_info *u;
 
-        active_len = strlen("ACTIVE");
-        sub_len = strlen("SUB");
-        job_len = strlen("JOB");
-        for (const struct unit_info *u = unit_infos; u < unit_infos + c; u++) {
-                if (output_show_job(u)) {
-                        active_len = MAX(active_len, strlen(u->active_state));
-                        sub_len = MAX(sub_len, strlen(u->sub_state));
-                        if (u->job_id != 0)
-                                job_len = MAX(job_len, strlen(u->job_type));
-                }
+        active_len = sizeof("ACTIVE")-1;
+        sub_len = sizeof("SUB")-1;
+        job_len = sizeof("JOB")-1;
+
+        for (u = unit_infos; u < unit_infos + c; u++) {
+                if (!output_show_job(u))
+                        continue;
+
+                active_len = MAX(active_len, strlen(u->active_state));
+                sub_len = MAX(sub_len, strlen(u->sub_state));
+                if (u->job_id != 0)
+                        job_len = MAX(job_len, strlen(u->job_type));
         }
 
         if (on_tty()) {
@@ -282,56 +286,57 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         printf("\n");
         }
 
-        for (const struct unit_info *u = unit_infos; u < unit_infos + c; u++) {
-                if (output_show_job(u)) {
-                        char *e;
-                        int a = 0, b = 0;
-                        const char *on_loaded, *off_loaded;
-                        const char *on_active, *off_active;
+        for (u = unit_infos; u < unit_infos + c; u++) {
+                char *e;
+                int a = 0, b = 0;
+                const char *on_loaded, *off_loaded;
+                const char *on_active, *off_active;
 
-                        if (!streq(u->load_state, "loaded")) {
-                                on_loaded = ansi_highlight(true);
-                                off_loaded = ansi_highlight(false);
-                        } else
-                                on_loaded = off_loaded = "";
+                if (!output_show_job(u))
+                        continue;
 
-                        if (streq(u->active_state, "failed")) {
-                                on_active = ansi_highlight(true);
-                                off_active = ansi_highlight(false);
-                        } else
-                                on_active = off_active = "";
+                if (!streq(u->load_state, "loaded")) {
+                        on_loaded = ansi_highlight(true);
+                        off_loaded = ansi_highlight(false);
+                } else
+                        on_loaded = off_loaded = "";
 
-                        e = arg_full ? NULL : ellipsize(u->id, 25, 33);
+                if (streq(u->active_state, "failed")) {
+                        on_active = ansi_highlight(true);
+                        off_active = ansi_highlight(false);
+                } else
+                        on_active = off_active = "";
 
-                        printf("%-25s %s%-6s%s %s%-*s %-*s%s%n",
-                               e ? e : u->id,
-                               on_loaded, u->load_state, off_loaded,
-                               on_active, active_len, u->active_state,
-                                          sub_len, u->sub_state, off_active,
-                               &a);
+                e = arg_full ? NULL : ellipsize(u->id, 25, 33);
 
-                        free(e);
+                printf("%-25s %s%-6s%s %s%-*s %-*s%s%n",
+                       e ? e : u->id,
+                       on_loaded, u->load_state, off_loaded,
+                       on_active, active_len, u->active_state,
+                       sub_len, u->sub_state, off_active,
+                       &a);
 
-                        a -= strlen(on_loaded) + strlen(off_loaded);
-                        a -= strlen(on_active) + strlen(off_active);
+                free(e);
 
-                        if (u->job_id != 0)
-                                printf(" %-*s", job_len, u->job_type);
+                a -= strlen(on_loaded) + strlen(off_loaded);
+                a -= strlen(on_active) + strlen(off_active);
+
+                if (u->job_id != 0)
+                        printf(" %-*s", job_len, u->job_type);
+                else
+                        b = 1 + job_len;
+
+                if (a + b + 1 < columns()) {
+                        if (u->job_id == 0)
+                                printf(" %-*s", job_len, "");
+
+                        if (arg_full)
+                                printf(" %s", u->description);
                         else
-                                b = 1 + job_len;
-
-                        if (a + b + 1 < columns()) {
-                                if (u->job_id == 0)
-                                        printf(" %-*s", job_len, "");
-
-                                if (arg_full)
-                                        printf(" %s", u->description);
-                                else
-                                        printf(" %.*s", columns() - a - b - 1, u->description);
-                        }
-
-                        fputs("\n", stdout);
+                                printf(" %.*s", columns() - a - b - 1, u->description);
                 }
+
+                fputs("\n", stdout);
         }
 
         if (on_tty()) {
