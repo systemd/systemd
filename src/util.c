@@ -641,8 +641,8 @@ int parse_env_file(
                                 n = strcspn(p, seperator);
 
                                 if (n >= 2 &&
-                                    strchr(QUOTES, v[0]) &&
-                                    v[n-1] == v[0])
+                                    strchr(QUOTES, p[0]) &&
+                                    p[n-1] == p[0])
                                         v = strndup(p+1, n-2);
                                 else
                                         v = strndup(p, n);
