@@ -42,8 +42,6 @@
 #include "unit-name.h"
 #include "bus-errors.h"
 
-#define COMMENTS "#;\n"
-
 static int config_parse_deps(
                 const char *filename,
                 unsigned line,

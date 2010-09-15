@@ -58,6 +58,8 @@ typedef struct dual_timestamp {
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
+#define QUOTES "\"\'"
+#define COMMENTS "#;\n"
 
 #define FORMAT_TIMESTAMP_MAX 64
 #define FORMAT_TIMESTAMP_PRETTY_MAX 256
@@ -185,6 +187,9 @@ pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 
 int write_one_line_file(const char *fn, const char *line);
 int read_one_line_file(const char *fn, char **line);
+int read_full_file(const char *fn, char **contents);
+
+int parse_env_file(const char *fname, const char *seperator, ...) _sentinel_;
 
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
@@ -343,9 +348,10 @@ char *ellipsize(const char *s, unsigned length, unsigned percent);
 
 int touch(const char *path);
 
-char *unquote(const char *s, const char quote);
+char *unquote(const char *s, const char *quotes);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
+int wait_for_terminate_and_warn(const char *name, pid_t pid);
 
 #define NULSTR_FOREACH(i, l) \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

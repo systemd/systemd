@@ -2,7 +2,7 @@ systemd-kmsg-syslogd
 systemd-remount-api-vfs
 test-hostname
 systemd-modules-load
-systemd-auto-serial-getty
+systemd-vconsole-setup
 systemd-shutdownd
 systemd-random-seed
 systemd-update-utmp

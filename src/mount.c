@@ -1228,7 +1228,7 @@ static char *fstab_node_to_udev_node(char *p) {
 
         if (startswith(p, "LABEL=")) {
 
-                if (!(u = unquote(p+6, '"')))
+                if (!(u = unquote(p+6, "\"\'")))
                         return NULL;
 
                 t = xescape(u, "/ ");
@@ -1248,7 +1248,7 @@ static char *fstab_node_to_udev_node(char *p) {
 
         if (startswith(p, "UUID=")) {
 
-                if (!(u = unquote(p+5, '"')))
+                if (!(u = unquote(p+5, "\"\'")))
                         return NULL;
 
                 t = xescape(u, "/ ");

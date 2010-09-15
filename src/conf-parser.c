@@ -31,8 +31,6 @@
 #include "strv.h"
 #include "log.h"
 
-#define COMMENTS "#;\n"
-
 /* Run the user supplied parser for an assignment */
 static int next_assignment(
                 const char *filename,

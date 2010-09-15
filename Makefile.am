@@ -75,7 +75,8 @@ rootlibexec_PROGRAMS = \
 	systemd-shutdownd \
 	systemd-modules-load \
 	systemd-remount-api-vfs \
-	systemd-kmsg-syslogd
+	systemd-kmsg-syslogd \
+	systemd-vconsole-setup
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -180,6 +181,7 @@ nodist_systemunit_DATA = \
 	units/systemd-shutdownd.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
+	units/systemd-vconsole-setup.service \
 	units/systemd-remount-api-vfs.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
@@ -206,6 +208,7 @@ EXTRA_DIST = \
 	units/systemd-shutdownd.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
+	units/systemd-vconsole-setup.service.in \
 	units/systemd-remount-api-vfs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
@@ -592,6 +595,15 @@ systemd_modules_load_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_modules_load_LDADD = \
+	libsystemd-basic.la
+
+systemd_vconsole_setup_SOURCES = \
+	src/vconsole-setup.c
+
+systemd_vconsole_setup_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_vconsole_setup_LDADD = \
 	libsystemd-basic.la
 
 systemd_remount_api_vfs_SOURCES = \

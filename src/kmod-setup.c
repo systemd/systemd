@@ -42,7 +42,6 @@ int kmod_setup(void) {
         ExecContext context;
         pid_t pid;
         int r;
-        siginfo_t status;
 
         for (i = 0; i < ELEMENTSOF(kmod_table); i += 2) {
 
@@ -74,28 +73,10 @@ int kmod_setup(void) {
         r = exec_spawn(&command, NULL, &context, NULL, 0, NULL, false, false, false, false, NULL, &pid);
         exec_context_done(&context);
 
-        if (r < 0)
+        if (r < 0) {
+                log_error("Failed to spawn %s: %s", cmdline[0], strerror(-r));
                 return r;
-
-        if ((r = wait_for_terminate(pid, &status)) < 0)
-                return -errno;
-
-        if (status.si_code == CLD_EXITED) {
-                if (status.si_status != 0) {
-                        log_warning("/sbin/modprobe failed with error code %i.", status.si_status);
-                        return -EPROTO;
-                }
-
-                log_debug("/sbin/modprobe succeeded.");
-                return 0;
-
-        } else if (status.si_code == CLD_KILLED ||
-                   status.si_code == CLD_DUMPED) {
-
-                log_warning("/sbin/modprobe terminated by signal %s.", signal_to_string(status.si_status));
-                return -EPROTO;
         }
 
-        log_warning("/sbin/modprobe failed due to unknown reason.");
-        return -EPROTO;
+        return wait_for_terminate_and_warn(cmdline[0], pid);
 }

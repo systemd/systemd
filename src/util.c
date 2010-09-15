@@ -504,7 +504,7 @@ finish:
 int read_one_line_file(const char *fn, char **line) {
         FILE *f;
         int r;
-        char t[2048], *c;
+        char t[LINE_MAX], *c;
 
         assert(fn);
         assert(line);
@@ -527,6 +527,149 @@ int read_one_line_file(const char *fn, char **line) {
 
 finish:
         fclose(f);
+        return r;
+}
+
+int read_full_file(const char *fn, char **contents) {
+        FILE *f;
+        int r;
+        size_t n, l;
+        char *buf = NULL;
+        struct stat st;
+
+        if (!(f = fopen(fn, "re")))
+                return -errno;
+
+        if (fstat(fileno(f), &st) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        n = st.st_size > 0 ? st.st_size : LINE_MAX;
+        l = 0;
+
+        for (;;) {
+                char *t;
+                size_t k;
+
+                if (!(t = realloc(buf, n+1))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                buf = t;
+                k = fread(buf + l, 1, n - l, f);
+
+                if (k <= 0) {
+                        if (ferror(f)) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        break;
+                }
+
+                l += k;
+                n *= 2;
+
+                /* Safety check */
+                if (n > 4*1024*1024) {
+                        r = -E2BIG;
+                        goto finish;
+                }
+        }
+
+        if (buf)
+                buf[l] = 0;
+        else if (!(buf = calloc(1, 1))) {
+                r = -errno;
+                goto finish;
+        }
+
+        *contents = buf;
+        buf = NULL;
+
+        r = 0;
+
+finish:
+        fclose(f);
+        free(buf);
+
+        return r;
+}
+
+int parse_env_file(
+                const char *fname,
+                const char *seperator, ...) {
+
+        int r;
+        char *contents, *p;
+
+        assert(fname);
+        assert(seperator);
+
+        if ((r = read_full_file(fname, &contents)) < 0)
+                return r;
+
+        p = contents;
+        for (;;) {
+                const char *key = NULL;
+
+                p += strspn(p, seperator);
+                p += strspn(p, WHITESPACE);
+
+                if (!*p)
+                        break;
+
+                if (!strchr(COMMENTS, *p)) {
+                        va_list ap;
+                        char **value;
+
+                        va_start(ap, seperator);
+                        while ((key = va_arg(ap, char *))) {
+                                size_t n;
+                                char *v;
+
+                                value = va_arg(ap, char **);
+
+                                n = strlen(key);
+                                if (strncmp(p, key, n) != 0 ||
+                                    p[n] != '=')
+                                        continue;
+
+                                p += n + 1;
+                                n = strcspn(p, seperator);
+
+                                if (n >= 2 &&
+                                    strchr(QUOTES, v[0]) &&
+                                    v[n-1] == v[0])
+                                        v = strndup(p+1, n-2);
+                                else
+                                        v = strndup(p, n);
+
+                                if (!v) {
+                                        r = -ENOMEM;
+                                        va_end(ap);
+                                        goto fail;
+                                }
+
+                                free(*value);
+                                *value = v;
+
+                                p += n;
+                                break;
+                        }
+                        va_end(ap);
+                }
+
+                if (!key)
+                        p += strcspn(p, seperator);
+        }
+
+        r = 0;
+
+fail:
+        free(contents);
         return r;
 }
 
@@ -3088,14 +3231,14 @@ int touch(const char *path) {
         return 0;
 }
 
-char *unquote(const char *s, const char quote) {
+char *unquote(const char *s, const char* quotes) {
         size_t l;
         assert(s);
 
         if ((l = strlen(s)) < 2)
                 return strdup(s);
 
-        if (s[0] == quote && s[l-1] == quote)
+        if (strchr(quotes, s[0]) && s[l-1] == s[0])
                 return strndup(s+1, l-2);
 
         return strdup(s);
@@ -3118,6 +3261,39 @@ int wait_for_terminate(pid_t pid, siginfo_t *status) {
 
                 return 0;
         }
+}
+
+int wait_for_terminate_and_warn(const char *name, pid_t pid) {
+        int r;
+        siginfo_t status;
+
+        assert(name);
+        assert(pid > 1);
+
+        if ((r = wait_for_terminate(pid, &status)) < 0) {
+                log_warning("Failed to wait for %s: %s", name, strerror(-r));
+                return r;
+        }
+
+        if (status.si_code == CLD_EXITED) {
+                if (status.si_status != 0) {
+                        log_warning("%s failed with error code %i.", name, status.si_status);
+                        return -EPROTO;
+                }
+
+                log_debug("%s succeeded.", name);
+                return 0;
+
+        } else if (status.si_code == CLD_KILLED ||
+                   status.si_code == CLD_DUMPED) {
+
+                log_warning("%s terminated by signal %s.", name, signal_to_string(status.si_status));
+                return -EPROTO;
+        }
+
+        log_warning("%s failed due to unknown reason.", name);
+        return -EPROTO;
+
 }
 
 static const char *const ioprio_class_table[] = {
