@@ -345,6 +345,8 @@ int touch(const char *path);
 
 char *unquote(const char *s, const char quote);
 
+int waitpid_loop(pid_t pid, int *status);
+
 #define NULSTR_FOREACH(i, l) \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

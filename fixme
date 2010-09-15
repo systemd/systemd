@@ -3,8 +3,6 @@
 * read /etc/locale, and export LANG= and friends to started services
   allow overwrite of setting by kernel commandline: locale.LANG=, ...
 
-* ABI: tcpwrap "legacy", disable D-Bus export if not compiled-in
-
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
@@ -88,6 +86,16 @@
 
 * support dbus introspection in mid-level object paths, i.e. in /org/freedesktop/systemd/units/.
 
+* default.target auch in /lib linken
+
+* systemctl auto-pager a la git
+
+* console setup
+
+* fsck setup
+
+* merge CK
+
 External:
 
 * place /etc/inittab with explaining blurb.
@@ -99,8 +107,6 @@ External:
 * nologin nach /var/run https://bugzilla.redhat.com/show_bug.cgi?id=624489
 
 * make sysinit honour forcefsck/fastboot from the kernel command line fsck.mode=auto|force|skip
-
-* ck logging, ssd readahead
 
 * pam: fix double sudo session cleanup:
   http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421

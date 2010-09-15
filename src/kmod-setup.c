@@ -76,17 +76,8 @@ int kmod_setup(void) {
         if (r < 0)
                 return r;
 
-        for (;;) {
-                if (waitpid(pid, &status, 0) < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        return -errno;
-                }
-
-                break;
-        }
+        if ((r = waitpid_loop(pid, &status)) < 0)
+                return -errno;
 
         if (WIFEXITED(status)) {
                 if (WEXITSTATUS(status) != 0) {

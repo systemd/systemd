@@ -49,6 +49,7 @@
 #include <netinet/ip.h>
 #include <linux/kd.h>
 #include <dlfcn.h>
+#include <sys/wait.h>
 
 #include "macro.h"
 #include "util.h"
@@ -2849,18 +2850,18 @@ void status_welcome(void) {
         free(r);
 
 #elif defined(TARGET_DEBIAN)
-	char *r;
+        char *r;
 
-	if (read_one_line_file("/etc/debian_version", &r) < 0)
-		return;
+        if (read_one_line_file("/etc/debian_version", &r) < 0)
+                return;
 
-	truncate_nl(r);
+        truncate_nl(r);
 
-	status_printf("Welcome to Debian \x1B[1;31m%s\x1B[0m!\n", r); /* Light Red for Debian */
+        status_printf("Welcome to Debian \x1B[1;31m%s\x1B[0m!\n", r); /* Light Red for Debian */
 
-	free(r);
+        free(r);
 #elif defined(TARGET_ARCH)
-	status_printf("Welcome to \x1B[1;36mArch Linux\x1B[0m!\n"); /* Cyan for Arch */
+        status_printf("Welcome to \x1B[1;36mArch Linux\x1B[0m!\n"); /* Cyan for Arch */
 #else
 #warning "You probably should add a welcome text logic here."
 #endif
@@ -3098,6 +3099,23 @@ char *unquote(const char *s, const char quote) {
                 return strndup(s+1, l-2);
 
         return strdup(s);
+}
+
+int waitpid_loop(pid_t pid, int *status) {
+        assert(pid >= 1);
+        assert(status);
+
+        for (;;) {
+                if (waitpid(pid, status, 0) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        return -errno;
+                }
+
+                return 0;
+        }
 }
 
 static const char *const ioprio_class_table[] = {
