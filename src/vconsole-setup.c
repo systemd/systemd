@@ -168,31 +168,47 @@ int main(int argc, char **argv) {
         if (!(utf8 = is_locale_utf8()))
                 disable_utf8(fd);
 
-        if ((r = parse_env_file(
-                             "/etc/vconsole",
-                             NEWLINE,
-                             "VCONSOLE_KEYMAP", &vc_keymap,
-                             "VCONSOLE_FONT", &vc_font,
-                             "VCONSOLE_FONT_MAP", &vc_font_map,
-                             "VCONSOLE_FONT_UNIMAP", &vc_font_unimap,
-                             NULL)) < 0) {
+#ifdef TARGET_FEDORA
+        if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
+                                "SYSFONT", &vc_font,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+        }
+
+        if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                "KEYTABLE", &vc_keymap,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+        }
+#endif
+
+        /* Override distribution-specific options with the
+         * distribution-independent configuration */
+        if ((r = parse_env_file("/etc/vconsole", NEWLINE,
+                                "VCONSOLE_KEYMAP", &vc_keymap,
+                                "VCONSOLE_FONT", &vc_font,
+                                "VCONSOLE_FONT_MAP", &vc_font_map,
+                                "VCONSOLE_FONT_UNIMAP", &vc_font_unimap,
+                                NULL)) < 0) {
 
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/vconsole: %s", strerror(-r));
         }
 
-        if ((r = parse_env_file(
-                             "/proc/cmdline",
-                             WHITESPACE,
+        if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
 #ifdef TARGET_FEDORA
-                             "SYSFONT", &vc_font,
-                             "KEYTABLE", &vc_keymap,
+                                "SYSFONT", &vc_font,
+                                "KEYTABLE", &vc_keymap,
 #endif
-                             "vconsole.keymap", &vc_keymap,
-                             "vconsole.font", &vc_font,
-                             "vconsole.font.map", &vc_font_map,
-                             "vconsole.font.unimap", &vc_font_unimap,
-                             NULL)) < 0) {
+                                "vconsole.keymap", &vc_keymap,
+                                "vconsole.font", &vc_font,
+                                "vconsole.font.map", &vc_font_map,
+                                "vconsole.font.unimap", &vc_font_unimap,
+                                NULL)) < 0) {
 
                 if (r != -ENOENT)
                         log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
