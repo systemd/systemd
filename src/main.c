@@ -1006,6 +1006,8 @@ int main(int argc, char *argv[]) {
                 kmod_setup();
                 hostname_setup();
                 loopback_setup();
+
+                mkdir_p("/dev/.systemd/ask-password/", 0755);
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {

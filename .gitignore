@@ -1,3 +1,6 @@
+systemd-reply-password
+systemd-ask-password-agent
+systemd-ask-password
 systemd-kmsg-syslogd
 systemd-remount-api-vfs
 test-hostname

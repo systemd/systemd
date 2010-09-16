@@ -978,7 +978,7 @@ void show_error(string e) {
         m.destroy();
 }
 
-int main (string[] args) {
+int main(string[] args) {
 
         try {
                 Gtk.init_with_args(ref args, "[OPTION...]", entries, "systemadm");

@@ -25,6 +25,7 @@ dbusinterfacedir=@dbusinterfacedir@
 udevrulesdir=@udevrulesdir@
 pamlibdir=@pamlibdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
+polkitpolicydir=$(datadir)/polkit-1/actions
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -56,14 +57,16 @@ AM_CPPFLAGS = \
 rootbin_PROGRAMS = \
 	systemd \
 	systemctl \
-	systemd-notify
+	systemd-notify \
+	systemd-ask-password
 
 bin_PROGRAMS = \
 	systemd-cgls
 
 if HAVE_GTK
 bin_PROGRAMS += \
-	systemadm
+	systemadm \
+	systemd-ask-password-agent
 endif
 
 rootlibexec_PROGRAMS = \
@@ -76,7 +79,8 @@ rootlibexec_PROGRAMS = \
 	systemd-modules-load \
 	systemd-remount-api-vfs \
 	systemd-kmsg-syslogd \
-	systemd-vconsole-setup
+	systemd-vconsole-setup \
+	systemd-reply-password
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -281,6 +285,9 @@ dist_doc_DATA = \
 
 pkgconfigdata_DATA = \
 	systemd.pc
+
+dist_polkitpolicy_DATA = \
+	src/org.freedesktop.systemd1.policy
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
@@ -665,6 +672,18 @@ systemd_notify_SOURCES = \
 systemd_notify_LDADD = \
 	libsystemd-basic.la
 
+systemd_ask_password_SOURCES = \
+	src/ask-password.c
+
+systemd_ask_password_LDADD = \
+	libsystemd-basic.la
+
+systemd_reply_password_SOURCES = \
+	src/reply-password.c
+
+systemd_reply_password_LDADD = \
+	libsystemd-basic.la
+
 systemd_cgls_SOURCES = \
 	src/cgls.c \
 	src/cgroup-show.c \
@@ -696,6 +715,30 @@ systemadm_VALAFLAGS = \
 	-g
 
 systemadm_LDADD = \
+	$(DBUSGLIB_LIBS) \
+	$(GTK_LIBS)
+
+systemd_ask_password_agent_SOURCES = \
+	src/ask-password-agent.vala
+
+systemd_ask_password_agent_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUSGLIB_CFLAGS) \
+	$(GTK_CFLAGS) \
+	-Wno-unused-variable \
+	-Wno-unused-function \
+	-Wno-shadow \
+	-Wno-format-nonliteral
+
+systemd_ask_password_agent_VALAFLAGS = \
+	--pkg=dbus-glib-1 \
+	--pkg=posix \
+	--pkg=gtk+-2.0 \
+	--pkg=linux \
+	--pkg=gio-unix-2.0 \
+	-g
+
+systemd_ask_password_agent_LDADD = \
 	$(DBUSGLIB_LIBS) \
 	$(GTK_LIBS)
 
