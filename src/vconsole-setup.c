@@ -171,6 +171,8 @@ int main(int argc, char **argv) {
 #ifdef TARGET_FEDORA
         if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
                                 "SYSFONT", &vc_font,
+                                "SYSFONTACM", &vc_font_map,
+                                "UNIMAP", &vc_font_unimap,
                                 NULL)) < 0) {
 
                 if (r != -ENOENT)
@@ -179,10 +181,23 @@ int main(int argc, char **argv) {
 
         if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
                                 "KEYTABLE", &vc_keymap,
+                                "KEYMAP", &vc_keymap,
                                 NULL)) < 0) {
 
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+        }
+
+        if (access("/etc/sysconfig/console/default.kmap", F_OK) >= 0) {
+                char *t;
+
+                if (!(t = strdup("/etc/sysconfig/console/default.kmap"))) {
+                        log_error("Out of memory.");
+                        goto finish;
+                }
+
+                free(vc_keymap);
+                vc_keymap = t;
         }
 #endif
 
