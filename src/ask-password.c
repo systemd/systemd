@@ -93,7 +93,7 @@ fail:
 static int help(void) {
 
         printf("%s [OPTIONS...] MESSAGE\n\n"
-               "Query the user for a passphrase.\n\n"
+               "Query the user for a system passphrase, via the TTY or an UI agent.\n\n"
                "  -h --help         Show this help\n"
                "     --icon=NAME    Icon name\n"
                "     --timeout=USEC Timeout in usec\n"
