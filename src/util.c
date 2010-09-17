@@ -2009,9 +2009,13 @@ int read_one_char(FILE *f, char *ret, bool *need_nl) {
 }
 
 int ask(char *ret, const char *replies, const char *text, ...) {
+        bool on_tty;
+
         assert(ret);
         assert(replies);
         assert(text);
+
+        on_tty = isatty(STDOUT_FILENO);
 
         for (;;) {
                 va_list ap;
@@ -2019,13 +2023,15 @@ int ask(char *ret, const char *replies, const char *text, ...) {
                 int r;
                 bool need_nl = true;
 
-                fputs("\x1B[1m", stdout);
+                if (on_tty)
+                        fputs("\x1B[1m", stdout);
 
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
 
-                fputs("\x1B[0m", stdout);
+                if (on_tty)
+                        fputs("\x1B[0m", stdout);
 
                 fflush(stdout);
 
