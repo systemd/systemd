@@ -171,7 +171,7 @@ static int ask_agent(void) {
         int fd = -1, r;
         FILE *f = NULL;
         char *socket_name = NULL;
-        int socket_fd, signal_fd;
+        int socket_fd = -1, signal_fd;
         sigset_t mask;
         usec_t not_after;
 
