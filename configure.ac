@@ -226,7 +226,7 @@ AC_SUBST(AUDIT_LIBS)
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
-        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 gio-unix-2.0 ],
+        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 gio-unix-2.0 libnotify ],
                 [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
         AC_SUBST(GTK_CFLAGS)
         AC_SUBST(GTK_LIBS)

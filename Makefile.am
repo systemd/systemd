@@ -736,6 +736,7 @@ systemd_ask_password_agent_VALAFLAGS = \
 	--pkg=gtk+-2.0 \
 	--pkg=linux \
 	--pkg=gio-unix-2.0 \
+	--pkg=libnotify \
 	-g
 
 systemd_ask_password_agent_LDADD = \

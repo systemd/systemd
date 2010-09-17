@@ -22,6 +22,7 @@ using GLib;
 using DBus;
 using Linux;
 using Posix;
+using Notify;
 
 [CCode (cheader_filename = "time.h")]
 extern int clock_gettime(int id, out timespec ts);
@@ -84,7 +85,7 @@ public class MyStatusIcon : StatusIcon {
 
         public MyStatusIcon() throws GLib.Error {
                 GLib.Object(icon_name : "dialog-password");
-                set_title("System Password Agent");
+                set_title("System Password");
 
                 directory = File.new_for_path("/dev/.systemd/ask-password/");
                 file_monitor = directory.monitor_directory(0);
@@ -138,7 +139,7 @@ public class MyStatusIcon : StatusIcon {
 
         }
 
-        bool load_password()  {
+        bool load_password() throws GLib.Error {
 
                 KeyFile key_file = new KeyFile();
 
@@ -179,6 +180,12 @@ public class MyStatusIcon : StatusIcon {
                 set_from_icon_name(icon);
 
                 set_visible(true);
+
+                Notification n = new Notification(title, message, icon, null);
+                n.attach_to_status_icon(this);
+                n.set_timeout(5000);
+                n.show();
+
                 return true;
         }
 
@@ -236,6 +243,7 @@ void show_error(string e) {
 int main(string[] args) {
         try {
                 Gtk.init_with_args(ref args, "[OPTION...]", entries, "systemd-ask-password-agent");
+                Notify.init("Password Agent");
 
                 MyStatusIcon i = new MyStatusIcon();
                 Gtk.main();
