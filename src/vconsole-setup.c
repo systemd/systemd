@@ -204,10 +204,10 @@ int main(int argc, char **argv) {
         /* Override distribution-specific options with the
          * distribution-independent configuration */
         if ((r = parse_env_file("/etc/vconsole", NEWLINE,
-                                "VCONSOLE_KEYMAP", &vc_keymap,
-                                "VCONSOLE_FONT", &vc_font,
-                                "VCONSOLE_FONT_MAP", &vc_font_map,
-                                "VCONSOLE_FONT_UNIMAP", &vc_font_unimap,
+                                "KEYMAP", &vc_keymap,
+                                "FONT", &vc_font,
+                                "FONT_MAP", &vc_font_map,
+                                "FONT_UNIMAP", &vc_font_unimap,
                                 NULL)) < 0) {
 
                 if (r != -ENOENT)
