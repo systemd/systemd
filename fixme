@@ -91,6 +91,12 @@
 
 * merge CK
 
+* ask-password tty agent, ask-password plymouth agent
+
+* plymouth update status hookup
+
+* ask-password tty timeout
+
 External:
 
 * place /etc/inittab with explaining blurb.
