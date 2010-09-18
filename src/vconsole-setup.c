@@ -199,6 +199,16 @@ int main(int argc, char **argv) {
                 free(vc_keymap);
                 vc_keymap = t;
         }
+#elif defined(TARGET_ARCH)
+        if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
+				"KEYMAP", &vc_keymap,
+                                "CONSOLEFONT", &vc_font,
+                                "CONSOLEMAP", &vc_font_map,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
+        }
 #endif
 
         /* Override distribution-specific options with the
