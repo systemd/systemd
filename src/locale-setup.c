@@ -76,6 +76,14 @@ int locale_setup(void) {
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
         }
+#elif defined(TARGET_ARCH)
+	if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
+				"LOCALE", &variables[VARIABLE_LANG],
+				NULL)) < 0) {
+
+		if (r != -ENOENT)
+			log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
+	}
 #endif
 
         /* Override distribution-specific options with the
