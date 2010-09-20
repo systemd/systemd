@@ -602,7 +602,7 @@ int parse_env_file(
                 const char *fname,
                 const char *seperator, ...) {
 
-        int r;
+        int r = 0;
         char *contents, *p;
 
         assert(fname);
@@ -657,6 +657,8 @@ int parse_env_file(
                                 *value = v;
 
                                 p += n;
+
+                                r ++;
                                 break;
                         }
                         va_end(ap);
@@ -665,8 +667,6 @@ int parse_env_file(
                 if (!key)
                         p += strcspn(p, seperator);
         }
-
-        r = 0;
 
 fail:
         free(contents);
