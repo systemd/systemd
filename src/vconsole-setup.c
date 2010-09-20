@@ -83,7 +83,7 @@ static int load_keymap(const char *vc, const char *map, bool utf8, pid_t *_pid) 
         int i = 0;
         pid_t pid;
 
-        args[i++] = "/bin/loadkeys";
+        args[i++] = KBD_LOADKEYS;
         args[i++] = "-q";
         args[i++] = "-C";
         args[i++] = vc;
@@ -109,7 +109,7 @@ static int load_font(const char *vc, const char *font, const char *map, const ch
         int i = 0;
         pid_t pid;
 
-        args[i++] = "/bin/setfont";
+        args[i++] = KBD_SETFONT;
         args[i++] = "-C";
         args[i++] = vc;
         args[i++] = font;
@@ -141,6 +141,9 @@ int main(int argc, char **argv) {
         char *vc_font = NULL;
         char *vc_font_map = NULL;
         char *vc_font_unimap = NULL;
+#ifdef TARGET_GENTOO
+        char *vc_unicode = NULL;
+#endif
         int fd = -1;
         bool utf8;
         int r = EXIT_FAILURE;
@@ -208,6 +211,50 @@ int main(int argc, char **argv) {
 
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
+
+#elif defined(TARGET_GENTOO)
+        if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
+                                "unicode", &vc_unicode,
+                                NULL)) < 0) {
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
+        }
+        if (vc_unicode) {
+                int rc_unicode = parse_boolean(vc_unicode);
+                if (rc_unicode < 0)
+                        log_error("Unknown value for /etc/rc.conf unicode=%s", vc_unicode);
+                else {
+                        if (rc_unicode && !utf8)
+                                log_warning("/etc/rc.conf wants unicode, but current locale is not UTF-8 capable!");
+                        else if (!rc_unicode && utf8) {
+                                log_debug("/etc/rc.conf does not want unicode, leave it on in kernel but does not apply to vconsole.");
+                                utf8 = false;
+                        }
+                }
+        }
+
+        /* /etc/conf.d/consolefont comments and gentoo documentation
+         * mention uppercase, but the actual contents are lowercase.
+         * the existing /etc/init.d/consolefont tries both
+         */
+        if ((r = parse_env_file("/etc/conf.d/consolefont", NEWLINE,
+                                "CONSOLEFONT", &vc_font,
+                                "consolefont", &vc_font,
+                                "consoletranslation", &vc_font_map,
+                                "CONSOLETRANSLATION", &vc_font_map,
+                                "unicodemap", &vc_font_unimap,
+                                "UNICODEMAP", &vc_font_unimap,
+                                NULL)) < 0) {
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/conf.d/consolefont: %s", strerror(-r));
+        }
+
+        if ((r = parse_env_file("/etc/conf.d/keymaps", NEWLINE,
+                                "keymap", &vc_keymap,
+                                "KEYMAP", &vc_keymap,
+                                NULL)) < 0) {
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/conf.d/keymaps: %s", strerror(-r));
         }
 #endif
 
@@ -242,7 +289,7 @@ int main(int argc, char **argv) {
         if (!vc_keymap)
                 vc_keymap = strdup("us");
         if (!vc_font)
-                vc_font = strdup("latarcyrheb-sun16");
+                vc_font = strdup(DEFAULT_FONT);
 
         if (!vc_keymap || !vc_font) {
                 log_error("Failed to allocate strings.");
@@ -255,10 +302,10 @@ int main(int argc, char **argv) {
 
 finish:
         if (keymap_pid > 0)
-                wait_for_terminate_and_warn("/bin/loadkeys", keymap_pid);
+                wait_for_terminate_and_warn(KBD_LOADKEYS, keymap_pid);
 
         if (font_pid > 0)
-                wait_for_terminate_and_warn("/bin/setfont", font_pid);
+                wait_for_terminate_and_warn(KBD_SETFONT, font_pid);
 
         free(vc_keymap);
         free(vc_font);

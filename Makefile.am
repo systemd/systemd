@@ -54,6 +54,18 @@ AM_CPPFLAGS = \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-I $(top_srcdir)/src
 
+if TARGET_GENTOO
+AM_CPPFLAGS += \
+	-DKBD_LOADKEYS=\"/usr/bin/loadkeys\" \
+	-DKBD_SETFONT=\"/usr/bin/setfont\" \
+	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+else
+AM_CPPFLAGS += \
+	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
+	-DKBD_SETFONT=\"/bin/setfont\" \
+	-DDEFAULT_FONT=\"latarcyrheb-sun16\"
+endif
+
 rootbin_PROGRAMS = \
 	systemd \
 	systemctl \
