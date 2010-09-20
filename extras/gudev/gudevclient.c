@@ -316,7 +316,7 @@ g_udev_client_init (GUdevClient *client)
 
 /**
  * g_udev_client_new:
- * @subsystems: (allow-none): A %NULL terminated string array of subsystems to listen for uevents on, %NULL to not listen on uevents at all, or an empty array to listen to uevents on all subsystems. See the documentation for the #GUdevClient:subsystems property for details on this parameter.
+ * @subsystems: (array zero-terminated=1) (element-type utf8) (transfer none) (allow-none): A %NULL terminated string array of subsystems to listen for uevents on, %NULL to not listen on uevents at all, or an empty array to listen to uevents on all subsystems. See the documentation for the #GUdevClient:subsystems property for details on this parameter.
  *
  * Constructs a #GUdevClient object that can be used to query
  * information about devices. Connect to the #GUdevClient::uevent
@@ -339,7 +339,7 @@ g_udev_client_new (const gchar * const *subsystems)
  *
  * Gets all devices belonging to @subsystem.
  *
- * Returns: (element-type GUdevDevice): A list of #GUdevDevice objects. The caller should free the result by using g_object_unref() on each element in the list and then g_list_free() on the list.
+ * Returns: (element-type GUdevDevice) (transfer full): A list of #GUdevDevice objects. The caller should free the result by using g_object_unref() on each element in the list and then g_list_free() on the list.
  */
 GList *
 g_udev_client_query_by_subsystem (GUdevClient  *client,
@@ -392,7 +392,7 @@ g_udev_client_query_by_subsystem (GUdevClient  *client,
  *
  * Looks up a device for a type and device number.
  *
- * Returns: A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
+ * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_device_number (GUdevClient      *client,
@@ -424,7 +424,7 @@ g_udev_client_query_by_device_number (GUdevClient      *client,
  *
  * Looks up a device for a device file.
  *
- * Returns: A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
+ * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_device_file (GUdevClient  *client,
@@ -460,7 +460,7 @@ g_udev_client_query_by_device_file (GUdevClient  *client,
  *
  * Looks up a device for a sysfs path.
  *
- * Returns: A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
+ * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_sysfs_path (GUdevClient  *client,
@@ -492,7 +492,7 @@ g_udev_client_query_by_sysfs_path (GUdevClient  *client,
  *
  * Looks up a device for a subsystem and name.
  *
- * Returns: A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
+ * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_subsystem_and_name (GUdevClient  *client,
