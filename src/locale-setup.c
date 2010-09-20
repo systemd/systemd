@@ -84,6 +84,32 @@ int locale_setup(void) {
 		if (r != -ENOENT)
 			log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
 	}
+#elif defined(TARGET_GENTOO)
+        /* Gentoo's openrc expects locale variables in /etc/env.d/
+         * These files are later compiled by env-update into shell
+         * export commands at /etc/profile.env, with variables being
+         * exported by openrc's runscript (so /etc/init.d/)
+         */
+        if ((r = parse_env_file("/etc/profile.env", NEWLINE,
+                                "export LANG",              &variables[VARIABLE_LANG],
+                                "export LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
+                                "export LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
+                                "export LC_TIME",           &variables[VARIABLE_LC_TIME],
+                                "export LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
+                                "export LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
+                                "export LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
+                                "export LC_ALL",            &variables[VARIABLE_LC_ALL],
+                                "export LC_PAPER",          &variables[VARIABLE_LC_PAPER],
+                                "export LC_NAME",           &variables[VARIABLE_LC_NAME],
+                                "export LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
+                                "export LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
+                                "export LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
+                                "export LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/profile.env: %s", strerror(-r));
+        }
 #endif
 
         /* Override distribution-specific options with the
