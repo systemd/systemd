@@ -33,14 +33,7 @@
 #include "util.h"
 #include "macro.h"
 #include "loopback-setup.h"
-
-enum {
-        REQUEST_NONE = 0,
-        REQUEST_ADDRESS_IPV4 = 1,
-        REQUEST_ADDRESS_IPV6 = 2,
-        REQUEST_FLAGS = 4,
-        REQUEST_ALL = 7
-};
+#include "socket-util.h"
 
 #define NLMSG_TAIL(nmsg)                                                \
         ((struct rtattr *) (((uint8_t*) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
@@ -89,7 +82,7 @@ static ssize_t recvfrom_loop(int fd, void *buf, size_t buf_len, int flags, struc
         }
 }
 
-static int add_adresses(int fd, int if_loopback) {
+static int add_adresses(int fd, int if_loopback, unsigned *requests) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
@@ -110,7 +103,7 @@ static int add_adresses(int fd, int if_loopback) {
         request.header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
         request.header.nlmsg_type = RTM_NEWADDR;
         request.header.nlmsg_flags = NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK;
-        request.header.nlmsg_seq = REQUEST_ADDRESS_IPV4;
+        request.header.nlmsg_seq = *requests + 1;
 
         ifaddrmsg = NLMSG_DATA(&request.header);
         ifaddrmsg->ifa_family = AF_INET;
@@ -127,9 +120,13 @@ static int add_adresses(int fd, int if_loopback) {
 
         if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
                 return -errno;
+        (*requests)++;
+
+        if (!socket_ipv6_is_supported())
+                return 0;
 
         request.header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-        request.header.nlmsg_seq = REQUEST_ADDRESS_IPV6;
+        request.header.nlmsg_seq = *requests + 1;
 
         ifaddrmsg->ifa_family = AF_INET6;
         ifaddrmsg->ifa_prefixlen = 128;
@@ -139,11 +136,12 @@ static int add_adresses(int fd, int if_loopback) {
 
         if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
                 return -errno;
+        (*requests)++;
 
         return 0;
 }
 
-static int start_interface(int fd, int if_loopback) {
+static int start_interface(int fd, int if_loopback, unsigned *requests) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
@@ -161,7 +159,7 @@ static int start_interface(int fd, int if_loopback) {
         request.header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
         request.header.nlmsg_type = RTM_NEWLINK;
         request.header.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK;
-        request.header.nlmsg_seq = REQUEST_FLAGS;
+        request.header.nlmsg_seq = *requests + 1;
 
         ifinfomsg = NLMSG_DATA(&request.header);
         ifinfomsg->ifi_family = AF_UNSPEC;
@@ -175,10 +173,12 @@ static int start_interface(int fd, int if_loopback) {
         if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
                 return -errno;
 
+        (*requests)++;
+
         return 0;
 }
 
-static int read_response(int fd) {
+static int read_response(int fd, unsigned requests_max) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
@@ -208,7 +208,7 @@ static int read_response(int fd) {
 
         if (response.header.nlmsg_type != NLMSG_ERROR ||
             (pid_t) response.header.nlmsg_pid != getpid() ||
-            response.header.nlmsg_seq >= REQUEST_ALL)
+            response.header.nlmsg_seq >= requests_max)
                 return 0;
 
         if ((size_t) l < NLMSG_LENGTH(sizeof(struct nlmsgerr)) ||
@@ -232,8 +232,7 @@ int loopback_setup(void) {
                 struct sockaddr_nl nl;
                 struct sockaddr_storage storage;
         } sa;
-        int requests = REQUEST_NONE;
-
+        unsigned requests = 0, i;
         int fd;
 
         errno = 0;
@@ -251,19 +250,16 @@ int loopback_setup(void) {
                 goto finish;
         }
 
-        if ((r = add_adresses(fd, if_loopback)) < 0)
+        if ((r = add_adresses(fd, if_loopback, &requests)) < 0)
                 goto finish;
 
-        if ((r = start_interface(fd, if_loopback)) < 0)
+        if ((r = start_interface(fd, if_loopback, &requests)) < 0)
                 goto finish;
 
-        do {
-                if ((r = read_response(fd)) < 0)
+        for (i = 0; i < requests; i++) {
+                if ((r = read_response(fd, requests)) < 0)
                         goto finish;
-
-                requests |= r;
-
-        } while (requests != REQUEST_ALL);
+        }
 
         r = 0;
 

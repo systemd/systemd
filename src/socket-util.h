@@ -85,4 +85,6 @@ bool socket_address_needs_mount(const SocketAddress *a, const char *prefix);
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b);
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s);
 
+bool socket_ipv6_is_supported(void);
+
 #endif

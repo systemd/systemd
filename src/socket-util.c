@@ -35,6 +35,7 @@
 #include "socket-util.h"
 #include "missing.h"
 #include "label.h"
+#include <sys/ioctl.h>
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         int r;
@@ -49,6 +50,11 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
         if (*s == '[') {
                 /* IPv6 in [x:.....:z]:p notation */
+
+                if (!socket_ipv6_is_supported()) {
+                        log_warning("Binding to IPv6 address not available since kernel does not support IPv6.");
+                        return -EAFNOSUPPORT;
+                }
 
                 if (!(e = strchr(s+1, ']')))
                         return -EINVAL;
@@ -145,12 +151,16 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                 if (idx == 0)
                                         return -EINVAL;
 
+                                if (!socket_ipv6_is_supported()) {
+                                        log_warning("Binding to interface is not available since kernel does not support IPv6.");
+                                        return -EAFNOSUPPORT;
+                                }
+
                                 a->sockaddr.in6.sin6_family = AF_INET6;
                                 a->sockaddr.in6.sin6_port = htons((uint16_t) u);
                                 a->sockaddr.in6.sin6_scope_id = idx;
                                 a->sockaddr.in6.sin6_addr = in6addr_any;
                                 a->size = sizeof(struct sockaddr_in6);
-
                         }
                 } else {
 
@@ -161,10 +171,17 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         if (u <= 0 || u > 0xFFFF)
                                 return -EINVAL;
 
-                        a->sockaddr.in6.sin6_family = AF_INET6;
-                        a->sockaddr.in6.sin6_port = htons((uint16_t) u);
-                        a->sockaddr.in6.sin6_addr = in6addr_any;
-                        a->size = sizeof(struct sockaddr_in6);
+                        if (socket_ipv6_is_supported()) {
+                                a->sockaddr.in6.sin6_family = AF_INET6;
+                                a->sockaddr.in6.sin6_port = htons((uint16_t) u);
+                                a->sockaddr.in6.sin6_addr = in6addr_any;
+                                a->size = sizeof(struct sockaddr_in6);
+                        } else {
+                                a->sockaddr.in4.sin_family = AF_INET;
+                                a->sockaddr.in4.sin_port = htons((uint16_t) u);
+                                a->sockaddr.in4.sin_addr.s_addr = INADDR_ANY;
+                                a->size = sizeof(struct sockaddr_in);
+                        }
                 }
         }
 
@@ -315,6 +332,9 @@ int socket_address_listen(
 
         if ((r = socket_address_verify(a)) < 0)
                 return r;
+
+        if (socket_address_family(a) == AF_INET6 && !socket_ipv6_is_supported())
+                return -EAFNOSUPPORT;
 
         r = label_socket_set(label);
         if (r < 0)
@@ -482,6 +502,10 @@ bool socket_address_needs_mount(const SocketAddress *a, const char *prefix) {
                 return false;
 
         return path_startswith(a->sockaddr.un.sun_path, prefix);
+}
+
+bool socket_ipv6_is_supported(void) {
+        return access("/sys/module/ipv6", F_OK) == 0;
 }
 
 static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
