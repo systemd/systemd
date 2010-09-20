@@ -61,6 +61,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (mkdir_parents(RANDOM_SEED, 0755) < 0) {
+                log_error("Failed to create directories parents of %s: %m", RANDOM_SEED);
+                goto finish;
+        }
+
         /* When we load the seed we read it and write it to the device
          * and then immediately update the saved seed with new data,
          * to make sure the next boot gets seeded differently. */
