@@ -166,15 +166,15 @@ int locale_setup(void) {
 
         for (i = 0; i < _VARIABLE_MAX; i++) {
 
-                if (!variables[i])
-                        continue;
-
-                if (setenv(variable_names[i], variables[i], 1) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
+                if (variables[i]) {
+                        if (setenv(variable_names[i], variables[i], 1) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
+                } else
+                        unsetenv(variable_names[i]);
         }
+
         r = 0;
 
 finish:
