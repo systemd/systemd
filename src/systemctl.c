@@ -1257,11 +1257,11 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                         streq(args[0], "stop")                  ? "StopUnit" :
                         streq(args[0], "reload")                ? "ReloadUnit" :
                         streq(args[0], "restart")               ? "RestartUnit" :
-                        streq(args[0], "try-restart")           ? "TryRestartUnit" :
+                        streq(args[0], "try-restart")           ||
+                        streq(args[0], "condrestart")           ? "TryRestartUnit" :
                         streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
                         streq(args[0], "reload-or-try-restart") ||
-                        streq(args[0], "force-reload")          ||
-                        streq(args[0], "condrestart")           ? "ReloadOrTryRestartUnit" :
+                        streq(args[0], "force-reload")          ? "ReloadOrTryRestartUnit" :
                                                                   "StartUnit";
 
                 mode =
