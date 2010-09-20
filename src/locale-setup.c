@@ -28,6 +28,9 @@
 #include "macro.h"
 
 enum {
+        /* We don't list LC_ALL here on purpose. People should be
+         * using LANG instead. */
+
         VARIABLE_LANG,
         VARIABLE_LC_CTYPE,
         VARIABLE_LC_NUMERIC,
@@ -35,7 +38,6 @@ enum {
         VARIABLE_LC_COLLATE,
         VARIABLE_LC_MONETARY,
         VARIABLE_LC_MESSAGES,
-        VARIABLE_LC_ALL,
         VARIABLE_LC_PAPER,
         VARIABLE_LC_NAME,
         VARIABLE_LC_ADDRESS,
@@ -53,7 +55,6 @@ static const char * const variable_names[_VARIABLE_MAX] = {
         [VARIABLE_LC_COLLATE] = "COLLATE",
         [VARIABLE_LC_MONETARY] = "MONETARY",
         [VARIABLE_LC_MESSAGES] = "MESSAGE",
-        [VARIABLE_LC_ALL] = "ALL",
         [VARIABLE_LC_PAPER] = "PAPER",
         [VARIABLE_LC_NAME] = "NAME",
         [VARIABLE_LC_ADDRESS] = "ADDRESS",
@@ -77,13 +78,13 @@ int locale_setup(void) {
                         log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
         }
 #elif defined(TARGET_ARCH)
-	if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
-				"LOCALE", &variables[VARIABLE_LANG],
-				NULL)) < 0) {
+        if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
+                                "LOCALE", &variables[VARIABLE_LANG],
+                                NULL)) < 0) {
 
-		if (r != -ENOENT)
-			log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
-	}
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
+        }
 #elif defined(TARGET_GENTOO)
         /* Gentoo's openrc expects locale variables in /etc/env.d/
          * These files are later compiled by env-update into shell
@@ -98,7 +99,6 @@ int locale_setup(void) {
                                 "export LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
                                 "export LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
                                 "export LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                                "export LC_ALL",            &variables[VARIABLE_LC_ALL],
                                 "export LC_PAPER",          &variables[VARIABLE_LC_PAPER],
                                 "export LC_NAME",           &variables[VARIABLE_LC_NAME],
                                 "export LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
@@ -122,7 +122,6 @@ int locale_setup(void) {
                                 "LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
                                 "LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
                                 "LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                                "LC_ALL",            &variables[VARIABLE_LC_ALL],
                                 "LC_PAPER",          &variables[VARIABLE_LC_PAPER],
                                 "LC_NAME",           &variables[VARIABLE_LC_NAME],
                                 "LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
@@ -146,7 +145,6 @@ int locale_setup(void) {
                                 "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
                                 "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
                                 "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                                "locale.LC_ALL",            &variables[VARIABLE_LC_ALL],
                                 "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
                                 "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
                                 "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
