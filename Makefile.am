@@ -183,7 +183,7 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 # udev tests
 # ------------------------------------------------------------------------------
-TESTS = test/udev-test.pl
+TESTS = test/udev-test.pl test/rules-test.sh
 
 check_PROGRAMS = \
 	libudev/test-libudev \
@@ -619,6 +619,7 @@ CLEANFILES += \
 	$(BUILT_SOURCES)
 
 EXTRA_DIST += $(TESTS)
+EXTRA_DIST += test/rule-syntax-check.py
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
