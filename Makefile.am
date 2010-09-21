@@ -183,7 +183,9 @@ dist_systemunit_DATA = \
 	units/remount-rootfs.service \
 	units/printer.target \
 	units/bluetooth.target \
-	units/smartcard.target
+	units/smartcard.target \
+	units/tmpwatch.service \
+	units/tmpwatch.timer
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
