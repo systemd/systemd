@@ -990,6 +990,7 @@ install-data-hook:
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
 			hwclock-load.service \
+			sysctl.service \
 			tmpwatch.timer \
 			tmpwatch.service && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
@@ -1001,6 +1002,7 @@ install-data-hook:
 		$(LN_S) ../systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service && \
 		$(LN_S) ../hwclock-load.service && \
+		$(LN_S) ../sysctl.service && \
 		$(LN_S) ../tmpwatch.timer && \
 		$(LN_S) ../tmpwatch.service )
 	( cd $(DESTDIR)$(dbussessionservicedir) && \

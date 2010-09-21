@@ -15,6 +15,3 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/sbin/sysctl -e -q -p /etc/sysctl.conf
-
-[Install]
-WantedBy=sysinit.target
