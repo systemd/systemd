@@ -73,6 +73,8 @@ usec_t now(clockid_t clock);
 
 dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
 
+#define dual_timestamp_is_set(ts) ((ts)->realtime > 0)
+
 usec_t timespec_load(const struct timespec *ts);
 struct timespec *timespec_store(struct timespec *ts, usec_t u);
 

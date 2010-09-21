@@ -540,6 +540,8 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 if (other->meta.job)
                         job_add_to_run_queue(other->meta.job);
 
+        manager_check_finished(u->meta.manager);
+
         return 0;
 }
 

@@ -2173,6 +2173,8 @@ int manager_loop(Manager *m) {
         set_free_free(m->unit_path_cache);
         m->unit_path_cache = NULL;
 
+        manager_check_finished(m);
+
         /* There might still be some zombies hanging around from
          * before we were exec()'ed. Leat's reap them */
         if ((r = manager_dispatch_sigchld(m)) < 0)
@@ -2596,6 +2598,34 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
                 return true;
 
         return unit_pending_inactive(u);
+}
+
+void manager_check_finished(Manager *m) {
+        char userspace[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
+
+        assert(m);
+
+        if (dual_timestamp_is_set(&m->finish_timestamp))
+                return;
+
+        if (hashmap_size(m->jobs) > 0)
+                return;
+
+        dual_timestamp_get(&m->finish_timestamp);
+
+        if (m->running_as == MANAGER_SYSTEM)
+                log_info("Startup finished in %s (kernel) + %s (userspace) = %s.",
+                         format_timespan(kernel, sizeof(kernel),
+                                         m->startup_timestamp.monotonic),
+                         format_timespan(userspace, sizeof(userspace),
+                                         m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
+                         format_timespan(sum, sizeof(sum),
+                                         m->finish_timestamp.monotonic));
+        else
+                log_debug("Startup finished in %s.",
+                          format_timespan(userspace, sizeof(userspace),
+                                          m->finish_timestamp.monotonic - m->startup_timestamp.monotonic));
+
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
