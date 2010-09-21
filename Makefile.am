@@ -979,12 +979,16 @@ install-data-hook:
 			dev-mqueue.automount \
 			proc-sys-fs-binfmt_misc.automount \
 			sys-kernel-debug.automount \
-			sys-kernel-security.automount && \
+			sys-kernel-security.automount \
+			tmpwatch.timer \
+			tmpwatch.service && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
-		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount )
+		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
+		$(LN_S) ../tmpwatch.timer && \
+		$(LN_S) ../tmpwatch.service )
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )

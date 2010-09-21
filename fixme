@@ -99,8 +99,6 @@
 
 * properly handle bind mounts in /etc/fstab
 
-* cleanup /tmp.
-
 External:
 
 * place /etc/inittab with explaining blurb.

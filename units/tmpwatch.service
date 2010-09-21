@@ -1,0 +1,21 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Cleanup of Temporary Directories
+DefaultDependencies=no
+Wants=local-fs.target
+After=local-fs.target
+Before=poweroff.service reboot.service halt.service killall.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/tmpwatch -umc -x /tmp/.X11-unix -x /tmp/.ICE-unix 10d /tmp
+ExecStart=/usr/sbin/tmpwatch -umc 30d /var/tmp
+
+[Install]
+WantedBy=shutdown.target
