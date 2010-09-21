@@ -221,6 +221,24 @@ static int bus_manager_append_n_jobs(Manager *m, DBusMessageIter *i, const char 
         return 0;
 }
 
+static int bus_manager_append_progress(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        double d;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        if (dual_timestamp_is_set(&m->finish_timestamp))
+                d = 1.0;
+        else
+                d = 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_DOUBLE, &d))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static const char *message_get_sender_with_fallback(DBusMessage *m) {
         const char *s;
 
@@ -248,6 +266,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "NInstalledJobs",bus_property_append_uint32,    "u",  &m->n_installed_jobs },
+                { "org.freedesktop.systemd1.Manager", "Progress",      bus_manager_append_progress,   "d",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
                 { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
                 { "org.freedesktop.systemd1.Manager", "ShowStatus",    bus_property_append_bool,      "b",  &m->show_status    },

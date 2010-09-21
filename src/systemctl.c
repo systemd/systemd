@@ -2003,6 +2003,14 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                 return 0;
         }
 
+        case DBUS_TYPE_DOUBLE: {
+                double d;
+                dbus_message_iter_get_basic(iter, &d);
+
+                printf("%s=%g\n", name, d);
+                return 0;
+        }
+
         case DBUS_TYPE_STRUCT: {
                 DBusMessageIter sub;
                 dbus_message_iter_recurse(iter, &sub);
