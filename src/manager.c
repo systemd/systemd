@@ -1182,6 +1182,7 @@ static int transaction_apply(Manager *m) {
 
                 j->unit->meta.job = j;
                 j->installed = true;
+                m->n_installed_jobs ++;
 
                 /* We're fully installed. Now let's free data we don't
                  * need anymore. */

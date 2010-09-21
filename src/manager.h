@@ -207,6 +207,8 @@ struct Manager {
         bool swap_auto;
 
         int n_deserializing;
+
+        unsigned n_installed_jobs;
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);
