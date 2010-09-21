@@ -905,6 +905,7 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
 		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
 		$(DESTDIR)$(systemunitdir)/shutdown.target.wants \
+		$(DESTDIR)$(systemunitdir)/local-fs.target.wants \
 		$(DESTDIR)$(systemunitdir)/runlevel1.target.wants \
 		$(DESTDIR)$(systemunitdir)/runlevel2.target.wants \
 		$(DESTDIR)$(systemunitdir)/runlevel3.target.wants \
@@ -946,6 +947,12 @@ install-data-hook:
 		$(LN_S) ../systemd-update-utmp-shutdown.service && \
 		$(LN_S) ../hwclock-save.service && \
 		$(LN_S) ../systemd-random-seed-save.service )
+	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
+		rm -f systemd-update-utmp-shutdown.service \
+			var-run.service \
+			var-lock.service && \
+		$(LN_S) ../var-run.service && \
+		$(LN_S) ../var-lock.service )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \

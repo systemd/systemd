@@ -16,6 +16,3 @@ Before=local-fs.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/bin/mkdir -p /var/lock/subsys
-
-[Install]
-WantedBy=local-fs.target

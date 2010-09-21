@@ -14,6 +14,3 @@ What=tmpfs
 Where=/var/lock
 Type=tmpfs
 Options=mode=775,gid=lock
-
-[Install]
-WantedBy=local-fs.target
