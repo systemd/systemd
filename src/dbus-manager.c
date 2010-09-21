@@ -133,6 +133,7 @@
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"NInstalledJobs\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"Progress\" type=\"d\" access=\"read\"/>\n"  \
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
