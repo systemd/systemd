@@ -232,6 +232,25 @@ int main(int argc, char **argv) {
                         vc_keymap = t;
                 }
 
+#elif defined(TARGET_SUSE)
+                if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                        "KEYTABLE", &vc_keymap,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
+                }
+
+                if ((r = parse_env_file("/etc/sysconfig/console", NEWLINE,
+                                        "CONSOLE_FONT", &vc_font,
+                                        "CONSOLE_SCREENMAP", &vc_font_map,
+                                        "CONSOLE_UNICODEMAP", &vc_font_unimap,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/console: %s", strerror(-r));
+                }
+
 #elif defined(TARGET_ARCH)
                 if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
                                         "KEYMAP", &vc_keymap,

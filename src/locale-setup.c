@@ -125,6 +125,16 @@ int locale_setup(void) {
                         log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
         }
 
+#elif defined(TARGET_SUSE)
+        if (r <= 0 &&
+            (r = parse_env_file("/etc/sysconfig/language", NEWLINE,
+                                "RC_LANG", &variables[VARIABLE_LANG],
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/language: %s", strerror(-r));
+        }
+
 #elif defined(TARGET_ARCH)
         if (r <= 0 &&
             (r = parse_env_file("/etc/rc.conf", NEWLINE,
