@@ -3,4 +3,4 @@
 KERNEL=="iseries/ibmsis*", GROUP="disk"
 KERNEL=="iseries/nvt*", GROUP="disk"
 KERNEL=="iseries/vt*", GROUP="disk"
-KERNEL=="iseries/vtty*, GROUP="dialout"
+KERNEL=="iseries/vtty*", GROUP="dialout"

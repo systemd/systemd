@@ -12,7 +12,7 @@ ACTION=="remove", GOTO="kernel_compat_end"
 #
 
 # needed for kernels <2.6.30
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", WAIT_FOR_SYSFS="descriptors"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", WAIT_FOR="descriptors"
 
 #
 # naming device rules
