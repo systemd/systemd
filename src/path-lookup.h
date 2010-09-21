@@ -24,8 +24,10 @@
 
 typedef struct LookupPaths {
         char **unit_path;
+#ifdef HAVE_SYSV_COMPAT
         char **sysvinit_path;
         char **sysvrcnd_path;
+#endif
 } LookupPaths;
 
 #include "manager.h"

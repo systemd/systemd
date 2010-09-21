@@ -38,6 +38,7 @@
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
 
+#ifdef HAVE_SYSV_COMPAT
 typedef enum RunlevelType {
         RUNLEVEL_UP,
         RUNLEVEL_DOWN,
@@ -80,6 +81,7 @@ static const struct {
 #define RUNLEVELS_UP "12345"
 /* #define RUNLEVELS_DOWN "06" */
 /* #define RUNLEVELS_BOOT "bBsS" */
+#endif
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
@@ -108,7 +110,9 @@ static void service_init(Unit *u) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->restart_usec = DEFAULT_RESTART_USEC;
         s->timer_watch.type = WATCH_INVALID;
+#ifdef HAVE_SYSV_COMPAT
         s->sysv_start_priority = -1;
+#endif
         s->socket_fd = -1;
 
         exec_context_init(&s->exec_context);
@@ -189,11 +193,13 @@ static void service_done(Unit *u) {
         free(s->pid_file);
         s->pid_file = NULL;
 
+#ifdef HAVE_SYSV_COMPAT
         free(s->sysv_path);
         s->sysv_path = NULL;
 
         free(s->sysv_runlevels);
         s->sysv_runlevels = NULL;
+#endif
 
         free(s->status_text);
         s->status_text = NULL;
@@ -219,6 +225,7 @@ static void service_done(Unit *u) {
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
+#ifdef HAVE_SYSV_COMPAT
 static char *sysv_translate_name(const char *name) {
         char *r;
 
@@ -831,6 +838,7 @@ static int service_load_sysv(Service *s) {
 
         return 0;
 }
+#endif
 
 static int service_verify(Service *s) {
         assert(s);
@@ -896,10 +904,12 @@ static int service_load(Unit *u) {
         if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
+#ifdef HAVE_SYSV_COMPAT
         /* Load a classic init script as a fallback, if we couldn't find anything */
         if (u->meta.load_state == UNIT_STUB)
                 if ((r = service_load_sysv(s)) < 0)
                         return r;
+#endif
 
         /* Still nothing found? Then let's give up */
         if (u->meta.load_state == UNIT_STUB)
@@ -918,8 +928,10 @@ static int service_load(Unit *u) {
                 if ((r = unit_add_default_cgroup(u)) < 0)
                         return r;
 
+#ifdef HAVE_SYSV_COMPAT
                 if ((r = sysv_fix_order(s)) < 0)
                         return r;
+#endif
 
                 if (s->bus_name)
                         if ((r = unit_watch_bus_name(u, s->bus_name)) < 0)
@@ -1003,6 +1015,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
 
+#ifdef HAVE_SYSV_COMPAT
         if (s->sysv_path)
                 fprintf(f,
                         "%sSysV Init Script Path: %s\n"
@@ -1020,6 +1033,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->sysv_runlevels)
                 fprintf(f, "%sSysVRunLevels: %s\n",
                         prefix, s->sysv_runlevels);
+#endif
 
         if (s->status_text)
                 fprintf(f, "%sStatus Text: %s\n",
@@ -2262,6 +2276,7 @@ static const char *service_sub_state_to_string(Unit *u) {
         return service_state_to_string(SERVICE(u)->state);
 }
 
+#ifdef HAVE_SYSV_COMPAT
 static bool service_check_gc(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -2269,6 +2284,7 @@ static bool service_check_gc(Unit *u) {
 
         return !!s->sysv_path;
 }
+#endif
 
 static bool service_check_snapshot(Unit *u) {
         Service *s = SERVICE(u);
@@ -2654,6 +2670,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         unit_add_to_dbus_queue(u);
 }
 
+#ifdef HAVE_SYSV_COMPAT
 static int service_enumerate(Manager *m) {
         char **p;
         unsigned i;
@@ -2874,6 +2891,7 @@ finish:
 
         return r;
 }
+#endif
 
 static void service_bus_name_owner_change(
                 Unit *u,
@@ -3057,7 +3075,9 @@ const UnitVTable service_vtable = {
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,
 
+#ifdef HAVE_SYSV_COMPAT
         .check_gc = service_check_gc,
+#endif
         .check_snapshot = service_check_snapshot,
 
         .sigchld_event = service_sigchld_event,
@@ -3075,5 +3095,7 @@ const UnitVTable service_vtable = {
         .bus_message_handler = bus_service_message_handler,
         .bus_invalidating_properties =  bus_service_invalidating_properties,
 
+#ifdef HAVE_SYSV_COMPAT
         .enumerate = service_enumerate
+#endif
 };

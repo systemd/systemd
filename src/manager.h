@@ -203,7 +203,9 @@ struct Manager {
 
         bool show_status;
         bool confirm_spawn;
+#ifdef HAVE_SYSV_COMPAT
         bool sysv_console;
+#endif
         bool mount_auto;
         bool swap_auto;
 

@@ -311,7 +311,8 @@ case $with_distro in
                 M4_DISTRO_FLAG=-DTARGET_ARCH=1
                 ;;
         gentoo)
-                SYSTEM_SYSVRCND_PATH=/etc
+                SYSTEM_SYSVINIT_PATH=
+                SYSTEM_SYSVRCND_PATH=
                 SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
                 M4_DISTRO_FLAG=-DTARGET_GENTOO=1
@@ -323,10 +324,6 @@ case $with_distro in
                 M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
                 ;;
         other)
-                AS_IF([test "x$with_sysvinit_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvinit-path= to configure])])
-                AS_IF([test "x$with_sysvrcd_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvrcd-path= to configure])])
                 AS_IF([test "x$with_syslog_service" = "x"],
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
                 ;;
@@ -357,6 +354,15 @@ AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
 AC_SUBST(SPECIAL_SYSLOG_SERVICE)
 AC_SUBST(M4_DISTRO_FLAG)
+
+if test "x${SYSTEM_SYSVINIT_PATH}" != "x" -a "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
+        AC_DEFINE(HAVE_SYSV_COMPAT, [], [SysV init scripts and rcN.d links are supported.])
+        SYSTEM_SYSV_COMPAT="yes"
+elif test "x${SYSTEM_SYSVINIT_PATH}" != "x" -o "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
+        AC_MSG_ERROR([*** You need both --with-sysvinit-path=PATH and --with-sysvrcd-path=PATH to enable SysV compatibility support, or both empty to disable it.])
+else
+        SYSTEM_SYSV_COMPAT="no"
+fi
 
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
@@ -417,6 +423,7 @@ echo "
         $PACKAGE_NAME $VERSION
 
         Distribution:            ${with_distro}
+        SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}

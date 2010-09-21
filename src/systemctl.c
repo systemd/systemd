@@ -1581,7 +1581,9 @@ typedef struct UnitStatusInfo {
         pid_t control_pid;
         const char *status_text;
         bool running:1;
+#ifdef HAVE_SYSV_COMPAT
         bool is_sysv:1;
+#endif
 
         usec_t start_timestamp;
         usec_t exit_timestamp;
@@ -1701,7 +1703,11 @@ static void print_status_info(UnitStatusInfo *i) {
 
                         printf("status=%i", p->status);
 
+#ifdef HAVE_SYSV_COMPAT
                         if ((c = exit_status_to_string(p->status, i->is_sysv ? EXIT_STATUS_LSB : EXIT_STATUS_SYSTEMD)))
+#else
+                        if ((c = exit_status_to_string(p->status, EXIT_STATUS_SYSTEMD)))
+#endif
                                 printf("/%s", c);
 
                 } else
@@ -1739,7 +1745,11 @@ static void print_status_info(UnitStatusInfo *i) {
 
                                         printf("status=%i", i->exit_status);
 
+#ifdef HAVE_SYSV_COMPAT
                                         if ((c = exit_status_to_string(i->exit_status, i->is_sysv ? EXIT_STATUS_LSB : EXIT_STATUS_SYSTEMD)))
+#else
+                                        if ((c = exit_status_to_string(i->exit_status, EXIT_STATUS_SYSTEMD)))
+#endif
                                                 printf("/%s", c);
 
                                 } else
@@ -1811,10 +1821,13 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->description = s;
                         else if (streq(name, "FragmentPath"))
                                 i->path = s;
+#ifdef HAVE_SYSV_COMPAT
                         else if (streq(name, "SysVPath")) {
                                 i->is_sysv = true;
                                 i->path = s;
-                        } else if (streq(name, "DefaultControlGroup"))
+                        }
+#endif
+                        else if (streq(name, "DefaultControlGroup"))
                                 i->default_control_group = s;
                         else if (streq(name, "StatusText"))
                                 i->status_text = s;

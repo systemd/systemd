@@ -106,6 +106,7 @@ struct Service {
         ExecCommand *control_command;
         ServiceExecCommand control_command_id;
         pid_t main_pid, control_pid;
+        int socket_fd;
 
         bool permissions_start_only;
         bool root_directory_start_only;
@@ -117,14 +118,14 @@ struct Service {
         bool bus_name_good:1;
         bool forbid_restart:1;
         bool got_socket_fd:1;
+#ifdef HAVE_SYSV_COMPAT
         bool sysv_has_lsb:1;
         bool sysv_enabled:1;
-
-        int socket_fd;
         int sysv_start_priority;
 
         char *sysv_path;
         char *sysv_runlevels;
+#endif
 
         char *bus_name;
 

@@ -64,7 +64,9 @@ static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_show_status = true;
+#ifdef HAVE_SYSV_COMPAT
 static bool arg_sysv_console = true;
+#endif
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char *arg_console = NULL;
@@ -312,7 +314,7 @@ static int parse_proc_cmdline_word(const char *word) {
                         log_warning("Failed to parse show status switch %s, Ignoring.", word + 20);
                 else
                         arg_show_status = r;
-
+#ifdef HAVE_SYSV_COMPAT
         } else if (startswith(word, "systemd.sysv_console=")) {
                 int r;
 
@@ -320,6 +322,7 @@ static int parse_proc_cmdline_word(const char *word) {
                         log_warning("Failed to parse SysV console switch %s, Ignoring.", word + 20);
                 else
                         arg_sysv_console = r;
+#endif
 
         } else if (startswith(word, "systemd.")) {
 
@@ -332,7 +335,9 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.crash_chvt=N                     Change to VT #N on crash\n"
                          "systemd.confirm_spawn=0|1                Confirm every process spawn\n"
                          "systemd.show_status=0|1                  Show status updates on the console during bootup\n"
+#ifdef HAVE_SYSV_COMPAT
                          "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
+#endif
                          "systemd.log_target=console|kmsg|syslog|syslog-org-kmsg|null\n"
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
@@ -361,7 +366,9 @@ static int parse_proc_cmdline_word(const char *word) {
 
         } else if (streq(word, "quiet")) {
                 arg_show_status = false;
+#ifdef HAVE_SYSV_COMPAT
                 arg_sysv_console = false;
+#endif
         } else {
                 unsigned i;
 
@@ -505,7 +512,9 @@ static int parse_config_file(void) {
                 { "DumpCore",    config_parse_bool,         &arg_dump_core,     "Manager" },
                 { "CrashShell",  config_parse_bool,         &arg_crash_shell,   "Manager" },
                 { "ShowStatus",  config_parse_bool,         &arg_show_status,   "Manager" },
+#ifdef HAVE_SYSV_COMPAT
                 { "SysVConsole", config_parse_bool,         &arg_sysv_console,  "Manager" },
+#endif
                 { "CrashChVT",   config_parse_int,          &arg_crash_chvt,    "Manager" },
                 { "CPUAffinity", config_parse_cpu_affinity, NULL,               "Manager" },
                 { "MountAuto",   config_parse_bool,         &arg_mount_auto,    "Manager" },
@@ -610,7 +619,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "crash-shell",              no_argument,       NULL, ARG_CRASH_SHELL              },
                 { "confirm-spawn",            no_argument,       NULL, ARG_CONFIRM_SPAWN            },
                 { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
+#ifdef HAVE_SYSV_COMPAT
                 { "sysv-console",             optional_argument, NULL, ARG_SYSV_CONSOLE             },
+#endif
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
                 { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { NULL,                       0,                 NULL, 0                            }
@@ -714,7 +725,7 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 arg_show_status = true;
                         break;
-
+#ifdef HAVE_SYSV_COMPAT
                 case ARG_SYSV_CONSOLE:
 
                         if (optarg) {
@@ -726,6 +737,7 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 arg_sysv_console = true;
                         break;
+#endif
 
                 case ARG_DESERIALIZE: {
                         int fd;
@@ -813,7 +825,9 @@ static int help(void) {
                "     --crash-shell               Run shell on crash\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
                "     --show-status[=0|1]         Show status updates on the console during bootup\n"
+#ifdef HAVE_SYSV_COMPAT
                "     --sysv-console[=0|1]        Connect output of SysV scripts to console\n"
+#endif
                "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
@@ -1017,7 +1031,9 @@ int main(int argc, char *argv[]) {
 
         m->confirm_spawn = arg_confirm_spawn;
         m->show_status = arg_show_status;
+#ifdef HAVE_SYSV_COMPAT
         m->sysv_console = arg_sysv_console;
+#endif
         m->mount_auto = arg_mount_auto;
         m->swap_auto = arg_swap_auto;
 
@@ -1162,10 +1178,12 @@ finish:
                 else
                         args[i++] = "--show-status=0";
 
+#ifdef HAVE_SYSV_COMPAT
                 if (arg_sysv_console)
                         args[i++] = "--sysv-console=1";
                 else
                         args[i++] = "--sysv-console=0";
+#endif
 
                 snprintf(sfd, sizeof(sfd), "%i", fileno(serialization));
                 char_array_0(sfd);

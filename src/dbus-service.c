@@ -25,6 +25,7 @@
 #include "dbus-execute.h"
 #include "dbus-service.h"
 
+#ifdef HAVE_SYSV_COMPAT
 #define BUS_SERVICE_INTERFACE                                           \
         " <interface name=\"org.freedesktop.systemd1.Service\">\n"      \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
@@ -52,6 +53,32 @@
         "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
        " </interface>\n"
+#else
+#define BUS_SERVICE_INTERFACE                                           \
+        " <interface name=\"org.freedesktop.systemd1.Service\">\n"      \
+        "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Restart\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"PIDFile\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"NotifyAccess\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStart")                         \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
+        BUS_EXEC_COMMAND_INTERFACE("ExecReload")                        \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStop")                          \
+        BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
+        BUS_EXEC_CONTEXT_INTERFACE                                      \
+        "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"RemainAfterExit\" type=\"b\" access=\"read\"/>\n" \
+        BUS_EXEC_STATUS_INTERFACE("ExecMain")                           \
+        "  <property name=\"MainPID\" type=\"u\" access=\"read\"/>\n"   \
+        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
+       " </interface>\n"
+#endif
 
 #define INTROSPECTION                                                   \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
@@ -104,11 +131,15 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 BUS_EXEC_STATUS_PROPERTIES("org.freedesktop.systemd1.Service", u->service.main_exec_status, "ExecMain"),
                 { "org.freedesktop.systemd1.Service", "MainPID",                bus_property_append_pid,    "u", &u->service.main_pid                  },
                 { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid               },
+#ifdef HAVE_SYSV_COMPAT
                 { "org.freedesktop.systemd1.Service", "SysVPath",               bus_property_append_string, "s", u->service.sysv_path                  },
+#endif
                 { "org.freedesktop.systemd1.Service", "BusName",                bus_property_append_string, "s", u->service.bus_name                   },
                 { "org.freedesktop.systemd1.Service", "StatusText",             bus_property_append_string, "s", u->service.status_text                },
+#ifdef HAVE_SYSV_COMPAT
                 { "org.freedesktop.systemd1.Service", "SysVRunLevels",          bus_property_append_string, "s", u->service.sysv_runlevels             },
                 { "org.freedesktop.systemd1.Service", "SysVStartPriority",      bus_property_append_int,    "i", &u->service.sysv_start_priority       },
+#endif
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

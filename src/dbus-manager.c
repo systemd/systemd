@@ -27,14 +27,16 @@
 #include "strv.h"
 #include "bus-errors.h"
 
-#define BUS_MANAGER_INTERFACE                                           \
-        " <interface name=\"org.freedesktop.systemd1.Manager\">\n"      \
+#define BUS_MANAGER_INTERFACE_BEGIN                                     \
+        " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
+
+#define BUS_MANAGER_INTERFACE_METHODS                                   \
         "  <method name=\"GetUnit\">\n"                                 \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"GetUnitByPID\">\n"                            \
-        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"         \
+        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"          \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"LoadUnit\">\n"                                \
@@ -107,7 +109,9 @@
         "  </method>\n"                                                 \
         "  <method name=\"UnsetEnvironment\">\n"                        \
         "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
-        "  </method>\n"                                                 \
+        "  </method>\n"
+
+#define BUS_MANAGER_INTERFACE_SIGNALS                                   \
         "  <signal name=\"UnitNew\">\n"                                 \
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"unit\" type=\"o\"/>\n"                          \
@@ -124,7 +128,10 @@
         "   <arg name=\"id\" type=\"u\"/>\n"                            \
         "   <arg name=\"job\" type=\"o\"/>\n"                           \
         "   <arg name=\"success\" type=\"b\"/>\n"                       \
-        "  </signal>"                                                   \
+        "  </signal>"
+
+
+#define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -138,15 +145,31 @@
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SysVConsole\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"MountAuto\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"
+
+#ifdef HAVE_SYSV_COMPAT
+#define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
+        "  <property name=\"SysVConsole\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n"
+#else
+#define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV
+#endif
+
+#define BUS_MANAGER_INTERFACE_END                                       \
         " </interface>\n"
+
+#define BUS_MANAGER_INTERFACE                                           \
+        BUS_MANAGER_INTERFACE_BEGIN                                     \
+        BUS_MANAGER_INTERFACE_METHODS                                   \
+        BUS_MANAGER_INTERFACE_SIGNALS                                   \
+        BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
+        BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
+        BUS_MANAGER_INTERFACE_END
 
 #define INTROSPECTION_BEGIN                                             \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
@@ -273,14 +296,16 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
                 { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
                 { "org.freedesktop.systemd1.Manager", "ShowStatus",    bus_property_append_bool,      "b",  &m->show_status    },
-                { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
                 { "org.freedesktop.systemd1.Manager", "UnitPath",      bus_property_append_strv,      "as", m->lookup_paths.unit_path },
-                { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
-                { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
                 { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
                 { "org.freedesktop.systemd1.Manager", "ControlGroupHierarchy", bus_property_append_string, "s", m->cgroup_hierarchy },
                 { "org.freedesktop.systemd1.Manager", "MountAuto",     bus_property_append_bool,      "b",  &m->mount_auto     },
                 { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto     },
+#ifdef HAVE_SYSV_COMPAT
+                { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
+                { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
+                { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
+#endif
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

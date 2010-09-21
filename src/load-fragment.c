@@ -42,6 +42,21 @@
 #include "unit-name.h"
 #include "bus-errors.h"
 
+#ifndef HAVE_SYSV_COMPAT
+static int config_parse_warn_compat(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        log_debug("[%s:%u] Support for option %s= has been disabled at compile time and is ignored", filename, line, lvalue);
+        return 0;
+}
+#endif
+
 static int config_parse_deps(
                 const char *filename,
                 unsigned line,
@@ -959,6 +974,7 @@ static int config_parse_cgroup(
         return 0;
 }
 
+#ifdef HAVE_SYSV_COMPAT
 static int config_parse_sysv_priority(
                 const char *filename,
                 unsigned line,
@@ -984,6 +1000,7 @@ static int config_parse_sysv_priority(
         *priority = (int) i;
         return 0;
 }
+#endif
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
@@ -1446,7 +1463,11 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_exec,             "PATH [ARGUMENT [...]]" },
                 { config_parse_service_type,     "SERVICETYPE" },
                 { config_parse_service_restart,  "SERVICERESTART" },
+#ifdef HAVE_SYSV_COMPAT
                 { config_parse_sysv_priority,    "SYSVPRIORITY" },
+#else
+                { config_parse_warn_compat,      "NOTSUPPORTED" },
+#endif
                 { config_parse_kill_mode,        "KILLMODE" },
                 { config_parse_kill_signal,      "SIGNAL" },
                 { config_parse_listen,           "SOCKET [...]" },
@@ -1597,7 +1618,11 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PermissionsStartOnly",   config_parse_bool,            &u->service.permissions_start_only,              "Service" },
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 { "RemainAfterExit",        config_parse_bool,            &u->service.remain_after_exit,                   "Service" },
+#ifdef HAVE_SYSV_COMPAT
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
+#else
+                { "SysVStartPriority",      config_parse_warn_compat,     NULL,                                           "Service" },
+#endif
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
                 { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
                 { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
