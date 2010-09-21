@@ -38,7 +38,7 @@ rootlibexecdir=$(rootdir)/lib/systemd
 systemunitdir=$(rootdir)/lib/systemd/system
 
 AM_CPPFLAGS = \
-        -include $(top_builddir)/config.h \
+	-include $(top_builddir)/config.h \
 	-DSYSTEM_CONFIG_FILE=\"$(pkgsysconfdir)/system.conf\" \
 	-DSYSTEM_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/system\" \
 	-DSYSTEM_DATA_UNIT_PATH=\"$(systemunitdir)\" \
@@ -308,15 +308,15 @@ noinst_LTLIBRARIES = \
 	libsystemd-core.la
 
 libsystemd_basic_la_SOURCES = \
-        src/util.c \
+	src/util.c \
 	src/label.c \
-        src/hashmap.c \
-        src/set.c \
-        src/strv.c \
-        src/conf-parser.c \
-        src/socket-util.c \
-        src/log.c \
-        src/ratelimit.c
+	src/hashmap.c \
+	src/set.c \
+	src/strv.c \
+	src/conf-parser.c \
+	src/socket-util.c \
+	src/log.c \
+	src/ratelimit.c
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -327,27 +327,27 @@ libsystemd_basic_la_LIBADD = \
 
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
-        src/job.c \
-        src/manager.c \
+	src/job.c \
+	src/manager.c \
 	src/path-lookup.c \
-        src/load-fragment.c \
-        src/service.c \
-        src/automount.c \
-        src/mount.c \
-        src/swap.c \
-        src/device.c \
-        src/target.c \
-        src/snapshot.c \
-        src/socket.c \
-        src/timer.c \
+	src/load-fragment.c \
+	src/service.c \
+	src/automount.c \
+	src/mount.c \
+	src/swap.c \
+	src/device.c \
+	src/target.c \
+	src/snapshot.c \
+	src/socket.c \
+	src/timer.c \
 	src/path.c \
-        src/load-dropin.c \
-        src/execute.c \
+	src/load-dropin.c \
+	src/execute.c \
 	src/exit-status.c \
-        src/dbus.c \
-        src/dbus-manager.c \
-        src/dbus-unit.c \
-        src/dbus-job.c \
+	src/dbus.c \
+	src/dbus-manager.c \
+	src/dbus-unit.c \
+	src/dbus-job.c \
 	src/dbus-service.c \
 	src/dbus-socket.c \
 	src/dbus-timer.c \
@@ -940,8 +940,10 @@ install-data-hook:
 		rm -f systemd-update-utmp-runlevel.service && \
 		$(LN_S) ../systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
-		rm -f systemd-update-utmp-shutdown.service && \
-		$(LN_S) ../systemd-update-utmp-shutdown.service )
+		rm -f systemd-update-utmp-shutdown.service \
+			systemd-random-seed-save.service && \
+		$(LN_S) ../systemd-update-utmp-shutdown.service && \
+		$(LN_S) ../systemd-random-seed-save.service )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -982,6 +984,9 @@ install-data-hook:
 			proc-sys-fs-binfmt_misc.automount \
 			sys-kernel-debug.automount \
 			sys-kernel-security.automount \
+			systemd-vconsole-setup.service \
+			systemd-modules-load.service \
+			systemd-random-seed-load.service \
 			tmpwatch.timer \
 			tmpwatch.service && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
@@ -989,6 +994,9 @@ install-data-hook:
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
 		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
+		$(LN_S) ../systemd-vconsole-setup.service && \
+		$(LN_S) ../systemd-modules-load.service && \
+		$(LN_S) ../systemd-random-seed-load.service && \
 		$(LN_S) ../tmpwatch.timer && \
 		$(LN_S) ../tmpwatch.service )
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
