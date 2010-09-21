@@ -941,8 +941,10 @@ install-data-hook:
 		$(LN_S) ../systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
 		rm -f systemd-update-utmp-shutdown.service \
+			hwclock-save.service \
 			systemd-random-seed-save.service && \
 		$(LN_S) ../systemd-update-utmp-shutdown.service && \
+		$(LN_S) ../hwclock-save.service && \
 		$(LN_S) ../systemd-random-seed-save.service )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
@@ -987,6 +989,7 @@ install-data-hook:
 			systemd-vconsole-setup.service \
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
+			hwclock-load.service \
 			tmpwatch.timer \
 			tmpwatch.service && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
@@ -997,6 +1000,7 @@ install-data-hook:
 		$(LN_S) ../systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service && \
+		$(LN_S) ../hwclock-load.service && \
 		$(LN_S) ../tmpwatch.timer && \
 		$(LN_S) ../tmpwatch.service )
 	( cd $(DESTDIR)$(dbussessionservicedir) && \

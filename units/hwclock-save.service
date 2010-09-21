@@ -13,6 +13,3 @@ Before=poweroff.service reboot.service halt.service killall.service
 [Service]
 Type=oneshot
 ExecStart=/sbin/hwclock --systohc
-
-[Install]
-WantedBy=shutdown.target

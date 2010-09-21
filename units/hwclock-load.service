@@ -26,6 +26,3 @@ ExecStart=/sbin/hwclock --systz
 # Note that we do not run --hctosys here, we assume the kernel
 # includes a compiled in RTC module which is used to initialize the
 # system time as part of kernel setup.
-
-[Install]
-WantedBy=sysinit.target
