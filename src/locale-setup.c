@@ -94,7 +94,6 @@ int locale_setup(void) {
 
         /* Hmm, nothing set on the kernel cmd line? Then let's
          * try /etc/locale */
-
         if (r <= 0 &&
             (r = parse_env_file("/etc/locale", NEWLINE,
                                "LANG",              &variables[VARIABLE_LANG],
@@ -125,6 +124,7 @@ int locale_setup(void) {
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
         }
+
 #elif defined(TARGET_ARCH)
         if (r <= 0 &&
             (r = parse_env_file("/etc/rc.conf", NEWLINE,
@@ -134,6 +134,7 @@ int locale_setup(void) {
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
         }
+
 #elif defined(TARGET_GENTOO)
         /* Gentoo's openrc expects locale variables in /etc/env.d/
          * These files are later compiled by env-update into shell

@@ -40,7 +40,7 @@
 #include "log.h"
 #include "macro.h"
 
-static bool is_console(int fd) {
+static bool is_vconsole(int fd) {
         unsigned char data[1];
 
         data[0] = TIOCL_GETFGCONSOLE;
@@ -163,113 +163,12 @@ int main(int argc, char **argv) {
                 goto finish;
         }
 
-        if (!is_console(fd)) {
+        if (!is_vconsole(fd)) {
                 log_error("Device %s is not a virtual console.", vc);
                 goto finish;
         }
 
-        if (!(utf8 = is_locale_utf8()))
-                disable_utf8(fd);
-
-#ifdef TARGET_FEDORA
-        if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
-                                "SYSFONT", &vc_font,
-                                "SYSFONTACM", &vc_font_map,
-                                "UNIMAP", &vc_font_unimap,
-                                NULL)) < 0) {
-
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
-        }
-
-        if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
-                                "KEYTABLE", &vc_keymap,
-                                "KEYMAP", &vc_keymap,
-                                NULL)) < 0) {
-
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
-        }
-
-        if (access("/etc/sysconfig/console/default.kmap", F_OK) >= 0) {
-                char *t;
-
-                if (!(t = strdup("/etc/sysconfig/console/default.kmap"))) {
-                        log_error("Out of memory.");
-                        goto finish;
-                }
-
-                free(vc_keymap);
-                vc_keymap = t;
-        }
-#elif defined(TARGET_ARCH)
-        if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
-				"KEYMAP", &vc_keymap,
-                                "CONSOLEFONT", &vc_font,
-                                "CONSOLEMAP", &vc_font_map,
-                                NULL)) < 0) {
-
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
-
-#elif defined(TARGET_GENTOO)
-        if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
-                                "unicode", &vc_unicode,
-                                NULL)) < 0) {
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
-        }
-        if (vc_unicode) {
-                int rc_unicode = parse_boolean(vc_unicode);
-                if (rc_unicode < 0)
-                        log_error("Unknown value for /etc/rc.conf unicode=%s", vc_unicode);
-                else {
-                        if (rc_unicode && !utf8)
-                                log_warning("/etc/rc.conf wants unicode, but current locale is not UTF-8 capable!");
-                        else if (!rc_unicode && utf8) {
-                                log_debug("/etc/rc.conf does not want unicode, leave it on in kernel but does not apply to vconsole.");
-                                utf8 = false;
-                        }
-                }
-        }
-
-        /* /etc/conf.d/consolefont comments and gentoo documentation
-         * mention uppercase, but the actual contents are lowercase.
-         * the existing /etc/init.d/consolefont tries both
-         */
-        if ((r = parse_env_file("/etc/conf.d/consolefont", NEWLINE,
-                                "CONSOLEFONT", &vc_font,
-                                "consolefont", &vc_font,
-                                "consoletranslation", &vc_font_map,
-                                "CONSOLETRANSLATION", &vc_font_map,
-                                "unicodemap", &vc_font_unimap,
-                                "UNICODEMAP", &vc_font_unimap,
-                                NULL)) < 0) {
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/conf.d/consolefont: %s", strerror(-r));
-        }
-
-        if ((r = parse_env_file("/etc/conf.d/keymaps", NEWLINE,
-                                "keymap", &vc_keymap,
-                                "KEYMAP", &vc_keymap,
-                                NULL)) < 0) {
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/conf.d/keymaps: %s", strerror(-r));
-        }
-#endif
-
-        /* Override distribution-specific options with the
-         * distribution-independent configuration */
-        if ((r = parse_env_file("/etc/vconsole", NEWLINE,
-                                "KEYMAP", &vc_keymap,
-                                "FONT", &vc_font,
-                                "FONT_MAP", &vc_font_map,
-                                "FONT_UNIMAP", &vc_font_unimap,
-                                NULL)) < 0) {
-
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/vconsole: %s", strerror(-r));
-        }
+        utf8 = is_locale_utf8();
 
         if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
 #ifdef TARGET_FEDORA
@@ -286,6 +185,114 @@ int main(int argc, char **argv) {
                         log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
         }
 
+        /* Hmm, nothing set on the kernel cmd line? Then let's
+         * try /etc/vconsole */
+        if (r <= 0 &&
+            (r = parse_env_file("/etc/vconsole", NEWLINE,
+                                "KEYMAP", &vc_keymap,
+                                "FONT", &vc_font,
+                                "FONT_MAP", &vc_font_map,
+                                "FONT_UNIMAP", &vc_font_unimap,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/vconsole: %s", strerror(-r));
+        }
+
+        if (r <= 0) {
+#ifdef TARGET_FEDORA
+                if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
+                                        "SYSFONT", &vc_font,
+                                        "SYSFONTACM", &vc_font_map,
+                                        "UNIMAP", &vc_font_unimap,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+                }
+
+                if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                        "KEYTABLE", &vc_keymap,
+                                        "KEYMAP", &vc_keymap,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+                }
+
+                if (access("/etc/sysconfig/console/default.kmap", F_OK) >= 0) {
+                        char *t;
+
+                        if (!(t = strdup("/etc/sysconfig/console/default.kmap"))) {
+                                log_error("Out of memory.");
+                                goto finish;
+                        }
+
+                        free(vc_keymap);
+                        vc_keymap = t;
+                }
+
+#elif defined(TARGET_ARCH)
+                if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
+                                        "KEYMAP", &vc_keymap,
+                                        "CONSOLEFONT", &vc_font,
+                                        "CONSOLEMAP", &vc_font_map,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
+                }
+
+#elif defined(TARGET_GENTOO)
+                if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
+                                        "unicode", &vc_unicode,
+                                        NULL)) < 0) {
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
+                }
+
+                if (vc_unicode) {
+                        int rc_unicode;
+
+                        if ((rc_unicode = parse_boolean(vc_unicode)) < 0)
+                                log_error("Unknown value for /etc/rc.conf unicode=%s", vc_unicode);
+                        else {
+                                if (rc_unicode && !utf8)
+                                        log_warning("/etc/rc.conf wants unicode, but current locale is not UTF-8 capable!");
+                                else if (!rc_unicode && utf8) {
+                                        log_debug("/etc/rc.conf does not want unicode, leave it on in kernel but does not apply to vconsole.");
+                                        utf8 = false;
+                                }
+                        }
+                }
+
+                /* /etc/conf.d/consolefont comments and gentoo
+                 * documentation mention uppercase, but the actual
+                 * contents are lowercase.  the existing
+                 * /etc/init.d/consolefont tries both
+                 */
+                if ((r = parse_env_file("/etc/conf.d/consolefont", NEWLINE,
+                                        "CONSOLEFONT", &vc_font,
+                                        "consolefont", &vc_font,
+                                        "consoletranslation", &vc_font_map,
+                                        "CONSOLETRANSLATION", &vc_font_map,
+                                        "unicodemap", &vc_font_unimap,
+                                        "UNICODEMAP", &vc_font_unimap,
+                                        NULL)) < 0) {
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/conf.d/consolefont: %s", strerror(-r));
+                }
+
+                if ((r = parse_env_file("/etc/conf.d/keymaps", NEWLINE,
+                                        "keymap", &vc_keymap,
+                                        "KEYMAP", &vc_keymap,
+                                        NULL)) < 0) {
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/conf.d/keymaps: %s", strerror(-r));
+                }
+#endif
+        }
+
         if (!vc_keymap)
                 vc_keymap = strdup("us");
         if (!vc_font)
@@ -295,6 +302,9 @@ int main(int argc, char **argv) {
                 log_error("Failed to allocate strings.");
                 goto finish;
         }
+
+        if (!utf8)
+                disable_utf8(fd);
 
         if (load_keymap(vc, vc_keymap, utf8, &keymap_pid) >= 0 &&
             load_font(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid) >= 0)
