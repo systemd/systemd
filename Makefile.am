@@ -173,6 +173,7 @@ dist_systemunit_DATA = \
 	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
 	units/tmp.mount \
+	units/tmp.service \
 	units/var-lock.mount \
 	units/var-lock.service \
 	units/var-run.mount \
