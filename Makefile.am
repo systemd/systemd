@@ -975,6 +975,9 @@ install-data-hook:
 		rm -f default.target ctrl-alt-del.target && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target )
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f getty.target && \
+		$(LN_S) ../getty.target getty.target )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
@@ -984,8 +987,7 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
-		rm -f getty.target remote-fs.target && \
-		$(LN_S) $(systemunitdir)/getty.target getty.target && \
+		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.automount \
