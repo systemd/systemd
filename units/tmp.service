@@ -7,10 +7,15 @@
 
 [Unit]
 Description=Temporary Directory
+DefaultDependencies=no
+Requires=tmp.mount
+After=tmp.mount
 Before=local-fs.target
 
-[Mount]
-What=tmpfs
-Where=/tmp
-Type=tmpfs
-Options=mode=1777
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/mkdir -p -m1777 /tmp/.X11-unix /tmp/.ICE-unix ; -/sbin/restorecon /tmp/.X11-unix /tmp/.ICE-unix
+
+[Install]
+WantedBy=local-fs.target

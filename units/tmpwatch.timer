@@ -7,7 +7,6 @@
 
 [Unit]
 Description=Daily Cleanup of Temporary Directories
-DefaultDependencies=no
 
 [Timer]
 OnBootSec=1d
