@@ -911,6 +911,7 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir)/runlevel3.target.wants \
 		$(DESTDIR)$(systemunitdir)/runlevel4.target.wants \
 		$(DESTDIR)$(systemunitdir)/runlevel5.target.wants \
+		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
@@ -927,32 +928,32 @@ install-data-hook:
 		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel1.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service )
+		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel2.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service )
+		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel3.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service )
+		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel4.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service )
+		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel5.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service )
+		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
 		rm -f systemd-update-utmp-shutdown.service \
 			hwclock-save.service \
 			systemd-random-seed-save.service && \
-		$(LN_S) ../systemd-update-utmp-shutdown.service && \
-		$(LN_S) ../hwclock-save.service && \
-		$(LN_S) ../systemd-random-seed-save.service )
+		$(LN_S) ../systemd-update-utmp-shutdown.service systemd-update-utmp-shutdown.service && \
+		$(LN_S) ../hwclock-save.service hwclock-save.service && \
+		$(LN_S) ../systemd-random-seed-save.service systemd-random-seed-save.service )
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
 		rm -f systemd-update-utmp-shutdown.service \
 			var-run.service \
 			var-lock.service && \
-		$(LN_S) ../var-run.service && \
-		$(LN_S) ../var-lock.service )
+		$(LN_S) ../var-run.service var-run.service && \
+		$(LN_S) ../var-lock.service var-lock.service )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -970,11 +971,10 @@ install-data-hook:
 		$(LN_S) multi-user.target runlevel4.target && \
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
-		rm -f default.target ctrl-alt-del.target kbrequest.target && \
-		$(LN_S) $(systemunitdir)/graphical.target default.target && \
-		$(LN_S) $(systemunitdir)/reboot.target ctrl-alt-del.target && \
-		$(LN_S) $(systemunitdir)/rescue.target kbrequest.target )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f default.target ctrl-alt-del.target && \
+		$(LN_S) graphical.target default.target && \
+		$(LN_S) reboot.target ctrl-alt-del.target )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
@@ -1004,12 +1004,12 @@ install-data-hook:
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
 		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
-		$(LN_S) ../systemd-vconsole-setup.service && \
-		$(LN_S) ../systemd-modules-load.service && \
-		$(LN_S) ../systemd-random-seed-load.service && \
-		$(LN_S) ../sysctl.service && \
-		$(LN_S) ../tmpwatch.timer && \
-		$(LN_S) ../tmpwatch.service )
+		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \
+		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
+		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
+		$(LN_S) ../sysctl.service sysctl.service && \
+		$(LN_S) ../tmpwatch.timer tmpwatch.timer && \
+		$(LN_S) ../tmpwatch.service tmpwatch.service )
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )

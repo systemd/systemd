@@ -59,8 +59,6 @@
 
 * bash completion a la gdbus
 
-* [Install] section rausmachen für early boot krams, uznd per default nach /lib linken
-
 * systemctl list-jobs deps anzeigen
 
 * ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= mit !
@@ -82,8 +80,6 @@
 * emergency.service should start default.target after C-d.
 
 * support dbus introspection in mid-level object paths, i.e. in /org/freedesktop/systemd/units/.
-
-* default.target auch in /lib linken
 
 * systemctl auto-pager a la git
 
