@@ -996,7 +996,6 @@ install-data-hook:
 			systemd-vconsole-setup.service \
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
-			hwclock-load.service \
 			sysctl.service \
 			tmpwatch.timer \
 			tmpwatch.service && \
@@ -1008,7 +1007,6 @@ install-data-hook:
 		$(LN_S) ../systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service && \
-		$(LN_S) ../hwclock-load.service && \
 		$(LN_S) ../sysctl.service && \
 		$(LN_S) ../tmpwatch.timer && \
 		$(LN_S) ../tmpwatch.service )
