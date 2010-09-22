@@ -25,7 +25,6 @@
   into killing mode?
 
 * port over to LISTEN_FDS/LISTEN_PID:
-
    - uuidd    DONE
    - dbus     DONE
    - rsyslog  DONE
@@ -45,7 +44,7 @@
 
 * fingerprint.target, wireless.target, gps.target
 
-* set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
+* set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
 
 * fix merging in .swap units
 
@@ -55,13 +54,13 @@
 
 * if a service fails too often, make the service enter failed mode, and the socket, too.
 
-* systemctl: warning wenn [Install] leer ist bei enable
+* systemctl enable - warn about empty [Install] section
 
 * bash completion a la gdbus
 
-* systemctl list-jobs deps anzeigen
+* systemctl list-jobs - show dependencies
 
-* ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= mit !
+* ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= with !
 
 * accountsservice is dod
 
@@ -69,9 +68,9 @@
 
 * add systemctl switch to dump transaction without executing it
 
-* system.conf/session.conf brauch ne man page
+* system.conf/session.conf man page
 
-* exec /sbin/poweroff als PID 1 und shutdown
+* exec /sbin/poweroff as PID 1 and do the shutdown
 
 * kexec, suspend, resume
 
