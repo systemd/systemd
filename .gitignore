@@ -1,3 +1,5 @@
+systemd-readahead-collect
+systemd-readahead-replay
 systemd-reply-password
 systemd-ask-password-agent
 systemd-ask-password

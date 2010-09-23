@@ -92,7 +92,9 @@ rootlibexec_PROGRAMS = \
 	systemd-remount-api-vfs \
 	systemd-kmsg-syslogd \
 	systemd-vconsole-setup \
-	systemd-reply-password
+	systemd-reply-password \
+	systemd-readahead-collect \
+	systemd-readahead-replay
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -698,6 +700,30 @@ systemd_reply_password_SOURCES = \
 
 systemd_reply_password_LDADD = \
 	libsystemd-basic.la
+
+systemd_readahead_collect_SOURCES = \
+	src/readahead-collect.c \
+	src/sd-daemon.c \
+	src/readahead-common.c
+
+systemd_readahead_collect_CFLAGS = \
+	$(UDEV_CFLAGS)
+
+systemd_readahead_collect_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS)
+
+systemd_readahead_replay_SOURCES = \
+	src/readahead-replay.c \
+	src/sd-daemon.c \
+	src/readahead-common.c
+
+systemd_readahead_replay_CFLAGS = \
+	$(UDEV_CFLAGS)
+
+systemd_readahead_replay_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS)
 
 systemd_cgls_SOURCES = \
 	src/cgls.c \

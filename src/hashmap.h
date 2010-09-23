@@ -72,6 +72,7 @@ void *hashmap_iterate_skip(Hashmap *h, const void *key, Iterator *i);
 
 void hashmap_clear(Hashmap *h);
 void *hashmap_steal_first(Hashmap *h);
+void *hashmap_steal_first_key(Hashmap *h);
 void* hashmap_first(Hashmap *h);
 void* hashmap_last(Hashmap *h);
 

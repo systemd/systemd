@@ -476,6 +476,21 @@ void* hashmap_steal_first(Hashmap *h) {
         return data;
 }
 
+void* hashmap_steal_first_key(Hashmap *h) {
+        void *key;
+
+        if (!h)
+                return NULL;
+
+        if (!h->iterate_list_head)
+                return NULL;
+
+        key = (void*) h->iterate_list_head->key;
+        remove_entry(h, h->iterate_list_head);
+
+        return key;
+}
+
 unsigned hashmap_size(Hashmap *h) {
 
         if (!h)

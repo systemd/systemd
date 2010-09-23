@@ -27,6 +27,7 @@ AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax subdi
 AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
 
 AC_CANONICAL_HOST
+AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
 
 AM_SILENT_RULES([yes])
 
