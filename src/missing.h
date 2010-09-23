@@ -93,12 +93,12 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #endif
 
 static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) {
-	return syscall(__NR_fanotify_init, flags, event_f_flags);
+        return syscall(__NR_fanotify_init, flags, event_f_flags);
 }
 
-static inline int fanotify_mark(int fanotify_fd, unsigned int flags, __u64 mask,
+static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t mask,
                                 int dfd, const char *pathname) {
-	return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
+        return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
 }
 
 #endif
