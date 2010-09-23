@@ -478,9 +478,13 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 return 0;
         }
 
+        j->failed = !success;
+
         log_debug("Job %s/%s finished, success=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(success));
 
-        j->failed = !success;
+        if (j->failed)
+                j->manager->n_failed_jobs ++;
+
         u = j->unit;
         t = j->type;
         job_free(j);

@@ -210,6 +210,7 @@ struct Manager {
         int n_deserializing;
 
         unsigned n_installed_jobs;
+        unsigned n_failed_jobs;
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);
