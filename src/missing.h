@@ -101,4 +101,25 @@ static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t ma
         return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
 }
 
+#ifndef BTRFS_IOCTL_MAGIC
+#define BTRFS_IOCTL_MAGIC 0x94
+#endif
+
+#ifndef BTRFS_PATH_NAME_MAX
+#define BTRFS_PATH_NAME_MAX 4087
+#endif
+
+struct btrfs_ioctl_vol_args {
+        int64_t fd;
+        char name[BTRFS_PATH_NAME_MAX + 1];
+};
+
+#ifndef BTRFS_IOC_DEFRAG
+#define BTRFS_IOC_DEFRAG _IOW(BTRFS_IOCTL_MAGIC, 2, struct btrfs_ioctl_vol_args)
+#endif
+
+#ifndef BTRFS_SUPER_MAGIC
+#define BTRFS_SUPER_MAGIC 0x9123683E
+#endif
+
 #endif

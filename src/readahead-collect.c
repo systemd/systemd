@@ -39,6 +39,7 @@
 #include <linux/fs.h>
 #include <linux/fiemap.h>
 #include <sys/ioctl.h>
+#include <sys/vfs.h>
 
 #include "missing.h"
 #include "util.h"
@@ -47,15 +48,18 @@
 #include "ioprio.h"
 #include "readahead-common.h"
 
-/*
-   fixme:
-
-     - BTRFS_IOC_DEFRAG
-*/
-
 #define MINCORE_VEC_SIZE (READAHEAD_FILE_SIZE_MAX/PAGE_SIZE)
 
-static int pack_file(FILE *pack, const char *fn) {
+static int btrfs_defrag(int fd) {
+        struct btrfs_ioctl_vol_args data;
+
+        zero(data);
+        data.fd = fd;
+
+        return ioctl(fd, BTRFS_IOC_DEFRAG, &data);
+}
+
+static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         struct stat st;
         void *start = MAP_FAILED;
         uint8_t vec[MINCORE_VEC_SIZE];
@@ -77,6 +81,9 @@ static int pack_file(FILE *pack, const char *fn) {
                 r = k;
                 goto finish;
         }
+
+        if (on_btrfs)
+                btrfs_defrag(fd);
 
         l = PAGE_ALIGN(st.st_size);
         if ((start = mmap(NULL, l, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
@@ -190,7 +197,8 @@ static int collect(const char *root) {
         sigset_t mask;
         FILE *pack = NULL;
         char *pack_fn_new = NULL, *pack_fn = NULL;
-        bool on_ssd;
+        bool on_ssd, on_btrfs;
+        struct statfs sfs;
 
         assert(root);
 
@@ -321,6 +329,9 @@ static int collect(const char *root) {
         on_ssd = fs_on_ssd(root);
         log_debug("On SSD: %s", yes_no(on_ssd));
 
+        on_btrfs = statfs(root, &sfs) >= 0 && sfs.f_type == BTRFS_SUPER_MAGIC;
+        log_debug("On btrfs: %s", yes_no(on_btrfs));
+
         asprintf(&pack_fn, "%s/.readahead", root);
         asprintf(&pack_fn_new, "%s/.readahead.new", root);
 
@@ -339,13 +350,13 @@ static int collect(const char *root) {
         fputs(CANONICAL_HOST "\n", pack);
         putc(on_ssd ? 'S' : 'R', pack);
 
-        if (on_ssd) {
+        if (on_ssd || on_btrfs) {
 
-                /* On SSD, just write things out in the order the
-                 * files where accessed */
+                /* On SSD or on btrfs, just write things out in the
+                 * order the files where accessed. */
 
                 HASHMAP_FOREACH_KEY(q, p, files, i)
-                        pack_file(pack, p);
+                        pack_file(pack, p, on_btrfs);
         } else {
                 struct item *ordered, *j;
                 unsigned k, n;
@@ -374,7 +385,7 @@ static int collect(const char *root) {
                 qsort(ordered, n, sizeof(struct item), qsort_compare);
 
                 for (k = 0; k < n; k++)
-                        pack_file(pack, ordered[k].path);
+                        pack_file(pack, ordered[k].path, on_btrfs);
 
                 free(ordered);
         }
