@@ -255,6 +255,9 @@ static int collect(const char *root) {
                 ssize_t n;
                 struct fanotify_event_metadata *m;
 
+                if (hashmap_size(files) > READAHEAD_FILES_MAX)
+                        break;
+
                 if (poll(pollfd, _FD_MAX, -1) < 0) {
 
                         if (errno == EINTR)

@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 
 #define READAHEAD_FILE_SIZE_MAX (128*1024*1024)
+#define READAHEAD_FILES_MAX (16*1024)
 
 int file_verify(int fd, const char *fn, struct stat *st);
 
