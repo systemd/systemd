@@ -319,7 +319,6 @@ static int collect(const char *root) {
 
                         m = FAN_EVENT_NEXT(m, n);
                 }
-
         }
 
         if (fanotify_fd >= 0) {
@@ -438,11 +437,9 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-        /* log_set_target(LOG_TARGET_SYSLOG_OR_KMSG); */
+        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
-
-        log_set_max_level(LOG_DEBUG);
 
         if (collect("/") < 0)
                 return 1;

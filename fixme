@@ -94,6 +94,8 @@
 
 * properly handle bind mounts in /etc/fstab
 
+* readahead() vs. fadvise() vs. ioprio
+
 External:
 
 * place /etc/inittab with explaining blurb.
