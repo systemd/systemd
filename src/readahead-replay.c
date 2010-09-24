@@ -89,8 +89,8 @@ static int unpack_file(FILE *pack) {
                 any = true;
 
                 if (fd >= 0)
-                        if (readahead(fd, b * PAGE_SIZE, (c - b) * PAGE_SIZE) < 0) {
-                                log_warning("readahead() failed: %m");
+                        if (posix_fadvise(fd, b * PAGE_SIZE, (c - b) * PAGE_SIZE, POSIX_FADV_WILLNEED) < 0) {
+                                log_warning("posix_fadvise() failed: %m");
                                 goto finish;
                         }
         }
@@ -100,8 +100,8 @@ static int unpack_file(FILE *pack) {
                  * intended to mean that the whole file shall be
                  * read */
 
-                if (readahead(fd, 0, st.st_size) < 0) {
-                        log_warning("readahead() failed: %m");
+                if (posix_fadvise(fd, 0, st.st_size, POSIX_FADV_WILLNEED) < 0) {
+                        log_warning("posix_fadvise() failed: %m");
                         goto finish;
                 }
         }
