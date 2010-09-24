@@ -460,7 +460,7 @@ finish:
         free(pack_fn);
 
         while ((p = hashmap_steal_first_key(files)))
-                free(q);
+                free(p);
 
         hashmap_free(files);
 
