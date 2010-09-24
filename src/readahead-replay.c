@@ -201,11 +201,12 @@ finish:
 }
 
 int main(int argc, char*argv[]) {
+
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
 
-        if (replay("/") < 0)
+        if (replay(argc >= 2 ? argv[1] : "/") < 0)
                 return 1;
 
         return 0;
