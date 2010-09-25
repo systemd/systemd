@@ -29,7 +29,7 @@
 #include "readahead-common.h"
 #include "util.h"
 
-int file_verify(int fd, const char *fn, struct stat *st) {
+int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         assert(fd >= 0);
         assert(fn);
         assert(st);
@@ -44,7 +44,7 @@ int file_verify(int fd, const char *fn, struct stat *st) {
                 return 0;
         }
 
-        if (st->st_size <= 0 || st->st_size > READAHEAD_FILE_SIZE_MAX) {
+        if (st->st_size <= 0 || st->st_size > file_size_max) {
                 log_debug("Not preloading file %s with size out of bounds %zi", fn, st->st_size);
                 return 0;
         }

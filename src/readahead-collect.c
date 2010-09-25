@@ -40,6 +40,7 @@
 #include <linux/fiemap.h>
 #include <sys/ioctl.h>
 #include <sys/vfs.h>
+#include <getopt.h>
 
 #include "missing.h"
 #include "util.h"
@@ -48,19 +49,19 @@
 #include "ioprio.h"
 #include "readahead-common.h"
 
-#define MINCORE_VEC_SIZE (READAHEAD_FILE_SIZE_MAX/PAGE_SIZE)
-#define TIMEOUT_USEC (2*USEC_PER_MINUTE)
-
 /* fixme:
  *
  * - detect ssd on btrfs/lvm...
  * - read ahead directories
  * - sd_readahead_cancel
  * - gzip?
- * - remount rw
- * - are filenames from anotify normalized regards /../ and // and /./?
+ * - remount rw?
  * - does ioprio_set work with fadvise()?
  */
+
+static unsigned arg_files_max = 16*1024;
+static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
+static usec_t arg_timeout = 2*USEC_PER_MINUTE;
 
 static int btrfs_defrag(int fd) {
         struct btrfs_ioctl_vol_args data;
@@ -74,7 +75,7 @@ static int btrfs_defrag(int fd) {
 static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         struct stat st;
         void *start = MAP_FAILED;
-        uint8_t vec[MINCORE_VEC_SIZE];
+        uint8_t *vec;
         uint32_t b, c;
         size_t l, pages;
         bool mapped;
@@ -89,7 +90,7 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 goto finish;
         }
 
-        if ((k = file_verify(fd, fn, &st)) <= 0) {
+        if ((k = file_verify(fd, fn, arg_file_size_max, &st)) <= 0) {
                 r = k;
                 goto finish;
         }
@@ -104,6 +105,9 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 goto finish;
         }
 
+        pages = l / PAGE_SIZE;
+
+        vec = alloca(pages);
         if (mincore(start, l, vec) < 0) {
                 log_warning("mincore(%s) failed: %m", fn);
                 r = -errno;
@@ -113,7 +117,6 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         fputs(fn, pack);
         fputc('\n', pack);
 
-        pages = l / PAGE_SIZE;
         mapped = false;
         for (c = 0; c < pages; c++) {
                 bool new_mapped = !!(vec[c] & 1);
@@ -248,7 +251,7 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        not_after = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
+        not_after = now(CLOCK_MONOTONIC) + arg_timeout;
 
         my_pid = getpid();
 
@@ -274,7 +277,7 @@ static int collect(const char *root) {
                 usec_t t;
                 int h;
 
-                if (hashmap_size(files) > READAHEAD_FILES_MAX) {
+                if (hashmap_size(files) > arg_files_max) {
                         log_debug("Reached maximum number of read ahead files, ending collection.");
                         break;
                 }
@@ -464,18 +467,109 @@ finish:
         return r;
 }
 
+static int help(void) {
+
+        printf("%s [OPTIONS...] [DIRECTORY]\n\n"
+               "Collect read-ahead data on early boot.\n\n"
+               "  -h --help                 Show this help\n"
+               "     --max-files=INT        Maximum number of files to read ahead\n"
+               "     --max-file-size=BYTES  Maximum size of files to read ahead\n"
+               "     --timeout=USEC         Maximum time to spend collecting data\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_FILES_MAX = 0x100,
+                ARG_FILE_SIZE_MAX,
+                ARG_TIMEOUT
+        };
+
+        static const struct option options[] = {
+                { "help",          no_argument,       NULL, 'h'                },
+                { "files-max",     required_argument, NULL, ARG_FILES_MAX      },
+                { "file-size-max", required_argument, NULL, ARG_FILE_SIZE_MAX  },
+                { "timeout",       required_argument, NULL, ARG_TIMEOUT        },
+                { NULL,            0,                 NULL, 0                  }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        help();
+                        return 0;
+
+                case ARG_FILES_MAX:
+                        if (safe_atou(optarg, &arg_files_max) < 0 || arg_files_max <= 0) {
+                                log_error("Failed to parse maximum number of files %s.", optarg);
+                                return -EINVAL;
+                        }
+                        break;
+
+                case ARG_FILE_SIZE_MAX: {
+                        unsigned long long ull;
+
+                        if (safe_atollu(optarg, &ull) < 0 || ull <= 0) {
+                                log_error("Failed to parse maximum file size %s.", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_file_size_max = (off_t) ull;
+                        break;
+                }
+
+                case ARG_TIMEOUT:
+                        if (parse_usec(optarg, &arg_timeout) < 0 || arg_timeout <= 0) {
+                                log_error("Failed to parse timeout %s.", optarg);
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        if (optind != argc &&
+            optind != argc-1) {
+                help();
+                return -EINVAL;
+        }
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
+        int r;
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
+
+        if ((r = parse_argv(argc, argv)) <= 0)
+                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
         if (!enough_ram()) {
                 log_info("Disabling readahead collector due to low memory.");
                 return 0;
         }
 
-        if (collect(argc >= 2 ? argv[1] : "/") < 0)
+        if (collect(optind < argc ? argv[optind] : "/") < 0)
                 return 1;
 
         return 0;

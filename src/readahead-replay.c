@@ -32,6 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "missing.h"
 #include "util.h"
@@ -39,6 +40,8 @@
 #include "sd-daemon.h"
 #include "ioprio.h"
 #include "readahead-common.h"
+
+static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
 
 static int unpack_file(FILE *pack) {
         char fn[PATH_MAX];
@@ -56,7 +59,7 @@ static int unpack_file(FILE *pack) {
 
         if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0)
                 log_warning("open(%s) failed: %m", fn);
-        else if (file_verify(fd, fn, &st) <= 0) {
+        else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
                 close_nointr_nofail(fd);
                 fd = -1;
         }
@@ -210,18 +213,89 @@ finish:
         return r;
 }
 
+
+static int help(void) {
+
+        printf("%s [OPTIONS...] [DIRECTORY]\n\n"
+               "Replay collected read-ahead data on early boot.\n\n"
+               "  -h --help                 Show this help\n"
+               "     --max-file-size=BYTES  Maximum size of files to read ahead\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_FILE_SIZE_MAX
+        };
+
+        static const struct option options[] = {
+                { "help",          no_argument,       NULL, 'h'                },
+                { "file-size-max", required_argument, NULL, ARG_FILE_SIZE_MAX  },
+                { NULL,            0,                 NULL, 0                  }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        help();
+                        return 0;
+
+                case ARG_FILE_SIZE_MAX: {
+                        unsigned long long ull;
+
+                        if (safe_atollu(optarg, &ull) < 0 || ull <= 0) {
+                                log_error("Failed to parse maximum file size %s.", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_file_size_max = (off_t) ull;
+                        break;
+                }
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        if (optind != argc &&
+            optind != argc-1) {
+                help();
+                return -EINVAL;
+        }
+
+        return 1;
+}
+
 int main(int argc, char*argv[]) {
+        int r;
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
+
+        if ((r = parse_argv(argc, argv)) <= 0)
+                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
         if (!enough_ram()) {
                 log_info("Disabling readahead replay due to low memory.");
                 return 0;
         }
 
-        if (replay(argc >= 2 ? argv[1] : "/") < 0)
+        if (replay(optind < argc ? argv[optind] : "/") < 0)
                 return 1;
 
         return 0;
