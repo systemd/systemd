@@ -114,7 +114,7 @@ static int replay(const char *root) {
         char line[LINE_MAX];
         int r = 0;
         char *pack_fn = NULL, c;
-        bool on_ssd;
+        bool on_ssd, ready = false;
         int prio;
 
         assert(root);
@@ -168,9 +168,7 @@ static int replay(const char *root) {
         if (ioprio_set(IOPRIO_WHO_PROCESS, getpid(), prio) < 0)
                 log_warning("Failed to set IDLE IO priority class: %m");
 
-        sd_notify(0,
-                  "READY=1\n"
-                  "STATUS=Replaying readahead data");
+        sd_notify(0, "STATUS=Replaying readahead data");
 
         log_debug("Replaying...");
 
@@ -181,7 +179,17 @@ static int replay(const char *root) {
                         r = k;
                         goto finish;
                 }
+
+                if (!ready) {
+                        /* We delay the ready notification until we
+                         * queued at least one read */
+                        sd_notify(0, "READY=1");
+                        ready = true;
+                }
         }
+
+        if (!ready)
+                sd_notify(0, "READY=1");
 
         if (ferror(pack)) {
                 log_error("Failed to read pack file.");

@@ -54,6 +54,7 @@
  *
  * - detect ssd/lvm/... on btrfs
  * - read ahead directories
+ * - sd_readahead_cancel
  */
 
 static int btrfs_defrag(int fd) {
