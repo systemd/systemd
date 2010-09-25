@@ -324,8 +324,10 @@ static int collect(const char *root) {
 
                                 if ((k = readlink_malloc(fn, &p)) >= 0) {
 
-                                        if (hashmap_get(files, p))
-                                                /* Already read */
+                                        if (startswith(p, "/tmp") ||
+                                            hashmap_get(files, p))
+                                                /* Not interesting, or
+                                                 * already read */
                                                 free(p);
                                         else {
                                                 unsigned long ul;
