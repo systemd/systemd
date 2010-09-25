@@ -57,7 +57,6 @@
  * - read ahead directories
  * - sd_readahead_cancel
  * - gzip?
- * - oom adjust
  * - remount rw
  * - are filenames from anotify normalized regards /../ and // and /./?
  * - does ioprio_set work with fadvise()?
@@ -215,6 +214,8 @@ static int collect(const char *root) {
         usec_t not_after;
 
         assert(root);
+
+        write_one_line_file("/proc/self/oom_score_adj", "1000");
 
         if (ioprio_set(IOPRIO_WHO_PROCESS, getpid(), IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 0)) < 0)
                 log_warning("Failed to set IDLE IO priority class: %m");

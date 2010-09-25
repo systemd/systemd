@@ -119,6 +119,8 @@ static int replay(const char *root) {
 
         assert(root);
 
+        write_one_line_file("/proc/self/oom_score_adj", "1000");
+
         if (asprintf(&pack_fn, "%s/.readahead", root) < 0) {
                 log_error("Out of memory");
                 r = -ENOMEM;
