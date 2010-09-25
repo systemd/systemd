@@ -31,4 +31,6 @@ int file_verify(int fd, const char *fn, struct stat *st);
 
 int fs_on_ssd(const char *p);
 
+bool enough_ram(void);
+
 #endif

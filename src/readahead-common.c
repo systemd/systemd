@@ -23,6 +23,7 @@
 #include <libudev.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sysinfo.h>
 
 #include "log.h"
 #include "readahead-common.h"
@@ -104,4 +105,14 @@ finish:
                 udev_unref(udev);
 
         return b;
+}
+
+bool enough_ram(void) {
+        struct sysinfo si;
+
+        assert_se(sysinfo(&si) >= 0);
+
+        return si.totalram > 127 * 1024*1024; /* Enable readahead only
+                                               * with at least 128MB
+                                               * memory */
 }

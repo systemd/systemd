@@ -206,6 +206,11 @@ int main(int argc, char*argv[]) {
         log_parse_environment();
         log_open();
 
+        if (!enough_ram()) {
+                log_info("Disabling readahead replay due to low memory.");
+                return 0;
+        }
+
         if (replay(argc >= 2 ? argv[1] : "/") < 0)
                 return 1;
 

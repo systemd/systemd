@@ -50,6 +50,12 @@
 
 #define MINCORE_VEC_SIZE (READAHEAD_FILE_SIZE_MAX/PAGE_SIZE)
 
+/* fixme:
+ *
+ * - detect ssd/lvm/... on btrfs
+ * - read ahead directories
+ */
+
 static int btrfs_defrag(int fd) {
         struct btrfs_ioctl_vol_args data;
 
@@ -302,10 +308,7 @@ static int collect(const char *root) {
                                                 ul = fd_first_block(m->fd);
 
                                                 if ((k = hashmap_put(files, p, ULONG_TO_PTR(ul))) < 0) {
-
-                                                        if (k != -EEXIST)
-                                                                log_warning("set_put() failed: %s", strerror(-k));
-
+                                                        log_warning("set_put() failed: %s", strerror(-k));
                                                         free(p);
                                                 }
                                         }
@@ -355,7 +358,7 @@ static int collect(const char *root) {
         if (on_ssd || on_btrfs) {
 
                 /* On SSD or on btrfs, just write things out in the
-                 * order the files where accessed. */
+                 * order the files were accessed. */
 
                 HASHMAP_FOREACH_KEY(q, p, files, i)
                         pack_file(pack, p, on_btrfs);
@@ -441,6 +444,11 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
+
+        if (!enough_ram()) {
+                log_info("Disabling readahead collector due to low memory.");
+                return 0;
+        }
 
         if (collect(argc >= 2 ? argv[1] : "/") < 0)
                 return 1;
