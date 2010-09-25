@@ -49,12 +49,18 @@
 #include "readahead-common.h"
 
 #define MINCORE_VEC_SIZE (READAHEAD_FILE_SIZE_MAX/PAGE_SIZE)
+#define TIMEOUT_USEC (2*USEC_PER_MINUTE)
 
 /* fixme:
  *
- * - detect ssd/lvm/... on btrfs
+ * - detect ssd on btrfs/lvm...
  * - read ahead directories
  * - sd_readahead_cancel
+ * - gzip?
+ * - oom adjust
+ * - remount rw
+ * - are filenames from anotify normalized regards /../ and // and /./?
+ * - does ioprio_set work with fadvise()?
  */
 
 static int btrfs_defrag(int fd) {
@@ -111,7 +117,7 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         pages = l / PAGE_SIZE;
         mapped = false;
         for (c = 0; c < pages; c++) {
-                bool new_mapped = (vec[c] & 1);
+                bool new_mapped = !!(vec[c] & 1);
 
                 if (!mapped && new_mapped)
                         b = c;
@@ -206,6 +212,7 @@ static int collect(const char *root) {
         char *pack_fn_new = NULL, *pack_fn = NULL;
         bool on_ssd, on_btrfs;
         struct statfs sfs;
+        usec_t not_after;
 
         assert(root);
 
@@ -228,7 +235,7 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        if ((fanotify_fd = fanotify_init(FAN_CLOEXEC, O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_NOATIME)) < 0)  {
+        if ((fanotify_fd = fanotify_init(FAN_CLOEXEC|FAN_NONBLOCK, O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_NOATIME)) < 0)  {
                 log_error("Failed to create fanotify object: %m");
                 r = -errno;
                 goto finish;
@@ -239,6 +246,8 @@ static int collect(const char *root) {
                 r = -errno;
                 goto finish;
         }
+
+        not_after = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
 
         my_pid = getpid();
 
@@ -261,11 +270,21 @@ static int collect(const char *root) {
                 } data;
                 ssize_t n;
                 struct fanotify_event_metadata *m;
+                usec_t t;
+                int h;
 
-                if (hashmap_size(files) > READAHEAD_FILES_MAX)
+                if (hashmap_size(files) > READAHEAD_FILES_MAX) {
+                        log_debug("Reached maximum number of read ahead files, ending collection.");
                         break;
+                }
 
-                if (poll(pollfd, _FD_MAX, -1) < 0) {
+                t = now(CLOCK_MONOTONIC);
+                if (t >= not_after) {
+                        log_debug("Reached maximum collection time, ending collection.");
+                        break;
+                }
+
+                if ((h = poll(pollfd, _FD_MAX, (int) ((not_after - t) / USEC_PER_MSEC))) < 0) {
 
                         if (errno == EINTR)
                                 continue;
@@ -278,6 +297,11 @@ static int collect(const char *root) {
                 if (pollfd[FD_SIGNAL].revents != 0)
                         break;
 
+                if (h == 0) {
+                        log_debug("Reached maximum collection time, ending collection.");
+                        break;
+                }
+
                 if ((n = read(fanotify_fd, &data, sizeof(data))) < 0) {
 
                         if (errno == EINTR || errno == EAGAIN)
@@ -288,8 +312,7 @@ static int collect(const char *root) {
                         goto finish;
                 }
 
-                m = &data.metadata;
-                while (FAN_EVENT_OK(m, n)) {
+                for (m = &data.metadata; FAN_EVENT_OK(m, n); m = FAN_EVENT_NEXT(m, n)) {
 
                         if (m->pid != my_pid && m->fd >= 0) {
                                 char fn[PATH_MAX];
@@ -320,8 +343,6 @@ static int collect(const char *root) {
 
                         if (m->fd)
                                 close_nointr_nofail(m->fd);
-
-                        m = FAN_EVENT_NEXT(m, n);
                 }
         }
 
