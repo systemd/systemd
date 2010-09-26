@@ -54,7 +54,6 @@
  *
  * - detect ssd on btrfs/lvm...
  * - read ahead directories
- * - sd_readahead_cancel
  * - gzip?
  * - remount rw?
  * - handle files where nothing is in mincore
