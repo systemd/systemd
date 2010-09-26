@@ -433,3 +433,41 @@ int sd_booted(void) {
         return a.st_dev != b.st_dev;
 #endif
 }
+
+static int touch(const char *path) {
+
+#if !defined(DISABLE_SYSTEMD) && defined(__linux__)
+        int fd;
+
+        mkdir("/dev/.systemd", 0755);
+        mkdir("/dev/.systemd/readahead", 0755);
+
+        if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666)) < 0)
+                return -errno;
+
+        for (;;) {
+                if (close(fd) >= 0)
+                        break;
+
+                if (errno != -EINTR)
+                        return -errno;
+        }
+
+#endif
+        return 0;
+}
+
+int sd_readahead(const char *action) {
+
+        if (!action)
+                return -EINVAL;
+
+        if (strcmp(action, "cancel") == 0)
+                return touch("/dev/.systemd/readahead/cancel");
+        else if (strcmp(action, "done") == 0)
+                return touch("/dev/.systemd/readahead/done");
+        else if (strcmp(action, "noreplay") == 0)
+                return touch("/dev/.systemd/readahead/noreplay");
+
+        return -EINVAL;
+}

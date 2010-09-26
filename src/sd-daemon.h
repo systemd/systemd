@@ -254,6 +254,16 @@ int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_attr_(
 */
 int sd_booted(void) _sd_hidden_;
 
+/*
+  Controls ongoing disk read-ahead operations during boot-up. The argument
+  must be a string, and either "cancel", "done" or "noreplay".
+
+  cancel = terminate read-ahead data collection, drop collected information
+  done = terminate read-ahead data collection, keep collected information
+  noreplay = terminate read-ahead replay
+*/
+int sd_readahead(const char *action);
+
 #ifdef __cplusplus
 }
 #endif

@@ -32,4 +32,6 @@ int fs_on_ssd(const char *p);
 
 bool enough_ram(void);
 
+int open_inotify(void);
+
 #endif

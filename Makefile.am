@@ -421,6 +421,7 @@ MANPAGES = \
 	man/systemd-cgls.1 \
 	man/systemd-notify.1 \
 	man/sd_notify.3 \
+	man/sd_readahead.3 \
 	man/sd_booted.3 \
 	man/sd_listen_fds.3 \
 	man/sd_is_fifo.3 \

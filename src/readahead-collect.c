@@ -41,6 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/vfs.h>
 #include <getopt.h>
+#include <sys/inotify.h>
 
 #include "missing.h"
 #include "util.h"
@@ -56,6 +57,7 @@
  * - sd_readahead_cancel
  * - gzip?
  * - remount rw?
+ * - handle files where nothing is in mincore
  * - does ioprio_set work with fadvise()?
  */
 
@@ -199,12 +201,13 @@ static int qsort_compare(const void *a, const void *b) {
 
 static int collect(const char *root) {
         enum {
-                FD_FANOTIFY,
+                FD_FANOTIFY,  /* Get the actualy fs events */
                 FD_SIGNAL,
+                FD_INOTIFY,   /* We get notifications to quit early via this fd */
                 _FD_MAX
         };
         struct pollfd pollfd[_FD_MAX];
-        int fanotify_fd = -1, signal_fd = -1, r = 0;
+        int fanotify_fd = -1, signal_fd = -1, inotify_fd = -1, r = 0;
         pid_t my_pid;
         Hashmap *files = NULL;
         Iterator i;
@@ -251,6 +254,11 @@ static int collect(const char *root) {
                 goto finish;
         }
 
+        if ((inotify_fd = open_inotify()) < 0) {
+                r = inotify_fd;
+                goto finish;
+        }
+
         not_after = now(CLOCK_MONOTONIC) + arg_timeout;
 
         my_pid = getpid();
@@ -260,12 +268,25 @@ static int collect(const char *root) {
         pollfd[FD_FANOTIFY].events = POLLIN;
         pollfd[FD_SIGNAL].fd = signal_fd;
         pollfd[FD_SIGNAL].events = POLLIN;
+        pollfd[FD_INOTIFY].fd = inotify_fd;
+        pollfd[FD_INOTIFY].events = POLLIN;
 
         sd_notify(0,
                   "READY=1\n"
                   "STATUS=Collecting readahead data");
 
         log_debug("Collecting...");
+
+        if (access("/dev/.systemd/readahead/cancel", F_OK) >= 0) {
+                log_debug("Collection canceled");
+                r = -ECANCELED;
+                goto finish;
+        }
+
+        if (access("/dev/.systemd/readahead/done", F_OK) >= 0) {
+                log_debug("Got termination request");
+                goto done;
+        }
 
         for (;;) {
                 union {
@@ -298,12 +319,50 @@ static int collect(const char *root) {
                         goto finish;
                 }
 
-                if (pollfd[FD_SIGNAL].revents != 0)
-                        break;
-
                 if (h == 0) {
                         log_debug("Reached maximum collection time, ending collection.");
                         break;
+                }
+
+                if (pollfd[FD_SIGNAL].revents) {
+                        log_debug("Got signal.");
+                        break;
+                }
+
+                if (pollfd[FD_INOTIFY].revents) {
+                        uint8_t inotify_buffer[sizeof(struct inotify_event) + FILENAME_MAX];
+                        struct inotify_event *e;
+
+                        if ((n = read(inotify_fd, &inotify_buffer, sizeof(inotify_buffer))) < 0) {
+                                if (errno == EINTR || errno == EAGAIN)
+                                        continue;
+
+                                log_error("Failed to read inotify event: %m");
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        e = (struct inotify_event*) inotify_buffer;
+                        while (n > 0) {
+                                size_t step;
+
+                                if ((e->mask & IN_CREATE) && streq(e->name, "cancel")) {
+                                        log_debug("Collection canceled");
+                                        r = -ECANCELED;
+                                        goto finish;
+                                }
+
+                                if ((e->mask & IN_CREATE) && streq(e->name, "done")) {
+                                        log_debug("Got termination request");
+                                        goto done;
+                                }
+
+                                step = sizeof(struct inotify_event) + e->len;
+                                assert(step <= (size_t) n);
+
+                                e = (struct inotify_event*) ((uint8_t*) e + step);
+                                n -= step;
+                        }
                 }
 
                 if ((n = read(fanotify_fd, &data, sizeof(data))) < 0) {
@@ -352,6 +411,7 @@ static int collect(const char *root) {
                 }
         }
 
+done:
         if (fanotify_fd >= 0) {
                 close_nointr_nofail(fanotify_fd);
                 fanotify_fd = -1;
@@ -450,6 +510,9 @@ finish:
 
         if (signal_fd >= 0)
                 close_nointr_nofail(signal_fd);
+
+        if (inotify_fd >= 0)
+                close_nointr_nofail(inotify_fd);
 
         if (pack) {
                 fclose(pack);

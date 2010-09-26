@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/sysinfo.h>
+#include <sys/inotify.h>
 
 #include "log.h"
 #include "readahead-common.h"
@@ -115,4 +116,24 @@ bool enough_ram(void) {
         return si.totalram > 127 * 1024*1024; /* Enable readahead only
                                                * with at least 128MB
                                                * memory */
+}
+
+int open_inotify(void) {
+        int fd;
+
+        if ((fd = inotify_init1(IN_CLOEXEC|IN_NONBLOCK)) < 0) {
+                log_error("Failed to create inotify handle: %m");
+                return -errno;
+        }
+
+        mkdir("/dev/.systemd", 0755);
+        mkdir("/dev/.systemd/readahead", 0755);
+
+        if (inotify_add_watch(fd, "/dev/.systemd/readahead", IN_CREATE) < 0) {
+                log_error("Failed to watch /dev/.systemd/readahead: %m");
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        return fd;
 }

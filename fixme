@@ -96,6 +96,10 @@
 
 * readahead() vs. fadvise() vs. ioprio
 
+* unneeded
+
+* properly handle multiple inotify events per read() in path.c and util.c
+
 External:
 
 * place /etc/inittab with explaining blurb.

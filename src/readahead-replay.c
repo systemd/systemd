@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <sys/inotify.h>
 
 #include "missing.h"
 #include "util.h"
@@ -119,6 +120,7 @@ static int replay(const char *root) {
         char *pack_fn = NULL, c;
         bool on_ssd, ready = false;
         int prio;
+        int inotify_fd = -1;
 
         assert(root);
 
@@ -138,6 +140,11 @@ static int replay(const char *root) {
                         r = -errno;
                 }
 
+                goto finish;
+        }
+
+        if ((inotify_fd = open_inotify()) < 0) {
+                r = inotify_fd;
                 goto finish;
         }
 
@@ -177,8 +184,40 @@ static int replay(const char *root) {
 
         log_debug("Replaying...");
 
+        if (access("/dev/.systemd/readahead/noreplay", F_OK) >= 0) {
+                log_debug("Got termination request");
+                goto done;
+        }
+
         while (!feof(pack) && !ferror(pack)) {
+                uint8_t inotify_buffer[sizeof(struct inotify_event) + FILENAME_MAX];
                 int k;
+                ssize_t n;
+
+                if ((n = read(inotify_fd, &inotify_buffer, sizeof(inotify_buffer))) < 0) {
+                        if (errno != EINTR && errno != EAGAIN) {
+                                log_error("Failed to read inotify event: %m");
+                                r = -errno;
+                                goto finish;
+                        }
+                } else {
+                        struct inotify_event *e = (struct inotify_event*) inotify_buffer;
+
+                        while (n > 0) {
+                                size_t step;
+
+                                if ((e->mask & IN_CREATE) && streq(e->name, "noreplay")) {
+                                        log_debug("Got termination request");
+                                        goto done;
+                                }
+
+                                step = sizeof(struct inotify_event) + e->len;
+                                assert(step <= (size_t) n);
+
+                                e = (struct inotify_event*) ((uint8_t*) e + step);
+                                n -= step;
+                        }
+                }
 
                 if ((k = unpack_file(pack)) < 0) {
                         r = k;
@@ -193,6 +232,7 @@ static int replay(const char *root) {
                 }
         }
 
+done:
         if (!ready)
                 sd_notify(0, "READY=1");
 
@@ -207,6 +247,9 @@ static int replay(const char *root) {
 finish:
         if (pack)
                 fclose(pack);
+
+        if (inotify_fd >= 0)
+                close_nointr_nofail(inotify_fd);
 
         free(pack_fn);
 
