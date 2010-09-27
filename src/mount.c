@@ -118,20 +118,36 @@ static void mount_done(Unit *u) {
 static int mount_add_mount_links(Mount *m) {
         Meta *other;
         int r;
+        MountParameters *pm;
 
         assert(m);
+
+        if (m->from_fragment)
+                pm = &m->parameters_fragment;
+        else if (m->from_etc_fstab)
+                pm = &m->parameters_etc_fstab;
+        else
+                pm = NULL;
 
         /* Adds in links to other mount points that might lie below or
          * above us in the hierarchy */
 
         LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_MOUNT]) {
                 Mount *n = (Mount*) other;
+                MountParameters *pn;
 
                 if (n == m)
                         continue;
 
                 if (n->meta.load_state != UNIT_LOADED)
                         continue;
+
+                if (n->from_fragment)
+                        pn = &n->parameters_fragment;
+                else if (n->from_etc_fstab)
+                        pn = &n->parameters_etc_fstab;
+                else
+                        pn = NULL;
 
                 if (path_startswith(m->where, n->where)) {
 
@@ -144,10 +160,28 @@ static int mount_add_mount_links(Mount *m) {
 
                 } else if (path_startswith(n->where, m->where)) {
 
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(n), true)) < 0)
+                        if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
                                 return r;
 
                         if (m->from_etc_fstab || m->from_fragment)
+                                if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                                        return r;
+
+                } else if (pm && path_startswith(pm->what, n->where)) {
+
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
+                                return r;
+
+                        if (m->from_etc_fstab || m->from_fragment)
+                                if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
+                                        return r;
+
+                } else if (pn && path_startswith(pn->what, m->where)) {
+
+                        if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
+                                return r;
+
+                        if (n->from_etc_fstab || n->from_fragment)
                                 if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
                                         return r;
                 }
@@ -278,6 +312,18 @@ static int mount_add_target_links(Mount *m) {
         }
 }
 
+static bool mount_is_bind(MountParameters *p) {
+        assert(p);
+
+        if (p->fstype && streq(p->fstype, "bind"))
+                return true;
+
+        if (mount_test_option(p->options, "bind"))
+                return true;
+
+        return false;
+}
+
 static int mount_add_device_links(Mount *m) {
         MountParameters *p;
         bool nofail, noauto;
@@ -292,6 +338,9 @@ static int mount_add_device_links(Mount *m) {
                 return 0;
 
         if (!p->what || path_equal(m->where, "/"))
+                return 0;
+
+        if (mount_is_bind(p))
                 return 0;
 
         noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);

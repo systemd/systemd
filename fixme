@@ -89,8 +89,6 @@
 
 * ask-password tty timeout
 
-* properly handle bind mounts in /etc/fstab
-
 * readahead() vs. fadvise() vs. ioprio
 
 * properly handle multiple inotify events per read() in path.c and util.c
