@@ -293,6 +293,7 @@ static int sysv_translate_facility(const char *name, char **_r) {
                 }
 
         if (*name == '$')
+                /* This is a heuristic. */
                 r = unit_name_build(name+1, NULL, ".target");
         else
                 r = sysv_translate_name(name);
@@ -585,6 +586,11 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
+                                        if (streq(n, file_name_from_path(path))) {
+                                                free(n);
+                                                continue;
+                                        }
+
                                         r = sysv_translate_facility(n, &m);
                                         free(n);
 
@@ -628,6 +634,11 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (!(n = strndup(w, z))) {
                                                 r = -ENOMEM;
                                                 goto finish;
+                                        }
+
+                                        if (streq(n, file_name_from_path(path))) {
+                                                free(n);
+                                                continue;
                                         }
 
                                         r = sysv_translate_facility(n, &m);
