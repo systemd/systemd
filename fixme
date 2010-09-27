@@ -93,8 +93,6 @@
 
 * readahead() vs. fadvise() vs. ioprio
 
-* "unneeded" vs. "uneeded"
-
 * properly handle multiple inotify events per read() in path.c and util.c
 
 * tmpwatch: what does "-umc" actually mean?

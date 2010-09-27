@@ -930,7 +930,7 @@ bool unit_can_reload(Unit *u) {
         return UNIT_VTABLE(u)->can_reload(u);
 }
 
-static void unit_check_uneeded(Unit *u) {
+static void unit_check_unneeded(Unit *u) {
         Iterator i;
         Unit *other;
 
@@ -1012,19 +1012,19 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Garbage collect services that might not be needed anymore, if enabled */
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        unit_check_uneeded(other);
+                        unit_check_unneeded(other);
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        unit_check_uneeded(other);
+                        unit_check_unneeded(other);
         SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        unit_check_uneeded(other);
+                        unit_check_unneeded(other);
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        unit_check_uneeded(other);
+                        unit_check_unneeded(other);
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        unit_check_uneeded(other);
+                        unit_check_unneeded(other);
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
@@ -1202,7 +1202,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
         /* Maybe we finished startup and are now ready for being
          * stopped because unneeded? */
-        unit_check_uneeded(u);
+        unit_check_unneeded(u);
 
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
