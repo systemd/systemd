@@ -239,9 +239,9 @@ static char *sysv_translate_name(const char *name) {
                 /* Drop Debian-style .sh suffix */
                 strcpy(stpcpy(r, name) - 3, ".service");
 #ifdef TARGET_ARCH
-	else if (startswith(name, "@"))
-		/* Drop Arch-style background prefix */
-		strcpy(stpcpy(r, name + 1), ".service");
+        else if (startswith(name, "@"))
+                /* Drop Arch-style background prefix */
+                strcpy(stpcpy(r, name + 1), ".service");
 #endif
         else
                 /* Normal init scripts */
@@ -324,6 +324,9 @@ static int sysv_fix_order(Service *s) {
                 t = (Service*) other;
 
                 if (s == t)
+                        continue;
+
+                if (t->meta.load_state != UNIT_LOADED)
                         continue;
 
                 if (t->sysv_start_priority < 0)

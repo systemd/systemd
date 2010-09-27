@@ -578,7 +578,7 @@ const char *unit_description(Unit *u) {
         if (u->meta.description)
                 return u->meta.description;
 
-        return u->meta.id;
+        return strna(u->meta.id);
 }
 
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
@@ -1402,6 +1402,9 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
         assert(u);
         assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
         assert(other);
+
+        u = unit_follow_merge(u);
+        other = unit_follow_merge(other);
 
         /* We won't allow dependencies on ourselves. We will not
          * consider them an error however. */
