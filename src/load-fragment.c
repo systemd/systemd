@@ -1846,9 +1846,19 @@ int unit_load_fragment(Unit *u) {
                 }
 
         /* And now, try looking for it under the suggested (originally linked) path */
-        if (u->meta.load_state == UNIT_STUB && u->meta.fragment_path)
+        if (u->meta.load_state == UNIT_STUB && u->meta.fragment_path) {
+
                 if ((r = load_from_path(u, u->meta.fragment_path)) < 0)
                         return r;
+
+                if (u->meta.load_state == UNIT_STUB) {
+                        /* Hmm, this didn't work? Then let's get rid
+                         * of the fragment path stored for us, so that
+                         * we don't point to an invalid location. */
+                        free(u->meta.fragment_path);
+                        u->meta.fragment_path = NULL;
+                }
+        }
 
         /* Look for a template */
         if (u->meta.load_state == UNIT_STUB && u->meta.instance) {
