@@ -106,6 +106,16 @@
 
 * readahead: btrfs/LVM SSD detection
 
+* handle $null LSB header
+
+* LSB provides should only create targets, never aliases
+
+* (null) dependency bug
+
+* f21781d57f7e012c1d576dfd8c30b411014c5a88
+
+* d /var/run/screen 0755 root utmp
+
 External:
 
 * place /etc/inittab with explaining blurb.
