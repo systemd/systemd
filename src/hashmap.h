@@ -77,12 +77,12 @@ void* hashmap_first(Hashmap *h);
 void* hashmap_last(Hashmap *h);
 
 #define HASHMAP_FOREACH(e, h, i) \
-        for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), NULL); (i) != ITERATOR_LAST; (e) = hashmap_iterate((h), &(i), NULL))
+        for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), NULL); (e); (e) = hashmap_iterate((h), &(i), NULL))
 
 #define HASHMAP_FOREACH_KEY(e, k, h, i) \
-        for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), (const void**) &(k)); (i) != ITERATOR_LAST; (e) = hashmap_iterate((h), &(i), (const void**) &(k)))
+        for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), (const void**) &(k)); (e); (e) = hashmap_iterate((h), &(i), (const void**) &(k)))
 
 #define HASHMAP_FOREACH_BACKWARDS(e, h, i) \
-        for ((i) = ITERATOR_LAST, (e) = hashmap_iterate_backwards((h), &(i), NULL); (i) != ITERATOR_FIRST; (e) = hashmap_iterate_backwards((h), &(i), NULL))
+        for ((i) = ITERATOR_LAST, (e) = hashmap_iterate_backwards((h), &(i), NULL); (e); (e) = hashmap_iterate_backwards((h), &(i), NULL))
 
 #endif
