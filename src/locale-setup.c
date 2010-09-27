@@ -135,7 +135,7 @@ int locale_setup(void) {
                         log_warning("Failed to read /etc/sysconfig/language: %s", strerror(-r));
         }
 
-#ifdef TARGET_DEBIAN
+#elif defined(TARGET_DEBIAN)
         if (r <= 0 &&
             (r = parse_env_file("/etc/default/locale", NEWLINE,
                                 "LANG", &variables[VARIABLE_LANG],
