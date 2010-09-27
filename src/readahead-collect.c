@@ -200,7 +200,7 @@ static int qsort_compare(const void *a, const void *b) {
 
 static int collect(const char *root) {
         enum {
-                FD_FANOTIFY,  /* Get the actualy fs events */
+                FD_FANOTIFY,  /* Get the actual fs events */
                 FD_SIGNAL,
                 FD_INOTIFY,   /* We get notifications to quit early via this fd */
                 _FD_MAX

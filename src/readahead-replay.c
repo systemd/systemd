@@ -114,7 +114,7 @@ finish:
 }
 
 static int replay(const char *root) {
-        FILE *pack;
+        FILE *pack = NULL;
         char line[LINE_MAX];
         int r = 0;
         char *pack_fn = NULL, c;
