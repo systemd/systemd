@@ -96,9 +96,15 @@
 
 * readahead() vs. fadvise() vs. ioprio
 
-* unneeded
+* "unneeded" vs. "uneeded"
 
 * properly handle multiple inotify events per read() in path.c and util.c
+
+* tmpwatch: what does "-umc" actually mean?
+
+* tmpwatch: lower ioprio
+
+* readahead: btrfs/LVM SSD detection
 
 External:
 
