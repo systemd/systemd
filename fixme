@@ -107,8 +107,6 @@
 
 * LSB provides should only create targets, never aliases
 
-* (null) dependency bug
-
 * d /var/run/screen 0755 root utmp
 
 External:
