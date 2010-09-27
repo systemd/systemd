@@ -280,6 +280,10 @@ static int sysv_translate_facility(const char *name, char **_r) {
         unsigned i;
         char *r;
 
+        /* SuSE insserv extension */
+        if (streq(name, "$null"))
+                return 0;
+
         for (i = 0; i < ELEMENTSOF(table); i += 2)
                 if (streq(table[i], name)) {
                         if (!(r = strdup(table[i+1])))

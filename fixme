@@ -101,8 +101,6 @@
 
 * readahead: btrfs/LVM SSD detection
 
-* handle $null LSB header
-
 * LSB provides should only create targets, never aliases
 
 * d /var/run/screen 0755 root utmp
