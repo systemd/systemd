@@ -64,6 +64,10 @@ static unsigned arg_files_max = 16*1024;
 static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
 static usec_t arg_timeout = 2*USEC_PER_MINUTE;
 
+/* Avoid collisions with the NULL pointer */
+#define SECTOR_TO_PTR(s) ULONG_TO_PTR((s)+1)
+#define PTR_TO_SECTOR(p) (PTR_TO_ULONG(p)-1)
+
 static int btrfs_defrag(int fd) {
         struct btrfs_ioctl_vol_args data;
 
@@ -395,7 +399,7 @@ static int collect(const char *root) {
 
                                                 ul = fd_first_block(m->fd);
 
-                                                if ((k = hashmap_put(files, p, ULONG_TO_PTR(ul))) < 0) {
+                                                if ((k = hashmap_put(files, p, SECTOR_TO_PTR(ul))) < 0) {
                                                         log_warning("set_put() failed: %s", strerror(-k));
                                                         free(p);
                                                 }
@@ -468,7 +472,7 @@ done:
                 j = ordered;
                 HASHMAP_FOREACH_KEY(q, p, files, i) {
                         j->path = p;
-                        j->block = PTR_TO_ULONG(q);
+                        j->block = PTR_TO_SECTOR(q);
                         j++;
                 }
 
