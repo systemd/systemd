@@ -77,7 +77,7 @@
         do {                                                            \
                 t *_item = (item);                                      \
                 assert(_item);                                          \
-                while ((_item->name##_prev)                             \
+                while (_item->name##_prev)                              \
                        _item = _item->name##_prev;                      \
                 (head) = _item;                                         \
         } while (false)
