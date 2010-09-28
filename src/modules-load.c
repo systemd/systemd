@@ -31,7 +31,7 @@
 #include "util.h"
 #include "strv.h"
 
-/* This reads all module names listed in /etc/modules.d/?*.conf and
+/* This reads all module names listed in /etc/modules-load.d/?*.conf and
  * loads them into the kernel. This follows roughly Debian's way to
  * handle modules, but uses a directory of fragments instead of a
  * single /etc/modules file. */
@@ -71,12 +71,12 @@ int main(int argc, char *argv[]) {
 
         n_arguments = n_allocated = 3;
 
-        if ((n = scandir("/etc/modules.d/", &de, scandir_filter, alphasort)) < 0) {
+        if ((n = scandir("/etc/modules-load.d/", &de, scandir_filter, alphasort)) < 0) {
 
                 if (errno == ENOENT)
                         r = EXIT_SUCCESS;
                 else
-                        log_error("Failed to enumerate /etc/modules.d/ files: %m");
+                        log_error("Failed to enumerate /etc/modules-load.d/ files: %m");
 
                 goto finish;
         }
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
                 char *fn;
                 FILE *f;
 
-                k = asprintf(&fn, "/etc/modules.d/%s", de[i]->d_name);
+                k = asprintf(&fn, "/etc/modules-load.d/%s", de[i]->d_name);
                 free(de[i]);
 
                 if (k < 0) {
