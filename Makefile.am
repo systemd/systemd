@@ -181,11 +181,8 @@ dist_systemunit_DATA = \
 	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
 	units/tmp.mount \
-	units/tmp.service \
 	units/var-lock.mount \
-	units/var-lock.service \
 	units/var-run.mount \
-	units/var-run.service \
 	units/hwclock-load.service \
 	units/hwclock-save.service \
 	units/sysctl.service \
@@ -1003,15 +1000,11 @@ install-data-hook:
 		rm -f systemd-remount-api-vfs.service \
 			remount-rootfs.service \
 			var-run.mount \
-			var-run.service \
-			var-lock.mount \
-			var-lock.service && \
+			var-lock.mount && \
 		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
 		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
 		$(LN_S) ../var-run.mount var-run.mount && \
-		$(LN_S) ../var-run.service var-run.service && \
-		$(LN_S) ../var-lock.mount var-lock.mount && \
-		$(LN_S) ../var-lock.service var-lock.service )
+		$(LN_S) ../var-lock.mount var-lock.mount )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -1160,7 +1153,5 @@ git-tag:
 
 # Opt out from a few services on Fedora for now, as long as rc.sysinit does this job
 fedora: install
-	rm /lib/systemd/system/local-fs.target.wants/var-run.service
 	rm /lib/systemd/system/local-fs.target.wants/var-run.mount
-	rm /lib/systemd/system/local-fs.target.wants/var-lock.service
 	rm /lib/systemd/system/local-fs.target.wants/var-lock.mount
