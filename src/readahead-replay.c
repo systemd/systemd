@@ -44,6 +44,8 @@
 
 static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
 
+static ReadaheadShared *shared = NULL;
+
 static int unpack_file(FILE *pack) {
         char fn[PATH_MAX];
         int r = 0, fd = -1;
@@ -337,6 +339,12 @@ int main(int argc, char*argv[]) {
                 log_info("Disabling readahead replay due to low memory.");
                 return 0;
         }
+
+        if (!(shared = shared_get()))
+                return 1;
+
+        shared->replay = getpid();
+        __sync_synchronize();
 
         if (replay(optind < argc ? argv[optind] : "/") < 0)
                 return 1;

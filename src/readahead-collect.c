@@ -64,6 +64,8 @@ static unsigned arg_files_max = 16*1024;
 static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
 static usec_t arg_timeout = 2*USEC_PER_MINUTE;
 
+static ReadaheadShared *shared = NULL;
+
 /* Avoid collisions with the NULL pointer */
 #define SECTOR_TO_PTR(s) ULONG_TO_PTR((s)+1)
 #define PTR_TO_SECTOR(p) (PTR_TO_ULONG(p)-1)
@@ -379,36 +381,44 @@ static int collect(const char *root) {
                 }
 
                 for (m = &data.metadata; FAN_EVENT_OK(m, n); m = FAN_EVENT_NEXT(m, n)) {
+                        char fn[PATH_MAX];
+                        int k;
 
-                        if (m->pid != my_pid && m->fd >= 0) {
-                                char fn[PATH_MAX];
-                                int k;
+                        if (m->fd < 0)
+                                goto next_iteration;
 
-                                snprintf(fn, sizeof(fn), "/proc/self/fd/%i", m->fd);
-                                char_array_0(fn);
+                        if (m->pid == my_pid)
+                                goto next_iteration;
 
-                                if ((k = readlink_malloc(fn, &p)) >= 0) {
+                        __sync_synchronize();
+                        if (m->pid == shared->replay)
+                                goto next_iteration;
 
-                                        if (startswith(p, "/tmp") ||
-                                            hashmap_get(files, p))
-                                                /* Not interesting, or
-                                                 * already read */
+                        snprintf(fn, sizeof(fn), "/proc/self/fd/%i", m->fd);
+                        char_array_0(fn);
+
+                        if ((k = readlink_malloc(fn, &p)) >= 0) {
+
+                                if (startswith(p, "/tmp") ||
+                                    hashmap_get(files, p))
+                                        /* Not interesting, or
+                                         * already read */
+                                        free(p);
+                                else {
+                                        unsigned long ul;
+
+                                        ul = fd_first_block(m->fd);
+
+                                        if ((k = hashmap_put(files, p, SECTOR_TO_PTR(ul))) < 0) {
+                                                log_warning("set_put() failed: %s", strerror(-k));
                                                 free(p);
-                                        else {
-                                                unsigned long ul;
-
-                                                ul = fd_first_block(m->fd);
-
-                                                if ((k = hashmap_put(files, p, SECTOR_TO_PTR(ul))) < 0) {
-                                                        log_warning("set_put() failed: %s", strerror(-k));
-                                                        free(p);
-                                                }
                                         }
+                                }
 
-                                } else
-                                        log_warning("readlink(%s) failed: %s", fn, strerror(-k));
-                        }
+                        } else
+                                log_warning("readlink(%s) failed: %s", fn, strerror(-k));
 
+                next_iteration:
                         if (m->fd)
                                 close_nointr_nofail(m->fd);
                 }
@@ -634,6 +644,12 @@ int main(int argc, char *argv[]) {
                 log_info("Disabling readahead collector due to low memory.");
                 return 0;
         }
+
+        if (!(shared = shared_get()))
+                return 1;
+
+        shared->collect = getpid();
+        __sync_synchronize();
 
         if (collect(optind < argc ? argv[optind] : "/") < 0)
                 return 1;

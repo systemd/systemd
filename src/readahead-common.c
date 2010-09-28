@@ -25,6 +25,9 @@
 #include <string.h>
 #include <sys/sysinfo.h>
 #include <sys/inotify.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "log.h"
 #include "readahead-common.h"
@@ -136,4 +139,31 @@ int open_inotify(void) {
         }
 
         return fd;
+}
+
+ReadaheadShared *shared_get(void) {
+        int fd;
+        ReadaheadShared *m = NULL;
+
+        if ((fd = open("/dev/.systemd/readahead/shared", O_CREAT|O_RDWR|O_CLOEXEC, 0644)) < 0) {
+                log_error("Failed to create shared memory segment: %m");
+                goto finish;
+        }
+
+        if (ftruncate(fd, sizeof(ReadaheadShared)) < 0) {
+                log_error("Failed to truncate shared memory segment: %m");
+                goto finish;
+        }
+
+        if ((m = mmap(NULL, sizeof(ReadaheadShared), PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+                log_error("Failed to mmap shared memory segment: %m");
+                m = NULL;
+                goto finish;
+        }
+
+finish:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        return m;
 }

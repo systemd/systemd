@@ -23,6 +23,9 @@
 ***/
 
 #include <sys/stat.h>
+#include <sys/types.h>
+
+#include "macro.h"
 
 #define READAHEAD_FILE_SIZE_MAX (128*1024*1024)
 
@@ -33,5 +36,12 @@ int fs_on_ssd(const char *p);
 bool enough_ram(void);
 
 int open_inotify(void);
+
+typedef struct ReadaheadShared {
+        pid_t collect;
+        pid_t replay;
+} _packed_ ReadaheadShared;
+
+ReadaheadShared *shared_get(void);
 
 #endif
