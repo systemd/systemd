@@ -258,12 +258,12 @@ int main(int argc, char *argv[]) {
 
         label_init();
 
-        if ((n = scandir("/etc/tempfiles.d/", &de, scandir_filter, alphasort)) < 0) {
+        if ((n = scandir("/etc/tmpfiles.d/", &de, scandir_filter, alphasort)) < 0) {
 
                 if (errno == ENOENT)
                         r = EXIT_SUCCESS;
                 else
-                        log_error("Failed to enumerate /etc/tempfiles.d/ files: %m");
+                        log_error("Failed to enumerate /etc/tmpfiles.d/ files: %m");
 
                 goto finish;
         }
@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
                 FILE *f;
                 unsigned j;
 
-                k = asprintf(&fn, "/etc/tempfiles.d/%s", de[i]->d_name);
+                k = asprintf(&fn, "/etc/tmpfiles.d/%s", de[i]->d_name);
                 free(de[i]);
 
                 if (k < 0) {
