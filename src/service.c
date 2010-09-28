@@ -432,6 +432,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 LSB,
                 LSB_DESCRIPTION
         } state = NORMAL;
+        char *short_description = NULL, *long_description = NULL, *chkconfig_description = NULL, *description;
 
         assert(s);
         assert(path);
@@ -522,24 +523,27 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith_no_case(t, "description:") &&
-                                   !u->meta.description) {
+                        } else if (startswith_no_case(t, "description:")) {
 
                                 size_t k = strlen(t);
                                 char *d;
+                                const char *j;
 
                                 if (t[k-1] == '\\') {
                                         state = DESCRIPTION;
                                         t[k-1] = 0;
                                 }
 
-                                if (!(d = strappend("LSB: ", strstrip(t+12)))) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                                if ((j = strstrip(t+12)) && *j) {
+                                        if (!(d = strdup(j))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+                                } else
+                                        d = NULL;
 
-                                free(u->meta.description);
-                                u->meta.description = d;
+                                free(chkconfig_description);
+                                chkconfig_description = d;
 
                         } else if (startswith_no_case(t, "pidfile:")) {
 
@@ -568,21 +572,29 @@ static int service_load_sysv_path(Service *s, const char *path) {
                          * continuation */
 
                         size_t k = strlen(t);
-                        char *d;
+                        char *j;
 
                         if (t[k-1] == '\\')
                                 t[k-1] = 0;
                         else
                                 state = NORMAL;
 
-                        assert(u->meta.description);
-                        if (asprintf(&d, "%s %s", u->meta.description, strstrip(t)) < 0) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if ((j = strstrip(t)) && *j) {
+                                char *d = NULL;
 
-                        free(u->meta.description);
-                        u->meta.description = d;
+                                if (chkconfig_description)
+                                        asprintf(&d, "%s %s", chkconfig_description, j);
+                                else
+                                        d = strdup(j);
+
+                                if (!d) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                free(chkconfig_description);
+                                chkconfig_description = d;
+                        }
 
                 } else if (state == LSB || state == LSB_DESCRIPTION) {
 
@@ -688,35 +700,37 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith_no_case(t, "Description:") &&
-                                   !u->meta.description) {
-                                char *d;
-
-                                /* We use the long description only if
-                                 * no short description is set. */
+                        } else if (startswith_no_case(t, "Description:")) {
+                                char *d, *j;
 
                                 state = LSB_DESCRIPTION;
 
-                                if (!(d = strappend("LSB: ", strstrip(t+12)))) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                                if ((j = strstrip(t+12)) && *j) {
+                                        if (!(d = strdup(j))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+                                } else
+                                        d = NULL;
 
-                                free(u->meta.description);
-                                u->meta.description = d;
+                                free(long_description);
+                                long_description = d;
 
                         } else if (startswith_no_case(t, "Short-Description:")) {
-                                char *d;
+                                char *d, *j;
 
                                 state = LSB;
 
-                                if (!(d = strappend("LSB: ", strstrip(t+18)))) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                                if ((j = strstrip(t+18)) && *j) {
+                                        if (!(d = strdup(j))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+                                } else
+                                        d = NULL;
 
-                                free(u->meta.description);
-                                u->meta.description = d;
+                                free(short_description);
+                                short_description = d;
 
                         } else if (startswith_no_case(t, "X-Interactive:")) {
                                 int b;
@@ -734,16 +748,25 @@ static int service_load_sysv_path(Service *s, const char *path) {
                         } else if (state == LSB_DESCRIPTION) {
 
                                 if (startswith(l, "#\t") || startswith(l, "#  ")) {
-                                        char *d;
+                                        char *j;
 
-                                        assert(u->meta.description);
-                                        if (asprintf(&d, "%s %s", u->meta.description, t) < 0) {
-                                                r = -ENOMEM;
-                                                goto finish;
+                                        if ((j = strstrip(t)) && *j) {
+                                                char *d = NULL;
+
+                                                if (long_description)
+                                                        asprintf(&d, "%s %s", long_description, t);
+                                                else
+                                                        d = strdup(j);
+
+                                                if (!d) {
+                                                        r = -ENOMEM;
+                                                        goto finish;
+                                                }
+
+                                                free(long_description);
+                                                long_description = d;
                                         }
 
-                                        free(u->meta.description);
-                                        u->meta.description = d;
                                 } else
                                         state = LSB;
                         }
@@ -775,6 +798,29 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 ? EXEC_OUTPUT_TTY : EXEC_OUTPUT_NULL;
         s->exec_context.kill_mode = KILL_PROCESS_GROUP;
 
+        /* We use the long description only if
+         * no short description is set. */
+
+        if (short_description)
+                description = short_description;
+        else if (chkconfig_description)
+                description = chkconfig_description;
+        else if (long_description)
+                description = long_description;
+        else
+                description = NULL;
+
+        if (description) {
+                char *d;
+
+                if (!(d = strappend("LSB: ", description))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                u->meta.description = d;
+        }
+
         u->meta.load_state = UNIT_LOADED;
         r = 0;
 
@@ -782,6 +828,10 @@ finish:
 
         if (f)
                 fclose(f);
+
+        free(short_description);
+        free(long_description);
+        free(chkconfig_description);
 
         return r;
 }
