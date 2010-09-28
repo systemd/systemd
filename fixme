@@ -9,8 +9,6 @@ v11:
 
 * emergency.service should start default.target after C-d. synchronize from fedora's initscripts package
 
-* tmpwatch: lower ioprio
-
 * drop empty assignments for parse_env_file
 
 * stability promise must say that #ifdef TARGET_XXX style distro compatibility will go away one day
@@ -106,6 +104,8 @@ later:
 * readahead: btrfs/LVM SSD detection
 
 * document locale.conf, vconsole.conf and possibly the tempfiles.d and modules-load.d mechanism.
+
+* when /proc/self/mountinfo is not parsable, proceed with next line
 
 External:
 

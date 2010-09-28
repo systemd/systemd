@@ -16,3 +16,4 @@ Before=poweroff.service reboot.service halt.service killall.service
 Type=oneshot
 ExecStart=/usr/sbin/tmpwatch -umc -x /tmp/.X11-unix -x /tmp/.ICE-unix 10d /tmp
 ExecStart=/usr/sbin/tmpwatch -umc 30d /var/tmp
+IOSchedulingClass=idle
