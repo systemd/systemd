@@ -430,7 +430,7 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
 
                 case TIMER_DEAD:
                 case TIMER_FAILED:
-                        ;
+                        break;
 
                 default:
                         assert_not_reached("Unknown timer state");
