@@ -113,11 +113,11 @@ static int load_font(const char *vc, const char *font, const char *map, const ch
         args[i++] = "-C";
         args[i++] = vc;
         args[i++] = font;
-        if (map && map[0] != '\0') {
+        if (map) {
                 args[i++] = "-m";
                 args[i++] = map;
         }
-        if (unimap && unimap[0] != '\0') {
+        if (unimap) {
                 args[i++] = "-u";
                 args[i++] = unimap;
         }

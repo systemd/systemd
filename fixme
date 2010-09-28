@@ -9,8 +9,6 @@ v11:
 
 * emergency.service should start default.target after C-d. synchronize from fedora's initscripts package
 
-* drop empty assignments for parse_env_file
-
 * stability promise must say that #ifdef TARGET_XXX style distro compatibility will go away one day
 
 * enable tmpfiles by default

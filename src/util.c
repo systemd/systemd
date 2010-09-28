@@ -653,6 +653,12 @@ int parse_env_file(
                                         goto fail;
                                 }
 
+                                if (v[0] == '\0') {
+                                        /* return empty value strings as NULL */
+                                        free(v);
+                                        v = NULL;
+                                }
+
                                 free(*value);
                                 *value = v;
 
