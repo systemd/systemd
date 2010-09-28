@@ -1,4 +1,4 @@
-systemd-tempfiles
+systemd-tmpfiles
 systemd-readahead-collect
 systemd-readahead-replay
 systemd-reply-password
