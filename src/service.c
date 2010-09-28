@@ -252,48 +252,62 @@ static char *sysv_translate_name(const char *name) {
 
 static int sysv_translate_facility(const char *name, char **_r) {
 
+        /* We silently ignore the $ prefix here. According to the LSB
+         * spec it simply indicates whether something is a
+         * standardized name or a distribution-specific one. Since we
+         * just follow what already exists and do not introduce new
+         * uses or names we don't care who introduced a new name. */
+
         static const char * const table[] = {
                 /* LSB defined facilities */
-                "$local_fs",  SPECIAL_LOCAL_FS_TARGET,
-                "$network",   SPECIAL_NETWORK_TARGET,
-                "$named",     SPECIAL_NSS_LOOKUP_TARGET,
-                "$portmap",   SPECIAL_RPCBIND_TARGET,
-                "$remote_fs", SPECIAL_REMOTE_FS_TARGET,
-                "$syslog",    SPECIAL_SYSLOG_TARGET,
-                "$time",      SPECIAL_RTC_SET_TARGET,
+                "local_fs",             SPECIAL_LOCAL_FS_TARGET,
+                "network",              SPECIAL_NETWORK_TARGET,
+                "named",                SPECIAL_NSS_LOOKUP_TARGET,
+                "portmap",              SPECIAL_RPCBIND_TARGET,
+                "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
+                "syslog",               SPECIAL_SYSLOG_TARGET,
+                "time",                 SPECIAL_RTC_SET_TARGET,
 
                 /* Debian extensions */
 #ifdef TARGET_DEBIAN
-                "$mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
 #endif
-                "$mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "$x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
+                "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
 
 #ifdef TARGET_FEDORA
-                /* Fedora extensions, lacking the $ prefix */
-                "MTA",        SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "smtpdaemon", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "httpd",      SPECIAL_HTTP_DAEMON_TARGET,
+                /* Fedora extensions */
+                "MTA",                  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "smtpdaemon",           SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "httpd",                SPECIAL_HTTP_DAEMON_TARGET,
 #endif
+
+                /* SuSE extensions */
+                "null",                 NULL
+
         };
 
         unsigned i;
         char *r;
 
-        /* SuSE insserv extension */
-        if (streq(name, "$null"))
-                return 0;
-
         for (i = 0; i < ELEMENTSOF(table); i += 2)
-                if (streq(table[i], name)) {
+
+                if (streq(table[i], name) ||
+                    (*name == '$' && streq(table[i], name+1))) {
+
+                        if (!table[i+1])
+                                return 0;
+
                         if (!(r = strdup(table[i+1])))
                                 return -ENOMEM;
 
                         goto finish;
                 }
 
+        /* If we don't know this name, fallback heuristics to figure
+         * out whether something is a target or an service alias. */
+
         if (*name == '$')
-                /* This is a heuristic. */
                 r = unit_name_build(name+1, NULL, ".target");
         else
                 r = sysv_translate_name(name);
