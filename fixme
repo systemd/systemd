@@ -89,11 +89,7 @@
 
 * ask-password tty timeout
 
-* readahead() vs. fadvise() vs. ioprio
-
 * properly handle multiple inotify events per read() in path.c and util.c
-
-* tmpwatch: what does "-umc" actually mean?
 
 * tmpwatch: lower ioprio
 
@@ -101,7 +97,9 @@
 
 * LSB provides should only create targets, never aliases
 
-* d /var/run/screen 0755 root utmp
+* s/tempfiles/volatile-files/
+
+* use .conf suffix for locale/vconsole/...
 
 External:
 
