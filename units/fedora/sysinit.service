@@ -9,6 +9,7 @@
 Description=System Initialization
 DefaultDependencies=no
 Conflicts=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=shutdown.target emergency.service emergency.target
 
 [Service]

@@ -6,13 +6,16 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Load Kernel Modules
+Description=Replay Read-Ahead Data
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=shutdown.target
 
 [Service]
-Type=oneshot
+Type=notify
+ExecStart=@rootlibexecdir@/systemd-readahead-replay
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-modules-load
+
+[Install]
+WantedBy=default.target
+Also=systemd-readahead-collect.service

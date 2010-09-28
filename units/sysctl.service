@@ -9,6 +9,7 @@
 Description=Apply Kernel Variables
 DefaultDependencies=no
 Conflicts=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=shutdown.target
 
 [Service]

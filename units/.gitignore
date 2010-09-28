@@ -1,3 +1,5 @@
+systemd-readahead-collect.service
+systemd-readahead-replay.service
 serial-getty@.service
 systemd-kmsg-syslogd.service
 systemd-modules-load.service

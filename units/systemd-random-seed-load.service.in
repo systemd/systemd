@@ -11,6 +11,7 @@ DefaultDependencies=no
 Wants=local-fs.target
 After=local-fs.target
 Conflicts=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=shutdown.target
 
 [Service]

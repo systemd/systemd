@@ -209,6 +209,8 @@ nodist_systemunit_DATA = \
 	units/systemd-update-utmp-shutdown.service \
 	units/systemd-random-seed-save.service \
 	units/systemd-random-seed-load.service \
+	units/systemd-readahead-collect.service \
+	units/systemd-readahead-replay.service \
 	units/syslog.target
 
 dist_sessionunit_DATA = \
@@ -236,6 +238,8 @@ EXTRA_DIST = \
 	units/systemd-update-utmp-shutdown.service.in \
 	units/systemd-random-seed-save.service.in \
 	units/systemd-random-seed-load.service.in \
+	units/systemd-readahead-collect.service.in \
+	units/systemd-readahead-replay.service.in \
 	units/syslog.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
@@ -1149,4 +1153,3 @@ fedora: install
 	rm /lib/systemd/system/local-fs.target.wants/var-run.mount
 	rm /lib/systemd/system/local-fs.target.wants/var-lock.service
 	rm /lib/systemd/system/local-fs.target.wants/var-lock.mount
-	rm /lib/systemd/system/local-fs.target.wants/remount-rootfs.service
