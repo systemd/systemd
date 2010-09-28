@@ -15,6 +15,3 @@ Before=shutdown.target local-fs.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-remount-api-vfs
-
-[Install]
-WantedBy=sysinit.target

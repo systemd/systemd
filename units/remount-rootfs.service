@@ -15,6 +15,3 @@ Before=shutdown.target local-fs.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/bin/mount / -o remount
-
-[Install]
-WantedBy=sysinit.target

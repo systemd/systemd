@@ -28,4 +28,4 @@ ExecStart=/sbin/hwclock --systz
 # system time as part of kernel setup.
 
 [Install]
-WantedBy=sysinit.target
+WantedBy=basic.target

@@ -8,6 +8,7 @@
 [Unit]
 Description=Load Random Seed
 DefaultDependencies=no
+Wants=local-fs.target
 After=local-fs.target
 Conflicts=shutdown.target
 Before=shutdown.target

@@ -17,4 +17,4 @@ ListenDatagram=/dev/log
 SocketMode=0666
 
 [Install]
-WantedBy=sysinit.target
+WantedBy=basic.target

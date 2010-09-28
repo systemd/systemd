@@ -941,7 +941,7 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
-		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
+		$(DESTDIR)$(systemunitdir)/basic.target.wants \
 		$(DESTDIR)$(systemunitdir)/shutdown.target.wants \
 		$(DESTDIR)$(systemunitdir)/local-fs.target.wants \
 		$(DESTDIR)$(systemunitdir)/runlevel1.target.wants \
@@ -987,10 +987,17 @@ install-data-hook:
 		$(LN_S) ../hwclock-save.service hwclock-save.service && \
 		$(LN_S) ../systemd-random-seed-save.service systemd-random-seed-save.service )
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
-		rm -f systemd-update-utmp-shutdown.service \
+		rm -f systemd-remount-api-vfs.service \
+			remount-rootfs.service \
+			var-run.mount \
 			var-run.service \
+			var-lock.mount \
 			var-lock.service && \
+		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
+		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
+		$(LN_S) ../var-run.mount var-run.mount && \
 		$(LN_S) ../var-run.service var-run.service && \
+		$(LN_S) ../var-lock.mount var-lock.mount && \
 		$(LN_S) ../var-lock.service var-lock.service )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
@@ -1027,7 +1034,7 @@ install-data-hook:
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \
 			proc-sys-fs-binfmt_misc.automount \
@@ -1135,3 +1142,11 @@ upload: all distcheck
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
+
+# Opt out from a few services on Fedora for now, as long as rc.sysinit does this job
+fedora: install
+	rm /lib/systemd/system/local-fs.target.wants/var-run.service
+	rm /lib/systemd/system/local-fs.target.wants/var-run.mount
+	rm /lib/systemd/system/local-fs.target.wants/var-lock.service
+	rm /lib/systemd/system/local-fs.target.wants/var-lock.mount
+	rm /lib/systemd/system/local-fs.target.wants/remount-rootfs.service
