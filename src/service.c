@@ -250,7 +250,7 @@ static char *sysv_translate_name(const char *name) {
         return r;
 }
 
-static int sysv_translate_facility(const char *name, char **_r) {
+static int sysv_translate_facility(const char *name, const char *filename, char **_r) {
 
         /* We silently ignore the $ prefix here. According to the LSB
          * spec it simply indicates whether something is a
@@ -289,28 +289,39 @@ static int sysv_translate_facility(const char *name, char **_r) {
 
         unsigned i;
         char *r;
+        const char *n;
 
-        for (i = 0; i < ELEMENTSOF(table); i += 2)
+        assert(name);
+        assert(_r);
 
-                if (streq(table[i], name) ||
-                    (*name == '$' && streq(table[i], name+1))) {
+        n = *name == '$' ? name + 1 : name;
 
-                        if (!table[i+1])
-                                return 0;
+        for (i = 0; i < ELEMENTSOF(table); i += 2) {
 
-                        if (!(r = strdup(table[i+1])))
-                                return -ENOMEM;
+                if (!streq(table[i], n))
+                        continue;
 
-                        goto finish;
-                }
+                if (!table[i+1])
+                        return 0;
+
+                if (!(r = strdup(table[i+1])))
+                        return -ENOMEM;
+
+                goto finish;
+        }
 
         /* If we don't know this name, fallback heuristics to figure
          * out whether something is a target or an service alias. */
 
         if (*name == '$')
-                r = unit_name_build(name+1, NULL, ".target");
+                /* Facilities starting with $ are most likely targets */
+                r = unit_name_build(n, NULL, ".target");
+        else if (filename && streq(name, filename))
+                /* Names equalling the file name of the services are redundant */
+                return 0;
         else
-                r = sysv_translate_name(name);
+                /* Everything else we assume to be normal service names */
+                r = sysv_translate_name(n);
 
         if (!r)
                 return -ENOMEM;
@@ -612,12 +623,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        if (streq(n, file_name_from_path(path))) {
-                                                free(n);
-                                                continue;
-                                        }
-
-                                        r = sysv_translate_facility(n, &m);
+                                        r = sysv_translate_facility(n, file_name_from_path(path), &m);
                                         free(n);
 
                                         if (r < 0)
@@ -662,12 +668,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        if (streq(n, file_name_from_path(path))) {
-                                                free(n);
-                                                continue;
-                                        }
-
-                                        r = sysv_translate_facility(n, &m);
+                                        r = sysv_translate_facility(n, file_name_from_path(path), &m);
                                         free(n);
 
                                         if (r < 0)
