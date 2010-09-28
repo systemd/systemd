@@ -422,7 +422,7 @@ done:
 
         log_debug("Writing Pack File...");
 
-        on_ssd = fs_on_ssd(root) == 0;
+        on_ssd = fs_on_ssd(root) > 0;
         log_debug("On SSD: %s", yes_no(on_ssd));
 
         on_btrfs = statfs(root, &sfs) >= 0 && sfs.f_type == BTRFS_SUPER_MAGIC;
