@@ -40,7 +40,7 @@
  * /var/lock which are volatile and hence need to be recreated on
  * bootup. */
 
-static void process_line(const char *fname, unsigned line, const char *buffer, const char *prefix) {
+static int process_line(const char *fname, unsigned line, const char *buffer, const char *prefix) {
         char type;
         char *path = NULL;
         unsigned mode;
@@ -48,7 +48,7 @@ static void process_line(const char *fname, unsigned line, const char *buffer, c
         uid_t uid;
         gid_t gid;
         bool uid_set = false, gid_set = false;
-        int n, fd = -1;
+        int n, fd = -1, r;
 
         assert(fname);
         assert(line >= 1);
@@ -66,16 +66,20 @@ static void process_line(const char *fname, unsigned line, const char *buffer, c
                         &user,
                         &group)) < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
+                r = -EIO;
                 goto finish;
         }
 
         if (type != 'f' && type != 'd') {
                 log_error("[%s:%u] Unknown file type '%c'.", fname, line, type);
+                r = -EBADMSG;
                 goto finish;
         }
 
-        if (prefix && !path_startswith(path, prefix))
+        if (prefix && !path_startswith(path, prefix)) {
+                r = 0;
                 goto finish;
+        }
 
         if (user && !streq(user, "-")) {
                 unsigned long lu;
@@ -89,6 +93,7 @@ static void process_line(const char *fname, unsigned line, const char *buffer, c
                         uid = p->pw_uid;
                 else {
                         log_error("[%s:%u] Unknown user '%s'.", fname, line, user);
+                        r = -ENOENT;
                         goto finish;
                 }
 
@@ -107,6 +112,7 @@ static void process_line(const char *fname, unsigned line, const char *buffer, c
                         gid = g->gr_gid;
                 else {
                         log_error("[%s:%u] Unknown group '%s'.", fname, line, group);
+                        r = -ENOENT;
                         goto finish;
                 }
 
@@ -126,21 +132,25 @@ static void process_line(const char *fname, unsigned line, const char *buffer, c
 
                 if (fd < 0) {
                         log_error("Failed to create file %s: %m", path);
+                        r = -errno;
                         goto finish;
                 }
 
                 if (fstat(fd, &st) < 0) {
                         log_error("stat(%s) failed: %m", path);
+                        r = -errno;
                         goto finish;
                 }
 
                 if (!S_ISREG(st.st_mode)) {
                         log_error("%s is not a file.", path);
+                        r = -EEXIST;
                         goto finish;
                 }
 
                 if (fchmod(fd, mode) < 0) {
                         log_error("chmod(%s) failed: %m", path);
+                        r = -errno;
                         goto finish;
                 }
 
@@ -150,13 +160,13 @@ static void process_line(const char *fname, unsigned line, const char *buffer, c
                                    uid_set ? uid : (uid_t) -1,
                                    gid_set ? gid : (gid_t) -1) < 0) {
                                 log_error("chown(%s) failed: %m", path);
+                                r = -errno;
                                 goto finish;
                         }
                 }
 
         } else if (type == 'd') {
                 mode_t u;
-                int r;
                 struct stat st;
 
                 u = umask(0);
@@ -165,21 +175,25 @@ static void process_line(const char *fname, unsigned line, const char *buffer, c
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("Failed to create directory %s: %m", path);
+                        r = -errno;
                         goto finish;
                 }
 
                 if (stat(path, &st) < 0) {
                         log_error("stat(%s) failed: %m", path);
+                        r = -errno;
                         goto finish;
                 }
 
                 if (!S_ISDIR(st.st_mode)) {
                         log_error("%s is not a directory.", path);
+                        r = -EEXIST;
                         goto finish;
                 }
 
                 if (chmod(path, mode) < 0) {
                         log_error("chmod(%s) failed: %m", path);
+                        r = -errno;
                         goto finish;
                 }
 
@@ -189,14 +203,17 @@ static void process_line(const char *fname, unsigned line, const char *buffer, c
                                    uid_set ? uid : (uid_t) -1,
                                    gid_set ? gid : (gid_t) -1) < 0) {
                                 log_error("chown(%s) failed: %m", path);
+                                r = -errno;
                                 goto finish;
                         }
                 }
         }
 
-        label_fix(path);
+        if ((r = label_fix(path)) < 0)
+                goto finish;
 
         log_debug("%s created successfully.", path);
+        r = 0;
 
 finish:
         free(path);
@@ -205,6 +222,8 @@ finish:
 
         if (fd >= 0)
                 close_nointr_nofail(fd);
+
+        return r;
 }
 
 static int scandir_filter(const struct dirent *d) {
@@ -266,11 +285,9 @@ int main(int argc, char *argv[]) {
                         continue;
                 }
 
-                f = fopen(fn, "re");
-                free(fn);
-
-                if (!f) {
+                if (!(f = fopen(fn, "re"))) {
                         log_error("Failed to open %s: %m", fn);
+                        free(fn);
                         r = EXIT_FAILURE;
                         continue;
                 }
@@ -288,13 +305,16 @@ int main(int argc, char *argv[]) {
                         if (*l == '#' || *l == 0)
                                 continue;
 
-                        process_line(de[i]->d_name, j, l, prefix);
+                        if (process_line(fn, j, l, prefix) < 0)
+                                r = EXIT_FAILURE;
                 }
 
                 if (ferror(f)) {
                         r = EXIT_FAILURE;
-                        log_error("Failed to read from file: %m");
+                        log_error("Failed to read from file %s: %m", fn);
                 }
+
+                free(fn);
 
                 fclose(f);
         }
