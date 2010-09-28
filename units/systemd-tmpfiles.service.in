@@ -6,13 +6,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Load Random Seed
+Description=Recreate Volatile Files and Directories
 DefaultDependencies=no
 Wants=local-fs.target
-Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
 Before=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-random-seed load
+RemainAfterExit=yes
+ExecStart=@rootlibexecdir@/systemd-tmpfiles

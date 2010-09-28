@@ -216,6 +216,7 @@ nodist_systemunit_DATA = \
 	units/systemd-random-seed-load.service \
 	units/systemd-readahead-collect.service \
 	units/systemd-readahead-replay.service \
+	units/systemd-tmpfiles.service \
 	units/syslog.target
 
 dist_sessionunit_DATA = \
@@ -245,6 +246,7 @@ EXTRA_DIST = \
 	units/systemd-random-seed-load.service.in \
 	units/systemd-readahead-collect.service.in \
 	units/systemd-readahead-replay.service.in \
+	units/systemd-tmpfiles.service.in \
 	units/syslog.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
@@ -1054,6 +1056,7 @@ install-data-hook:
 			systemd-vconsole-setup.service \
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
+			systemd-tmpfiles.service \
 			sysctl.service \
 			tmpwatch.timer \
 			tmpwatch.service && \
@@ -1065,6 +1068,7 @@ install-data-hook:
 		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
+		$(LN_S) ../systemd-tmpfiles.service systemd-tmpfiles.service && \
 		$(LN_S) ../sysctl.service sysctl.service && \
 		$(LN_S) ../tmpwatch.timer tmpwatch.timer && \
 		$(LN_S) ../tmpwatch.service tmpwatch.service )

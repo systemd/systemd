@@ -105,6 +105,8 @@ later:
 
 * when /proc/self/mountinfo is not parsable, proceed with next line
 
+* beefed up tmpwatch that reads tmpfiles.d
+
 External:
 
 * place /etc/inittab with explaining blurb.
