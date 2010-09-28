@@ -129,10 +129,10 @@ systemdsystemunit_DATA = \
 	init/udev-retry.service
 
 systemd-install-hook:
-	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/sysinit.target.wants
-	ln -sf ../udev.service $(DESTDIR)$(systemdsystemunitdir)/sysinit.target.wants/udev.service
-	ln -sf ../udev-settle.service $(DESTDIR)$(systemdsystemunitdir)/sysinit.target.wants/udev-settle.service
-	ln -sf ../udev-retry.service $(DESTDIR)$(systemdsystemunitdir)/sysinit.target.wants/udev-retry.service
+	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants
+	ln -sf ../udev.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev.service
+	ln -sf ../udev-settle.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev-settle.service
+	ln -sf ../udev-retry.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev-retry.service
 
 INSTALL_DATA_HOOKS += systemd-install-hook
 endif
