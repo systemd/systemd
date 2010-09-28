@@ -409,6 +409,7 @@ EXTRA_DIST += \
 	src/list.h \
 	src/securebits.h \
 	src/linux/auto_dev-ioctl.h \
+	src/linux/fanotify.h \
 	src/initreq.h \
 	src/sd-daemon.h \
 	src/special.h \
@@ -417,7 +418,8 @@ EXTRA_DIST += \
 	src/cgroup-show.h \
 	src/utmp-wtmp.h \
 	src/build.h \
-	src/shutdownd.h
+	src/shutdownd.h \
+	src/readahead-common.h
 
 MANPAGES = \
 	man/systemd.1 \

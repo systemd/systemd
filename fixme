@@ -95,13 +95,9 @@
 
 * readahead: btrfs/LVM SSD detection
 
-* LSB provides should only create targets, never aliases
-
 * stability promise must say that #ifdef TARGET_XXX style distro compatibility will go away one day
 
 * drop empty assignments for parse_env_file
-
-* #include "fanotify.h"
 
 External:
 
