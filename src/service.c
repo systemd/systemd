@@ -2795,6 +2795,7 @@ static int service_enumerate(Manager *m) {
                 STRV_FOREACH(p, arch_daemons_split) {
 
                         free(name);
+                        name = NULL;
 
                         if (**p == '!') /* daemons prefixed with ! are disabled, so ignore them */
                                 continue;
