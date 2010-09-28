@@ -9,10 +9,6 @@ v11:
 
 * emergency.service should start default.target after C-d. synchronize from fedora's initscripts package
 
-* stability promise must say that #ifdef TARGET_XXX style distro compatibility will go away one day
-
-* enable tmpfiles by default
-
 later:
 
 * do not throw error when .service file is linked to /dev/null
