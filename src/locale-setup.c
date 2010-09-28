@@ -93,9 +93,9 @@ int locale_setup(void) {
         }
 
         /* Hmm, nothing set on the kernel cmd line? Then let's
-         * try /etc/locale */
+         * try /etc/locale.conf */
         if (r <= 0 &&
-            (r = parse_env_file("/etc/locale", NEWLINE,
+            (r = parse_env_file("/etc/locale.conf", NEWLINE,
                                "LANG",              &variables[VARIABLE_LANG],
                                "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
                                "LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
@@ -112,7 +112,7 @@ int locale_setup(void) {
                                 NULL)) < 0) {
 
                 if (r != -ENOENT)
-                        log_warning("Failed to read /etc/locale: %s", strerror(-r));
+                        log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
         }
 
 #ifdef TARGET_FEDORA

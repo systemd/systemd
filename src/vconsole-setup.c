@@ -186,9 +186,9 @@ int main(int argc, char **argv) {
         }
 
         /* Hmm, nothing set on the kernel cmd line? Then let's
-         * try /etc/vconsole */
+         * try /etc/vconsole.conf */
         if (r <= 0 &&
-            (r = parse_env_file("/etc/vconsole", NEWLINE,
+            (r = parse_env_file("/etc/vconsole.conf", NEWLINE,
                                 "KEYMAP", &vc_keymap,
                                 "FONT", &vc_font,
                                 "FONT_MAP", &vc_font_map,
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
                                 NULL)) < 0) {
 
                 if (r != -ENOENT)
-                        log_warning("Failed to read /etc/vconsole: %s", strerror(-r));
+                        log_warning("Failed to read /etc/vconsole.conf: %s", strerror(-r));
         }
 
         if (r <= 0) {

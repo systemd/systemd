@@ -31,7 +31,7 @@
 #include "util.h"
 #include "strv.h"
 
-/* This reads all module names listed in /etc/modules.d/?*.modules and
+/* This reads all module names listed in /etc/modules.d/?*.conf and
  * loads them into the kernel. This follows roughly Debian's way to
  * handle modules, but uses a directory of fragments instead of a
  * single /etc/modules file. */
@@ -46,7 +46,7 @@ static int scandir_filter(const struct dirent *d) {
             d->d_type != DT_LNK)
                 return 0;
 
-        return endswith(d->d_name, ".modules");
+        return endswith(d->d_name, ".conf");
 }
 
 int main(int argc, char *argv[]) {

@@ -99,8 +99,6 @@
 
 * s/tempfiles/volatile-files/
 
-* use .conf suffix for locale/vconsole/...
-
 External:
 
 * place /etc/inittab with explaining blurb.
