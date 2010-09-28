@@ -30,6 +30,7 @@ polkitpolicydir=$(datadir)/polkit-1/actions
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
 sessionunitdir=$(pkgdatadir)/session
+tmpfilesdir=$(sysconfdir)/tmpfiles.d
 
 # And these are the special ones for /
 rootdir=@rootdir@
@@ -138,6 +139,10 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Snapshot.xml \
 	org.freedesktop.systemd1.Swap.xml \
 	org.freedesktop.systemd1.Path.xml
+
+dist_tmpfiles_DATA = \
+	tmpfiles.d/systemd.conf \
+	tmpfiles.d/x11.conf
 
 dist_systemunit_DATA = \
 	units/emergency.service \
