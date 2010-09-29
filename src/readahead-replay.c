@@ -145,6 +145,8 @@ static int replay(const char *root) {
                 goto finish;
         }
 
+        posix_fadvise(fileno(pack), 0, 0, POSIX_FADV_WILLNEED);
+
         if ((inotify_fd = open_inotify()) < 0) {
                 r = inotify_fd;
                 goto finish;
