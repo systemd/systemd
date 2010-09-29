@@ -398,8 +398,8 @@ static int collect(const char *root) {
                         char_array_0(fn);
 
                         if ((k = readlink_malloc(fn, &p)) >= 0) {
-
                                 if (startswith(p, "/tmp") ||
+                                    endswith(p, " (deleted)") ||
                                     hashmap_get(files, p))
                                         /* Not interesting, or
                                          * already read */
