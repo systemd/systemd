@@ -34,7 +34,7 @@
 #include "strv.h"
 #include "label.h"
 
-/* This reads all files listed in /etc/tempfiles.d/?*.conf and creates
+/* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
  * properly owned directories beneath /tmp, /var/tmp, /var/run and
  * /var/lock which are volatile and hence need to be recreated on
