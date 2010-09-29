@@ -300,7 +300,7 @@ static int write_to_syslog(
         IOVEC_SET_STRING(iovec[3], header_pid);
         IOVEC_SET_STRING(iovec[4], buffer);
 
-        /* When using syslog via SOCK_STREAM seperate the messages by NUL chars */
+        /* When using syslog via SOCK_STREAM separate the messages by NUL chars */
         if (syslog_is_stream)
                 iovec[4].iov_len++;
 

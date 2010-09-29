@@ -600,13 +600,13 @@ finish:
 
 int parse_env_file(
                 const char *fname,
-                const char *seperator, ...) {
+                const char *separator, ...) {
 
         int r = 0;
         char *contents, *p;
 
         assert(fname);
-        assert(seperator);
+        assert(separator);
 
         if ((r = read_full_file(fname, &contents)) < 0)
                 return r;
@@ -615,7 +615,7 @@ int parse_env_file(
         for (;;) {
                 const char *key = NULL;
 
-                p += strspn(p, seperator);
+                p += strspn(p, separator);
                 p += strspn(p, WHITESPACE);
 
                 if (!*p)
@@ -625,7 +625,7 @@ int parse_env_file(
                         va_list ap;
                         char **value;
 
-                        va_start(ap, seperator);
+                        va_start(ap, separator);
                         while ((key = va_arg(ap, char *))) {
                                 size_t n;
                                 char *v;
@@ -638,7 +638,7 @@ int parse_env_file(
                                         continue;
 
                                 p += n + 1;
-                                n = strcspn(p, seperator);
+                                n = strcspn(p, separator);
 
                                 if (n >= 2 &&
                                     strchr(QUOTES, p[0]) &&
@@ -671,7 +671,7 @@ int parse_env_file(
                 }
 
                 if (!key)
-                        p += strcspn(p, seperator);
+                        p += strcspn(p, separator);
         }
 
 fail:

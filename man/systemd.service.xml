@@ -307,7 +307,7 @@
                                 the command in
                                 <varname>ExecStart=</varname>. Multiple
                                 command lines may be concatenated in a
-                                single directive, by seperating them
+                                single directive, by separating them
                                 by semicolons (these semicolons must
                                 be passed as separate words). In that
                                 case, the commands are executed one

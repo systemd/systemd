@@ -1427,7 +1427,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                                 "%ms "       /* (5) mount point */
                                 "%ms"        /* (6) mount options */
                                 "%*[^-]"     /* (7) optional fields */
-                                "- "         /* (8) seperator */
+                                "- "         /* (8) separator */
                                 "%ms "       /* (9) file system type */
                                 "%ms"        /* (10) mount source */
                                 "%ms"        /* (11) mount options 2 */

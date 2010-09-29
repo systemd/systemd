@@ -174,7 +174,7 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
                 IOVEC_SET_STRING(iovec[3], header_pid);
                 IOVEC_SET_STRING(iovec[4], p);
 
-                /* When using syslog via SOCK_STREAM seperate the messages by NUL chars */
+                /* When using syslog via SOCK_STREAM separate the messages by NUL chars */
                 if (s->server->syslog_is_stream)
                         iovec[4].iov_len++;
 
