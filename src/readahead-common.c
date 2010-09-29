@@ -145,6 +145,9 @@ ReadaheadShared *shared_get(void) {
         int fd;
         ReadaheadShared *m = NULL;
 
+        mkdir("/dev/.systemd", 0755);
+        mkdir("/dev/.systemd/readahead", 0755);
+
         if ((fd = open("/dev/.systemd/readahead/shared", O_CREAT|O_RDWR|O_CLOEXEC, 0644)) < 0) {
                 log_error("Failed to create shared memory segment: %m");
                 goto finish;
