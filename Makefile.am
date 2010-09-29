@@ -191,7 +191,8 @@ dist_systemunit_DATA = \
 	units/bluetooth.target \
 	units/smartcard.target \
 	units/tmpwatch.service \
-	units/tmpwatch.timer
+	units/tmpwatch.timer \
+	units/systemd-readahead-done.timer
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -213,6 +214,7 @@ nodist_systemunit_DATA = \
 	units/systemd-random-seed-load.service \
 	units/systemd-readahead-collect.service \
 	units/systemd-readahead-replay.service \
+	units/systemd-readahead-done.service \
 	units/systemd-tmpfiles.service \
 	units/syslog.target
 
@@ -243,6 +245,7 @@ EXTRA_DIST = \
 	units/systemd-random-seed-load.service.in \
 	units/systemd-readahead-collect.service.in \
 	units/systemd-readahead-replay.service.in \
+	units/systemd-readahead-done.service.in \
 	units/systemd-tmpfiles.service.in \
 	units/syslog.target.in \
 	units/session/exit.service.in \
@@ -830,6 +833,7 @@ SED_PROCESS = \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
+		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
 		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
 		-e 's,@systemunitdir\@,$(systemunitdir),g' \

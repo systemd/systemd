@@ -9,6 +9,8 @@ v11:
 
 * emergency.service should start default.target after C-d. synchronize from fedora's initscripts package
 
+* verify ordering of random-seed-load and base.target!
+
 later:
 
 * do not throw error when .service file is linked to /dev/null

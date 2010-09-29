@@ -8,6 +8,7 @@
 [Unit]
 Description=Collect Read-Ahead Data
 DefaultDependencies=no
+Wants=systemd-readahead-done.timer
 Conflicts=shutdown.target
 Before=shutdown.target
 
@@ -18,4 +19,3 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=default.target
-Also=systemd-readahead-replay.service

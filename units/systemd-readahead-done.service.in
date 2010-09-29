@@ -6,15 +6,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Replay Read-Ahead Data
+Description=Stop Read-Ahead Data Collection
 DefaultDependencies=no
 Conflicts=shutdown.target
+After=default.target
 Before=shutdown.target
 
 [Service]
-Type=notify
-ExecStart=@rootlibexecdir@/systemd-readahead-replay
-RemainAfterExit=yes
+Type=oneshot
+ExecStart=@SYSTEMD_NOTIFY@ --readahead=done
 
 [Install]
-WantedBy=default.target
+Also=systemd-readahead-collect.service
