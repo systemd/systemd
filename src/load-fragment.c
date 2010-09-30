@@ -1226,6 +1226,40 @@ static int config_parse_path_unit(
         return 0;
 }
 
+static int config_parse_socket_service(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Socket *s = data;
+        int r;
+        DBusError error;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        dbus_error_init(&error);
+
+        if (endswith(rvalue, ".service")) {
+                log_error("[%s:%u] Unit must be of type serivce, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        if ((r = manager_load_unit(s->meta.manager, rvalue, NULL, &error, (Unit**) &s->service)) < 0) {
+                log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
+                dbus_error_free(&error);
+                return 0;
+        }
+
+        return 0;
+}
+
 static int config_parse_env_file(
                 const char *filename,
                 unsigned line,
@@ -1654,6 +1688,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PipeSize",               config_parse_size,            &u->socket.pipe_size,                            "Socket"  },
                 { "FreeBind",               config_parse_bool,            &u->socket.free_bind,                            "Socket"  },
                 { "TCPCongestion",          config_parse_string,          &u->socket.tcp_congestion,                       "Socket"  },
+                { "Service",                config_parse_socket_service,  &u->socket,                                      "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 { "What",                   config_parse_string,          &u->mount.parameters_fragment.what,              "Mount"   },

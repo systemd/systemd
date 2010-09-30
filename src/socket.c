@@ -212,6 +212,11 @@ static int socket_verify(Socket *s) {
                 return -EINVAL;
         }
 
+        if (s->accept && s->service) {
+                log_error("Explicit service configuration for accepting sockets not supported on %s. Refusing.", s->meta.id);
+                return -EINVAL;
+        }
+
         if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
                 return -EINVAL;
@@ -315,8 +320,10 @@ static int socket_load(Unit *u) {
         if (u->meta.load_state == UNIT_LOADED) {
 
                 if (have_non_accept_socket(s)) {
-                        if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)) < 0)
-                                return r;
+
+                        if (!s->service)
+                                if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)) < 0)
+                                        return r;
 
                         if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service), true)) < 0)
                                 return r;

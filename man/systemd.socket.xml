@@ -518,6 +518,18 @@
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Service=</varname></term>
+                                <listitem><para>Specifies the service
+                                unit name to activate on incoming
+                                traffic. This defaults to the service
+                                that bears the same name as the socket
+                                (ignoring the different suffixes). In
+                                most cases it should not be necessary
+                                to use this option.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
