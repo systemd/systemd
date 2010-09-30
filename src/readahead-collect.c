@@ -435,7 +435,7 @@ done:
         on_ssd = fs_on_ssd(root) > 0;
         log_debug("On SSD: %s", yes_no(on_ssd));
 
-        on_btrfs = statfs(root, &sfs) >= 0 && sfs.f_type == BTRFS_SUPER_MAGIC;
+        on_btrfs = statfs(root, &sfs) >= 0 && (long) sfs.f_type == (long) BTRFS_SUPER_MAGIC;
         log_debug("On btrfs: %s", yes_no(on_btrfs));
 
         asprintf(&pack_fn, "%s/.readahead", root);
