@@ -211,7 +211,7 @@ static char* do_escape(const char *f, char *t) {
                 else if (*f == '-' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
                         *(t++) = '\\';
                         *(t++) = 'x';
-                        *(t++) = hexchar(*f > 4);
+                        *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);
                 } else
                         *(t++) = *f;
