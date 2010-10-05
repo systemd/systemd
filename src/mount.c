@@ -260,7 +260,7 @@ static char* mount_test_option(const char *haystack, const char *needle) {
 }
 
 static int mount_add_target_links(Mount *m) {
-        const char *target;
+        const char *target, *after = NULL;
         MountParameters *p;
         Unit *tu;
         int r;
@@ -282,13 +282,20 @@ static int mount_add_target_links(Mount *m) {
         automount = !!mount_test_option(p->options, "comment=systemd.automount");
 
         if (mount_test_option(p->options, "_netdev") ||
-            fstype_is_network(p->fstype))
+            fstype_is_network(p->fstype)) {
                 target = SPECIAL_REMOTE_FS_TARGET;
-        else
+
+                if (m->meta.manager->running_as == MANAGER_SYSTEM)
+                        after = SPECIAL_NETWORK_TARGET;
+        } else
                 target = SPECIAL_LOCAL_FS_TARGET;
 
         if ((r = manager_load_unit(m->meta.manager, target, NULL, NULL, &tu)) < 0)
                 return r;
+
+        if (after)
+                if ((r = unit_add_dependency_by_name(tu, UNIT_AFTER, after, NULL, true)) < 0)
+                        return r;
 
         if (automount && m->meta.manager->running_as == MANAGER_SYSTEM) {
                 Unit *am;
