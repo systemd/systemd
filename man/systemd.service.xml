@@ -602,6 +602,33 @@
                                 <varname>Type=notify</varname> (see above).</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>Sockets=</varname></term>
+                                <listitem><para>Specifies the name of
+                                the socket units this service shall
+                                inherit the sockets from when the
+                                service (ignoring the different suffix
+                                of course) is started. Normally it
+                                should not be necessary to use this
+                                setting as all sockets whose unit
+                                shares the same name as the service
+                                are passed to the spawned
+                                process.</para>
+
+                                <para>Note that the same socket may be
+                                passed to multiple processes at the
+                                same time. Also note that a different
+                                service may be activated on incoming
+                                traffic than inherits the sockets. Or
+                                in other words: The
+                                <varname>Service=</varname> setting of
+                                <filename>.socket</filename> units
+                                doesn't have to match the inverse of the
+                                <varname>Sockets=</varname> setiing of
+                                the <filename>.service</filename> it
+                                refers to.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
