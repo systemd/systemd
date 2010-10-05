@@ -86,7 +86,12 @@ CC_CHECK_CFLAGS_APPEND([ \
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
-        -fno-strict-aliasing])
+        -fno-strict-aliasing \
+        -fvisibility=hidden \
+        -ffunction-sections \
+        -fdata-sections \
+        -Wl,--as-needed \
+        -Wl,--gc-sections])
 
 LT_PREREQ(2.2)
 LT_INIT
