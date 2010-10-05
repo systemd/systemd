@@ -1408,13 +1408,14 @@ finish:
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         int r;
+        unsigned i;
         char *device, *path, *options, *options2, *fstype, *d, *p, *o;
 
         assert(m);
 
         rewind(m->proc_self_mountinfo);
 
-        for (;;) {
+        for (i = 1;; i++) {
                 int k;
 
                 device = path = options = options2 = fstype = d = p = o = NULL;
@@ -1441,8 +1442,8 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         if (k == EOF)
                                 break;
 
-                        r = -EBADMSG;
-                        goto finish;
+                        log_warning("Failed to parse /proc/self/mountinfo:%u.", i);
+                        goto clean_up;
                 }
 
                 if (asprintf(&o, "%s,%s", options, options2) < 0) {
@@ -1459,6 +1460,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if ((r = mount_add_one(m, d, p, o, fstype, true, set_flags)) < 0)
                         goto finish;
 
+clean_up:
                 free(device);
                 free(path);
                 free(options);
