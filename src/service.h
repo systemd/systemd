@@ -133,7 +133,8 @@ struct Service {
 
         RateLimit ratelimit;
 
-        struct Socket *socket;
+        struct Socket *accept_socket;
+        Set *configured_sockets;
 
         Watch timer_watch;
 

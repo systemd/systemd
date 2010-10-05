@@ -178,11 +178,11 @@ static void service_close_socket_fd(Service *s) {
 static void service_connection_unref(Service *s) {
         assert(s);
 
-        if (!s->socket)
+        if (!s->accept_socket)
                 return;
 
-        socket_connection_unref(s->socket);
-        s->socket = NULL;
+        socket_connection_unref(s->accept_socket);
+        s->accept_socket = NULL;
 }
 
 static void service_done(Unit *u) {
@@ -221,6 +221,8 @@ static void service_done(Unit *u) {
 
         service_close_socket_fd(s);
         service_connection_unref(s);
+
+        set_free(s->configured_sockets);
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -1177,6 +1179,9 @@ static int service_get_sockets(Service *s, Set **_set) {
         if (s->socket_fd >= 0)
                 return 0;
 
+        if (!set_isempty(s->configured_sockets))
+                return 0;
+
         /* Collects all Socket objects that belong to this
          * service. Note that a service might have multiple sockets
          * via multiple names. */
@@ -1216,23 +1221,30 @@ fail:
 
 static int service_notify_sockets_dead(Service *s) {
         Iterator i;
-        Set *set;
+        Set *set, *free_set = NULL;
         Socket *sock;
         int r;
 
         assert(s);
 
+        /* Notifies all our sockets when we die */
+
         if (s->socket_fd >= 0)
                 return 0;
 
-        /* Notifies all our sockets when we die */
-        if ((r = service_get_sockets(s, &set)) < 0)
-                return r;
+        if (!set_isempty(s->configured_sockets))
+                set = s->configured_sockets;
+        else {
+                if ((r = service_get_sockets(s, &free_set)) < 0)
+                        return r;
+
+                set = free_set;
+        }
 
         SET_FOREACH(sock, set, i)
                 socket_notify_service_dead(sock);
 
-        set_free(set);
+        set_free(free_set);
 
         return 0;
 }
@@ -1390,7 +1402,7 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         int r;
         int *rfds = NULL;
         unsigned rn_fds = 0;
-        Set *set;
+        Set *set, *free_set = NULL;
         Socket *sock;
 
         assert(s);
@@ -1400,8 +1412,14 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         if (s->socket_fd >= 0)
                 return 0;
 
-        if ((r = service_get_sockets(s, &set)) < 0)
-                return r;
+        if (!set_isempty(s->configured_sockets))
+                set = s->configured_sockets;
+        else {
+                if ((r = service_get_sockets(s, &free_set)) < 0)
+                        return r;
+
+                set = free_set;
+        }
 
         SET_FOREACH(sock, set, i) {
                 int *cfds;
@@ -1438,7 +1456,7 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         *fds = rfds;
         *n_fds = rn_fds;
 
-        set_free(set);
+        set_free(free_set);
 
         return 0;
 
@@ -2082,14 +2100,6 @@ static int service_start(Unit *u) {
         if (!ratelimit_test(&s->ratelimit)) {
                 log_warning("%s start request repeated too quickly, refusing to start.", u->meta.id);
                 return -ECANCELED;
-        }
-
-        if ((s->exec_context.std_input == EXEC_INPUT_SOCKET ||
-             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
-             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) &&
-            s->socket_fd < 0) {
-                log_warning("%s can only be started with a per-connection socket.", u->meta.id);
-                return -EINVAL;
         }
 
         s->failure = false;
@@ -3062,7 +3072,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
 
         s->socket_fd = fd;
         s->got_socket_fd = true;
-        s->socket = sock;
+        s->accept_socket = sock;
 
         return 0;
 }

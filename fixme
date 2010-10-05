@@ -1,12 +1,5 @@
 v11:
 
-* have a simple syslog bridge providing /dev/log and forward messages
-  to /dev/kmsg. at the moment the real syslog can be started, the bridge
-  is stopped and the open /dev/log fd to the real syslog. that way we
-  don't lose any early log message, and simple systems have full syslog
-  support in the kernel ringbuffer, without any syslog service or disk
-  access
-
 * emergency.service should start default.target after C-d. synchronize from fedora's initscripts package
 
 * verify ordering of random-seed-load and base.target!
@@ -107,6 +100,12 @@ later:
 * when /proc/self/mountinfo is not parsable, proceed with next line
 
 * beefed up tmpwatch that reads tmpfiles.d
+
+* /lib/systemd/system/systemd-readahead-replay.service
+
+* use /sbin/swapon
+
+* enable syslog.socket by default, activating our kmsg bridge
 
 External:
 

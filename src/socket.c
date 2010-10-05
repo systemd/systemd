@@ -129,8 +129,10 @@ static void socket_done(Unit *u) {
         LIST_FOREACH(units_per_type, i, u->meta.manager->units_per_type[UNIT_SERVICE]) {
                 Service *service = (Service *) i;
 
-                if (service->socket == s)
-                        service->socket = NULL;
+                if (service->accept_socket == s)
+                        service->accept_socket = NULL;
+
+                set_remove(service->configured_sockets, s);
         }
 }
 
@@ -1197,8 +1199,27 @@ static void socket_enter_running(Socket *s, int cfd) {
         }
 
         if (cfd < 0) {
-                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
-                        goto fail;
+                bool pending = false;
+                Meta *i;
+
+                /* If there's already a start pending don't bother to
+                 * do anything */
+                LIST_FOREACH(units_per_type, i, s->meta.manager->units_per_type[UNIT_SERVICE]) {
+                        Service *service = (Service *) i;
+
+                        if (!set_get(service->configured_sockets, s))
+                                continue;
+
+                        if (!unit_pending_active(UNIT(service)))
+                                continue;
+
+                        pending = true;
+                        break;
+                }
+
+                if (!pending)
+                        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
+                                goto fail;
 
                 socket_set_state(s, SOCKET_RUNNING);
         } else {

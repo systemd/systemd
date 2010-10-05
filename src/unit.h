@@ -500,6 +500,7 @@ void unit_reset_failed(Unit *u);
 Unit *unit_following(Unit *u);
 
 bool unit_pending_inactive(Unit *u);
+bool unit_pending_active(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 

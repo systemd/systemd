@@ -1246,8 +1246,8 @@ static int config_parse_socket_service(
 
         dbus_error_init(&error);
 
-        if (endswith(rvalue, ".service")) {
-                log_error("[%s:%u] Unit must be of type serivce, ignoring: %s", filename, line, rvalue);
+        if (!endswith(rvalue, ".service")) {
+                log_error("[%s:%u] Unit must be of type service, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
@@ -1255,6 +1255,60 @@ static int config_parse_socket_service(
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
+        }
+
+        return 0;
+}
+
+static int config_parse_service_sockets(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Service *s = data;
+        int r;
+        DBusError error;
+        char *state, *w;
+        size_t l;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        dbus_error_init(&error);
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                char *t;
+                Unit *sock;
+
+                if (!(t = strndup(w, l)))
+                        return -ENOMEM;
+
+                if (!endswith(t, ".socket")) {
+                        log_error("[%s:%u] Unit must be of type socket, ignoring: %s", filename, line, rvalue);
+                        free(t);
+                        continue;
+                }
+
+                r = manager_load_unit(s->meta.manager, t, NULL, &error, &sock);
+                free(t);
+
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
+                        dbus_error_free(&error);
+                        continue;
+                }
+
+                if ((r = set_ensure_allocated(&s->configured_sockets, trivial_hash_func, trivial_compare_func)) < 0)
+                        return r;
+
+                if ((r = set_put(s->configured_sockets, sock)) < 0)
+                        return r;
         }
 
         return 0;
@@ -1655,11 +1709,12 @@ static int load_from_path(Unit *u, const char *path) {
 #ifdef HAVE_SYSV_COMPAT
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
 #else
-                { "SysVStartPriority",      config_parse_warn_compat,     NULL,                                           "Service" },
+                { "SysVStartPriority",      config_parse_warn_compat,     NULL,                                            "Service" },
 #endif
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
                 { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
                 { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
+                { "Sockets",                config_parse_service_sockets, &u->service,                                     "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
