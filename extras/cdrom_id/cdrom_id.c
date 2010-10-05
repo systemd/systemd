@@ -712,7 +712,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	struct scsi_cmd sc;
 	unsigned char header[12];
 	unsigned char toc[2048];
-	unsigned int len, i;
+	unsigned int len, i, num_tracks;
 	unsigned char *p;
 	int err;
 
@@ -728,11 +728,13 @@ static int cd_media_toc(struct udev *udev, int fd)
 	}
 
 	len = (header[0] << 8 | header[1]) + 2;
-	info(udev, "READ TOC: len: %d\n", len);
+	info(udev, "READ TOC: len: %d, start track: %d, end track: %d\n", len, header[2], header[3]);
 	if (len > sizeof(toc))
 		return -1;
 	if (len < 2)
 		return -1;
+	/* 2: first track, 3: last track */
+	num_tracks = header[3] - header[2] + 1;
 
 	/* empty media has no tracks */
 	if (len < 8)
@@ -750,7 +752,10 @@ static int cd_media_toc(struct udev *udev, int fd)
 		return -1;
 	}
 
-	for (p = toc+4, i = 4; i < len-8; i += 8, p += 8) {
+	/* Take care to not iterate beyond the last valid track as specified in
+	 * the TOC, but also avoid going beyond the TOC length, just in case
+	 * the last track number is invalidly large */
+	for (p = toc+4, i = 4; i < len-8 && num_tracks > 0; i += 8, p += 8, --num_tracks) {
 		unsigned int block;
 		unsigned int is_data_track;
 
