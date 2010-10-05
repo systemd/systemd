@@ -795,7 +795,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
         s->remain_after_exit = true;
-        s->restart = SERVICE_ONCE;
+        s->restart = SERVICE_RESTART_NO;
         s->exec_context.std_output =
                 (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
                 ? EXEC_OUTPUT_TTY : EXEC_OUTPUT_NULL;
@@ -3109,9 +3109,9 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
-        [SERVICE_ONCE] = "once",
-        [SERVICE_RESTART_ON_SUCCESS] = "restart-on-success",
-        [SERVICE_RESTART_ALWAYS] = "restart-always",
+        [SERVICE_RESTART_NO] = "no",
+        [SERVICE_RESTART_ON_SUCCESS] = "on-success",
+        [SERVICE_RESTART_ALWAYS] = "always",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);

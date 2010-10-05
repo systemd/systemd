@@ -31,7 +31,7 @@ Before=getty.target
 [Service]
 Environment=TERM=linux
 ExecStart=-GETTY %I
-Restart=restart-always
+Restart=always
 RestartSec=0
 KillMode=process-group
 

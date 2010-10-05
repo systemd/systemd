@@ -107,6 +107,8 @@ later:
 
 * enable syslog.socket by default, activating our kmsg bridge
 
+* Restart=on-failure and Restart=on-abort
+
 External:
 
 * place /etc/inittab with explaining blurb.

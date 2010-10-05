@@ -48,7 +48,7 @@ typedef enum ServiceState {
 } ServiceState;
 
 typedef enum ServiceRestart {
-        SERVICE_ONCE,
+        SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
         SERVICE_RESTART_ALWAYS,
         _SERVICE_RESTART_MAX,

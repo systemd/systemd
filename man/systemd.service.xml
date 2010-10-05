@@ -428,17 +428,17 @@
                                 <listitem><para>Configures whether the
                                 main service process shall be restarted when
                                 it exists. Takes one of
-                                <option>once</option>,
-                                <option>restart-on-success</option> or
-                                <option>restart-always</option>. If
-                                set to <option>once</option> (the
+                                <option>no</option>,
+                                <option>on-success</option> or
+                                <option>always</option>. If
+                                set to <option>no</option> (the
                                 default) the service will not be
                                 restarted when it exits. If set to
-                                <option>restart-on-success</option> it
+                                <option>on-success</option> it
                                 will be restarted only when it exited
                                 cleanly, i.e. terminated with an exit
                                 code of 0. If set to
-                                <option>restart-always</option> the
+                                <option>always</option> the
                                 service will be restarted regardless
                                 whether it exited cleanly or not, or
                                 got terminated abnormally by a

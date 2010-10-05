@@ -28,7 +28,7 @@ m4_ifdef(`TARGET_FEDORA',
 ExecStartPre=-/sbin/securetty %I
 )m4_dnl
 ExecStart=-/sbin/agetty -s %I 115200,38400,9600
-Restart=restart-always
+Restart=always
 RestartSec=0
 KillMode=process-group
 
