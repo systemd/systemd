@@ -624,7 +624,7 @@
                                 <varname>Service=</varname> setting of
                                 <filename>.socket</filename> units
                                 doesn't have to match the inverse of the
-                                <varname>Sockets=</varname> setiing of
+                                <varname>Sockets=</varname> setting of
                                 the <filename>.service</filename> it
                                 refers to.</para></listitem>
                         </varlistentry>
