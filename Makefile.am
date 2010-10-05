@@ -310,7 +310,9 @@ dist_doc_DATA = \
 	LICENSE \
 	DISTRO_PORTING \
 	src/sd-daemon.h \
-	src/sd-daemon.c
+	src/sd-daemon.c \
+	src/sd-readahead.h \
+	src/sd-readahead.c
 
 pkgconfigdata_DATA = \
 	systemd.pc
@@ -419,6 +421,7 @@ EXTRA_DIST += \
 	src/linux/fanotify.h \
 	src/initreq.h \
 	src/sd-daemon.h \
+	src/sd-readahead.h \
 	src/special.h \
 	src/dbus-common.h \
 	src/bus-errors.h \
@@ -708,7 +711,8 @@ systemctl_LDADD = \
 
 systemd_notify_SOURCES = \
 	src/notify.c \
-	src/sd-daemon.c
+	src/sd-daemon.c \
+	src/sd-readahead.c
 
 systemd_notify_LDADD = \
 	libsystemd-basic.la

@@ -67,16 +67,20 @@ extern "C" {
   See sd-daemon(7) for more information.
 */
 
+#ifndef _sd_printf_attr_
 #if __GNUC__ >= 4
 #define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
 #else
 #define _sd_printf_attr_(a,b)
 #endif
+#endif
 
+#ifndef _sd_hidden_
 #if (__GNUC__ >= 4) && !defined(SD_EXPORT_SYMBOLS)
 #define _sd_hidden_ __attribute__ ((visibility("hidden")))
 #else
 #define _sd_hidden_
+#endif
 #endif
 
 /*
@@ -253,16 +257,6 @@ int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_attr_(
   See sd_booted(3) for more information.
 */
 int sd_booted(void) _sd_hidden_;
-
-/*
-  Controls ongoing disk read-ahead operations during boot-up. The argument
-  must be a string, and either "cancel", "done" or "noreplay".
-
-  cancel = terminate read-ahead data collection, drop collected information
-  done = terminate read-ahead data collection, keep collected information
-  noreplay = terminate read-ahead replay
-*/
-int sd_readahead(const char *action);
 
 #ifdef __cplusplus
 }
