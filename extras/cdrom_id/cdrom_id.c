@@ -350,6 +350,34 @@ static int feature_profiles(struct udev *udev, const unsigned char *profiles, si
 	return 0;
 }
 
+static int cd_profiles_broken_mmc(struct udev *udev, int fd)
+{
+	struct scsi_cmd sc;
+	unsigned char buffer[16 * 2048];
+	int err;
+
+	/* we land here if both the standard and the old MMC commands failed;
+	 * this might happen on broken wanna-be-CD USB drives like the IronKey.
+	 * As a last resort, try to read data to see whether it has a medium.
+	 */
+	scsi_cmd_init(udev, &sc, buffer, sizeof(buffer));
+	scsi_cmd_set(udev, &sc, 0, 0x28);
+	scsi_cmd_set(udev, &sc, 5, 0);
+	scsi_cmd_set(udev, &sc, 8, 16);
+	scsi_cmd_set(udev, &sc, 9, 0);
+	err = scsi_cmd_run(udev, &sc, fd, buffer, sizeof(buffer));
+	if ((err != 0)) {
+	    info(udev, "READ DATA failed, assuming no medium\n");
+	    return -1;
+	}
+
+	/* that's all we can claim if we can read data */
+	info(udev, "READ DATA succeeded, assuming CD-ROM medium\n");
+	cd_media = 1;
+	cd_media_cd_rom = 1;
+	return 0;
+}
+
 static int cd_profiles_old_mmc(struct udev *udev, int fd)
 {
 	struct scsi_cmd sc;
@@ -364,8 +392,8 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
 	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
 	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "READ DISC INFORMATION", err);
-		info(udev, "no current profile, assuming no media\n");
-		return -1;
+		info(udev, "no current profile, probing readability of medium\n");
+		return cd_profiles_broken_mmc(udev, fd);
 	};
 
 	cd_media = 1;
