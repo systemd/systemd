@@ -33,3 +33,4 @@ REQUIREMENTS:
         vala >= 0.80
         gtk+ >= 2.20
         dbus >= 1.2.24
+        libcap
