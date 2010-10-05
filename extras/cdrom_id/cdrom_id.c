@@ -364,8 +364,14 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
 	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
 	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "READ DISC INFORMATION", err);
-		info(udev, "no current profile, assuming no media\n");
-		return -1;
+		if (cd_media == 1) {
+			info(udev, "no current profile, but disc is present; assuming CD-ROM\n");
+			cd_media_cd_rom = 1;
+			return 0;
+		} else {
+			info(udev, "no current profile, assuming no media\n");
+			return -1;
+		}
 	};
 
 	cd_media = 1;
