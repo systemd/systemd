@@ -456,6 +456,7 @@ MANPAGES = \
 	man/systemd.exec.5 \
 	man/daemon.7 \
 	man/sd-daemon.7 \
+	man/sd-readahead.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
 	man/halt.8 \
