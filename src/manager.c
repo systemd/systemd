@@ -2299,6 +2299,75 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
 }
 
+void manager_send_unit_plymouth(Manager *m, Unit *u) {
+        int fd = -1;
+        union sockaddr_union sa;
+        int n = 0;
+        char *message = NULL;
+        ssize_t r;
+
+        /* Don't generate plymouth events if the service was already
+         * started and we're just deserializing */
+        if (m->n_deserializing > 0)
+                return;
+
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
+        if (u->meta.type != UNIT_SERVICE &&
+            u->meta.type != UNIT_MOUNT &&
+            u->meta.type != UNIT_SWAP)
+                return;
+
+        /* We set SOCK_NONBLOCK here so that we rather drop the
+         * message then wait for plymouth */
+        if ((fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
+                log_error("socket() failed: %m");
+                return;
+        }
+
+        zero(sa);
+        sa.sa.sa_family = AF_UNIX;
+        strncpy(sa.un.sun_path+1, "/ply-boot-protocol", sizeof(sa.un.sun_path)-1);
+        if (connect(fd, &sa.sa, sizeof(sa.un)) < 0) {
+
+                if (errno != EPIPE &&
+                    errno != EAGAIN &&
+                    errno != ENOENT &&
+                    errno != ECONNREFUSED &&
+                    errno != ECONNRESET &&
+                    errno != ECONNABORTED)
+                        log_error("connect() failed: %m");
+
+                goto finish;
+        }
+
+        if (asprintf(&message, "U\002%c%s%n", (int) (strlen(u->meta.id) + 1), u->meta.id, &n) < 0) {
+                log_error("Out of memory");
+                goto finish;
+        }
+
+        errno = 0;
+        if ((r = write(fd, message, n + 1)) != n + 1) {
+
+                if (errno != EPIPE &&
+                    errno != EAGAIN &&
+                    errno != ENOENT &&
+                    errno != ECONNREFUSED &&
+                    errno != ECONNRESET &&
+                    errno != ECONNABORTED)
+                        log_error("Failed to write Plymouth message: %m");
+
+                goto finish;
+        }
+
+finish:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        free(message);
+}
+
 void manager_dispatch_bus_name_owner_changed(
                 Manager *m,
                 const char *name,

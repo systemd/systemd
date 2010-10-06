@@ -82,8 +82,6 @@ later:
 
 * ask-password tty agent, ask-password plymouth agent
 
-* plymouth update status hookup
-
 * ask-password tty timeout
 
 * properly handle multiple inotify events per read() in path.c and util.c

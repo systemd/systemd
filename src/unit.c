@@ -1165,9 +1165,12 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 if (u->meta.type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
                         /* Write audit record if we have just finished starting up */
-                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, 1);
+                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, true);
                         u->meta.in_audit = true;
                 }
+
+                if (!UNIT_IS_ACTIVE_OR_RELOADING(os))
+                        manager_send_unit_plymouth(u->meta.manager, u);
 
         } else {
 
