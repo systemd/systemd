@@ -53,6 +53,7 @@
 #include "exit-status.h"
 #include "bus-errors.h"
 #include "build.h"
+#include "unit-name.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -3237,28 +3238,16 @@ static void install_info_hashmap_free(Hashmap *m) {
         hashmap_free(m);
 }
 
-static bool unit_name_valid(const char *name) {
-
-        /* This is a minimal version of unit_name_valid() from
-         * unit-name.c */
-
-        if (!*name)
-                return false;
-
-        if (ignore_file(name))
-                return false;
-
-        return true;
-}
-
 static int install_info_add(const char *name) {
         InstallInfo *i;
         int r;
 
         assert(will_install);
 
-        if (!unit_name_valid(name))
+        if (!unit_name_is_valid_no_type(name)) {
+                log_warning("Unit name %s is not a valid unit name.", name);
                 return -EINVAL;
+        }
 
         if (hashmap_get(have_installed, name) ||
             hashmap_get(will_install, name))
@@ -3310,11 +3299,13 @@ static int config_parse_also(
                 if (!(n = strndup(w, l)))
                         return -ENOMEM;
 
-                r = install_info_add(n);
-                free(n);
-
-                if (r < 0)
+                if ((r = install_info_add(n)) < 0) {
+                        log_warning("Cannot install unit %s: %s", n, strerror(-r));
+                        free(n);
                         return r;
+                }
+
+                free(n);
         }
 
         return 0;
@@ -3639,7 +3630,7 @@ static int install_info_symlink_alias(const char *verb, InstallInfo *i, const ch
 
         STRV_FOREACH(s, i->aliases) {
 
-                if (!unit_name_valid(*s)) {
+                if (!unit_name_is_valid_no_type(*s)) {
                         log_error("Invalid name %s.", *s);
                         r = -EINVAL;
                         goto finish;
@@ -3658,7 +3649,6 @@ static int install_info_symlink_alias(const char *verb, InstallInfo *i, const ch
                 if (streq(verb, "disable"))
                         rmdir_parents(alias_path, config_path);
         }
-
         r = 0;
 
 finish:
@@ -3677,7 +3667,7 @@ static int install_info_symlink_wants(const char *verb, InstallInfo *i, const ch
         assert(config_path);
 
         STRV_FOREACH(s, i->wanted_by) {
-                if (!unit_name_valid(*s)) {
+                if (!unit_name_is_valid_no_type(*s)) {
                         log_error("Invalid name %s.", *s);
                         r = -EINVAL;
                         goto finish;
@@ -3840,8 +3830,10 @@ static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
                 }
 
         for (j = 1; j < n; j++)
-                if ((r = install_info_add(args[j])) < 0)
+                if ((r = install_info_add(args[j])) < 0) {
+                        log_warning("Cannot install unit %s: %s", args[j], strerror(-r));
                         goto finish;
+                }
 
         while ((i = hashmap_first(will_install))) {
                 int q;

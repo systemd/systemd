@@ -22,15 +22,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "unit.h"
+#include <stdbool.h>
 
-UnitType unit_name_to_type(const char *n);
+#define UNIT_NAME_MAX 256
 
 int unit_name_to_instance(const char *n, char **instance);
 char* unit_name_to_prefix(const char *n);
 char* unit_name_to_prefix_and_instance(const char *n);
 
-bool unit_name_is_valid(const char *n);
+bool unit_name_is_valid_no_type(const char *n);
 bool unit_prefix_is_valid(const char *p);
 bool unit_instance_is_valid(const char *i);
 

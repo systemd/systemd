@@ -4,9 +4,6 @@ v11:
 
 * verify ordering of random-seed-load and base.target!
 
-* systemctl enable /lib/systemd/system/?*.service
-  creates wrong subdirs in /etc/ssytemd/system/ which prevent further bootup
-
 later:
 
 * do not throw error when .service file is linked to /dev/null
@@ -97,8 +94,6 @@ later:
 
 * document locale.conf, vconsole.conf and possibly the tempfiles.d and modules-load.d mechanism.
 
-* when /proc/self/mountinfo is not parsable, proceed with next line
-
 * beefed up tmpwatch that reads tmpfiles.d
 
 * /lib/systemd/system/systemd-readahead-replay.service
@@ -108,6 +103,10 @@ later:
 * enable syslog.socket by default, activating our kmsg bridge
 
 * Restart=on-failure and Restart=on-abort
+
+* kill sessions on shutdown
+
+* when processes remain in a service even though the start command failed enter active
 
 External:
 

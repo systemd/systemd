@@ -2207,6 +2207,28 @@ bool unit_pending_active(Unit *u) {
         return false;
 }
 
+UnitType unit_name_to_type(const char *n) {
+        UnitType t;
+
+        assert(n);
+
+        for (t = 0; t < _UNIT_TYPE_MAX; t++)
+                if (endswith(n, unit_vtable[t]->suffix))
+                        return t;
+
+        return _UNIT_TYPE_INVALID;
+}
+
+bool unit_name_is_valid(const char *n) {
+        UnitType t;
+
+        t = unit_name_to_type(n);
+        if (t < 0 || t >= _UNIT_TYPE_MAX)
+                return false;
+
+        return unit_name_is_valid_no_type(n);
+}
+
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",

@@ -700,7 +700,8 @@ systemctl_SOURCES = \
 	src/sd-daemon.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
-	src/exit-status.c
+	src/exit-status.c \
+	src/unit-name.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \

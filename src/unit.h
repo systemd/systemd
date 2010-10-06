@@ -39,7 +39,6 @@ typedef enum UnitDependency UnitDependency;
 #include "socket-util.h"
 #include "execute.h"
 
-#define UNIT_NAME_MAX 256
 #define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
@@ -503,6 +502,9 @@ bool unit_pending_inactive(Unit *u);
 bool unit_pending_active(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
+
+UnitType unit_name_to_type(const char *n);
+bool unit_name_is_valid(const char *n);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

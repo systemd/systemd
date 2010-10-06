@@ -21,8 +21,9 @@
 
 #include <errno.h>
 #include <string.h>
+#include <assert.h>
 
-#include "unit.h"
+#include "util.h"
 #include "unit-name.h"
 
 #define VALID_CHARS                             \
@@ -31,20 +32,7 @@
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
         ":-_.\\"
 
-UnitType unit_name_to_type(const char *n) {
-        UnitType t;
-
-        assert(n);
-
-        for (t = 0; t < _UNIT_TYPE_MAX; t++)
-                if (endswith(n, unit_vtable[t]->suffix))
-                        return t;
-
-        return _UNIT_TYPE_INVALID;
-}
-
-bool unit_name_is_valid(const char *n) {
-        UnitType t;
+bool unit_name_is_valid_no_type(const char *n) {
         const char *e, *i, *at;
 
         /* Valid formats:
@@ -58,13 +46,8 @@ bool unit_name_is_valid(const char *n) {
         if (strlen(n) >= UNIT_NAME_MAX)
                 return false;
 
-        t = unit_name_to_type(n);
-        if (t < 0 || t >= _UNIT_TYPE_MAX)
-                return false;
-
-        assert_se(e = strrchr(n, '.'));
-
-        if (e == n)
+        e = strrchr(n, '.');
+        if (!e || e == n)
                 return false;
 
         for (i = n, at = NULL; i < e; i++) {
@@ -167,7 +150,7 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         size_t a, b;
 
         assert(n);
-        assert(unit_name_is_valid(n));
+        assert(unit_name_is_valid_no_type(n));
         assert(suffix);
 
         assert_se(e = strrchr(n, '.'));
@@ -190,7 +173,6 @@ char *unit_name_build(const char *prefix, const char *instance, const char *suff
         assert(unit_prefix_is_valid(prefix));
         assert(!instance || unit_instance_is_valid(instance));
         assert(suffix);
-        assert(unit_name_to_type(suffix) >= 0);
 
         if (!instance)
                 return strappend(prefix, suffix);
@@ -226,7 +208,6 @@ char *unit_name_build_escape(const char *prefix, const char *instance, const cha
 
         assert(prefix);
         assert(suffix);
-        assert(unit_name_to_type(suffix) >= 0);
 
         /* Takes a arbitrary string for prefix and instance plus a
          * suffix and makes a nice string suitable as unit name of it,
