@@ -15,11 +15,10 @@ DefaultDependencies=no
 Environment=HOME=/root
 WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth --hide-splash
-ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" to activate default mode.'
+ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" or ^D to activate default mode.'
 ExecStart=-/sbin/sulogin
+ExecStopPost=/bin/systemctl default
 StandardInput=tty-force
-Restart=always
-RestartSec=0
 KillMode=process-group
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash

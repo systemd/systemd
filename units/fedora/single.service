@@ -16,13 +16,13 @@ Before=multi-user.target
 
 [Service]
 Environment=HOME=/root
+EnvironmentFile=/etc/sysconfig/init
 WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth --hide-splash
-ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" to activate default mode.'
-ExecStart=-/sbin/sulogin
+ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" or ^D to activate default mode.'
+ExecStart=-/bin/bash -c "exec $SINGLE"
+ExecStopPost=/bin/systemctl default
 StandardInput=tty-force
-Restart=always
-RestartSec=0
 KillMode=process-group
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
