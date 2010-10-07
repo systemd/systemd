@@ -1,9 +1,3 @@
-v11:
-
-* verify ordering of random-seed-load and base.target!
-
-later:
-
 * do not throw error when .service file is linked to /dev/null
 
 * oneshot services which do not remain: 'exited' instead of 'dead'?
@@ -91,8 +85,6 @@ later:
 * document locale.conf, vconsole.conf and possibly the tempfiles.d and modules-load.d mechanism.
 
 * beefed up tmpwatch that reads tmpfiles.d
-
-* /lib/systemd/system/systemd-readahead-replay.service
 
 * use /sbin/swapon
 
