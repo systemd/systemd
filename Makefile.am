@@ -107,7 +107,8 @@ rootlibexec_PROGRAMS = \
 	systemd-reply-password \
 	systemd-readahead-collect \
 	systemd-readahead-replay \
-	systemd-tmpfiles
+	systemd-tmpfiles \
+	systemd-user-sessions
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -669,6 +670,16 @@ systemd_tmpfiles_SOURCES = \
 	src/tmpfiles.c
 
 systemd_tmpfiles_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_user_sessions_LDADD = \
+	libsystemd-basic.la
+
+systemd_user_sessions_SOURCES = \
+	src/user-sessions.c \
+	src/cgroup-util.c
+
+systemd_user_sessions_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_modules_load_LDADD = \

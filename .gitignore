@@ -1,3 +1,4 @@
+systemd-user-sessions
 systemd-shutdown
 systemd-tmpfiles
 systemd-readahead-collect
