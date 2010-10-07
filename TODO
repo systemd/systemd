@@ -92,8 +92,6 @@
 
 * Restart=on-failure and Restart=on-abort
 
-* kill sessions on shutdown
-
 * when processes remain in a service even though the start command failed enter active
 
 * fix plymouth socket, when plymouth started to use a clean one
