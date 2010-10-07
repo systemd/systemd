@@ -82,6 +82,7 @@ usec_t timeval_load(const struct timeval *tv);
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
+#define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
 
 bool streq_ptr(const char *a, const char *b);
 
