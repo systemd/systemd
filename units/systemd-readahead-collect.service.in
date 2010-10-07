@@ -10,7 +10,7 @@ Description=Collect Read-Ahead Data
 DefaultDependencies=no
 Wants=systemd-readahead-done.timer
 Conflicts=shutdown.target
-Before=shutdown.target
+Before=basic.target shutdown.target
 
 [Service]
 Type=notify

@@ -9,7 +9,7 @@
 Description=Replay Read-Ahead Data
 DefaultDependencies=no
 Conflicts=shutdown.target
-Before=shutdown.target
+Before=basic.target shutdown.target
 
 [Service]
 Type=notify

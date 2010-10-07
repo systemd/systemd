@@ -10,7 +10,7 @@ Description=Remount API VFS
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service
-Before=shutdown.target local-fs.target
+Before=local-fs.target shutdown.target
 
 [Service]
 Type=oneshot

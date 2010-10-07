@@ -8,6 +8,7 @@
 [Unit]
 Description=Huge Pages File System Automount Point
 DefaultDependencies=no
+Before=basic.target
 
 [Automount]
 Where=/dev/hugepages

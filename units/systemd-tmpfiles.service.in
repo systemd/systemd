@@ -10,7 +10,7 @@ Description=Recreate Volatile Files and Directories
 DefaultDependencies=no
 Wants=local-fs.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
-Before=shutdown.target
+Before=basic.target shutdown.target
 
 [Service]
 Type=oneshot

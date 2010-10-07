@@ -10,7 +10,7 @@ Description=Cleanup of Temporary Directories
 DefaultDependencies=no
 Wants=local-fs.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
-Before=poweroff.service reboot.service halt.service killall.service
+Before=basic.target poweroff.service reboot.service halt.service killall.service
 
 [Service]
 Type=oneshot

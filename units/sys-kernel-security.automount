@@ -8,6 +8,7 @@
 [Unit]
 Description=Security File System Automount Point
 DefaultDependencies=no
+Before=basic.target
 
 [Automount]
 Where=/sys/kernel/security

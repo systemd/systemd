@@ -10,7 +10,7 @@ Description=Remount Root FS
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service fsck.target
-Before=shutdown.target local-fs.target
+Before=local-fs.target shutdown.target
 
 [Service]
 Type=oneshot

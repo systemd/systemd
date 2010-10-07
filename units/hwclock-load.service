@@ -9,7 +9,7 @@
 Description=Apply System Clock UTC Offset
 DefaultDependencies=no
 Conflicts=shutdown.target
-Before=shutdown.target udev.service
+Before=basic.target shutdown.target udev.service
 
 [Service]
 Type=oneshot

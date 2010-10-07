@@ -8,6 +8,7 @@
 [Unit]
 Description=POSIX Message Queue File System Automount Point
 DefaultDependencies=no
+Before=basic.target
 
 [Automount]
 Where=/dev/mqueue

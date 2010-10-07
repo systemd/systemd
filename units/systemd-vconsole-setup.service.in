@@ -10,7 +10,7 @@ Description=Setup Virtual Console
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service
-Before=shutdown.target
+Before=basic.target shutdown.target
 
 [Service]
 Type=oneshot
