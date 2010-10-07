@@ -2,6 +2,7 @@
 Description=udev Wait for Complete Device Initialization
 DefaultDependencies=no
 After=udev.service
+Before=basic.target
 
 [Service]
 Type=oneshot

@@ -2,6 +2,7 @@
 Description=udev Retry Failed Events
 DefaultDependencies=no
 After=local-fs.target udev.service
+Before=basic.target
 
 [Service]
 Type=oneshot

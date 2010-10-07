@@ -1,7 +1,7 @@
 [Unit]
 Description=udev Kernel Device Manager
 DefaultDependencies=no
-Before=sysinit.target
+Before=basic.target
 
 [Service]
 Type=notify
