@@ -228,6 +228,7 @@ nodist_systemunit_DATA = \
 	units/systemd-readahead-replay.service \
 	units/systemd-readahead-done.service \
 	units/systemd-tmpfiles.service \
+	units/systemd-user-sessions.service \
 	units/syslog.target
 
 dist_sessionunit_DATA = \
@@ -259,6 +260,7 @@ EXTRA_DIST = \
 	units/systemd-readahead-replay.service.in \
 	units/systemd-readahead-done.service.in \
 	units/systemd-tmpfiles.service.in \
+	units/systemd-user-sessions.service.in \
 	units/syslog.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
@@ -1072,8 +1074,9 @@ install-data-hook:
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f getty.target && \
-		$(LN_S) ../getty.target getty.target )
+		rm -f getty.target systemd-user-sessions.service && \
+		$(LN_S) ../getty.target getty.target && \
+		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
