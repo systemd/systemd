@@ -35,6 +35,7 @@ tmpfilesdir=$(sysconfdir)/tmpfiles.d
 # And these are the special ones for /
 rootdir=@rootdir@
 rootbindir=$(rootdir)/bin
+rootsbindir=$(rootdir)/sbin
 rootlibexecdir=$(rootdir)/lib/systemd
 systemunitdir=$(rootdir)/lib/systemd/system
 
@@ -50,9 +51,11 @@ AM_CPPFLAGS = \
 	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
 	-DCGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
+	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-DRUNTIME_DIR=\"$(localstatedir)/run\" \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
+	-DKEXEC_BINARY_PATH=\"$(rootsbindir)/kexec\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
@@ -96,6 +99,7 @@ rootlibexec_PROGRAMS = \
 	systemd-update-utmp \
 	systemd-random-seed \
 	systemd-shutdownd \
+	systemd-shutdown \
 	systemd-modules-load \
 	systemd-remount-api-vfs \
 	systemd-kmsg-syslogd \
@@ -638,6 +642,19 @@ systemd_shutdownd_CFLAGS = \
 
 systemd_shutdownd_LDADD = \
 	libsystemd-basic.la
+
+systemd_shutdown_SOURCES = \
+	src/mount-setup.c \
+	src/umount.c \
+	src/shutdown.c
+
+systemd_shutdown_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_shutdown_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS)
 
 systemd_modules_load_SOURCES = \
 	src/modules-load.c
