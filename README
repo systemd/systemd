@@ -28,7 +28,7 @@ AUTHOR:
 
 REQUIREMENTS:
         Linux kernel >= 2.6.30 (with autofs4, devtmpfs, cgroups)
-        libudev >= 151
+        libudev >= 160
         libcgroup >= 0.35
         vala >= 0.80
         gtk+ >= 2.20
