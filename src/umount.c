@@ -300,9 +300,6 @@ static int mount_points_list_remount_read_only(MountPoint **mount_point_list_hea
         int failed = 0;
 
         LIST_FOREACH_SAFE(mount_point, mp, mp_next, *mount_point_list_head) {
-                if (mp->read_only)
-                        continue;
-
                 /* Trying to remount read-only */
                 if (mount(NULL, mp->path, NULL, MS_MGC_VAL|MS_REMOUNT|MS_RDONLY, NULL) == 0)
                         mount_point_remove_and_free(mp, mount_point_list_head);
