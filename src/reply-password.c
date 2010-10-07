@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <sys/signalfd.h>
 #include <getopt.h>
+#include <stddef.h>
 
 #include "log.h"
 #include "macro.h"
@@ -50,7 +51,7 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
         sa.un.sun_family = AF_UNIX;
         strncpy(sa.un.sun_path+1, socket_name, sizeof(sa.un.sun_path)-1);
 
-        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, sizeof(sa_family_t) + 1 + strlen(socket_name)) < 0) {
+        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(socket_name)) < 0) {
                 log_error("Failed to send: %m");
                 return -1;
         }

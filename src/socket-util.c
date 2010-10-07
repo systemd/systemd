@@ -29,13 +29,14 @@
 #include <net/if.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stddef.h>
+#include <sys/ioctl.h>
 
 #include "macro.h"
 #include "util.h"
 #include "socket-util.h"
 #include "missing.h"
 #include "label.h"
-#include <sys/ioctl.h>
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         int r;
@@ -96,7 +97,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
                 a->sockaddr.un.sun_family = AF_UNIX;
                 memcpy(a->sockaddr.un.sun_path, s, l);
-                a->size = sizeof(sa_family_t) + l + 1;
+                a->size = offsetof(struct sockaddr_un, sun_path) + l + 1;
 
         } else if (*s == '@') {
                 /* Abstract AF_UNIX socket */
@@ -108,7 +109,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
                 a->sockaddr.un.sun_family = AF_UNIX;
                 memcpy(a->sockaddr.un.sun_path+1, s+1, l);
-                a->size = sizeof(sa_family_t) + 1 + l;
+                a->size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
 
         } else {
 
@@ -211,10 +212,10 @@ int socket_address_verify(const SocketAddress *a) {
                         return 0;
 
                 case AF_UNIX:
-                        if (a->size < sizeof(sa_family_t))
+                        if (a->size < offsetof(struct sockaddr_un, sun_path))
                                 return -EINVAL;
 
-                        if (a->size > sizeof(sa_family_t)) {
+                        if (a->size > offsetof(struct sockaddr_un, sun_path)) {
 
                                 if (a->sockaddr.un.sun_path[0] != 0) {
                                         char *e;
@@ -223,7 +224,7 @@ int socket_address_verify(const SocketAddress *a) {
                                         if (!(e = memchr(a->sockaddr.un.sun_path, 0, sizeof(a->sockaddr.un.sun_path))))
                                                 return -EINVAL;
 
-                                        if (a->size != sizeof(sa_family_t) + (e - a->sockaddr.un.sun_path) + 1)
+                                        if (a->size != offsetof(struct sockaddr_un, sun_path) + (e - a->sockaddr.un.sun_path) + 1)
                                                 return -EINVAL;
                                 }
                         }
@@ -280,7 +281,7 @@ int socket_address_print(const SocketAddress *a, char **p) {
                 case AF_UNIX: {
                         char *ret;
 
-                        if (a->size <= sizeof(sa_family_t)) {
+                        if (a->size <= offsetof(struct sockaddr_un, sun_path)) {
 
                                 if (!(ret = strdup("<unamed>")))
                                         return -ENOMEM;

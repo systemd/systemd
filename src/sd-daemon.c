@@ -40,6 +40,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stddef.h>
 
 #include "sd-daemon.h"
 
@@ -227,7 +228,7 @@ int sd_is_socket(int fd, int family, int type, int listening) {
                 if (getsockname(fd, &sockaddr.sa, &l) < 0)
                         return -errno;
 
-                if (l < sizeof(sa_family_t))
+                if (l < offsetof(struct sockaddr_un, sun_path))
                         return -EINVAL;
 
                 return sockaddr.sa.sa_family == family;
@@ -253,7 +254,7 @@ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
 
-        if (l < sizeof(sa_family_t))
+        if (l < offsetof(struct sockaddr_un, sun_path))
                 return -EINVAL;
 
         if (sockaddr.sa.sa_family != AF_INET &&
@@ -295,7 +296,7 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
 
-        if (l < sizeof(sa_family_t))
+        if (l < offsetof(struct sockaddr_un, sun_path))
                 return -EINVAL;
 
         if (sockaddr.sa.sa_family != AF_UNIX)
@@ -307,17 +308,17 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
 
                 if (length <= 0)
                         /* Unnamed socket */
-                        return l == sizeof(sa_family_t);
+                        return l == offsetof(struct sockaddr_un, sun_path);
 
                 if (path[0])
                         /* Normal path socket */
                         return
-                                (l >= sizeof(sa_family_t) + length + 1) &&
+                                (l >= offsetof(struct sockaddr_un, sun_path) + length + 1) &&
                                 memcmp(path, sockaddr.un.sun_path, length+1) == 0;
                 else
                         /* Abstract namespace socket */
                         return
-                                (l == sizeof(sa_family_t) + length) &&
+                                (l == offsetof(struct sockaddr_un, sun_path) + length) &&
                                 memcmp(path, sockaddr.un.sun_path, length) == 0;
         }
 
@@ -366,7 +367,7 @@ int sd_notify(int unset_environment, const char *state) {
 
         memset(&msghdr, 0, sizeof(msghdr));
         msghdr.msg_name = &sockaddr;
-        msghdr.msg_namelen = sizeof(sa_family_t) + strlen(e);
+        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(e);
 
         if (msghdr.msg_namelen > sizeof(struct sockaddr_un))
                 msghdr.msg_namelen = sizeof(struct sockaddr_un);

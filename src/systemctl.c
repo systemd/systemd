@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <stddef.h>
 
 #include <dbus/dbus.h>
 
@@ -4875,7 +4876,7 @@ static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
 
         zero(msghdr);
         msghdr.msg_name = &sockaddr;
-        msghdr.msg_namelen = sizeof(sa_family_t) + 1 + sizeof("/org/freedesktop/systemd1/shutdownd") - 1;
+        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + 1 + sizeof("/org/freedesktop/systemd1/shutdownd") - 1;
 
         msghdr.msg_iov = &iovec;
         msghdr.msg_iovlen = 1;

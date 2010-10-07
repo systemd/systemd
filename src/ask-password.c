@@ -33,6 +33,7 @@
 #include <getopt.h>
 #include <termios.h>
 #include <limits.h>
+#include <stddef.h>
 
 #include "log.h"
 #include "macro.h"
@@ -63,7 +64,7 @@ static int create_socket(char **name) {
         sa.un.sun_family = AF_UNIX;
         snprintf(sa.un.sun_path+1, sizeof(sa.un.sun_path)-1, "/org/freedesktop/systemd1/ask-password/%llu", random_ull());
 
-        if (bind(fd, &sa.sa, sizeof(sa_family_t) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+        if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
                 r = -errno;
                 log_error("bind() failed: %m");
                 goto fail;
