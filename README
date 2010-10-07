@@ -34,3 +34,4 @@ REQUIREMENTS:
         gtk+ >= 2.20
         dbus >= 1.2.24
         libcap
+        PAM >= 1.1.2 (optional)
