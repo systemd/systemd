@@ -1,3 +1,37 @@
+Summary of changes from v162 to v163
+============================================
+
+David Zeuthen (2):
+      gudev: Deliver ::uevent signal in the thread-default main loop
+      Bump required GLib version to 2.22
+
+Hannes Reinecke (1):
+      scsi_id: export target port group
+
+Kay Sievers (5):
+      version bump
+      scsi_id: fix compiler warnings
+      systemd: hook into basic.target instead of sysinit.target
+      systemd: sort before basic.target
+      udevd: add sd-daemon.c
+
+Lee, Chun-Yi (1):
+      keymap: Add alternate MSI vendor name
+
+Martin Pitt (8):
+      keymap: Add Lenovo Y550
+      Clarify WAIT_FOR documentation
+      fix various syntax errors in rules
+      Add automatic rules syntax check
+      cdrom_id: Try reading the medium if all MMC commands fail
+      Revert "cdrom_id: Try reading the medium if all MMC commands fail"
+      cdrom_id: Fall back to CDROM_DRIVE_STATUS if all MMC commands fail
+      cdrom_id: Don't read beyond "last track" in TOC
+
+Torsten Schoenfeld (1):
+      gudev: add a few annotations that newer gobject-introspection versions demand
+
+
 Summary of changes from v161 to v162
 ============================================
 
