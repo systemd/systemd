@@ -398,12 +398,12 @@ static int cd_profiles(struct udev *udev, int fd)
 	unsigned int i;
 	int err;
 
+	/* First query the current profile */
 	scsi_cmd_init(udev, &sc, features, sizeof(features));
 	scsi_cmd_set(udev, &sc, 0, 0x46);
-	scsi_cmd_set(udev, &sc, 7, (sizeof(features) >> 8) & 0xff);
-	scsi_cmd_set(udev, &sc, 8, sizeof(features) & 0xff);
+	scsi_cmd_set(udev, &sc, 8, 8);
 	scsi_cmd_set(udev, &sc, 9, 0);
-	err = scsi_cmd_run(udev, &sc, fd, features, sizeof(features));
+	err = scsi_cmd_run(udev, &sc, fd, features, 8);
 	if ((err != 0)) {
 		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
 		/* handle pre-MMC2 drives which do not support GET CONFIGURATION */
@@ -413,31 +413,6 @@ static int cd_profiles(struct udev *udev, int fd)
 			return cd_profiles_old_mmc(udev, fd);
 		}
 		return -1;
-	}
-
-	len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
-	info(udev, "GET CONFIGURATION: size of features buffer 0x%04x\n", len);
-
-	if (len > sizeof(features)) {
-		info(udev, "can not get features in a single query, truncating\n");
-		len = sizeof(features);
-	}
-
-	/* device features */
-	for (i = 8; i+4 < len; i += (4 + features[i+3])) {
-		unsigned int feature;
-
-		feature = features[i] << 8 | features[i+1];
-
-		switch (feature) {
-		case 0x00:
-			info(udev, "GET CONFIGURATION: feature 'profiles', with %i entries\n", features[i+3] / 4);
-			feature_profiles(udev, &features[i]+4, features[i+3]);
-			break;
-		default:
-			info(udev, "GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes\n", feature, features[i+3]);
-			break;
-		}
 	}
 
 	cur_profile = features[6] << 8 | features[7];
@@ -553,6 +528,56 @@ static int cd_profiles(struct udev *udev, int fd)
 		info(udev, "profile 0x%02x <ignored>\n", cur_profile);
 		break;
 	}
+
+
+	len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
+	info(udev, "GET CONFIGURATION: size of features buffer 0x%04x\n", len);
+
+	if (len > sizeof(features)) {
+		info(udev, "can not get features in a single query, truncating\n");
+		len = sizeof(features);
+	} else if (len <= 8) {
+		len = sizeof(features);
+	}
+
+	/* Now get the full feature buffer */
+	scsi_cmd_init(udev, &sc, features,  len);
+	scsi_cmd_set(udev, &sc, 0, 0x46);
+	scsi_cmd_set(udev, &sc, 7, ( len >> 8 ) & 0xff);
+	scsi_cmd_set(udev, &sc, 8, len & 0xff);
+	scsi_cmd_set(udev, &sc, 9, 0);
+	err = scsi_cmd_run(udev, &sc, fd, features, len);
+	if ((err != 0)) {
+		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
+		return -1;
+	}
+
+	/* parse the length once more, in case the drive decided to have other features suddenly :) */
+	len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
+	info(udev, "GET CONFIGURATION: size of features buffer 0x%04x\n", len);
+
+	if (len > sizeof(features)) {
+		info(udev, "can not get features in a single query, truncating\n");
+		len = sizeof(features);
+	}
+
+	/* device features */
+	for (i = 8; i+4 < len; i += (4 + features[i+3])) {
+		unsigned int feature;
+
+		feature = features[i] << 8 | features[i+1];
+
+		switch (feature) {
+		case 0x00:
+			info(udev, "GET CONFIGURATION: feature 'profiles', with %i entries\n", features[i+3] / 4);
+			feature_profiles(udev, &features[i]+4, features[i+3]);
+			break;
+		default:
+			info(udev, "GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes\n", feature, features[i+3]);
+			break;
+		}
+	}
+
 	return 0;
 }
 
