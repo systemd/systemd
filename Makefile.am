@@ -150,7 +150,9 @@ udev_common_sources =\
 
 udev_udevd_SOURCES = \
 	$(udev_common_sources) \
-	udev/udevd.c
+	udev/udevd.c \
+	udev/sd-daemon.h \
+	udev/sd-daemon.c
 udev_udevd_LDADD = libudev/libudev-private.la
 
 udev_udevadm_SOURCES = \
