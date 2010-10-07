@@ -3308,6 +3308,11 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
 
 }
 
+void freeze(void) {
+        for (;;)
+                pause();
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

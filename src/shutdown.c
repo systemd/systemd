@@ -40,11 +40,6 @@
 #define FINALIZE_ATTEMPTS 50
 #define FINALIZE_CRITICAL_ATTEMPTS 10
 
-_noreturn_ static void freeze(void) {
-        for (;;)
-                pause();
-}
-
 static bool ignore_proc(pid_t pid) {
         if (pid == 1)
                 return true;
@@ -341,5 +336,5 @@ int main(int argc, char *argv[]) {
                 r = -r;
         log_error("Critical error while doing system shutdown: %s", strerror(r));
         freeze();
-        return 0;
+        return EXIT_FAILURE;
 }

@@ -356,6 +356,8 @@ char *unquote(const char *s, const char *quotes);
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 int wait_for_terminate_and_warn(const char *name, pid_t pid);
 
+_noreturn_ void freeze(void);
+
 #define NULSTR_FOREACH(i, l) \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

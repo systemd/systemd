@@ -73,11 +73,6 @@ static char *arg_console = NULL;
 
 static FILE* serialization = NULL;
 
-_noreturn_ static void freeze(void) {
-        for (;;)
-                pause();
-}
-
 static void nop_handler(int sig) {
 }
 
