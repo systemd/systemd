@@ -40,15 +40,20 @@ int main(int argc, char*argv[]) {
         log_open();
 
         if (streq(argv[1], "start")) {
+                int q = 0, r = 0;
 
-                if (unlink("/var/run/nologin") < 0 ||
-                    unlink("/etc/nologin") < 0) {
-
-                        if (errno != ENOENT) {
-                                log_error("Failed to remove nologin files: %m");
-                                goto finish;
-                        }
+                if (unlink("/var/run/nologin") < 0 && errno != ENOENT) {
+                        log_error("Failed to remove /var/run/nologin file: %m");
+                        r = -errno;
                 }
+
+                if (unlink("/etc/nologin") < 0 && errno != ENOENT) {
+                        log_error("Failed to remove /etc/nologin file: %m");
+                        q = -errno;
+                }
+
+                if (r < 0 || q < 0)
+                        goto finish;
 
         } else if (streq(argv[1], "stop")) {
                 int r, q;
