@@ -35,7 +35,6 @@
 
 typedef struct MountPoint {
         char *path;
-        bool read_only;
         LIST_FIELDS (struct MountPoint, mount_point);
 } MountPoint;
 
@@ -46,8 +45,6 @@ static MountPoint *mount_point_alloc(char *path) {
                 return NULL;
 
         mp->path = path;
-        mp->read_only = false;
-
         return mp;
 }
 
@@ -270,7 +267,7 @@ static int delete_loopback(const char *device) {
 
         ioctl(fd, LOOP_CLR_FD, 0);
         r = errno;
-        close_nointr(fd);
+        close_nointr_nofail(fd);
 
         if (r == ENXIO) /* not bound, so no error */
                 r = 0;
@@ -307,10 +304,9 @@ static int mount_points_list_remount_read_only(MountPoint **mount_point_list_hea
                         continue;
 
                 /* Trying to remount read-only */
-                if (mount(NULL, mp->path, NULL, MS_MGC_VAL|MS_REMOUNT|MS_RDONLY, NULL) == 0) {
-                        mp->read_only = true;
+                if (mount(NULL, mp->path, NULL, MS_MGC_VAL|MS_REMOUNT|MS_RDONLY, NULL) == 0)
                         mount_point_remove_and_free(mp, mount_point_list_head);
-                } else {
+                else {
                         log_debug("Could not remount as read-only %s: %m", mp->path);
                         failed++;
                 }
