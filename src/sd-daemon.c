@@ -228,7 +228,7 @@ int sd_is_socket(int fd, int family, int type, int listening) {
                 if (getsockname(fd, &sockaddr.sa, &l) < 0)
                         return -errno;
 
-                if (l < offsetof(struct sockaddr_un, sun_path))
+                if (l < sizeof(sa_family_t))
                         return -EINVAL;
 
                 return sockaddr.sa.sa_family == family;
@@ -254,7 +254,7 @@ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
 
-        if (l < offsetof(struct sockaddr_un, sun_path))
+        if (l < sizeof(sa_family_t))
                 return -EINVAL;
 
         if (sockaddr.sa.sa_family != AF_INET &&
@@ -296,7 +296,7 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
 
-        if (l < offsetof(struct sockaddr_un, sun_path))
+        if (l < sizeof(sa_family_t))
                 return -EINVAL;
 
         if (sockaddr.sa.sa_family != AF_UNIX)
