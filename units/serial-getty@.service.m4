@@ -16,10 +16,9 @@ m4_ifdef(`TARGET_ARCH',
 After=rc-local.service
 )m4_dnl
 
-# If additional gettys are spawned during boot (possibly by
-# systemd-auto-console-getty) then we should make sure that this is
-# synchronized before getty.target, even though getty.target didn't
-# actually pull it in.
+# If additional gettys are spawned during boot then we should make
+# sure that this is synchronized before getty.target, even though
+# getty.target didn't actually pull it in.
 Before=getty.target
 
 [Service]
@@ -30,6 +29,7 @@ ExecStartPre=-/sbin/securetty %I
 ExecStart=-/sbin/agetty -s %I 115200,38400,9600
 Restart=always
 RestartSec=0
+UtmpIdentifier=%I
 KillMode=process-group
 
 # Some login implementations ignore SIGTERM, so we send SIGHUP
