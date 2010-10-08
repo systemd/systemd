@@ -37,7 +37,7 @@
 #define BUS_ERROR_ONLY_BY_DEPENDENCY "org.freedesktop.systemd1.OnlyByDependency"
 #define BUS_ERROR_NO_ISOLATION "org.freedesktop.systemd1.NoIsolation"
 #define BUS_ERROR_LOAD_FAILED "org.freedesktop.systemd1.LoadFailed"
-#define BUS_ERROR_BANNED "org.freedesktop.systemd1.Banned"
+#define BUS_ERROR_MASKED "org.freedesktop.systemd1.Masked"
 #define BUS_ERROR_JOB_TYPE_NOT_APPLICABLE "org.freedesktop.systemd1.JobTypeNotApplicable"
 #define BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE "org.freedesktop.systemd1.TransactionIsDestructive"
 #define BUS_ERROR_TRANSACTION_JOBS_CONFLICTING "org.freedesktop.systemd1.TransactionJobsConflicting"

@@ -190,6 +190,14 @@
                 string before the @, i.e. "getty" in the example
                 above, where "tty3" is the instance name.</para>
 
+                <para>If a unit file is empty (i.e. has the file size
+                0) or is symlinked to <filename>/dev/null</filename>
+                its configuration will not be loaded and it appears
+                with a load state of <literal>masked</literal>, and
+                cannot be activated. Use this as an effective way to
+                fully disable a unit, making it impossible to start it
+                even manually.</para>
+
                 <para>The unit file format is covered by the
                 <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface

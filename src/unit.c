@@ -2237,7 +2237,7 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_LOADED] = "loaded",
         [UNIT_ERROR] = "error",
         [UNIT_MERGED] = "merged",
-        [UNIT_BANNED] = "banned"
+        [UNIT_MASKED] = "masked"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);

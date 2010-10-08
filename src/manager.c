@@ -1400,7 +1400,7 @@ static int transaction_add_job_and_dependencies(
 
         if (unit->meta.load_state != UNIT_LOADED &&
             unit->meta.load_state != UNIT_ERROR &&
-            unit->meta.load_state != UNIT_BANNED) {
+            unit->meta.load_state != UNIT_MASKED) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->meta.id);
                 return -EINVAL;
         }
@@ -1414,8 +1414,8 @@ static int transaction_add_job_and_dependencies(
                 return -EINVAL;
         }
 
-        if (type != JOB_STOP && unit->meta.load_state == UNIT_BANNED) {
-                dbus_set_error(e, BUS_ERROR_BANNED, "Unit %s is banned.", unit->meta.id);
+        if (type != JOB_STOP && unit->meta.load_state == UNIT_MASKED) {
+                dbus_set_error(e, BUS_ERROR_MASKED, "Unit %s is masked.", unit->meta.id);
                 return -EINVAL;
         }
 

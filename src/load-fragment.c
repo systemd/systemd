@@ -1885,7 +1885,7 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         if (null_or_empty(&st))
-                u->meta.load_state = UNIT_BANNED;
+                u->meta.load_state = UNIT_MASKED;
         else {
                 /* Now, parse the file contents */
                 if ((r = config_parse(filename, f, sections, items, false, u)) < 0)

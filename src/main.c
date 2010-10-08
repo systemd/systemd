@@ -1062,8 +1062,8 @@ int main(int argc, char *argv[]) {
                         dbus_error_free(&error);
                 } else if (target->meta.load_state == UNIT_ERROR)
                         log_error("Failed to load default target: %s", strerror(-target->meta.load_error));
-                else if (target->meta.load_state == UNIT_BANNED)
-                        log_error("Default target banned.");
+                else if (target->meta.load_state == UNIT_MASKED)
+                        log_error("Default target masked.");
 
                 if (!target || target->meta.load_state != UNIT_LOADED) {
                         log_info("Trying to load rescue target...");
@@ -1075,8 +1075,8 @@ int main(int argc, char *argv[]) {
                         } else if (target->meta.load_state == UNIT_ERROR) {
                                 log_error("Failed to load rescue target: %s", strerror(-target->meta.load_error));
                                 goto finish;
-                        } else if (target->meta.load_state == UNIT_BANNED) {
-                                log_error("Rescue target banned.");
+                        } else if (target->meta.load_state == UNIT_MASKED) {
+                                log_error("Rescue target masked.");
                                 goto finish;
                         }
                 }
