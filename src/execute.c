@@ -54,6 +54,7 @@
 #include "tcpwrap.h"
 #include "exit-status.h"
 #include "missing.h"
+#include "utmp-wtmp.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -1129,6 +1130,9 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
+                if (context->utmp_id)
+                        utmp_put_init_process(0, context->utmp_id, getpid(), getsid(0), context->tty_path);
+
                 if (context->user) {
                         username = context->user;
                         if (get_user_creds(&username, &uid, &gid, &home) < 0) {
@@ -1604,6 +1608,12 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sKillSignal: SIG%s\n",
                 prefix, kill_mode_to_string(c->kill_mode),
                 prefix, signal_to_string(c->kill_signal));
+
+        if (c->utmp_id)
+                fprintf(f,
+                        "%sUtmpIdentifier: %s\n",
+                        prefix, c->utmp_id);
+
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {
@@ -1614,7 +1624,7 @@ void exec_status_start(ExecStatus *s, pid_t pid) {
         dual_timestamp_get(&s->start_timestamp);
 }
 
-void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status) {
+void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status, const char *utmp_id) {
         assert(s);
 
         if ((s->pid && s->pid != pid) ||
@@ -1626,6 +1636,9 @@ void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status) {
 
         s->code = code;
         s->status = status;
+
+        if (utmp_id)
+                utmp_put_dead_process(utmp_id, pid, code, status);
 }
 
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {

@@ -84,8 +84,9 @@
         "  <property name=\"MountFlags\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"PrivateTmp\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SameProcessGroup\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n"
+        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n" \
+        "  <property name=\"UtmpIdentifier\" type=\"s\" access=\"read\"/>\n"
 
 #define BUS_EXEC_COMMAND_INTERFACE(name)                             \
         "  <property name=\"" name "\" type=\"a(sasbttuii)\" access=\"read\"/>\n"
@@ -142,7 +143,8 @@
         { interface, "PrivateTmp",                    bus_property_append_bool,   "b",     &(context).private_tmp                  }, \
         { interface, "SameProcessGroup",              bus_property_append_bool,   "b",     &(context).same_pgrp                    }, \
         { interface, "KillMode",                      bus_execute_append_kill_mode, "s",   &(context).kill_mode                    }, \
-        { interface, "KillSignal",                    bus_property_append_int,    "i",     &(context).kill_signal                  }
+        { interface, "KillSignal",                    bus_property_append_int,    "i",     &(context).kill_signal                  }, \
+        { interface, "UtmpIdentifier",                bus_property_append_string, "s",     &(context).utmp_id                      }
 
 #define BUS_EXEC_STATUS_PROPERTIES(interface, estatus, prefix)           \
         { interface, prefix "StartTimestamp",         bus_property_append_usec,   "t",     &(estatus).start_timestamp.realtime     }, \

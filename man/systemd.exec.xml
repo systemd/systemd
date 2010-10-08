@@ -728,6 +728,27 @@
                                 it.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>UtmpIdentifier=</varname></term>
+
+                                <listitem><para>Takes a a four
+                                character identifier string for an
+                                utmp/wtmp entry for this service. This
+                                should only be set for services such
+                                as <command>getty</command>
+                                implementations where utmp/wtmp
+                                entries must be created and cleared
+                                before and after execution. If the
+                                configured string is longer than four
+                                characters it is truncated and the
+                                terminal four characters are
+                                used. This setting interprets %I style
+                                string replacements. This setting is
+                                unset by default, i.e. no utmp/wtmp
+                                entries are created or cleaned up for
+                                this service.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

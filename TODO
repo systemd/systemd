@@ -24,8 +24,6 @@
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
    - distccd
 
-* write utmp record a la upstart for processes
-
 * selinux policy loading
 
 * fingerprint.target, wireless.target, gps.target

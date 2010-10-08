@@ -33,6 +33,7 @@ Environment=TERM=linux
 ExecStart=-GETTY %I
 Restart=always
 RestartSec=0
+UtmpIdentifier=%I
 KillMode=process-group
 
 # Some login implementations ignore SIGTERM, so we send SIGHUP

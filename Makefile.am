@@ -374,6 +374,7 @@ libsystemd_core_la_SOURCES = \
 	src/path.c \
 	src/load-dropin.c \
 	src/execute.c \
+	src/utmp-wtmp.c \
 	src/exit-status.c \
 	src/dbus.c \
 	src/dbus-manager.c \
@@ -440,7 +441,6 @@ EXTRA_DIST += \
 	src/dbus-common.h \
 	src/bus-errors.h \
 	src/cgroup-show.h \
-	src/utmp-wtmp.h \
 	src/build.h \
 	src/shutdownd.h \
 	src/readahead-common.h

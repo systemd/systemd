@@ -1669,7 +1669,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "TCPWrapName",            config_parse_string_printf,   &(context).tcpwrap_name,                         section   }, \
                 { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }, \
                 { "KillMode",               config_parse_kill_mode,       &(context).kill_mode,                            section   }, \
-                { "KillSignal",             config_parse_kill_signal,     &(context).kill_signal,                          section   }
+                { "KillSignal",             config_parse_kill_signal,     &(context).kill_signal,                          section   }, \
+                { "UtmpIdentifier",         config_parse_string_printf,   &(context).utmp_id,                              section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },

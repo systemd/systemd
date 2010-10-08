@@ -127,6 +127,8 @@ struct ExecContext {
 
         char *pam_name;
 
+        char *utmp_id;
+
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 
@@ -191,7 +193,7 @@ void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
-void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status);
+void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status, const char *utmp_id);
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
 
 const char* exec_output_to_string(ExecOutput i);

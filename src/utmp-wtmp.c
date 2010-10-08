@@ -92,19 +92,26 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
         return r;
 }
 
-static void init_entry(struct utmpx *store, usec_t t) {
-        struct utsname uts;
-
+static void init_timestamp(struct utmpx *store, usec_t t) {
         assert(store);
 
         zero(*store);
-        zero(uts);
 
         if (t <= 0)
                 t = now(CLOCK_REALTIME);
 
         store->ut_tv.tv_sec = t / USEC_PER_SEC;
         store->ut_tv.tv_usec = t % USEC_PER_SEC;
+}
+
+static void init_entry(struct utmpx *store, usec_t t) {
+        struct utsname uts;
+
+        assert(store);
+
+        init_timestamp(store, t);
+
+        zero(uts);
 
         if (uname(&uts) >= 0)
                 strncpy(store->ut_host, uts.release, sizeof(store->ut_host));
@@ -186,6 +193,69 @@ int utmp_put_reboot(usec_t t) {
 
         return write_entry_both(&store);
 }
+
+static const char *sanitize_id(const char *id) {
+        size_t l;
+
+        assert(id);
+        l = strlen(id);
+
+        if (l <= sizeof(((struct utmpx*) NULL)->ut_id))
+                return id;
+
+        return id + l - sizeof(((struct utmpx*) NULL)->ut_id);
+}
+
+int utmp_put_init_process(usec_t t, const char *id, pid_t pid, pid_t sid, const char *line) {
+        struct utmpx store;
+
+        assert(id);
+
+        init_timestamp(&store, t);
+
+        store.ut_type = INIT_PROCESS;
+        store.ut_pid = pid;
+        store.ut_session = sid;
+
+        strncpy(store.ut_id, sanitize_id(id), sizeof(store.ut_id));
+
+        if (line)
+                strncpy(store.ut_line, file_name_from_path(line), sizeof(store.ut_line));
+
+        return write_entry_both(&store);
+}
+
+int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
+        struct utmpx lookup, store, *found;
+
+        assert(id);
+
+        setutxent();
+
+        zero(lookup);
+        lookup.ut_type = INIT_PROCESS; /* looks for DEAD_PROCESS, LOGIN_PROCESS, USER_PROCESS, too */
+        strncpy(lookup.ut_id, sanitize_id(id), sizeof(lookup.ut_id));
+
+        if (!(found = getutxid(&lookup)))
+                return 0;
+
+        if (found->ut_pid != pid)
+                return 0;
+
+        zero(store);
+
+        memcpy(&store, &lookup, sizeof(store));
+        store.ut_type = DEAD_PROCESS;
+        store.ut_exit.e_termination = code;
+        store.ut_exit.e_exit = status;
+
+        zero(store.ut_user);
+        zero(store.ut_host);
+        zero(store.ut_tv);
+
+        return write_entry_both(&store);
+}
+
 
 int utmp_put_runlevel(usec_t t, int runlevel, int previous) {
         struct utmpx store;

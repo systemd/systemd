@@ -2406,7 +2406,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (s->main_pid == pid) {
 
                 s->main_pid = 0;
-                exec_status_exit(&s->main_exec_status, pid, code, status);
+                exec_status_exit(&s->main_exec_status, pid, code, status, s->exec_context.utmp_id);
 
                 if (s->type != SERVICE_FORKING && s->control_command) {
                         s->control_command->exec_status = s->main_exec_status;
@@ -2483,7 +2483,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->control_pid = 0;
 
                 if (s->control_command) {
-                        exec_status_exit(&s->control_command->exec_status, pid, code, status);
+                        exec_status_exit(&s->control_command->exec_status, pid, code, status, s->exec_context.utmp_id);
 
                         if (s->control_command->ignore)
                                 success = true;
