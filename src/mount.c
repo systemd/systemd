@@ -282,7 +282,7 @@ static int mount_add_target_links(Mount *m) {
         automount = !!mount_test_option(p->options, "comment=systemd.automount");
 
         if (mount_test_option(p->options, "_netdev") ||
-            fstype_is_network(p->fstype)) {
+            (p->fstype && fstype_is_network(p->fstype))) {
                 target = SPECIAL_REMOTE_FS_TARGET;
 
                 if (m->meta.manager->running_as == MANAGER_SYSTEM)
@@ -794,7 +794,7 @@ static void mount_enter_mounting(Mount *m) {
                                 "/bin/mount",
                                 m->parameters_fragment.what,
                                 m->where,
-                                "-t", m->parameters_fragment.fstype,
+                                "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
                                 m->parameters_fragment.options ? "-o" : NULL, m->parameters_fragment.options,
                                 NULL);
         else if (m->from_etc_fstab)
@@ -859,7 +859,7 @@ static void mount_enter_remounting(Mount *m, bool success) {
                                 "/bin/mount",
                                 m->parameters_fragment.what,
                                 m->where,
-                                "-t", m->parameters_fragment.fstype,
+                                "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
                                 "-o", o,
                                 NULL);
 
