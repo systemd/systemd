@@ -103,7 +103,7 @@ int unit_add_name(Unit *u, const char *text) {
         if (!s)
                 return -ENOMEM;
 
-        if (!unit_name_is_valid(s)) {
+        if (!unit_name_is_valid(s, false)) {
                 r = -EINVAL;
                 goto fail;
         }
@@ -2222,14 +2222,14 @@ UnitType unit_name_to_type(const char *n) {
         return _UNIT_TYPE_INVALID;
 }
 
-bool unit_name_is_valid(const char *n) {
+bool unit_name_is_valid(const char *n, bool template_ok) {
         UnitType t;
 
         t = unit_name_to_type(n);
         if (t < 0 || t >= _UNIT_TYPE_MAX)
                 return false;
 
-        return unit_name_is_valid_no_type(n);
+        return unit_name_is_valid_no_type(n, template_ok);
 }
 
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {

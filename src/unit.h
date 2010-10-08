@@ -505,7 +505,7 @@ bool unit_pending_active(Unit *u);
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
 UnitType unit_name_to_type(const char *n);
-bool unit_name_is_valid(const char *n);
+bool unit_name_is_valid(const char *n, bool template_ok);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

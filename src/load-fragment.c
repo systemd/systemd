@@ -1431,7 +1431,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                  * unit name. */
                 name = file_name_from_path(*filename);
 
-                if (unit_name_is_valid(name)) {
+                if (unit_name_is_valid(name, false)) {
                         if (!(id = set_get(names, name))) {
 
                                 if (!(id = strdup(name)))

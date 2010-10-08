@@ -32,7 +32,7 @@
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
         ":-_.\\"
 
-bool unit_name_is_valid_no_type(const char *n) {
+bool unit_name_is_valid_no_type(const char *n, bool template_ok) {
         const char *e, *i, *at;
 
         /* Valid formats:
@@ -63,7 +63,7 @@ bool unit_name_is_valid_no_type(const char *n) {
                 if (at == n)
                         return false;
 
-                if (at[1] == '.')
+                if (!template_ok && at+1 == e)
                         return false;
         }
 
@@ -150,7 +150,7 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         size_t a, b;
 
         assert(n);
-        assert(unit_name_is_valid_no_type(n));
+        assert(unit_name_is_valid_no_type(n, true));
         assert(suffix);
 
         assert_se(e = strrchr(n, '.'));

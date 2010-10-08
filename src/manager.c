@@ -1641,7 +1641,7 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
         if (!name)
                 name = file_name_from_path(path);
 
-        if (!unit_name_is_valid(name)) {
+        if (!unit_name_is_valid(name, false)) {
                 dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
                 return -EINVAL;
         }

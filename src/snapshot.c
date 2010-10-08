@@ -186,7 +186,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Sn
         assert(_s);
 
         if (name) {
-                if (!unit_name_is_valid(name)) {
+                if (!unit_name_is_valid(name, false)) {
                         dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
                         return -EINVAL;
                 }

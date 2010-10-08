@@ -3247,7 +3247,7 @@ static int install_info_add(const char *name) {
 
         assert(will_install);
 
-        if (!unit_name_is_valid_no_type(name)) {
+        if (!unit_name_is_valid_no_type(name, true)) {
                 log_warning("Unit name %s is not a valid unit name.", name);
                 return -EINVAL;
         }
@@ -3633,12 +3633,6 @@ static int install_info_symlink_alias(const char *verb, InstallInfo *i, const ch
 
         STRV_FOREACH(s, i->aliases) {
 
-                if (!unit_name_is_valid_no_type(*s)) {
-                        log_error("Invalid name %s.", *s);
-                        r = -EINVAL;
-                        goto finish;
-                }
-
                 free(alias_path);
                 if (!(alias_path = path_make_absolute(*s, config_path))) {
                         log_error("Out of memory");
@@ -3670,7 +3664,7 @@ static int install_info_symlink_wants(const char *verb, InstallInfo *i, const ch
         assert(config_path);
 
         STRV_FOREACH(s, i->wanted_by) {
-                if (!unit_name_is_valid_no_type(*s)) {
+                if (!unit_name_is_valid_no_type(*s, true)) {
                         log_error("Invalid name %s.", *s);
                         r = -EINVAL;
                         goto finish;
