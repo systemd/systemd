@@ -3319,10 +3319,7 @@ bool null_or_empty(struct stat *st) {
         if (S_ISREG(st->st_mode) && st->st_size <= 0)
                 return true;
 
-        /* /dev/null has major/minor of 1:3 */
-        if (S_ISCHR(st->st_mode) &&
-            major(st->st_rdev) == 1 &&
-            minor(st->st_rdev) == 3)
+        if (S_ISCHR(st->st_mode) || S_ISBLK(st->st_mode))
                 return true;
 
         return false;
