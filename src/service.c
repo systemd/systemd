@@ -1627,7 +1627,11 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
         if (allow_restart &&
             !s->forbid_restart &&
             (s->restart == SERVICE_RESTART_ALWAYS ||
-             (s->restart == SERVICE_RESTART_ON_SUCCESS && !s->failure))) {
+             (s->restart == SERVICE_RESTART_ON_SUCCESS && !s->failure) ||
+             (s->restart == SERVICE_RESTART_ON_FAILURE && s->failure) ||
+             (s->restart == SERVICE_RESTART_ON_ABORT && s->failure &&
+              (s->main_exec_status.code == CLD_KILLED ||
+               s->main_exec_status.code == CLD_DUMPED)))) {
 
                 if ((r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch)) < 0)
                         goto fail;
@@ -3115,7 +3119,9 @@ DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
-        [SERVICE_RESTART_ALWAYS] = "always",
+        [SERVICE_RESTART_ON_FAILURE] = "on-failure",
+        [SERVICE_RESTART_ON_ABORT] = "on-abort",
+        [SERVICE_RESTART_ALWAYS] = "always"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);

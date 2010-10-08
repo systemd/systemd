@@ -426,19 +426,28 @@
                         <varlistentry>
                                 <term><varname>Restart=</varname></term>
                                 <listitem><para>Configures whether the
-                                main service process shall be restarted when
-                                it exists. Takes one of
+                                main service process shall be
+                                restarted when it exists. Takes one of
                                 <option>no</option>,
-                                <option>on-success</option> or
-                                <option>always</option>. If
-                                set to <option>no</option> (the
-                                default) the service will not be
-                                restarted when it exits. If set to
-                                <option>on-success</option> it
-                                will be restarted only when it exited
-                                cleanly, i.e. terminated with an exit
-                                code of 0. If set to
-                                <option>always</option> the
+                                <option>on-success</option>,
+                                <option>on-failure</option>,
+                                <option>on-abort</option> or
+                                <option>always</option>. If set to
+                                <option>no</option> (the default) the
+                                service will not be restarted when it
+                                exits. If set to
+                                <option>on-success</option> it will be
+                                restarted only when it exited cleanly,
+                                i.e. terminated with an exit code of
+                                0. If set to
+                                <option>on-failure</option> it will be
+                                restared only when it exited with an
+                                exit code not equalling 0, or when
+                                terminated by a signal. If set to
+                                <option>on-abort</option> it will be
+                                restarted only if it exits due to
+                                reception of an uncaught signal. If
+                                set to <option>always</option> the
                                 service will be restarted regardless
                                 whether it exited cleanly or not, or
                                 got terminated abnormally by a

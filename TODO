@@ -84,8 +84,6 @@
 
 * enable syslog.socket by default, activating our kmsg bridge
 
-* Restart=on-failure and Restart=on-abort
-
 * when processes remain in a service even though the start command failed enter active
 
 * fix plymouth socket, when plymouth started to use a clean one

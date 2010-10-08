@@ -50,6 +50,8 @@ typedef enum ServiceState {
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
+        SERVICE_RESTART_ON_FAILURE,
+        SERVICE_RESTART_ON_ABORT,
         SERVICE_RESTART_ALWAYS,
         _SERVICE_RESTART_MAX,
         _SERVICE_RESTART_INVALID = -1
