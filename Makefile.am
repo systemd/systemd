@@ -648,6 +648,7 @@ systemd_shutdownd_LDADD = \
 
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
+	src/umount.h \
 	src/umount.c \
 	src/shutdown.c
 
