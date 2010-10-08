@@ -62,6 +62,7 @@ enum UnitLoadState {
         UNIT_LOADED,
         UNIT_ERROR,
         UNIT_MERGED,
+        UNIT_BANNED,
         _UNIT_LOAD_STATE_MAX,
         _UNIT_LOAD_STATE_INVALID = -1
 };

@@ -1,5 +1,3 @@
-* do not throw error when .service file is linked to /dev/null
-
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
@@ -8,8 +6,6 @@
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
 
 * implicitly import "defaults" settings file into all types
-
-* "disabled" load state?
 
 * ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?

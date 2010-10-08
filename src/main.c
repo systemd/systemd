@@ -1060,8 +1060,10 @@ int main(int argc, char *argv[]) {
                 if ((r = manager_load_unit(m, arg_default_unit, NULL, &error, &target)) < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
-                } else if (target->meta.load_state != UNIT_LOADED)
+                } else if (target->meta.load_state == UNIT_ERROR)
                         log_error("Failed to load default target: %s", strerror(-target->meta.load_error));
+                else if (target->meta.load_state == UNIT_BANNED)
+                        log_error("Default target banned.");
 
                 if (!target || target->meta.load_state != UNIT_LOADED) {
                         log_info("Trying to load rescue target...");
@@ -1070,11 +1072,16 @@ int main(int argc, char *argv[]) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
                                 goto finish;
-                        } else if (target->meta.load_state != UNIT_LOADED) {
+                        } else if (target->meta.load_state == UNIT_ERROR) {
                                 log_error("Failed to load rescue target: %s", strerror(-target->meta.load_error));
+                                goto finish;
+                        } else if (target->meta.load_state == UNIT_BANNED) {
+                                log_error("Rescue target banned.");
                                 goto finish;
                         }
                 }
+
+                assert(target->meta.load_state == UNIT_LOADED);
 
                 if (arg_action == ACTION_TEST) {
                         printf("-> By units:\n");

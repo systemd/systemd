@@ -1883,9 +1883,15 @@ static int load_from_path(Unit *u, const char *path) {
                 goto finish;
         }
 
-        /* Now, parse the file contents */
-        if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
-                goto finish;
+        if (null_or_empty(&st))
+                u->meta.load_state = UNIT_BANNED;
+        else {
+                /* Now, parse the file contents */
+                if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
+                        goto finish;
+
+                u->meta.load_state = UNIT_LOADED;
+        }
 
         free(u->meta.fragment_path);
         u->meta.fragment_path = filename;
@@ -1893,7 +1899,6 @@ static int load_from_path(Unit *u, const char *path) {
 
         u->meta.fragment_mtime = timespec_load(&st.st_mtim);
 
-        u->meta.load_state = UNIT_LOADED;
         r = 0;
 
 finish:

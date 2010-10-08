@@ -3313,6 +3313,21 @@ void freeze(void) {
                 pause();
 }
 
+bool null_or_empty(struct stat *st) {
+        assert(st);
+
+        if (S_ISREG(st->st_mode) && st->st_size <= 0)
+                return true;
+
+        /* /dev/null has major/minor of 1:3 */
+        if (S_ISCHR(st->st_mode) &&
+            major(st->st_rdev) == 1 &&
+            minor(st->st_rdev) == 3)
+                return true;
+
+        return false;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

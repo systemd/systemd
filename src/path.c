@@ -389,7 +389,8 @@ static int path_start(Unit *u) {
                 return -ENOENT;
 
         p->failure = false;
-path_enter_waiting(p, true);
+        path_enter_waiting(p, true);
+
         return 0;
 }
 

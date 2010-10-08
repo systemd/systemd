@@ -297,7 +297,8 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 if (!output_show_job(u))
                         continue;
 
-                if (!streq(u->load_state, "loaded")) {
+                if (!streq(u->load_state, "loaded") &&
+                    !streq(u->load_state, "banned")) {
                         on_loaded = ansi_highlight(true);
                         off_loaded = ansi_highlight(false);
                 } else
@@ -1628,7 +1629,8 @@ static void print_status_info(UnitStatusInfo *i) {
 
         printf("\n");
 
-        if (streq_ptr(i->load_state, "failed")) {
+        if (streq_ptr(i->load_state, "failed") ||
+            streq_ptr(i->load_state, "banned")) {
                 on = ansi_highlight(true);
                 off = ansi_highlight(false);
         } else

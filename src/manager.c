@@ -1398,15 +1398,24 @@ static int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
-        if (unit->meta.load_state != UNIT_LOADED && unit->meta.load_state != UNIT_ERROR) {
+        if (unit->meta.load_state != UNIT_LOADED &&
+            unit->meta.load_state != UNIT_ERROR &&
+            unit->meta.load_state != UNIT_BANNED) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->meta.id);
                 return -EINVAL;
         }
 
         if (type != JOB_STOP && unit->meta.load_state == UNIT_ERROR) {
-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load: %s. You might find more information in the system logs.",
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
+                               "Unit %s failed to load: %s. "
+                               "You might find more information in the system logs.",
                                unit->meta.id,
                                strerror(-unit->meta.load_error));
+                return -EINVAL;
+        }
+
+        if (type != JOB_STOP && unit->meta.load_state == UNIT_BANNED) {
+                dbus_set_error(e, BUS_ERROR_BANNED, "Unit %s is banned.", unit->meta.id);
                 return -EINVAL;
         }
 
