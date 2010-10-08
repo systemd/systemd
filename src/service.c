@@ -39,6 +39,9 @@
 #define NEWLINES "\n\r"
 
 #ifdef HAVE_SYSV_COMPAT
+
+#define DEFAULT_SYSV_TIMEOUT_USEC (3*USEC_PER_MINUTE)
+
 typedef enum RunlevelType {
         RUNLEVEL_UP,
         RUNLEVEL_DOWN,
@@ -790,7 +793,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                 /* Don't timeout special services during boot (like fsck) */
                 s->timeout_usec = 0;
-        }
+        } else
+                s->timeout_usec = DEFAULT_SYSV_TIMEOUT_USEC;
 
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
