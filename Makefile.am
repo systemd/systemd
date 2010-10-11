@@ -433,6 +433,22 @@ typelibs_DATA = extras/gudev/GUdev-1.0.typelib
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 endif # ENABLE_INTROSPECTION
 
+# move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
+libgudev-install-move-hook:
+	if test "$(libdir)" != "$(rootlib_execdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlib_execdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libgudev-1.0.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlib_execdir)/$$so_img_name $(DESTDIR)$(libdir)/libgudev-1.0.so && \
+		mv $(DESTDIR)$(libdir)/libgudev-1.0.so.* $(DESTDIR)$(rootlib_execdir); \
+	fi
+
+libgudev-uninstall-move-hook:
+	rm -f $(DESTDIR)$(rootlib_execdir)/libgudev-1.0.so*
+
+INSTALL_EXEC_HOOKS += libgudev-install-move-hook
+UNINSTALL_EXEC_HOOKS += libgudev-uninstall-move-hook
+
 # ------------------------------------------------------------------------------
 # Bluetooth HID devices with special magic to switch the device
 # ------------------------------------------------------------------------------
