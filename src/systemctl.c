@@ -1568,6 +1568,7 @@ typedef struct UnitStatusInfo {
         const char *sub_state;
 
         const char *description;
+        const char *following;
 
         const char *path;
         const char *default_control_group;
@@ -1628,6 +1629,9 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf(" - %s", i->description);
 
         printf("\n");
+
+        if (i->following)
+                printf("\t  Follow: unit currently follows state of %s\n", i->following);
 
         if (streq_ptr(i->load_state, "failed") ||
             streq_ptr(i->load_state, "banned")) {
@@ -1841,6 +1845,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->where = s;
                         else if (streq(name, "What"))
                                 i->what = s;
+                        else if (streq(name, "Following"))
+                                i->following = s;
                 }
 
                 break;
