@@ -90,6 +90,10 @@
 
 External:
 
+* patch kernel to add /proc/swaps change notifications
+
+* patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
+
 * place /etc/inittab with explaining blurb.
 
 * pam_securetty should honour console=
