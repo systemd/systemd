@@ -423,8 +423,6 @@ static int mount_load(Unit *u) {
 
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
-                const char *what = NULL;
-
                 if (m->meta.fragment_path)
                         m->from_fragment = true;
 
@@ -437,13 +435,6 @@ static int mount_load(Unit *u) {
                 if (!m->meta.description)
                         if ((r = unit_set_description(u, m->where)) < 0)
                                 return r;
-
-                if (m->from_fragment && m->parameters_fragment.what)
-                        what = m->parameters_fragment.what;
-                else if (m->from_etc_fstab && m->parameters_etc_fstab.what)
-                        what = m->parameters_etc_fstab.what;
-                else if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
-                        what = m->parameters_proc_self_mountinfo.what;
 
                 if ((r = mount_add_device_links(m)) < 0)
                         return r;
@@ -874,10 +865,8 @@ static void mount_enter_remounting(Mount *m, bool success) {
         else
                 r = -ENOENT;
 
-        if (r < 0) {
-                r = -ENOMEM;
+        if (r < 0)
                 goto fail;
-        }
 
         mount_unwatch_control_pid(m);
 
@@ -902,13 +891,13 @@ static int mount_start(Unit *u) {
          * please! */
         if (m->state == MOUNT_UNMOUNTING ||
             m->state == MOUNT_UNMOUNTING_SIGTERM ||
-            m->state == MOUNT_UNMOUNTING_SIGKILL)
+            m->state == MOUNT_UNMOUNTING_SIGKILL ||
+            m->state == MOUNT_MOUNTING_SIGTERM ||
+            m->state == MOUNT_MOUNTING_SIGKILL)
                 return -EAGAIN;
 
         /* Already on it! */
-        if (m->state == MOUNT_MOUNTING ||
-            m->state == MOUNT_MOUNTING_SIGTERM ||
-            m->state == MOUNT_MOUNTING_SIGKILL)
+        if (m->state == MOUNT_MOUNTING)
                 return 0;
 
         assert(m->state == MOUNT_DEAD || m->state == MOUNT_FAILED);
@@ -926,14 +915,14 @@ static int mount_stop(Unit *u) {
         /* Already on it */
         if (m->state == MOUNT_UNMOUNTING ||
             m->state == MOUNT_UNMOUNTING_SIGKILL ||
-            m->state == MOUNT_UNMOUNTING_SIGTERM)
+            m->state == MOUNT_UNMOUNTING_SIGTERM ||
+            m->state == MOUNT_MOUNTING_SIGTERM ||
+            m->state == MOUNT_MOUNTING_SIGKILL)
                 return 0;
 
         assert(m->state == MOUNT_MOUNTING ||
                m->state == MOUNT_MOUNTING_DONE ||
                m->state == MOUNT_MOUNTED ||
-               m->state == MOUNT_MOUNTING_SIGTERM ||
-               m->state == MOUNT_MOUNTING_SIGKILL ||
                m->state == MOUNT_REMOUNTING ||
                m->state == MOUNT_REMOUNTING_SIGTERM ||
                m->state == MOUNT_REMOUNTING_SIGKILL);
@@ -1347,7 +1336,7 @@ static int mount_find_pri(char *options) {
 
 static int mount_load_etc_fstab(Manager *m) {
         FILE *f;
-        int r;
+        int r = 0;
         struct mntent* me;
 
         assert(m);
@@ -1358,6 +1347,7 @@ static int mount_load_etc_fstab(Manager *m) {
 
         while ((me = getmntent(f))) {
                 char *where, *what;
+                int k;
 
                 if (!(what = fstab_node_to_udev_node(me->mnt_fsname))) {
                         r = -ENOMEM;
@@ -1380,26 +1370,26 @@ static int mount_load_etc_fstab(Manager *m) {
                         int pri;
 
                         if ((pri = mount_find_pri(me->mnt_opts)) < 0)
-                                r = pri;
+                                k = pri;
                         else
-                                r = swap_add_one(m,
+                                k = swap_add_one(m,
                                                  what,
+                                                 NULL,
                                                  pri,
                                                  !!mount_test_option(me->mnt_opts, MNTOPT_NOAUTO),
                                                  !!mount_test_option(me->mnt_opts, "nofail"),
                                                  !!mount_test_option(me->mnt_opts, "comment=systemd.swapon"),
                                                  false);
                 } else
-                        r = mount_add_one(m, what, where, me->mnt_opts, me->mnt_type, false, false);
+                        k = mount_add_one(m, what, where, me->mnt_opts, me->mnt_type, false, false);
 
                 free(what);
                 free(where);
 
                 if (r < 0)
-                        goto finish;
+                        r = k;
         }
 
-        r = 0;
 finish:
 
         endmntent(f);
@@ -1407,7 +1397,7 @@ finish:
 }
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
-        int r;
+        int r = 0;
         unsigned i;
         char *device, *path, *options, *options2, *fstype, *d, *p, *o;
 
@@ -1457,8 +1447,8 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         goto finish;
                 }
 
-                if ((r = mount_add_one(m, d, p, o, fstype, true, set_flags)) < 0)
-                        goto finish;
+                if ((k = mount_add_one(m, d, p, o, fstype, true, set_flags)) < 0)
+                        r = k;
 
 clean_up:
                 free(device);
@@ -1470,8 +1460,6 @@ clean_up:
                 free(p);
                 free(o);
         }
-
-        r = 0;
 
 finish:
         free(device);
@@ -1576,7 +1564,7 @@ void mount_fd_event(Manager *m, int events) {
 
                 } else if (mount->just_mounted || mount->just_changed) {
 
-                        /* New or changed entrymount */
+                        /* New or changed mount entry */
 
                         switch (mount->state) {
 
