@@ -2217,6 +2217,9 @@ int manager_loop(Manager *m) {
                 if (manager_dispatch_dbus_queue(m) > 0)
                         continue;
 
+                if (swap_dispatch_reload(m) > 0)
+                        continue;
+
                 if ((n = epoll_wait(m->epoll_fd, &event, 1, -1)) < 0) {
 
                         if (errno == EINTR)

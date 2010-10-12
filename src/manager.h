@@ -155,6 +155,8 @@ struct Manager {
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
+        Hashmap *swaps_by_proc_swaps;
+        bool request_reload;
 
         /* Data specific to the D-Bus subsystem */
         DBusConnection *api_bus, *system_bus;

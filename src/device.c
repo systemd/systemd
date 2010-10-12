@@ -188,10 +188,6 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
         if ((r = device_find_escape_name(m, path, &u)) < 0)
                 return r;
 
-        /* If a different unit already claimed this name then let's do
-         * nothing. This can happen for example when two disks with
-         * the same label are plugged in, and which hence try to get
-         * conflicting symlinks in /dev/disk/by-label/xxxx */
         if (u && DEVICE(u)->sysfs && !path_equal(DEVICE(u)->sysfs, sysfs))
                 return -EEXIST;
 

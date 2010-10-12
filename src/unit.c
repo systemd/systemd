@@ -376,7 +376,6 @@ void unit_free(Unit *u) {
         set_free_free(u->meta.names);
 
         free(u->meta.instance);
-
         free(u);
 }
 
