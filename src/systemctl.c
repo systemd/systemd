@@ -1679,9 +1679,9 @@ static void print_status_info(UnitStatusInfo *i) {
         s2 = format_timestamp(since2, sizeof(since2), timestamp);
 
         if (s1)
-                printf(" since [%s; %s]\n", s2, s1);
+                printf(" since %s; %s\n", s2, s1);
         else if (s2)
-                printf(" since [%s]\n", s2);
+                printf(" since %s\n", s2);
         else
                 printf("\n");
 
