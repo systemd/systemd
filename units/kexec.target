@@ -8,11 +8,11 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Exit the Session
+Description=Reboot via kexec
 DefaultDependencies=no
-Requires=shutdown.target
-After=shutdown.target
+Requires=kexec.service
+After=kexec.service
+AllowIsolate=yes
 
-[Service]
-Type=oneshot
-ExecStart=@SYSTEMCTL@ --session --force exit
+[Install]
+Alias=ctrl-alt-del.target

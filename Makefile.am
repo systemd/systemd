@@ -162,6 +162,7 @@ dist_systemunit_DATA = \
 	units/basic.target \
 	units/getty.target \
 	units/halt.target \
+	units/kexec.target \
 	units/local-fs.target \
 	units/network.target \
 	units/nss-lookup.target \
@@ -229,10 +230,12 @@ nodist_systemunit_DATA = \
 	units/systemd-readahead-done.service \
 	units/systemd-tmpfiles.service \
 	units/systemd-user-sessions.service \
-	units/syslog.target
+	units/syslog.target \
+	units/kexec.service
 
 dist_sessionunit_DATA = \
-	units/session/default.target
+	units/session/default.target \
+	units/session/exit.target
 
 nodist_sessionunit_DATA = \
 	units/session/remote-fs.target \
@@ -262,6 +265,7 @@ EXTRA_DIST = \
 	units/systemd-tmpfiles.service.in \
 	units/systemd-user-sessions.service.in \
 	units/syslog.target.in \
+	units/kexec.service.in \
 	units/session/exit.service.in \
 	systemd.pc.in
 

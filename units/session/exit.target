@@ -10,9 +10,9 @@
 [Unit]
 Description=Exit the Session
 DefaultDependencies=no
-Requires=shutdown.target
-After=shutdown.target
+Requires=exit.service
+After=exit.service
+AllowIsolate=yes
 
-[Service]
-Type=oneshot
-ExecStart=@SYSTEMCTL@ --session --force exit
+[Install]
+Alias=ctrl-alt-del.target

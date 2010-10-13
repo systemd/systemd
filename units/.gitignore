@@ -1,3 +1,4 @@
+kexec.service
 systemd-user-sessions.service
 systemd-readahead-done.service
 systemd-tmpfiles.service
