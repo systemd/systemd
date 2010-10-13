@@ -271,23 +271,14 @@ finish:
 static int delete_loopback(const char *device) {
         int fd, r;
 
-        if ((fd = open(device, O_RDONLY|O_CLOEXEC)) < 0) {
-                if (errno == ENOENT) {
-                        log_debug("Loop device %s does not exist.", device);
-                        errno = 0;
-                        return 0;
-                }
+        if ((fd = open(device, O_RDONLY|O_CLOEXEC)) < 0)
                 return -errno;
-        }
 
-        ioctl(fd, LOOP_CLR_FD, 0);
-        r = errno;
+        r = ioctl(fd, LOOP_CLR_FD, 0);
         close_nointr_nofail(fd);
 
-        if (r == ENXIO) /* not bound, so no error */
-                r = 0;
-        errno = r;
-        return -errno;
+        /* ENXIO: not bound, so no error */
+        return (r >= 0 || errno == ENXIO) ? 0 : -errno;
 }
 
 static int mount_points_list_umount(MountPoint **mount_point_list_head) {
