@@ -307,28 +307,29 @@ int main(int argc, char *argv[]) {
         if (cmd == LINUX_REBOOT_CMD_KEXEC) {
                 /* we cheat and exec kexec to avoid doing all its work */
                 pid_t pid = fork();
-                if (pid < 0) {
-                        log_error("Could not fork: %m. Falling back to reboot.");
-                        cmd = RB_AUTOBOOT;
-                } else if (pid > 0) {
-                        waitpid(pid, NULL, 0);
-                        log_warning("Failed %s -e -x -f. Falling back to reboot", KEXEC_BINARY_PATH);
-                        cmd = RB_AUTOBOOT;
+                if (pid < 0)
+                        log_error("Could not fork: %m. Falling back to normal reboot.");
+                else if (pid > 0) {
+                        wait_for_terminate_and_warn("kexec", pid);
+                        log_warning("kexec failed. Falling back to normal reboot.");
                 } else {
-                        const char *args[5] = {KEXEC_BINARY_PATH, "-e", "-f", "-x", NULL};
+                        /* Child */
+                        const char *args[5] = { KEXEC_BINARY_PATH, "-e", "-f", "-x", NULL };
                         execv(args[0], (char * const *) args);
                         return EXIT_FAILURE;
                 }
+
+                cmd = RB_AUTOBOOT;
         }
 
         reboot(cmd);
-        r = errno;
+        log_error("Failed to invoke reboot(): %m");
+        r = -errno;
 
   error:
         sync();
-        if (r < 0)
-                r = -r;
-        log_error("Critical error while doing system shutdown: %s", strerror(r));
+        log_error("Critical error while doing system shutdown: %s", strerror(-r));
+
         freeze();
         return EXIT_FAILURE;
 }
