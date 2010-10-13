@@ -67,6 +67,7 @@ struct udev_device {
 	int devlink_priority;
 	int refcount;
 	dev_t devnum;
+	int ifindex;
 	int watch_handle;
 	int maj, min;
 	bool parent_set;
@@ -187,6 +188,8 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
 		udev_device_set_seqnum(udev_device, strtoull(&property[7], NULL, 10));
 	} else if (strncmp(property, "TIMEOUT=", 8) == 0) {
 		udev_device_set_timeout(udev_device, strtoull(&property[8], NULL, 10));
+	} else if (strncmp(property, "IFINDEX=", 8) == 0) {
+		udev_device_set_ifindex(udev_device, strtoull(&property[8], NULL, 10));
 	} else {
 		udev_device_add_property_from_string(udev_device, property);
 	}
@@ -358,6 +361,8 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 			maj = strtoull(&line[6], NULL, 10);
 		else if (strncmp(line, "MINOR=", 6) == 0)
 			min = strtoull(&line[6], NULL, 10);
+		else if (strncmp(line, "IFINDEX=", 8) == 0)
+			udev_device_set_ifindex(udev_device, strtoull(&line[8], NULL, 10));
 		else if (strncmp(line, "DEVNAME=", 8) == 0)
 			udev_device_set_knodename(udev_device, &line[8]);
 
@@ -1534,5 +1539,16 @@ int udev_device_get_watch_handle(struct udev_device *udev_device)
 int udev_device_set_watch_handle(struct udev_device *udev_device, int handle)
 {
 	udev_device->watch_handle = handle;
+	return 0;
+}
+
+int udev_device_get_ifindex(struct udev_device *udev_device)
+{
+	return udev_device->ifindex;
+}
+
+int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
+{
+	udev_device->ifindex = ifindex;
 	return 0;
 }

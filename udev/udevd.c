@@ -123,6 +123,7 @@ struct event {
 	const char *devpath_old;
 	dev_t devnum;
 	bool is_block;
+	int ifindex;
 };
 
 static struct event *node_to_event(struct udev_list_node *node)
@@ -419,6 +420,7 @@ static int event_queue_insert(struct udev_device *dev)
 	event->devpath_old = udev_device_get_devpath_old(dev);
 	event->devnum = udev_device_get_devnum(dev);
 	event->is_block = (strcmp("block", udev_device_get_subsystem(dev)) == 0);
+	event->ifindex = udev_device_get_ifindex(dev);
 
 	udev_queue_export_device_queued(udev_queue_export, dev);
 	info(event->udev, "seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(dev),
@@ -486,6 +488,10 @@ static bool is_devpath_busy(struct event *event)
 		if (major(event->devnum) != 0 && event->devnum == loop_event->devnum && event->is_block == loop_event->is_block)
 			return true;
 
+		/* check network device ifindex */
+		if (event->ifindex != 0 && event->ifindex == loop_event->ifindex)
+			return true;
+
 		/* check our old name */
 		if (event->devpath_old != NULL && strcmp(loop_event->devpath, event->devpath_old) == 0) {
 			event->delaying_seqnum = loop_event->seqnum;
@@ -501,6 +507,11 @@ static bool is_devpath_busy(struct event *event)
 
 		/* identical device event found */
 		if (loop_event->devpath_len == event->devpath_len) {
+			/* devices names might have changed/swapped in the meantime */
+			if (major(event->devnum) != 0 && (event->devnum != loop_event->devnum || event->is_block != loop_event->is_block))
+				continue;
+			if (event->ifindex != 0 && event->ifindex != loop_event->ifindex)
+				continue;
 			event->delaying_seqnum = loop_event->seqnum;
 			return true;
 		}
