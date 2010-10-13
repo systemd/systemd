@@ -585,6 +585,48 @@
                                 change.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>ConditionPathExists=</varname></term>
+                                <term><varname>ConditionKernelCommandLine=</varname></term>
+
+                                <listitem><para>Before starting a unit
+                                verify that the specified condition is
+                                true. With
+                                <varname>ConditionPathExists=</varname>
+                                a file existance condition can be
+                                checked before a unit is started. If
+                                the specified absolute path name does
+                                not exist startup of a unit will not
+                                actually happen, however the unit is
+                                still useful for ordering purposes in
+                                this case. The condition is checked at
+                                the time the queued start job is to be
+                                executed. If the absolute path name
+                                passed to
+                                <varname>ConditionPathExists=</varname>
+                                is prefixed with an exclamation mark
+                                (!), the test is negated, and the unit
+                                only started if the path does not
+                                exist. Similarly
+                                <varname>ConditionKernelCommandLine=</varname>
+                                may be used to check whether a
+                                specific kernel command line option is
+                                set (or if prefixed with the
+                                exclamation mark unset). The argument
+                                must either be a single word, or an
+                                assignment (i.e. two words, seperated
+                                by the equality sign). In the former
+                                case the kernel command line is search
+                                for the word appearing as is, or as
+                                left hand side of an assignment. In
+                                the latter case the exact assignment
+                                is looked for with right and left hand
+                                side matching. If multiple conditions
+                                are specified the unit will be
+                                executed iff at least one of them
+                                apply (i.e. a logical OR is
+                                applied).</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>Unit file may include a [Install] section, which

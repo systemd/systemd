@@ -545,11 +545,9 @@ static int parse_config_file(void) {
 }
 
 static int parse_proc_cmdline(void) {
-        char *line;
+        char *line, *w, *state;
         int r;
-        char *w;
         size_t l;
-        char *state;
 
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));

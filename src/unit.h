@@ -38,6 +38,7 @@ typedef enum UnitDependency UnitDependency;
 #include "list.h"
 #include "socket-util.h"
 #include "execute.h"
+#include "condition.h"
 
 #define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
@@ -153,6 +154,9 @@ struct Meta {
         Job *job;
 
         usec_t job_timeout;
+
+        /* Conditions to check */
+        LIST_HEAD(Condition, conditions);
 
         dual_timestamp inactive_exit_timestamp;
         dual_timestamp active_enter_timestamp;

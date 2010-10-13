@@ -375,6 +375,8 @@ void unit_free(Unit *u) {
 
         set_free_free(u->meta.names);
 
+        condition_free_list(u->meta.conditions);
+
         free(u->meta.instance);
         free(u);
 }
@@ -639,6 +641,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->meta.job_timeout > 0)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->meta.job_timeout));
 
+        condition_dump_list(u->meta.conditions, f, prefix);
+
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 Unit *other;
 
@@ -839,6 +843,12 @@ int unit_start(Unit *u) {
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
+
+        /* If the conditions failed, don't do anything at all */
+        if (!condition_test_list(u->meta.conditions)) {
+                log_debug("Starting of %s requested but condition failed. Ignoring.", u->meta.id);
+                return -EALREADY;
+        }
 
         /* We don't suppress calls to ->start() here when we are
          * already starting, to allow this request to be used as a

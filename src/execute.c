@@ -1613,7 +1613,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sUtmpIdentifier: %s\n",
                         prefix, c->utmp_id);
-
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

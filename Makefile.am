@@ -402,7 +402,8 @@ libsystemd_core_la_SOURCES = \
 	src/fdset.c \
 	src/namespace.c \
 	src/tcpwrap.c \
-	src/cgroup-util.c
+	src/cgroup-util.c \
+	src/condition.c
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \

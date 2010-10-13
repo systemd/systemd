@@ -42,8 +42,6 @@
 
 * systemctl list-jobs - show dependencies
 
-* ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= with !
-
 * accountsservice is borked
 
 * auditd service files
@@ -83,6 +81,8 @@
 * when processes remain in a service even though the start command failed enter active
 
 * fix plymouth socket, when plymouth started to use a clean one
+
+* parse early boot time env var from dracut
 
 External:
 
