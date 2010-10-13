@@ -286,18 +286,18 @@ int main(int argc, char *argv[]) {
                 if (need_umount || need_swapoff || need_loop_detach) {
                         retries--;
 
-                        if (retries <= FINALIZE_CRITICAL_ATTEMPTS) {
+                        if (retries == FINALIZE_CRITICAL_ATTEMPTS) {
                                 log_warning("Approaching critical level to finalize filesystem and devices, try to kill all processes.");
                                 rescue_send_signal(SIGTERM);
                                 rescue_send_signal(SIGKILL);
                         }
 
                         if (retries > 0)
-                                log_info("Action still required, %d tries left", retries);
+                                log_info("Action still required, %d tries left.", retries);
                         else {
-                                log_error("Tried enough but still action required need_umount=%d, need_swapoff=%d, need_loop_detach=%d", need_umount, need_swapoff, need_loop_detach);
-                                r = -EBUSY;
-                                goto error;
+                                log_error("Giving up. Actions left: Umount=%s, Swap off=%s, Loop detach=%s",
+                                          yes_no(need_umount), yes_no(need_swapoff), yes_no(need_loop_detach));
+                                break;
                         }
                 }
         }
