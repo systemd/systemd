@@ -81,6 +81,8 @@ static enum action {
         ACTION_HALT,
         ACTION_POWEROFF,
         ACTION_REBOOT,
+        ACTION_KEXEC,
+        ACTION_EXIT,
         ACTION_RUNLEVEL2,
         ACTION_RUNLEVEL3,
         ACTION_RUNLEVEL4,
@@ -193,6 +195,7 @@ static void warn_wall(enum action action) {
                 [ACTION_HALT]      = "The system is going down for system halt NOW!",
                 [ACTION_REBOOT]    = "The system is going down for reboot NOW!",
                 [ACTION_POWEROFF]  = "The system is going down for power-off NOW!",
+                [ACTION_KEXEC]     = "The system is going down for kexec reboot NOW!",
                 [ACTION_RESCUE]    = "The system is going down to rescue mode NOW!",
                 [ACTION_EMERGENCY] = "The system is going down to emergency mode NOW!"
         };
@@ -1220,12 +1223,16 @@ static enum action verb_to_action(const char *verb) {
                 return ACTION_POWEROFF;
         else if (streq(verb, "reboot"))
                 return ACTION_REBOOT;
+        else if (streq(verb, "kexec"))
+                return ACTION_KEXEC;
         else if (streq(verb, "rescue"))
                 return ACTION_RESCUE;
         else if (streq(verb, "emergency"))
                 return ACTION_EMERGENCY;
         else if (streq(verb, "default"))
                 return ACTION_DEFAULT;
+        else if (streq(verb, "exit"))
+                return ACTION_EXIT;
         else
                 return ACTION_INVALID;
 }
@@ -1236,13 +1243,15 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 [ACTION_HALT] = SPECIAL_HALT_TARGET,
                 [ACTION_POWEROFF] = SPECIAL_POWEROFF_TARGET,
                 [ACTION_REBOOT] = SPECIAL_REBOOT_TARGET,
+                [ACTION_KEXEC] = SPECIAL_KEXEC_TARGET,
                 [ACTION_RUNLEVEL2] = SPECIAL_RUNLEVEL2_TARGET,
                 [ACTION_RUNLEVEL3] = SPECIAL_RUNLEVEL3_TARGET,
                 [ACTION_RUNLEVEL4] = SPECIAL_RUNLEVEL4_TARGET,
                 [ACTION_RUNLEVEL5] = SPECIAL_RUNLEVEL5_TARGET,
                 [ACTION_RESCUE] = SPECIAL_RESCUE_TARGET,
                 [ACTION_EMERGENCY] = SPECIAL_EMERGENCY_TARGET,
-                [ACTION_DEFAULT] = SPECIAL_DEFAULT_TARGET
+                [ACTION_DEFAULT] = SPECIAL_DEFAULT_TARGET,
+                [ACTION_EXIT] = SPECIAL_EXIT_TARGET
         };
 
         int r, ret = 0;
@@ -1336,6 +1345,14 @@ static int start_special(DBusConnection *bus, char **args, unsigned n) {
 
         assert(bus);
         assert(args);
+
+        if (arg_force &&
+            (streq(args[0], "halt") ||
+             streq(args[0], "poweroff") ||
+             streq(args[0], "reboot") ||
+             streq(args[0], "kexec") ||
+             streq(args[0], "exit")))
+                return daemon_reload(bus, args, n);
 
         r = start_unit(bus, args, n);
 
@@ -2968,12 +2985,16 @@ static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
                 assert(arg_action == ACTION_SYSTEMCTL);
 
                 method =
-                        streq(args[0], "clear-jobs")        ||
-                        streq(args[0], "cancel")            ? "ClearJobs" :
-                        streq(args[0], "daemon-reexec")     ? "Reexecute" :
-                        streq(args[0], "reset-failed")      ? "ResetFailed" :
-                        streq(args[0], "daemon-exit")       ? "Exit" :
-                                                              "Reload";
+                        streq(args[0], "clear-jobs")    ||
+                        streq(args[0], "cancel")        ? "ClearJobs" :
+                        streq(args[0], "daemon-reexec") ? "Reexecute" :
+                        streq(args[0], "reset-failed")  ? "ResetFailed" :
+                        streq(args[0], "halt")          ? "Halt" :
+                        streq(args[0], "poweroff")      ? "PowerOff" :
+                        streq(args[0], "reboot")        ? "Reboot" :
+                        streq(args[0], "kexec")         ? "KExec" :
+                        streq(args[0], "exit")          ? "Exit" :
+                                    /* "daemon-reload" */ "Reload";
         }
 
         if (!(m = dbus_message_new_method_call(
@@ -3919,6 +3940,7 @@ static int systemctl_help(void) {
                "     --no-reload     When enabling/disabling unit files, don't reload daemon\n"
                "                     configuration\n"
                "     --force         When enabling unit files, override existing symlinks\n"
+               "                     When shutting down, execute action immediately\n"
                "     --defaults      When disabling unit files, remove default symlinks only\n\n"
                "Commands:\n"
                "  list-units                      List units\n"
@@ -3951,16 +3973,17 @@ static int systemctl_help(void) {
                "  delete [NAME...]                Remove one or more snapshots\n"
                "  daemon-reload                   Reload systemd manager configuration\n"
                "  daemon-reexec                   Reexecute systemd manager\n"
-               "  daemon-exit                     Ask the systemd manager to quit\n"
                "  show-environment                Dump environment\n"
                "  set-environment [NAME=VALUE...] Set one or more environment variables\n"
                "  unset-environment [NAME...]     Unset one or more environment variables\n"
+               "  default                         Enter system default mode\n"
+               "  rescue                          Enter system rescue mode\n"
+               "  emergency                       Enter system emergency mode\n"
                "  halt                            Shut down and halt the system\n"
                "  poweroff                        Shut down and power-off the system\n"
                "  reboot                          Shut down and reboot the system\n"
-               "  rescue                          Enter system rescue mode\n"
-               "  emergency                       Enter system emergency mode\n"
-               "  default                         Enter system default mode\n",
+               "  kexec                           Shut down and reboot the system with kexec\n"
+               "  exit                            Ask for session termination\n",
                program_invocation_short_name);
 
         return 0;
@@ -4772,16 +4795,17 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "delete",                MORE,  2, delete_snapshot   },
                 { "daemon-reload",         EQUAL, 1, daemon_reload     },
                 { "daemon-reexec",         EQUAL, 1, daemon_reload     },
-                { "daemon-exit",           EQUAL, 1, daemon_reload     },
                 { "show-environment",      EQUAL, 1, show_enviroment   },
                 { "set-environment",       MORE,  2, set_environment   },
                 { "unset-environment",     MORE,  2, set_environment   },
                 { "halt",                  EQUAL, 1, start_special     },
                 { "poweroff",              EQUAL, 1, start_special     },
                 { "reboot",                EQUAL, 1, start_special     },
+                { "kexec",                 EQUAL, 1, start_special     },
                 { "default",               EQUAL, 1, start_special     },
                 { "rescue",                EQUAL, 1, start_special     },
                 { "emergency",             EQUAL, 1, start_special     },
+                { "exit",                  EQUAL, 1, start_special     },
                 { "reset-failed",          MORE,  1, reset_failed      },
                 { "enable",                MORE,  2, enable_unit       },
                 { "disable",               MORE,  2, enable_unit       },
