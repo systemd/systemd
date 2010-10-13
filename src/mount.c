@@ -359,8 +359,8 @@ static int mount_add_device_links(Mount *m) {
                         return r;
         }
 
-        if (p->passno > 0 /* &&
-                             UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM */) {
+        if (p->passno > 0 &&
+            UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM) {
                 char *name;
                 Unit *fsck;
                 /* Let's add in the fsck service */

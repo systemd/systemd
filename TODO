@@ -56,7 +56,7 @@
 
 * systemctl auto-pager a la git
 
-* fsck setup
+* fsck setup: quota flag, check kcmdline/forcefsck, reboot, single user
 
 * merge CK
 
