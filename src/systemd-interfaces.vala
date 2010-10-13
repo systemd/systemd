@@ -74,6 +74,10 @@ public interface Manager : DBus.Object {
         public abstract void reload() throws DBus.Error;
         public abstract void reexecute() throws DBus.Error;
         public abstract void exit() throws DBus.Error;
+        public abstract void halt() throws DBus.Error;
+        public abstract void power_off() throws DBus.Error;
+        public abstract void reboot() throws DBus.Error;
+        public abstract void kexec() throws DBus.Error;
 
         public abstract ObjectPath create_snapshot(string name = "", bool cleanup = false) throws DBus.Error;
 
