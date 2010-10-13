@@ -36,8 +36,6 @@
 
 * if a service fails too often, make the service enter failed mode, and the socket, too.
 
-* systemctl enable - warn about empty [Install] section
-
 * bash completion a la gdbus
 
 * systemctl list-jobs - show dependencies

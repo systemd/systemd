@@ -3227,6 +3227,7 @@ typedef struct {
 
 static Hashmap *will_install = NULL, *have_installed = NULL;
 static Set *remove_symlinks_to = NULL;
+static unsigned n_symlinks = 0;
 
 static void install_info_free(InstallInfo *i) {
         assert(i);
@@ -3759,6 +3760,9 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                 return r;
         }
 
+        n_symlinks += strv_length(i->aliases);
+        n_symlinks += strv_length(i->wanted_by);
+
         fclose(f);
 
         if ((r = install_info_symlink_alias(verb, i, config_path)) != 0)
@@ -3859,19 +3863,24 @@ static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
 
         if (streq(verb, "is-enabled"))
                 r = r > 0 ? 0 : -ENOENT;
-        else if (bus &&
-                 /* Don't try to reload anything if the user asked us to not do this */
-                 !arg_no_reload &&
-                 /* Don't try to reload anything when updating a unit globally */
-                 !arg_global &&
-                 /* Don't try to reload anything if we are called for system changes but the system wasn't booted with systemd */
-                 (arg_session || sd_booted() > 0) &&
-                 /* Don't try to reload anything if we are running in a chroot environment */
-                 (arg_session || running_in_chroot() <= 0) ) {
-                int q;
+        else {
+                if (n_symlinks <= 0)
+                        log_warning("Unit files contain no applicable installation information. Ignoring.");
 
-                if ((q = daemon_reload(bus, args, n)) < 0)
-                        r = q;
+                if (bus &&
+                    /* Don't try to reload anything if the user asked us to not do this */
+                    !arg_no_reload &&
+                    /* Don't try to reload anything when updating a unit globally */
+                    !arg_global &&
+                    /* Don't try to reload anything if we are called for system changes but the system wasn't booted with systemd */
+                    (arg_session || sd_booted() > 0) &&
+                    /* Don't try to reload anything if we are running in a chroot environment */
+                    (arg_session || running_in_chroot() <= 0) ) {
+                        int q;
+
+                        if ((q = daemon_reload(bus, args, n)) < 0)
+                                r = q;
+                }
         }
 
 finish:
