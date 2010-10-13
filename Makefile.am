@@ -444,6 +444,7 @@ EXTRA_DIST += \
 	src/cgroup-show.h \
 	src/build.h \
 	src/shutdownd.h \
+	src/umount.h \
 	src/readahead-common.h
 
 MANPAGES = \
@@ -649,7 +650,6 @@ systemd_shutdownd_LDADD = \
 
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
-	src/umount.h \
 	src/umount.c \
 	src/shutdown.c
 
