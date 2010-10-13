@@ -293,7 +293,7 @@ static int mount_points_list_umount(MountPoint **mount_point_list_head) {
                 if (umount2(mp->path, MNT_FORCE) == 0)
                         mount_point_remove_and_free(mp, mount_point_list_head);
                 else {
-                        log_debug("Could not unmount %s: %m", mp->path);
+                        log_warning("Could not unmount %s: %m", mp->path);
                         failed++;
                 }
         }
@@ -310,7 +310,7 @@ static int mount_points_list_remount_read_only(MountPoint **mount_point_list_hea
                 if (mount(NULL, mp->path, NULL, MS_MGC_VAL|MS_REMOUNT|MS_RDONLY, NULL) == 0)
                         mount_point_remove_and_free(mp, mount_point_list_head);
                 else {
-                        log_debug("Could not remount as read-only %s: %m", mp->path);
+                        log_warning("Could not remount as read-only %s: %m", mp->path);
                         failed++;
                 }
         }
@@ -326,7 +326,7 @@ static int swap_points_list_off(MountPoint **swap_list_head) {
                 if (swapoff(swap->path) == 0)
                         mount_point_remove_and_free(swap, swap_list_head);
                 else {
-                        log_debug("Could not swapoff %s: %m", swap->path);
+                        log_warning("Could not deactivate swap %s: %m", swap->path);
                         failed++;
                 }
         }
@@ -342,7 +342,7 @@ static int loopback_points_list_detach(MountPoint **loopback_list_head) {
                 if (delete_loopback(loopback->path) == 0)
                         mount_point_remove_and_free(loopback, loopback_list_head);
                 else {
-                        log_debug("Could not delete loopback %s: %m", loopback->path);
+                        log_warning("Could not delete loopback %s: %m", loopback->path);
                         failed++;
                 }
         }
