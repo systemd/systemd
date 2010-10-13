@@ -38,6 +38,7 @@ typedef struct MountPoint {
         LIST_FIELDS (struct MountPoint, mount_point);
 } MountPoint;
 
+/* Takes over possession of path */
 static MountPoint *mount_point_alloc(char *path) {
         MountPoint *mp;
 
@@ -98,31 +99,32 @@ static int mount_points_list_get(MountPoint **mount_point_list_head) {
                         continue;
                 }
 
-                if (mount_point_is_api(path)) {
-                        free(path);
+                p = cunescape(path);
+                free(path);
+
+                if (!p) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (mount_point_is_api(p)) {
+                        free(p);
                         continue;
                 }
 
-                if (!(p = cunescape(path))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
                 if (!(mp = mount_point_alloc(p))) {
+                        free(p);
                         r = -ENOMEM;
                         goto finish;
                 }
-                LIST_PREPEND(MountPoint, mount_point, *mount_point_list_head, mp);
 
-                free(path);
+                LIST_PREPEND(MountPoint, mount_point, *mount_point_list_head, mp);
         }
 
         r = 0;
 
 finish:
         fclose(proc_self_mountinfo);
-
-        free(path);
 
         return r;
 }
