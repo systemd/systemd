@@ -36,7 +36,7 @@
 #include "umount.h"
 #include "util.h"
 
-#define TIMEOUT_USEC    (5 * USEC_PER_SEC)
+#define TIMEOUT_USEC (5 * USEC_PER_SEC)
 #define FINALIZE_ATTEMPTS 50
 #define FINALIZE_CRITICAL_ATTEMPTS 10
 
@@ -198,7 +198,6 @@ finish:
         return r;
 }
 
-
 int main(int argc, char *argv[]) {
         int cmd, r, retries;
         bool need_umount = true, need_swapoff = true, need_loop_detach = true;
@@ -208,7 +207,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         if (getpid() != 1) {
-                log_error("Not executed by init (pid-1).");
+                log_error("Not executed by init (pid 1).");
                 r = -EPERM;
                 goto error;
         }
@@ -247,12 +246,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_warning("Cannot send SIGKILL to all process: %s", strerror(r));
 
-
-        /* preventing that we won't block umounts */
-        if (chdir("/") != 0)
-                log_warning("Cannot chdir(\"/\"): %m. Unmounts likely to fail.");
-
-        /* umount all mountpoints, swaps, and loopback devices */
+        /* Unmount all mountpoints, swaps, and loopback devices */
         retries = FINALIZE_ATTEMPTS;
         while (need_umount || need_swapoff || need_loop_detach) {
                 if (need_umount) {
