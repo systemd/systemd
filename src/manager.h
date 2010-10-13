@@ -41,6 +41,10 @@ typedef enum ManagerExitCode {
         MANAGER_EXIT,
         MANAGER_RELOAD,
         MANAGER_REEXECUTE,
+        MANAGER_REBOOT,
+        MANAGER_POWEROFF,
+        MANAGER_HALT,
+        MANAGER_KEXEC,
         _MANAGER_EXIT_CODE_MAX,
         _MANAGER_EXIT_CODE_INVALID = -1
 } ManagerExitCode;
@@ -197,7 +201,7 @@ struct Manager {
 
         /* Flags */
         ManagerRunningAs running_as;
-        ManagerExitCode exit_code:4;
+        ManagerExitCode exit_code:5;
 
         bool dispatching_load_queue:1;
         bool dispatching_run_queue:1;

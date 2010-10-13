@@ -889,6 +889,7 @@ int main(int argc, char *argv[]) {
         int r, retval = EXIT_FAILURE;
         FDSet *fds = NULL;
         bool reexecute = false;
+        const char *shutdown_verb = NULL;
 
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
                 /* This is compatbility support for SysV, where
@@ -1127,6 +1128,23 @@ int main(int argc, char *argv[]) {
                         log_notice("Reexecuting.");
                         goto finish;
 
+                case MANAGER_REBOOT:
+                case MANAGER_POWEROFF:
+                case MANAGER_HALT:
+                case MANAGER_KEXEC: {
+                        static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
+                                [MANAGER_REBOOT] = "reboot",
+                                [MANAGER_POWEROFF] = "poweroff",
+                                [MANAGER_HALT] = "halt",
+                                [MANAGER_KEXEC] = "kexec"
+                        };
+
+                        assert_se(shutdown_verb = table[m->exit_code]);
+
+                        log_notice("Shutting down.");
+                        goto finish;
+                }
+
                 default:
                         assert_not_reached("Unknown exit code.");
                 }
@@ -1205,6 +1223,17 @@ finish:
 
         if (fds)
                 fdset_free(fds);
+
+        if (shutdown_verb) {
+                const char * command_line[] = {
+                        SYSTEMD_SHUTDOWN_BINARY_PATH,
+                        shutdown_verb,
+                        NULL
+                };
+
+                execv(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line);
+                log_error("Failed to execute shutdown binary, freezing: %m");
+        }
 
         if (getpid() == 1)
                 freeze();
