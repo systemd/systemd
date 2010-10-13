@@ -227,16 +227,27 @@ static int loopback_list_get(MountPoint **loopback_list_head) {
 
         udev_list_entry_foreach(item, first) {
                 MountPoint *lb;
+                struct udev_device *d;
                 char *loop;
+                const char *dn;
 
-                loop = cunescape(udev_list_entry_get_name(item));
-                if (!loop) {
+                if (!(d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item)))) {
                         r = -ENOMEM;
                         goto finish;
                 }
 
-                lb = mount_point_alloc(loop);
-                if (!lb) {
+                if ((dn = udev_device_get_devnode(d))) {
+                        loop = strdup(dn);
+                        udev_device_unref(d);
+
+                        if (!loop) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+                } else
+                        udev_device_unref(d);
+
+                if (!(lb = mount_point_alloc(loop))) {
                         free(loop);
                         r = -ENOMEM;
                         goto finish;
@@ -251,7 +262,9 @@ finish:
         if (e)
                 udev_enumerate_unref(e);
 
-        free(udev);
+        if (udev)
+                udev_unref(udev);
+
         return r;
 }
 
