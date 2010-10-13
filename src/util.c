@@ -2247,26 +2247,34 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                 assert(notify >= 0);
 
                 for (;;) {
-                        struct inotify_event e;
+                        uint8_t inotify_buffer[sizeof(struct inotify_event) + FILENAME_MAX];
                         ssize_t l;
+                        struct inotify_event *e;
 
-                        if ((l = read(notify, &e, sizeof(e))) != sizeof(e)) {
+                        if ((l = read(notify, &inotify_buffer, sizeof(inotify_buffer))) < 0) {
 
-                                if (l < 0) {
+                                if (errno == EINTR)
+                                        continue;
 
-                                        if (errno == EINTR)
-                                                continue;
-
-                                        r = -errno;
-                                } else
-                                        r = -EIO;
-
+                                r = -errno;
                                 goto fail;
                         }
 
-                        if (e.wd != wd || !(e.mask & IN_CLOSE)) {
-                                r = -EIO;
-                                goto fail;
+                        e = (struct inotify_event*) inotify_buffer;
+
+                        while (l > 0) {
+                                size_t step;
+
+                                if (e->wd != wd || !(e->mask & IN_CLOSE)) {
+                                        r = -EIO;
+                                        goto fail;
+                                }
+
+                                step = sizeof(struct inotify_event) + e->len;
+                                assert(step <= (size_t) l);
+
+                                e = (struct inotify_event*) ((uint8_t*) e + step);
+                                l -= step;
                         }
 
                         break;

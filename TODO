@@ -68,8 +68,6 @@
 
 * ask-password tty timeout
 
-* properly handle multiple inotify events per read() in path.c and util.c
-
 * readahead: btrfs/LVM SSD detection
 
 * document locale.conf, vconsole.conf and possibly the tempfiles.d and modules-load.d mechanism.

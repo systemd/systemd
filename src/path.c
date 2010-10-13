@@ -453,7 +453,8 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         Path *p = PATH(u);
         int l;
         ssize_t k;
-        struct inotify_event *buf = NULL;
+        uint8_t *buf = NULL;
+        struct inotify_event *e;
         PathSpec *s;
 
         assert(p);
@@ -493,16 +494,22 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 goto fail;
         }
 
-        if ((size_t) k < sizeof(struct inotify_event) ||
-            (size_t) k < sizeof(struct inotify_event) + buf->len) {
-                log_error("inotify event too small.");
-                goto fail;
-        }
+        e = (struct inotify_event*) buf;
 
-        if (s->type == PATH_CHANGED && s->primary_wd == buf->wd)
-                path_enter_running(p);
-        else
-                path_enter_waiting(p, false);
+        while (k > 0) {
+                size_t step;
+
+                if (s->type == PATH_CHANGED && s->primary_wd == e->wd)
+                        path_enter_running(p);
+                else
+                        path_enter_waiting(p, false);
+
+                step = sizeof(struct inotify_event) + e->len;
+                assert(step <= (size_t) k);
+
+                e = (struct inotify_event*) ((uint8_t*) e + step);
+                k -= step;
+        }
 
         free(buf);
 
