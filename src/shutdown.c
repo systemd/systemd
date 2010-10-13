@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
         bool need_umount = true, need_swapoff = true, need_loop_detach = true;
 
         log_parse_environment();
-        log_set_target(LOG_TARGET_KMSG); /* syslog will die if not gone yet */
+        log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
         log_open();
 
         if (getpid() != 1) {
