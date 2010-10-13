@@ -164,11 +164,16 @@ static int manager_setup_signals(Manager *m) {
                         SIGWINCH,    /* Kernel sends us this on kbrequest (alt-arrowup) */
                         SIGPWR,      /* Some kernel drivers and upsd send us this on power failure */
                         SIGRTMIN+0,  /* systemd: start default.target */
-                        SIGRTMIN+1,  /* systemd: start rescue.target */
+                        SIGRTMIN+1,  /* systemd: isolate rescue.target */
                         SIGRTMIN+2,  /* systemd: isolate emergency.target */
                         SIGRTMIN+3,  /* systemd: start halt.target */
                         SIGRTMIN+4,  /* systemd: start poweroff.target */
                         SIGRTMIN+5,  /* systemd: start reboot.target */
+                        SIGRTMIN+6,  /* systemd: start kexec.target */
+                        SIGRTMIN+13, /* systemd: Immediate halt */
+                        SIGRTMIN+14, /* systemd: Immediate poweroff */
+                        SIGRTMIN+15, /* systemd: Immediate reboot */
+                        SIGRTMIN+16, /* systemd: Immediate kexec */
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
@@ -1987,7 +1992,7 @@ static int manager_process_signal_fd(Manager *m) {
                         }
 
                         /* Run the exit target if there is one, if not, just exit. */
-                        if (manager_start_target(m, SPECIAL_EXIT_SERVICE, JOB_REPLACE) < 0) {
+                        if (manager_start_target(m, SPECIAL_EXIT_TARGET, JOB_REPLACE) < 0) {
                                 m->exit_code = MANAGER_EXIT;
                                 return 0;
                         }
@@ -2058,19 +2063,35 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 default: {
-                        static const char * const table[] = {
+                        /* Starting SIGRTMIN+0 */
+                        static const char * const target_table[] = {
                                 [0] = SPECIAL_DEFAULT_TARGET,
                                 [1] = SPECIAL_RESCUE_TARGET,
                                 [2] = SPECIAL_EMERGENCY_TARGET,
                                 [3] = SPECIAL_HALT_TARGET,
                                 [4] = SPECIAL_POWEROFF_TARGET,
-                                [5] = SPECIAL_REBOOT_TARGET
+                                [5] = SPECIAL_REBOOT_TARGET,
+                                [6] = SPECIAL_KEXEC_TARGET
+                        };
+
+                        /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
+                        static const ManagerExitCode code_table[] = {
+                                [0] = MANAGER_HALT,
+                                [1] = MANAGER_POWEROFF,
+                                [2] = MANAGER_REBOOT,
+                                [3] = MANAGER_KEXEC
                         };
 
                         if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
-                            (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(table)) {
-                                manager_start_target(m, table[sfsi.ssi_signo - SIGRTMIN],
+                            (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
+                                manager_start_target(m, target_table[sfsi.ssi_signo - SIGRTMIN],
                                                      (sfsi.ssi_signo == 1 || sfsi.ssi_signo == 2) ? JOB_ISOLATE : JOB_REPLACE);
+                                break;
+                        }
+
+                        if ((int) sfsi.ssi_signo >= SIGRTMIN+13 &&
+                            (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(code_table)) {
+                                m->exit_code = code_table[sfsi.ssi_signo - SIGRTMIN - 13];
                                 break;
                         }
 

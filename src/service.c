@@ -316,7 +316,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         }
 
         /* If we don't know this name, fallback heuristics to figure
-         * out whether something is a target or an service alias. */
+         * out whether something is a target or a service alias. */
 
         if (*name == '$')
                 /* Facilities starting with $ are most likely targets */
