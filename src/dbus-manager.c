@@ -104,6 +104,10 @@
         "  <method name=\"Reload\"/>\n"                                 \
         "  <method name=\"Reexecute\"/>\n"                              \
         "  <method name=\"Exit\"/>\n"                                   \
+        "  <method name=\"Reboot\"/>\n"                                 \
+        "  <method name=\"PowerOff\"/>\n"                               \
+        "  <method name=\"Halt\"/>\n"                                   \
+        "  <method name=\"KExec\"/>\n"                                  \
         "  <method name=\"SetEnvironment\">\n"                          \
         "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
@@ -807,6 +811,54 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
                 m->exit_code = MANAGER_EXIT;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reboot")) {
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_REBOOT;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PowerOff")) {
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_POWEROFF;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Halt")) {
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Halting is only supported for system managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_HALT;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KExec")) {
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "kexec is only supported for system managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_KEXEC;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetEnvironment")) {
                 char **l = NULL, **e = NULL;
