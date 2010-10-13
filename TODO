@@ -56,8 +56,6 @@
 
 * passphrase agent https://bugs.freedesktop.org/show_bug.cgi?id=30038
 
-* support dbus introspection in mid-level object paths, i.e. in /org/freedesktop/systemd/units/.
-
 * systemctl auto-pager a la git
 
 * fsck setup

@@ -122,10 +122,71 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
         Manager *m = data;
         Job *j;
         int r;
+        DBusMessage *reply;
 
         assert(connection);
         assert(message);
         assert(m);
+
+        if (streq(dbus_message_get_path(message), "/org/freedesktop/systemd1/job")) {
+                /* Be nice to gdbus and return introspection data for our mid-level paths */
+
+                if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
+                        char *introspection = NULL;
+                        FILE *f;
+                        Iterator i;
+                        size_t size;
+
+                        if (!(reply = dbus_message_new_method_return(message)))
+                                goto oom;
+
+                        /* We roll our own introspection code here, instead of
+                         * relying on bus_default_message_handler() because we
+                         * need to generate our introspection string
+                         * dynamically. */
+
+                        if (!(f = open_memstream(&introspection, &size)))
+                                goto oom;
+
+                        fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
+                              "<node>\n", f);
+
+                        fputs(BUS_INTROSPECTABLE_INTERFACE, f);
+                        fputs(BUS_PEER_INTERFACE, f);
+
+                        HASHMAP_FOREACH(j, m->jobs, i)
+                                fprintf(f, "<node name=\"job/%lu\"/>", (unsigned long) j->id);
+
+                        fputs("</node>\n", f);
+
+                        if (ferror(f)) {
+                                fclose(f);
+                                free(introspection);
+                                goto oom;
+                        }
+
+                        fclose(f);
+
+                        if (!introspection)
+                                goto oom;
+
+                        if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection, DBUS_TYPE_INVALID)) {
+                                free(introspection);
+                                goto oom;
+                        }
+
+                        free(introspection);
+
+                        if (!dbus_connection_send(connection, reply, NULL))
+                                goto oom;
+
+                        dbus_message_unref(reply);
+
+                        return DBUS_HANDLER_RESULT_HANDLED;
+                }
+
+                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+        }
 
         if ((r = manager_get_job_from_dbus_path(m, dbus_message_get_path(message), &j)) < 0) {
 
@@ -139,6 +200,12 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
         }
 
         return bus_job_message_dispatch(j, connection, message);
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 const DBusObjectPathVTable bus_job_vtable = {
