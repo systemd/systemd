@@ -110,6 +110,8 @@ struct Service {
         pid_t main_pid, control_pid;
         int socket_fd;
 
+        int fsck_passno;
+
         bool permissions_start_only;
         bool root_directory_start_only;
         bool remain_after_exit;

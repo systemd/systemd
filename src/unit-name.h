@@ -49,6 +49,7 @@ char *unit_name_replace_instance(const char *f, const char *i);
 char *unit_name_template(const char *f);
 
 char *unit_name_from_path(const char *path, const char *suffix);
+char *unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix);
 char *unit_name_to_path(const char *name);
 
 #endif

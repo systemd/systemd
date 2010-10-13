@@ -377,6 +377,30 @@ char *unit_name_from_path(const char *path, const char *suffix) {
         return r;
 }
 
+char *unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix) {
+        char *p, *r;
+
+        assert(path);
+        assert(suffix);
+
+        if (!(p = strdup(path)))
+                return NULL;
+
+        path_kill_slashes(p);
+
+        path = p[0] == '/' ? p + 1 : p;
+
+        if (path[0] == 0) {
+                free(p);
+                return unit_name_build_escape(prefix, "-", suffix);
+        }
+
+        r = unit_name_build_escape(prefix, path, suffix);
+        free(p);
+
+        return r;
+}
+
 char *unit_name_to_path(const char *name) {
         char *w, *e;
 

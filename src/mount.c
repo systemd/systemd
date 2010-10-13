@@ -333,7 +333,7 @@ static bool mount_is_bind(MountParameters *p) {
 
 static int mount_add_device_links(Mount *m) {
         MountParameters *p;
-        bool nofail, noauto;
+        int r;
 
         assert(m);
 
@@ -344,18 +344,45 @@ static int mount_add_device_links(Mount *m) {
         else
                 return 0;
 
-        if (!p->what || path_equal(m->where, "/"))
+        if (!p->what)
                 return 0;
 
-        if (mount_is_bind(p))
-                return 0;
+        if (!mount_is_bind(p) && !path_equal(m->where, "/")) {
+                bool nofail, noauto;
 
-        noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
-        nofail = !!mount_test_option(p->options, "nofail");
+                noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
+                nofail = !!mount_test_option(p->options, "nofail");
 
-        return unit_add_node_link(UNIT(m), p->what,
-                                  !noauto && nofail &&
-                                  UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM);
+                if ((r = unit_add_node_link(UNIT(m), p->what,
+                                            !noauto && nofail &&
+                                            UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
+                        return r;
+        }
+
+        if (p->passno > 0 /* &&
+                             UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM */) {
+                char *name;
+                Unit *fsck;
+                /* Let's add in the fsck service */
+
+                if (!(name = unit_name_from_path_instance("fsck", p->what, ".service")))
+                        return -ENOMEM;
+
+                if ((r = manager_load_unit_prepare(m->meta.manager, name, NULL, NULL, &fsck)) < 0) {
+                        log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
+                        free(name);
+                        return r;
+                }
+
+                free(name);
+
+                SERVICE(fsck)->fsck_passno = p->passno;
+
+                if ((r = unit_add_two_dependencies(UNIT(m), UNIT_AFTER, UNIT_WANTS, fsck, true)) < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int mount_add_default_dependencies(Mount *m) {
@@ -1161,6 +1188,7 @@ static int mount_add_one(
                 const char *where,
                 const char *options,
                 const char *fstype,
+                int passno,
                 bool from_proc_self_mountinfo,
                 bool set_flags) {
         int r;
@@ -1247,6 +1275,8 @@ static int mount_add_one(
 
         free(p->fstype);
         p->fstype = f;
+
+        p->passno = passno;
 
         unit_add_to_dbus_queue(u);
 
@@ -1381,7 +1411,7 @@ static int mount_load_etc_fstab(Manager *m) {
                                                  !!mount_test_option(me->mnt_opts, "comment=systemd.swapon"),
                                                  false);
                 } else
-                        k = mount_add_one(m, what, where, me->mnt_opts, me->mnt_type, false, false);
+                        k = mount_add_one(m, what, where, me->mnt_opts, me->mnt_type, me->mnt_passno, false, false);
 
                 free(what);
                 free(where);
@@ -1447,7 +1477,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         goto finish;
                 }
 
-                if ((k = mount_add_one(m, d, p, o, fstype, true, set_flags)) < 0)
+                if ((k = mount_add_one(m, d, p, o, fstype, 0, true, set_flags)) < 0)
                         r = k;
 
 clean_up:

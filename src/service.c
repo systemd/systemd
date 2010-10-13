@@ -929,6 +929,47 @@ static int service_load_sysv(Service *s) {
 }
 #endif
 
+static int fsck_fix_order(Service *s) {
+        Meta *other;
+        int r;
+
+        assert(s);
+
+        if (s->fsck_passno <= 0)
+                return 0;
+
+        /* For each pair of services where both have an fsck priority
+         * we order things based on it. */
+
+        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_SERVICE]) {
+                Service *t;
+                UnitDependency d;
+
+                t = (Service*) other;
+
+                if (s == t)
+                        continue;
+
+                if (t->meta.load_state != UNIT_LOADED)
+                        continue;
+
+                if (t->fsck_passno <= 0)
+                        continue;
+
+                if (t->fsck_passno < s->fsck_passno)
+                        d = UNIT_AFTER;
+                else if (t->fsck_passno > s->fsck_passno)
+                        d = UNIT_BEFORE;
+                else
+                        continue;
+
+                if (!(r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int service_verify(Service *s) {
         assert(s);
 
@@ -1022,6 +1063,9 @@ static int service_load(Unit *u) {
                         return r;
 #endif
 
+                if ((r = fsck_fix_order(s)) < 0)
+                        return r;
+
                 if (s->bus_name)
                         if ((r = unit_watch_bus_name(u, s->bus_name)) < 0)
                                 return r;
@@ -1108,21 +1152,26 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->sysv_path)
                 fprintf(f,
                         "%sSysV Init Script Path: %s\n"
-                        "%sSysV Init Script has LSB Header: %s\n",
+                        "%sSysV Init Script has LSB Header: %s\n"
+                        "%sSysVEnabled: %s\n",
                         prefix, s->sysv_path,
-                        prefix, yes_no(s->sysv_has_lsb));
+                        prefix, yes_no(s->sysv_has_lsb),
+                        prefix, yes_no(s->sysv_enabled));
 
         if (s->sysv_start_priority >= 0)
                 fprintf(f,
-                        "%sSysVStartPriority: %i\n"
-                        "%sSysVEnabled: %s\n",
-                        prefix, s->sysv_start_priority,
-                        prefix, yes_no(s->sysv_enabled));
+                        "%sSysVStartPriority: %i\n",
+                        prefix, s->sysv_start_priority);
 
         if (s->sysv_runlevels)
                 fprintf(f, "%sSysVRunLevels: %s\n",
                         prefix, s->sysv_runlevels);
 #endif
+
+        if (s->fsck_passno > 0)
+                fprintf(f,
+                        "%sFsckPassNo: %i\n",
+                        prefix, s->fsck_passno);
 
         if (s->status_text)
                 fprintf(f, "%sStatus Text: %s\n",
