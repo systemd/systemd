@@ -8,8 +8,8 @@
 [Unit]
 Description=Reboot
 DefaultDependencies=no
-Requires=shutdown.target umount.target
-After=shutdown.target umount.target
+Requires=shutdown.target umount.target final.target
+After=shutdown.target umount.target final.target
 
 [Service]
 Type=oneshot
