@@ -6,20 +6,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=/etc/rc.local Compatibility
-ConditionPathExists=/etc/rc.local
-
-# The rcN.d symlink uses the name "local" while the script itself is
-# called "rc.local", hence carry both names here.
-Names=rc-local.service local.service
+Description=/sbin/halt.local Compatibility
+ConditionPathExists=/sbin/halt.local
+DefaultDependencies=no
+After=shutdown.target
+Before=final.target
 
 [Service]
-Type=forking
-ExecStart=/etc/rc.local start
+Type=oneshot
+ExecStart=/sbin/halt.local
 TimeoutSec=0
 StandardOutput=tty
 RemainAfterExit=yes
-SysVStartPriority=99
-
-[Install]
-WantedBy=multi-user.target

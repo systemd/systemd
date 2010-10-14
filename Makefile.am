@@ -280,6 +280,7 @@ if TARGET_FEDORA
 dist_systemunit_DATA += \
 	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
+	units/fedora/halt-local.service \
 	units/fedora/sysinit.service \
 	units/fedora/single.service \
 	units/fedora/plymouth-quit.service \
@@ -1118,7 +1119,8 @@ if TARGET_FEDORA
 		$(DESTDIR)$(systemunitdir)/poweroff.target.wants \
 		$(DESTDIR)$(systemunitdir)/halt.target.wants \
 		$(DESTDIR)$(systemunitdir)/rescue.target.wants \
-		$(DESTDIR)$(systemunitdir)/multi-user.target.wants
+		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
+		$(DESTDIR)$(systemunitdir)/final.target.wants
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
@@ -1128,6 +1130,9 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f rc-local.service && \
 		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
+		rm -f halt-local.service && \
+		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 	( cd $(DESTDIR)$(systemunitdir)/rescue.target.wants && \
 		rm -f single.service && \
 		$(LN_S) $(systemunitdir)/single.service single.service )
