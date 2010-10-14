@@ -6,14 +6,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Halt
+Description=Power-Off
 DefaultDependencies=no
 Requires=shutdown.target umount.target
 After=shutdown.target umount.target
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes
-Environment=RUNLEVEL=0
-ExecStart=/etc/rc.shutdown
-StandardOutput=tty
+ExecStart=@SYSTEMCTL@ --force poweroff

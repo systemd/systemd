@@ -1,3 +1,6 @@
+halt.service
+poweroff.service
+reboot.service
 kexec.service
 systemd-user-sessions.service
 systemd-readahead-done.service

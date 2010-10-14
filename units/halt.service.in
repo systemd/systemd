@@ -6,14 +6,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Reboot
+Description=Halt
 DefaultDependencies=no
 Requires=shutdown.target umount.target
 After=shutdown.target umount.target
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes
-Environment=COLD_BOOT=1
-ExecStart=/etc/init.d/reboot
-StandardOutput=tty
+ExecStart=@SYSTEMCTL@ --force halt

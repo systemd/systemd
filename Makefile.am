@@ -231,6 +231,9 @@ nodist_systemunit_DATA = \
 	units/systemd-tmpfiles.service \
 	units/systemd-user-sessions.service \
 	units/syslog.target \
+	units/halt.service \
+	units/poweroff.service \
+	units/reboot.service \
 	units/kexec.service
 
 dist_sessionunit_DATA = \
@@ -265,18 +268,17 @@ EXTRA_DIST = \
 	units/systemd-tmpfiles.service.in \
 	units/systemd-user-sessions.service.in \
 	units/syslog.target.in \
+	units/halt.service.in \
+	units/poweroff.service.in \
+	units/reboot.service.in \
 	units/kexec.service.in \
 	units/session/exit.service.in \
 	systemd.pc.in
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
-	units/fedora/halt.service \
-	units/fedora/killall.service \
-	units/fedora/poweroff.service \
 	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
-	units/fedora/reboot.service \
 	units/fedora/sysinit.service \
 	units/fedora/single.service \
 	units/fedora/plymouth-quit.service \
@@ -287,10 +289,6 @@ endif
 
 if TARGET_DEBIAN
 dist_systemunit_DATA += \
-	units/debian/halt.service \
-	units/debian/killall.service \
-	units/debian/poweroff.service \
-	units/debian/reboot.service \
 	units/debian/fsck.target \
 	units/debian/umountfs.service \
 	units/debian/umountnfs.service \
@@ -299,28 +297,18 @@ endif
 
 if TARGET_SUSE
 dist_systemunit_DATA += \
-	units/suse/halt.service \
-	units/suse/poweroff.service \
-	units/suse/reboot.service \
 	units/suse/fsck.target
 endif
 
 if TARGET_GENTOO
 dist_systemunit_DATA += \
-	units/gentoo/halt.service \
-	units/gentoo/killall.service \
-	units/gentoo/poweroff.service \
-	units/gentoo/reboot.service \
 	units/gentoo/xdm.service
 endif
 
 if TARGET_ARCH
 dist_systemunit_DATA += \
 	units/arch/sysinit.service \
-	units/arch/rc-local.service \
-	units/arch/halt.service \
-	units/arch/poweroff.service \
-	units/arch/reboot.service
+	units/arch/rc-local.service
 endif
 
 dist_doc_DATA = \
