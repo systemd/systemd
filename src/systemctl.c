@@ -3939,7 +3939,7 @@ static int systemctl_help(void) {
                "     --global        Enable/disable unit files globally\n"
                "     --no-reload     When enabling/disabling unit files, don't reload daemon\n"
                "                     configuration\n"
-               "     --force         When enabling unit files, override existing symlinks\n"
+               "  -f --force         When enabling unit files, override existing symlinks\n"
                "                     When shutting down, execute action immediately\n"
                "     --defaults      When disabling unit files, remove default symlinks only\n\n"
                "Commands:\n"
@@ -4068,7 +4068,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_ORDER,
                 ARG_REQUIRE,
                 ARG_FULL,
-                ARG_FORCE,
                 ARG_NO_RELOAD,
                 ARG_DEFAULTS
         };
@@ -4089,7 +4088,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "quiet",     no_argument,       NULL, 'q'           },
                 { "order",     no_argument,       NULL, ARG_ORDER     },
                 { "require",   no_argument,       NULL, ARG_REQUIRE   },
-                { "force",     no_argument,       NULL, ARG_FORCE     },
+                { "force",     no_argument,       NULL, 'f'           },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
                 { "defaults",  no_argument,       NULL, ARG_DEFAULTS  },
                 { NULL,        0,                 NULL, 0             }
@@ -4100,7 +4099,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ht:p:aq", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:aqf", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -4174,7 +4173,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_quiet = true;
                         break;
 
-                case ARG_FORCE:
+                case 'f':
                         arg_force = true;
                         break;
 
