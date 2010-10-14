@@ -36,19 +36,9 @@
 
 typedef struct MountPoint {
         char *path;
+        dev_t devnum;
         LIST_FIELDS (struct MountPoint, mount_point);
 } MountPoint;
-
-/* Takes over possession of path */
-static MountPoint *mount_point_alloc(char *path) {
-        MountPoint *mp;
-
-        if (!(mp = new(MountPoint, 1)))
-                return NULL;
-
-        mp->path = path;
-        return mp;
-}
 
 static void mount_point_remove_and_free(MountPoint *mount_point, MountPoint **mount_point_list_head) {
         LIST_REMOVE(MountPoint, mount_point, *mount_point_list_head, mount_point);
@@ -113,12 +103,13 @@ static int mount_points_list_get(MountPoint **mount_point_list_head) {
                         continue;
                 }
 
-                if (!(mp = mount_point_alloc(p))) {
+                if (!(mp = new0(MountPoint, 1))) {
                         free(p);
                         r = -ENOMEM;
                         goto finish;
                 }
 
+                mp->path = p;
                 LIST_PREPEND(MountPoint, mount_point, *mount_point_list_head, mp);
         }
 
@@ -175,13 +166,13 @@ static int swap_list_get(MountPoint **swap_list_head) {
                         goto finish;
                 }
 
-                swap = mount_point_alloc(d);
-                if (!swap) {
+                if (!(swap = new0(MountPoint, 1))) {
                         free(d);
                         r = -ENOMEM;
                         goto finish;
                 }
 
+                swap->path = d;
                 LIST_PREPEND(MountPoint, mount_point, *swap_list_head, swap);
         }
 
@@ -233,23 +224,26 @@ static int loopback_list_get(MountPoint **loopback_list_head) {
                         goto finish;
                 }
 
-                if ((dn = udev_device_get_devnode(d))) {
-                        loop = strdup(dn);
+                if (!(dn = udev_device_get_devnode(d))) {
                         udev_device_unref(d);
+                        continue;
+                }
 
-                        if (!loop) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-                } else
-                        udev_device_unref(d);
+                loop = strdup(dn);
+                udev_device_unref(d);
 
-                if (!(lb = mount_point_alloc(loop))) {
+                if (!loop) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!(lb = new0(MountPoint, 1))) {
                         free(loop);
                         r = -ENOMEM;
                         goto finish;
                 }
 
+                lb->path = loop;
                 LIST_PREPEND(MountPoint, mount_point, *loopback_list_head, lb);
         }
 
@@ -295,43 +289,42 @@ static int dm_list_get(MountPoint **dm_list_head) {
         first = udev_enumerate_get_list_entry(e);
 
         udev_list_entry_foreach(item, first) {
-                MountPoint *lb;
+                MountPoint *m;
                 struct udev_device *d;
-                char *dm = NULL;
-                struct udev_list_entry *dlink = NULL, *first_dlink = NULL;
+                dev_t devnum;
+                char *node;
+                const char *dn;
 
                 if (!(d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item)))) {
                         r = -ENOMEM;
                         goto finish;
                 }
 
-                first_dlink = udev_device_get_devlinks_list_entry(d);
-                udev_list_entry_foreach(dlink, first_dlink) {
+                devnum = udev_device_get_devnum(d);
+                dn = udev_device_get_devnode(d);
 
-                        if (startswith(udev_list_entry_get_name(dlink), "/dev/mapper/")) {
-
-                                if (!(dm = strdup(udev_list_entry_get_name(dlink)))) {
-                                        udev_device_unref(d);
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
-
-                                break;
-                        }
+                if (major(devnum) == 0 || !dn) {
+                        udev_device_unref(d);
+                        continue;
                 }
 
+                node = strdup(dn);
                 udev_device_unref(d);
 
-                if (!dm)
-                        continue;
-
-                if (!(lb = mount_point_alloc(dm))) {
-                        free(dm);
+                if (!node) {
                         r = -ENOMEM;
                         goto finish;
                 }
 
-                LIST_PREPEND(MountPoint, mount_point, *dm_list_head, lb);
+                if (!(m = new(MountPoint, 1))) {
+                        free(node);
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                m->path = node;
+                m->devnum = devnum;
+                LIST_PREPEND(MountPoint, mount_point, *dm_list_head, m);
         }
 
         r = 0;
@@ -359,14 +352,11 @@ static int delete_loopback(const char *device) {
         return (r >= 0 || errno == ENXIO) ? 0 : -errno;
 }
 
-static int delete_dm(const char *device) {
+static int delete_dm(dev_t devnum) {
         int fd, r;
         struct dm_ioctl dm;
 
-        assert(device);
-
-        if (!startswith(device, "/dev/mapper/"))
-                return -EIO;
+        assert(major(devnum) != 0);
 
         if ((fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC)) < 0)
                 return -errno;
@@ -377,8 +367,7 @@ static int delete_dm(const char *device) {
         dm.version[2] = DM_VERSION_PATCHLEVEL;
 
         dm.data_size = sizeof(dm);
-
-        strncpy(dm.name, device + 12, sizeof(dm.name));
+        dm.dev = devnum;
 
         r = ioctl(fd, DM_DEV_REMOVE, &dm);
         close_nointr_nofail(fd);
@@ -460,7 +449,7 @@ static int dm_points_list_detach(MountPoint **dm_list_head) {
         int failed = 0;
 
         LIST_FOREACH_SAFE(mount_point, dm, dm_next, *dm_list_head) {
-                if (delete_dm(dm->path) == 0)
+                if (delete_dm(dm->devnum) == 0)
                         mount_point_remove_and_free(dm, dm_list_head);
                 else {
                         log_warning("Could not delete dm %s: %m", dm->path);
