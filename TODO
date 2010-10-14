@@ -84,6 +84,8 @@ External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
 
+* patch kernel for cpu feature modalias for autoloading aes/kvm/...
+
 * place /etc/inittab with explaining blurb.
 
 * pam_securetty should honour console=
