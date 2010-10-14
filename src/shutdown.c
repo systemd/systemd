@@ -200,7 +200,7 @@ finish:
 
 int main(int argc, char *argv[]) {
         int cmd, r, retries;
-        bool need_umount = true, need_swapoff = true, need_loop_detach = true;
+        bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
 
         log_parse_environment();
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
@@ -248,7 +248,7 @@ int main(int argc, char *argv[]) {
 
         /* Unmount all mountpoints, swaps, and loopback devices */
         retries = FINALIZE_ATTEMPTS;
-        while (need_umount || need_swapoff || need_loop_detach) {
+        for (;;) {
                 if (need_umount) {
                         log_info("Unmounting filesystems.");
                         r = umount_all();
@@ -280,10 +280,20 @@ int main(int argc, char *argv[]) {
                                 log_warning("Not all loop devices detached, %d left.", r);
                         else
                                 log_error("Error detaching loop devices: %s", strerror(-r));
-
                 }
 
-                if (need_umount || need_swapoff || need_loop_detach) {
+                if (need_dm_detach) {
+                        log_info("Detaching DM devices.");
+                        r = dm_detach_all();
+                        if (r == 0)
+                                need_dm_detach = false;
+                        else if (r > 0)
+                                log_warning("Not all dm devices detached, %d left.", r);
+                        else
+                                log_error("Error detaching dm devices: %s", strerror(-r));
+                }
+
+                if (need_umount || need_swapoff || need_loop_detach || need_dm_detach) {
                         retries--;
 
                         if (retries == FINALIZE_CRITICAL_ATTEMPTS) {
@@ -295,11 +305,12 @@ int main(int argc, char *argv[]) {
                         if (retries > 0)
                                 log_info("Action still required, %d tries left.", retries);
                         else {
-                                log_error("Giving up. Actions left: Umount=%s, Swap off=%s, Loop detach=%s",
-                                          yes_no(need_umount), yes_no(need_swapoff), yes_no(need_loop_detach));
+                                log_error("Giving up. Actions left: Umount=%s, Swap off=%s, Loop detach=%s, dm detach=%s",
+                                          yes_no(need_umount), yes_no(need_swapoff), yes_no(need_loop_detach), yes_no(need_dm_detach));
                                 break;
                         }
-                }
+                } else
+                        break;
         }
 
         sync();

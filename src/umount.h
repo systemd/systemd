@@ -28,4 +28,6 @@ int swapoff_all(void);
 
 int loopback_detach_all(void);
 
+int dm_detach_all(void);
+
 #endif

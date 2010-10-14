@@ -26,6 +26,7 @@
 #include <sys/swap.h>
 #include <unistd.h>
 #include <linux/loop.h>
+#include <linux/dm-ioctl.h>
 #include <libudev.h>
 
 #include "list.h"
@@ -208,12 +209,8 @@ static int loopback_list_get(MountPoint **loopback_list_head) {
                 goto finish;
         }
 
-        if (udev_enumerate_add_match_subsystem(e, "block") < 0) {
-                r = -EIO;
-                goto finish;
-        }
-
-        if (udev_enumerate_add_match_sysname(e, "loop*") < 0) {
+        if (udev_enumerate_add_match_subsystem(e, "block") < 0 ||
+            udev_enumerate_add_match_sysname(e, "loop*") < 0) {
                 r = -EIO;
                 goto finish;
         }
@@ -268,6 +265,87 @@ finish:
         return r;
 }
 
+static int dm_list_get(MountPoint **dm_list_head) {
+        int r;
+        struct udev *udev;
+        struct udev_enumerate *e = NULL;
+        struct udev_list_entry *item = NULL, *first = NULL;
+
+        if (!(udev = udev_new())) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!(e = udev_enumerate_new(udev))) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (udev_enumerate_add_match_subsystem(e, "block") < 0 ||
+            udev_enumerate_add_match_sysname(e, "dm-*") < 0) {
+                r = -EIO;
+                goto finish;
+        }
+
+        if (udev_enumerate_scan_devices(e) < 0) {
+                r = -EIO;
+                goto finish;
+        }
+
+        first = udev_enumerate_get_list_entry(e);
+
+        udev_list_entry_foreach(item, first) {
+                MountPoint *lb;
+                struct udev_device *d;
+                char *dm = NULL;
+                struct udev_list_entry *dlink = NULL, *first_dlink = NULL;
+
+                if (!(d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item)))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                first_dlink = udev_device_get_devlinks_list_entry(d);
+                udev_list_entry_foreach(dlink, first_dlink) {
+
+                        if (startswith(udev_list_entry_get_name(dlink), "/dev/mapper/")) {
+
+                                if (!(dm = strdup(udev_list_entry_get_name(dlink)))) {
+                                        udev_device_unref(d);
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                break;
+                        }
+                }
+
+                udev_device_unref(d);
+
+                if (!dm)
+                        continue;
+
+                if (!(lb = mount_point_alloc(dm))) {
+                        free(dm);
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                LIST_PREPEND(MountPoint, mount_point, *dm_list_head, lb);
+        }
+
+        r = 0;
+
+finish:
+        if (e)
+                udev_enumerate_unref(e);
+
+        if (udev)
+                udev_unref(udev);
+
+        return r;
+}
+
 static int delete_loopback(const char *device) {
         int fd, r;
 
@@ -279,6 +357,33 @@ static int delete_loopback(const char *device) {
 
         /* ENXIO: not bound, so no error */
         return (r >= 0 || errno == ENXIO) ? 0 : -errno;
+}
+
+static int delete_dm(const char *device) {
+        int fd, r;
+        struct dm_ioctl dm;
+
+        assert(device);
+
+        if (!startswith(device, "/dev/mapper/"))
+                return -EIO;
+
+        if ((fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC)) < 0)
+                return -errno;
+
+        zero(dm);
+        dm.version[0] = DM_VERSION_MAJOR;
+        dm.version[1] = DM_VERSION_MINOR;
+        dm.version[2] = DM_VERSION_PATCHLEVEL;
+
+        dm.data_size = sizeof(dm);
+
+        strncpy(dm.name, device + 12, sizeof(dm.name));
+
+        r = ioctl(fd, DM_DEV_REMOVE, &dm);
+        close_nointr_nofail(fd);
+
+        return r >= 0 ? 0 : -errno;
 }
 
 static int mount_points_list_umount(MountPoint **mount_point_list_head) {
@@ -350,6 +455,22 @@ static int loopback_points_list_detach(MountPoint **loopback_list_head) {
         return failed;
 }
 
+static int dm_points_list_detach(MountPoint **dm_list_head) {
+        MountPoint *dm, *dm_next;
+        int failed = 0;
+
+        LIST_FOREACH_SAFE(mount_point, dm, dm_next, *dm_list_head) {
+                if (delete_dm(dm->path) == 0)
+                        mount_point_remove_and_free(dm, dm_list_head);
+                else {
+                        log_warning("Could not delete dm %s: %m", dm->path);
+                        failed++;
+                }
+        }
+
+        return failed;
+}
+
 int umount_all(void) {
         int r;
         LIST_HEAD(MountPoint, mp_list_head);
@@ -404,6 +525,24 @@ int loopback_detach_all(void) {
 
   end:
         mount_points_list_free(&loopback_list_head);
+
+        return r;
+}
+
+int dm_detach_all(void) {
+        int r;
+        LIST_HEAD(MountPoint, dm_list_head);
+
+        LIST_HEAD_INIT(MountPoint, dm_list_head);
+
+        r = dm_list_get(&dm_list_head);
+        if (r < 0)
+                goto end;
+
+        r = dm_points_list_detach(&dm_list_head);
+
+  end:
+        mount_points_list_free(&dm_list_head);
 
         return r;
 }
