@@ -38,7 +38,6 @@
 
 #define TIMEOUT_USEC (5 * USEC_PER_SEC)
 #define FINALIZE_ATTEMPTS 50
-#define FINALIZE_CRITICAL_ATTEMPTS 10
 
 static bool ignore_proc(pid_t pid) {
         if (pid == 1)
@@ -69,7 +68,7 @@ static bool is_kernel_thread(pid_t pid)
 static int killall(int sign) {
         DIR *dir;
         struct dirent *d;
-        unsigned int processes = 0;
+        unsigned int n_processes = 0;
 
         if ((dir = opendir("/proc")) == NULL)
                 return -errno;
@@ -87,20 +86,20 @@ static int killall(int sign) {
                         continue;
 
                 if (kill(pid, sign) == 0)
-                        processes++;
+                        n_processes++;
                 else
                         log_warning("Could not kill %d: %m", pid);
         }
 
         closedir(dir);
 
-        return processes;
+        return n_processes;
 }
 
 static int send_signal(int sign) {
         sigset_t mask, oldmask;
         usec_t until;
-        int processes;
+        int n_processes;
         struct timespec ts;
 
         assert_se(sigemptyset(&mask) == 0);
@@ -111,12 +110,12 @@ static int send_signal(int sign) {
         if (kill(-1, SIGSTOP) < 0)
                 log_warning("Failed kill(-1, SIGSTOP): %m");
 
-        processes = killall(sign);
+        n_processes = killall(sign);
 
         if (kill(-1, SIGCONT) < 0)
                 log_warning("Failed kill(-1, SIGCONT): %m");
 
-        if (processes <= 0)
+        if (n_processes <= 0)
                 goto finish;
 
         until = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
@@ -124,14 +123,15 @@ static int send_signal(int sign) {
                 usec_t n = now(CLOCK_MONOTONIC);
                 for (;;) {
                         pid_t pid = waitpid(-1, NULL, WNOHANG);
+
                         if (pid == 0)
                                 break;
                         else if (pid < 0 && errno == ECHILD) {
-                                processes = 0;
+                                n_processes = 0;
                                 goto finish;
                         }
 
-                        if (--processes == 0)
+                        if (--n_processes == 0)
                                 goto finish;
                 }
 
@@ -146,7 +146,7 @@ static int send_signal(int sign) {
 finish:
         sigprocmask(SIG_SETMASK, &oldmask, NULL);
 
-        return processes;
+        return n_processes;
 }
 
 static int rescue_send_signal(int sign) {
@@ -199,8 +199,10 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-        int cmd, r, retries;
+        int cmd, r;
+        unsigned retries;
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
+        bool killed_everbody = false;
 
         log_parse_environment();
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
@@ -247,11 +249,12 @@ int main(int argc, char *argv[]) {
                 log_warning("Cannot send SIGKILL to all process: %s", strerror(r));
 
         /* Unmount all mountpoints, swaps, and loopback devices */
-        retries = FINALIZE_ATTEMPTS;
-        for (;;) {
+        for (retries = 0; retries < FINALIZE_ATTEMPTS; retries++) {
+                bool changed = false;
+
                 if (need_umount) {
                         log_info("Unmounting filesystems.");
-                        r = umount_all();
+                        r = umount_all(&changed);
                         if (r == 0)
                                 need_umount = false;
                         else if (r > 0)
@@ -262,7 +265,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_swapoff) {
                         log_info("Disabling swaps.");
-                        r = swapoff_all();
+                        r = swapoff_all(&changed);
                         if (r == 0)
                                 need_swapoff = false;
                         else if (r > 0)
@@ -273,7 +276,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_loop_detach) {
                         log_info("Detaching loop devices.");
-                        r = loopback_detach_all();
+                        r = loopback_detach_all(&changed);
                         if (r == 0)
                                 need_loop_detach = false;
                         else if (r > 0)
@@ -284,7 +287,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_dm_detach) {
                         log_info("Detaching DM devices.");
-                        r = dm_detach_all();
+                        r = dm_detach_all(&changed);
                         if (r == 0)
                                 need_dm_detach = false;
                         else if (r > 0)
@@ -293,31 +296,40 @@ int main(int argc, char *argv[]) {
                                 log_error("Error detaching dm devices: %s", strerror(-r));
                 }
 
-                if (need_umount || need_swapoff || need_loop_detach || need_dm_detach) {
-                        retries--;
+                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach)
+                        /* Yay, done */
+                        break;
 
-                        if (retries == FINALIZE_CRITICAL_ATTEMPTS) {
-                                log_warning("Approaching critical level to finalize filesystem and devices, try to kill all processes.");
-                                rescue_send_signal(SIGTERM);
-                                rescue_send_signal(SIGKILL);
-                        }
+                /* If in this iteration we didn't manage to
+                 * unmount/deactivate anything, we either kill more
+                 * processes, or simply give up */
+                if (!changed) {
 
-                        if (retries > 0)
-                                log_info("Action still required, %d tries left.", retries);
-                        else {
-                                log_error("Giving up. Actions left: Umount=%s, Swap off=%s, Loop detach=%s, dm detach=%s",
-                                          yes_no(need_umount), yes_no(need_swapoff), yes_no(need_loop_detach), yes_no(need_dm_detach));
+                        if (killed_everbody) {
+                                /* Hmm, we already killed everybody,
+                                 * let's just give up */
+                                log_error("Cannot finalize all filesystems and devices, giving up.");
                                 break;
                         }
-                } else
-                        break;
+
+                        log_warning("Cannot finalize filesystems and devices, trying to kill remaining processes.");
+                        rescue_send_signal(SIGTERM);
+                        rescue_send_signal(SIGKILL);
+                        killed_everbody = true;
+                }
+
+                log_debug("Couldn't finalize filesystems and devices after %u retries, trying again.", retries+1);
         }
+
+        if (retries >= FINALIZE_ATTEMPTS)
+                log_error("Too many interations, giving up.");
 
         sync();
 
         if (cmd == LINUX_REBOOT_CMD_KEXEC) {
-                /* we cheat and exec kexec to avoid doing all its work */
+                /* We cheat and exec kexec to avoid doing all its work */
                 pid_t pid = fork();
+
                 if (pid < 0)
                         log_error("Could not fork: %m. Falling back to normal reboot.");
                 else if (pid > 0) {

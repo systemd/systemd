@@ -40,30 +40,37 @@ typedef struct MountPoint {
         LIST_FIELDS (struct MountPoint, mount_point);
 } MountPoint;
 
-static void mount_point_remove_and_free(MountPoint *mount_point, MountPoint **mount_point_list_head) {
-        LIST_REMOVE(MountPoint, mount_point, *mount_point_list_head, mount_point);
+static void mount_point_free(MountPoint **head, MountPoint *m) {
+        assert(head);
+        assert(m);
 
-        free(mount_point->path);
-        free(mount_point);
+        LIST_REMOVE(MountPoint, mount_point, *head, m);
+
+        free(m->path);
+        free(m);
 }
 
-static void mount_points_list_free(MountPoint **mount_point_list_head) {
-        while (*mount_point_list_head)
-                mount_point_remove_and_free(*mount_point_list_head, mount_point_list_head);
+static void mount_points_list_free(MountPoint **head) {
+        assert(head);
+
+        while (*head)
+                mount_point_free(head, *head);
 }
 
-static int mount_points_list_get(MountPoint **mount_point_list_head) {
+static int mount_points_list_get(MountPoint **head) {
         FILE *proc_self_mountinfo;
         char *path, *p;
         unsigned int i;
         int r;
+
+        assert(head);
 
         if (!(proc_self_mountinfo = fopen("/proc/self/mountinfo", "re")))
                 return -errno;
 
         for (i = 1;; i++) {
                 int k;
-                MountPoint *mp;
+                MountPoint *m;
 
                 path = p = NULL;
 
@@ -103,14 +110,14 @@ static int mount_points_list_get(MountPoint **mount_point_list_head) {
                         continue;
                 }
 
-                if (!(mp = new0(MountPoint, 1))) {
+                if (!(m = new0(MountPoint, 1))) {
                         free(p);
                         r = -ENOMEM;
                         goto finish;
                 }
 
-                mp->path = p;
-                LIST_PREPEND(MountPoint, mount_point, *mount_point_list_head, mp);
+                m->path = p;
+                LIST_PREPEND(MountPoint, mount_point, *head, m);
         }
 
         r = 0;
@@ -121,10 +128,12 @@ finish:
         return r;
 }
 
-static int swap_list_get(MountPoint **swap_list_head) {
+static int swap_list_get(MountPoint **head) {
         FILE *proc_swaps;
         unsigned int i;
         int r;
+
+        assert(head);
 
         if (!(proc_swaps = fopen("/proc/swaps", "re")))
                 return -errno;
@@ -173,7 +182,7 @@ static int swap_list_get(MountPoint **swap_list_head) {
                 }
 
                 swap->path = d;
-                LIST_PREPEND(MountPoint, mount_point, *swap_list_head, swap);
+                LIST_PREPEND(MountPoint, mount_point, *head, swap);
         }
 
         r = 0;
@@ -184,11 +193,13 @@ finish:
         return r;
 }
 
-static int loopback_list_get(MountPoint **loopback_list_head) {
+static int loopback_list_get(MountPoint **head) {
         int r;
         struct udev *udev;
         struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
+
+        assert(head);
 
         if (!(udev = udev_new())) {
                 r = -ENOMEM;
@@ -244,7 +255,7 @@ static int loopback_list_get(MountPoint **loopback_list_head) {
                 }
 
                 lb->path = loop;
-                LIST_PREPEND(MountPoint, mount_point, *loopback_list_head, lb);
+                LIST_PREPEND(MountPoint, mount_point, *head, lb);
         }
 
         r = 0;
@@ -259,11 +270,13 @@ finish:
         return r;
 }
 
-static int dm_list_get(MountPoint **dm_list_head) {
+static int dm_list_get(MountPoint **head) {
         int r;
         struct udev *udev;
         struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
+
+        assert(head);
 
         if (!(udev = udev_new())) {
                 r = -ENOMEM;
@@ -324,7 +337,7 @@ static int dm_list_get(MountPoint **dm_list_head) {
 
                 m->path = node;
                 m->devnum = devnum;
-                LIST_PREPEND(MountPoint, mount_point, *dm_list_head, m);
+                LIST_PREPEND(MountPoint, mount_point, *head, m);
         }
 
         r = 0;
@@ -348,8 +361,14 @@ static int delete_loopback(const char *device) {
         r = ioctl(fd, LOOP_CLR_FD, 0);
         close_nointr_nofail(fd);
 
+        if (r >= 0)
+                return 1;
+
         /* ENXIO: not bound, so no error */
-        return (r >= 0 || errno == ENXIO) ? 0 : -errno;
+        if (errno == ENXIO)
+                return 0;
+
+        return -errno;
 }
 
 static int delete_dm(dev_t devnum) {
@@ -375,92 +394,125 @@ static int delete_dm(dev_t devnum) {
         return r >= 0 ? 0 : -errno;
 }
 
-static int mount_points_list_umount(MountPoint **mount_point_list_head) {
-        MountPoint *mp, *mp_next;
-        int failed = 0;
+static int mount_points_list_umount(MountPoint **head, bool *changed) {
+        MountPoint *m, *n;
+        int n_failed = 0;
 
-        LIST_FOREACH_SAFE(mount_point, mp, mp_next, *mount_point_list_head) {
-                if (streq(mp->path, "/"))
+        assert(head);
+
+        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+                if (streq(m->path, "/"))
                         continue;
 
                 /* Trying to umount. Forcing to umount if busy (only for NFS mounts) */
-                if (umount2(mp->path, MNT_FORCE) == 0)
-                        mount_point_remove_and_free(mp, mount_point_list_head);
-                else {
-                        log_warning("Could not unmount %s: %m", mp->path);
-                        failed++;
+                if (umount2(m->path, MNT_FORCE) == 0) {
+
+                        if (changed)
+                                *changed = true;
+
+                        mount_point_free(head, m);
+                } else {
+                        log_warning("Could not unmount %s: %m", m->path);
+                        n_failed++;
                 }
         }
 
-        return failed;
+        return n_failed;
 }
 
-static int mount_points_list_remount_read_only(MountPoint **mount_point_list_head) {
-        MountPoint *mp, *mp_next;
-        int failed = 0;
+static int mount_points_list_remount_read_only(MountPoint **head, bool *changed) {
+        MountPoint *m, *n;
+        int n_failed = 0;
 
-        LIST_FOREACH_SAFE(mount_point, mp, mp_next, *mount_point_list_head) {
+        assert(head);
+
+        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+
                 /* Trying to remount read-only */
-                if (mount(NULL, mp->path, NULL, MS_MGC_VAL|MS_REMOUNT|MS_RDONLY, NULL) == 0)
-                        mount_point_remove_and_free(mp, mount_point_list_head);
-                else {
-                        log_warning("Could not remount as read-only %s: %m", mp->path);
-                        failed++;
+                if (mount(NULL, m->path, NULL, MS_MGC_VAL|MS_REMOUNT|MS_RDONLY, NULL) == 0) {
+                        if (changed)
+                                *changed = true;
+
+                        mount_point_free(head, m);
+                } else {
+                        log_warning("Could not remount as read-only %s: %m", m->path);
+                        n_failed++;
                 }
         }
 
-        return failed;
+        return n_failed;
 }
 
-static int swap_points_list_off(MountPoint **swap_list_head) {
-        MountPoint *swap, *swap_next;
-        int failed = 0;
+static int swap_points_list_off(MountPoint **head, bool *changed) {
+        MountPoint *m, *n;
+        int n_failed = 0;
 
-        LIST_FOREACH_SAFE(mount_point, swap, swap_next, *swap_list_head) {
-                if (swapoff(swap->path) == 0)
-                        mount_point_remove_and_free(swap, swap_list_head);
-                else {
-                        log_warning("Could not deactivate swap %s: %m", swap->path);
-                        failed++;
+        assert(head);
+
+        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+                if (swapoff(m->path) == 0) {
+                        if (changed)
+                                *changed = true;
+
+                        mount_point_free(head, m);
+                } else {
+                        log_warning("Could not deactivate swap %s: %m", m->path);
+                        n_failed++;
                 }
         }
 
-        return failed;
+        return n_failed;
 }
 
-static int loopback_points_list_detach(MountPoint **loopback_list_head) {
-        MountPoint *loopback, *loopback_next;
-        int failed = 0;
+static int loopback_points_list_detach(MountPoint **head, bool *changed) {
+        MountPoint *m, *n;
+        int n_failed = 0;
 
-        LIST_FOREACH_SAFE(mount_point, loopback, loopback_next, *loopback_list_head) {
-                if (delete_loopback(loopback->path) == 0)
-                        mount_point_remove_and_free(loopback, loopback_list_head);
-                else {
-                        log_warning("Could not delete loopback %s: %m", loopback->path);
-                        failed++;
+        assert(head);
+
+        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+                int r;
+
+                if ((r = delete_loopback(m->path)) >= 0) {
+
+                        if (r > 0 && changed)
+                                *changed = true;
+
+                        mount_point_free(head, m);
+                } else {
+                        log_warning("Could not delete loopback %s: %m", m->path);
+                        n_failed++;
                 }
         }
 
-        return failed;
+        return n_failed;
 }
 
-static int dm_points_list_detach(MountPoint **dm_list_head) {
-        MountPoint *dm, *dm_next;
-        int failed = 0;
+static int dm_points_list_detach(MountPoint **head, bool *changed) {
+        MountPoint *m, *n;
+        int n_failed = 0;
 
-        LIST_FOREACH_SAFE(mount_point, dm, dm_next, *dm_list_head) {
-                if (delete_dm(dm->devnum) == 0)
-                        mount_point_remove_and_free(dm, dm_list_head);
-                else {
-                        log_warning("Could not delete dm %s: %m", dm->path);
-                        failed++;
+        assert(head);
+
+        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+                int r;
+
+                if ((r = delete_dm(m->devnum)) >= 0) {
+
+                        if (r > 0 && changed)
+                                *changed = true;
+
+                        mount_point_free(head, m);
+                } else {
+                        log_warning("Could not delete dm %s: %m", m->path);
+                        n_failed++;
                 }
         }
 
-        return failed;
+        return n_failed;
 }
 
-int umount_all(void) {
+int umount_all(bool *changed) {
         int r;
         LIST_HEAD(MountPoint, mp_list_head);
 
@@ -470,11 +522,11 @@ int umount_all(void) {
         if (r < 0)
                 goto end;
 
-        r = mount_points_list_umount(&mp_list_head);
+        r = mount_points_list_umount(&mp_list_head, changed);
         if (r <= 0)
                 goto end;
 
-        r = mount_points_list_remount_read_only(&mp_list_head);
+        r = mount_points_list_remount_read_only(&mp_list_head, changed);
 
   end:
         mount_points_list_free(&mp_list_head);
@@ -482,7 +534,7 @@ int umount_all(void) {
         return r;
 }
 
-int swapoff_all(void) {
+int swapoff_all(bool *changed) {
         int r;
         LIST_HEAD(MountPoint, swap_list_head);
 
@@ -492,7 +544,7 @@ int swapoff_all(void) {
         if (r < 0)
                 goto end;
 
-        r = swap_points_list_off(&swap_list_head);
+        r = swap_points_list_off(&swap_list_head, changed);
 
   end:
         mount_points_list_free(&swap_list_head);
@@ -500,7 +552,7 @@ int swapoff_all(void) {
         return r;
 }
 
-int loopback_detach_all(void) {
+int loopback_detach_all(bool *changed) {
         int r;
         LIST_HEAD(MountPoint, loopback_list_head);
 
@@ -510,7 +562,7 @@ int loopback_detach_all(void) {
         if (r < 0)
                 goto end;
 
-        r = loopback_points_list_detach(&loopback_list_head);
+        r = loopback_points_list_detach(&loopback_list_head, changed);
 
   end:
         mount_points_list_free(&loopback_list_head);
@@ -518,7 +570,7 @@ int loopback_detach_all(void) {
         return r;
 }
 
-int dm_detach_all(void) {
+int dm_detach_all(bool *changed) {
         int r;
         LIST_HEAD(MountPoint, dm_list_head);
 
@@ -528,7 +580,7 @@ int dm_detach_all(void) {
         if (r < 0)
                 goto end;
 
-        r = dm_points_list_detach(&dm_list_head);
+        r = dm_points_list_detach(&dm_list_head, changed);
 
   end:
         mount_points_list_free(&dm_list_head);
