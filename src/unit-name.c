@@ -272,13 +272,13 @@ char *unit_name_unescape(const char *f) {
                 else if (*f == '\\') {
                         int a, b;
 
-                        if ((a = unhexchar(f[1])) < 0 ||
-                            (b = unhexchar(f[2])) < 0) {
-                                /* Invalid escape code, let's take it literal then */
+                        if (f[1] != 'x' || (a = unhexchar(f[2])) < 0 ||
+					(b = unhexchar(f[3])) < 0) {
+				/* Invalid escape code, let's take it literal then */
                                 *(t++) = '\\';
                         } else {
                                 *(t++) = (char) ((a << 4) | b);
-                                f += 2;
+                                f += 3;
                         }
                 } else
                         *(t++) = *f;
