@@ -76,11 +76,16 @@ int label_fix(const char *path) {
         if (r == 0) {
                 r = selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode);
 
+                /* If there's no label to set, then exit without warning */
+                if (r < 0 && errno == ENOENT)
+                        return 0;
+
                 if (r == 0) {
                         r = setfilecon(path, fcon);
                         freecon(fcon);
                 }
         }
+
         if (r < 0) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
                          "Unable to fix label of %s: %m", path);
