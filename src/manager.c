@@ -2489,6 +2489,11 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
                 (unsigned long long) m->startup_timestamp.realtime,
                 (unsigned long long) m->startup_timestamp.monotonic);
 
+        if (dual_timestamp_is_set(&m->finish_timestamp))
+                fprintf(f, "finish-timestamp=%llu %llu\n\n",
+                        (unsigned long long) m->finish_timestamp.realtime,
+                        (unsigned long long) m->finish_timestamp.monotonic);
+
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
                 if (u->meta.id != t)
                         continue;
@@ -2546,6 +2551,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else {
                                 m->startup_timestamp.realtime = a;
                                 m->startup_timestamp.monotonic = b;
+                        }
+                } else if (startswith(l, "finish-timestamp=")) {
+                        unsigned long long a, b;
+
+                        if (sscanf(l+18, "%lli %llu", &a, &b) != 2)
+                                log_debug("Failed to parse finish timestamp value %s", l+18);
+                        else {
+                                m->finish_timestamp.realtime = a;
+                                m->finish_timestamp.monotonic = b;
                         }
                 } else
                         log_debug("Unknown serialization item '%s'", l);
