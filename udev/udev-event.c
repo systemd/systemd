@@ -472,8 +472,9 @@ static int rename_netif(struct udev_event *event)
 
 	sk = socket(PF_INET, SOCK_DGRAM, 0);
 	if (sk < 0) {
+		err = -errno;
 		err(event->udev, "error opening socket: %m\n");
-		return -errno;
+		return err;
 	}
 
 	memset(&ifr, 0x00, sizeof(struct ifreq));
