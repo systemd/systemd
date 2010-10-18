@@ -3333,6 +3333,10 @@ bool null_or_empty(struct stat *st) {
         return false;
 }
 
+DIR *xopendirat(int fd, const char *name) {
+        return fdopendir(openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

@@ -10,10 +10,10 @@ Description=Cleanup of Temporary Directories
 DefaultDependencies=no
 Wants=local-fs.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
-Before=basic.target poweroff.service reboot.service halt.service killall.service
+Before=basic.target shutdown.target
+ConditionPathExists=/etc/tmpfiles.d
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/tmpwatch -umc -x /tmp/.X11-unix -x /tmp/.ICE-unix 10d /tmp
-ExecStart=/usr/sbin/tmpwatch -umc 30d /var/tmp
+ExecStart=@rootlibexecdir@/systemd-tmpfiles --clean
 IOSchedulingClass=idle

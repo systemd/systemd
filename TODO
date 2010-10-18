@@ -50,13 +50,13 @@
 
 * exec /sbin/poweroff as PID 1 and do the shutdown
 
-* kexec, suspend, resume
+* suspend, resume
 
 * passphrase agent https://bugs.freedesktop.org/show_bug.cgi?id=30038
 
 * systemctl auto-pager a la git
 
-* fsck setup: quota flag, check kcmdline/forcefsck, reboot, single user
+* fsck setup: quota flag, check kcmdline/forcefsck, reboot, single user, ac plug
 
 * merge CK
 
@@ -67,8 +67,6 @@
 * readahead: btrfs/LVM SSD detection
 
 * document locale.conf, vconsole.conf and possibly the tempfiles.d and modules-load.d mechanism.
-
-* beefed up tmpwatch that reads tmpfiles.d
 
 * enable syslog.socket by default, activating our kmsg bridge
 

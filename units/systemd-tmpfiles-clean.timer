@@ -9,5 +9,5 @@
 Description=Daily Cleanup of Temporary Directories
 
 [Timer]
-OnBootSec=1d
+OnBootSec=15min
 OnUnitActiveSec=1d

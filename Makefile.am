@@ -204,9 +204,8 @@ dist_systemunit_DATA = \
 	units/printer.target \
 	units/bluetooth.target \
 	units/smartcard.target \
-	units/tmpwatch.service \
-	units/tmpwatch.timer \
-	units/systemd-readahead-done.timer
+	units/systemd-readahead-done.timer \
+	units/systemd-tmpfiles-clean.timer
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -229,7 +228,8 @@ nodist_systemunit_DATA = \
 	units/systemd-readahead-collect.service \
 	units/systemd-readahead-replay.service \
 	units/systemd-readahead-done.service \
-	units/systemd-tmpfiles.service \
+	units/systemd-tmpfiles-setup.service \
+	units/systemd-tmpfiles-clean.service \
 	units/systemd-user-sessions.service \
 	units/syslog.target \
 	units/halt.service \
@@ -266,7 +266,8 @@ EXTRA_DIST = \
 	units/systemd-readahead-collect.service.in \
 	units/systemd-readahead-replay.service.in \
 	units/systemd-readahead-done.service.in \
-	units/systemd-tmpfiles.service.in \
+	units/systemd-tmpfiles-setup.service.in \
+	units/systemd-tmpfiles-clean.service.in \
 	units/systemd-user-sessions.service.in \
 	units/syslog.target.in \
 	units/halt.service.in \
@@ -1093,10 +1094,9 @@ install-data-hook:
 			systemd-vconsole-setup.service \
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
-			systemd-tmpfiles.service \
+			systemd-tmpfiles-setup.service \
 			sysctl.service \
-			tmpwatch.timer \
-			tmpwatch.service && \
+			systemd-tmpfiles-clean.timer && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
@@ -1105,10 +1105,9 @@ install-data-hook:
 		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
-		$(LN_S) ../systemd-tmpfiles.service systemd-tmpfiles.service && \
+		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../sysctl.service sysctl.service && \
-		$(LN_S) ../tmpwatch.timer tmpwatch.timer && \
-		$(LN_S) ../tmpwatch.service tmpwatch.service )
+		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )

@@ -11,8 +11,9 @@ DefaultDependencies=no
 Wants=local-fs.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
 Before=basic.target shutdown.target
+ConditionPathExists=/etc/tmpfiles.d
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-tmpfiles
+ExecStart=@rootlibexecdir@/systemd-tmpfiles --create --remove

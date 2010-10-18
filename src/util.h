@@ -32,6 +32,7 @@
 #include <sched.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #include "macro.h"
 
@@ -360,6 +361,8 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid);
 _noreturn_ void freeze(void);
 
 bool null_or_empty(struct stat *st);
+
+DIR *xopendirat(int dirfd, const char *name);
 
 #define NULSTR_FOREACH(i, l) \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
