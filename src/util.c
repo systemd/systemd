@@ -1681,6 +1681,8 @@ bool ignore_file(const char *filename) {
         return
                 filename[0] == '.' ||
                 streq(filename, "lost+found") ||
+                streq(filename, "aquota.user") ||
+                streq(filename, "aquota.group") ||
                 endswith(filename, "~") ||
                 endswith(filename, ".rpmnew") ||
                 endswith(filename, ".rpmsave") ||
