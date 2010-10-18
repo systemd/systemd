@@ -1526,7 +1526,7 @@ static int mount_enumerate(Manager *m) {
                 m->mount_watch.fd = fileno(m->proc_self_mountinfo);
 
                 zero(ev);
-                ev.events = EPOLLERR;
+                ev.events = EPOLLPRI;
                 ev.data.ptr = &m->mount_watch;
 
                 if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->mount_watch.fd, &ev) < 0)
@@ -1551,7 +1551,7 @@ void mount_fd_event(Manager *m, int events) {
         int r;
 
         assert(m);
-        assert(events == EPOLLERR);
+        assert(events & EPOLLPRI);
 
         /* The manager calls this for every fd event happening on the
          * /proc/self/mountinfo file, which informs us about mounting

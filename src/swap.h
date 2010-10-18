@@ -103,6 +103,7 @@ int swap_add_one(Manager *m, const char *what, const char *what_proc_swaps, int 
 int swap_add_one_mount_link(Swap *s, Mount *m);
 
 int swap_dispatch_reload(Manager *m);
+int swap_fd_event(Manager *m, int events);
 
 const char* swap_state_to_string(SwapState i);
 SwapState swap_state_from_string(const char *s);

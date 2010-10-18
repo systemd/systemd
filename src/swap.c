@@ -1056,15 +1056,22 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
 }
 
 int swap_dispatch_reload(Manager *m) {
-        Meta *meta;
-        int r;
-
-        assert(m);
+        /* This function should go as soon as the kernel properly notifies us */
 
         if (_likely_(!m->request_reload))
                 return 0;
 
         m->request_reload = false;
+
+        return swap_fd_event(m, EPOLLPRI);
+}
+
+int swap_fd_event(Manager *m, int events) {
+        Meta *meta;
+        int r;
+
+        assert(m);
+        assert(events & EPOLLPRI);
 
         if ((r == swap_load_proc_swaps(m, true)) < 0) {
                 log_error("Failed to reread /proc/swaps: %s", strerror(-r));
@@ -1169,11 +1176,23 @@ static void swap_shutdown(Manager *m) {
 
 static int swap_enumerate(Manager *m) {
         int r;
+        struct epoll_event ev;
         assert(m);
 
-        if (!m->proc_swaps)
+        if (!m->proc_swaps) {
                 if (!(m->proc_swaps = fopen("/proc/swaps", "re")))
                         return -errno;
+
+                m->swap_watch.type = WATCH_SWAP;
+                m->swap_watch.fd = fileno(m->proc_swaps);
+
+                zero(ev);
+                ev.events = EPOLLPRI;
+                ev.data.ptr = &m->swap_watch;
+
+                if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->swap_watch.fd, &ev) < 0)
+                        return -errno;
+        }
 
         /* We rely on mount.c to load /etc/fstab for us */
 

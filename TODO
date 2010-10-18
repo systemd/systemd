@@ -48,8 +48,6 @@
 
 * system.conf/session.conf man page
 
-* exec /sbin/poweroff as PID 1 and do the shutdown
-
 * suspend, resume
 
 * passphrase agent https://bugs.freedesktop.org/show_bug.cgi?id=30038
@@ -84,13 +82,13 @@ External:
 
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
 
+* patch fsck to support --lock
+
 * place /etc/inittab with explaining blurb.
 
 * pam_securetty should honour console=
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
-
-* nologin nach /var/run https://bugzilla.redhat.com/show_bug.cgi?id=624489
 
 * make sysinit honour forcefsck/fastboot from the kernel command line fsck.mode=auto|force|skip
 

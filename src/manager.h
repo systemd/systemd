@@ -64,6 +64,7 @@ enum WatchType {
         WATCH_UNIT_TIMER,
         WATCH_JOB_TIMER,
         WATCH_MOUNT,
+        WATCH_SWAP,
         WATCH_UDEV,
         WATCH_DBUS_WATCH,
         WATCH_DBUS_TIMEOUT
@@ -161,6 +162,7 @@ struct Manager {
         FILE *proc_swaps;
         Hashmap *swaps_by_proc_swaps;
         bool request_reload;
+        Watch swap_watch;
 
         /* Data specific to the D-Bus subsystem */
         DBusConnection *api_bus, *system_bus;

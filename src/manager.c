@@ -216,7 +216,7 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         m->audit_fd = -1;
 #endif
 
-        m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = -1;
+        m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = m->swap_watch.fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         if (!(m->environment = strv_copy(environ)))
@@ -2169,6 +2169,11 @@ static int process_event(Manager *m, struct epoll_event *ev) {
         case WATCH_MOUNT:
                 /* Some mount table change, intended for the mount subsystem */
                 mount_fd_event(m, ev->events);
+                break;
+
+        case WATCH_SWAP:
+                /* Some swap table change, intended for the swap subsystem */
+                swap_fd_event(m, ev->events);
                 break;
 
         case WATCH_UDEV:
