@@ -135,7 +135,7 @@ static void test_files(void) {
 }
 
 int main(int argc, char *argv[]) {
-        const char *cmdline[7];
+        const char *cmdline[8];
         int i = 0, r = EXIT_FAILURE, q;
         pid_t pid;
         siginfo_t status;
@@ -194,6 +194,7 @@ int main(int argc, char *argv[]) {
         cmdline[i++] = "-a";
         cmdline[i++] = "-T";
         cmdline[i++] = "-C";
+        cmdline[i++] = "-M";
 
         if (arg_force)
                 cmdline[i++] = "-f";
