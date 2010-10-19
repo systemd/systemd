@@ -265,7 +265,7 @@ static bool output_show_job(const struct unit_info *u) {
 }
 
 static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
-        unsigned active_len, sub_len, job_len;
+        unsigned active_len, sub_len, job_len, n_shown = 0;
         const struct unit_info *u;
 
         active_len = sizeof("ACTIVE")-1;
@@ -299,6 +299,8 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 if (!output_show_job(u))
                         continue;
+
+                n_shown++;
 
                 if (!streq(u->load_state, "loaded") &&
                     !streq(u->load_state, "banned")) {
@@ -352,9 +354,9 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                        "JOB    = Pending job for the unit.\n");
 
                 if (arg_all)
-                        printf("\n%u units listed.\n", c);
+                        printf("\n%u units listed.\n", n_shown);
                 else
-                        printf("\n%u units listed. Pass --all to see inactive units, too.\n", c);
+                        printf("\n%u units listed. Pass --all to see inactive units, too.\n", n_shown);
         }
 }
 
