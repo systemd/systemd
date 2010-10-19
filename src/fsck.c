@@ -38,7 +38,7 @@ static bool arg_force = false;
 static void start_target(const char *target, bool isolate) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        const char *mode;
+        const char *mode, *base_target = "base.target";
         DBusConnection *bus = NULL;
 
         assert(target);
@@ -57,12 +57,15 @@ static void start_target(const char *target, bool isolate) {
 
         log_debug("Running request %s/start/%s", target, mode);
 
-        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnit"))) {
+        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnitReplace"))) {
                 log_error("Could not allocate message.");
                 goto finish;
         }
 
+        /* Start these units only if we can replace base.target with it */
+
         if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &base_target,
                                       DBUS_TYPE_STRING, &target,
                                       DBUS_TYPE_STRING, &mode,
                                       DBUS_TYPE_INVALID)) {
@@ -196,11 +199,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (status.si_status & ~1) {
-
-                if (access("/dev/.systemd/late-fsck", F_OK) >= 0) {
-                        log_error("fsck failed with error code %i.", status.si_status);
-                        goto finish;
-                }
+                log_error("fsck failed with error code %i.", status.si_status);
 
                 if (status.si_status & 2)
                         /* System should be rebooted. */

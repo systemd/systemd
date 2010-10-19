@@ -48,6 +48,12 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"StartUnitReplace\">\n"                        \
+        "   <arg name=\"old_unit\" type=\"s\" direction=\"in\"/>\n"     \
+        "   <arg name=\"new_unit\" type=\"s\" direction=\"in\"/>\n"     \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"StopUnit\">\n"                                \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
@@ -407,6 +413,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnit"))
+                job_type = JOB_START;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnitReplace"))
                 job_type = JOB_START;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StopUnit"))
                 job_type = JOB_STOP;
@@ -910,18 +918,39 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 return bus_default_message_handler(m, connection, message, NULL, properties);
 
         if (job_type != _JOB_TYPE_INVALID) {
-                const char *name, *smode;
+                const char *name, *smode, *old_name = NULL;
                 JobMode mode;
                 Job *j;
                 Unit *u;
+                bool b;
 
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_STRING, &smode,
-                                    DBUS_TYPE_INVALID))
+                if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnitReplace"))
+                        b = dbus_message_get_args(
+                                        message,
+                                        &error,
+                                        DBUS_TYPE_STRING, &old_name,
+                                        DBUS_TYPE_STRING, &name,
+                                        DBUS_TYPE_STRING, &smode,
+                                        DBUS_TYPE_INVALID);
+                else
+                        b = dbus_message_get_args(
+                                        message,
+                                        &error,
+                                        DBUS_TYPE_STRING, &name,
+                                        DBUS_TYPE_STRING, &smode,
+                                        DBUS_TYPE_INVALID);
+
+                if (!b)
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if (old_name)
+                        if (!(u = manager_get_unit(m, old_name)) ||
+                            !u->meta.job ||
+                            u->meta.job->type != JOB_START) {
+                                dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
+                                return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                        }
+
 
                 if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
                         dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
