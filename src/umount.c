@@ -223,7 +223,6 @@ static int loopback_list_get(MountPoint **head) {
         }
 
         first = udev_enumerate_get_list_entry(e);
-
         udev_list_entry_foreach(item, first) {
                 MountPoint *lb;
                 struct udev_device *d;

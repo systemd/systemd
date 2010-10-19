@@ -108,7 +108,9 @@ rootlibexec_PROGRAMS = \
 	systemd-readahead-collect \
 	systemd-readahead-replay \
 	systemd-tmpfiles \
-	systemd-user-sessions
+	systemd-user-sessions \
+	systemd-fsck \
+	systemd-quotacheck
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -662,7 +664,7 @@ systemd_modules_load_SOURCES = \
 systemd_modules_load_CFLAGS = \
 	$(AM_CFLAGS)
 
-systemd_tmpfiles_LDADD = \
+systemd_modules_load_LDADD = \
 	libsystemd-basic.la
 
 systemd_tmpfiles_SOURCES = \
@@ -671,7 +673,31 @@ systemd_tmpfiles_SOURCES = \
 systemd_tmpfiles_CFLAGS = \
 	$(AM_CFLAGS)
 
-systemd_user_sessions_LDADD = \
+systemd_tmpfiles_LDADD = \
+	libsystemd-basic.la
+
+systemd_fsck_SOURCES = \
+	src/fsck.c \
+	src/ac-power.c \
+	src/dbus-common.c
+
+systemd_fsck_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_fsck_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS) \
+	$(DBUS_LIBS)
+
+systemd_quotacheck_SOURCES = \
+	src/quotacheck.c
+
+systemd_quotacheck_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_quotacheck_LDADD = \
 	libsystemd-basic.la
 
 systemd_user_sessions_SOURCES = \
@@ -681,7 +707,7 @@ systemd_user_sessions_SOURCES = \
 systemd_user_sessions_CFLAGS = \
 	$(AM_CFLAGS)
 
-systemd_modules_load_LDADD = \
+systemd_user_sessions_LDADD = \
 	libsystemd-basic.la
 
 systemd_vconsole_setup_SOURCES = \

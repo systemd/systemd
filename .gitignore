@@ -1,3 +1,5 @@
+systemd-fsck
+systemd-quotacheck
 systemd-user-sessions
 systemd-shutdown
 systemd-tmpfiles
