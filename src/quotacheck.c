@@ -91,7 +91,6 @@ int main(int argc, char *argv[]) {
         test_files();
 
         if (!arg_force) {
-
                 if (arg_skip)
                         return 0;
 

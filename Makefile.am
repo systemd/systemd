@@ -207,7 +207,9 @@ dist_systemunit_DATA = \
 	units/bluetooth.target \
 	units/smartcard.target \
 	units/systemd-readahead-done.timer \
-	units/systemd-tmpfiles-clean.timer
+	units/systemd-tmpfiles-clean.timer \
+	units/quotaon.service \
+	units/quotacheck.service
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -237,7 +239,9 @@ nodist_systemunit_DATA = \
 	units/halt.service \
 	units/poweroff.service \
 	units/reboot.service \
-	units/kexec.service
+	units/kexec.service \
+	units/fsck@.service \
+	units/fsck-root.service
 
 dist_sessionunit_DATA = \
 	units/session/default.target \
@@ -277,6 +281,8 @@ EXTRA_DIST = \
 	units/reboot.service.in \
 	units/kexec.service.in \
 	units/session/exit.service.in \
+	units/fsck@.service.in \
+	units/fsck-root.service.in \
 	systemd.pc.in
 
 if TARGET_FEDORA
@@ -678,7 +684,6 @@ systemd_tmpfiles_LDADD = \
 
 systemd_fsck_SOURCES = \
 	src/fsck.c \
-	src/ac-power.c \
 	src/dbus-common.c
 
 systemd_fsck_CFLAGS = \

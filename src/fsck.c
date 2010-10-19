@@ -25,10 +25,10 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <libudev.h>
 #include <dbus/dbus.h>
 
 #include "util.h"
-#include "ac-power.h"
 #include "dbus-common.h"
 #include "special.h"
 
@@ -135,13 +135,16 @@ static void test_files(void) {
 }
 
 int main(int argc, char *argv[]) {
-        static const char * cmdline[7];
+        const char *cmdline[7];
         int i = 0, r = EXIT_FAILURE, q;
         pid_t pid;
         siginfo_t status;
+        struct udev *udev = NULL;
+        struct udev_device *udev_device = NULL;
+        const char *device;
 
-        if (argc != 2) {
-                log_error("This program expects exactly one argument.");
+        if (argc > 2) {
+                log_error("This program expects one or no arguments.");
                 return EXIT_FAILURE;
         }
 
@@ -152,14 +155,38 @@ int main(int argc, char *argv[]) {
         parse_proc_cmdline();
         test_files();
 
-        if (!arg_force) {
-                if (arg_skip)
+        if (!arg_force && arg_skip)
+                return 0;
+
+        if (argc > 1)
+                device = argv[1];
+        else {
+                struct stat st;
+
+                /* Find root device */
+
+                if (stat("/", &st) < 0) {
+                        log_error("Failed to stat() the root directory: %m");
+                        goto finish;
+                }
+
+                /* Virtual root devices don't need an fsck */
+                if (major(st.st_dev) == 0)
                         return 0;
 
-                /* FIXME: only execute necessary fsck's if no AC power present */
-                if (on_ac_power() == 0) {
-                        log_info("Running on battery power, skipping file system check.");
-                        return 0;
+                if (!(udev = udev_new())) {
+                        log_error("Out of memory");
+                        goto finish;
+                }
+
+                if (!(udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev))) {
+                        log_error("Failed to detect root device.");
+                        goto finish;
+                }
+
+                if (!(device = udev_device_get_devnode(udev_device))) {
+                        log_error("Failed to detect device node of root directory.");
+                        goto finish;
                 }
         }
 
@@ -171,7 +198,7 @@ int main(int argc, char *argv[]) {
         if (arg_force)
                 cmdline[i++] = "-f";
 
-        cmdline[i++] = argv[1];
+        cmdline[i++] = device;
         cmdline[i++] = NULL;
 
         if ((pid = fork()) < 0) {
@@ -188,20 +215,16 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (status.si_code == CLD_KILLED ||
-            status.si_code == CLD_DUMPED) {
-                log_error("fsck terminated by signal %s.", signal_to_string(status.si_status));
-                goto finish;
+        if (status.si_code != CLD_EXITED || (status.si_status & ~1)) {
 
-        } else if (status.si_code != CLD_EXITED) {
-                log_error("fsck failed due to unknown reason.");
-                goto finish;
-        }
+                if (status.si_code == CLD_KILLED || status.si_code == CLD_DUMPED)
+                        log_error("fsck terminated by signal %s.", signal_to_string(status.si_status));
+                else if (status.si_code == CLD_EXITED)
+                        log_error("fsck failed with error code %i.", status.si_status);
+                else
+                        log_error("fsck failed due to unknown reason.");
 
-        if (status.si_status & ~1) {
-                log_error("fsck failed with error code %i.", status.si_status);
-
-                if (status.si_status & 2)
+                if (status.si_code == CLD_EXITED && status.si_status & 2)
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET, false);
                 else
@@ -211,9 +234,15 @@ int main(int argc, char *argv[]) {
         } else
                 r = EXIT_SUCCESS;
 
-        if (status.si_status & 1)
+        if (status.si_code == CLD_EXITED && (status.si_status & 1))
                 touch("/dev/.systemd/quotacheck");
 
 finish:
+        if (udev_device)
+                udev_device_unref(udev_device);
+
+        if (udev)
+                udev_unref(udev);
+
         return r;
 }

@@ -154,9 +154,6 @@ static int automount_add_default_dependencies(Automount *a) {
 
         if (a->meta.manager->running_as == MANAGER_SYSTEM) {
 
-                if ((r = unit_add_dependency_by_name(UNIT(a), UNIT_AFTER, SPECIAL_FSCK_TARGET, NULL, true)) < 0)
-                        return r;
-
                 if ((r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
                         return r;
         }

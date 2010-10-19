@@ -23,9 +23,3 @@ m4_dnl Hook in Arch's /etc/rc.sysinit
 Requires=sysinit.service
 After=sysinit.service
 )m4_dnl
-m4_ifdef(`TARGET_SUSE',`',
-m4_ifdef(`TARGET_DEBIAN',`',
-m4_dnl On Suse and Debian fsck.target is separate, everywhere else it is just an alias for sysinit.target
-Names=fsck.target
-)m4_dnl
-)m4_dnl
