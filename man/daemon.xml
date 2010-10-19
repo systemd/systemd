@@ -828,26 +828,29 @@ endif</programlisting>
 
                         <programlisting>%post
 if [ $1 -eq 1 ]; then
-        # On install, enable (but don't start) the units by default
+        # On install (not upgrade), enable (but don't start) the
+        # units by default
         /bin/systemctl enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 
-        # Alternatively, just call /bin/systemctl daemon-reload here,
-        # if the daemon should not be enabled by default on package
+        # Alternatively, just call
+        # /bin/systemctl daemon-reload >/dev/null 2>&amp;1 || :
+        # here, if the daemon should not be enabled by default on
         # installation
 fi
 
 %preun
 if [ $1 -eq 0 ]; then
-        # On uninstall, disable and stop the units
+        # On uninstall (not upgrade), disable and stop the units
         /bin/systemctl disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
         /bin/systemctl stop foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 fi
 
 %postun
-# On upgrade and uninstall, reload init system configuration, to make systemd honour changed unit files
+# Reload init system configuration, to make systemd honour changed
+# or deleted unit files
 /bin/systemctl daemon-reload >/dev/null 2>&amp;1 || :
 if [ $1 -ge 1 ] ; then
-        # Optionally, on upgrade, restart the daemon
+        # On upgrade (not uninstall), optionally, restart the daemon
         /bin/systemctl try-restart foobar.service >/dev/null 2>&amp;1 || :
 fi</programlisting>
 
