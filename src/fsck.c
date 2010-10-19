@@ -142,6 +142,7 @@ int main(int argc, char *argv[]) {
         struct udev *udev = NULL;
         struct udev_device *udev_device = NULL;
         const char *device;
+        bool root_directory;
 
         if (argc > 2) {
                 log_error("This program expects one or no arguments.");
@@ -158,9 +159,10 @@ int main(int argc, char *argv[]) {
         if (!arg_force && arg_skip)
                 return 0;
 
-        if (argc > 1)
+        if (argc > 1) {
                 device = argv[1];
-        else {
+                root_directory = false;
+        } else {
                 struct stat st;
 
                 /* Find root device */
@@ -188,13 +190,17 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to detect device node of root directory.");
                         goto finish;
                 }
+
+                root_directory = true;
         }
 
         cmdline[i++] = "/sbin/fsck";
         cmdline[i++] = "-a";
         cmdline[i++] = "-T";
         cmdline[i++] = "-C";
-        cmdline[i++] = "-M";
+
+        if (!root_directory)
+                cmdline[i++] = "-M";
 
         if (arg_force)
                 cmdline[i++] = "-f";
