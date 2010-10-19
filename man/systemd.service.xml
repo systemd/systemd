@@ -344,7 +344,7 @@
                                 daemon, and may be used for command
                                 lines like the following:
                                 <command>/bin/kill -HUP
-                                $(MAINPID)</command>.</para></listitem>
+                                $MAINPID</command>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -368,7 +368,7 @@
                                 requested. Specifier and environment
                                 variable substitution is supported
                                 (including
-                                <literal>$(MAINPID)</literal>, see
+                                <literal>$MAINPID</literal>, see
                                 above).</para></listitem>
                         </varlistentry>
 
