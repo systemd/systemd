@@ -154,8 +154,10 @@ int main(int argc, char *argv[]) {
                         return 0;
 
                 /* FIXME: only execute necessary fsck's if no AC power present */
-                if (on_ac_power() == 0)
+                if (on_ac_power() == 0) {
+                        log_info("Running on battery power, skipping file system check.");
                         return 0;
+                }
         }
 
         cmdline[i++] = "/sbin/fsck";
