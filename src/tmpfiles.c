@@ -792,5 +792,7 @@ finish:
 
         hashmap_free(items);
 
+        label_finish();
+
         return r;
 }
