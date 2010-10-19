@@ -1,0 +1,17 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=File System Check on Root Device
+DefaultDependencies=no
+After=systemd-readahead-collect.service systemd-readahead-replay.service
+Before=local-fs.target shutdown.target remount-rootfs.service quotacheck.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=@rootlibexecdir@/systemd-fsck

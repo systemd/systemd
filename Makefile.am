@@ -208,8 +208,7 @@ dist_systemunit_DATA = \
 	units/smartcard.target \
 	units/systemd-readahead-done.timer \
 	units/systemd-tmpfiles-clean.timer \
-	units/quotaon.service \
-	units/quotacheck.service
+	units/quotaon.service
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -241,7 +240,8 @@ nodist_systemunit_DATA = \
 	units/reboot.service \
 	units/kexec.service \
 	units/fsck@.service \
-	units/fsck-root.service
+	units/fsck-root.service \
+	units/quotacheck.service
 
 dist_sessionunit_DATA = \
 	units/session/default.target \
@@ -283,6 +283,7 @@ EXTRA_DIST = \
 	units/session/exit.service.in \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
+	units/quotacheck.service.in \
 	systemd.pc.in
 
 if TARGET_FEDORA
