@@ -83,6 +83,10 @@ int label_fix(const char *path) {
                 if (r == 0) {
                         r = setfilecon(path, fcon);
                         freecon(fcon);
+
+                        /* If the FS doesn't support labels, then exit without warning */
+                        if (r < 0 && errno == ENOTSUP)
+                                return 0;
                 }
         }
 
