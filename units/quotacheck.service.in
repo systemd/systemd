@@ -16,6 +16,7 @@ ConditionPathExists=/sbin/quotacheck
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-quotacheck
+StandardOutput=syslog
 
 [Install]
 WantedBy=local-fs.target

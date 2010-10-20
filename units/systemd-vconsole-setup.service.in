@@ -16,3 +16,4 @@ Before=basic.target shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-vconsole-setup
+StandardOutput=syslog

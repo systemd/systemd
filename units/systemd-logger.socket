@@ -8,7 +8,9 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd Logging Socket
+Description=Logging Socket
+DefaultDependencies=no
+Before=sockets.target
 
 [Socket]
 ListenStream=@/org/freedesktop/systemd1/logger

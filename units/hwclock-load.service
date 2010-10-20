@@ -15,6 +15,7 @@ Before=basic.target shutdown.target udev.service
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/sbin/hwclock --systz
+StandardOutput=syslog
 
 # Note the weird semantics if hwclock and the kernel here: the first
 # settimeofday() invocation from userspace is special and may be used

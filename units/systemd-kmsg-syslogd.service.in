@@ -14,3 +14,4 @@ DefaultDependencies=no
 [Service]
 ExecStart=@rootlibexecdir@/systemd-kmsg-syslogd
 NotifyAccess=all
+Sockets=syslog.socket

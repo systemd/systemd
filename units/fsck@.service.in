@@ -16,3 +16,4 @@ Before=local-fs.target shutdown.target
 Type=oneshot
 RemainAfterExit=no
 ExecStart=@rootlibexecdir@/systemd-fsck %f
+StandardOutput=syslog

@@ -16,3 +16,4 @@ Before=basic.target shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/sbin/sysctl -e -q -p /etc/sysctl.conf
+StandardOutput=syslog

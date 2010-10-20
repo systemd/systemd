@@ -16,3 +16,4 @@ Before=local-fs.target shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/bin/mount / -o remount
+StandardOutput=syslog

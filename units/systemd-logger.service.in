@@ -8,9 +8,9 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd Logging Daemon
-Wants=syslog.target
-After=syslog.target @SPECIAL_SYSLOG_SERVICE@
+Description=Logging Daemon
+DefaultDependencies=no
+After=syslog.socket
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-logger

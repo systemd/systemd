@@ -15,4 +15,5 @@ Before=local-fs.target shutdown.target remount-rootfs.service quotacheck.service
 Type=oneshot
 RemainAfterExit=no
 ExecStart=@rootlibexecdir@/systemd-fsck
+StandardOutput=syslog
 FsckPassNo=1
