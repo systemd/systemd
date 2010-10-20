@@ -360,7 +360,8 @@ static int mount_add_device_links(Mount *m) {
         }
 
         if (p->passno > 0 &&
-            UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM) {
+            UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM &&
+            !path_equal(m->where, "/")) {
                 char *name;
                 Unit *fsck;
                 /* Let's add in the fsck service */
