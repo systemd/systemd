@@ -42,6 +42,8 @@ char *unit_name_build_escape(const char *prefix, const char *instance, const cha
 char *unit_name_escape(const char *f);
 char *unit_name_unescape(const char *f);
 
+char *unit_name_path_unescape(const char *f);
+
 bool unit_name_is_template(const char *n);
 
 char *unit_name_replace_instance(const char *f, const char *i);

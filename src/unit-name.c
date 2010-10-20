@@ -427,3 +427,26 @@ char *unit_name_to_path(const char *name) {
 
         return e;
 }
+
+char *unit_name_path_unescape(const char *f) {
+        char *e;
+
+        assert(f);
+
+        if (!(e = unit_name_unescape(f)))
+                return NULL;
+
+        if (e[0] != '/') {
+                char *w;
+
+                w = strappend("/", e);
+                free(e);
+
+                if (!w)
+                        return NULL;
+
+                e = w;
+        }
+
+        return e;
+}

@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=File System Check on %I
+Description=File System Check on %f
 DefaultDependencies=no
 Requires=%i.device
 After=systemd-readahead-collect.service systemd-readahead-replay.service %i.device
@@ -15,4 +15,4 @@ Before=local-fs.target shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=no
-ExecStart=@rootlibexecdir@/systemd-fsck %I
+ExecStart=@rootlibexecdir@/systemd-fsck %f

@@ -1880,6 +1880,16 @@ static char *specifier_instance_unescaped(char specifier, void *data, void *user
         return strdup("");
 }
 
+static char *specifier_filename(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        if (u->meta.instance)
+                return unit_name_path_unescape(u->meta.instance);
+
+        return unit_name_to_path(u->meta.instance);
+}
+
 char *unit_name_printf(Unit *u, const char* format) {
 
         /*
@@ -1918,6 +1928,7 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'P', specifier_prefix_unescaped,    NULL },
                 { 'i', specifier_string,              u->meta.instance },
                 { 'I', specifier_instance_unescaped,  NULL },
+                { 'f', specifier_filename,            NULL },
                 { 0, NULL, NULL }
         };
 

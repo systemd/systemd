@@ -182,13 +182,17 @@
                 <literal>%i</literal> specifier in many of the
                 configuration options. Other specifiers that may be
                 used are <literal>%n</literal>, <literal>%N</literal>,
-                <literal>%p</literal>, <literal>%P</literal> and
-                <literal>%I</literal>, for the full unit name, the
-                unescaped unit name, the prefix name, the unescaped
-                prefix name and the unescaped instance name,
-                respectively. The prefix name here refers to the
-                string before the @, i.e. "getty" in the example
-                above, where "tty3" is the instance name.</para>
+                <literal>%p</literal>, <literal>%P</literal>,
+                <literal>%I</literal> and <literal>%f</literal>, for
+                the full unit name, the unescaped unit name, the
+                prefix name, the unescaped prefix name, the unescaped
+                instance name and the unescaped filename,
+                respectively. The unescaped filename is either the
+                unescaped instance name (if set) with / prepended (if
+                necessary), or the prefix name similarly prepended
+                with /. The prefix name here refers to the string
+                before the @, i.e. "getty" in the example above, where
+                "tty3" is the instance name.</para>
 
                 <para>If a unit file is empty (i.e. has the file size
                 0) or is symlinked to <filename>/dev/null</filename>
