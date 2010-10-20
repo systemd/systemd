@@ -8,7 +8,8 @@
 [Unit]
 Description=File System Check on %I
 DefaultDependencies=no
-After=systemd-readahead-collect.service systemd-readahead-replay.service
+Requires=%i.device
+After=systemd-readahead-collect.service systemd-readahead-replay.service %i.device
 Before=local-fs.target shutdown.target
 
 [Service]
