@@ -2562,8 +2562,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if (startswith(l, "finish-timestamp=")) {
                         unsigned long long a, b;
 
-                        if (sscanf(l+18, "%lli %llu", &a, &b) != 2)
-                                log_debug("Failed to parse finish timestamp value %s", l+18);
+                        if (sscanf(l+17, "%lli %llu", &a, &b) != 2)
+                                log_debug("Failed to parse finish timestamp value %s", l+17);
                         else {
                                 m->finish_timestamp.realtime = a;
                                 m->finish_timestamp.monotonic = b;
