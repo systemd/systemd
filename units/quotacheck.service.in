@@ -16,3 +16,6 @@ ConditionPathExists=/sbin/quotacheck
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-quotacheck
+
+[Install]
+WantedBy=basic.target
