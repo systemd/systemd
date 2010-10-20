@@ -10,7 +10,7 @@ Description=Quota Check
 DefaultDependencies=no
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=local-fs.target shutdown.target
-ConditionFileExists=/sbin/quotacheck
+ConditionPathExists=/sbin/quotacheck
 
 [Service]
 Type=oneshot
