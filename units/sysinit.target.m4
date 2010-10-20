@@ -18,8 +18,3 @@ m4_dnl Hook in Fedora's /etc/rc.d/rc.sysinit
 Requires=sysinit.service
 After=sysinit.service
 )m4_dnl
-m4_ifdef(`TARGET_ARCH',
-m4_dnl Hook in Arch's /etc/rc.sysinit
-Requires=sysinit.service
-After=sysinit.service
-)m4_dnl

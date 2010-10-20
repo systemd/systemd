@@ -317,7 +317,6 @@ endif
 
 if TARGET_ARCH
 dist_systemunit_DATA += \
-	units/arch/sysinit.service \
 	units/arch/rc-local.service
 endif
 
