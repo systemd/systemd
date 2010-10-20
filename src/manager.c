@@ -2490,14 +2490,16 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        fprintf(f, "startup-timestamp=%llu %llu\n\n",
+        fprintf(f, "startup-timestamp=%llu %llu\n",
                 (unsigned long long) m->startup_timestamp.realtime,
                 (unsigned long long) m->startup_timestamp.monotonic);
 
         if (dual_timestamp_is_set(&m->finish_timestamp))
-                fprintf(f, "finish-timestamp=%llu %llu\n\n",
+                fprintf(f, "finish-timestamp=%llu %llu\n",
                         (unsigned long long) m->finish_timestamp.realtime,
                         (unsigned long long) m->finish_timestamp.monotonic);
+
+        fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
                 if (u->meta.id != t)
