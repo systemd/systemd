@@ -15,7 +15,7 @@ ConditionPathExists=/sbin/quotaon
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/sbin/quotaon -anug
+ExecStart=/sbin/quotaon -aug
 
 [Install]
 WantedBy=local-fs.target
