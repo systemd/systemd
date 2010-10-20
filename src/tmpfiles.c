@@ -497,8 +497,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, cons
         }
 
         if (i->type != CREATE_FILE &&
-            i->type != CREATE_DIRECTORY &&
             i->type != TRUNCATE_FILE &&
+            i->type != CREATE_DIRECTORY &&
+            i->type != TRUNCATE_DIRECTORY &&
             i->type != IGNORE_PATH &&
             i->type != REMOVE_PATH &&
             i->type != RECURSIVE_REMOVE_PATH) {
