@@ -10,7 +10,7 @@
 [Unit]
 Description=Syslog Socket
 DefaultDependencies=no
-Before=sockets.target
+Before=sockets.target syslog.target
 
 [Socket]
 ListenDatagram=/dev/log
