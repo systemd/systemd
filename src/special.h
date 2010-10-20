@@ -53,7 +53,7 @@
 #define SPECIAL_SOCKETS_TARGET "sockets.target"
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
 #define SPECIAL_FSCK_SERVICE "fsck@.service"
-#define SPECIAL_QUOTACHECK_TARGET "quotacheck.target"
+#define SPECIAL_QUOTACHECK_SERVICE "quotacheck.service"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
 #define SPECIAL_EXIT_TARGET "exit.target"
 #define SPECIAL_EMERGENCY_TARGET "emergency.target"

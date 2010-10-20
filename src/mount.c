@@ -395,7 +395,7 @@ static int mount_add_default_dependencies(Mount *m) {
         if (m->meta.manager->running_as == MANAGER_SYSTEM &&
             !path_equal(m->where, "/")) {
 
-                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, SPECIAL_QUOTACHECK_TARGET, NULL, true)) < 0)
+                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, SPECIAL_QUOTACHECK_SERVICE, NULL, true)) < 0)
                         return r;
 
                 if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
