@@ -8,7 +8,6 @@
 [Unit]
 Description=Umount all network file systems
 DefaultDependencies=no
-After=killall.service
 Before=reboot.service poweroff.service halt.service umountfs.service
 
 [Service]

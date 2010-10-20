@@ -8,7 +8,6 @@
 [Unit]
 Description=Mount the root file system read-only
 DefaultDependencies=no
-After=killall.service
 Before=reboot.service poweroff.service halt.service
 
 [Service]

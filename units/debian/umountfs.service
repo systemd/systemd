@@ -8,7 +8,6 @@
 [Unit]
 Description=Turn off swap and umount all local file systems
 DefaultDependencies=no
-After=killall.service
 Before=reboot.service poweroff.service halt.service umountroot.service
 
 [Service]

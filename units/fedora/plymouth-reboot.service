@@ -8,7 +8,7 @@
 [Unit]
 Description=Show Plymouth Reboot Screen
 After=getty@tty1.service prefdm.service
-Before=killall.service reboot.service
+Before=reboot.service
 DefaultDependencies=no
 
 [Service]
