@@ -1037,9 +1037,11 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir)/runlevel5.target.wants \
 		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
-		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/basic.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
@@ -1074,10 +1076,12 @@ install-data-hook:
 		$(LN_S) ../systemd-random-seed-save.service systemd-random-seed-save.service )
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
 		rm -f systemd-remount-api-vfs.service \
+			fsck-root.service \
 			remount-rootfs.service \
 			var-run.mount \
 			var-lock.mount && \
 		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
+		$(LN_S) ../fsck-root.service fsck-root.service && \
 		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
 		$(LN_S) ../var-run.mount var-run.mount && \
 		$(LN_S) ../var-lock.mount var-lock.mount )
@@ -1114,9 +1118,16 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty4.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants && \
+		rm -f quotaon.service quotacheck.service && \
+		$(LN_S) $(systemunitdir)/quotacheck.service quotacheck.service && \
+		$(LN_S) $(systemunitdir)/quotaon.service quotaon.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/basic.target.wants && \
+		rm -f hwclock-load.service && \
+		$(LN_S) $(systemunitdir)/hwclock-load.service hwclock-load.service )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \
