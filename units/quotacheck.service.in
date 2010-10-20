@@ -18,4 +18,4 @@ RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-quotacheck
 
 [Install]
-WantedBy=basic.target
+WantedBy=local-fs.target

@@ -18,4 +18,4 @@ RemainAfterExit=yes
 ExecStart=/sbin/quotaon -anug
 
 [Install]
-WantedBy=basic.target
+WantedBy=local-fs.target
