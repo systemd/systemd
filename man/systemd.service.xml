@@ -638,6 +638,33 @@
                                 refers to.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>FsckPassNo=</varname></term>
+                                <listitem><para>Set the fsck passno
+                                priority to use to order this service
+                                in relation to other file system
+                                checking services. This option is only
+                                necessary to fix ordering in relation
+                                to fsck jobs automatically created for
+                                all <filename>/etc/fstab</filename>
+                                entries with a value in the fs_passno
+                                column > 0. As such it should only be
+                                used as option for fsck
+                                services. Almost always it is a better
+                                choice to add explicit ordering
+                                directives via
+                                <varname>After=</varname> or
+                                <varname>Before=</varname>,
+                                instead. For more details see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
+                                used, pass an integer value in the
+                                same range as
+                                <filename>/etc/fstab</filename>'s
+                                fs_passno column. See
+                                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

@@ -1002,6 +1002,32 @@ static int config_parse_sysv_priority(
 }
 #endif
 
+static int config_parse_fsck_passno(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *passno = data;
+        int r, i;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((r = safe_atoi(rvalue, &i)) < 0 || i < 0) {
+                log_error("[%s:%u] Failed to parse fsck pass number, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        *passno = (int) i;
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
 static int config_parse_kill_signal(
@@ -1781,6 +1807,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
                 { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
                 { "Sockets",                config_parse_service_sockets, &u->service,                                     "Service" },
+                { "FsckPassNo",             config_parse_fsck_passno,     &u->service.fsck_passno,                         "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
