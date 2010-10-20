@@ -380,7 +380,7 @@ static int mount_add_device_links(Mount *m) {
 
                 SERVICE(fsck)->fsck_passno = p->passno;
 
-                if ((r = unit_add_two_dependencies(UNIT(m), UNIT_AFTER, UNIT_WANTS, fsck, true)) < 0)
+                if ((r = unit_add_two_dependencies(UNIT(m), UNIT_AFTER, UNIT_REQUIRES, fsck, true)) < 0)
                         return r;
         }
 
