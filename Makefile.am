@@ -35,7 +35,7 @@ DISTCHECK_HOOKS =
 # libudev
 # ------------------------------------------------------------------------------
 LIBUDEV_CURRENT=9
-LIBUDEV_REVISION=2
+LIBUDEV_REVISION=3
 LIBUDEV_AGE=9
 
 SUBDIRS += libudev/docs

@@ -876,8 +876,19 @@ const char *udev_device_get_devnode(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
 		return NULL;
-	if (!udev_device->info_loaded)
+	if (!udev_device->info_loaded) {
+		udev_device_read_uevent_file(udev_device);
 		udev_device_read_db(udev_device);
+	}
+
+	/* we might get called before we handled an event and have a db, use the kernel-provided name */
+	if (udev_device->devnode == NULL && udev_device_get_knodename(udev_device) != NULL) {
+		if (asprintf(&udev_device->devnode, "%s/%s",
+			     udev_get_dev_path(udev_device->udev), udev_device_get_knodename(udev_device)) < 0)
+			return NULL;
+		return udev_device->devnode;
+	}
+
 	return udev_device->devnode;
 }
 
