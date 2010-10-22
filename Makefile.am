@@ -89,7 +89,7 @@ bin_PROGRAMS = \
 if HAVE_GTK
 bin_PROGRAMS += \
 	systemadm \
-	systemd-ask-password-agent
+	systemd-gnome-ask-password-agent
 endif
 
 rootlibexec_PROGRAMS = \
@@ -855,10 +855,10 @@ systemadm_LDADD = \
 	$(DBUSGLIB_LIBS) \
 	$(GTK_LIBS)
 
-systemd_ask_password_agent_SOURCES = \
-	src/ask-password-agent.vala
+systemd_gnome_ask_password_agent_SOURCES = \
+	src/gnome-ask-password-agent.vala
 
-systemd_ask_password_agent_CFLAGS = \
+systemd_gnome_ask_password_agent_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUSGLIB_CFLAGS) \
 	$(GTK_CFLAGS) \
@@ -867,7 +867,7 @@ systemd_ask_password_agent_CFLAGS = \
 	-Wno-shadow \
 	-Wno-format-nonliteral
 
-systemd_ask_password_agent_VALAFLAGS = \
+systemd_gnome_ask_password_agent_VALAFLAGS = \
 	--pkg=dbus-glib-1 \
 	--pkg=posix \
 	--pkg=gtk+-2.0 \
@@ -876,7 +876,7 @@ systemd_ask_password_agent_VALAFLAGS = \
 	--pkg=libnotify \
 	-g
 
-systemd_ask_password_agent_LDADD = \
+systemd_gnome_ask_password_agent_LDADD = \
 	$(DBUSGLIB_LIBS) \
 	$(GTK_LIBS)
 
