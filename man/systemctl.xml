@@ -287,11 +287,25 @@
 
                         <varlistentry>
                                 <term><option>--force</option></term>
+                                <term><option>-f</option></term>
 
                                 <listitem><para>When used with
                                 <command>enable</command>, override any
                                 existing conflicting
                                 symlinks.</para></listitem>
+
+                                <listitem><para>When used with
+                                <command>halt</command>,
+                                <command>poweroff</command>,
+                                <command>reboot</command> or
+                                <command>kexec</command> execute
+                                selected operation without shutting
+                                down all units. However, all processes
+                                will be killed forcibly and all file
+                                systems are unmounted or remounted
+                                read-only. This is hence a drastic but
+                                relatively safe option to request an
+                                immediate reboot.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
