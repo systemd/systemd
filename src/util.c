@@ -3339,6 +3339,17 @@ DIR *xopendirat(int fd, const char *name) {
         return fdopendir(openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
 }
 
+int signal_from_string_try_harder(const char *s) {
+        int signo;
+        assert(s);
+
+        if ((signo = signal_from_string(s)) <= 0)
+                if (startswith(s, "SIG"))
+                        return signal_from_string(s+3);
+
+        return signo;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

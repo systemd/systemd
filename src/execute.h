@@ -55,6 +55,14 @@ typedef enum KillMode {
         _KILL_MODE_INVALID = -1
 } KillMode;
 
+typedef enum KillWho {
+        KILL_MAIN,
+        KILL_CONTROL,
+        KILL_ALL,
+        _KILL_WHO_MAX,
+        _KILL_WHO_INVALID = -1
+} KillWho;
+
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
         EXEC_INPUT_TTY,
@@ -201,5 +209,11 @@ int exec_output_from_string(const char *s);
 
 const char* exec_input_to_string(ExecInput i);
 int exec_input_from_string(const char *s);
+
+const char *kill_mode_to_string(KillMode k);
+KillMode kill_mode_from_string(const char *s);
+
+const char *kill_who_to_string(KillWho k);
+KillWho kill_who_from_string(const char *s);
 
 #endif

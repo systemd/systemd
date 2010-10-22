@@ -1784,6 +1784,52 @@ static void socket_reset_failed(Unit *u) {
         s->failure = false;
 }
 
+static int socket_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *error) {
+        Socket *s = SOCKET(u);
+        int r = 0;
+        Set *pid_set = NULL;
+
+        assert(s);
+
+        if (who == KILL_MAIN) {
+                dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "Socket units have no main processes");
+                return -EINVAL;
+        }
+
+        if (s->control_pid <= 0 && who == KILL_CONTROL) {
+                dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
+                return -ENOENT;
+        }
+
+        if (s->control_pid > 0)
+                if (kill(mode == KILL_PROCESS_GROUP ? -s->control_pid : s->control_pid, signo) < 0)
+                        r = -errno;
+
+        if (mode == KILL_CONTROL_GROUP) {
+                int q;
+
+                if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
+                        return -ENOMEM;
+
+                /* Exclude the control pid from being killed via the cgroup */
+                if (s->control_pid > 0)
+                        if ((q = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0) {
+                                r = q;
+                                goto finish;
+                        }
+
+                if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, pid_set)) < 0)
+                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                                r = q;
+        }
+
+finish:
+        if (pid_set)
+                set_free(pid_set);
+
+        return r;
+}
+
 static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = "dead",
         [SOCKET_START_PRE] = "start-pre",
@@ -1816,6 +1862,8 @@ const UnitVTable socket_vtable = {
         .init = socket_init,
         .done = socket_done,
         .load = socket_load,
+
+        .kill = socket_kill,
 
         .coldplug = socket_coldplug,
 

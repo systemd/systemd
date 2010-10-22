@@ -35,6 +35,7 @@
 #include "unit-name.h"
 #include "dbus-mount.h"
 #include "special.h"
+#include "bus-errors.h"
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
@@ -1636,6 +1637,52 @@ static void mount_reset_failed(Unit *u) {
         m->failure = false;
 }
 
+static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *error) {
+        Mount *m = MOUNT(u);
+        int r = 0;
+        Set *pid_set = NULL;
+
+        assert(m);
+
+        if (who == KILL_MAIN) {
+                dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "Mount units have no main processes");
+                return -EINVAL;
+        }
+
+        if (m->control_pid <= 0 && who == KILL_CONTROL) {
+                dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
+                return -ENOENT;
+        }
+
+        if (m->control_pid > 0)
+                if (kill(mode == KILL_PROCESS_GROUP ? -m->control_pid : m->control_pid, signo) < 0)
+                        r = -errno;
+
+        if (mode == KILL_CONTROL_GROUP) {
+                int q;
+
+                if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
+                        return -ENOMEM;
+
+                /* Exclude the control pid from being killed via the cgroup */
+                if (m->control_pid > 0)
+                        if ((q = set_put(pid_set, LONG_TO_PTR(m->control_pid))) < 0) {
+                                r = q;
+                                goto finish;
+                        }
+
+                if ((q = cgroup_bonding_kill_list(m->meta.cgroup_bondings, signo, pid_set)) < 0)
+                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                                r = q;
+        }
+
+finish:
+        if (pid_set)
+                set_free(pid_set);
+
+        return r;
+}
+
 static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = "dead",
         [MOUNT_MOUNTING] = "mounting",
@@ -1681,6 +1728,8 @@ const UnitVTable mount_vtable = {
         .start = mount_start,
         .stop = mount_stop,
         .reload = mount_reload,
+
+        .kill = mount_kill,
 
         .serialize = mount_serialize,
         .deserialize_item = mount_deserialize_item,

@@ -235,6 +235,57 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--kill-mode=</option></term>
+
+                                <listitem><para>When used with
+                                <command>kill</command>, choose the
+                                mode how to kill the selected
+                                processes. Must be one of
+                                <option>control-group</option>,
+                                <option>process-group</option> or
+                                <option>process</option> to select
+                                whether to kill the entire control
+                                group, the process group or only the
+                                selected process itself. If ommitted
+                                defaults to
+                                <option>control-group</option> if
+                                <option>--kill-who=all</option> is
+                                set, or <option>process</option>
+                                otherwise. You probably never need to
+                                use this switch.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--kill-who=</option></term>
+
+                                <listitem><para>When used with
+                                <command>kill</command>, choose which
+                                processes to kill. Must be one of
+                                <option>main</option>,
+                                <option>control</option> or
+                                <option>all</option> to select whether
+                                to kill only the main process of the
+                                unit, the control process or all
+                                processes of the unit. If ommitted
+                                defaults to
+                                <option>all</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>---signal=</option></term>
+                                <term><option>-s</option></term>
+
+                                <listitem><para>When used with
+                                <command>kill</command>, choose which
+                                signal to send to selected
+                                processes. Must be one of the well
+                                know signal specifiers such as
+                                SIGTERM, SIGINT or SIGSTOP. If
+                                ommitted defaults to
+                                <option>SIGTERM</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--force</option></term>
 
                                 <listitem><para>When used with
@@ -357,6 +408,18 @@
                                 enabled. See
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>kill [NAME...]</command></term>
+
+                                <listitem><para>Send a signal to one
+                                or more processes of the unit. Use
+                                <option>--kill-who=</option> to select
+                                which process to kill. Use
+                                <option>--kill-mode=</option> to
+                                select the kill mode and
+                                <option>--signal=</option> to select
+                                the signal to send.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>is-active [NAME...]</command></term>

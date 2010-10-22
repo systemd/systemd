@@ -2252,6 +2252,22 @@ bool unit_name_is_valid(const char *n, bool template_ok) {
         return unit_name_is_valid_no_type(n, template_ok);
 }
 
+int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error) {
+        assert(u);
+        assert(w >= 0 && w < _KILL_WHO_MAX);
+        assert(m >= 0 && m < _KILL_MODE_MAX);
+        assert(signo > 0);
+        assert(signo < _NSIG);
+
+        if (m == KILL_NONE)
+                return 0;
+
+        if (!UNIT_VTABLE(u)->kill)
+                return -ENOTSUP;
+
+        return UNIT_VTABLE(u)->kill(u, w, m, signo, error);
+}
+
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
@@ -2292,12 +2308,3 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
-
-static const char* const kill_mode_table[_KILL_MODE_MAX] = {
-        [KILL_CONTROL_GROUP] = "control-group",
-        [KILL_PROCESS_GROUP] = "process-group",
-        [KILL_PROCESS] = "process",
-        [KILL_NONE] = "none"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);

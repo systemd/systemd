@@ -1047,11 +1047,7 @@ static int config_parse_kill_signal(
         assert(rvalue);
         assert(sig);
 
-        if ((r = signal_from_string(rvalue)) <= 0)
-                if (startswith(rvalue, "SIG"))
-                        r = signal_from_string(rvalue+3);
-
-        if (r <= 0) {
+        if ((r = signal_from_string_try_harder(rvalue)) <= 0) {
                 log_error("[%s:%u] Failed to parse kill signal, ignoring: %s", filename, line, rvalue);
                 return 0;
         }

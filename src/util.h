@@ -391,4 +391,6 @@ int ip_tos_from_string(const char *s);
 const char *signal_to_string(int i);
 int signal_from_string(const char *s);
 
+int signal_from_string_try_harder(const char *s);
+
 #endif

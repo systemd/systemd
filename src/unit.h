@@ -277,6 +277,8 @@ struct UnitVTable {
         int (*stop)(Unit *u);
         int (*reload)(Unit *u);
 
+        int (*kill)(Unit *u, KillWho w, KillMode m, int signo, DBusError *error);
+
         bool (*can_reload)(Unit *u);
 
         /* Write all data that cannot be restored from other sources
@@ -458,6 +460,8 @@ int unit_start(Unit *u);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
+int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error);
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns);
 
 int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w);
@@ -519,8 +523,5 @@ UnitActiveState unit_active_state_from_string(const char *s);
 
 const char *unit_dependency_to_string(UnitDependency i);
 UnitDependency unit_dependency_from_string(const char *s);
-
-const char *kill_mode_to_string(KillMode k);
-KillMode kill_mode_from_string(const char *s);
 
 #endif

@@ -1797,6 +1797,8 @@ static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_SOCKET] = "socket"
 };
 
+DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
+
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_INHERIT] = "inherit",
         [EXEC_OUTPUT_NULL] = "null",
@@ -1808,4 +1810,19 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
 
-DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
+static const char* const kill_mode_table[_KILL_MODE_MAX] = {
+        [KILL_CONTROL_GROUP] = "control-group",
+        [KILL_PROCESS_GROUP] = "process-group",
+        [KILL_PROCESS] = "process",
+        [KILL_NONE] = "none"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);
+
+static const char* const kill_who_table[_KILL_WHO_MAX] = {
+        [KILL_MAIN] = "main",
+        [KILL_CONTROL] = "control",
+        [KILL_ALL] = "all"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);

@@ -74,6 +74,9 @@ static bool arg_full = false;
 static bool arg_force = false;
 static bool arg_defaults = false;
 static char **arg_wall = NULL;
+static const char *arg_kill_who = NULL;
+static const char *arg_kill_mode = NULL;
+static int arg_signal = SIGTERM;
 static usec_t arg_when = 0;
 static enum action {
         ACTION_INVALID,
@@ -1408,6 +1411,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                                 puts("unknown");
 
                         dbus_error_free(&error);
+                        dbus_message_unref(m);
                         continue;
                 }
 
@@ -1471,6 +1475,71 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
 
                 dbus_message_unref(m);
                 dbus_message_unref(reply);
+                m = reply = NULL;
+        }
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int kill_unit(DBusConnection *bus, char **args, unsigned n) {
+        DBusMessage *m = NULL, *reply = NULL;
+        int r = 0;
+        DBusError error;
+        unsigned i;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        if (!arg_kill_who)
+                arg_kill_who = "all";
+
+        if (!arg_kill_mode)
+                arg_kill_mode = streq(arg_kill_who, "all") ? "control-group" : "process";
+
+        for (i = 1; i < n; i++) {
+
+                if (!(m = dbus_message_new_method_call(
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "KillUnit"))) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_STRING, &arg_kill_who,
+                                              DBUS_TYPE_STRING, &arg_kill_mode,
+                                              DBUS_TYPE_INT32, &arg_signal,
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
+                        dbus_error_free(&error);
+                        r = -EIO;
+                }
+
+                dbus_message_unref(m);
+
+                if (reply)
+                        dbus_message_unref(reply);
                 m = reply = NULL;
         }
 
@@ -3923,27 +3992,30 @@ static int systemctl_help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the systemd manager.\n\n"
-               "  -h --help          Show this help\n"
-               "     --version       Show package version\n"
-               "  -t --type=TYPE     List only units of a particular type\n"
-               "  -p --property=NAME Show only properties by this name\n"
-               "  -a --all           Show all units/properties, including dead/empty ones\n"
-               "     --full          Don't ellipsize unit names on output\n"
-               "     --fail          When queueing a new job, fail if conflicting jobs are\n"
-               "                     pending\n"
-               "  -q --quiet         Suppress output\n"
-               "     --no-block      Do not wait until operation finished\n"
-               "     --system        Connect to system bus\n"
-               "     --session       Connect to session bus\n"
-               "     --order         When generating graph for dot, show only order\n"
-               "     --require       When generating graph for dot, show only requirement\n"
-               "     --no-wall       Don't send wall message before halt/power-off/reboot\n"
-               "     --global        Enable/disable unit files globally\n"
-               "     --no-reload     When enabling/disabling unit files, don't reload daemon\n"
-               "                     configuration\n"
-               "  -f --force         When enabling unit files, override existing symlinks\n"
-               "                     When shutting down, execute action immediately\n"
-               "     --defaults      When disabling unit files, remove default symlinks only\n\n"
+               "  -h --help           Show this help\n"
+               "     --version        Show package version\n"
+               "  -t --type=TYPE      List only units of a particular type\n"
+               "  -p --property=NAME  Show only properties by this name\n"
+               "  -a --all            Show all units/properties, including dead/empty ones\n"
+               "     --full           Don't ellipsize unit names on output\n"
+               "     --fail           When queueing a new job, fail if conflicting jobs are\n"
+               "                      pending\n"
+               "  -q --quiet          Suppress output\n"
+               "     --no-block       Do not wait until operation finished\n"
+               "     --system          Connect to system bus\n"
+               "     --session        Connect to session bus\n"
+               "     --order          When generating graph for dot, show only order\n"
+               "     --require        When generating graph for dot, show only requirement\n"
+               "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
+               "     --global         Enable/disable unit files globally\n"
+               "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
+               "                      configuration\n"
+               "     --kill-mode=MODE How to send signal\n"
+               "     --kill-who=WHO   Who to send signal to\n"
+               "  -s --signal=SIGNAL  Which signal to send\n"
+               "  -f --force          When enabling unit files, override existing symlinks\n"
+               "                      When shutting down, execute action immediately\n"
+               "     --defaults       When disabling unit files, remove default symlinks only\n\n"
                "Commands:\n"
                "  list-units                      List units\n"
                "  start [NAME...]                 Start (activate) one or more units\n"
@@ -3956,6 +4028,7 @@ static int systemctl_help(void) {
                "  reload-or-try-restart [NAME...] Reload one or more units is possible,\n"
                "                                  otherwise restart if active\n"
                "  isolate [NAME]                  Start one unit and stop all others\n"
+               "  kill [NAME...]                  Send signal to processes of a unit\n"
                "  is-active [NAME...]             Check whether units are active\n"
                "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
@@ -4071,7 +4144,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_REQUIRE,
                 ARG_FULL,
                 ARG_NO_RELOAD,
-                ARG_DEFAULTS
+                ARG_DEFAULTS,
+                ARG_KILL_MODE,
+                ARG_KILL_WHO
         };
 
         static const struct option options[] = {
@@ -4093,6 +4168,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "force",     no_argument,       NULL, 'f'           },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
                 { "defaults",  no_argument,       NULL, ARG_DEFAULTS  },
+                { "kill-mode", required_argument, NULL, ARG_KILL_MODE },
+                { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
+                { "signal",    required_argument, NULL, 's'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4101,7 +4179,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ht:p:aqf", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:aqfs:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -4190,6 +4268,21 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEFAULTS:
                         arg_defaults = true;
+                        break;
+
+                case ARG_KILL_WHO:
+                        arg_kill_who = optarg;
+                        break;
+
+                case ARG_KILL_MODE:
+                        arg_kill_mode = optarg;
+                        break;
+
+                case 's':
+                        if ((arg_signal = signal_from_string_try_harder(optarg)) < 0) {
+                                log_error("Failed to parse signal string %s.", optarg);
+                                return -EINVAL;
+                        }
                         break;
 
                 case '?':
@@ -4785,6 +4878,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "force-reload",          MORE,  2, start_unit        }, /* For compatibility with SysV */
                 { "condrestart",           MORE,  2, start_unit        }, /* For compatibility with RH */
                 { "isolate",               EQUAL, 2, start_unit        },
+                { "kill",                  MORE,  2, kill_unit         },
                 { "is-active",             MORE,  2, check_unit        },
                 { "check",                 MORE,  2, check_unit        },
                 { "show",                  MORE,  1, show              },

@@ -84,6 +84,12 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"KillUnit\">\n"                                \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"signal\" type=\"i\" direction=\"in\"/>\n"       \
+        "  </method>\n"                                                 \
         "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
@@ -430,6 +436,40 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadOrTryRestartUnit")) {
                 reload_if_possible = true;
                 job_type = JOB_TRY_RESTART;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KillUnit")) {
+                const char *name, *swho, *smode;
+                int32_t signo;
+                Unit *u;
+                KillMode mode;
+                KillWho who;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_STRING, &swho,
+                                    DBUS_TYPE_STRING, &smode,
+                                    DBUS_TYPE_INT32, &signo,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if ((mode = kill_mode_from_string(smode)) < 0 ||
+                    (who = kill_who_from_string(swho)) < 0 ||
+                    signo <= 0 ||
+                    signo >= _NSIG)
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if (!(u = manager_get_unit(m, name))) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                }
+
+                if ((r = unit_kill(u, who, mode, signo, &error)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
                 uint32_t id;
                 Job *j;
