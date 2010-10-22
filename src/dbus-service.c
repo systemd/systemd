@@ -140,6 +140,7 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { "org.freedesktop.systemd1.Service", "SysVRunLevels",          bus_property_append_string, "s", u->service.sysv_runlevels             },
                 { "org.freedesktop.systemd1.Service", "SysVStartPriority",      bus_property_append_int,    "i", &u->service.sysv_start_priority       },
 #endif
+                { "org.freedesktop.systemd1.Service", "FsckPassNo",             bus_property_append_int,    "i", &u->service.fsck_passno               },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
