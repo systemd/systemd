@@ -77,6 +77,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a short version
+                                string and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--type=</option></term>
                                 <term><option>-t</option></term>
 
@@ -782,16 +789,6 @@
                                 accessible.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><command>daemon-exit</command></term>
-
-                                <listitem><para>Ask the systemd
-                                manager to quit. This is only
-                                supported for session managers
-                                (i.e. in conjunction with the
-                                <option>--session</option> option) and
-                                will fail otherwise.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><command>show-environment</command></term>
 
                                 <listitem><para>Dump the systemd
@@ -823,36 +820,6 @@
                                 is only removed if it has the
                                 specified value.</para></listitem>
                         </varlistentry>
-
-                        <varlistentry>
-                                <term><command>halt</command></term>
-
-                                <listitem><para>Shut down and halt the
-                                system. This is mostly equivalent to
-                                <command>start halt.target</command>
-                                but also prints a wall message to all
-                                users.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>poweroff</command></term>
-
-                                <listitem><para>Shut down and
-                                power-off the system. This is mostly
-                                equivalent to <command>start
-                                poweroff.target</command> but also
-                                prints a wall message to all
-                                users.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>reboot</command></term>
-
-                                <listitem><para>Shut down and
-                                reboot the system. This is mostly
-                                equivalent to <command>start
-                                reboot.target</command> but also
-                                prints a wall message to all
-                                users.</para></listitem>
-                        </varlistentry>
                         <varlistentry>
                                 <term><command>default</command></term>
 
@@ -880,6 +847,82 @@
                                 emergency.target</command> but also
                                 prints a wall message to all
                                 users.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>halt</command></term>
+
+                                <listitem><para>Shut down and halt the
+                                system. This is mostly equivalent to
+                                <command>start halt.target</command>
+                                but also prints a wall message to all
+                                users.  If
+                                combined with <option>--force</option>
+                                shutdown of all running services is
+                                skipped, however all processes killed
+                                and all file systems unmounted or
+                                mounted read-only, immediately
+                                followed by the
+                                system halt.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>poweroff</command></term>
+
+                                <listitem><para>Shut down and
+                                power-off the system. This is mostly
+                                equivalent to <command>start
+                                poweroff.target</command> but also
+                                prints a wall message to all
+                                users. If
+                                combined with <option>--force</option>
+                                shutdown of all running services is
+                                skipped, however all processes killed
+                                and all file systems unmounted or
+                                mounted read-only, immediately
+                                followed by the
+                                powering off.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>reboot</command></term>
+
+                                <listitem><para>Shut down and
+                                reboot the system. This is mostly
+                                equivalent to <command>start
+                                reboot.target</command> but also
+                                prints a wall message to all
+                                users. If
+                                combined with <option>--force</option>
+                                shutdown of all running services is
+                                skipped, however all processes killed
+                                and all file systems unmounted or
+                                mounted read-only, immediately
+                                followed by the
+                                reboot.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>kexec</command></term>
+
+                                <listitem><para>Shut down and reboot
+                                the system via kexec. This is mostly
+                                equivalent to <command>start
+                                kexec.target</command> but also prints
+                                a wall message to all users. If
+                                combined with <option>--force</option>
+                                shutdown of all running services is
+                                skipped, however all processes killed
+                                and all file systems unmounted or
+                                mounted read-only, immediately
+                                followed by the
+                                reboot.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>exit</command></term>
+
+                                <listitem><para>Ask the systemd
+                                manager to quit. This is only
+                                supported for session managers
+                                (i.e. in conjunction with the
+                                <option>--session</option> option) and
+                                will fail otherwise.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
