@@ -1,3 +1,23 @@
+Summary of changes from v163 to v164
+============================================
+
+David Zeuthen (1):
+      Install libgudev-1.0.so in prefix / instead of prefix /usr
+
+Harald Hoyer (1):
+      cdrom_id: request the drive profile features with a dynamic length
+
+Kay Sievers (4):
+      version bump
+      udevd: do not wrongly delay events for devices with swapped names
+      return proper error code in rename_netif()
+      libudev: return kernel provided devnode when asked before we handled any rules
+
+Martin Pitt (2):
+      keymap: Apply force-release rules to all Samsung models.
+      keymap: Add Toshiba Satellite U500
+
+
 Summary of changes from v162 to v163
 ============================================
 

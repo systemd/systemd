@@ -2,6 +2,8 @@ udev 164
 ========
 Bugfixes.
 
+GUdev moved from /usr to /.
+
 udev 163
 ========
 Bugfixes.
