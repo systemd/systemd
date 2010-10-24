@@ -400,12 +400,13 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
         assert(head);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-                if (streq(m->path, "/"))
+                if (streq(m->path, "/")) {
+                        n_failed++;
                         continue;
+                }
 
                 /* Trying to umount. Forcing to umount if busy (only for NFS mounts) */
                 if (umount2(m->path, MNT_FORCE) == 0) {
-
                         if (changed)
                                 *changed = true;
 
