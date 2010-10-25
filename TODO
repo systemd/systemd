@@ -80,6 +80,8 @@
 
 * add seperate man page for [Install] settings
 
+* make sure swap.target doesn't pull in partitions multiple times
+
 External:
 
 * patch kernel to add /proc/swaps change notifications
