@@ -973,6 +973,11 @@ int main(int argc, char *argv[]) {
                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                arg_running_as == MANAGER_SYSTEM);
 
+        /* Unset some environment variables passed in from the kernel
+         * that don't really make sense for us. */
+        unsetenv("HOME");
+        unsetenv("TERM");
+
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
 
