@@ -58,9 +58,11 @@
 * start getty 2-6 only when actual vt switch happens
   (same model as socket on-demand activation)
 
-* ask-password tty agent, ask-password plymouth agent
+* ask-password plymouth agent
 
-* ask-password tty timeout
+* spawn ask-password tty agent temporarily in systemctl
+
+* spawn ask-password wall agent on boot via .path unit
 
 * readahead: btrfs/LVM SSD detection
 
@@ -68,13 +70,15 @@
 
 * when processes remain in a service even though the start command failed enter active
 
-* fix plymouth socket, when plymouth started to use a clean one
+* fix plymouth socket name, when plymouth started to use a clean one
 
 * parse early boot time env var from dracut
 
 * fix serialization of timers
 
 * add switch to disable pull in retroactively
+
+* cryptsetup
 
 External:
 
@@ -91,8 +95,6 @@ External:
 * pam_securetty should honour console=
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
-
-* make sysinit honour forcefsck/fastboot from the kernel command line fsck.mode=auto|force|skip
 
 * pam: fix double sudo session cleanup:
   http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
