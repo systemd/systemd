@@ -251,7 +251,7 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_PATH_PROG([M4], [m4])
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo, slackware or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -259,6 +259,9 @@ if test "z$with_distro" = "z"; then
                 AC_CHECK_FILE(/etc/redhat-release,with_distro="fedora")
                 AC_CHECK_FILE(/etc/SuSE-release,with_distro="suse")
                 AC_CHECK_FILE(/etc/debian_version,with_distro="debian")
+                if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
+                        with_distro="ubuntu"
+                fi
                 AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
                 AC_CHECK_FILE(/etc/gentoo-release,with_distro="gentoo")
                 AC_CHECK_FILE(/etc/slackware-version,with_distro="slackware")
@@ -305,8 +308,14 @@ case $with_distro in
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
-                AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian/Ubuntu])
+                AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian])
                 M4_DISTRO_FLAG=-DTARGET_DEBIAN=1
+                ;;
+        ubuntu)
+                SYSTEM_SYSVRCND_PATH=/etc
+                SPECIAL_SYSLOG_SERVICE=rsyslog.service
+                AC_DEFINE(TARGET_UBUNTU, [], [Target is Ubuntu])
+                M4_DISTRO_FLAG=-DTARGET_UBUNTU=1
                 ;;
         arch)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
@@ -372,6 +381,8 @@ fi
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
+AM_CONDITIONAL(TARGET_UBUNTU, test x"$with_distro" = xubuntu)
+AM_CONDITIONAL(TARGET_DEBIAN_OR_UBUNTU, test x"$with_distro" = xdebian -o x"$with_distro" = xubuntu)
 AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)

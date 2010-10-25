@@ -65,7 +65,7 @@ static const struct {
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
 
-#ifdef TARGET_DEBIAN
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
         /* Debian style rcS.d */
         { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
@@ -274,7 +274,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "time",                 SPECIAL_RTC_SET_TARGET,
 
                 /* Debian extensions */
-#ifdef TARGET_DEBIAN
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
                 "mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
 #endif
                 "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,

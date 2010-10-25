@@ -303,7 +303,7 @@ dist_systemunit_DATA += \
 	units/fedora/plymouth-halt.service
 endif
 
-if TARGET_DEBIAN
+if TARGET_DEBIAN_OR_UBUNTU
 dist_systemunit_DATA += \
 	units/debian/fsck.target \
 	units/debian/umountfs.service \
@@ -1218,7 +1218,7 @@ if TARGET_GENTOO
 		rm -f xdm.service && \
 		$(LN_S) $(systemunitdir)/xdm.service xdm.service )
 endif
-if TARGET_DEBIAN
+if TARGET_DEBIAN_OR_UBUNTU
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir)/umount.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/umount.target.wants && \
@@ -1232,9 +1232,11 @@ if TARGET_DEBIAN
 endif
 if !TARGET_SUSE
 if !TARGET_DEBIAN
+if !TARGET_UBUNTU
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f fsck.target && \
 		$(LN_S) sysinit.target fsck.target )
+endif
 endif
 endif
 
