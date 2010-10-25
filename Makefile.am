@@ -305,15 +305,9 @@ endif
 
 if TARGET_DEBIAN_OR_UBUNTU
 dist_systemunit_DATA += \
-	units/debian/fsck.target \
 	units/debian/umountfs.service \
 	units/debian/umountnfs.service \
 	units/debian/umountroot.service
-endif
-
-if TARGET_SUSE
-dist_systemunit_DATA += \
-	units/suse/fsck.target
 endif
 
 if TARGET_GENTOO
@@ -1229,15 +1223,6 @@ if TARGET_DEBIAN_OR_UBUNTU
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel5.target && \
 		$(LN_S) multi-user.target runlevel5.target )
-endif
-if !TARGET_SUSE
-if !TARGET_DEBIAN
-if !TARGET_UBUNTU
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f fsck.target && \
-		$(LN_S) sysinit.target fsck.target )
-endif
-endif
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
