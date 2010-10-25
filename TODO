@@ -78,6 +78,8 @@
 
 * cryptsetup
 
+* add seperate man page for [Install] settings
+
 External:
 
 * patch kernel to add /proc/swaps change notifications
