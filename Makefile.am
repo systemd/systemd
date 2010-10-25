@@ -209,7 +209,8 @@ dist_systemunit_DATA = \
 	units/smartcard.target \
 	units/systemd-readahead-done.timer \
 	units/systemd-tmpfiles-clean.timer \
-	units/quotaon.service
+	units/quotaon.service \
+	units/systemd-ask-password-wall.path
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -235,6 +236,7 @@ nodist_systemunit_DATA = \
 	units/systemd-tmpfiles-setup.service \
 	units/systemd-tmpfiles-clean.service \
 	units/systemd-user-sessions.service \
+	units/systemd-ask-password-wall.service \
 	units/syslog.target \
 	units/halt.service \
 	units/poweroff.service \
@@ -276,6 +278,7 @@ EXTRA_DIST = \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in \
 	units/systemd-user-sessions.service.in \
+	units/systemd-ask-password-wall.service.in \
 	units/syslog.target.in \
 	units/halt.service.in \
 	units/poweroff.service.in \
@@ -911,6 +914,7 @@ pam_systemd_la_LIBADD = \
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
+                -e 's,@rootbindir\@,$(rootbindir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
@@ -1116,9 +1120,10 @@ install-data-hook:
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f getty.target systemd-user-sessions.service && \
+		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path && \
 		$(LN_S) ../getty.target getty.target && \
-		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service )
+		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service && \
+		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
