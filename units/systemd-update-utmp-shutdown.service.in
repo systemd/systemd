@@ -10,7 +10,7 @@ Description=Notify Audit System and Update UTMP about System Shutdown
 DefaultDependencies=no
 Wants=local-fs.target sysinit.target
 After=local-fs.target sysinit.target auditd.service systemd-update-utmp-runlevel.service
-Before=poweroff.service reboot.service halt.service killall.service
+Before=poweroff.service reboot.service halt.service
 
 [Service]
 Type=oneshot
