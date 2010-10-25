@@ -3025,6 +3025,20 @@ void status_welcome(void) {
         status_printf("Welcome to Debian \x1B[1;31m%s\x1B[0m!\n", r); /* Light Red for Debian */
 
         free(r);
+#elif defined(TARGET_UBUNTU)
+        char *desc = NULL;
+        char *codename = NULL;
+
+        if (parse_env_file("/etc/lsb-release", NEWLINE,
+                "DISTRIB_DESCRIPTION", &desc,
+                "DISTRIB_CODENAME", &codename, NULL) < 0)
+                return;
+        if (desc && codename)
+                /* Light Red for Ubuntu */
+                status_printf("Welcome to \x1B[1;31m%s\x1B[0m (%s)\n",
+                        desc, codename);
+        free(desc);
+        free(codename);
 #elif defined(TARGET_ARCH)
         status_printf("Welcome to \x1B[1;36mArch Linux\x1B[0m!\n"); /* Cyan for Arch */
 #else
