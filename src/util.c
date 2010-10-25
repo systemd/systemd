@@ -3350,6 +3350,170 @@ int signal_from_string_try_harder(const char *s) {
         return signo;
 }
 
+int ask_password_tty(const char *message, usec_t until, const char *flag_file, char **_passphrase) {
+        struct termios old_termios, new_termios;
+        char passphrase[LINE_MAX];
+        size_t p = 0;
+        int r, ttyfd = -1, notify = -1;
+        struct pollfd pollfd[2];
+        bool reset_tty = false;
+        enum {
+                POLL_TTY,
+                POLL_INOTIFY
+        };
+
+        assert(message);
+        assert(_passphrase);
+
+        if (flag_file) {
+                if ((notify = inotify_init1(IN_CLOEXEC)) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+        }
+
+        if ((ttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC)) >= 0) {
+
+                if (tcgetattr(ttyfd, &old_termios) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                loop_write(ttyfd, "\x1B[1m", 4, false);
+                loop_write(ttyfd, message, strlen(message), false);
+                loop_write(ttyfd, ": ", 2, false);
+                loop_write(ttyfd, "\x1B[0m", 4, false);
+
+                new_termios = old_termios;
+                new_termios.c_lflag &= ~(ICANON|ECHO);
+                new_termios.c_cc[VMIN] = 1;
+                new_termios.c_cc[VTIME] = 0;
+
+                if (tcsetattr(ttyfd, TCSADRAIN, &new_termios) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                reset_tty = true;
+        }
+
+        zero(pollfd);
+
+        pollfd[POLL_TTY].fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO;
+        pollfd[POLL_TTY].events = POLLIN;
+        pollfd[POLL_INOTIFY].fd = notify;
+        pollfd[POLL_INOTIFY].events = POLLIN;
+
+        for (;;) {
+                char c;
+                int sleep_for = -1, k;
+                ssize_t n;
+
+                if (until > 0) {
+                        usec_t y;
+
+                        y = now(CLOCK_MONOTONIC);
+
+                        if (y > until) {
+                                r = -ETIMEDOUT;
+                                goto finish;
+                        }
+
+                        sleep_for = (int) ((until - y) / USEC_PER_MSEC);
+                }
+
+                if (flag_file)
+                        if (access(flag_file, F_OK) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                if ((k = poll(pollfd, notify > 0 ? 2 : 1, sleep_for)) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        r = -errno;
+                        goto finish;
+                } else if (k == 0) {
+                        r = -ETIMEDOUT;
+                        goto finish;
+                }
+
+                if (notify > 0 && pollfd[POLL_INOTIFY].revents != 0)
+                        flush_fd(notify);
+
+                if (pollfd[POLL_TTY].revents == 0)
+                        continue;
+
+                if ((n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1)) < 0) {
+
+                        if (errno == EINTR || errno == EAGAIN)
+                                continue;
+
+                        r = -errno;
+                        goto finish;
+
+                } else if (n == 0)
+                        break;
+
+                if (c == '\n')
+                        break;
+                else if (c == 21) {
+
+                        while (p > 0) {
+                                p--;
+
+                                if (ttyfd >= 0)
+                                        loop_write(ttyfd, "\b \b", 3, false);
+                        }
+
+                } else if (c == '\b' || c == 127) {
+                        if (p > 0) {
+                                p--;
+
+                                if (ttyfd >= 0)
+                                        loop_write(ttyfd, "\b \b", 3, false);
+                        }
+                } else {
+                        passphrase[p++] = c;
+
+                        if (ttyfd >= 0)
+                                loop_write(ttyfd, "*", 1, false);
+                }
+        }
+
+        if (ttyfd >= 0)
+                loop_write(ttyfd, "\n", 1, false);
+
+        passphrase[p] = 0;
+
+        if (!(*_passphrase = strdup(passphrase))) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (notify >= 0)
+                close_nointr_nofail(notify);
+
+        if (ttyfd >= 0) {
+                if (reset_tty)
+                        tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+
+                close_nointr_nofail(ttyfd);
+        }
+
+        return r;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

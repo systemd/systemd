@@ -81,7 +81,8 @@ rootbin_PROGRAMS = \
 	systemd \
 	systemctl \
 	systemd-notify \
-	systemd-ask-password
+	systemd-ask-password \
+	systemd-tty-ask-password-agent
 
 bin_PROGRAMS = \
 	systemd-cgls
@@ -879,6 +880,13 @@ systemd_gnome_ask_password_agent_VALAFLAGS = \
 systemd_gnome_ask_password_agent_LDADD = \
 	$(DBUSGLIB_LIBS) \
 	$(GTK_LIBS)
+
+systemd_tty_ask_password_agent_SOURCES = \
+	src/tty-ask-password-agent.c \
+	src/utmp-wtmp.c
+
+systemd_tty_ask_password_agent_LDADD = \
+	libsystemd-basic.la
 
 pam_systemd_la_SOURCES = \
 	src/pam-module.c \

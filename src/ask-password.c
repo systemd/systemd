@@ -62,9 +62,9 @@ static int create_socket(char **name) {
 
         zero(sa);
         sa.un.sun_family = AF_UNIX;
-        snprintf(sa.un.sun_path+1, sizeof(sa.un.sun_path)-1, "/org/freedesktop/systemd1/ask-password/%llu", random_ull());
+        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/dev/.systemd/ask-password/sck.%llu", random_ull());
 
-        if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+        if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
                 r = -errno;
                 log_error("bind() failed: %m");
                 goto fail;
@@ -76,7 +76,7 @@ static int create_socket(char **name) {
                 goto fail;
         }
 
-        if (!(c = strdup(sa.un.sun_path+1))) {
+        if (!(c = strdup(sa.un.sun_path))) {
                 r = -ENOMEM;
                 log_error("Out of memory");
                 goto fail;
@@ -97,7 +97,7 @@ static int help(void) {
                "Query the user for a system passphrase, via the TTY or an UI agent.\n\n"
                "  -h --help         Show this help\n"
                "     --icon=NAME    Icon name\n"
-               "     --timeout=USEC Timeout in usec\n"
+               "     --timeout=SEC Timeout in sec\n"
                "     --no-tty       Ask question via agent even on TTY\n",
                program_invocation_short_name);
 
@@ -176,6 +176,8 @@ static int ask_agent(void) {
         sigset_t mask;
         usec_t not_after;
 
+        mkdir_p("/dev/.systemd/ask-password", 0755);
+
         if ((fd = mkostemp(temp, O_CLOEXEC|O_CREAT|O_WRONLY)) < 0) {
                 log_error("Failed to create password file: %m");
                 r = -errno;
@@ -211,8 +213,10 @@ static int ask_agent(void) {
 
         fprintf(f,
                 "[Ask]\n"
+                "PID=%lu\n"
                 "Socket=%s\n"
                 "NotAfter=%llu\n",
+                (unsigned long) getpid(),
                 socket_name,
                 (unsigned long long) not_after);
 
@@ -354,6 +358,11 @@ finish:
         if (fd >= 0)
                 close_nointr_nofail(fd);
 
+        if (socket_name) {
+                unlink(socket_name);
+                free(socket_name);
+        }
+
         if (socket_fd >= 0)
                 close_nointr_nofail(socket_fd);
 
@@ -368,89 +377,6 @@ finish:
         return r;
 }
 
-static int ask_tty(void) {
-        struct termios old_termios, new_termios;
-        char passphrase[LINE_MAX];
-        FILE *ttyf;
-
-        if (!(ttyf = fopen("/dev/tty", "w"))) {
-                log_error("Failed to open /dev/tty: %m");
-                return -errno;
-        }
-
-        fputs("\x1B[1m", ttyf);
-        fprintf(ttyf, "%s: ", arg_message);
-        fputs("\x1B[0m", ttyf);
-        fflush(ttyf);
-
-        if (tcgetattr(STDIN_FILENO, &old_termios) >= 0) {
-
-                new_termios = old_termios;
-
-                new_termios.c_lflag &= ~(ICANON|ECHO);
-                new_termios.c_cc[VMIN] = 1;
-                new_termios.c_cc[VTIME] = 0;
-
-                if (tcsetattr(STDIN_FILENO, TCSADRAIN, &new_termios) >= 0) {
-                        size_t p = 0;
-                        int r = 0;
-
-                        for (;;) {
-                                size_t k;
-                                char c;
-
-                                k = fread(&c, 1, 1, stdin);
-
-                                if (k <= 0) {
-                                        r = -EIO;
-                                        break;
-                                }
-
-                                if (c == '\n')
-                                        break;
-                                else if (c == '\b' || c == 127) {
-                                        if (p > 0) {
-                                                p--;
-                                                fputs("\b \b", ttyf);
-                                        }
-                                } else {
-                                        passphrase[p++] = c;
-                                        fputc('*', ttyf);
-                                }
-
-                                fflush(ttyf);
-                        }
-
-                        fputc('\n', ttyf);
-                        fclose(ttyf);
-                        tcsetattr(STDIN_FILENO, TCSADRAIN, &old_termios);
-
-                        if (r < 0)
-                                return -EIO;
-
-                        passphrase[p] = 0;
-
-                        fputs(passphrase, stdout);
-                        fflush(stdout);
-                        return 0;
-                }
-
-        }
-
-        fclose(ttyf);
-
-        if (!fgets(passphrase, sizeof(passphrase), stdin)) {
-                log_error("Failed to read password.");
-                return -EIO;
-        }
-
-        truncate_nl(passphrase);
-        fputs(passphrase, stdout);
-        fflush(stdout);
-
-        return 0;
-}
-
 int main(int argc, char *argv[]) {
         int r;
 
@@ -460,9 +386,16 @@ int main(int argc, char *argv[]) {
         if ((r = parse_argv(argc, argv)) <= 0)
                 goto finish;
 
-        if (arg_use_tty && isatty(STDIN_FILENO))
-                r = ask_tty();
-        else
+        if (arg_use_tty && isatty(STDIN_FILENO)) {
+                char *password = NULL;
+
+                if ((r = ask_password_tty(arg_message, now(CLOCK_MONOTONIC) + arg_timeout, NULL, &password)) >= 0) {
+                        fputs(password, stdout);
+                        fflush(stdout);
+                        free(password);
+                }
+
+        } else
                 r = ask_agent();
 
 finish:

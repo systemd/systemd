@@ -364,6 +364,8 @@ bool null_or_empty(struct stat *st);
 
 DIR *xopendirat(int dirfd, const char *name);
 
+int ask_password_tty(const char *message, usec_t until, const char *flag_file, char **_passphrase);
+
 #define NULSTR_FOREACH(i, l) \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
