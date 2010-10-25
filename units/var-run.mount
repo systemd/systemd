@@ -13,4 +13,4 @@ Before=local-fs.target
 What=tmpfs
 Where=/var/run
 Type=tmpfs
-Options=mode=755
+Options=mode=755,nosuid,nodev,noexec

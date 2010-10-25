@@ -13,4 +13,4 @@ Before=local-fs.target
 What=tmpfs
 Where=/var/lock
 Type=tmpfs
-Options=mode=775,gid=lock
+Options=mode=775,gid=lock,nosuid,nodev,noexec
