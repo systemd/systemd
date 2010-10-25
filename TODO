@@ -1,3 +1,5 @@
+* man: clarify that --system works only for pid == 1
+
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
@@ -52,6 +54,9 @@
 * systemctl auto-pager a la git
 
 * merge CK
+
+* start getty 2-6 only when actual vt switch happens
+  (same model as socket on-demand activation)
 
 * ask-password tty agent, ask-password plymouth agent
 
