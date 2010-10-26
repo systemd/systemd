@@ -265,7 +265,7 @@ static int mount_add_target_links(Mount *m) {
         MountParameters *p;
         Unit *tu;
         int r;
-        bool noauto, handle, automount, user;
+        bool noauto, handle, automount;
 
         assert(m);
 
@@ -277,7 +277,6 @@ static int mount_add_target_links(Mount *m) {
                 return 0;
 
         noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
-        user = mount_test_option(p->options, "user") || mount_test_option(p->options, "users");
         handle = !!mount_test_option(p->options, "comment=systemd.mount") ||
                 m->meta.manager->mount_auto;
         automount = !!mount_test_option(p->options, "comment=systemd.automount");
@@ -311,10 +310,10 @@ static int mount_add_target_links(Mount *m) {
                  * configured to local-fs.target */
                 if (!noauto &&
                     handle &&
-                    !m->from_fragment)
-                        if (user || m->meta.manager->running_as == MANAGER_SYSTEM)
-                                if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
-                                        return r;
+                    m->from_etc_fstab &&
+                    m->meta.manager->running_as == MANAGER_SYSTEM)
+                        if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
+                                return r;
 
                 return unit_add_dependency(UNIT(m), UNIT_BEFORE, tu, true);
         }
