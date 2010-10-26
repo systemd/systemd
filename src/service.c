@@ -1568,7 +1568,7 @@ static int service_spawn(
                 goto fail;
         }
 
-        if (!(our_env = new0(char*, 3))) {
+        if (!(our_env = new0(char*, 4))) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1581,6 +1581,14 @@ static int service_spawn(
 
         if (s->main_pid > 0)
                 if (asprintf(our_env + n_env++, "MAINPID=%lu", (unsigned long) s->main_pid) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+        /* Make sure we set TERM=linux for SysV scripts, since some
+         * require it to be set from the kernel */
+        if (s->sysv_path && !strv_env_get(s->meta.manager->environment, "TERM"))
+                if (!(our_env[n_env++] = strdup("TERM=linux"))) {
                         r = -ENOMEM;
                         goto fail;
                 }
