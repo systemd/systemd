@@ -333,7 +333,7 @@ static int parse_proc_cmdline_word(const char *word) {
 #ifdef HAVE_SYSV_COMPAT
                          "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
 #endif
-                         "systemd.log_target=console|kmsg|syslog|syslog-org-kmsg|null\n"
+                         "systemd.log_target=console|kmsg|syslog|syslog-or-kmsg|null\n"
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
