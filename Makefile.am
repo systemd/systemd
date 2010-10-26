@@ -210,7 +210,8 @@ dist_systemunit_DATA = \
 	units/systemd-readahead-done.timer \
 	units/systemd-tmpfiles-clean.timer \
 	units/quotaon.service \
-	units/systemd-ask-password-wall.path
+	units/systemd-ask-password-wall.path \
+	units/systemd-ask-password-plymouth.path
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -237,6 +238,7 @@ nodist_systemunit_DATA = \
 	units/systemd-tmpfiles-clean.service \
 	units/systemd-user-sessions.service \
 	units/systemd-ask-password-wall.service \
+	units/systemd-ask-password-plymouth.service \
 	units/syslog.target \
 	units/halt.service \
 	units/poweroff.service \
@@ -279,6 +281,7 @@ EXTRA_DIST = \
 	units/systemd-tmpfiles-clean.service.in \
 	units/systemd-user-sessions.service.in \
 	units/systemd-ask-password-wall.service.in \
+	units/systemd-ask-password-plymouth.service.in \
 	units/syslog.target.in \
 	units/halt.service.in \
 	units/poweroff.service.in \
@@ -1186,8 +1189,9 @@ if TARGET_FEDORA
 		rm -f single.service && \
 		$(LN_S) $(systemunitdir)/single.service single.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f plymouth-quit.service && \
-		$(LN_S) ../plymouth-quit.service plymouth-quit.service )
+		rm -f plymouth-quit.service systemd-ask-password-plymouth.path && \
+		$(LN_S) ../plymouth-quit.service plymouth-quit.service && \
+		$(LN_S) ../systemd-ask-password-plymouth.path systemd-ask-password-plymouth.path )
 	( cd $(DESTDIR)$(systemunitdir)/reboot.target.wants && \
 		rm -f plymouth-reboot.service && \
 		$(LN_S) ../plymouth-reboot.service plymouth-reboot.service )
