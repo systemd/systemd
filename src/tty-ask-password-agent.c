@@ -200,7 +200,7 @@ finish:
         return r;
 }
 
-static int parse_password(const char *filename) {
+static int parse_password(const char *filename, char **wall) {
         char *socket_name = NULL, *message = NULL, *packet = NULL;
         uint64_t not_after = 0;
         unsigned pid = 0;
@@ -248,11 +248,13 @@ static int parse_password(const char *filename) {
         if (arg_action == ACTION_LIST)
                 printf("'%s' (PID %u)\n", message, pid);
         else if (arg_action == ACTION_WALL) {
-                char *wall;
+                char *_wall;
 
-                if (asprintf(&wall,
-                             "Password entry required for \'%s\' (PID %u).\r\n"
+                if (asprintf(&_wall,
+                             "%s%sPassword entry required for \'%s\' (PID %u).\r\n"
                              "Please enter password with the systemd-tty-password-agent tool!",
+                             *wall ? *wall : "",
+                             *wall ? "\r\n\r\n" : "",
                              message,
                              pid) < 0) {
                         log_error("Out of memory");
@@ -260,8 +262,8 @@ static int parse_password(const char *filename) {
                         goto finish;
                 }
 
-                r = utmp_wall(wall);
-                free(wall);
+                free(*wall);
+                *wall = _wall;
         } else {
                 union {
                         struct sockaddr sa;
@@ -346,6 +348,7 @@ static int show_passwords(void) {
         while ((de = readdir(d))) {
                 char *p;
                 int q;
+                char *wall;
 
                 if (de->d_type != DT_REG)
                         continue;
@@ -362,10 +365,16 @@ static int show_passwords(void) {
                         goto finish;
                 }
 
-                if ((q = parse_password(p)) < 0)
+                wall = NULL;
+                if ((q = parse_password(p, &wall)) < 0)
                         r = q;
 
                 free(p);
+
+                if (wall) {
+                        utmp_wall(wall);
+                        free(wall);
+                }
         }
 
 finish:
