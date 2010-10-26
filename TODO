@@ -80,7 +80,7 @@
 
 * make description of .swap files nicer: resolve /dev/by-uuid/ symlink
 
-* systemctl status getty@tty1.service
+* only add quotacheck deps t .mount units which mention grpquota/usrquota in the mount flags
 
 External:
 

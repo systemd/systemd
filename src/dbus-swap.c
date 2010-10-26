@@ -24,11 +24,17 @@
 
 #include "dbus-unit.h"
 #include "dbus-swap.h"
+#include "dbus-execute.h"
 
 #define BUS_SWAP_INTERFACE                                              \
         " <interface name=\"org.freedesktop.systemd1.Swap\">\n"         \
         "  <property name=\"What\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
+        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_EXEC_COMMAND_INTERFACE("ExecActivate")                      \
+        BUS_EXEC_COMMAND_INTERFACE("ExecDeactivate")                    \
+        BUS_EXEC_CONTEXT_INTERFACE                                      \
+        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -46,6 +52,9 @@ const char bus_swap_interface[] = BUS_SWAP_INTERFACE;
 const char bus_swap_invalidating_properties[] =
         "What\0"
         "Priority\0"
+        "ExecActivate\0"
+        "ExecDeactivate\0"
+        "ControlPID\0"
         "\0";
 
 static int bus_swap_append_priority(Manager *m, DBusMessageIter *i, const char *property, void *data) {
@@ -75,8 +84,12 @@ static int bus_swap_append_priority(Manager *m, DBusMessageIter *i, const char *
 DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Swap", "What",     bus_property_append_string, "s", u->swap.what },
-                { "org.freedesktop.systemd1.Swap", "Priority", bus_swap_append_priority,   "i", u            },
+                { "org.freedesktop.systemd1.Swap", "What",       bus_property_append_string, "s", u->swap.what          },
+                { "org.freedesktop.systemd1.Swap", "Priority",   bus_swap_append_priority,   "i", u                     },
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Swap", u->swap.exec_command+SWAP_EXEC_ACTIVATE,   "ExecActivate"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Swap", u->swap.exec_command+SWAP_EXEC_DEACTIVATE, "ExecDeactivate"),
+                BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Swap", u->swap.exec_context),
+                { "org.freedesktop.systemd1.Swap", "ControlPID", bus_property_append_pid,    "u", &u->swap.control_pid },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
