@@ -76,10 +76,6 @@
 
 * add seperate man page for [Install] settings
 
-* make sure swap.target doesn't pull in partitions multiple times
-
-* make description of .swap files nicer: resolve /dev/by-uuid/ symlink
-
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
 
 External:
