@@ -140,7 +140,8 @@ static int send_signal(int sign) {
 
                 timespec_store(&ts, until - n);
                 if (sigtimedwait(&mask, NULL, &ts) != SIGCHLD)
-                        log_warning("Failed: sigtimedwait did not return SIGCHLD: %m");
+                        if (errno != EAGAIN)
+                                log_warning("Failed: sigtimedwait did not return SIGCHLD: %m");
         }
 
 finish:
@@ -189,7 +190,8 @@ static int rescue_send_signal(int sign) {
 
                 timespec_store(&ts, until - n);
                 if (sigtimedwait(&mask, NULL, &ts) != SIGCHLD)
-                        log_warning("Failed: sigtimedwait did not return SIGCHLD: %m");
+                        if (errno != EAGAIN)
+                                log_warning("Failed: sigtimedwait did not return SIGCHLD: %m");
         }
 
 finish:
