@@ -1,5 +1,3 @@
-* man: clarify that --system works only for pid == 1
-
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 

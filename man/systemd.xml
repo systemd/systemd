@@ -141,14 +141,20 @@
                                 <listitem><para>Tell systemd to run a
                                 system instance (resp. session
                                 instance), even if the process ID is
-                                not 1 (resp. is 1), i.e. systemd is not
-                                (resp. is) run as init process.
+                                not 1 (resp. is 1), i.e. systemd is
+                                not (resp. is) run as init process.
                                 Normally it should not be necessary to
                                 pass these options, as systemd
                                 automatically detects the mode it is
                                 started in. These options are hence of
-                                little use except for
-                                debugging.</para></listitem>
+                                little use except for debugging. Note
+                                that it is not supported booting and
+                                maintaining a full system with systemd
+                                running in <option>--system</option>
+                                mode, but PID not 1. In practice,
+                                passing <option>--system</option> explicitly is
+                                only useful in conjunction with
+                                <option>--test</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--dump-core</option></term>
