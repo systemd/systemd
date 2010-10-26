@@ -696,6 +696,7 @@ static int cd_media_info(struct udev *udev, int fd)
 		scsi_cmd_set(udev, &sc, 9, 0);
 		err = scsi_cmd_run(udev, &sc, fd, buffer, sizeof(buffer));
 		if ((err != 0)) {
+			cd_media = 0;
 			info_scsi_cmd_err(udev, "READ FIRST 32 BLOCKS", err);
 			return -1;
 		}
