@@ -3380,7 +3380,7 @@ int ask_password_tty(const char *message, usec_t until, const char *flag_file, c
         assert(_passphrase);
 
         if (flag_file) {
-                if ((notify = inotify_init1(IN_CLOEXEC)) < 0) {
+                if ((notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK)) < 0) {
                         r = -errno;
                         goto finish;
                 }

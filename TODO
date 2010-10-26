@@ -58,8 +58,6 @@
 * start getty 2-6 only when actual vt switch happens
   (same model as socket on-demand activation)
 
-* ask-password plymouth agent
-
 * spawn ask-password tty agent temporarily in systemctl
 
 * readahead: btrfs/LVM SSD detection
@@ -83,6 +81,8 @@
 * make sure swap.target doesn't pull in partitions multiple times
 
 * make description of .swap files nicer: resolve /dev/by-uuid/ symlink
+
+* systemctl status getty@tty1.service
 
 External:
 
