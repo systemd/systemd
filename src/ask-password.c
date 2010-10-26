@@ -167,14 +167,21 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int ask_agent(void) {
+        enum {
+                FD_SOCKET,
+                FD_SIGNAL,
+                _FD_MAX
+        };
+
         char temp[] = "/dev/.systemd/ask-password/tmp.XXXXXX";
         char final[sizeof(temp)] = "";
         int fd = -1, r;
         FILE *f = NULL;
         char *socket_name = NULL;
-        int socket_fd = -1, signal_fd;
+        int socket_fd = -1, signal_fd = -1;
         sigset_t mask;
         usec_t not_after;
+        struct pollfd pollfd[_FD_MAX];
 
         mkdir_p("/dev/.systemd/ask-password", 0755);
 
@@ -246,13 +253,13 @@ static int ask_agent(void) {
                 goto finish;
         }
 
-        for (;;) {
-                enum {
-                        FD_SOCKET,
-                        FD_SIGNAL,
-                        _FD_MAX
-                };
+        zero(pollfd);
+        pollfd[FD_SOCKET].fd = socket_fd;
+        pollfd[FD_SOCKET].events = POLLIN;
+        pollfd[FD_SIGNAL].fd = signal_fd;
+        pollfd[FD_SIGNAL].events = POLLIN;
 
+        for (;;) {
                 char passphrase[LINE_MAX+1];
                 struct msghdr msghdr;
                 struct iovec iovec;
@@ -262,16 +269,9 @@ static int ask_agent(void) {
                         uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
                 } control;
                 ssize_t n;
-                struct pollfd pollfd[_FD_MAX];
                 int k;
 
-                zero(pollfd);
-                pollfd[FD_SOCKET].fd = socket_fd;
-                pollfd[FD_SOCKET].events = POLLIN;
-                pollfd[FD_SIGNAL].fd = signal_fd;
-                pollfd[FD_SIGNAL].events = POLLIN;
-
-                if ((k = poll(pollfd, 2, arg_timeout/USEC_PER_MSEC)) < 0) {
+                if ((k = poll(pollfd, _FD_MAX, arg_timeout/USEC_PER_MSEC)) < 0) {
 
                         if (errno == EINTR)
                                 continue;
@@ -365,6 +365,9 @@ finish:
 
         if (socket_fd >= 0)
                 close_nointr_nofail(socket_fd);
+
+        if (signal_fd >= 0)
+                close_nointr_nofail(signal_fd);
 
         if (f)
                 fclose(f);

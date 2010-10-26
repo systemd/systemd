@@ -29,6 +29,7 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <sys/signalfd.h>
 
 #include "util.h"
 #include "conf-parser.h"
@@ -385,8 +386,15 @@ finish:
 }
 
 static int watch_passwords(void) {
-        int notify;
-        struct pollfd pollfd;
+        enum {
+                FD_INOTIFY,
+                FD_SIGNAL,
+                _FD_MAX
+        };
+
+        int notify = -1, signal_fd = -1;
+        struct pollfd pollfd[_FD_MAX];
+        sigset_t mask;
         int r;
 
         mkdir_p("/dev/.systemd/ask-password", 0755);
@@ -401,15 +409,27 @@ static int watch_passwords(void) {
                 goto finish;
         }
 
+        assert_se(sigemptyset(&mask) == 0);
+        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
+        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+
+        if ((signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0) {
+                log_error("signalfd(): %m");
+                r = -errno;
+                goto finish;
+        }
+
         zero(pollfd);
-        pollfd.fd = notify;
-        pollfd.events = POLLIN;
+        pollfd[FD_INOTIFY].fd = notify;
+        pollfd[FD_INOTIFY].events = POLLIN;
+        pollfd[FD_SIGNAL].fd = signal_fd;
+        pollfd[FD_SIGNAL].events = POLLIN;
 
         for (;;) {
                 if ((r = show_passwords()) < 0)
                         break;
 
-                if (poll(&pollfd, 1, -1) < 0) {
+                if (poll(pollfd, _FD_MAX, -1) < 0) {
 
                         if (errno == EINTR)
                                 continue;
@@ -418,8 +438,11 @@ static int watch_passwords(void) {
                         goto finish;
                 }
 
-                if (pollfd.revents != 0)
+                if (pollfd[FD_INOTIFY].revents != 0)
                         flush_fd(notify);
+
+                if (pollfd[FD_SIGNAL].revents != 0)
+                        break;
         }
 
         r = 0;
@@ -427,6 +450,9 @@ static int watch_passwords(void) {
 finish:
         if (notify >= 0)
                 close_nointr_nofail(notify);
+
+        if (signal_fd >= 0)
+                close_nointr_nofail(signal_fd);
 
         return r;
 }

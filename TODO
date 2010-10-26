@@ -49,8 +49,6 @@
 
 * suspend, resume
 
-* passphrase agent https://bugs.freedesktop.org/show_bug.cgi?id=30038
-
 * systemctl auto-pager a la git
 
 * merge CK
@@ -58,7 +56,7 @@
 * start getty 2-6 only when actual vt switch happens
   (same model as socket on-demand activation)
 
-* spawn ask-password tty agent temporarily in systemctl
+* ask-password: find way to disable wall agent where tty agent is running
 
 * readahead: btrfs/LVM SSD detection
 
