@@ -49,7 +49,7 @@ ENV{DMI_VENDOR}=="Sony*", KERNELS=="input*", ATTRS{name}=="Sony Vaio Keys", RUN+
 ENV{DMI_VENDOR}=="Sony*", ATTR{[dmi/id]product_name}=="*PCG-C1*|*PCG-K25*|*PCG-F1*|*PCG-F2*|*PCG-F3*|*PCG-F4*|*PCG-F5*|*PCG-F6*|*PCG-FX*|*PCG-FRV*|*PCG-GR*|*PCG-TR*|*PCG-NV*|*PCG-Z*|*VGN-S360*", ATTRS{name}=="Sony Vaio Keys", RUN+="keymap $name module-sony-old"
 
 # Some Sony VGN models have yet another one
-ENV{DMI_VENDOR}=="Sony*", ATTR{[dmi/id]product_name}=="VGN-AR71MR", ATTRS{name}=="Sony Vaio Keys", RUN+="keymap $name module-sony-vgn"
+ENV{DMI_VENDOR}=="Sony*", ATTR{[dmi/id]product_name}=="VGN-AR71*|VGN-FW*|VGN-Z21*", ATTRS{name}=="Sony Vaio Keys", RUN+="keymap $name module-sony-vgn"
 
 
 #
