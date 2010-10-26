@@ -242,6 +242,29 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--no-ask-password</option></term>
+
+                                <listitem><para>When used with
+                                <command>start</command> and related
+                                commands, disables asking for
+                                passwords. Background services may
+                                require input of a password or
+                                passphrase string, for example to
+                                unlock system hard disks or
+                                cryptographic certificates. Unless
+                                this option is specified and the
+                                command is invoked from a terminal
+                                <command>systemctl</command> will
+                                query the user on the terminal for the
+                                necessary secrets. Use this option to
+                                switch this behaviour off. In this
+                                case the password must be supplied by
+                                some other means (for example
+                                graphical password agents) or the
+                                service might fail.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--kill-mode=</option></term>
 
                                 <listitem><para>When used with

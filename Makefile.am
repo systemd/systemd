@@ -53,9 +53,10 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
+	-DSYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH=\"$(rootbindir)/systemd-tty-ask-password-agent\" \
 	-DRUNTIME_DIR=\"$(localstatedir)/run\" \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
-	-DKEXEC_BINARY_PATH=\"$(rootsbindir)/kexec\" \
+	-DKEXEC_BINARY_PATH=\"/sbin/kexec\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO

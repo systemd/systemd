@@ -32,6 +32,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <stddef.h>
+#include <sys/prctl.h>
 
 #include <dbus/dbus.h>
 
@@ -73,6 +74,7 @@ static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_force = false;
 static bool arg_defaults = false;
+static bool arg_ask_password = false;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static const char *arg_kill_mode = NULL;
@@ -116,6 +118,47 @@ static bool on_tty(void) {
                 t = isatty(STDOUT_FILENO) > 0;
 
         return t;
+}
+
+static void spawn_ask_password_agent(void) {
+        pid_t parent, child;
+
+        /* We check STDIN here, not STDOUT, since this is about input,
+         * not output */
+        if (!isatty(STDIN_FILENO))
+                return;
+
+        if (!arg_ask_password)
+                return;
+
+        parent = getpid();
+
+        /* Spawns a temporary TTY agent, making sure it goes away when
+         * we go away */
+
+        if ((child = fork()) < 0)
+                return;
+
+        if (child == 0) {
+                /* In the child */
+
+                const char * const args[] = {
+                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH,
+                        "--watch",
+                        NULL
+                };
+
+                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
+                        _exit(EXIT_FAILURE);
+
+                /* Check whether our parent died before we were able
+                 * to set the death signal */
+                if (getppid() != parent)
+                        _exit(EXIT_SUCCESS);
+
+                execv(args[0], (char **) args);
+                _exit(EXIT_FAILURE);
+        }
 }
 
 static const char *ansi_highlight(bool b) {
@@ -1268,6 +1311,8 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         assert(bus);
+
+        spawn_ask_password_agent();
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 method =
@@ -4010,6 +4055,8 @@ static int systemctl_help(void) {
                "     --global         Enable/disable unit files globally\n"
                "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
                "                      configuration\n"
+               "     --no-ask-password\n"
+               "                      Do not ask for system passwords\n"
                "     --kill-mode=MODE How to send signal\n"
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
@@ -4146,7 +4193,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_RELOAD,
                 ARG_DEFAULTS,
                 ARG_KILL_MODE,
-                ARG_KILL_WHO
+                ARG_KILL_WHO,
+                ARG_NO_ASK_PASSWORD
         };
 
         static const struct option options[] = {
@@ -4171,6 +4219,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "kill-mode", required_argument, NULL, ARG_KILL_MODE },
                 { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
                 { "signal",    required_argument, NULL, 's'           },
+                { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4178,6 +4227,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 0);
         assert(argv);
+
+        /* Only when running as systemctl we ask for passwords */
+        arg_ask_password = true;
 
         while ((c = getopt_long(argc, argv, "ht:p:aqfs:", options, NULL)) >= 0) {
 
@@ -4283,6 +4335,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 log_error("Failed to parse signal string %s.", optarg);
                                 return -EINVAL;
                         }
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
                         break;
 
                 case '?':
