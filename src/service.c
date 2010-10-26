@@ -1585,6 +1585,7 @@ static int service_spawn(
                         goto fail;
                 }
 
+#ifdef HAVE_SYSV_COMPAT
         /* Make sure we set TERM=linux for SysV scripts, since some
          * require it to be set from the kernel */
         if (s->sysv_path && !strv_env_get(s->meta.manager->environment, "TERM"))
@@ -1592,6 +1593,7 @@ static int service_spawn(
                         r = -ENOMEM;
                         goto fail;
                 }
+#endif
 
         if (!(final_env = strv_env_merge(2,
                                          s->meta.manager->environment,
