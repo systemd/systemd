@@ -44,4 +44,6 @@ typedef struct ReadaheadShared {
 
 ReadaheadShared *shared_get(void);
 
+int bump_request_nr(const char *p);
+
 #endif
