@@ -1248,5 +1248,7 @@ git-tag:
 
 # Opt out from a few services on Fedora for now, as long as rc.sysinit does this job
 fedora: install
-	rm /lib/systemd/system/local-fs.target.wants/var-run.mount
-	rm /lib/systemd/system/local-fs.target.wants/var-lock.mount
+	rm $(DESTDIR)/lib/systemd/system/local-fs.target.wants/var-run.mount
+	rm $(DESTDIR)/lib/systemd/system/local-fs.target.wants/var-lock.mount
+	sed -i -e 's/^#MountAuto=yes$$/MountAuto=no/' \
+		-e 's/^#SwapAuto=yes$$/SwapAuto=no/' $(DESTDIR)/etc/systemd/system.conf
