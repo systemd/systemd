@@ -1413,7 +1413,7 @@ static int transaction_add_job_and_dependencies(
         if (type != JOB_STOP && unit->meta.load_state == UNIT_ERROR) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
                                "Unit %s failed to load: %s. "
-                               "You might find more information in the system logs.",
+                               "See system logs and 'systemctl status' for details.",
                                unit->meta.id,
                                strerror(-unit->meta.load_error));
                 return -EINVAL;

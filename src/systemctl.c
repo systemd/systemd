@@ -1162,7 +1162,7 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                 ;
 
         if (!arg_quiet && d.failed)
-                log_error("Job failed, see system logs for details.");
+                log_error("Job failed. See system logs and 'systemctl status' for details.");
 
         r = d.failed ? -EIO : 0;
 
