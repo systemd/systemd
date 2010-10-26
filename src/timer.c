@@ -197,9 +197,9 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                 switch (v->base) {
 
                 case TIMER_ACTIVE:
-                        if (state_translation_table[t->state] == UNIT_ACTIVE) {
+                        if (state_translation_table[t->state] == UNIT_ACTIVE)
                                 base = t->meta.inactive_exit_timestamp.monotonic;
-                        } else
+                        else
                                 base = n;
                         break;
 

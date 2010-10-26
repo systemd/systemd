@@ -3528,6 +3528,36 @@ finish:
         return r;
 }
 
+void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
+
+        assert(f);
+        assert(name);
+        assert(t);
+
+        if (!dual_timestamp_is_set(t))
+                return;
+
+        fprintf(f, "%s=%llu %llu\n",
+                name,
+                (unsigned long long) t->realtime,
+                (unsigned long long) t->monotonic);
+}
+
+void dual_timestamp_deserialize(FILE *f, const char *value, dual_timestamp *t) {
+        unsigned long long a, b;
+
+        assert(f);
+        assert(value);
+        assert(t);
+
+        if (sscanf(value, "%lli %llu", &a, &b) != 2)
+                log_debug("Failed to parse finish timestamp value %s", value);
+        else {
+                t->realtime = a;
+                t->monotonic = b;
+        }
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

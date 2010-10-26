@@ -2490,14 +2490,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        fprintf(f, "startup-timestamp=%llu %llu\n",
-                (unsigned long long) m->startup_timestamp.realtime,
-                (unsigned long long) m->startup_timestamp.monotonic);
-
-        if (dual_timestamp_is_set(&m->finish_timestamp))
-                fprintf(f, "finish-timestamp=%llu %llu\n",
-                        (unsigned long long) m->finish_timestamp.realtime,
-                        (unsigned long long) m->finish_timestamp.monotonic);
+        dual_timestamp_serialize(f, "startup-timestamp", &m->startup_timestamp);
+        dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
 
         fputc('\n', f);
 
@@ -2550,25 +2544,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 if (l[0] == 0)
                         break;
 
-                if (startswith(l, "startup-timestamp=")) {
-                        unsigned long long a, b;
-
-                        if (sscanf(l+18, "%lli %llu", &a, &b) != 2)
-                                log_debug("Failed to parse startup timestamp value %s", l+18);
-                        else {
-                                m->startup_timestamp.realtime = a;
-                                m->startup_timestamp.monotonic = b;
-                        }
-                } else if (startswith(l, "finish-timestamp=")) {
-                        unsigned long long a, b;
-
-                        if (sscanf(l+17, "%lli %llu", &a, &b) != 2)
-                                log_debug("Failed to parse finish timestamp value %s", l+17);
-                        else {
-                                m->finish_timestamp.realtime = a;
-                                m->finish_timestamp.monotonic = b;
-                        }
-                } else
+                if (startswith(l, "startup-timestamp="))
+                        dual_timestamp_deserialize(f, l+18, &m->startup_timestamp);
+                else if (startswith(l, "finish-timestamp="))
+                        dual_timestamp_deserialize(f, l+17, &m->finish_timestamp);
+                else
                         log_debug("Unknown serialization item '%s'", l);
         }
 

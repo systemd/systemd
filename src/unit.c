@@ -2006,6 +2006,11 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (u->meta.job)
                 unit_serialize_item(u, f, "job", job_type_to_string(u->meta.job->type));
 
+        dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->meta.inactive_exit_timestamp);
+        dual_timestamp_serialize(f, "active-enter-timestamp", &u->meta.active_enter_timestamp);
+        dual_timestamp_serialize(f, "active-exit-timestamp", &u->meta.active_exit_timestamp);
+        dual_timestamp_serialize(f, "inactive-enter-timestamp", &u->meta.inactive_enter_timestamp);
+
         /* End marker */
         fputc('\n', f);
         return 0;
@@ -2082,7 +2087,14 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 u->meta.deserialized_job = type;
 
                         continue;
-                }
+                } else if (streq(l, "inactive-exit-timestamp"))
+                        dual_timestamp_deserialize(f, v, &u->meta.inactive_exit_timestamp);
+                else if (streq(l, "active-enter-timestamp"))
+                        dual_timestamp_deserialize(f, v, &u->meta.active_enter_timestamp);
+                else if (streq(l, "active-exit-timestamp"))
+                        dual_timestamp_deserialize(f, v, &u->meta.active_exit_timestamp);
+                else if (streq(l, "inactive-enter-timestamp"))
+                        dual_timestamp_deserialize(f, v, &u->meta.inactive_enter_timestamp);
 
                 if ((r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds)) < 0)
                         return r;
