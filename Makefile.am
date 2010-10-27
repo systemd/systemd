@@ -399,6 +399,7 @@ libsystemd_core_la_SOURCES = \
 	src/cgroup.c \
 	src/mount-setup.c \
 	src/hostname-setup.c \
+	src/selinux-setup.c \
 	src/loopback-setup.c \
 	src/kmod-setup.c \
 	src/locale-setup.c \

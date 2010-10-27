@@ -39,6 +39,7 @@
 #include "loopback-setup.h"
 #include "kmod-setup.h"
 #include "locale-setup.h"
+#include "selinux-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
@@ -894,6 +895,11 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+
+                /* This might actually not return, but cause a
+                 * reexecution */
+                if (selinux_setup(argv) < 0)
+                        goto finish;
 
                 if (label_init() < 0)
                         goto finish;

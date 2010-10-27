@@ -51,6 +51,9 @@ int label_init(void) {
         if (!use_selinux())
                 return 0;
 
+        if (label_hnd)
+                return 0;
+
         label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
         if (!label_hnd) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
