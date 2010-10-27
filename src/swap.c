@@ -211,9 +211,6 @@ static int swap_add_default_dependencies(Swap *s) {
 
         if (s->meta.manager->running_as == MANAGER_SYSTEM) {
 
-                if ((r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
-                        return r;
-
                 if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
                         return r;
         }
