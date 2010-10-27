@@ -373,6 +373,9 @@ void dual_timestamp_deserialize(FILE *f, const char *line, dual_timestamp *t);
 #define NULSTR_FOREACH(i, l) \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
+#define NULSTR_FOREACH_PAIR(i, j, l)                             \
+        for ((i) = (l), (j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

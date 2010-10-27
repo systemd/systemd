@@ -26,6 +26,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "mount-setup.h"
 #include "log.h"
@@ -171,13 +172,47 @@ finish:
         return r;
 }
 
+static int symlink_and_label(const char *old_path, const char *new_path) {
+        int r;
+
+        assert(old_path);
+        assert(new_path);
+
+        if ((r = label_symlinkfile_set(new_path)) < 0)
+                return r;
+
+        if (symlink(old_path, new_path) < 0)
+                r = -errno;
+
+        label_file_clear();
+
+        return r;
+}
+
 int mount_setup(void) {
+
+        const char *symlinks =
+                "/proc/kcore\0"      "/dev/core\0"
+                "/proc/self/fd\0"    "/dev/fd\0"
+                "/proc/self/fd/0\0"  "/dev/stdin\0"
+                "/proc/self/fd/1\0"  "/dev/stdout\0"
+                "/proc/self/fd/2\0"  "/dev/stderr\0"
+                "\0";
+
         int r;
         unsigned i;
+        const char *j, *k;
 
         for (i = 0; i < ELEMENTSOF(mount_table); i ++)
                 if ((r = mount_one(mount_table+i)) < 0)
                         return r;
+
+        /* Create a few default symlinks, which are normally created
+         * bei udevd, but some scripts might need them before we start
+         * udevd. */
+
+        NULSTR_FOREACH_PAIR(j, k, symlinks)
+                symlink_and_label(j, k);
 
         return mount_cgroup_controllers();
 }

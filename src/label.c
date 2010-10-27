@@ -173,6 +173,31 @@ int label_fifofile_set(const char *path) {
         return r;
 }
 
+int label_symlinkfile_set(const char *path) {
+        int r = 0;
+
+#ifdef HAVE_SELINUX
+        security_context_t filecon = NULL;
+
+        if (!use_selinux() || !label_hnd)
+                return 0;
+
+        if ((r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFLNK)) == 0) {
+                if ((r = setfscreatecon(filecon)) < 0) {
+                        log_error("Failed to set SELinux file context on %s: %m", path);
+                        r = -errno;
+                }
+
+                freecon(filecon);
+        }
+
+        if (r < 0 && security_getenforce() == 0)
+                r = 0;
+#endif
+
+        return r;
+}
+
 int label_socket_set(const char *label) {
 
 #ifdef HAVE_SELINUX

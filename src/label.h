@@ -33,6 +33,7 @@ int label_socket_set(const char *label);
 void label_socket_clear(void);
 
 int label_fifofile_set(const char *path);
+int label_symlinkfile_set(const char *path);
 void label_file_clear(void);
 
 void label_free(const char *label);
