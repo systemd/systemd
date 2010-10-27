@@ -265,6 +265,7 @@ char *format_timestamp_pretty(char *buf, size_t l, usec_t t);
 char *format_timespan(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);
+int make_null_stdio(void);
 
 bool is_clean_exit(int code, int status);
 bool is_clean_exit_lsb(int code, int status);

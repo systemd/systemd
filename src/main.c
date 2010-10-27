@@ -180,20 +180,6 @@ static void install_crash_handler(void) {
         sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
 }
 
-static int make_null_stdio(void) {
-        int null_fd, r;
-
-        if ((null_fd = open("/dev/null", O_RDWR|O_NOCTTY)) < 0) {
-                log_error("Failed to open /dev/null: %m");
-                return -errno;
-        }
-
-        if ((r = make_stdio(null_fd)) < 0)
-                log_warning("Failed to dup2() device: %s", strerror(-r));
-
-        return r;
-}
-
 static int console_setup(bool do_reset) {
         int tty_fd, r;
 
