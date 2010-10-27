@@ -13,6 +13,7 @@ After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=shutdown.target emergency.service emergency.target
 
 [Service]
+Environment=TERM=linux
 ExecStart=/etc/rc.d/rc.sysinit
 Type=forking
 TimeoutSec=0
