@@ -4047,7 +4047,7 @@ static int systemctl_help(void) {
                "                      pending\n"
                "  -q --quiet          Suppress output\n"
                "     --no-block       Do not wait until operation finished\n"
-               "     --system          Connect to system bus\n"
+               "     --system         Connect to system bus\n"
                "     --session        Connect to session bus\n"
                "     --order          When generating graph for dot, show only order\n"
                "     --require        When generating graph for dot, show only requirement\n"

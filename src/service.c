@@ -1220,6 +1220,30 @@ static int service_load_pid_file(Service *s) {
         return 0;
 }
 
+static int service_search_main_pid(Service *s) {
+        pid_t pid;
+        int r;
+
+        assert(s);
+
+        if (s->main_pid_known)
+                return 0;
+
+        assert(s->main_pid <= 0);
+
+        if ((pid = cgroup_bonding_search_main_pid_list(s->meta.cgroup_bondings)) <= 0)
+                return -ENOENT;
+
+        if ((r = service_set_main_pid(s, pid)) < 0)
+                return r;
+
+        if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
+                /* FIXME: we need to do something here */
+                return r;
+
+        return 0;
+}
+
 static int service_get_sockets(Service *s, Set **_set) {
         Set *set;
         Iterator i;
@@ -2595,8 +2619,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                  * START_POST script */
 
                                 if (success) {
-                                        if (s->pid_file)
-                                                service_load_pid_file(s);
+                                        service_load_pid_file(s);
+                                        service_search_main_pid(s);
 
                                         service_enter_start_post(s);
                                 } else

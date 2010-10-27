@@ -66,8 +66,6 @@
 
 * parse early boot time env var from dracut
 
-* fix serialization of timers
-
 * add switch to disable pull in retroactively
 
 * cryptsetup

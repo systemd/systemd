@@ -397,3 +397,54 @@ char *cgroup_bonding_to_string(CGroupBonding *b) {
 
         return r;
 }
+
+pid_t cgroup_bonding_search_main_pid(CGroupBonding *b) {
+        FILE *f;
+        pid_t pid = 0, npid;
+        int r;
+
+        assert(b);
+
+        if (!b->only_us)
+                return 0;
+
+        if ((r = cg_enumerate_processes(b->controller, b->path, &f)) < 0)
+                return 0;
+
+        while ((r = cg_read_pid(f, &npid)) > 0)  {
+
+                if (npid == pid)
+                        continue;
+
+                if (pid != 0) {
+                        /* Dang, there's more than one PID in this
+                         * group, so we don't know what process is the
+                         * main process. */
+                        pid = 0;
+                        break;
+                }
+
+                pid = npid;
+        }
+
+        fclose(f);
+
+        return pid;
+}
+
+pid_t cgroup_bonding_search_main_pid_list(CGroupBonding *first) {
+        CGroupBonding *b;
+        pid_t pid;
+
+        /* Try to find a main pid from this cgroup, but checking if
+         * there's only one PID in the cgroup and returning it. Later
+         * on we might want to add additional, smarter heuristics
+         * here. */
+
+        LIST_FOREACH(by_unit, b, first)
+                if ((pid = cgroup_bonding_search_main_pid(b)) != 0)
+                        return pid;
+
+        return 0;
+
+}

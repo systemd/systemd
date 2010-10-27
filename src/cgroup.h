@@ -71,6 +71,9 @@ CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *contro
 
 char *cgroup_bonding_to_string(CGroupBonding *b);
 
+pid_t cgroup_bonding_search_main_pid(CGroupBonding *b);
+pid_t cgroup_bonding_search_main_pid_list(CGroupBonding *b);
+
 #include "manager.h"
 
 int manager_setup_cgroup(Manager *m);
