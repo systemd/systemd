@@ -506,7 +506,21 @@ bool socket_address_needs_mount(const SocketAddress *a, const char *prefix) {
 }
 
 bool socket_ipv6_is_supported(void) {
-        return access("/sys/module/ipv6", F_OK) == 0;
+        char *l = 0;
+        bool enabled;
+
+        if (access("/sys/module/ipv6", F_OK) != 0)
+                return 0;
+
+        /* If we can't check "disable" parameter, assume enabled */
+        if (read_one_line_file("/sys/module/ipv6/parameters/disable", &l) < 0)
+                return 1;
+
+        /* If module was loaded with disable=1 no IPv6 available */
+        enabled = l[0] == '0';
+        free(l);
+
+        return enabled;
 }
 
 static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
