@@ -21,8 +21,6 @@
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
    - distccd
 
-* selinux policy loading
-
 * fingerprint.target, wireless.target, gps.target
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
