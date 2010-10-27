@@ -76,8 +76,6 @@
 
 External:
 
-* patch kernel to add /proc/swaps change notifications
-
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
 
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
