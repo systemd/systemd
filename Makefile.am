@@ -1176,9 +1176,6 @@ if TARGET_FEDORA
 		$(DESTDIR)$(systemunitdir)/rescue.target.wants \
 		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
 		$(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
-		rm -f prefdm.service && \
-		$(LN_S) $(systemunitdir)/prefdm.service prefdm.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f rc-local.service && \
 		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
@@ -1204,6 +1201,9 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service && \
 		$(LN_S) prefdm.service display-manager.service )
+	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
 if TARGET_GENTOO
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
