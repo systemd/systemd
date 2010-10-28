@@ -161,9 +161,7 @@ static int timer_coldplug(Unit *u) {
 
         if (t->deserialized_state != t->state) {
 
-                if (t->deserialized_state == TIMER_WAITING ||
-                    t->deserialized_state == TIMER_RUNNING ||
-                    t->deserialized_state == TIMER_ELAPSED)
+                if (t->deserialized_state == TIMER_WAITING)
                         timer_enter_waiting(t, false);
                 else
                         timer_set_state(t, t->deserialized_state);

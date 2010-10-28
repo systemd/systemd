@@ -64,8 +64,6 @@
 
 * parse early boot time env var from dracut
 
-* add switch to disable pull in retroactively
-
 * cryptsetup
 
 * add seperate man page for [Install] settings
