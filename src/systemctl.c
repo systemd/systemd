@@ -1820,9 +1820,9 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->sysfs_path)
                 printf("\t  Device: %s\n", i->sysfs_path);
-        else if (i->where)
+        if (i->where)
                 printf("\t   Where: %s\n", i->where);
-        else if (i->what)
+        if (i->what)
                 printf("\t    What: %s\n", i->what);
 
         if (i->accept)
