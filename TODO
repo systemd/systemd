@@ -72,6 +72,8 @@
 
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
 
+* Introduce weaker Conflicts.
+
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
