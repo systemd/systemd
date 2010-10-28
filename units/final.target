@@ -11,5 +11,4 @@
 Description=Final Step
 DefaultDependencies=no
 RefuseManualStart=yes
-IgnoreDependencyFailure=yes
 After=shutdown.target umount.target

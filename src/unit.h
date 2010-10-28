@@ -199,9 +199,6 @@ struct Meta {
         /* Create default depedencies */
         bool default_dependencies;
 
-        /* Bring up this unit even if a dependency fails to start */
-        bool ignore_dependency_failure;
-
         /* Refuse manual starting, allow starting only indirectly via dependency. */
         bool refuse_manual_start;
 

@@ -1021,7 +1021,7 @@ static int service_add_default_dependencies(Service *s) {
         }
 
         /* Second, activate normal shutdown */
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static int service_load(Unit *u) {
@@ -3017,7 +3017,7 @@ static int service_enumerate(Manager *m) {
                 if (service->meta.fragment_path)
                         continue;
 
-                if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                if ((r = unit_add_two_dependencies_by_name(service, UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
                         goto finish;
         }
 

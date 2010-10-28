@@ -655,13 +655,11 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tStopWhenUnneeded: %s\n"
                         "%s\tRefuseManualStart: %s\n"
                         "%s\tRefuseManualStop: %s\n"
-                        "%s\tDefaultDependencies: %s\n"
-                        "%s\tIgnoreDependencyFailure: %s\n",
+                        "%s\tDefaultDependencies: %s\n",
                         prefix, yes_no(u->meta.stop_when_unneeded),
                         prefix, yes_no(u->meta.refuse_manual_start),
                         prefix, yes_no(u->meta.refuse_manual_stop),
-                        prefix, yes_no(u->meta.default_dependencies),
-                        prefix, yes_no(u->meta.ignore_dependency_failure));
+                        prefix, yes_no(u->meta.default_dependencies));
 
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",
