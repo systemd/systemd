@@ -1198,6 +1198,8 @@ static int transaction_apply(Manager *m) {
                 job_add_to_run_queue(j);
                 job_add_to_dbus_queue(j);
                 job_start_timer(j);
+
+                log_debug("Installed new job %s/%s as %u", j->unit->meta.id, job_type_to_string(j->type), (unsigned) j->id);
         }
 
         /* As last step, kill all remaining job dependencies. */
