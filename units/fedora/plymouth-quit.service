@@ -13,6 +13,3 @@ After=dev-tty1.device rc-local.service
 [Service]
 ExecStart=-/usr/bin/plymouth quit
 Type=oneshot
-
-[Install]
-WantedBy=multi-user.target

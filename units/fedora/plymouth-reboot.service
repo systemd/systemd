@@ -17,6 +17,3 @@ ExecStartPost=-/usr/bin/plymouth --sysinit
 ExecStartPost=-/usr/bin/plymouth --show-splash
 ExecStartPost=-/usr/bin/plymouth message '--text=Rebooting...'
 Type=forking
-
-[Install]
-WantedBy=reboot.target
