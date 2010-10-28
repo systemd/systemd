@@ -299,7 +299,6 @@ dist_systemunit_DATA += \
 	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service \
-	units/fedora/sysinit.service \
 	units/fedora/single.service \
 	units/fedora/plymouth-quit.service \
 	units/fedora/plymouth-reboot.service \

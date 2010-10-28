@@ -12,9 +12,3 @@ Description=System Initialization
 Conflicts=emergency.service emergency.target
 After=emergency.service emergency.target
 RefuseManualStart=yes
-m4_dnl
-m4_ifdef(`TARGET_FEDORA',
-m4_dnl Hook in Fedora's /etc/rc.d/rc.sysinit
-Requires=sysinit.service
-After=sysinit.service
-)m4_dnl
