@@ -92,7 +92,7 @@
         "  <property name=\"CanStop\" type=\"b\" access=\"read\"/>\n"   \
         "  <property name=\"CanIsolate\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>\n"    \
-        "  <property name=\"RecursiveStop\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"StopRetroactively\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"StopWhenUnneeded\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RefuseManualStart\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RefuseManualStop\" type=\"b\" access=\"read\"/>\n" \
@@ -134,7 +134,7 @@
         { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,     "b",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "CanIsolate",           bus_unit_append_can_isolate,    "b",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,            "(uo)", u                                 }, \
-        { "org.freedesktop.systemd1.Unit", "RecursiveStop",        bus_property_append_bool,       "b",    &u->meta.recursive_stop           }, \
+        { "org.freedesktop.systemd1.Unit", "StopRetroactively",    bus_property_append_bool,       "b",    &u->meta.stop_retroactively       }, \
         { "org.freedesktop.systemd1.Unit", "StopWhenUnneeded",     bus_property_append_bool,       "b",    &u->meta.stop_when_unneeded       }, \
         { "org.freedesktop.systemd1.Unit", "RefuseManualStart",    bus_property_append_bool,       "b",    &u->meta.refuse_manual_start      }, \
         { "org.freedesktop.systemd1.Unit", "RefuseManualStop",     bus_property_append_bool,       "b",    &u->meta.refuse_manual_stop       }, \

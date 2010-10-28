@@ -69,12 +69,6 @@ static void device_init(Unit *u) {
          * happen for the other units since their operations time out
          * anyway. */
         d->meta.job_timeout = DEFAULT_TIMEOUT_USEC;
-
-        /* We enable recursive stopping by default for all
-        devices. This enables the user to use Requires= to make a
-        service go a way when a device goes away, and Wants=
-        otherwise. */
-        d->meta.recursive_stop = true;
 }
 
 static void device_done(Unit *u) {

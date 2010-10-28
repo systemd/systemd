@@ -105,7 +105,7 @@ enum UnitDependency {
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' and 'requisite' is 'required_by' */
-        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'soft_requires' and 'soft_requisite' is 'soft_required_by' */
+        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' and 'requisite_overridable' is 'soft_required_by' */
         UNIT_WANTED_BY,               /* inverse of 'wants' */
 
         /* Negative dependencies */
@@ -191,8 +191,8 @@ struct Meta {
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
 
-        /* If we go down, pull down everything that depends on us, too */
-        bool recursive_stop;
+        /* If some required dep goes down, pull down ourselves, too */
+        bool stop_retroactively;
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;

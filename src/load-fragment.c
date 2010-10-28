@@ -1769,7 +1769,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                        "Unit"    },
                 { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Unit"    },
                 { "OnFailure",              config_parse_deps,            UINT_TO_PTR(UNIT_ON_FAILURE),                    "Unit"    },
-                { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Unit"    },
+                { "StopRetroactively",      config_parse_bool,            &u->meta.stop_retroactively,                     "Unit"    },
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
                 { "RefuseManualStart",      config_parse_bool,            &u->meta.refuse_manual_start,                    "Unit"    },
                 { "RefuseManualStop",       config_parse_bool,            &u->meta.refuse_manual_stop,                     "Unit"    },

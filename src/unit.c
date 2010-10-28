@@ -652,13 +652,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->meta.load_state == UNIT_LOADED) {
                 fprintf(f,
-                        "%s\tRecursive Stop: %s\n"
+                        "%s\tStopRetroactively: %s\n"
                         "%s\tStopWhenUnneeded: %s\n"
                         "%s\tRefuseManualStart: %s\n"
                         "%s\tRefuseManualStop: %s\n"
                         "%s\tDefaultDependencies: %s\n"
                         "%s\tIgnoreDependencyFailure: %s\n",
-                        prefix, yes_no(u->meta.recursive_stop),
+                        prefix, yes_no(u->meta.stop_retroactively),
                         prefix, yes_no(u->meta.stop_when_unneeded),
                         prefix, yes_no(u->meta.refuse_manual_start),
                         prefix, yes_no(u->meta.refuse_manual_stop),
@@ -1011,12 +1011,11 @@ static void retroactively_stop_dependencies(Unit *u) {
         assert(u);
         assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
-        if (u->meta.recursive_stop) {
-                /* Pull down units need us recursively if enabled */
-                SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
-                        if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                                manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
-        }
+        /* Pull down units which need us recursively if enabled */
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
+                if (other->meta.stop_retroactively &&
+                    !UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
 
         /* Garbage collect services that might not be needed anymore, if enabled */
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)

@@ -441,22 +441,24 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>RecursiveStop=</varname></term>
+                                <term><varname>StopRetroactively=</varname></term>
 
                                 <listitem><para>Takes a boolean
                                 argument. If <option>true</option> and
-                                the unit stops without being requested
-                                by the user, all units
-                                depending on it will be stopped as
+                                a unit this unit requires stops
+                                without this being requested by the
+                                user, this unit will be stopped as
                                 well. (e.g. if a service exits or
-                                crashes on its own behalf, units using
-                                it will be stopped) Note that normally
-                                if a unit stops without a user request,
+                                crashes on its own behalf, units this
+                                flag is set for that require it will
+                                be stopped.) Note that normally if a
+                                unit stops without a user request,
                                 units depending on it will not be
                                 terminated. Only if the user requested
-                                shutdown of a unit, all units depending
-                                on that unit will be shut down as well
-                                and at the same time. Defaults to
+                                shutdown of a unit, all units
+                                depending on that unit will be shut
+                                down as well and at the same
+                                time. Defaults to
                                 <option>false</option>.</para></listitem>
                         </varlistentry>
 
