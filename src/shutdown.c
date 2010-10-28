@@ -108,19 +108,21 @@ static int send_signal(int sign) {
                 return -errno;
 
         if (kill(-1, SIGSTOP) < 0)
-                log_warning("Failed kill(-1, SIGSTOP): %m");
+                log_warning("kill(-1, SIGSTOP) failed: %m");
 
         n_processes = killall(sign);
 
         if (kill(-1, SIGCONT) < 0)
-                log_warning("Failed kill(-1, SIGCONT): %m");
+                log_warning("kill(-1, SIGCONT) failed: %m");
 
         if (n_processes <= 0)
                 goto finish;
 
         until = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
         for (;;) {
+                int k;
                 usec_t n = now(CLOCK_MONOTONIC);
+
                 for (;;) {
                         pid_t pid = waitpid(-1, NULL, WNOHANG);
 
@@ -139,9 +141,12 @@ static int send_signal(int sign) {
                         goto finish;
 
                 timespec_store(&ts, until - n);
-                if (sigtimedwait(&mask, NULL, &ts) != SIGCHLD)
-                        if (errno != EAGAIN)
-                                log_warning("Failed: sigtimedwait did not return SIGCHLD: %m");
+                if ((k = sigtimedwait(&mask, NULL, &ts)) != SIGCHLD) {
+                        if (k >= 0)
+                                log_warning("sigtimedwait() returned unexpected signal.");
+                        if (k < 0 && errno != EAGAIN)
+                                log_warning("sigtimedwait() failed: %m");
+                }
         }
 
 finish:
@@ -162,21 +167,23 @@ static int rescue_send_signal(int sign) {
                 return -errno;
 
         if (kill(-1, SIGSTOP) < 0)
-                log_warning("Failed kill(-1, SIGSTOP): %m");
+                log_warning("kill(-1, SIGSTOP) failed: %m");
 
         r = kill(-1, sign);
         if (r < 0)
-                log_warning("Failed kill(-1, %d): %m", sign);
+                log_warning("kill(-1, %d) failed: %m", sign);
 
         if (kill(-1, SIGCONT) < 0)
-                log_warning("Failed kill(-1, SIGCONT): %m");
+                log_warning("kill(-1, SIGCONT) failed: %m");
 
         if (r < 0)
                 goto finish;
 
         until = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
         for (;;) {
+                int k;
                 usec_t n = now(CLOCK_MONOTONIC);
+
                 for (;;) {
                         pid_t pid = waitpid(-1, NULL, WNOHANG);
                         if (pid == 0)
@@ -189,9 +196,12 @@ static int rescue_send_signal(int sign) {
                         goto finish;
 
                 timespec_store(&ts, until - n);
-                if (sigtimedwait(&mask, NULL, &ts) != SIGCHLD)
-                        if (errno != EAGAIN)
-                                log_warning("Failed: sigtimedwait did not return SIGCHLD: %m");
+                if ((k = sigtimedwait(&mask, NULL, &ts)) != SIGCHLD) {
+                        if (k >= 0)
+                                log_warning("sigtimedwait() returned unexpected signal.");
+                        if (k < 0 && errno != EAGAIN)
+                                log_warning("sigtimedwait() failed: %m");
+                }
         }
 
 finish:
@@ -240,29 +250,29 @@ int main(int argc, char *argv[]) {
         if (mlockall(MCL_CURRENT|MCL_FUTURE) != 0)
                 log_warning("Cannot lock process memory: %m");
 
-        log_info("Sending SIGTERM to processes");
+        log_info("Sending SIGTERM to remaining processes...");
         r = send_signal(SIGTERM);
         if (r < 0)
-                log_warning("Cannot send SIGTERM to all process: %s", strerror(r));
+                log_warning("Failed to send SIGTERM to remaining processes: %s", strerror(r));
 
-        log_info("Sending SIGKILL to processes");
+        log_info("Sending SIGKILL to remaining processes...");
         r = send_signal(SIGKILL);
         if (r < 0)
-                log_warning("Cannot send SIGKILL to all process: %s", strerror(r));
+                log_warning("Failed to send SIGKILL to remaining processes: %s", strerror(r));
 
         /* Unmount all mountpoints, swaps, and loopback devices */
         for (retries = 0; retries < FINALIZE_ATTEMPTS; retries++) {
                 bool changed = false;
 
                 if (need_umount) {
-                        log_info("Unmounting filesystems.");
+                        log_info("Unmounting file systems.");
                         r = umount_all(&changed);
                         if (r == 0)
                                 need_umount = false;
                         else if (r > 0)
-                                log_warning("Not all filesystems unmounted, %d left.", r);
+                                log_info("Not all file systems unmounted, %d left.", r);
                         else
-                                log_error("Error unmounting filesystems: %s", strerror(-r));
+                                log_error("Failed to unmount file systems: %s", strerror(-r));
                 }
 
                 if (need_swapoff) {
@@ -271,9 +281,9 @@ int main(int argc, char *argv[]) {
                         if (r == 0)
                                 need_swapoff = false;
                         else if (r > 0)
-                                log_warning("Not all swaps are off, %d left.", r);
+                                log_info("Not all swaps are turned off, %d left.", r);
                         else
-                                log_error("Error turning off swaps: %s", strerror(-r));
+                                log_error("Failed to turn off swaps: %s", strerror(-r));
                 }
 
                 if (need_loop_detach) {
@@ -282,9 +292,9 @@ int main(int argc, char *argv[]) {
                         if (r == 0)
                                 need_loop_detach = false;
                         else if (r > 0)
-                                log_warning("Not all loop devices detached, %d left.", r);
+                                log_info("Not all loop devices detached, %d left.", r);
                         else
-                                log_error("Error detaching loop devices: %s", strerror(-r));
+                                log_error("Failed to detach loop devices: %s", strerror(-r));
                 }
 
                 if (need_dm_detach) {
@@ -293,9 +303,9 @@ int main(int argc, char *argv[]) {
                         if (r == 0)
                                 need_dm_detach = false;
                         else if (r > 0)
-                                log_warning("Not all dm devices detached, %d left.", r);
+                                log_warning("Not all DM devices detached, %d left.", r);
                         else
-                                log_error("Error detaching dm devices: %s", strerror(-r));
+                                log_error("Failed to detach DM devices: %s", strerror(-r));
                 }
 
                 if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach)
@@ -310,17 +320,17 @@ int main(int argc, char *argv[]) {
                         if (killed_everbody) {
                                 /* Hmm, we already killed everybody,
                                  * let's just give up */
-                                log_error("Cannot finalize all filesystems and devices, giving up.");
+                                log_error("Cannot finalize remaining file systems and devices, giving up.");
                                 break;
                         }
 
-                        log_warning("Cannot finalize filesystems and devices, trying to kill remaining processes.");
+                        log_warning("Cannot finalize remaining file systems and devices, trying to kill remaining processes.");
                         rescue_send_signal(SIGTERM);
                         rescue_send_signal(SIGKILL);
                         killed_everbody = true;
                 }
 
-                log_debug("Couldn't finalize filesystems and devices after %u retries, trying again.", retries+1);
+                log_debug("Couldn't finalize remaining file systems and devices after %u retries, trying again.", retries+1);
         }
 
         if (retries >= FINALIZE_ATTEMPTS)
