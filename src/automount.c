@@ -760,7 +760,16 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         switch (packet.hdr.type) {
 
         case autofs_ptype_missing_direct:
-                log_debug("Got direct mount request for %s", packet.v5_packet.name);
+
+                if (packet.v5_packet.pid > 0) {
+                        char *p = NULL;
+
+                        get_process_name(packet.v5_packet.pid, &p);
+                        log_debug("Got direct mount request for %s, triggered by %lu (%s)", packet.v5_packet.name, (unsigned long) packet.v5_packet.pid, strna(p));
+                        free(p);
+
+                } else
+                        log_debug("Got direct mount request for %s", packet.v5_packet.name);
 
                 if (!a->tokens)
                         if (!(a->tokens = set_new(trivial_hash_func, trivial_compare_func))) {
