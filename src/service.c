@@ -2299,21 +2299,10 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (s->main_exec_status.pid > 0) {
                 unit_serialize_item_format(u, f, "main-exec-status-pid", "%lu", (unsigned long) s->main_exec_status.pid);
+                dual_timestamp_serialize(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
+                dual_timestamp_serialize(f, "main-exec-status-exit", &s->main_exec_status.exit_timestamp);
 
-                if (s->main_exec_status.start_timestamp.realtime > 0) {
-                        unit_serialize_item_format(u, f, "main-exec-status-start-realtime",
-                                                   "%llu", (unsigned long long) s->main_exec_status.start_timestamp.realtime);
-
-                        unit_serialize_item_format(u, f, "main-exec-status-start-monotonic",
-                                                   "%llu", (unsigned long long) s->main_exec_status.start_timestamp.monotonic);
-                }
-
-                if (s->main_exec_status.exit_timestamp.realtime > 0) {
-                        unit_serialize_item_format(u, f, "main-exec-status-exit-realtime",
-                                                   "%llu", (unsigned long long) s->main_exec_status.exit_timestamp.realtime);
-                        unit_serialize_item_format(u, f, "main-exec-status-exit-monotonic",
-                                                   "%llu", (unsigned long long) s->main_exec_status.exit_timestamp.monotonic);
-
+                if (dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
                         unit_serialize_item_format(u, f, "main-exec-status-code", "%i", s->main_exec_status.code);
                         unit_serialize_item_format(u, f, "main-exec-status-status", "%i", s->main_exec_status.status);
                 }
@@ -2414,35 +2403,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_debug("Failed to parse main-exec-status-status value %s", value);
                 else
                         s->main_exec_status.status = i;
-        } else if (streq(key, "main-exec-status-start-realtime")) {
-                uint64_t k;
-
-                if (safe_atou64(value, &k) < 0)
-                        log_debug("Failed to parse main-exec-status-start-realtime value %s", value);
-                else
-                        s->main_exec_status.start_timestamp.realtime = (usec_t) k;
-        } else if (streq(key, "main-exec-status-start-monotonic")) {
-                uint64_t k;
-
-                if (safe_atou64(value, &k) < 0)
-                        log_debug("Failed to parse main-exec-status-start-monotonic value %s", value);
-                else
-                        s->main_exec_status.start_timestamp.monotonic = (usec_t) k;
-        } else if (streq(key, "main-exec-status-exit-realtime")) {
-                uint64_t k;
-
-                if (safe_atou64(value, &k) < 0)
-                        log_debug("Failed to parse main-exec-status-exit-realtime value %s", value);
-                else
-                        s->main_exec_status.exit_timestamp.realtime = (usec_t) k;
-        } else if (streq(key, "main-exec-status-exit-monotonic")) {
-                uint64_t k;
-
-                if (safe_atou64(value, &k) < 0)
-                        log_debug("Failed to parse main-exec-status-exit-monotonic value %s", value);
-                else
-                        s->main_exec_status.exit_timestamp.monotonic = (usec_t) k;
-        } else
+        } else if (streq(key, "main-exec-status-start"))
+                dual_timestamp_deserialize(value, &s->main_exec_status.start_timestamp);
+        else if (streq(key, "main-exec-status-exit"))
+                dual_timestamp_deserialize(value, &s->main_exec_status.exit_timestamp);
+        else
                 log_debug("Unknown serialization key '%s'", key);
 
         return 0;

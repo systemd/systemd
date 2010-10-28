@@ -3552,10 +3552,9 @@ void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
                 (unsigned long long) t->monotonic);
 }
 
-void dual_timestamp_deserialize(FILE *f, const char *value, dual_timestamp *t) {
+void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         unsigned long long a, b;
 
-        assert(f);
         assert(value);
         assert(t);
 

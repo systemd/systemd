@@ -2545,9 +2545,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         break;
 
                 if (startswith(l, "startup-timestamp="))
-                        dual_timestamp_deserialize(f, l+18, &m->startup_timestamp);
+                        dual_timestamp_deserialize(l+18, &m->startup_timestamp);
                 else if (startswith(l, "finish-timestamp="))
-                        dual_timestamp_deserialize(f, l+17, &m->finish_timestamp);
+                        dual_timestamp_deserialize(l+17, &m->finish_timestamp);
                 else
                         log_debug("Unknown serialization item '%s'", l);
         }

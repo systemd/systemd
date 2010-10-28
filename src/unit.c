@@ -2088,16 +2088,16 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         continue;
                 } else if (streq(l, "inactive-exit-timestamp")) {
-                        dual_timestamp_deserialize(f, v, &u->meta.inactive_exit_timestamp);
+                        dual_timestamp_deserialize(v, &u->meta.inactive_exit_timestamp);
                         continue;
                 } else if (streq(l, "active-enter-timestamp")) {
-                        dual_timestamp_deserialize(f, v, &u->meta.active_enter_timestamp);
+                        dual_timestamp_deserialize(v, &u->meta.active_enter_timestamp);
                         continue;
                 } else if (streq(l, "active-exit-timestamp")) {
-                        dual_timestamp_deserialize(f, v, &u->meta.active_exit_timestamp);
+                        dual_timestamp_deserialize(v, &u->meta.active_exit_timestamp);
                         continue;
                 } else if (streq(l, "inactive-enter-timestamp")) {
-                        dual_timestamp_deserialize(f, v, &u->meta.inactive_enter_timestamp);
+                        dual_timestamp_deserialize(v, &u->meta.inactive_enter_timestamp);
                         continue;
                 }
 
