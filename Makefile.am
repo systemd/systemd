@@ -1206,8 +1206,6 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
-	( cd $(DESTDIR)$(SYSTEM_SYSVINIT_PATH) && \
-		$(LN_S) halt reboot > /dev/null 2>&1 || true )
 endif
 if TARGET_GENTOO
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
