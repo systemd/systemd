@@ -70,9 +70,6 @@ static void mount_init(Unit *u) {
          * already trying to comply its last one. */
         m->exec_context.same_pgrp = true;
 
-        /* Make sure we unmount when the devices we require go away */
-        m->meta.stop_retroactively = true;
-
         m->timer_watch.type = WATCH_INVALID;
 
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;

@@ -652,13 +652,11 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->meta.load_state == UNIT_LOADED) {
                 fprintf(f,
-                        "%s\tStopRetroactively: %s\n"
                         "%s\tStopWhenUnneeded: %s\n"
                         "%s\tRefuseManualStart: %s\n"
                         "%s\tRefuseManualStop: %s\n"
                         "%s\tDefaultDependencies: %s\n"
                         "%s\tIgnoreDependencyFailure: %s\n",
-                        prefix, yes_no(u->meta.stop_retroactively),
                         prefix, yes_no(u->meta.stop_when_unneeded),
                         prefix, yes_no(u->meta.refuse_manual_start),
                         prefix, yes_no(u->meta.refuse_manual_stop),
@@ -765,6 +763,10 @@ static int unit_add_default_dependencies(Unit *u) {
                         return r;
 
         SET_FOREACH(target, u->meta.dependencies[UNIT_WANTED_BY], i)
+                if ((r = unit_add_default_target_dependency(u, target)) < 0)
+                        return r;
+
+        SET_FOREACH(target, u->meta.dependencies[UNIT_BOUND_BY], i)
                 if ((r = unit_add_default_target_dependency(u, target)) < 0)
                         return r;
 
@@ -966,6 +968,10 @@ static void unit_check_unneeded(Unit *u) {
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         return;
 
+        SET_FOREACH(other, u->meta.dependencies[UNIT_BOUND_BY], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        return;
+
         log_info("Service %s is not needed anymore. Stopping.", u->meta.id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
@@ -980,27 +986,36 @@ static void retroactively_start_dependencies(Unit *u) {
         assert(UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)));
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
-                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                if (!set_get(u->meta.dependencies[UNIT_AFTER], other) &&
+                    !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_BIND_TO], i)
+                if (!set_get(u->meta.dependencies[UNIT_AFTER], other) &&
+                    !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                if (!set_get(u->meta.dependencies[UNIT_AFTER], other) &&
+                    !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE], i)
-                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                if (!set_get(u->meta.dependencies[UNIT_AFTER], other) &&
+                    !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
-                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                if (!set_get(u->meta.dependencies[UNIT_AFTER], other) &&
+                    !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
-                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTED_BY], i)
-                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
 }
 
@@ -1011,10 +1026,9 @@ static void retroactively_stop_dependencies(Unit *u) {
         assert(u);
         assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
-        /* Pull down units which need us recursively if enabled */
-        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
-                if (other->meta.stop_retroactively &&
-                    !UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+        /* Pull down units which are bound to us recursively if enabled */
+        SET_FOREACH(other, u->meta.dependencies[UNIT_BOUND_BY], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
 
         /* Garbage collect services that might not be needed anymore, if enabled */
@@ -1031,6 +1045,9 @@ static void retroactively_stop_dependencies(Unit *u) {
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         unit_check_unneeded(other);
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        unit_check_unneeded(other);
+        SET_FOREACH(other, u->meta.dependencies[UNIT_BIND_TO], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         unit_check_unneeded(other);
 }
@@ -1397,9 +1414,11 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_WANTS] = UNIT_WANTED_BY,
                 [UNIT_REQUISITE] = UNIT_REQUIRED_BY,
                 [UNIT_REQUISITE_OVERRIDABLE] = UNIT_REQUIRED_BY_OVERRIDABLE,
+                [UNIT_BIND_TO] = UNIT_BOUND_BY,
                 [UNIT_REQUIRED_BY] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_REQUIRED_BY_OVERRIDABLE] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_WANTED_BY] = _UNIT_DEPENDENCY_INVALID,
+                [UNIT_BOUND_BY] = UNIT_BIND_TO,
                 [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
                 [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
@@ -1426,7 +1445,8 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
             (d == UNIT_REQUIRES ||
              d == UNIT_REQUIRES_OVERRIDABLE ||
              d == UNIT_REQUISITE ||
-             d == UNIT_REQUISITE_OVERRIDABLE)) {
+             d == UNIT_REQUISITE_OVERRIDABLE ||
+             d == UNIT_BIND_TO)) {
                     return -EINVAL;
         }
 
@@ -2129,7 +2149,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (r < 0)
                 return r;
 
-        if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, device, true)) < 0)
+        if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_BIND_TO, device, true)) < 0)
                 return r;
 
         if (wants)
@@ -2313,9 +2333,11 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REQUISITE_OVERRIDABLE] = "RequisiteOverridable",
         [UNIT_REQUIRED_BY] = "RequiredBy",
         [UNIT_REQUIRED_BY_OVERRIDABLE] = "RequiredByOverridable",
+        [UNIT_BIND_TO] = "BindTo",
         [UNIT_WANTED_BY] = "WantedBy",
         [UNIT_CONFLICTS] = "Conflicts",
         [UNIT_CONFLICTED_BY] = "ConflictedBy",
+        [UNIT_BOUND_BY] = "BoundBy",
         [UNIT_BEFORE] = "Before",
         [UNIT_AFTER] = "After",
         [UNIT_REFERENCES] = "References",

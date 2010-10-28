@@ -70,7 +70,7 @@
 
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
 
-* Introduce weaker Conflicts.
+* Introduce weaker Conflicts. get rid of ignore_dependency_failure
 
 External:
 

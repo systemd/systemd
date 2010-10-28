@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Serial Getty on %I
-Requires=dev-%i.device
+BindTo=dev-%i.device
 After=dev-%i.device
 m4_ifdef(`TARGET_FEDORA',
 After=rc-local.service

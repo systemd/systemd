@@ -8,7 +8,7 @@
 [Unit]
 Description=File System Check on %f
 DefaultDependencies=no
-Requires=%i.device
+BindTo=%i.device
 After=systemd-readahead-collect.service systemd-readahead-replay.service %i.device
 Before=local-fs.target shutdown.target
 

@@ -1446,6 +1446,10 @@ static int transaction_add_job_and_dependencies(
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_BIND_TO], i)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
+                                        goto fail;
+
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, false, e, NULL)) < 0 && r != -EBADR) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
@@ -1485,6 +1489,10 @@ static int transaction_add_job_and_dependencies(
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
+                                        goto fail;
+
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_BOUND_BY], i)
                                 if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
                 }

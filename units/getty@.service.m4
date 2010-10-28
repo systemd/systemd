@@ -14,7 +14,7 @@ m4_ifdef(`TARGET_ARCH', `m4_define(`GETTY', `/sbin/agetty -8 38400')')m4_dnl
 m4_dnl
 [Unit]
 Description=Getty on %I
-Requires=dev-%i.device
+BindTo=dev-%i.device
 After=dev-%i.device
 m4_ifdef(`TARGET_FEDORA',
 After=rc-local.service

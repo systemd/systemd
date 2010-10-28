@@ -281,7 +281,6 @@
                                 services.</para></listitem>
                         </varlistentry>
 
-
                         <varlistentry>
                                 <term><varname>RequiresOverridable=</varname></term>
 
@@ -338,6 +337,23 @@
                                 <filename>.wants/</filename> directory
                                 accompanying the unit file. For
                                 details see above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BindTo=</varname></term>
+
+                                <listitem><para>Configures requirement
+                                dependencies, very similar in style to
+                                <varname>Requires=</varname>, however
+                                in addition to this behaviour it also
+                                declares that this unit is stopped
+                                when any of the units listed suddenly
+                                disappears. Units can suddenly,
+                                unexpectedly disappear if a service
+                                terminates on its own choice, a device
+                                is unplugged or a mount point
+                                unmounted with involvement of
+                                systemd.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -438,28 +454,6 @@
                                 unit enters the
                                 '<literal>failed</literal>'
                                 state.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>StopRetroactively=</varname></term>
-
-                                <listitem><para>Takes a boolean
-                                argument. If <option>true</option> and
-                                a unit this unit requires stops
-                                without this being requested by the
-                                user, this unit will be stopped as
-                                well. (e.g. if a service exits or
-                                crashes on its own behalf, units this
-                                flag is set for that require it will
-                                be stopped.) Note that normally if a
-                                unit stops without a user request,
-                                units depending on it will not be
-                                terminated. Only if the user requested
-                                shutdown of a unit, all units
-                                depending on that unit will be shut
-                                down as well and at the same
-                                time. Defaults to
-                                <option>false</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -630,7 +624,7 @@
                                 side matching. If multiple conditions
                                 are specified the unit will be
                                 executed iff at least one of them
-                                apply (i.e. a logical OR is
+                                applies (i.e. a logical OR is
                                 applied).</para></listitem>
                         </varlistentry>
                 </variablelist>

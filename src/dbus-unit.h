@@ -70,9 +70,11 @@
         "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequisiteOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Wants\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"BindTo\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"RequiredBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiredByOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"WantedBy\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"BoundBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Conflicts\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ConflictedBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Before\" type=\"as\" access=\"read\"/>\n"   \
@@ -92,7 +94,6 @@
         "  <property name=\"CanStop\" type=\"b\" access=\"read\"/>\n"   \
         "  <property name=\"CanIsolate\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>\n"    \
-        "  <property name=\"StopRetroactively\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"StopWhenUnneeded\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RefuseManualStart\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RefuseManualStop\" type=\"b\" access=\"read\"/>\n" \
@@ -112,9 +113,11 @@
         { "org.freedesktop.systemd1.Unit", "Requisite",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUISITE] }, \
         { "org.freedesktop.systemd1.Unit", "RequisiteOverridable", bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE] }, \
         { "org.freedesktop.systemd1.Unit", "Wants",                bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_WANTS]  }, \
+        { "org.freedesktop.systemd1.Unit", "BindTo",               bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_BIND_TO]  }, \
         { "org.freedesktop.systemd1.Unit", "RequiredBy",           bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRED_BY] }, \
         { "org.freedesktop.systemd1.Unit", "RequiredByOverridable",bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE] }, \
         { "org.freedesktop.systemd1.Unit", "WantedBy",             bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_WANTED_BY] }, \
+        { "org.freedesktop.systemd1.Unit", "BoundBy",              bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_BOUND_BY]  }, \
         { "org.freedesktop.systemd1.Unit", "Conflicts",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_CONFLICTS] }, \
         { "org.freedesktop.systemd1.Unit", "ConflictedBy",         bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_CONFLICTED_BY] }, \
         { "org.freedesktop.systemd1.Unit", "Before",               bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_BEFORE] }, \
@@ -134,7 +137,6 @@
         { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,     "b",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "CanIsolate",           bus_unit_append_can_isolate,    "b",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,            "(uo)", u                                 }, \
-        { "org.freedesktop.systemd1.Unit", "StopRetroactively",    bus_property_append_bool,       "b",    &u->meta.stop_retroactively       }, \
         { "org.freedesktop.systemd1.Unit", "StopWhenUnneeded",     bus_property_append_bool,       "b",    &u->meta.stop_when_unneeded       }, \
         { "org.freedesktop.systemd1.Unit", "RefuseManualStart",    bus_property_append_bool,       "b",    &u->meta.refuse_manual_start      }, \
         { "org.freedesktop.systemd1.Unit", "RefuseManualStop",     bus_property_append_bool,       "b",    &u->meta.refuse_manual_stop       }, \
