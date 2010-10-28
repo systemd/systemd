@@ -1046,6 +1046,7 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir)/runlevel4.target.wants \
 		$(DESTDIR)$(systemunitdir)/runlevel5.target.wants \
 		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
+		$(DESTDIR)$(systemunitdir)/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/basic.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants \
