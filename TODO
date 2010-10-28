@@ -62,7 +62,7 @@
 
 * fix plymouth socket name, when plymouth started to use a clean one
 
-* parse early boot time env var from dracut
+* parse early boot time env var from dracut RD_TIMEOUT, drop RD_xxx
 
 * cryptsetup
 
@@ -70,7 +70,7 @@
 
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
 
-* Introduce weaker Conflicts. get rid of ignore_dependency_failure
+* make use of fsck -l
 
 External:
 
@@ -78,16 +78,11 @@ External:
 
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
 
-* patch fsck to support --lock
-
 * place /etc/inittab with explaining blurb.
 
 * pam_securetty should honour console=
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
-
-* pam: fix double sudo session cleanup:
-  http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
 
 https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
 https://bugzilla.redhat.com/show_bug.cgi?id=612789 -- umount /cgroup on halt
@@ -107,7 +102,6 @@ https://bugzilla.redhat.com/show_bug.cgi?id=617327 -- gpm
 https://bugzilla.redhat.com/show_bug.cgi?id=617330 -- pcsc-lite
 https://bugzilla.redhat.com/show_bug.cgi?id=617321 -- audit
 https://bugzilla.redhat.com/show_bug.cgi?id=617316 -- abrt
-http://sources.redhat.com/bugzilla/show_bug.cgi?id=11930 -- glibc
 
 Regularly:
 
