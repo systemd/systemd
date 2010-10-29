@@ -1251,5 +1251,3 @@ git-tag:
 fedora: install
 	rm $(DESTDIR)/lib/systemd/system/local-fs.target.wants/var-run.mount
 	rm $(DESTDIR)/lib/systemd/system/local-fs.target.wants/var-lock.mount
-	sed -i -e 's/^#MountAuto=yes$$/MountAuto=no/' \
-		-e 's/^#SwapAuto=yes$$/SwapAuto=no/' $(DESTDIR)/etc/systemd/system.conf
