@@ -24,6 +24,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <libudev.h>
 #include <dbus/dbus.h>
@@ -170,6 +171,7 @@ int main(int argc, char *argv[]) {
                 root_directory = false;
         } else {
                 struct stat st;
+                struct timespec times[2];
 
                 /* Find root device */
 
@@ -181,6 +183,14 @@ int main(int argc, char *argv[]) {
                 /* Virtual root devices don't need an fsck */
                 if (major(st.st_dev) == 0)
                         return 0;
+
+                /* check if we are already writable */
+                times[0] = st.st_atim;
+                times[1] = st.st_mtim;
+                if (utimensat(AT_FDCWD, "/", times, 0) == 0) {
+                        log_error("Root directory is writable, skip check.");
+                        goto finish;
+                }
 
                 if (!(udev = udev_new())) {
                         log_error("Out of memory");
