@@ -12,6 +12,6 @@ After=systemd-vconsole-setup.service
 Before=systemd-ask-password-plymouth.service
 
 [Service]
-ExecStart=/sbin/plymouthd --mode=boot --attach-to-session
+ExecStart=/sbin/plymouthd --mode=boot
 ExecStartPost=-/usr/bin/plymouth --show-splash
 Type=forking
