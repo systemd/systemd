@@ -1176,7 +1176,6 @@ if TARGET_FEDORA
 		$(DESTDIR)$(systemunitdir)/kexec.target.wants \
 		$(DESTDIR)$(systemunitdir)/poweroff.target.wants \
 		$(DESTDIR)$(systemunitdir)/halt.target.wants \
-		$(DESTDIR)$(systemunitdir)/rescue.target.wants \
 		$(DESTDIR)$(systemunitdir)/final.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f rc-local.service && \
