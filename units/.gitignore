@@ -1,3 +1,4 @@
+rescue.service
 systemd-ask-password-plymouth.service
 systemd-ask-password-wall.service
 quotacheck.service
@@ -26,7 +27,6 @@ systemd-random-seed-save.service
 systemd-initctl.service
 systemd-logger.service
 syslog.target
-sysinit.target
 graphical.target
 multi-user.target
 getty@.service

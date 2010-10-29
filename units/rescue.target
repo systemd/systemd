@@ -9,8 +9,8 @@
 
 [Unit]
 Description=Rescue Mode
-Requires=sysinit.target local-fs.target swap.target
-After=sysinit.target local-fs.target swap.target
+Requires=basic.target rescue.service
+After=basic.target rescue.service
 Names=runlevel1.target
 AllowIsolate=yes
 

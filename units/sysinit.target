@@ -10,5 +10,6 @@
 [Unit]
 Description=System Initialization
 Conflicts=emergency.service emergency.target
-After=emergency.service emergency.target
+Wants=local-fs.target swap.target
+After=local-fs.target swap.target emergency.service emergency.target
 RefuseManualStart=yes

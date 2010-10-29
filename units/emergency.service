@@ -10,6 +10,8 @@
 [Unit]
 Description=Emergency Shell
 DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 Environment=HOME=/root

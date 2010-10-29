@@ -10,18 +10,20 @@
 [Unit]
 Description=Rescue Shell
 DefaultDependencies=no
-Conflicts=multi-user.target shutdown.target
+Conflicts=shutdown.target
 After=basic.target
-Before=multi-user.target
+Before=shutdown.target
 
 [Service]
 Environment=HOME=/root
 Environment=TERM=vt100-nav
-EnvironmentFile=/etc/sysconfig/init
 WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth --hide-splash
 ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" or ^D to activate default mode.'
-ExecStart=-/bin/bash -c "exec $SINGLE"
+m4_ifdef(`TARGET_FEDORA',
+`EnvironmentFile=/etc/sysconfig/init
+ExecStart=-/bin/bash -c "exec $SINGLE"',
+`ExecStart=-/sbin/sulogin')
 ExecStopPost=/bin/systemctl default
 StandardInput=tty-force
 KillMode=process-group

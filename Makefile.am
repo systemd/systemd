@@ -163,6 +163,7 @@ dist_tmpfiles_DATA = \
 dist_systemunit_DATA = \
 	units/emergency.service \
 	units/emergency.target \
+	units/sysinit.target \
 	units/basic.target \
 	units/getty.target \
 	units/halt.target \
@@ -215,7 +216,6 @@ dist_systemunit_DATA = \
 	units/systemd-ask-password-plymouth.path
 
 nodist_systemunit_DATA = \
-	units/sysinit.target \
 	units/getty@.service \
 	units/serial-getty@.service \
 	units/graphical.target \
@@ -247,7 +247,8 @@ nodist_systemunit_DATA = \
 	units/kexec.service \
 	units/fsck@.service \
 	units/fsck-root.service \
-	units/quotacheck.service
+	units/quotacheck.service \
+	units/rescue.service
 
 dist_sessionunit_DATA = \
 	units/session/default.target \
@@ -258,12 +259,12 @@ nodist_sessionunit_DATA = \
 	units/session/exit.service
 
 EXTRA_DIST = \
-	units/sysinit.target.m4 \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
 	units/graphical.target.m4 \
 	units/multi-user.target.m4 \
 	units/remote-fs.target.m4 \
+	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
@@ -299,7 +300,6 @@ dist_systemunit_DATA += \
 	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service \
-	units/fedora/single.service \
 	units/fedora/plymouth-start.service \
 	units/fedora/plymouth-quit.service \
 	units/fedora/plymouth-reboot.service \
@@ -924,7 +924,7 @@ SED_PROCESS = \
 		-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
 		-e 's,@PACKAGE_URL\@,$(PACKAGE_URL),g' \
 		-e 's,@prefix\@,$(prefix),g' \
-		< $< > $@
+		< $< > $@ || rm $@
 
 units/%: units/%.in Makefile
 	$(SED_PROCESS)
@@ -937,11 +937,11 @@ man/%: man/%.in Makefile
 
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM=1 < $< > $@
+	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM=1 < $< > $@ || rm $@
 
 M4_PROCESS_SESSION = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SESSION=1 < $< > $@
+	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SESSION=1 < $< > $@ || rm $@
 
 units/%: units/%.m4 Makefile
 	$(M4_PROCESS_SYSTEM)
@@ -1184,9 +1184,6 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
 		rm -f halt-local.service && \
 		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
-	( cd $(DESTDIR)$(systemunitdir)/rescue.target.wants && \
-		rm -f single.service && \
-		$(LN_S) $(systemunitdir)/single.service single.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f plymouth-quit.service  && \
 		$(LN_S) ../plymouth-quit.service plymouth-quit.service )

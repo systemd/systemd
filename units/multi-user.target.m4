@@ -10,8 +10,8 @@
 [Unit]
 Description=Multi-User
 Requires=basic.target
-Conflicts=rescue.target
-After=basic.target rescue.target
+Conflicts=rescue.service rescue.target
+After=basic.target rescue.service rescue.target
 m4_dnl
 m4_ifdef(`TARGET_FEDORA',
 m4_dnl On Fedora Runlevel 3 is multi-user
