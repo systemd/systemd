@@ -265,7 +265,7 @@ static int mount_add_target_links(Mount *m) {
         MountParameters *p;
         Unit *tu;
         int r;
-        bool noauto, handle, automount;
+        bool noauto, nofail, handle, automount;
 
         assert(m);
 
@@ -277,6 +277,7 @@ static int mount_add_target_links(Mount *m) {
                 return 0;
 
         noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
+        nofail = !!mount_test_option(p->options, "nofail");
         handle = !!mount_test_option(p->options, "comment=systemd.mount") ||
                 m->meta.manager->mount_auto;
         automount = !!mount_test_option(p->options, "comment=systemd.automount");
@@ -309,6 +310,7 @@ static int mount_add_target_links(Mount *m) {
                 /* Automatically add mount points that aren't natively
                  * configured to local-fs.target */
                 if (!noauto &&
+                    !nofail &&
                     handle &&
                     m->from_etc_fstab &&
                     m->meta.manager->running_as == MANAGER_SYSTEM)
