@@ -39,7 +39,7 @@ static bool arg_force = false;
 static void start_target(const char *target, bool isolate) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        const char *mode, *base_target = "base.target";
+        const char *mode, *basic_target = "basic.target";
         DBusConnection *bus = NULL;
 
         assert(target);
@@ -66,7 +66,7 @@ static void start_target(const char *target, bool isolate) {
         /* Start these units only if we can replace base.target with it */
 
         if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &base_target,
+                                      DBUS_TYPE_STRING, &basic_target,
                                       DBUS_TYPE_STRING, &target,
                                       DBUS_TYPE_STRING, &mode,
                                       DBUS_TYPE_INVALID)) {
