@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
                 times[1] = st.st_mtim;
                 if (utimensat(AT_FDCWD, "/", times, 0) == 0) {
                         log_error("Root directory is writable, skip check.");
-                        goto finish;
+                        return 0;
                 }
 
                 if (!(udev = udev_new())) {
