@@ -13,7 +13,6 @@ DefaultDependencies=no
 
 [Service]
 ExecStart=/sbin/plymouthd --mode=shutdown
-ExecStartPost=-/bin/plymouth --sysinit
 ExecStartPost=-/bin/plymouth --show-splash
 ExecStartPost=-/bin/plymouth message '--text=Rebooting with kexec...'
 Type=forking
