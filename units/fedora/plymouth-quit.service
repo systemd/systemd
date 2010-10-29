@@ -8,7 +8,7 @@
 [Unit]
 Description=Terminate Plymouth Boot Screen
 Before=getty@tty1.service
-After=dev-tty1.device rc-local.service
+After=dev-tty1.device rc-local.service plymouth-start.service
 
 [Service]
 ExecStart=-/usr/bin/plymouth quit

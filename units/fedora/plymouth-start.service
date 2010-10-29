@@ -6,14 +6,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Show Plymouth Halt Screen
-After=getty@tty1.service prefdm.service plymouth-start.service
-Before=halt.service
+Description=Show Plymouth Boot Screen
 DefaultDependencies=no
+After=systemd-vconsole-setup.service
+Before=systemd-ask-password-plymouth.service
 
 [Service]
-ExecStart=/sbin/plymouthd --mode=shutdown
-ExecStartPost=-/usr/bin/plymouth --sysinit
+ExecStart=/sbin/plymouthd --mode=boot --attach-to-session
 ExecStartPost=-/usr/bin/plymouth --show-splash
-ExecStartPost=-/usr/bin/plymouth message '--text=Halting...'
 Type=forking

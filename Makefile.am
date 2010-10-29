@@ -300,8 +300,10 @@ dist_systemunit_DATA += \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service \
 	units/fedora/single.service \
+	units/fedora/plymouth-start.service \
 	units/fedora/plymouth-quit.service \
 	units/fedora/plymouth-reboot.service \
+	units/fedora/plymouth-kexec.service \
 	units/fedora/plymouth-poweroff.service \
 	units/fedora/plymouth-halt.service
 endif
@@ -1035,6 +1037,7 @@ install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(sessionunitdir) \
+		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
 		$(DESTDIR)$(systemunitdir)/basic.target.wants \
 		$(DESTDIR)$(systemunitdir)/shutdown.target.wants \
@@ -1047,10 +1050,9 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
 		$(DESTDIR)$(systemunitdir)/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
-		$(DESTDIR)$(pkgsysconfdir)/system/basic.target.wants \
+		$(DESTDIR)$(pkgsysconfdir)/system/sysinit.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd
@@ -1137,10 +1139,10 @@ install-data-hook:
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/basic.target.wants && \
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/sysinit.target.wants && \
 		rm -f hwclock-load.service && \
 		$(LN_S) $(systemunitdir)/hwclock-load.service hwclock-load.service )
-	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \
 			proc-sys-fs-binfmt_misc.automount \
@@ -1150,8 +1152,7 @@ install-data-hook:
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
 			systemd-tmpfiles-setup.service \
-			sysctl.service \
-			systemd-tmpfiles-clean.timer && \
+			sysctl.service && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
@@ -1161,7 +1162,9 @@ install-data-hook:
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
-		$(LN_S) ../sysctl.service sysctl.service && \
+		$(LN_S) ../sysctl.service sysctl.service )
+	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
+		rm -f systemd-tmpfiles-clean.timer && \
 		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
@@ -1170,10 +1173,10 @@ if TARGET_FEDORA
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
 		$(DESTDIR)$(systemunitdir)/reboot.target.wants \
+		$(DESTDIR)$(systemunitdir)/kexec.target.wants \
 		$(DESTDIR)$(systemunitdir)/poweroff.target.wants \
 		$(DESTDIR)$(systemunitdir)/halt.target.wants \
 		$(DESTDIR)$(systemunitdir)/rescue.target.wants \
-		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
 		$(DESTDIR)$(systemunitdir)/final.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f rc-local.service && \
@@ -1185,12 +1188,18 @@ if TARGET_FEDORA
 		rm -f single.service && \
 		$(LN_S) $(systemunitdir)/single.service single.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f plymouth-quit.service systemd-ask-password-plymouth.path && \
-		$(LN_S) ../plymouth-quit.service plymouth-quit.service && \
+		rm -f plymouth-quit.service  && \
+		$(LN_S) ../plymouth-quit.service plymouth-quit.service )
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f plymouth-start.service systemd-ask-password-plymouth.path && \
+		$(LN_S) ../plymouth-start.service plymouth-start.service && \
 		$(LN_S) ../systemd-ask-password-plymouth.path systemd-ask-password-plymouth.path )
 	( cd $(DESTDIR)$(systemunitdir)/reboot.target.wants && \
 		rm -f plymouth-reboot.service && \
 		$(LN_S) ../plymouth-reboot.service plymouth-reboot.service )
+	( cd $(DESTDIR)$(systemunitdir)/kexec.target.wants && \
+		rm -f plymouth-kexec.service && \
+		$(LN_S) ../plymouth-kexec.service plymouth-kexec.service )
 	( cd $(DESTDIR)$(systemunitdir)/poweroff.target.wants && \
 		rm -f plymouth-poweroff.service && \
 		$(LN_S) ../plymouth-poweroff.service plymouth-poweroff.service )
@@ -1205,12 +1214,12 @@ if TARGET_FEDORA
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
 if TARGET_GENTOO
-	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
+	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service && \
-		$(LN_S) $(systemunitdir)/xdm.service display-manager.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
-		rm -f xdm.service && \
-		$(LN_S) $(systemunitdir)/xdm.service xdm.service )
+		$(LN_S) xdm.service display-manager.service )
+	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
 if TARGET_DEBIAN_OR_UBUNTU
 	$(MKDIR_P) -m 0755 \

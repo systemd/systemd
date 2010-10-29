@@ -6,14 +6,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Show Plymouth Halt Screen
+Description=Show Plymouth Reboot with kexec Screen
 After=getty@tty1.service prefdm.service plymouth-start.service
-Before=halt.service
+Before=kexec.service
 DefaultDependencies=no
 
 [Service]
 ExecStart=/sbin/plymouthd --mode=shutdown
 ExecStartPost=-/usr/bin/plymouth --sysinit
 ExecStartPost=-/usr/bin/plymouth --show-splash
-ExecStartPost=-/usr/bin/plymouth message '--text=Halting...'
+ExecStartPost=-/usr/bin/plymouth message '--text=Rebooting with kexec...'
 Type=forking
