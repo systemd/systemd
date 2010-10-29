@@ -301,9 +301,13 @@ static int socket_add_default_dependencies(Socket *s) {
         int r;
         assert(s);
 
-        if (s->meta.manager->running_as == MANAGER_SYSTEM)
+        if (s->meta.manager->running_as == MANAGER_SYSTEM) {
+                if ((r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, NULL, true)) < 0)
+                        return r;
+
                 if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
                         return r;
+        }
 
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }

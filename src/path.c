@@ -106,9 +106,13 @@ static int path_add_default_dependencies(Path *p) {
 
         assert(p);
 
-        if (p->meta.manager->running_as == MANAGER_SYSTEM)
+        if (p->meta.manager->running_as == MANAGER_SYSTEM) {
+                if ((r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
+                        return r;
+
                 if ((r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
                         return r;
+        }
 
         return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }

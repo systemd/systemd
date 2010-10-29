@@ -78,9 +78,13 @@ static int timer_add_default_dependencies(Timer *t) {
 
         assert(t);
 
-        if (t->meta.manager->running_as == MANAGER_SYSTEM)
+        if (t->meta.manager->running_as == MANAGER_SYSTEM) {
+                if ((r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
+                        return r;
+
                 if ((r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
                         return r;
+        }
 
         return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
