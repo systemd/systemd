@@ -506,6 +506,13 @@ int job_finish_and_invalidate(Job *j, bool success) {
                                      other->meta.job->type == JOB_RELOAD_OR_START))
                                         job_finish_and_invalidate(other->meta.job, false);
 
+                        SET_FOREACH(other, u->meta.dependencies[UNIT_BOUND_BY], i)
+                                if (other->meta.job &&
+                                    (other->meta.job->type == JOB_START ||
+                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
+                                     other->meta.job->type == JOB_RELOAD_OR_START))
+                                        job_finish_and_invalidate(other->meta.job, false);
+
                         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
                                 if (other->meta.job &&
                                     !other->meta.job->override &&
