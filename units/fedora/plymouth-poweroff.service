@@ -13,7 +13,7 @@ DefaultDependencies=no
 
 [Service]
 ExecStart=/sbin/plymouthd --mode=shutdown
-ExecStartPost=-/usr/bin/plymouth --sysinit
-ExecStartPost=-/usr/bin/plymouth --show-splash
-ExecStartPost=-/usr/bin/plymouth message '--text=Powering Off...'
+ExecStartPost=-/bin/plymouth --sysinit
+ExecStartPost=-/bin/plymouth --show-splash
+ExecStartPost=-/bin/plymouth message '--text=Powering Off...'
 Type=forking

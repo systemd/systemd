@@ -13,5 +13,5 @@ Before=systemd-ask-password-plymouth.service
 
 [Service]
 ExecStart=/sbin/plymouthd --mode=boot
-ExecStartPost=-/usr/bin/plymouth --show-splash
+ExecStartPost=-/bin/plymouth --show-splash
 Type=forking
