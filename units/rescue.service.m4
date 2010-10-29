@@ -22,7 +22,7 @@ ExecStartPre=-/bin/plymouth --hide-splash
 ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" or ^D to activate default mode.'
 m4_ifdef(`TARGET_FEDORA',
 `EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec $SINGLE"',
+ExecStart=-/bin/bash -c "exec ${SINGLE}"',
 `ExecStart=-/sbin/sulogin')
 ExecStopPost=/bin/systemctl default
 StandardInput=tty-force
