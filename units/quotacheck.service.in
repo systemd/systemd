@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Quota Check
+Description=File System Quota Check
 DefaultDependencies=no
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=local-fs.target shutdown.target
