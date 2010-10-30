@@ -8,7 +8,7 @@
 [Unit]
 Description=Show Plymouth Boot Screen
 DefaultDependencies=no
-After=systemd-vconsole-setup.service
+After=systemd-vconsole-setup.service udev-settle.service
 Before=systemd-ask-password-plymouth.service
 
 [Service]
