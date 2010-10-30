@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2005-2008 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2009 Lennart Poettering <lennart@poettering.net>
- * Copyright (C) 2009 David Zeuthen <zeuthen@gmail.com>
+ * Copyright (C) 2009-2010 David Zeuthen <zeuthen@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,85 +39,166 @@
 #include <linux/hdreg.h>
 #include <linux/fs.h>
 #include <linux/cdrom.h>
+#include <linux/bsg.h>
 #include <arpa/inet.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
 
-#define COMMAND_TIMEOUT 2000
+#define COMMAND_TIMEOUT_MSEC (30 * 1000)
 
-/* Sends a SCSI command block */
-static int sg_io(int fd, int direction,
-		 const void *cdb, size_t cdb_len,
-		 void *data, size_t data_len,
-		 void *sense, size_t sense_len)
+static int disk_scsi_inquiry_command(int      fd,
+				     void    *buf,
+				     size_t   buf_len)
 {
+	struct sg_io_v4 io_v4;
+	uint8_t cdb[12];
+	uint8_t sense[32];
+	int ret;
 
-	struct sg_io_hdr io_hdr;
+	/*
+	 * INQUIRY, see SPC-4 section 6.4
+	 */
+	memset(cdb, 0, sizeof(cdb));
+	cdb[0] = 0x12;			 /* OPERATION CODE: INQUIRY */
+	cdb[3] = (buf_len >> 8);	 /* ALLOCATION LENGTH */
+	cdb[4] = (buf_len & 0xff);
 
-	memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
-	io_hdr.interface_id = 'S';
-	io_hdr.cmdp = (unsigned char*) cdb;
-	io_hdr.cmd_len = cdb_len;
-	io_hdr.dxferp = data;
-	io_hdr.dxfer_len = data_len;
-	io_hdr.sbp = sense;
-	io_hdr.mx_sb_len = sense_len;
-	io_hdr.dxfer_direction = direction;
-	io_hdr.timeout = COMMAND_TIMEOUT;
-	return ioctl(fd, SG_IO, &io_hdr);
+	memset(sense, 0, sizeof(sense));
+
+	memset(&io_v4, 0, sizeof(struct sg_io_v4));
+	io_v4.guard = 'Q';
+	io_v4.protocol = BSG_PROTOCOL_SCSI;
+	io_v4.subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD;
+	io_v4.request_len = sizeof (cdb);
+	io_v4.request = (uintptr_t) cdb;
+	io_v4.max_response_len = sizeof (sense);
+	io_v4.response = (uintptr_t) sense;
+	io_v4.din_xfer_len = buf_len;
+	io_v4.din_xferp = (uintptr_t) buf;
+	io_v4.timeout = COMMAND_TIMEOUT_MSEC;
+
+	ret = ioctl(fd, SG_IO, &io_v4);
+	if (ret != 0) {
+		/* could be that the driver doesn't do version 4, try version 3 */
+		if (errno == EINVAL) {
+			struct sg_io_hdr io_hdr;
+
+			memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
+			io_hdr.interface_id = 'S';
+			io_hdr.cmdp = (unsigned char*) cdb;
+			io_hdr.cmd_len = sizeof (cdb);
+			io_hdr.dxferp = buf;
+			io_hdr.dxfer_len = buf_len;
+			io_hdr.sbp = sense;
+			io_hdr.mx_sb_len = sizeof (sense);
+			io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
+			io_hdr.timeout = COMMAND_TIMEOUT_MSEC;
+
+			ret = ioctl(fd, SG_IO, &io_hdr);
+			if (ret != 0)
+				goto out;
+
+			/* even if the ioctl succeeds, we need to check the return value */
+			if (!(io_hdr.status == 0 &&
+			      io_hdr.host_status == 0 &&
+			      io_hdr.driver_status == 0)) {
+				errno = EIO;
+				ret = -1;
+				goto out;
+			}
+		} else {
+			goto out;
+		}
+	}
+
+	/* even if the ioctl succeeds, we need to check the return value */
+	if (!(io_v4.device_status == 0 &&
+	      io_v4.transport_status == 0 &&
+	      io_v4.driver_status == 0)) {
+		errno = EIO;
+		ret = -1;
+		goto out;
+	}
+
+ out:
+	return ret;
 }
 
-static int disk_command(int fd, int command, int direction, void *cmd_data,
-			void *data, size_t *len)
+static int disk_identify_command(int	  fd,
+				 void	 *buf,
+				 size_t	  buf_len)
 {
-	uint8_t *bytes = cmd_data;
+	struct sg_io_v4 io_v4;
 	uint8_t cdb[12];
 	uint8_t sense[32];
 	uint8_t *desc = sense+8;
 	int ret;
 
 	/*
-	 * ATA Pass-Through 12 byte command, as described in "T10 04-262r8
-	 * ATA Command Pass-Through":
-	 * http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
+	 * ATA Pass-Through 12 byte command, as described in
+	 *
+	 *  T10 04-262r8 ATA Command Pass-Through
+	 *
+	 * from http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
 	 */
 	memset(cdb, 0, sizeof(cdb));
-	cdb[0] = 0xa1; /* OPERATION CODE: 12 byte pass through */
-	if (direction == SG_DXFER_NONE) {
-		cdb[1] = 3 << 1;	/* PROTOCOL: Non-Data */
-		cdb[2] = 0x20;		/* OFF_LINE=0, CK_COND=1, T_DIR=0, BYT_BLOK=0, T_LENGTH=0 */
-	} else if (direction == SG_DXFER_FROM_DEV) {
-		cdb[1] = 4 << 1;	/* PROTOCOL: PIO Data-in */
-		cdb[2] = 0x2e;		/* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
-	} else if (direction == SG_DXFER_TO_DEV) {
-		cdb[1] = 5 << 1;	/* PROTOCOL: PIO Data-Out */
-		cdb[2] = 0x26;		/* OFF_LINE=0, CK_COND=1, T_DIR=0, BYT_BLOK=1, T_LENGTH=2 */
-	}
-	cdb[3] = bytes[1];		/* FEATURES */
-	cdb[4] = bytes[3];		/* SECTORS */
-	cdb[5] = bytes[9];		/* LBA LOW */
-	cdb[6] = bytes[8];		/* LBA MID */
-	cdb[7] = bytes[7];		/* LBA HIGH */
-	cdb[8] = bytes[10] & 0x4F;	/* SELECT */
-	cdb[9] = (uint8_t) command;
+	cdb[0] = 0xa1;			/* OPERATION CODE: 12 byte pass through */
+	cdb[1] = 4 << 1;		/* PROTOCOL: PIO Data-in */
+	cdb[2] = 0x2e;			/* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
+	cdb[3] = 0;			/* FEATURES */
+	cdb[4] = 1;			/* SECTORS */
+	cdb[5] = 0;			/* LBA LOW */
+	cdb[6] = 0;			/* LBA MID */
+	cdb[7] = 0;			/* LBA HIGH */
+	cdb[8] = 0 & 0x4F;		/* SELECT */
+	cdb[9] = 0xEC;			/* Command: ATA IDENTIFY DEVICE */;
 	memset(sense, 0, sizeof(sense));
-	if ((ret = sg_io(fd, direction, cdb, sizeof(cdb), data, len ? *len : 0, sense, sizeof(sense))) < 0)
-		return ret;
-	if (sense[0] != 0x72 || desc[0] != 0x9 || desc[1] != 0x0c) {
-		errno = EIO;
-		return -1;
+
+	memset(&io_v4, 0, sizeof(struct sg_io_v4));
+	io_v4.guard = 'Q';
+	io_v4.protocol = BSG_PROTOCOL_SCSI;
+	io_v4.subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD;
+	io_v4.request_len = sizeof (cdb);
+	io_v4.request = (uintptr_t) cdb;
+	io_v4.max_response_len = sizeof (sense);
+	io_v4.response = (uintptr_t) sense;
+	io_v4.din_xfer_len = buf_len;
+	io_v4.din_xferp = (uintptr_t) buf;
+	io_v4.timeout = COMMAND_TIMEOUT_MSEC;
+
+	ret = ioctl(fd, SG_IO, &io_v4);
+	if (ret != 0) {
+		/* could be that the driver doesn't do version 4, try version 3 */
+		if (errno == EINVAL) {
+			struct sg_io_hdr io_hdr;
+
+			memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
+			io_hdr.interface_id = 'S';
+			io_hdr.cmdp = (unsigned char*) cdb;
+			io_hdr.cmd_len = sizeof (cdb);
+			io_hdr.dxferp = buf;
+			io_hdr.dxfer_len = buf_len;
+			io_hdr.sbp = sense;
+			io_hdr.mx_sb_len = sizeof (sense);
+			io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
+			io_hdr.timeout = COMMAND_TIMEOUT_MSEC;
+
+			ret = ioctl(fd, SG_IO, &io_hdr);
+			if (ret != 0)
+				goto out;
+		} else {
+			goto out;
+		}
 	}
 
-	memset(bytes, 0, 12);
-	bytes[1] = desc[3]; /* FEATURES */
-	bytes[2] = desc[4]; /* STATUS */
-	bytes[3] = desc[5]; /* SECTORS */
-	bytes[9] = desc[7]; /* LBA LOW */
-	bytes[8] = desc[9]; /* LBA MID */
-	bytes[7] = desc[11]; /* LBA HIGH */
-	bytes[10] = desc[12]; /* SELECT */
-	bytes[11] = desc[13]; /* ERROR */
+	if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
+		errno = EIO;
+		ret = -1;
+		goto out;
+	}
+
+ out:
 	return ret;
 }
 
@@ -187,78 +268,74 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
  * otherwise non-zero with errno set.
  */
 static int disk_identify (struct udev *udev,
-			  int fd,
-			  uint8_t out_identify[512])
+			  int	       fd,
+			  uint8_t      out_identify[512])
 {
 	int ret;
-	uint64_t size;
-	struct stat st;
-	uint16_t cmd[6];
-	size_t len = 512;
-	const uint8_t *p;
+	uint8_t inquiry_buf[36];
+	int peripheral_device_type;
+	int all_nul_bytes;
+	int n;
 
 	assert (out_identify != NULL);
-
 	/* init results */
 	ret = -1;
 	memset (out_identify, '\0', 512);
 
-	if ((ret = fstat(fd, &st)) < 0)
-		goto fail;
-
-	if (!S_ISBLK(st.st_mode)) {
-		errno = ENODEV;
-		goto fail;
-	}
-
-	/*
-	 * do not confuse optical drive firmware with ATA commands
-	 * some drives are reported to blank CD-RWs
+	/* If we were to use ATA PASS_THROUGH (12) on an ATAPI device
+	 * we could accidentally blank media. This is because MMC's BLANK
+	 * command has the same op-code (0x61).
+	 *
+	 * To prevent this from happening we bail out if the device
+	 * isn't a Direct Access Block Device, e.g. SCSI type 0x00
+	 * (CD/DVD devices are type 0x05). So we send a SCSI INQUIRY
+	 * command first... libata is handling this via its SCSI
+	 * emulation layer.
+	 *
+	 * This also ensures that we're actually dealing with a device
+	 * that understands SCSI commands.
+	 *
+	 * (Yes, it is a bit perverse that we're tunneling the ATA
+	 * command through SCSI and relying on the ATA driver
+	 * emulating SCSI well-enough...)
+	 *
+	 * (See commit 160b069c25690bfb0c785994c7c3710289179107 for
+	 * the original bug-fix and see http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=556635
+	 * for the original bug-report.)
 	 */
-	if (ioctl(fd, CDROM_GET_CAPABILITY, NULL) >= 0) {
-		errno = EIO;
-		ret = -1;
-		goto fail;
-	}
-
-	/* So, it's a block device. Let's make sure the ioctls work */
-	if ((ret = ioctl(fd, BLKGETSIZE64, &size)) < 0)
-		goto fail;
-
-	if (size <= 0 || size == (uint64_t) -1) {
-		errno = EIO;
-		goto fail;
-	}
-
-	memset(cmd, 0, sizeof(cmd));
-	cmd[1] = htons(1);
-	ret = disk_command(fd,
-			   0xEC, /* IDENTIFY DEVICE command */
-			   SG_DXFER_FROM_DEV, cmd,
-			   out_identify, &len);
+	ret = disk_scsi_inquiry_command (fd, inquiry_buf, sizeof (inquiry_buf));
 	if (ret != 0)
-		goto fail;
+		goto out;
 
-	if (len != 512) {
+	/* SPC-4, section 6.4.2: Standard INQUIRY data */
+	peripheral_device_type = inquiry_buf[0] & 0x1f;
+	if (peripheral_device_type != 0x00) {
+		ret = -1;
 		errno = EIO;
-		goto fail;
+		goto out;
 	}
 
-	 /* Check if IDENTIFY data is all NULs */
-	for (p = out_identify; p < (const uint8_t*) out_identify + len; p++) {
-		if (*p) {
-			p = NULL;
+	/* OK, now issue the IDENTIFY DEVICE command */
+	ret = disk_identify_command(fd, out_identify, 512);
+	if (ret != 0)
+		goto out;
+
+	 /* Check if IDENTIFY data is all NUL bytes - if so, bail */
+	all_nul_bytes = 1;
+	for (n = 0; n < 512; n++) {
+		if (out_identify[n] != '\0') {
+			all_nul_bytes = 0;
 			break;
 		}
 	}
 
-	if (p) {
+	if (all_nul_bytes) {
+		ret = -1;
 		errno = EIO;
-		goto fail;
+		goto out;
 	}
 
-	ret = 0;
-fail:
+out:
 	return ret;
 }
 
