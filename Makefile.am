@@ -301,6 +301,7 @@ dist_systemunit_DATA += \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service \
 	units/fedora/plymouth-start.service \
+	units/fedora/plymouth-read-write.service \
 	units/fedora/plymouth-quit.service \
 	units/fedora/plymouth-reboot.service \
 	units/fedora/plymouth-kexec.service \
@@ -1183,13 +1184,14 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
 		rm -f halt-local.service && \
 		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f plymouth-start.service systemd-ask-password-plymouth.path plymouth-read-write.service && \
+		$(LN_S) ../plymouth-start.service plymouth-start.service && \
+		$(LN_S) ../plymouth-read-write.service plymouth-read-write.service && \
+		$(LN_S) ../systemd-ask-password-plymouth.path systemd-ask-password-plymouth.path )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f plymouth-quit.service  && \
 		$(LN_S) ../plymouth-quit.service plymouth-quit.service )
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f plymouth-start.service systemd-ask-password-plymouth.path && \
-		$(LN_S) ../plymouth-start.service plymouth-start.service && \
-		$(LN_S) ../systemd-ask-password-plymouth.path systemd-ask-password-plymouth.path )
 	( cd $(DESTDIR)$(systemunitdir)/reboot.target.wants && \
 		rm -f plymouth-reboot.service && \
 		$(LN_S) ../plymouth-reboot.service plymouth-reboot.service )
