@@ -10,6 +10,7 @@ Description=Replay Read-Ahead Data
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=basic.target shutdown.target
+ConditionPathExists=/.readahead
 
 [Service]
 Type=notify
