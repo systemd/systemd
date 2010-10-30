@@ -142,7 +142,7 @@ static void test_files(void) {
 }
 
 int main(int argc, char *argv[]) {
-        const char *cmdline[7];
+        const char *cmdline[8];
         int i = 0, r = EXIT_FAILURE, q;
         pid_t pid;
         siginfo_t status;
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
                 times[0] = st.st_atim;
                 times[1] = st.st_mtim;
                 if (utimensat(AT_FDCWD, "/", times, 0) == 0) {
-                        log_error("Root directory is writable, skip check.");
+                        log_info("Root directory is writable, skipping check.");
                         return 0;
                 }
 
@@ -213,6 +213,7 @@ int main(int argc, char *argv[]) {
         cmdline[i++] = "/sbin/fsck";
         cmdline[i++] = "-a";
         cmdline[i++] = "-T";
+        cmdline[i++] = "-l";
 
         if (!root_directory)
                 cmdline[i++] = "-M";
