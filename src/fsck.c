@@ -142,7 +142,7 @@ static void test_files(void) {
 }
 
 int main(int argc, char *argv[]) {
-        const char *cmdline[8];
+        const char *cmdline[7];
         int i = 0, r = EXIT_FAILURE, q;
         pid_t pid;
         siginfo_t status;
@@ -213,7 +213,6 @@ int main(int argc, char *argv[]) {
         cmdline[i++] = "/sbin/fsck";
         cmdline[i++] = "-a";
         cmdline[i++] = "-T";
-        cmdline[i++] = "-l";
 
         if (!root_directory)
                 cmdline[i++] = "-M";
