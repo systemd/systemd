@@ -1133,7 +1133,8 @@ static void transaction_minimize_impact(Manager *m) {
                                         j->type == JOB_STOP && UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(j->unit));
 
                                 changes_existing_job =
-                                        j->unit->meta.job && job_type_is_conflicting(j->type, j->unit->meta.job->type);
+                                        j->unit->meta.job &&
+                                        job_type_is_conflicting(j->type, j->unit->meta.job->type);
 
                                 if (!stops_running_service && !changes_existing_job)
                                         continue;
@@ -1234,7 +1235,7 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
         /* Second step: Try not to stop any running services if
          * we don't have to. Don't try to reverse running
          * jobs if we don't have to. */
-        if (mode != JOB_ISOLATE)
+        if (mode == JOB_FAIL)
                 transaction_minimize_impact(m);
 
         /* Third step: Drop redundant jobs */

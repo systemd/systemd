@@ -74,6 +74,14 @@
 
 * we now order plymouth after udev-trigger. Can we optimize this?
 
+* disable respawn when we are going down anyway.
+
+* isolate doesn't kill pending jobs.
+
+* warum wird fsck-root und plymouth-start.service von bluetooth.target reingezogen?
+
+* drop tmp.mount
+
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
