@@ -1528,7 +1528,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                         continue;
 
                 /* No need to stop inactive jobs */
-                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)) && !u->meta.job)
                         continue;
 
                 /* Is there already something listed for this? */
