@@ -2039,6 +2039,13 @@ static void service_enter_restart(Service *s) {
         assert(s);
         dbus_error_init(&error);
 
+        if (s->meta.job) {
+                log_info("Job pending for unit, delaying automatic restart.");
+
+                if ((r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch)) < 0)
+                        goto fail;
+        }
+
         service_enter_dead(s, true, false);
 
         if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, &error, NULL)) < 0)

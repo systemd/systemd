@@ -74,8 +74,6 @@
 
 * we now order plymouth after udev-trigger. Can we optimize this?
 
-* disable respawn when we are going down anyway.
-
 * drop tmp.mount
 
 External:
