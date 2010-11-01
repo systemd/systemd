@@ -35,4 +35,9 @@ ENV{DMI_VENDOR}=="TOSHIBA", ATTR{[dmi/id]product_name}=="Satellite U300|Satellit
 
 ENV{DMI_VENDOR}=="Viooo Corporation", ATTR{[dmi/id]product_name}=="PT17", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
 
+# These are all the HP laptops that setup a touchpad toggle key
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[pP][aA][vV][iI][lL][iI][oO][nN]*", RUN+="keyboard-force-release.sh $devpath hp-other"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][xX]2*", RUN+="keyboard-force-release.sh $devpath hp-other"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*2510p*|*2530p*|HP G60 Notebook PC", RUN+="keyboard-force-release.sh $devpath hp-other"
+
 LABEL="force_release_end"
