@@ -7,10 +7,10 @@
 
 ACTION!="add|change", GOTO="systemd_end"
 
-KERNEL=="tty[0-9]|tty1[0-2]", TAG="systemd"
-KERNEL=="ttyS*", TAG="systemd"
+KERNEL=="tty[0-9]|tty1[0-2]", TAG+="systemd"
+KERNEL=="ttyS*", TAG+="systemd"
 
-SUBSYSTEM=="block", KERNEL!="ram*|loop*", TAG="systemd"
+SUBSYSTEM=="block", KERNEL!="ram*|loop*", TAG+="systemd"
 
 # We need a hardware independent way to identify network devices. We
 # use the /sys/subsystem path for this. Current vanilla kernels don't
@@ -23,11 +23,11 @@ SUBSYSTEM=="block", KERNEL!="ram*|loop*", TAG="systemd"
 #
 # http://git.kernel.org/?p=linux/hotplug/udev.git;a=blob;f=libudev/libudev-enumerate.c;h=da831449dcaf5e936a14409e8e68ab12d30a98e2;hb=HEAD#l742
 
-SUBSYSTEM=="net", KERNEL!="lo", TAG="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/%k"
-SUBSYSTEM=="bluetooth", TAG="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/bluetooth/devices/%k"
+SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/%k"
+SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/bluetooth/devices/%k"
 
-SUBSYSTEM=="bluetooth", TAG="systemd", ENV{SYSTEMD_WANTS}="bluetooth.target"
-SUBSYSTEM=="printer", TAG="systemd", ENV{SYSTEMD_WANTS}="printer.target"
-ENV{ID_SMARTCARD_READER}=="*?", TAG="systemd", ENV{SYSTEMD_WANTS}="smartcard.target"
+SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}="bluetooth.target"
+SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
+ENV{ID_SMARTCARD_READER}=="*?", TAG+="systemd", ENV{SYSTEMD_WANTS}="smartcard.target"
 
 LABEL="systemd_end"
