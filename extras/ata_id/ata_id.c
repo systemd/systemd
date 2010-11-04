@@ -202,6 +202,89 @@ static int disk_identify_command(int	  fd,
 	return ret;
 }
 
+static int disk_identify_packet_device_command(int	  fd,
+					       void	 *buf,
+					       size_t	  buf_len)
+{
+	struct sg_io_v4 io_v4;
+	uint8_t cdb[16];
+	uint8_t sense[32];
+	uint8_t *desc = sense+8;
+	int ret;
+
+	/*
+	 * ATA Pass-Through 16 byte command, as described in
+	 *
+	 *  T10 04-262r8 ATA Command Pass-Through
+	 *
+	 * from http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
+	 */
+	memset(cdb, 0, sizeof(cdb));
+	cdb[0] = 0x85;			/* OPERATION CODE: 16 byte pass through */
+	cdb[1] = 4 << 1;		/* PROTOCOL: PIO Data-in */
+	cdb[2] = 0x2e;			/* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
+	cdb[3] = 0;			/* FEATURES */
+	cdb[4] = 0;			/* FEATURES */
+	cdb[5] = 0;			/* SECTORS */
+	cdb[6] = 1;			/* SECTORS */
+	cdb[7] = 0;			/* LBA LOW */
+	cdb[8] = 0;			/* LBA LOW */
+	cdb[9] = 0;			/* LBA MID */
+	cdb[10] = 0;			/* LBA MID */
+	cdb[11] = 0;			/* LBA HIGH */
+	cdb[12] = 0;			/* LBA HIGH */
+	cdb[13] = 0;			/* DEVICE */
+	cdb[14] = 0xA1;			/* Command: ATA IDENTIFY PACKET DEVICE */;
+	cdb[15] = 0;			/* CONTROL */
+	memset(sense, 0, sizeof(sense));
+
+	memset(&io_v4, 0, sizeof(struct sg_io_v4));
+	io_v4.guard = 'Q';
+	io_v4.protocol = BSG_PROTOCOL_SCSI;
+	io_v4.subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD;
+	io_v4.request_len = sizeof (cdb);
+	io_v4.request = (uintptr_t) cdb;
+	io_v4.max_response_len = sizeof (sense);
+	io_v4.response = (uintptr_t) sense;
+	io_v4.din_xfer_len = buf_len;
+	io_v4.din_xferp = (uintptr_t) buf;
+	io_v4.timeout = COMMAND_TIMEOUT_MSEC;
+
+	ret = ioctl(fd, SG_IO, &io_v4);
+	if (ret != 0) {
+		/* could be that the driver doesn't do version 4, try version 3 */
+		if (errno == EINVAL) {
+			struct sg_io_hdr io_hdr;
+
+			memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
+			io_hdr.interface_id = 'S';
+			io_hdr.cmdp = (unsigned char*) cdb;
+			io_hdr.cmd_len = sizeof (cdb);
+			io_hdr.dxferp = buf;
+			io_hdr.dxfer_len = buf_len;
+			io_hdr.sbp = sense;
+			io_hdr.mx_sb_len = sizeof (sense);
+			io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
+			io_hdr.timeout = COMMAND_TIMEOUT_MSEC;
+
+			ret = ioctl(fd, SG_IO, &io_hdr);
+			if (ret != 0)
+				goto out;
+		} else {
+			goto out;
+		}
+	}
+
+	if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
+		errno = EIO;
+		ret = -1;
+		goto out;
+	}
+
+ out:
+	return ret;
+}
+
 /**
  * disk_identify_get_string:
  * @identify: A block of IDENTIFY data
@@ -256,31 +339,36 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
  * @udev: The libudev context.
  * @fd: File descriptor for the block device.
  * @out_identify: Return location for IDENTIFY data.
+ * @out_is_packet_device: Return location for whether returned data is from a IDENTIFY PACKET DEVICE.
  *
- * Sends the IDENTIFY DEVICE command to the device represented by
- * @fd. If successful, then the result will be copied into
- * @out_identify.
+ * Sends the IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command to the
+ * device represented by @fd. If successful, then the result will be
+ * copied into @out_identify and @out_is_packet_device.
  *
  * This routine is based on code from libatasmart, Copyright 2008
  * Lennart Poettering, LGPL v2.1.
  *
- * Returns: 0 if the IDENTIFY data was successfully obtained,
- * otherwise non-zero with errno set.
+ * Returns: 0 if the data was successfully obtained, otherwise
+ * non-zero with errno set.
  */
 static int disk_identify (struct udev *udev,
 			  int	       fd,
-			  uint8_t      out_identify[512])
+			  uint8_t      out_identify[512],
+			  int	      *out_is_packet_device)
 {
 	int ret;
 	uint8_t inquiry_buf[36];
 	int peripheral_device_type;
 	int all_nul_bytes;
 	int n;
+	int is_packet_device;
 
 	assert (out_identify != NULL);
+
 	/* init results */
 	ret = -1;
 	memset (out_identify, '\0', 512);
+	is_packet_device = 0;
 
 	/* If we were to use ATA PASS_THROUGH (12) on an ATAPI device
 	 * we could accidentally blank media. This is because MMC's BLANK
@@ -309,6 +397,12 @@ static int disk_identify (struct udev *udev,
 
 	/* SPC-4, section 6.4.2: Standard INQUIRY data */
 	peripheral_device_type = inquiry_buf[0] & 0x1f;
+	if (peripheral_device_type == 0x05)
+	  {
+	    is_packet_device = 1;
+	    ret = disk_identify_packet_device_command(fd, out_identify, 512);
+	    goto check_nul_bytes;
+	  }
 	if (peripheral_device_type != 0x00) {
 		ret = -1;
 		errno = EIO;
@@ -320,6 +414,7 @@ static int disk_identify (struct udev *udev,
 	if (ret != 0)
 		goto out;
 
+ check_nul_bytes:
 	 /* Check if IDENTIFY data is all NUL bytes - if so, bail */
 	all_nul_bytes = 1;
 	for (n = 0; n < 512; n++) {
@@ -336,6 +431,8 @@ static int disk_identify (struct udev *udev,
 	}
 
 out:
+	if (out_is_packet_device != NULL)
+	  *out_is_packet_device = is_packet_device;
 	return ret;
 }
 
@@ -350,7 +447,7 @@ int main(int argc, char *argv[])
 {
 	struct udev *udev;
 	struct hd_driveid id;
-	 uint8_t identify[512];
+	uint8_t identify[512];
 	char model[41];
 	char model_enc[256];
 	char serial[21];
@@ -358,8 +455,9 @@ int main(int argc, char *argv[])
 	const char *node = NULL;
 	int export = 0;
 	int fd;
-	 uint16_t word;
+	uint16_t word;
 	int rc = 0;
+	int is_packet_device = 0;
 	static const struct option options[] = {
 		{ "export", no_argument, NULL, 'x' },
 		{ "help", no_argument, NULL, 'h' },
@@ -408,7 +506,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	if (disk_identify(udev, fd, identify) == 0) {
+	if (disk_identify(udev, fd, identify, &is_packet_device) == 0) {
 		/*
 		 * fix up only the fields from the IDENTIFY data that we are going to
 		 * use and copy it into the hd_driveid struct for convenience
@@ -416,7 +514,7 @@ int main(int argc, char *argv[])
 		disk_identify_fixup_string (identify,  10, 20);	/* serial */
 		disk_identify_fixup_string (identify,  23,  6);	/* fwrev */
 		disk_identify_fixup_string (identify,  27, 40);	/* model */
-		disk_identify_fixup_uint16 (identify,   0);	/* configuration */
+		disk_identify_fixup_uint16 (identify,	0);	/* configuration */
 		disk_identify_fixup_uint16 (identify,  75);	/* queue depth */
 		disk_identify_fixup_uint16 (identify,  75);	/* SATA capabilities */
 		disk_identify_fixup_uint16 (identify,  82);	/* command set supported */
@@ -457,8 +555,8 @@ int main(int argc, char *argv[])
 	udev_util_replace_chars(revision, NULL);
 
 	if (export) {
-		  /* Set this to convey the disk speaks the ATA protocol */
-		  printf("ID_ATA=1\n");
+		/* Set this to convey the disk speaks the ATA protocol */
+		printf("ID_ATA=1\n");
 
 		if ((id.config >> 8) & 0x80) {
 			/* This is an ATAPI device */
