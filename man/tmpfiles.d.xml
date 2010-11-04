@@ -1,0 +1,149 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Brandon Philips
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+<refentry id="tmpfiles.d">
+
+        <refentryinfo>
+                <title>tmpfiles.d</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Documentation</contrib>
+                                <firstname>Brandon</firstname>
+                                <surname>Philips</surname>
+                                <email>brandon@ifup.org</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>tmpfiles.d</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>tmpfiles.d</refname>
+                <refpurpose>configuration for creation, deletion and cleaning of tmpfiles</refpurpose>
+        </refnamediv>
+
+        <refsect1>
+                <title>Description</title>
+
+		<para><command>systemd</command> uses <filename>/etc/tmpfiles.d/</filename> to describe the creation, cleaning and removal of temporary files and directories
+which usually reside in <filename>/var/run</filename> or <filename>/tmp</filename>).
+Each configuration file is named in the style of
+<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename></para>
+
+        </refsect1>
+
+        <refsect1>
+		<title>Configuration Format</title>
+
+		<para>The configuration format is one line per path containing
+action, mode, ownership and age fields:</para>
+
+	<programlisting>type path          mode uid  gid  age
+d    /var/run/user 0755 root root 10d
+</programlisting>
+
+	<refsect2>
+		<title>type</title>
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>f</varname></term>
+                                <listitem><para>create a file</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>F</varname></term>
+                                <listitem><para>truncate a file</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>d</varname></term>
+                                <listitem><para>create a directory</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>D</varname></term>
+                                <listitem><para>truncate a directory</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>x</varname></term>
+                                <listitem><para>ignore the path</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>r</varname></term>
+                                <listitem><para>remove the path</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>R</varname></term>
+                                <listitem><para>recursively remove the path</para></listitem>
+                        </varlistentry>
+                </variablelist>
+	</refsect2>
+
+	<refsect2>
+		<title>age</title>
+		<para>The date field, when set, is used to decide what files to delete when cleaning. If a file or directory is older than the current time minus the age field it is deleted. The field format is an integer followed by one of the following postfixes:</para>
+                <variablelist>
+		<varlistentry><term><varname>sec</varname></term>
+		<term><varname>s</varname></term>
+		<term><varname>min</varname></term>
+		<term><varname>hr</varname></term>
+		<term><varname>h</varname></term>
+		<term><varname>d</varname></term>
+		<term><varname>w</varname></term>
+		<term><varname>msec</varname></term>
+		<term><varname>ms</varname></term>
+		<term><varname>m</varname></term>
+		<term><varname>usec</varname></term>
+		<term><varname>us</varname></term></varlistentry>
+                </variablelist>
+	</refsect2>
+
+
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+                <example>
+                        <title>/etc/tmpfiles.d/screen.conf example</title>
+                        <para><command>screen</command> needs two directories created at boot with specific modes and ownership.</para>
+
+                        <programlisting>d /var/run/screens 1777 root root 10d
+d /var/run/uscreens 0755 root root 10d
+</programlisting>
+                </example>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
