@@ -8,7 +8,7 @@
 0xF0 media # Fn+R
 0xF5 switchvideomode # Fn+E
 0xF6 camera # Fn+T
-0xF7 f22 # Fn+Y (touchpad toggle)
+0xF7 f21 # Fn+Y (touchpad toggle)
 0xF8 brightnessup # Fn+S
 0xF9 brightnessdown # Fn+A
 0xFB wlan # Fn+J

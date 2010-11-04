@@ -6,7 +6,7 @@
 0xB3 suspend # Fn-F12
 0xDF sleep # Fn-F4
 # 0xE2 bluetooth # satellite dish2
-0xE4 f22 # Fn-F5   Touchpad disable
+0xE4 f21 # Fn-F5   Touchpad disable
 0xF6 wlan # Fn-F6
 0xF7 reserved # brightnessdown # Fn-Down
 0xF8 reserved # brightnessup # Fn-Up

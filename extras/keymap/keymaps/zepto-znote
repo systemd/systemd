@@ -1,7 +1,7 @@
 0x93 switchvideomode    # Fn+F3 Toggle Video Output
 0x95 brightnessdown     # Fn+F4 Brightness Down
 0x91 brightnessup       # Fn+F5 Brightness Up
-0xA5 f22                # Fn+F6 Disable Touchpad
+0xA5 f23                # Fn+F6 Disable Touchpad
 0xA6 f22                # Fn+F6 Enable Touchpad
 0xA7 bluetooth          # Fn+F10 Enable Bluetooth
 0XA9 bluetooth          # Fn+F10 Disable Bluetooth

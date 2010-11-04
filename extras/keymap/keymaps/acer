@@ -14,7 +14,7 @@
 0xEE brightnessup # Fn+Right
 0xEF brightnessdown # Fn+Left
 0xF1 f22 # Fn+F7 Touchpad toggle (off-to-on)
-0xF2 f22 # Fn+F7 Touchpad toggle (on-to-off)
+0xF2 f23 # Fn+F7 Touchpad toggle (on-to-off)
 0xF3 prog2 # "P2" programmable button
 0xF4 prog1 # "P1" programmable button
 0xF5 presentation

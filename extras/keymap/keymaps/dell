@@ -21,9 +21,9 @@
 0x99 nextsong # Front panel next song
 0x9A setup # Tablet tools button
 0x9B switchvideomode # Display Toggle button
-0x9E f22 #touchpad toggle
+0x9E f21 #touchpad toggle
 0xA2 playpause # Front panel play/pause
 0xA4 stopcd # Front panel stop
 0xED media # MediaDirect button
 0xD8 screenlock # FIXME: Tablet lock button
-0xD9 f22 # touchpad toggle
+0xD9 f21 # touchpad toggle

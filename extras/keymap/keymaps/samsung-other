@@ -11,4 +11,4 @@
 0xB3 prog3 # Fn+F8 switch power mode (battery/dynamic/performance)
 0xB4 wlan # Fn+F9 (X60P)
 0xF7 f22 # Fn+F10 Touchpad on
-0xF9 f22 # Fn+F10 Touchpad off
+0xF9 f23 # Fn+F10 Touchpad off

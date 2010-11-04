@@ -4,7 +4,7 @@
 0xB2 www # e button
 0xDF sleep # Fn-F12
 0xE2 bluetooth # satellite dish2
-0xE4 f22 # Fn-F3   Touchpad disable
+0xE4 f21 # Fn-F3   Touchpad disable
 0xEC email # envelope button
 0xEE camera # Fn-F6 camera disable
 0xF6 wlan # satellite dish1
