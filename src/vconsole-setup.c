@@ -78,8 +78,8 @@ static int disable_utf8(int fd) {
         return r;
 }
 
-static int load_keymap(const char *vc, const char *map, bool utf8, pid_t *_pid) {
-        const char *args[7];
+static int load_keymap(const char *vc, const char *map, const char *map_toggle, bool utf8, pid_t *_pid) {
+        const char *args[8];
         int i = 0;
         pid_t pid;
 
@@ -90,6 +90,8 @@ static int load_keymap(const char *vc, const char *map, bool utf8, pid_t *_pid) 
         if (utf8)
                 args[i++] = "-u";
         args[i++] = map;
+        if (map_toggle)
+                args[i++] = map_toggle;
         args[i++] = NULL;
 
         if ((pid = fork()) < 0) {
@@ -138,6 +140,7 @@ static int load_font(const char *vc, const char *font, const char *map, const ch
 int main(int argc, char **argv) {
         const char *vc;
         char *vc_keymap = NULL;
+        char *vc_keymap_toggle = NULL;
         char *vc_font = NULL;
         char *vc_font_map = NULL;
         char *vc_font_unimap = NULL;
@@ -176,6 +179,7 @@ int main(int argc, char **argv) {
                                 "KEYTABLE", &vc_keymap,
 #endif
                                 "vconsole.keymap", &vc_keymap,
+                                "vconsole.keymap.toggle", &vc_keymap_toggle,
                                 "vconsole.font", &vc_font,
                                 "vconsole.font.map", &vc_font_map,
                                 "vconsole.font.unimap", &vc_font_unimap,
@@ -190,6 +194,7 @@ int main(int argc, char **argv) {
         if (r <= 0 &&
             (r = parse_env_file("/etc/vconsole.conf", NEWLINE,
                                 "KEYMAP", &vc_keymap,
+                                "KEYMAP_TOGGLE", &vc_keymap_toggle,
                                 "FONT", &vc_font,
                                 "FONT_MAP", &vc_font_map,
                                 "FONT_UNIMAP", &vc_font_unimap,
@@ -325,7 +330,7 @@ int main(int argc, char **argv) {
         if (!utf8)
                 disable_utf8(fd);
 
-        if (load_keymap(vc, vc_keymap, utf8, &keymap_pid) >= 0 &&
+        if (load_keymap(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid) >= 0 &&
             load_font(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid) >= 0)
                 r = EXIT_SUCCESS;
 
