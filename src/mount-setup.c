@@ -27,6 +27,7 @@
 #include <libgen.h>
 #include <assert.h>
 #include <unistd.h>
+#include <ftw.h>
 
 #include "mount-setup.h"
 #include "log.h"
@@ -189,6 +190,16 @@ static int symlink_and_label(const char *old_path, const char *new_path) {
         return r;
 }
 
+static int nftw_cb(
+                const char *fpath,
+                const struct stat *sb,
+                int tflag,
+                struct FTW *ftwbuf) {
+
+        label_fix(fpath);
+        return 0;
+};
+
 int mount_setup(void) {
 
         const char *symlinks =
@@ -206,6 +217,13 @@ int mount_setup(void) {
         for (i = 0; i < ELEMENTSOF(mount_table); i ++)
                 if ((r = mount_one(mount_table+i)) < 0)
                         return r;
+
+        /* Nodes in devtmpfs need to be manually updated for the
+         * appropriate labels, after mounting. The other virtual API
+         * file systems do not need. */
+
+        if (unlink("/dev/.systemd/relabel-devtmpfs") >= 0)
+                nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
 
         /* Create a few default symlinks, which are normally created
          * bei udevd, but some scripts might need them before we start

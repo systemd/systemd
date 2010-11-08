@@ -42,8 +42,14 @@ int selinux_setup(char *const argv[]) {
        if (path_is_mount_point("/selinux") > 0)
                return 0;
 
+       /* Before we load the policy we create a flag file to ensure
+        * that after the reexec we iterate through /dev to relabel
+        * things. */
+       mkdir_p("/dev/.systemd", 0755);
+       touch("/dev/.systemd/relabel-devtmpfs");
+
        if (selinux_init_load_policy(&enforce) == 0) {
-               log_info("Successfully loaded SELinux policy, reexecuting.");
+               log_debug("Successfully loaded SELinux policy, reexecuting.");
 
                /* FIXME: Ideally we'd just call setcon() here instead
                 * of having to reexecute ourselves here. */
@@ -54,6 +60,8 @@ int selinux_setup(char *const argv[]) {
 
        } else {
                log_full(enforce > 0 ? LOG_ERR : LOG_DEBUG, "Failed to load SELinux policy.");
+
+               unlink("/dev/.systemd/relabel-devtmpfs");
 
                if (enforce > 0)
                        return -EIO;
