@@ -26,6 +26,7 @@ udevrulesdir=@udevrulesdir@
 pamlibdir=@pamlibdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
+bashcompletiondir=${sysconfdir}/bash_completion.d
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -160,6 +161,9 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Snapshot.xml \
 	org.freedesktop.systemd1.Swap.xml \
 	org.freedesktop.systemd1.Path.xml
+
+dist_bashcompletion_DATA = \
+        src/systemctl-bash-completion.sh
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
