@@ -101,6 +101,9 @@ int main(int argc, char *argv[]) {
                 free(fn);
 
                 if (!f) {
+                        if (errno == ENOENT)
+                                continue;
+
                         log_error("Failed to open %s: %m", fn);
                         r = EXIT_FAILURE;
                         continue;
