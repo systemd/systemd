@@ -26,9 +26,8 @@
 #include <libudev.h>
 
 #include "util.h"
-#include "ac-power.h"
 
-int on_ac_power(void) {
+static int on_ac_power(void) {
         int r;
 
         struct udev *udev;
@@ -95,4 +94,18 @@ finish:
                 udev_unref(udev);
 
         return r;
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+
+        /* This is mostly intended to be used for scripts which want
+         * to detect whether AC power is plugged in or not. */
+
+        if ((r = on_ac_power()) < 0) {
+                log_error("Failed to read AC status: %s", strerror(-r));
+                return EXIT_FAILURE;
+        }
+
+        return r == 0;
 }

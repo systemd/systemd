@@ -116,7 +116,8 @@ rootlibexec_PROGRAMS = \
 	systemd-quotacheck \
 	systemd-cryptsetup \
 	systemd-cryptsetup-generator \
-	systemd-timestamp
+	systemd-timestamp \
+	systemd-ac-power
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -723,6 +724,17 @@ systemd_timestamp_CFLAGS = \
 
 systemd_timestamp_LDADD = \
 	libsystemd-basic.la
+
+systemd_ac_power_SOURCES = \
+	src/ac-power.c
+
+systemd_ac_power_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_ac_power_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS)
 
 systemd_cryptsetup_SOURCES = \
 	src/cryptsetup.c
