@@ -96,7 +96,7 @@ static int log_open_kmsg(void) {
                 return 0;
 
         if ((kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
-                log_info("Failed to open /dev/kmsg for logging: %s", strerror(errno));
+                log_error("Failed to open /dev/kmsg for logging: %s", strerror(errno));
                 return -errno;
         }
 
@@ -177,7 +177,7 @@ static int log_open_syslog(void) {
 
 fail:
         log_close_syslog();
-        log_info("Failed to open syslog for logging: %s", strerror(-r));
+        log_debug("Failed to open syslog for logging: %s", strerror(-r));
         return r;
 }
 
