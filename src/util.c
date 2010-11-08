@@ -3566,6 +3566,57 @@ void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         }
 }
 
+
+char *fstab_node_to_udev_node(const char *p) {
+        char *dn, *t, *u;
+        int r;
+
+        /* FIXME: to follow udev's logic 100% we need to leave valid
+         * UTF8 chars unescaped */
+
+        if (startswith(p, "LABEL=")) {
+
+                if (!(u = unquote(p+6, "\"\'")))
+                        return NULL;
+
+                t = xescape(u, "/ ");
+                free(u);
+
+                if (!t)
+                        return NULL;
+
+                r = asprintf(&dn, "/dev/disk/by-label/%s", t);
+                free(t);
+
+                if (r < 0)
+                        return NULL;
+
+                return dn;
+        }
+
+        if (startswith(p, "UUID=")) {
+
+                if (!(u = unquote(p+5, "\"\'")))
+                        return NULL;
+
+                t = xescape(u, "/ ");
+                free(u);
+
+                if (!t)
+                        return NULL;
+
+                r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));
+                free(t);
+
+                if (r < 0)
+                        return NULL;
+
+                return dn;
+        }
+
+        return strdup(p);
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

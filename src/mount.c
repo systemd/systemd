@@ -1297,56 +1297,6 @@ fail:
         return r;
 }
 
-static char *fstab_node_to_udev_node(char *p) {
-        char *dn, *t, *u;
-        int r;
-
-        /* FIXME: to follow udev's logic 100% we need to leave valid
-         * UTF8 chars unescaped */
-
-        if (startswith(p, "LABEL=")) {
-
-                if (!(u = unquote(p+6, "\"\'")))
-                        return NULL;
-
-                t = xescape(u, "/ ");
-                free(u);
-
-                if (!t)
-                        return NULL;
-
-                r = asprintf(&dn, "/dev/disk/by-label/%s", t);
-                free(t);
-
-                if (r < 0)
-                        return NULL;
-
-                return dn;
-        }
-
-        if (startswith(p, "UUID=")) {
-
-                if (!(u = unquote(p+5, "\"\'")))
-                        return NULL;
-
-                t = xescape(u, "/ ");
-                free(u);
-
-                if (!t)
-                        return NULL;
-
-                r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));
-                free(t);
-
-                if (r < 0)
-                        return NULL;
-
-                return dn;
-        }
-
-        return strdup(p);
-}
-
 static int mount_find_pri(char *options) {
         char *end, *pri;
         unsigned long r;

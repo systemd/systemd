@@ -1,3 +1,5 @@
+systemd-cryptsetup
+systemd-cryptsetup-generator
 systemd-tty-ask-password-agent
 systemd-fsck
 systemd-quotacheck

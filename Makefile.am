@@ -57,6 +57,7 @@ AM_CPPFLAGS = \
 	-DRUNTIME_DIR=\"$(localstatedir)/run\" \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-DKEXEC_BINARY_PATH=\"/sbin/kexec\" \
+	-DSYSTEMD_CRYPTSETUP_PATH=\"$(rootlibexecdir)/systemd-cryptsetup\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
@@ -112,7 +113,9 @@ rootlibexec_PROGRAMS = \
 	systemd-tmpfiles \
 	systemd-user-sessions \
 	systemd-fsck \
-	systemd-quotacheck
+	systemd-quotacheck \
+	systemd-cryptsetup \
+	systemd-cryptsetup-generator
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -709,6 +712,25 @@ systemd_quotacheck_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_quotacheck_LDADD = \
+	libsystemd-basic.la
+
+systemd_cryptsetup_SOURCES = \
+	src/cryptsetup.c
+
+systemd_cryptsetup_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_cryptsetup_LDADD = \
+	libsystemd-basic.la
+
+systemd_cryptsetup_generator_SOURCES = \
+	src/cryptsetup-generator.c \
+	src/unit-name.c
+
+systemd_cryptsetup_generator_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_cryptsetup_generator_LDADD = \
 	libsystemd-basic.la
 
 systemd_user_sessions_SOURCES = \

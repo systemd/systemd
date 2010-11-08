@@ -370,7 +370,9 @@ int ask_password_tty(const char *message, usec_t until, const char *flag_file, c
 void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t);
 void dual_timestamp_deserialize(const char *value, dual_timestamp *t);
 
-#define NULSTR_FOREACH(i, l) \
+char *fstab_node_to_udev_node(const char *p);
+
+#define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
 #define NULSTR_FOREACH_PAIR(i, j, l)                             \
