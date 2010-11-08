@@ -258,20 +258,15 @@ int label_mkdir(
 
         if (use_selinux() && label_hnd) {
 
-                if (path[0] == '/')
+                if (path_is_absolute(path))
                         r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
                 else {
-                        char *cwd = NULL, *newpath = NULL;
+                        char *newpath = NULL;
 
-                        cwd = get_current_dir_name();
-
-                        if (cwd || asprintf(&newpath, "%s/%s", cwd, path) < 0) {
-                                free(cwd);
-                                return -errno;
-                        }
+                        if (!(newpath = path_make_absolute_cwd(path)))
+                                return -ENOMEM;
 
                         r = selabel_lookup_raw(label_hnd, &fcon, newpath, mode);
-                        free(cwd);
                         free(newpath);
                 }
 
