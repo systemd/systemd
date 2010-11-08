@@ -143,6 +143,7 @@ struct Manager {
 
         char **environment;
 
+        dual_timestamp initrd_timestamp;
         dual_timestamp startup_timestamp;
         dual_timestamp finish_timestamp;
 

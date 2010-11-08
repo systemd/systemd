@@ -115,7 +115,8 @@ rootlibexec_PROGRAMS = \
 	systemd-fsck \
 	systemd-quotacheck \
 	systemd-cryptsetup \
-	systemd-cryptsetup-generator
+	systemd-cryptsetup-generator \
+	systemd-timestamp
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -712,6 +713,15 @@ systemd_quotacheck_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_quotacheck_LDADD = \
+	libsystemd-basic.la
+
+systemd_timestamp_SOURCES = \
+	src/timestamp.c
+
+systemd_timestamp_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_timestamp_LDADD = \
 	libsystemd-basic.la
 
 systemd_cryptsetup_SOURCES = \

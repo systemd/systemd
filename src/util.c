@@ -3566,7 +3566,6 @@ void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         }
 }
 
-
 char *fstab_node_to_udev_node(const char *p) {
         char *dn, *t, *u;
         int r;
@@ -3615,6 +3614,24 @@ char *fstab_node_to_udev_node(const char *p) {
         }
 
         return strdup(p);
+}
+
+void filter_environ(const char *prefix) {
+        int i, j;
+        assert(prefix);
+
+        if (!environ)
+                return;
+
+        for (i = 0, j = 0; environ[i]; i++) {
+
+                if (startswith(environ[i], prefix))
+                        continue;
+
+                environ[j++] = environ[i];
+        }
+
+        environ[j] = NULL;
 }
 
 static const char *const ioprio_class_table[] = {

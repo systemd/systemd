@@ -2501,6 +2501,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        dual_timestamp_serialize(f, "initrd-timestamp", &m->initrd_timestamp);
         dual_timestamp_serialize(f, "startup-timestamp", &m->startup_timestamp);
         dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
 
@@ -2555,7 +2556,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 if (l[0] == 0)
                         break;
 
-                if (startswith(l, "startup-timestamp="))
+                if (startswith(l, "initrd-timestamp="))
+                        dual_timestamp_deserialize(l+17, &m->initrd_timestamp);
+                else if (startswith(l, "startup-timestamp="))
                         dual_timestamp_deserialize(l+18, &m->startup_timestamp);
                 else if (startswith(l, "finish-timestamp="))
                         dual_timestamp_deserialize(l+17, &m->finish_timestamp);
@@ -2715,7 +2718,7 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
 }
 
 void manager_check_finished(Manager *m) {
-        char userspace[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
+        char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
 
         assert(m);
 
@@ -2727,15 +2730,26 @@ void manager_check_finished(Manager *m) {
 
         dual_timestamp_get(&m->finish_timestamp);
 
-        if (m->running_as == MANAGER_SYSTEM)
-                log_info("Startup finished in %s (kernel) + %s (userspace) = %s.",
-                         format_timespan(kernel, sizeof(kernel),
-                                         m->startup_timestamp.monotonic),
-                         format_timespan(userspace, sizeof(userspace),
-                                         m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
-                         format_timespan(sum, sizeof(sum),
-                                         m->finish_timestamp.monotonic));
-        else
+        if (m->running_as == MANAGER_SYSTEM) {
+                if (dual_timestamp_is_set(&m->initrd_timestamp)) {
+                        log_info("Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
+                                 format_timespan(kernel, sizeof(kernel),
+                                                 m->initrd_timestamp.monotonic),
+                                 format_timespan(initrd, sizeof(initrd),
+                                                 m->startup_timestamp.monotonic - m->initrd_timestamp.monotonic),
+                                 format_timespan(userspace, sizeof(userspace),
+                                                 m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
+                                 format_timespan(sum, sizeof(sum),
+                                                 m->finish_timestamp.monotonic));
+                } else
+                        log_info("Startup finished in %s (kernel) + %s (userspace) = %s.",
+                                 format_timespan(kernel, sizeof(kernel),
+                                                 m->startup_timestamp.monotonic),
+                                 format_timespan(userspace, sizeof(userspace),
+                                                 m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
+                                 format_timespan(sum, sizeof(sum),
+                                                 m->finish_timestamp.monotonic));
+        } else
                 log_debug("Startup finished in %s.",
                           format_timespan(userspace, sizeof(userspace),
                                           m->finish_timestamp.monotonic - m->startup_timestamp.monotonic));

@@ -1,3 +1,4 @@
+systemd-timestamp
 systemd-cryptsetup
 systemd-cryptsetup-generator
 systemd-tty-ask-password-agent

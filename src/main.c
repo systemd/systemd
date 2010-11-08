@@ -871,12 +871,31 @@ fail:
         return r;
 }
 
+static struct dual_timestamp* parse_initrd_timestamp(struct dual_timestamp *t) {
+        const char *e;
+        unsigned long long a, b;
+
+        assert(t);
+
+        if (!(e = getenv("RD_TIMESTAMP")))
+                return NULL;
+
+        if (sscanf(e, "%llu %llu", &a, &b) != 2)
+                return NULL;
+
+        t->realtime = (usec_t) a;
+        t->monotonic = (usec_t) b;
+
+        return t;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
         FDSet *fds = NULL;
         bool reexecute = false;
         const char *shutdown_verb = NULL;
+        dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
 
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
                 /* This is compatbility support for SysV, where
@@ -965,9 +984,13 @@ int main(int argc, char *argv[]) {
                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                arg_running_as == MANAGER_SYSTEM);
 
-        /* Unset some environment variables passed in from the kernel
-         * that don't really make sense for us. */
         if (arg_running_as == MANAGER_SYSTEM) {
+                /* Parse the data passed to us by the initrd and unset it */
+                parse_initrd_timestamp(&initrd_timestamp);
+                filter_environ("RD_");
+
+                /* Unset some environment variables passed in from the
+                 * kernel that don't really make sense for us. */
                 unsetenv("HOME");
                 unsetenv("TERM");
         }
@@ -1029,6 +1052,9 @@ int main(int argc, char *argv[]) {
 #endif
         m->mount_auto = arg_mount_auto;
         m->swap_auto = arg_swap_auto;
+
+        if (dual_timestamp_is_set(&initrd_timestamp))
+                m->initrd_timestamp = initrd_timestamp;
 
         if (arg_console)
                 manager_set_console(m, arg_console);
