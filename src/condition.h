@@ -29,6 +29,7 @@
 typedef enum ConditionType {
         CONDITION_PATH_EXISTS,
         CONDITION_KERNEL_COMMAND_LINE,
+        CONDITION_NULL,
         _CONDITION_TYPE_MAX,
         _CONDITION_TYPE_INVALID = -1
 } ConditionType;

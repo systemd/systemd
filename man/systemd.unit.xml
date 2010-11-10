@@ -574,6 +574,7 @@
                         <varlistentry>
                                 <term><varname>ConditionPathExists=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
+                                <term><varname>ConditionNull=</varname></term>
 
                                 <listitem><para>Before starting a unit
                                 verify that the specified condition is
@@ -602,15 +603,23 @@
                                 must either be a single word, or an
                                 assignment (i.e. two words, seperated
                                 by the equality sign). In the former
-                                case the kernel command line is search
-                                for the word appearing as is, or as
-                                left hand side of an assignment. In
-                                the latter case the exact assignment
-                                is looked for with right and left hand
-                                side matching. If multiple conditions
-                                are specified the unit will be
-                                executed iff at least one of them
-                                applies (i.e. a logical OR is
+                                case the kernel command line is
+                                searched for the word appearing as is,
+                                or as left hand side of an
+                                assignment. In the latter case the
+                                exact assignment is looked for with
+                                right and left hand side
+                                matching. Finally,
+                                <varname>ConditionNull=</varname> may
+                                be used to add a constant condition
+                                check value to the unit. It takes a
+                                boolean argument. If set to
+                                <varname>false</varname> the condition
+                                will always fail, otherwise
+                                succeed. If multiple conditions are
+                                specified the unit will be executed
+                                iff at least one of them applies
+                                (i.e. a logical OR is
                                 applied).</para></listitem>
                         </varlistentry>
                 </variablelist>

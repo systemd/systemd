@@ -1444,7 +1444,7 @@ static int config_parse_condition_path(
                 rvalue++;
 
         if (!path_is_absolute(rvalue)) {
-                log_error("[%s:%u] Path in condition not absolute: %s", filename, line, rvalue);
+                log_error("[%s:%u] Path in condition not absolute, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
@@ -1477,6 +1477,43 @@ static int config_parse_condition_kernel(
                 rvalue++;
 
         if (!(c = condition_new(CONDITION_KERNEL_COMMAND_LINE, rvalue, negate)))
+                return -ENOMEM;
+
+        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        return 0;
+}
+
+static int config_parse_condition_null(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = data;
+        Condition *c;
+        bool negate;
+        int b;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((negate = rvalue[0] == '!'))
+                rvalue++;
+
+        if ((b = parse_boolean(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse boolean value in condition, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        if (!b)
+                negate = !negate;
+
+        if (!(c = condition_new(CONDITION_NULL, NULL, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1656,6 +1693,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_ip_tos,           "TOS" },
                 { config_parse_condition_path,   "CONDITION" },
                 { config_parse_condition_kernel, "CONDITION" },
+                { config_parse_condition_null,   "CONDITION" },
         };
 
         assert(f);
@@ -1778,6 +1816,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "JobTimeoutSec",          config_parse_usec,            &u->meta.job_timeout,                            "Unit"    },
                 { "ConditionPathExists",    config_parse_condition_path,  u,                                               "Unit"    },
                 { "ConditionKernelCommandLine", config_parse_condition_kernel, u,                                          "Unit"    },
+                { "ConditionNull",          config_parse_condition_null,  u,                                               "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },

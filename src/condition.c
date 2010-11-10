@@ -34,10 +34,11 @@ Condition* condition_new(ConditionType type, const char *parameter, bool negate)
         c->type = type;
         c->negate = negate;
 
-        if (!(c->parameter = strdup(parameter))) {
-                free(c);
-                return NULL;
-        }
+        if (parameter)
+                if (!(c->parameter = strdup(parameter))) {
+                        free(c);
+                        return NULL;
+                }
 
         return c;
 }
@@ -108,6 +109,9 @@ bool condition_test(Condition *c) {
         case CONDITION_KERNEL_COMMAND_LINE:
                 return !!test_kernel_command_line(c->parameter) == !c->negate;
 
+        case CONDITION_NULL:
+                return !c->negate;
+
         default:
                 assert_not_reached("Invalid condition type.");
         }
@@ -152,7 +156,8 @@ void condition_dump_list(Condition *first, FILE *f, const char *prefix) {
 
 static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
-        [CONDITION_PATH_EXISTS] = "ConditionPathExists"
+        [CONDITION_PATH_EXISTS] = "ConditionPathExists",
+        [CONDITION_NULL] = "ConditionNull"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
