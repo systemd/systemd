@@ -890,6 +890,24 @@ static struct dual_timestamp* parse_initrd_timestamp(struct dual_timestamp *t) {
         return t;
 }
 
+static void test_mtab(void) {
+        char *p;
+
+        if (readlink_malloc("/etc/mtab", &p) >= 0) {
+                bool b;
+
+                b = streq(p, "/proc/self/mounts");
+                free(p);
+
+                if (b)
+                        return;
+        }
+
+        log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
+                  "This is not supported anymore. "
+                  "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1048,6 +1066,8 @@ int main(int argc, char *argv[]) {
                 loopback_setup();
 
                 mkdir_p("/dev/.systemd/ask-password/", 0755);
+
+                test_mtab();
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {
