@@ -48,82 +48,112 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd</command> uses <filename>/etc/tmpfiles.d/</filename> to describe the creation, cleaning and removal of temporary files and directories
-which usually reside in <filename>/var/run</filename> or <filename>/tmp</filename>).
-Each configuration file is named in the style of
-<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename></para>
-
+		<para><command>systemd</command> uses
+		<filename>/etc/tmpfiles.d/</filename> to describe the
+		creation, cleaning and removal of temporary files and
+		directories which usually reside in
+		<filename>/var/run</filename> or
+		<filename>/tmp</filename>).  Each configuration file
+		is named in the style of
+		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename></para>
         </refsect1>
 
         <refsect1>
 		<title>Configuration Format</title>
 
-		<para>The configuration format is one line per path containing
-action, mode, ownership and age fields:</para>
+		<para>The configuration format is one line per path
+		containing action, mode, ownership and age
+		fields:</para>
 
-	<programlisting>type path          mode uid  gid  age
-d    /var/run/user 0755 root root 10d
-</programlisting>
+                <programlisting>type path          mode uid  gid  age
+d    /var/run/user 0755 root root 10d</programlisting>
 
-	<refsect2>
-		<title>type</title>
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>f</varname></term>
-                                <listitem><para>create a file</para></listitem>
-                        </varlistentry>
+                <refsect2>
+                        <title>mode</title>
 
-                        <varlistentry>
-                                <term><varname>F</varname></term>
-                                <listitem><para>truncate a file</para></listitem>
-                        </varlistentry>
+                        <para>The file access mode to use for this
+                        file or directory. If ommited or when set to -
+                        the default is used: 0755 for directories,
+                        0644 for files.</para>
+                </refsect2>
 
-                        <varlistentry>
+                <refsect2>
+                        <title>uid, gid</title>
+
+                        <para>The user and group to use for this file
+                        or directory. This may either be a numeric
+                        user/group ID or a user or group name. If
+                        ommited or when set to - the default 0 is
+                        used.</para>
+                </refsect2>
+
+                <refsect2>
+                        <title>type</title>
+                        <variablelist>
+                                <varlistentry>
+                                        <term><varname>f</varname></term>
+                                        <listitem><para>create a file if it doesn't exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>F</varname></term>
+                                        <listitem><para>create or truncate a file</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>d</varname></term>
+                                        <listitem><para>create a directory if it doesn't exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>D</varname></term>
+                                        <listitem><para>create or empty a directory</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>x</varname></term>
+                                        <listitem><para>ignore a path</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>r</varname></term>
+                                        <listitem><para>remove a path</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>R</varname></term>
+                                        <listitem><para>recursively remove a path</para></listitem>
+                                </varlistentry>
+                        </variablelist>
+                </refsect2>
+
+                <refsect2>
+                        <title>age</title>
+                        <para>The date field, when set, is used to
+                        decide what files to delete when cleaning. If
+                        a file or directory is older than the current
+                        time minus the age field it is deleted. The
+                        field format is a series of integers each
+                        followed by one of the following
+                        postfixes for the respective time units:</para>
+
+                        <variablelist>
+                                <varlistentry>
+                                <term><varname>s</varname></term>
+                                <term><varname>min</varname></term>
+                                <term><varname>h</varname></term>
                                 <term><varname>d</varname></term>
-                                <listitem><para>create a directory</para></listitem>
-                        </varlistentry>
+                                <term><varname>w</varname></term>
+                                <term><varname>ms</varname></term>
+                                <term><varname>m</varname></term>
+                                <term><varname>us</varname></term></varlistentry>
+                        </variablelist>
 
-                        <varlistentry>
-                                <term><varname>D</varname></term>
-                                <listitem><para>truncate a directory</para></listitem>
-                        </varlistentry>
+                        <para>If multiple integers and units are specified the time values are summed up.</para>
 
-                        <varlistentry>
-                                <term><varname>x</varname></term>
-                                <listitem><para>ignore the path</para></listitem>
-                        </varlistentry>
+                        <para>The age field only applies to lines starting with d, D and x. If ommited or set to - no automatic clean-up is done.</para>
 
-                        <varlistentry>
-                                <term><varname>r</varname></term>
-                                <listitem><para>remove the path</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>R</varname></term>
-                                <listitem><para>recursively remove the path</para></listitem>
-                        </varlistentry>
-                </variablelist>
-	</refsect2>
-
-	<refsect2>
-		<title>age</title>
-		<para>The date field, when set, is used to decide what files to delete when cleaning. If a file or directory is older than the current time minus the age field it is deleted. The field format is an integer followed by one of the following postfixes:</para>
-                <variablelist>
-		<varlistentry><term><varname>sec</varname></term>
-		<term><varname>s</varname></term>
-		<term><varname>min</varname></term>
-		<term><varname>hr</varname></term>
-		<term><varname>h</varname></term>
-		<term><varname>d</varname></term>
-		<term><varname>w</varname></term>
-		<term><varname>msec</varname></term>
-		<term><varname>ms</varname></term>
-		<term><varname>m</varname></term>
-		<term><varname>usec</varname></term>
-		<term><varname>us</varname></term></varlistentry>
-                </variablelist>
-	</refsect2>
-
+                </refsect2>
 
         </refsect1>
 
@@ -134,8 +164,7 @@ d    /var/run/user 0755 root root 10d
                         <para><command>screen</command> needs two directories created at boot with specific modes and ownership.</para>
 
                         <programlisting>d /var/run/screens 1777 root root 10d
-d /var/run/uscreens 0755 root root 10d
-</programlisting>
+d /var/run/uscreens 0755 root root 10d12h</programlisting>
                 </example>
         </refsect1>
 
