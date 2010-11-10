@@ -309,7 +309,7 @@
           <term><option>NAME</option></term>
           <listitem>
             <para>The name, a network interface should be renamed to. Or as
-            a temporary workaraound, the name a device node should be named.
+            a temporary workaround, the name a device node should be named.
             Usually the kernel provides the defined node name, or even creates
             and removes the node before udev even receives any event. Changing
             the node name from the kernel's default creates inconsistencies
