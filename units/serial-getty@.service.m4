@@ -5,6 +5,13 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
+m4_ifdef(`TARGET_FEDORA', `m4_define(`GETTY', `/sbin/agetty')')m4_dnl
+m4_ifdef(`TARGET_SUSE', `m4_define(`GETTY', `/sbin/agetty')')m4_dnl
+m4_ifdef(`TARGET_GENTOO', `m4_define(`GETTY', `/sbin/agetty')')m4_dnl
+m4_ifdef(`TARGET_ARCH', `m4_define(`GETTY', `/sbin/agetty')')m4_dnl
+m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty')')m4_dnl
+m4_ifdef(`TARGET_UBUNTU', `m4_define(`GETTY', `/sbin/getty')')m4_dnl
+m4_dnl
 [Unit]
 Description=Serial Getty on %I
 BindTo=dev-%i.device
@@ -26,7 +33,7 @@ Environment=TERM=vt100-nav
 m4_ifdef(`TARGET_FEDORA',
 ExecStartPre=-/sbin/securetty %I
 )m4_dnl
-ExecStart=-/sbin/agetty -s %I 115200,38400,9600
+ExecStart=-GETTY -s %I 115200,38400,9600
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I

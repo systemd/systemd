@@ -5,12 +5,12 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
-m4_ifdef(`TARGET_FEDORA', `m4_define(`GETTY', `/sbin/agetty 38400')')m4_dnl
-m4_ifdef(`TARGET_SUSE', `m4_define(`GETTY', `/sbin/agetty 38400')')m4_dnl
-m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty 38400')')m4_dnl
-m4_ifdef(`TARGET_UBUNTU', `m4_define(`GETTY', `/sbin/getty 38400')')m4_dnl
-m4_ifdef(`TARGET_GENTOO', `m4_define(`GETTY', `/sbin/agetty 38400')')m4_dnl
-m4_ifdef(`TARGET_ARCH', `m4_define(`GETTY', `/sbin/agetty -8 38400')')m4_dnl
+m4_ifdef(`TARGET_FEDORA', `m4_define(`GETTY', `/sbin/agetty')')m4_dnl
+m4_ifdef(`TARGET_SUSE', `m4_define(`GETTY', `/sbin/agetty')')m4_dnl
+m4_ifdef(`TARGET_GENTOO', `m4_define(`GETTY', `/sbin/agetty')')m4_dnl
+m4_ifdef(`TARGET_ARCH', `m4_define(`GETTY', `/sbin/agetty')')m4_dnl
+m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty')')m4_dnl
+m4_ifdef(`TARGET_UBUNTU', `m4_define(`GETTY', `/sbin/getty')')m4_dnl
 m4_dnl
 [Unit]
 Description=Getty on %I
@@ -30,7 +30,7 @@ Before=getty.target
 
 [Service]
 Environment=TERM=linux
-ExecStart=-GETTY %I
+ExecStart=-GETTY %I 38400
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I
