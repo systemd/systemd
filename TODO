@@ -1,3 +1,5 @@
+* print error if /etc/mtab is not a symlink to /proc/self/mounts
+
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
