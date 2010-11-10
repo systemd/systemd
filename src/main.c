@@ -31,6 +31,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <sys/prctl.h>
 
 #include "manager.h"
 #include "log.h"
@@ -896,6 +897,7 @@ int main(int argc, char *argv[]) {
         bool reexecute = false;
         const char *shutdown_verb = NULL;
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
+        char systemd[] = "systemd";
 
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
                 /* This is compatbility support for SysV, where
@@ -906,6 +908,14 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
                 return 1;
         }
+
+        /* If we get started via the /sbin/init symlink then we are
+           called 'init'. After a subsequent reexecution we are then
+           called 'systemd'. That is confusing, hence let's call us
+           systemd right-away. */
+
+        program_invocation_short_name = systemd;
+        prctl(PR_SET_NAME, systemd);
 
         log_show_color(isatty(STDERR_FILENO) > 0);
         log_show_location(false);
