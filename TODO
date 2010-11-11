@@ -1,3 +1,9 @@
+* check if bind mounts work:
+    https://bugzilla.novell.com/show_bug.cgi?id=652762
+
+* /lib/systemd/system/tmp.mount conflicts with possible unrelated
+  fstab entry
+
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
