@@ -102,7 +102,7 @@ static int create_disk(
                 "DefaultDependencies=no\n"
                 "BindTo=%s\n"
                 "After=systemd-readahead-collect.service systemd-readahead-replay.service %s\n"
-                "Before=dev-mapper-%%f.device shutdown.target\n",
+                "Before=dev-mapper-%%i.device shutdown.target\n",
                 d, d);
 
         if (password && (streq(password, "/dev/urandom") ||
@@ -116,8 +116,8 @@ static int create_disk(
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " %s '%s' '%s' '%s' '%s'\n"
-                "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " remove '%s'\n",
-                options && has_option(options, "swap") ? "format" : "create",
+                "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
+                options && has_option(options, "swap") ? "format-and-attach" : "attach",
                 name, u, strempty(password), strempty(options),
                 name);
 

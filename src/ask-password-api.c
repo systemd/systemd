@@ -1,0 +1,482 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+/***
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <termios.h>
+#include <unistd.h>
+#include <sys/poll.h>
+#include <sys/inotify.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <string.h>
+#include <sys/un.h>
+#include <stddef.h>
+#include <sys/signalfd.h>
+
+#include "util.h"
+
+#include "ask-password-api.h"
+
+int ask_password_tty(
+                const char *message,
+                usec_t until,
+                const char *flag_file,
+                char **_passphrase) {
+
+        struct termios old_termios, new_termios;
+        char passphrase[LINE_MAX];
+        size_t p = 0;
+        int r, ttyfd = -1, notify = -1;
+        struct pollfd pollfd[2];
+        bool reset_tty = false;
+        enum {
+                POLL_TTY,
+                POLL_INOTIFY
+        };
+
+        assert(message);
+        assert(_passphrase);
+
+        if (flag_file) {
+                if ((notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK)) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+        }
+
+        if ((ttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC)) >= 0) {
+
+                if (tcgetattr(ttyfd, &old_termios) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                loop_write(ttyfd, "\x1B[1m", 4, false);
+                loop_write(ttyfd, message, strlen(message), false);
+                loop_write(ttyfd, ": ", 2, false);
+                loop_write(ttyfd, "\x1B[0m", 4, false);
+
+                new_termios = old_termios;
+                new_termios.c_lflag &= ~(ICANON|ECHO);
+                new_termios.c_cc[VMIN] = 1;
+                new_termios.c_cc[VTIME] = 0;
+
+                if (tcsetattr(ttyfd, TCSADRAIN, &new_termios) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                reset_tty = true;
+        }
+
+        zero(pollfd);
+
+        pollfd[POLL_TTY].fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO;
+        pollfd[POLL_TTY].events = POLLIN;
+        pollfd[POLL_INOTIFY].fd = notify;
+        pollfd[POLL_INOTIFY].events = POLLIN;
+
+        for (;;) {
+                char c;
+                int sleep_for = -1, k;
+                ssize_t n;
+
+                if (until > 0) {
+                        usec_t y;
+
+                        y = now(CLOCK_MONOTONIC);
+
+                        if (y > until) {
+                                r = -ETIMEDOUT;
+                                goto finish;
+                        }
+
+                        sleep_for = (int) ((until - y) / USEC_PER_MSEC);
+                }
+
+                if (flag_file)
+                        if (access(flag_file, F_OK) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                if ((k = poll(pollfd, notify > 0 ? 2 : 1, sleep_for)) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        r = -errno;
+                        goto finish;
+                } else if (k == 0) {
+                        r = -ETIMEDOUT;
+                        goto finish;
+                }
+
+                if (notify > 0 && pollfd[POLL_INOTIFY].revents != 0)
+                        flush_fd(notify);
+
+                if (pollfd[POLL_TTY].revents == 0)
+                        continue;
+
+                if ((n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1)) < 0) {
+
+                        if (errno == EINTR || errno == EAGAIN)
+                                continue;
+
+                        r = -errno;
+                        goto finish;
+
+                } else if (n == 0)
+                        break;
+
+                if (c == '\n')
+                        break;
+                else if (c == 21) {
+
+                        while (p > 0) {
+                                p--;
+
+                                if (ttyfd >= 0)
+                                        loop_write(ttyfd, "\b \b", 3, false);
+                        }
+
+                } else if (c == '\b' || c == 127) {
+                        if (p > 0) {
+                                p--;
+
+                                if (ttyfd >= 0)
+                                        loop_write(ttyfd, "\b \b", 3, false);
+                        }
+                } else {
+                        passphrase[p++] = c;
+
+                        if (ttyfd >= 0)
+                                loop_write(ttyfd, "*", 1, false);
+                }
+        }
+
+        if (ttyfd >= 0)
+                loop_write(ttyfd, "\n", 1, false);
+
+        passphrase[p] = 0;
+
+        if (!(*_passphrase = strdup(passphrase))) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (notify >= 0)
+                close_nointr_nofail(notify);
+
+        if (ttyfd >= 0) {
+                if (reset_tty)
+                        tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+
+                close_nointr_nofail(ttyfd);
+        }
+
+        return r;
+}
+
+static int create_socket(char **name) {
+        int fd;
+        union {
+                struct sockaddr sa;
+                struct sockaddr_un un;
+        } sa;
+        int one = 1, r;
+        char *c;
+
+        assert(name);
+
+        if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
+                log_error("socket() failed: %m");
+                return -errno;
+        }
+
+        zero(sa);
+        sa.un.sun_family = AF_UNIX;
+        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/dev/.systemd/ask-password/sck.%llu", random_ull());
+
+        if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+                r = -errno;
+                log_error("bind() failed: %m");
+                goto fail;
+        }
+
+        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
+                r = -errno;
+                log_error("SO_PASSCRED failed: %m");
+                goto fail;
+        }
+
+        if (!(c = strdup(sa.un.sun_path))) {
+                r = -ENOMEM;
+                log_error("Out of memory");
+                goto fail;
+        }
+
+        *name = c;
+        return fd;
+
+fail:
+        close_nointr_nofail(fd);
+
+        return r;
+}
+
+
+int ask_password_agent(
+                const char *message,
+                const char *icon,
+                usec_t until,
+                char **_passphrase) {
+
+        enum {
+                FD_SOCKET,
+                FD_SIGNAL,
+                _FD_MAX
+        };
+
+        char temp[] = "/dev/.systemd/ask-password/tmp.XXXXXX";
+        char final[sizeof(temp)] = "";
+        int fd = -1, r;
+        FILE *f = NULL;
+        char *socket_name = NULL;
+        int socket_fd = -1, signal_fd = -1;
+        sigset_t mask;
+        struct pollfd pollfd[_FD_MAX];
+
+        mkdir_p("/dev/.systemd/ask-password", 0755);
+
+        if ((fd = mkostemp(temp, O_CLOEXEC|O_CREAT|O_WRONLY)) < 0) {
+                log_error("Failed to create password file: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        fchmod(fd, 0644);
+
+        if (!(f = fdopen(fd, "w"))) {
+                log_error("Failed to allocate FILE: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        fd = -1;
+
+        assert_se(sigemptyset(&mask) == 0);
+        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
+        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+
+        if ((signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0) {
+                log_error("signalfd(): %m");
+                r = -errno;
+                goto finish;
+        }
+
+        if ((socket_fd = create_socket(&socket_name)) < 0) {
+                r = socket_fd;
+                goto finish;
+        }
+
+        fprintf(f,
+                "[Ask]\n"
+                "PID=%lu\n"
+                "Socket=%s\n"
+                "NotAfter=%llu\n",
+                (unsigned long) getpid(),
+                socket_name,
+                (unsigned long long) until);
+
+        if (message)
+                fprintf(f, "Message=%s\n", message);
+
+        if (icon)
+                fprintf(f, "Icon=%s\n", icon);
+
+        fflush(f);
+
+        if (ferror(f)) {
+                log_error("Failed to write query file: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        memcpy(final, temp, sizeof(temp));
+
+        final[sizeof(final)-11] = 'a';
+        final[sizeof(final)-10] = 's';
+        final[sizeof(final)-9] = 'k';
+
+        if (rename(temp, final) < 0) {
+                log_error("Failed to rename query file: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        zero(pollfd);
+        pollfd[FD_SOCKET].fd = socket_fd;
+        pollfd[FD_SOCKET].events = POLLIN;
+        pollfd[FD_SIGNAL].fd = signal_fd;
+        pollfd[FD_SIGNAL].events = POLLIN;
+
+        for (;;) {
+                char passphrase[LINE_MAX+1];
+                struct msghdr msghdr;
+                struct iovec iovec;
+                struct ucred *ucred;
+                union {
+                        struct cmsghdr cmsghdr;
+                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+                } control;
+                ssize_t n;
+                int k;
+                usec_t t;
+
+                t = now(CLOCK_MONOTONIC);
+
+                if (until <= t) {
+                        log_notice("Timed out");
+                        r = -ETIME;
+                        goto finish;
+                }
+
+                if ((k = poll(pollfd, _FD_MAX, until-t/USEC_PER_MSEC)) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        log_error("poll() failed: %m");
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (k <= 0) {
+                        log_notice("Timed out");
+                        r = -ETIME;
+                        goto finish;
+                }
+
+                if (pollfd[FD_SIGNAL].revents & POLLIN)
+                        break;
+
+                if (pollfd[FD_SOCKET].revents != POLLIN) {
+                        log_error("Unexpected poll() event.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                zero(iovec);
+                iovec.iov_base = passphrase;
+                iovec.iov_len = sizeof(passphrase)-1;
+
+                zero(control);
+                zero(msghdr);
+                msghdr.msg_iov = &iovec;
+                msghdr.msg_iovlen = 1;
+                msghdr.msg_control = &control;
+                msghdr.msg_controllen = sizeof(control);
+
+                if ((n = recvmsg(socket_fd, &msghdr, 0)) < 0) {
+
+                        if (errno == EAGAIN ||
+                            errno == EINTR)
+                                continue;
+
+                        log_error("recvmsg() failed: %m");
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (n <= 0) {
+                        log_error("Message too short");
+                        continue;
+                }
+
+                if (msghdr.msg_controllen < CMSG_LEN(sizeof(struct ucred)) ||
+                    control.cmsghdr.cmsg_level != SOL_SOCKET ||
+                    control.cmsghdr.cmsg_type != SCM_CREDENTIALS ||
+                    control.cmsghdr.cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
+                        log_warning("Received message without credentials. Ignoring.");
+                        continue;
+                }
+
+                ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
+                if (ucred->uid != 0) {
+                        log_warning("Got request from unprivileged user. Ignoring.");
+                        continue;
+                }
+
+                if (passphrase[0] == '+') {
+                        passphrase[n] = 0;
+
+                        if (!(*_passphrase = strdup(passphrase+1))) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                } else if (passphrase[0] == '-') {
+                        r = -ECANCELED;
+                        goto finish;
+                } else {
+                        log_error("Invalid packet");
+                        continue;
+                }
+
+                break;
+        }
+
+        r = 0;
+
+finish:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        if (socket_name) {
+                unlink(socket_name);
+                free(socket_name);
+        }
+
+        if (socket_fd >= 0)
+                close_nointr_nofail(socket_fd);
+
+        if (signal_fd >= 0)
+                close_nointr_nofail(signal_fd);
+
+        if (f)
+                fclose(f);
+
+        unlink(temp);
+
+        if (final[0])
+                unlink(final);
+
+        return r;
+}

@@ -118,12 +118,16 @@ rootlibexec_PROGRAMS = \
 	systemd-user-sessions \
 	systemd-fsck \
 	systemd-quotacheck \
-	systemd-cryptsetup \
 	systemd-timestamp \
 	systemd-ac-power
 
+if HAVE_LIBCRYPTSETUP
+rootlibexec_PROGRAMS += \
+	systemd-cryptsetup
+
 systemgenerator_PROGRAMS = \
 	systemd-cryptsetup-generator
+endif
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -467,7 +471,8 @@ EXTRA_DIST += \
 	src/build.h \
 	src/shutdownd.h \
 	src/umount.h \
-	src/readahead-common.h
+	src/readahead-common.h \
+	src/ask-password-api.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -746,12 +751,15 @@ systemd_ac_power_LDADD = \
 	$(UDEV_LIBS)
 
 systemd_cryptsetup_SOURCES = \
-	src/cryptsetup.c
+	src/cryptsetup.c \
+	src/ask-password-api.c
 
 systemd_cryptsetup_CFLAGS = \
+	$(LIBCRYPTSETUP_CFLAGS) \
 	$(AM_CFLAGS)
 
 systemd_cryptsetup_LDADD = \
+	$(LIBCRYPTSETUP_LIBS) \
 	libsystemd-basic.la
 
 systemd_cryptsetup_generator_SOURCES = \
@@ -844,7 +852,8 @@ systemd_notify_LDADD = \
 	libsystemd-basic.la
 
 systemd_ask_password_SOURCES = \
-	src/ask-password.c
+	src/ask-password.c \
+	src/ask-password-api.c
 
 systemd_ask_password_LDADD = \
 	libsystemd-basic.la
@@ -940,6 +949,7 @@ systemd_gnome_ask_password_agent_LDADD = \
 
 systemd_tty_ask_password_agent_SOURCES = \
 	src/tty-ask-password-agent.c \
+	src/ask-password-api.c \
 	src/utmp-wtmp.c
 
 systemd_tty_ask_password_agent_LDADD = \

@@ -35,6 +35,7 @@
 #include "conf-parser.h"
 #include "utmp-wtmp.h"
 #include "socket-util.h"
+#include "ask-password-api.h"
 
 static enum {
         ACTION_LIST,

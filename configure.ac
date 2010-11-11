@@ -229,6 +229,19 @@ else
 fi
 AC_SUBST(AUDIT_LIBS)
 
+have_libcryptsetup=no
+AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable libcryptsetup tools]))
+if test "x$enable_libcryptsetup" != "xno"; then
+        PKG_CHECK_MODULES(LIBCRYPTSETUP, [ libcryptsetup ],
+                [AC_DEFINE(HAVE_LIBCRYPTSETUP, 1, [Define if libcryptsetup is available]) have_libcryptsetup=yes], have_libcryptsetup=no)
+        AC_SUBST(LIBCRYPTSETUP_CFLAGS)
+        AC_SUBST(LIBCRYPTSETUP_LIBS)
+        if test "x$have_libcryptsetup" = xno -a "x$enable_libcryptsetup" = xyes; then
+             AC_MSG_ERROR([*** libcryptsetup support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -444,6 +457,7 @@ echo "
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
         Gtk:                     ${have_gtk}
+        libcryptsetup:           ${have_libcryptsetup}
         tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}

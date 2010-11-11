@@ -2842,6 +2842,8 @@ void manager_run_generators(Manager *m) {
                         _exit(EXIT_FAILURE);
                 }
 
+                log_debug("Spawned generator %s as %lu", path, (unsigned long) pid);
+
                 if ((k = hashmap_put(pids, UINT_TO_PTR(pid), path)) < 0) {
                         log_error("Failed to add PID to set: %s", strerror(-k));
                         free(path);
@@ -2868,7 +2870,8 @@ void manager_run_generators(Manager *m) {
                                         log_error("%s exited with exit status %i.", path, si.si_status);
                                 else
                                         log_error("%s terminated by signal %s.", path, signal_to_string(si.si_status));
-                        }
+                        } else
+                                log_debug("Generator %s exited successfully.", path);
 
                         free(path);
                 }
@@ -2894,6 +2897,8 @@ void manager_run_generators(Manager *m) {
 
                 strv_free(m->lookup_paths.unit_path);
                 m->lookup_paths.unit_path = l;
+
+                log_debug("Added generator unit path %s to search path.", m->generator_unit_path);
         }
 
 finish:

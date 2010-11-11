@@ -38,58 +38,12 @@
 #include "log.h"
 #include "macro.h"
 #include "util.h"
+#include "ask-password-api.h"
 
 static const char *arg_icon = NULL;
 static const char *arg_message = NULL;
 static bool arg_use_tty = true;
 static usec_t arg_timeout = 60 * USEC_PER_SEC;
-
-static int create_socket(char **name) {
-        int fd;
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-        } sa;
-        int one = 1, r;
-        char *c;
-
-        assert(name);
-
-        if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
-                log_error("socket() failed: %m");
-                return -errno;
-        }
-
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
-        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/dev/.systemd/ask-password/sck.%llu", random_ull());
-
-        if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
-                r = -errno;
-                log_error("bind() failed: %m");
-                goto fail;
-        }
-
-        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
-                r = -errno;
-                log_error("SO_PASSCRED failed: %m");
-                goto fail;
-        }
-
-        if (!(c = strdup(sa.un.sun_path))) {
-                r = -ENOMEM;
-                log_error("Out of memory");
-                goto fail;
-        }
-
-        *name = c;
-        return fd;
-
-fail:
-        close_nointr_nofail(fd);
-
-        return r;
-}
 
 static int help(void) {
 
@@ -166,222 +120,9 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int ask_agent(void) {
-        enum {
-                FD_SOCKET,
-                FD_SIGNAL,
-                _FD_MAX
-        };
-
-        char temp[] = "/dev/.systemd/ask-password/tmp.XXXXXX";
-        char final[sizeof(temp)] = "";
-        int fd = -1, r;
-        FILE *f = NULL;
-        char *socket_name = NULL;
-        int socket_fd = -1, signal_fd = -1;
-        sigset_t mask;
-        usec_t not_after;
-        struct pollfd pollfd[_FD_MAX];
-
-        mkdir_p("/dev/.systemd/ask-password", 0755);
-
-        if ((fd = mkostemp(temp, O_CLOEXEC|O_CREAT|O_WRONLY)) < 0) {
-                log_error("Failed to create password file: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        fchmod(fd, 0644);
-
-        if (!(f = fdopen(fd, "w"))) {
-                log_error("Failed to allocate FILE: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        fd = -1;
-
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
-
-        if ((signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0) {
-                log_error("signalfd(): %m");
-                r = -errno;
-                goto finish;
-        }
-
-        if ((socket_fd = create_socket(&socket_name)) < 0) {
-                r = socket_fd;
-                goto finish;
-        }
-
-        not_after = now(CLOCK_MONOTONIC) + arg_timeout;
-
-        fprintf(f,
-                "[Ask]\n"
-                "PID=%lu\n"
-                "Socket=%s\n"
-                "NotAfter=%llu\n",
-                (unsigned long) getpid(),
-                socket_name,
-                (unsigned long long) not_after);
-
-        if (arg_message)
-                fprintf(f, "Message=%s\n", arg_message);
-
-        if (arg_icon)
-                fprintf(f, "Icon=%s\n", arg_icon);
-
-        fflush(f);
-
-        if (ferror(f)) {
-                log_error("Failed to write query file: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        memcpy(final, temp, sizeof(temp));
-
-        final[sizeof(final)-11] = 'a';
-        final[sizeof(final)-10] = 's';
-        final[sizeof(final)-9] = 'k';
-
-        if (rename(temp, final) < 0) {
-                log_error("Failed to rename query file: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        zero(pollfd);
-        pollfd[FD_SOCKET].fd = socket_fd;
-        pollfd[FD_SOCKET].events = POLLIN;
-        pollfd[FD_SIGNAL].fd = signal_fd;
-        pollfd[FD_SIGNAL].events = POLLIN;
-
-        for (;;) {
-                char passphrase[LINE_MAX+1];
-                struct msghdr msghdr;
-                struct iovec iovec;
-                struct ucred *ucred;
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-                } control;
-                ssize_t n;
-                int k;
-
-                if ((k = poll(pollfd, _FD_MAX, arg_timeout/USEC_PER_MSEC)) < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        log_error("poll() failed: %m");
-                        r = -errno;
-                        goto finish;
-                }
-
-                if (k <= 0) {
-                        log_notice("Timed out");
-                        r = -ETIME;
-                        goto finish;
-                }
-
-                if (pollfd[FD_SIGNAL].revents & POLLIN)
-                        break;
-
-                if (pollfd[FD_SOCKET].revents != POLLIN) {
-                        log_error("Unexpected poll() event.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                zero(iovec);
-                iovec.iov_base = passphrase;
-                iovec.iov_len = sizeof(passphrase)-1;
-
-                zero(control);
-                zero(msghdr);
-                msghdr.msg_iov = &iovec;
-                msghdr.msg_iovlen = 1;
-                msghdr.msg_control = &control;
-                msghdr.msg_controllen = sizeof(control);
-
-                if ((n = recvmsg(socket_fd, &msghdr, 0)) < 0) {
-
-                        if (errno == EAGAIN ||
-                            errno == EINTR)
-                                continue;
-
-                        log_error("recvmsg() failed: %m");
-                        r = -errno;
-                        goto finish;
-                }
-
-                if (n <= 0) {
-                        log_error("Message too short");
-                        continue;
-                }
-
-                if (msghdr.msg_controllen < CMSG_LEN(sizeof(struct ucred)) ||
-                    control.cmsghdr.cmsg_level != SOL_SOCKET ||
-                    control.cmsghdr.cmsg_type != SCM_CREDENTIALS ||
-                    control.cmsghdr.cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
-                        log_warning("Received message without credentials. Ignoring.");
-                        continue;
-                }
-
-                ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
-                if (ucred->uid != 0) {
-                        log_warning("Got request from unprivileged user. Ignoring.");
-                        continue;
-                }
-
-                if (passphrase[0] == '+') {
-                        passphrase[n] = 0;
-                        fputs(passphrase+1, stdout);
-                        fflush(stdout);
-                } else if (passphrase[0] == '-') {
-                        r = -ECANCELED;
-                        goto finish;
-                } else {
-                        log_error("Invalid packet");
-                        continue;
-                }
-
-                break;
-        }
-
-        r = 0;
-
-finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        if (socket_name) {
-                unlink(socket_name);
-                free(socket_name);
-        }
-
-        if (socket_fd >= 0)
-                close_nointr_nofail(socket_fd);
-
-        if (signal_fd >= 0)
-                close_nointr_nofail(signal_fd);
-
-        if (f)
-                fclose(f);
-
-        unlink(temp);
-
-        if (final[0])
-                unlink(final);
-
-        return r;
-}
-
 int main(int argc, char *argv[]) {
         int r;
+        char *password = NULL;
 
         log_parse_environment();
         log_open();
@@ -389,18 +130,18 @@ int main(int argc, char *argv[]) {
         if ((r = parse_argv(argc, argv)) <= 0)
                 goto finish;
 
-        if (arg_use_tty && isatty(STDIN_FILENO)) {
-                char *password = NULL;
+        if (arg_use_tty && isatty(STDIN_FILENO))
+                r = ask_password_tty(arg_message, now(CLOCK_MONOTONIC) + arg_timeout, NULL, &password);
+        else
+                r = ask_password_agent(arg_message, arg_icon, now(CLOCK_MONOTONIC) + arg_timeout, &password);
 
-                if ((r = ask_password_tty(arg_message, now(CLOCK_MONOTONIC) + arg_timeout, NULL, &password)) >= 0) {
-                        fputs(password, stdout);
-                        fflush(stdout);
-                        free(password);
-                }
-
-        } else
-                r = ask_agent();
+        if (r >= 0) {
+                fputs(password, stdout);
+                fflush(stdout);
+        }
 
 finish:
+        free(password);
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
