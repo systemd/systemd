@@ -148,6 +148,7 @@ struct Manager {
         dual_timestamp finish_timestamp;
 
         char *console;
+        char *generator_unit_path;
 
         /* Data specific to the device subsystem */
         struct udev* udev;
@@ -278,6 +279,9 @@ void manager_send_unit_plymouth(Manager *m, Unit *u);
 bool manager_unit_pending_inactive(Manager *m, const char *name);
 
 void manager_check_finished(Manager *m);
+
+void manager_run_generators(Manager *m);
+void manager_undo_generators(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

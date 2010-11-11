@@ -26,12 +26,13 @@ udevrulesdir=@udevrulesdir@
 pamlibdir=@pamlibdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
-bashcompletiondir=${sysconfdir}/bash_completion.d
+bashcompletiondir=$(sysconfdir)/bash_completion.d
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
 sessionunitdir=$(pkgdatadir)/session
 tmpfilesdir=$(sysconfdir)/tmpfiles.d
+sessiongeneratordir=$(pkglibexecdir)/session-generators
 
 # And these are the special ones for /
 rootdir=@rootdir@
@@ -39,6 +40,7 @@ rootbindir=$(rootdir)/bin
 rootsbindir=$(rootdir)/sbin
 rootlibexecdir=$(rootdir)/lib/systemd
 systemunitdir=$(rootdir)/lib/systemd/system
+systemgeneratordir=$(rootdir)/lib/systemd/system-generators
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -58,6 +60,8 @@ AM_CPPFLAGS = \
 	-DRUNTIME_DIR=\"$(localstatedir)/run\" \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-DSYSTEMD_CRYPTSETUP_PATH=\"$(rootlibexecdir)/systemd-cryptsetup\" \
+	-DSYSTEM_GENERATOR_PATH=\"$(systemgeneratordir)\" \
+	-DSESSION_GENERATOR_PATH=\"$(sessiongeneratordir)\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
@@ -115,9 +119,11 @@ rootlibexec_PROGRAMS = \
 	systemd-fsck \
 	systemd-quotacheck \
 	systemd-cryptsetup \
-	systemd-cryptsetup-generator \
 	systemd-timestamp \
 	systemd-ac-power
+
+systemgenerator_PROGRAMS = \
+	systemd-cryptsetup-generator
 
 noinst_PROGRAMS = \
 	test-engine \

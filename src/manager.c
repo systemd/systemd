@@ -433,6 +433,8 @@ void manager_free(Manager *m) {
          * around */
         manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
+        manager_undo_generators(m);
+
         bus_done(m);
 
         hashmap_free(m->units);
@@ -566,6 +568,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r, q;
 
         assert(m);
+
+        manager_run_generators(m);
 
         manager_build_unit_path_cache(m);
 
@@ -2626,11 +2630,16 @@ int manager_reload(Manager *m) {
 
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
+        manager_undo_generators(m);
 
         /* Find new unit paths */
         lookup_paths_free(&m->lookup_paths);
         if ((q = lookup_paths_init(&m->lookup_paths, m->running_as)) < 0)
                 r = q;
+
+        manager_run_generators(m);
+
+        manager_build_unit_path_cache(m);
 
         m->n_deserializing ++;
 
@@ -2754,6 +2763,158 @@ void manager_check_finished(Manager *m) {
                           format_timespan(userspace, sizeof(userspace),
                                           m->finish_timestamp.monotonic - m->startup_timestamp.monotonic));
 
+}
+
+void manager_run_generators(Manager *m) {
+        DIR *d = NULL;
+        struct dirent *de;
+        Hashmap *pids = NULL;
+        const char *generator_path;
+
+        assert(m);
+
+        generator_path = m->running_as == MANAGER_SYSTEM ? SYSTEM_GENERATOR_PATH : SESSION_GENERATOR_PATH;
+        if (!(d = opendir(generator_path))) {
+
+                if (errno == ENOENT)
+                        return;
+
+                log_error("Failed to enumerate generator directory: %m");
+                return;
+        }
+
+        if (!m->generator_unit_path) {
+                char *p;
+                char system_path[] = "/dev/.systemd/generator-XXXXXX",
+                        session_path[] = "/tmp/systemd-generator-XXXXXX";
+
+                if (!(p = mkdtemp(m->running_as == MANAGER_SYSTEM ? system_path : session_path))) {
+                        log_error("Failed to generate generator directory: %m");
+                        goto finish;
+                }
+
+                if (!(m->generator_unit_path = strdup(p))) {
+                        log_error("Failed to allocate generator unit path.");
+                        goto finish;
+                }
+        }
+
+        if (!(pids = hashmap_new(trivial_hash_func, trivial_compare_func))) {
+                log_error("Failed to allocate set.");
+                goto finish;
+        }
+
+        while ((de = readdir(d))) {
+                char *path;
+                pid_t pid;
+                int k;
+
+                if (ignore_file(de->d_name))
+                        continue;
+
+                if (de->d_type != DT_REG &&
+                    de->d_type != DT_LNK &&
+                    de->d_type != DT_UNKNOWN)
+                        continue;
+
+                if (asprintf(&path, "%s/%s", generator_path, de->d_name) < 0) {
+                        log_error("Out of memory");
+                        continue;
+                }
+
+                if ((pid = fork()) < 0) {
+                        log_error("Failed to fork: %m");
+                        free(path);
+                        continue;
+                }
+
+                if (pid == 0) {
+                        const char *arguments[5];
+                        /* Child */
+
+                        arguments[0] = path;
+                        arguments[1] = m->generator_unit_path;
+                        arguments[2] = NULL;
+
+                        execv(path, (char **) arguments);
+
+                        log_error("Failed to execute %s: %m", path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                if ((k = hashmap_put(pids, UINT_TO_PTR(pid), path)) < 0) {
+                        log_error("Failed to add PID to set: %s", strerror(-k));
+                        free(path);
+                }
+        }
+
+        while (!hashmap_isempty(pids)) {
+                siginfo_t si;
+                char *path;
+
+                zero(si);
+                if (waitid(P_ALL, 0, &si, WEXITED) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        log_error("waitid() failed: %m");
+                        goto finish;
+                }
+
+                if ((path = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
+                        if (!is_clean_exit(si.si_code, si.si_status)) {
+                                if (si.si_code == CLD_EXITED)
+                                        log_error("%s exited with exit status %i.", path, si.si_status);
+                                else
+                                        log_error("%s terminated by signal %s.", path, signal_to_string(si.si_status));
+                        }
+
+                        free(path);
+                }
+        }
+
+        if (rmdir(m->generator_unit_path) >= 0) {
+                /* Uh? we were able to remove this dir? I guess that
+                 * means the directory was empty, hence let's shortcut
+                 * this */
+
+                free(m->generator_unit_path);
+                m->generator_unit_path = NULL;
+                goto finish;
+        }
+
+        if (!strv_find(m->lookup_paths.unit_path, m->generator_unit_path)) {
+                char **l;
+
+                if (!(l = strv_append(m->lookup_paths.unit_path, m->generator_unit_path))) {
+                        log_error("Failed to add generator directory to unit search path: %m");
+                        goto finish;
+                }
+
+                strv_free(m->lookup_paths.unit_path);
+                m->lookup_paths.unit_path = l;
+        }
+
+finish:
+        if (d)
+                closedir(d);
+
+        if (pids)
+                hashmap_free_free(pids);
+}
+
+void manager_undo_generators(Manager *m) {
+        assert(m);
+
+        if (!m->generator_unit_path)
+                return;
+
+        strv_remove(m->lookup_paths.unit_path, m->generator_unit_path);
+        rm_rf(m->generator_unit_path, false, true);
+
+        free(m->generator_unit_path);
+        m->generator_unit_path = NULL;
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
