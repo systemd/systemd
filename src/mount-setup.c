@@ -202,6 +202,10 @@ static int nftw_cb(
                 int tflag,
                 struct FTW *ftwbuf) {
 
+        /* No need to label /dev twice in a row... */
+        if (ftwbuf->level == 0)
+                return 0;
+
         label_fix(fpath);
         return 0;
 };

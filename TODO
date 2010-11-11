@@ -80,6 +80,8 @@
 
 * drop tmp.mount
 
+* systemctl condrestart should return 0 if service isn't running
+
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
