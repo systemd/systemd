@@ -323,9 +323,9 @@
                         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
                         <listitem><para>Swap units are very similar to
-                        mount units and encapsulated memory swap
+                        mount units and encapsulate memory swap
                         partitions or files of the operating
-                        systemd. They are described in <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+                        system. They are described in <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
                         <listitem><para>Path units may be used
                         to activate other services when file system
@@ -336,7 +336,7 @@
 
                 <para>Units are named as their configuration
                 files. Some units have special semantics. A detailed
-                list you may find in
+                list is available in
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                 <para>systemd knows various kinds of dependencies,
@@ -361,7 +361,7 @@
                 this.</para>
 
                 <para>Application programs and units (via
-                dependencies) may requests state changes of units. In
+                dependencies) may request state changes of units. In
                 systemd, these requests are encapsulated as 'jobs' and
                 maintained in a job queue. Jobs may succeed or can
                 fail, their execution is ordered based on the ordering
@@ -851,8 +851,8 @@
                                 <listitem><para>Takes a boolean
                                 argument. If <option>true</option>
                                 systemd spawns a shell when it
-                                crashes. Otherwise no core dump is
-                                created. Defaults to
+                                crashes. Otherwise no shell is
+                                spawned. Defaults to
                                 <option>false</option>, for security
                                 reasons, as the shell is not protected
                                 by any password

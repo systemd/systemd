@@ -427,7 +427,7 @@
                                 <term><varname>Restart=</varname></term>
                                 <listitem><para>Configures whether the
                                 main service process shall be
-                                restarted when it exists. Takes one of
+                                restarted when it exits. Takes one of
                                 <option>no</option>,
                                 <option>on-success</option>,
                                 <option>on-failure</option>,
@@ -557,7 +557,7 @@
                                 group and the control group continues
                                 to exist after stop unless it is
                                 empty. Defaults to
-                                <option>control-croup</option>.</para>
+                                <option>control-group</option>.</para>
 
                                 <para>Processes will first be
                                 terminated via SIGTERM. If then after
@@ -597,7 +597,7 @@
                                 <option>main</option> or
                                 <option>all</option>. If
                                 <option>none</option> no daemon status
-                                updates are accepted by the service
+                                updates are accepted from the service
                                 processes, all status update messages
                                 are ignored. If <option>main</option>
                                 only service updates sent from the

@@ -127,7 +127,7 @@
                                 be specified more than once in which
                                 case all listed groups are set as
                                 supplementary groups. This option does
-                                not override but extend the list of
+                                not override but extends the list of
                                 supplementary groups configured in the
                                 system group database for the
                                 user.</para></listitem>
@@ -301,10 +301,11 @@
                                 below) and the executed process
                                 becomes the controlling process of the
                                 terminal. If the terminal is already
-                                being controlled by another process it
-                                is waited until that process releases
-                                the
-                                terminal. <option>tty-force</option>
+                                being controlled by another process the
+                                executed process waits until the current
+                                controlling process releases the
+                                terminal.
+                                <option>tty-force</option>
                                 is similar to <option>tty</option>,
                                 but the executed process is forcefully
                                 and immediately made the controlling
@@ -500,15 +501,15 @@
                                 <term><varname>TimerSlackNSec=</varname></term>
                                 <listitem><para>Sets the timer slack
                                 in nanoseconds for the executed
-                                processes The timer slack controls the
+                                processes. The timer slack controls the
                                 accuracy of wake-ups triggered by
                                 timers. See
                                 <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for more information. Note that in
                                 contrast to most other time span
-                                definitions this value is takes a
-                                nano-seconds integer and does not
-                                understand any other
+                                definitions this parameter takes an
+                                integer value in nano-seconds and does
+                                not understand any other
                                 units.</para></listitem>
                         </varlistentry>
 
