@@ -105,7 +105,7 @@ static int mount_points_list_get(MountPoint **head) {
                         goto finish;
                 }
 
-                if (mount_point_is_api(p)) {
+                if (mount_point_is_api(p) || mount_point_ignore(p)) {
                         free(p);
                         continue;
                 }

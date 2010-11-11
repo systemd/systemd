@@ -1213,6 +1213,8 @@ static int mount_add_one(
          * dependencies ever. */
         if (mount_point_is_api(where))
                 return 0;
+        if (mount_point_ignore(where))
+                return 0;
 
         if (streq(fstype, "autofs"))
                 return 0;

@@ -27,5 +27,6 @@
 int mount_setup(void);
 
 bool mount_point_is_api(const char *path);
+bool mount_point_ignore(const char *path);
 
 #endif

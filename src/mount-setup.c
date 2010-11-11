@@ -74,11 +74,17 @@ bool mount_point_is_api(const char *path) {
                 if (path_equal(path, mount_table[i].where))
                         return true;
 
+        return path_startswith(path, "/sys/fs/cgroup/");
+}
+
+bool mount_point_ignore(const char *path) {
+       unsigned i;
+
         for (i = 0; i < ELEMENTSOF(ignore_paths); i++)
                 if (path_equal(path, ignore_paths[i]))
                         return true;
 
-        return path_startswith(path, "/sys/fs/cgroup/");
+        return false;
 }
 
 static int mount_one(const MountPoint *p) {
