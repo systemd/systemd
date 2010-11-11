@@ -82,6 +82,8 @@
 
 * systemctl condrestart should return 0 if service isn't running
 
+* fsck-root.service/start gets queued twice
+
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
