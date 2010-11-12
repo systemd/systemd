@@ -198,7 +198,7 @@ int log_open(void) {
 
         if (log_target != LOG_TARGET_AUTO ||
             getpid() == 1 ||
-            isatty(STDERR_FILENO) <= 0)) {
+            isatty(STDERR_FILENO) <= 0) {
 
                 if (log_target == LOG_TARGET_AUTO ||
                     log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
