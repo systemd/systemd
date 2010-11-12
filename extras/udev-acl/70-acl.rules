@@ -47,6 +47,9 @@ SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="udev-acl"
 # smart-card readers
 ENV{ID_SMARTCARD_READER}=="*?", TAG+="udev-acl"
 
+# PDA devices
+ENV{ID_PDA}=="*?", TAG+="udev-acl"
+
 # joysticks
 SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", TAG+="udev-acl"
 
