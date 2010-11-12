@@ -2205,6 +2205,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 break;
 
         default:
+                log_error("event type=%i", w->type);
                 assert_not_reached("Unknown epoll event type.");
         }
 
