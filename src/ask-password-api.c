@@ -76,7 +76,7 @@ int ask_password_tty(
 
                 loop_write(ttyfd, "\x1B[1m", 4, false);
                 loop_write(ttyfd, message, strlen(message), false);
-                loop_write(ttyfd, ": ", 2, false);
+                loop_write(ttyfd, " ", 1, false);
                 loop_write(ttyfd, "\x1B[0m", 4, false);
 
                 new_termios = old_termios;
