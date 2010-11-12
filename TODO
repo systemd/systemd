@@ -86,6 +86,16 @@
 
 * tmpfiles: allow specification of .conf files on cmdline
 
+* allow runtime changing of log level and target
+
+* in the PAM module rely on loginuid to figure out XDG_RUNTIME_DIR
+
+* tmpfiles: skip sticky files and after wallclock time change
+
+* pull in 'following' units in transactions
+
+* fix hotplug transactions
+
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
