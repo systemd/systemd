@@ -59,7 +59,7 @@ static int create_disk(
                 const char *password,
                 const char *options) {
 
-        char *p = NULL, *n = NULL, *d = NULL, *u = NULL, *from = NULL, *to = NULL;
+        char *p = NULL, *n = NULL, *d = NULL, *u = NULL, *from = NULL, *to = NULL, *e = NULL;
         int r;
         FILE *f = NULL;
 
@@ -139,14 +139,14 @@ static int create_disk(
                 goto fail;
         }
 
+        if (asprintf(&from, "../%s", n) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
         if (!options || !has_option(options, "noauto")) {
 
                 if (asprintf(&to, "%s/%s.wants/%s", arg_dest, d, n) < 0) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                if (asprintf(&from, "../%s", n) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -160,12 +160,30 @@ static int create_disk(
                 }
         }
 
+        free(to);
+        to = NULL;
+
+        e = unit_name_escape(name);
+        if (asprintf(&to, "%s/dev-mapper-%s.device.wants/%s", arg_dest, e, n) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        mkdir_parents(to, 0755);
+
+        if (symlink(from, to) < 0) {
+                log_error("Failed to create symlink '%s' to '%s': %m", from, to);
+                r = -errno;
+                goto fail;
+        }
+
         r = 0;
 
 fail:
         free(p);
         free(n);
         free(d);
+        free(e);
 
         free(from);
         free(to);

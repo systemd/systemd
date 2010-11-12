@@ -84,6 +84,8 @@
 
 * fsck-root.service/start gets queued twice
 
+* tmpfiles: allow specification of .conf files on cmdline
+
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
