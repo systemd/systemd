@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <sys/signalfd.h>
+#include <fcntl.h>
 
 #include "util.h"
 #include "conf-parser.h"
@@ -335,6 +336,55 @@ finish:
         return r;
 }
 
+static int tty_block(void) {
+        char *p;
+        const char *t;
+        int fd;
+
+        if (!(t = ttyname(STDIN_FILENO)))
+                return -errno;
+
+        if (asprintf(&p, "/dev/.systemd/ask-password-block/%s", file_name_from_path(t)) < 0)
+                return -ENOMEM;
+
+        mkdir_parents(p, 0700);
+        mkfifo(p, 0600);
+
+        fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        free(p);
+
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}
+
+static bool tty_match(const char *path) {
+        int fd;
+        char *p;
+
+        /* We use named pipes to ensure that wall messages suggesting
+         * password entry are not printed over password prompts
+         * already shown. We use the fact here that opening a pipe in
+         * non-blocking mode for write-only will succeed only if
+         * there's some writer behind it. Using pipes has the
+         * advantage that the block will automatically go away if the
+         * process dies. */
+
+        if (asprintf(&p, "/dev/.systemd/ask-password-block/%s", file_name_from_path(path)) < 0)
+                return true;
+
+        fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        free(p);
+
+        if (fd < 0)
+                return true;
+
+        /* What, we managed to open the pipe? Then this tty is filtered. */
+        close_nointr_nofail(fd);
+        return false;
+}
+
 static int show_passwords(void) {
         DIR *d;
         struct dirent *de;
@@ -375,7 +425,7 @@ static int show_passwords(void) {
                 free(p);
 
                 if (wall) {
-                        utmp_wall(wall);
+                        utmp_wall(wall, tty_match);
                         free(wall);
                 }
         }
@@ -394,10 +444,12 @@ static int watch_passwords(void) {
                 _FD_MAX
         };
 
-        int notify = -1, signal_fd = -1;
+        int notify = -1, signal_fd = -1, tty_block_fd = -1;
         struct pollfd pollfd[_FD_MAX];
         sigset_t mask;
         int r;
+
+        tty_block_fd = tty_block();
 
         mkdir_p("/dev/.systemd/ask-password", 0755);
 
@@ -455,6 +507,9 @@ finish:
 
         if (signal_fd >= 0)
                 close_nointr_nofail(signal_fd);
+
+        if (tty_block_fd >= 0)
+                close_nointr_nofail(tty_block_fd);
 
         return r;
 }

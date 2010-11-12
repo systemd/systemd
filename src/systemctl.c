@@ -258,7 +258,7 @@ static void warn_wall(enum action action) {
                 }
 
                 if (*p) {
-                        utmp_wall(p);
+                        utmp_wall(p, NULL);
                         free(p);
                         return;
                 }
@@ -269,7 +269,7 @@ static void warn_wall(enum action action) {
         if (!table[action])
                 return;
 
-        utmp_wall(table[action]);
+        utmp_wall(table[action], NULL);
 }
 
 struct unit_info {

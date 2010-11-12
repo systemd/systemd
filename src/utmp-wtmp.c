@@ -358,7 +358,7 @@ finish:
         return r;
 }
 
-int utmp_wall(const char *message) {
+int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
         struct utmpx *u;
         char date[FORMAT_TIMESTAMP_MAX];
         char *text = NULL, *hn = NULL, *un = NULL, *tty = NULL;
@@ -407,8 +407,9 @@ int utmp_wall(const char *message) {
                         path = buf;
                 }
 
-                if ((q = write_to_terminal(path, text)) < 0)
-                        r = q;
+                if (!match_tty || match_tty(path))
+                        if ((q = write_to_terminal(path, text)) < 0)
+                                r = q;
 
                 free(buf);
         }

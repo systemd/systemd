@@ -108,7 +108,7 @@ static void warn_wall(usec_t n, struct shutdownd_command *c) {
                 return;
 
         if (c->wall_message[0])
-                utmp_wall(c->wall_message);
+                utmp_wall(c->wall_message, NULL);
         else {
                 char date[FORMAT_TIMESTAMP_MAX];
                 const char* prefix;
@@ -126,7 +126,7 @@ static void warn_wall(usec_t n, struct shutdownd_command *c) {
                 if (asprintf(&l, "%s%s!", prefix, format_timestamp(date, sizeof(date), c->elapse)) < 0)
                         log_error("Failed to allocate wall message");
                 else {
-                        utmp_wall(l);
+                        utmp_wall(l, NULL);
                         free(l);
                 }
         }
