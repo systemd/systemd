@@ -37,8 +37,6 @@
 
 * if a service fails too often, make the service enter failed mode, and the socket, too.
 
-* bash completion a la gdbus
-
 * systemctl list-jobs - show dependencies
 
 * accountsservice is borked
@@ -62,7 +60,7 @@
 
 * readahead: btrfs/LVM SSD detection
 
-* document locale.conf, vconsole.conf and possibly the tempfiles.d and modules-load.d mechanism.
+* man pages for: locale.conf, vconsole.conf modules-load.d
 
 * when processes remain in a service even though the start command failed enter active
 
