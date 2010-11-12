@@ -213,6 +213,7 @@ static int parse_password(const char *filename, char **wall) {
                 { "NotAfter", config_parse_uint64,   &not_after,   "Ask" },
                 { "Message",  config_parse_string,   &message,     "Ask" },
                 { "PID",      config_parse_unsigned, &pid,         "Ask" },
+                { NULL, NULL, NULL, NULL }
         };
 
         FILE *f;
