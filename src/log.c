@@ -196,20 +196,26 @@ int log_open(void) {
                 return 0;
         }
 
-        if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
-            log_target == LOG_TARGET_SYSLOG)
-                if ((r = log_open_syslog()) >= 0) {
-                        log_close_console();
-                        return r;
-                }
+        if (log_target != LOG_TARGET_AUTO ||
+            getpid() == 1 ||
+            isatty(STDERR_FILENO) <= 0)) {
 
-        if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
-            log_target == LOG_TARGET_KMSG)
-                if ((r = log_open_kmsg()) >= 0) {
-                        log_close_syslog();
-                        log_close_console();
-                        return r;
-                }
+                if (log_target == LOG_TARGET_AUTO ||
+                    log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                    log_target == LOG_TARGET_SYSLOG)
+                        if ((r = log_open_syslog()) >= 0) {
+                                log_close_console();
+                                return r;
+                        }
+                if (log_target == LOG_TARGET_AUTO ||
+                    log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                    log_target == LOG_TARGET_KMSG)
+                        if ((r = log_open_kmsg()) >= 0) {
+                                log_close_syslog();
+                                log_close_console();
+                                return r;
+                        }
+        }
 
         log_close_syslog();
 
@@ -383,7 +389,8 @@ static int log_dispatch(
                 if ((e = strpbrk(buffer, NEWLINE)))
                         *(e++) = 0;
 
-                if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                if (log_target == LOG_TARGET_AUTO ||
+                    log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                     log_target == LOG_TARGET_SYSLOG) {
 
                         if ((k = write_to_syslog(level, file, line, func, buffer)) < 0) {
@@ -394,7 +401,8 @@ static int log_dispatch(
                 }
 
                 if (k <= 0 &&
-                    (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                    (log_target == LOG_TARGET_AUTO ||
+                     log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                      log_target == LOG_TARGET_KMSG)) {
 
                         if ((k = write_to_kmsg(level, file, line, func, buffer)) < 0) {
@@ -568,7 +576,8 @@ static const char *const log_target_table[] = {
         [LOG_TARGET_SYSLOG] = "syslog",
         [LOG_TARGET_KMSG] = "kmsg",
         [LOG_TARGET_SYSLOG_OR_KMSG] = "syslog-or-kmsg",
-        [LOG_TARGET_NULL] = "null"
+        [LOG_TARGET_NULL] = "null",
+        [LOG_TARGET_AUTO] = "auto"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
