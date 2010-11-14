@@ -401,6 +401,39 @@ static Unit *device_following(Unit *u) {
         return UNIT(first);
 }
 
+static int device_following_set(Unit *u, Set **_s) {
+        Device *d = DEVICE(u);
+        Device *other;
+        Set *s;
+        int r;
+
+        assert(d);
+        assert(_s);
+
+        if (!d->same_sysfs_prev && !d->same_sysfs_next) {
+                *_s = NULL;
+                return 0;
+        }
+
+        if (!(s = set_new(NULL, NULL)))
+                return -ENOMEM;
+
+        for (other = d->same_sysfs_next; other; other = other->same_sysfs_next)
+                if ((r = set_put(s, other)) < 0)
+                        goto fail;
+
+        for (other = d->same_sysfs_prev; other; other = other->same_sysfs_prev)
+                if ((r = set_put(s, other)) < 0)
+                        goto fail;
+
+        *_s = s;
+        return 1;
+
+fail:
+        set_free(s);
+        return r;
+}
+
 static void device_shutdown(Manager *m) {
         assert(m);
 
@@ -550,6 +583,7 @@ const UnitVTable device_vtable = {
         .bus_invalidating_properties =  bus_device_invalidating_properties,
 
         .following = device_following,
+        .following_set = device_following_set,
 
         .enumerate = device_enumerate,
         .shutdown = device_shutdown

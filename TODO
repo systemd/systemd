@@ -78,11 +78,13 @@
 
 * in the PAM module rely on loginuid to figure out XDG_RUNTIME_DIR
 
+* automatically determine TERM= based on tty name. (TERM=linux vs. TERM=vt100-nav)
+
+* declare /etc/system-release cross-distro standard
+
 Pre v12:
 
 * fsck-root.service/start gets queued twice
-
-* pull in 'following' units in transactions
 
 * fix hotplug transactions
 

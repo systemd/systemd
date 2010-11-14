@@ -1162,6 +1162,39 @@ static Unit *swap_following(Unit *u) {
         return UNIT(first);
 }
 
+static int swap_following_set(Unit *u, Set **_set) {
+        Swap *s = SWAP(u);
+        Swap *other;
+        Set *set;
+        int r;
+
+        assert(s);
+        assert(_set);
+
+        if (LIST_JUST_US(same_proc_swaps, s)) {
+                *_set = NULL;
+                return 0;
+        }
+
+        if (!(set = set_new(NULL, NULL)))
+                return -ENOMEM;
+
+        LIST_FOREACH_AFTER(same_proc_swaps, other, s)
+                if ((r = set_put(set, other)) < 0)
+                        goto fail;
+
+        LIST_FOREACH_BEFORE(same_proc_swaps, other, s)
+                if ((r = set_put(set, other)) < 0)
+                        goto fail;
+
+        *_set = set;
+        return 1;
+
+fail:
+        set_free(set);
+        return r;
+}
+
 static void swap_shutdown(Manager *m) {
         assert(m);
 
@@ -1319,6 +1352,7 @@ const UnitVTable swap_vtable = {
         .bus_invalidating_properties =  bus_swap_invalidating_properties,
 
         .following = swap_following,
+        .following_set = swap_following_set,
 
         .enumerate = swap_enumerate,
         .shutdown = swap_shutdown

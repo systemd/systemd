@@ -2319,6 +2319,18 @@ int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error) {
         return UNIT_VTABLE(u)->kill(u, w, m, signo, error);
 }
 
+
+int unit_following_set(Unit *u, Set **s) {
+        assert(u);
+        assert(s);
+
+        if (UNIT_VTABLE(u)->following_set)
+                return UNIT_VTABLE(u)->following_set(u, s);
+
+        *s = NULL;
+        return 0;
+}
+
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",

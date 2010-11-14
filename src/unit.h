@@ -329,6 +329,9 @@ struct UnitVTable {
         /* Return the unit this unit is following */
         Unit *(*following)(Unit *u);
 
+        /* Return the set of units that are following each other */
+        int (*following_set)(Unit *u, Set **s);
+
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
          * everything that is loaded here should still stay in
@@ -507,6 +510,8 @@ bool unit_pending_inactive(Unit *u);
 bool unit_pending_active(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
+
+int unit_following_set(Unit *u, Set **s);
 
 UnitType unit_name_to_type(const char *n);
 bool unit_name_is_valid(const char *n, bool template_ok);

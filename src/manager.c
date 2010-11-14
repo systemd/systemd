@@ -1445,6 +1445,22 @@ static int transaction_add_job_and_dependencies(
                 return -ENOMEM;
 
         if (is_new) {
+                Set *following;
+
+                /* If we are following some other unit, make sure we
+                 * add all dependencies of everybody following. */
+                if (unit_following_set(ret->unit, &following) > 0) {
+                        SET_FOREACH(dep, following, i)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, false, override, false, e, NULL)) < 0) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
+
+                        set_free(following);
+                }
+
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES], i)
