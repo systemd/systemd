@@ -826,6 +826,7 @@ fail:
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
+        Unit *following;
 
         assert(u);
 
@@ -840,15 +841,21 @@ int unit_start(Unit *u) {
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
 
-        /* If it is stopped, but we cannot start it, then fail */
-        if (!UNIT_VTABLE(u)->start)
-                return -EBADR;
-
         /* If the conditions failed, don't do anything at all */
         if (!condition_test_list(u->meta.conditions)) {
                 log_debug("Starting of %s requested but condition failed. Ignoring.", u->meta.id);
                 return -EALREADY;
         }
+
+        /* Forward to the main object, if we aren't it. */
+        if ((following = unit_following(u))) {
+                log_debug("Redirecting start request from %s to %s.", u->meta.id, following->meta.id);
+                return unit_start(following);
+        }
+
+        /* If it is stopped, but we cannot start it, then fail */
+        if (!UNIT_VTABLE(u)->start)
+                return -EBADR;
 
         /* We don't suppress calls to ->start() here when we are
          * already starting, to allow this request to be used as a
@@ -859,7 +866,6 @@ int unit_start(Unit *u) {
         unit_add_to_dbus_queue(u);
 
         unit_status_printf(u, "Starting %s...\n", unit_description(u));
-
         return UNIT_VTABLE(u)->start(u);
 }
 
@@ -883,6 +889,7 @@ bool unit_can_isolate(Unit *u) {
  */
 int unit_stop(Unit *u) {
         UnitActiveState state;
+        Unit *following;
 
         assert(u);
 
@@ -890,13 +897,17 @@ int unit_stop(Unit *u) {
         if (UNIT_IS_INACTIVE_OR_FAILED(state))
                 return -EALREADY;
 
+        if ((following = unit_following(u))) {
+                log_debug("Redirecting stop request from %s to %s.", u->meta.id, following->meta.id);
+                return unit_stop(following);
+        }
+
         if (!UNIT_VTABLE(u)->stop)
                 return -EBADR;
 
         unit_add_to_dbus_queue(u);
 
         unit_status_printf(u, "Stopping %s...\n", unit_description(u));
-
         return UNIT_VTABLE(u)->stop(u);
 }
 
@@ -907,6 +918,7 @@ int unit_stop(Unit *u) {
  */
 int unit_reload(Unit *u) {
         UnitActiveState state;
+        Unit *following;
 
         assert(u);
 
@@ -922,6 +934,11 @@ int unit_reload(Unit *u) {
 
         if (state != UNIT_ACTIVE)
                 return -ENOEXEC;
+
+        if ((following = unit_following(u))) {
+                log_debug("Redirecting reload request from %s to %s.", u->meta.id, following->meta.id);
+                return unit_reload(following);
+        }
 
         unit_add_to_dbus_queue(u);
         return UNIT_VTABLE(u)->reload(u);
