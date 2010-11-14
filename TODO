@@ -78,8 +78,6 @@
 
 * in the PAM module rely on loginuid to figure out XDG_RUNTIME_DIR
 
-* tmpfiles: skip sticky files and after wallclock time change
-
 Pre v12:
 
 * fsck-root.service/start gets queued twice

@@ -182,6 +182,13 @@ static int dir_cleanup(
                         }
 
                 } else {
+                        /* Skip files for which the sticky bit is
+                         * set. These are semantics we define, and are
+                         * unknown elsewhere. See XDG_RUNTIME_DIR
+                         * specification for details. */
+                        if (s.st_mode & S_ISVTX)
+                                continue;
+
                         if (mountpoint) {
                                 if (streq(dent->d_name, ".journal") &&
                                     s.st_uid == 0)
