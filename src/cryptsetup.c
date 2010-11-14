@@ -37,6 +37,18 @@ static bool opt_readonly = false;
 static bool opt_verify = false;
 static usec_t opt_timeout = 0;
 
+/* Options Debian's crypttab knows we don't:
+
+    offset=
+    skip=
+    precheck=
+    check=
+    checkargs=
+    noearly=
+    loud=
+    keyscript=
+*/
+
 static int parse_one_option(const char *option) {
         assert(option);
 
@@ -155,7 +167,10 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (argc >= 5 && argv[4][0] && !streq(argv[4], "-")) {
+                if (argc >= 5 &&
+                    argv[4][0] &&
+                    !streq(argv[4], "-") &&
+                    !streq(argv[4], "none")) {
 
                         if (!path_is_absolute(argv[4]))
                                 log_error("Password file path %s is not absolute. Ignoring.", argv[4]);
