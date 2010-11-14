@@ -7,6 +7,8 @@
 
 ACTION!="add|change", GOTO="systemd_end"
 
+ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", GOTO="systemd_end"
+
 KERNEL=="tty[0-9]|tty1[0-2]", TAG+="systemd"
 KERNEL=="ttyS*", TAG+="systemd"
 

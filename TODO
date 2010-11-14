@@ -56,8 +56,6 @@
 * start getty 2-6 only when actual vt switch happens
   (same model as socket on-demand activation)
 
-* ask-password: find way to disable wall agent where tty agent is running
-
 * readahead: btrfs/LVM SSD detection
 
 * man pages for: locale.conf, vconsole.conf modules-load.d
@@ -68,19 +66,11 @@
 
 * parse early boot time env var from dracut RD_TIMEOUT, drop RD_xxx
 
-* cryptsetup
-
 * add seperate man page for [Install] settings
 
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
 
-* we now order plymouth after udev-trigger. Can we optimize this?
-
-* drop tmp.mount
-
 * systemctl condrestart should return 0 if service isn't running
-
-* fsck-root.service/start gets queued twice
 
 * tmpfiles: allow specification of .conf files on cmdline
 
@@ -90,9 +80,15 @@
 
 * tmpfiles: skip sticky files and after wallclock time change
 
+Pre v12:
+
+* fsck-root.service/start gets queued twice
+
 * pull in 'following' units in transactions
 
 * fix hotplug transactions
+
+* make it possible to wait for device unplug, i.e. issue "stop" on devices
 
 External:
 
