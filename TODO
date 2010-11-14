@@ -86,7 +86,7 @@ Pre v12:
 
 * fix hotplug transactions
 
-* make it possible to wait for device unplug, i.e. issue "stop" on devices
+* plymouth agent start loop
 
 External:
 

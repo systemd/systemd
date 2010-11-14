@@ -1386,9 +1386,9 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
 
         case JOB_VERIFY_ACTIVE:
         case JOB_START:
+        case JOB_STOP:
                 return true;
 
-        case JOB_STOP:
         case JOB_RESTART:
         case JOB_TRY_RESTART:
                 return unit_can_start(u);

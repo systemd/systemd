@@ -385,6 +385,9 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_START:
                         r = unit_start(j->unit);
+
+                        /* If this unit cannot be started, then simply
+                         * wait */
                         if (r == -EBADR)
                                 r = 0;
                         break;
@@ -402,6 +405,11 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_STOP:
                         r = unit_stop(j->unit);
+
+                        /* If this unit cannot stopped, then simply
+                         * wait. */
+                        if (r == -EBADR)
+                                r = 0;
                         break;
 
                 case JOB_RELOAD:
