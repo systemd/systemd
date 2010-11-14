@@ -88,8 +88,6 @@ Pre v12:
 
 * fix hotplug transactions
 
-* plymouth agent start loop
-
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.

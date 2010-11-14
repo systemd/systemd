@@ -267,7 +267,8 @@ static void path_set_state(Path *p, PathState state) {
         old_state = p->state;
         p->state = state;
 
-        if (state != PATH_WAITING)
+        if (state != PATH_WAITING &&
+            (state != PATH_RUNNING || p->inotify_triggered))
                 path_unwatch(p);
 
         if (state != old_state)
@@ -279,7 +280,7 @@ static void path_set_state(Path *p, PathState state) {
         unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state]);
 }
 
-static void path_enter_waiting(Path *p, bool initial);
+static void path_enter_waiting(Path *p, bool initial, bool recheck);
 
 static int path_coldplug(Unit *u) {
         Path *p = PATH(u);
@@ -291,7 +292,7 @@ static int path_coldplug(Unit *u) {
 
                 if (p->deserialized_state == PATH_WAITING ||
                     p->deserialized_state == PATH_RUNNING)
-                        path_enter_waiting(p, true);
+                        path_enter_waiting(p, true, true);
                 else
                         path_set_state(p, p->deserialized_state);
         }
@@ -322,6 +323,11 @@ static void path_enter_running(Path *p) {
         if ((r = manager_add_job(p->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
+        p->inotify_triggered = false;
+
+        if ((r = path_watch(p)) < 0)
+                goto fail;
+
         path_set_state(p, PATH_RUNNING);
         return;
 
@@ -333,10 +339,13 @@ fail:
 }
 
 
-static void path_enter_waiting(Path *p, bool initial) {
+static void path_enter_waiting(Path *p, bool initial, bool recheck) {
         PathSpec *s;
         int r;
         bool good = false;
+
+        if (!recheck)
+                goto waiting;
 
         LIST_FOREACH(spec, s, p->specs) {
 
@@ -372,6 +381,7 @@ static void path_enter_waiting(Path *p, bool initial) {
                 return;
         }
 
+waiting:
         if ((r = path_watch(p)) < 0)
                 goto fail;
 
@@ -393,7 +403,7 @@ static int path_start(Unit *u) {
                 return -ENOENT;
 
         p->failure = false;
-        path_enter_waiting(p, true);
+        path_enter_waiting(p, true, true);
 
         return 0;
 }
@@ -460,11 +470,13 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         uint8_t *buf = NULL;
         struct inotify_event *e;
         PathSpec *s;
+        bool changed;
 
         assert(p);
         assert(fd >= 0);
 
-        if (p->state != PATH_WAITING)
+        if (p->state != PATH_WAITING &&
+            p->state != PATH_RUNNING)
                 return;
 
         log_debug("inotify wakeup on %s.", u->meta.id);
@@ -498,15 +510,19 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 goto fail;
         }
 
+        /* If we are already running, then remember that one event was
+         * dispatched so that we restart the service only if something
+         * actually changed on disk */
+        p->inotify_triggered = true;
+
         e = (struct inotify_event*) buf;
 
+        changed = false;
         while (k > 0) {
                 size_t step;
 
                 if (s->type == PATH_CHANGED && s->primary_wd == e->wd)
-                        path_enter_running(p);
-                else
-                        path_enter_waiting(p, false);
+                        changed = true;
 
                 step = sizeof(struct inotify_event) + e->len;
                 assert(step <= (size_t) k);
@@ -514,6 +530,11 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 e = (struct inotify_event*) ((uint8_t*) e + step);
                 k -= step;
         }
+
+        if (changed)
+                path_enter_running(p);
+        else
+                path_enter_waiting(p, false, true);
 
         free(buf);
 
@@ -558,7 +579,11 @@ void path_unit_notify(Unit *u, UnitActiveState new_state) {
 
                 if (p->state == PATH_RUNNING && new_state == UNIT_INACTIVE) {
                         log_debug("%s got notified about unit deactivation.", p->meta.id);
-                        path_enter_waiting(p, false);
+
+                        /* Hmm, so inotify was triggered since the
+                         * last activation, so I guess we need to
+                         * recheck what is going on. */
+                        path_enter_waiting(p, false, p->inotify_triggered);
                 }
         }
 

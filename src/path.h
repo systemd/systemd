@@ -69,6 +69,7 @@ struct Path {
         PathState state, deserialized_state;
 
         bool failure;
+        bool inotify_triggered;
 };
 
 void path_unit_notify(Unit *u, UnitActiveState new_state);
