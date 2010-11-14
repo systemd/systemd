@@ -480,3 +480,13 @@ finish:
 
         return r;
 }
+
+int ask_password_auto(const char *message, const char *icon, usec_t until, char **_passphrase) {
+        assert(message);
+        assert(_passphrase);
+
+        if (isatty(STDIN_FILENO))
+                return ask_password_tty(message, until, NULL, _passphrase);
+        else
+                return ask_password_agent(message, icon, until, _passphrase);
+}

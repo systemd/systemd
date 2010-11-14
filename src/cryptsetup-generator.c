@@ -115,9 +115,8 @@ static int create_disk(
                 "\n[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " %s '%s' '%s' '%s' '%s'\n"
+                "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
-                options && has_option(options, "swap") ? "format-and-attach" : "attach",
                 name, u, strempty(password), strempty(options),
                 name);
 
