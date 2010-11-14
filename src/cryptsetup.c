@@ -30,7 +30,6 @@
 
 static const char *opt_type = NULL; /* LUKS1 or PLAIN */
 static char *opt_cipher = NULL;
-static char *opt_cipher_mode = NULL;
 static unsigned opt_key_size = 0;
 static char *opt_hash = NULL;
 static unsigned opt_tries = 0;
@@ -69,15 +68,6 @@ static int parse_one_option(const char *option) {
 
                 free(opt_hash);
                 opt_hash = t;
-
-        } else if (startswith(option, "mode=")) {
-                char *t;
-
-                if (!(t = strdup(option+5)))
-                        return -ENOMEM;
-
-                free(opt_cipher_mode);
-                opt_cipher_mode = t;
 
         } else if (startswith(option, "tries=")) {
 
@@ -140,9 +130,8 @@ static void log_glue(int level, const char *msg, void *usrptr) {
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
         struct crypt_device *cd = NULL;
-        char *password = NULL;
+        char *password = NULL, *truncated_cipher = NULL;
         const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL;
-        crypt_status_info status;
 
         if (argc < 3) {
                 log_error("This program requires at least two arguments.");
@@ -159,6 +148,7 @@ int main(int argc, char *argv[]) {
                 unsigned try;
                 const char *key_file = NULL;
                 usec_t until;
+                crypt_status_info status;
 
                 if (argc < 4) {
                         log_error("attach requires at least two arguments.");
@@ -197,9 +187,24 @@ int main(int argc, char *argv[]) {
 
                 opt_tries = opt_tries > 0 ? opt_tries : 3;
                 opt_key_size = (opt_key_size > 0 ? opt_key_size : 256);
-                cipher = opt_cipher ? opt_cipher : "aes";
-                cipher_mode = opt_cipher_mode ? opt_cipher_mode : "cbc-essiv:sha256";
                 hash = opt_hash ? opt_hash : "ripemd160";
+
+                if (opt_cipher) {
+                        size_t l;
+
+                        l = strcspn(opt_cipher, "-");
+
+                        if (!(truncated_cipher = strndup(opt_cipher, l))) {
+                                log_error("Out of memory");
+                                goto finish;
+                        }
+
+                        cipher = truncated_cipher;
+                        cipher_mode = opt_cipher[l] ? opt_cipher+l+1 : "plain";
+                } else {
+                        cipher = "aes";
+                        cipher_mode = "cbc-essiv:sha256";
+                }
 
                 for (try = 0; try < opt_tries; try++) {
                         bool pass_volume_key = false;
@@ -335,8 +340,9 @@ finish:
                 crypt_free(cd);
 
         free(opt_cipher);
-        free(opt_cipher_mode);
         free(opt_hash);
+
+        free(truncated_cipher);
 
         free(password);
 
