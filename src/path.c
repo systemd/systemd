@@ -181,9 +181,9 @@ static void path_unwatch_one(Path *p, PathSpec *s) {
 
 static int path_watch_one(Path *p, PathSpec *s) {
         static const int flags_table[_PATH_TYPE_MAX] = {
-                [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF,
+                [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_CHANGED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
-                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_CREATE|IN_MOVED_TO
+                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO
         };
 
         bool exists = false;
@@ -221,9 +221,9 @@ static int path_watch_one(Path *p, PathSpec *s) {
 
                 *slash = 0;
 
-                flags = IN_DELETE_SELF|IN_MOVE_SELF;
+                flags = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB;
                 if (!exists)
-                        flags |= IN_CREATE | IN_MOVED_TO | IN_ATTRIB;
+                        flags |= IN_CREATE | IN_MOVED_TO;
 
                 if (inotify_add_watch(s->inotify_fd, k, flags) >= 0)
                         exists = true;

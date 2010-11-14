@@ -80,7 +80,7 @@
 
 * automatically determine TERM= based on tty name. (TERM=linux vs. TERM=vt100-nav)
 
-* declare /etc/system-release cross-distro standard
+* declare /etc/os-release cross-distro standard
 
 Pre v12:
 
