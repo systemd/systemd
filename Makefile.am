@@ -328,13 +328,6 @@ dist_systemunit_DATA += \
 	units/fedora/plymouth-halt.service
 endif
 
-if TARGET_DEBIAN_OR_UBUNTU
-dist_systemunit_DATA += \
-	units/debian/umountfs.service \
-	units/debian/umountnfs.service \
-	units/debian/umountroot.service
-endif
-
 if TARGET_GENTOO
 dist_systemunit_DATA += \
 	units/gentoo/xdm.service
@@ -1294,13 +1287,6 @@ if TARGET_GENTOO
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
 if TARGET_DEBIAN_OR_UBUNTU
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/umount.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/umount.target.wants && \
-		rm -f umountfs.service umountnfs.service umountroot.service && \
-		$(LN_S) ../umountfs.service umountfs.service && \
-		$(LN_S) ../umountnfs.service umountnfs.service && \
-		$(LN_S) ../umountroot.service umountroot.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel5.target && \
 		$(LN_S) multi-user.target runlevel5.target )
