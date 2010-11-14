@@ -2996,7 +2996,7 @@ void status_welcome(void) {
         else if (startswith(r, "Fedora"))
                 status_printf("Welcome to \x1B[0;34m%s\x1B[0m!\n", r); /* Blue for Fedora */
         else
-                status_printf("Welcome to %s!\n", r);
+                status_printf("Welcome to \x1B[1m%s\x1B[0m!\n", r); /* Highlight for everything else */
 
         free(r);
 
