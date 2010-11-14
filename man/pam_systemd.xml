@@ -92,7 +92,7 @@
                         <listitem><para>If
                         <option>create-session=0</option> is set, a new
                         control group
-                        <filename>/user/$USER/no-session</filename>
+                        <filename>/user/$USER/user</filename>
                         is created and the login process moved into
                         it.</para></listitem>
 
@@ -115,7 +115,7 @@
                         remaining processes in the
                         <filename>/user/$USER/$XDG_SESSION_ID</filename>
                         control group are migrated to
-                        <filename>/user/$USER/no-session</filename> and
+                        <filename>/user/$USER/user</filename> and
                         the original control group is
                         removed.</para></listitem>
 
@@ -123,7 +123,7 @@
                         <option>kill-user=1</option> is specified, and
                         no other user session control group remains,
                         except
-                        <filename>/user/$USER/no-session</filename>,
+                        <filename>/user/$USER/user</filename>,
                         all remaining processes in the
                         <filename>/user/$USER</filename> hierarchy
                         are killed and the control group is removed.</para></listitem>

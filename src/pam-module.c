@@ -335,7 +335,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
                 r = asprintf(&buf, "/user/%s/%s", username, id);
         } else
-                r = asprintf(&buf, "/user/%s/no-session", username);
+                r = asprintf(&buf, "/user/%s/user", username);
 
         if (r < 0) {
                 r = PAM_BUF_ERR;
@@ -369,7 +369,7 @@ static int session_remains(pam_handle_t *handle, const char *user_path) {
 
         while ((r = cg_read_subgroup(d, &subgroup)) > 0) {
 
-                remains = !streq(subgroup, "no-session");
+                remains = !streq(subgroup, "user");
                 free(subgroup);
 
                 if (remains)
@@ -416,7 +416,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 goto finish;
         }
 
-        /* We are probably still in some session/no-session dir. Move ourselves out of the way as first step */
+        /* We are probably still in some session/user dir. Move ourselves out of the way as first step */
         if ((r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, "/user", 0)) < 0)
                 pam_syslog(handle, LOG_ERR, "Failed to move us away: %s", strerror(-r));
 
@@ -430,7 +430,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if ((id = pam_getenv(handle, "XDG_SESSION_ID")) && created) {
 
                 if (asprintf(&session_path, "/user/%s/%s", username, id) < 0 ||
-                    asprintf(&nosession_path, "/user/%s/no-session", username) < 0) {
+                    asprintf(&nosession_path, "/user/%s/user", username) < 0) {
                         r = PAM_BUF_ERR;
                         goto finish;
                 }
@@ -444,10 +444,10 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 } else {
                         pam_syslog(handle, LOG_INFO, "Moving remaining processes of user session %s of %s into control group %s.", id, username, nosession_path);
 
-                        /* Migrate processes from session to
-                         * no-session cgroup. First, try to create the
-                         * no-session group in case it doesn't exist
-                         * yet. Also, delete the session group. */
+                        /* Migrate processes from session to user
+                         * cgroup. First, try to create the user group
+                         * in case it doesn't exist yet. Also, delete
+                         * the session group. */
                         create_user_group(handle, nosession_path, pw, false, false);
 
                         if ((r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, session_path, nosession_path, false, true)) < 0)
@@ -464,7 +464,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         /* Kill user processes not attached to any session */
         if (kill_user && r == 0) {
 
-                /* Kill no-session cgroup */
+                /* Kill user cgroup */
                 if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, user_path, true)) < 0)
                         pam_syslog(handle, LOG_ERR, "Failed to kill user cgroup: %s", strerror(-r));
         } else {
