@@ -112,10 +112,6 @@ PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
 AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
 
-PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
-AC_SUBST(DBUSGLIB_CFLAGS)
-AC_SUBST(DBUSGLIB_LIBS)
-
 have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
@@ -254,6 +250,12 @@ if test "x$enable_gtk" != "xno"; then
         fi
 fi
 AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
+
+if test "$have_gtk" = "yes"; then
+        PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
+        AC_SUBST(DBUSGLIB_CFLAGS)
+        AC_SUBST(DBUSGLIB_LIBS)
+fi
 
 AM_PROG_VALAC([0.9])
 AC_SUBST(VAPIDIR)
