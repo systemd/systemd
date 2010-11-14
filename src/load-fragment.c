@@ -433,7 +433,7 @@ static int config_parse_exec(
 
                 k = 0;
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                        if (strncmp(w, ";", l) == 0)
+                        if (strncmp(w, ";", MAX(l, 1U)) == 0)
                                 break;
 
                         k++;
@@ -444,7 +444,7 @@ static int config_parse_exec(
 
                 k = 0;
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                        if (strncmp(w, ";", l) == 0)
+                        if (strncmp(w, ";", MAX(l, 1U)) == 0)
                                 break;
 
                         if (honour_argv0 && w == rvalue) {
@@ -1077,11 +1077,11 @@ static int config_parse_mount_flags(
         assert(data);
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                if (strncmp(w, "shared", l) == 0)
+                if (strncmp(w, "shared", MAX(l, 6U)) == 0)
                         flags |= MS_SHARED;
-                else if (strncmp(w, "slave", l) == 0)
+                else if (strncmp(w, "slave", MAX(l, 5U)) == 0)
                         flags |= MS_SLAVE;
-                else if (strncmp(w, "private", l) == 0)
+                else if (strncmp(w, "private", MAX(l, 7U)) == 0)
                         flags |= MS_PRIVATE;
                 else {
                         log_error("[%s:%u] Failed to parse mount flags, ignoring: %s", filename, line, rvalue);

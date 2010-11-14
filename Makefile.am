@@ -137,7 +137,8 @@ noinst_PROGRAMS = \
 	test-hostname \
 	test-daemon \
 	test-cgroup \
-	test-env-replace
+	test-env-replace \
+	test-strv
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -617,6 +618,15 @@ test_env_replace_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_env_replace_LDADD = \
+	libsystemd-basic.la
+
+test_strv_SOURCES = \
+	src/test-strv.c
+
+test_strv_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_strv_LDADD = \
 	libsystemd-basic.la
 
 systemd_logger_SOURCES = \
