@@ -241,7 +241,7 @@ AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
-        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 gio-unix-2.0 libnotify ],
+        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 gio-unix-2.0 ],
                 [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
         AC_SUBST(GTK_CFLAGS)
         AC_SUBST(GTK_LIBS)
@@ -255,6 +255,10 @@ if test "$have_gtk" = "yes"; then
         PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
         AC_SUBST(DBUSGLIB_CFLAGS)
         AC_SUBST(DBUSGLIB_LIBS)
+
+        PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify ])
+        AC_SUBST(LIBNOTIFY_CFLAGS)
+        AC_SUBST(LIBNOTIFY_LIBS)
 fi
 
 AM_PROG_VALAC([0.9])

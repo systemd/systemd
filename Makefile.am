@@ -931,6 +931,7 @@ systemd_gnome_ask_password_agent_SOURCES = \
 systemd_gnome_ask_password_agent_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUSGLIB_CFLAGS) \
+	$(LIBNOTIFY_CFLAGS) \
 	$(GTK_CFLAGS) \
 	-Wno-unused-variable \
 	-Wno-unused-function \
@@ -948,6 +949,7 @@ systemd_gnome_ask_password_agent_VALAFLAGS = \
 
 systemd_gnome_ask_password_agent_LDADD = \
 	$(DBUSGLIB_LIBS) \
+	$(LIBNOTIFY_LIBS) \
 	$(GTK_LIBS)
 
 systemd_tty_ask_password_agent_SOURCES = \
