@@ -1252,7 +1252,7 @@ int exec_spawn(ExecCommand *command,
                                 }
                 }
 
-                if (!(our_env = new0(char*, 6))) {
+                if (!(our_env = new0(char*, 7))) {
                         r = EXIT_MEMORY;
                         goto fail;
                 }
@@ -1277,7 +1277,15 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                assert(n_env <= 6);
+                if (is_terminal_input(context->std_input) ||
+                    context->std_output == EXEC_OUTPUT_TTY ||
+                    context->std_error == EXEC_OUTPUT_TTY)
+                        if (!(our_env[n_env++] = strdup(default_term_for_tty(tty_path(context))))) {
+                                r = EXIT_MEMORY;
+                                goto fail;
+                        }
+
+                assert(n_env <= 7);
 
                 if (!(final_env = strv_env_merge(
                                       4,

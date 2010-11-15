@@ -73,7 +73,7 @@
 
 * in the PAM module rely on loginuid to figure out XDG_RUNTIME_DIR
 
-* automatically determine TERM= based on tty name. (TERM=linux vs. TERM=vt100-nav)
+* automatically determine TERM= based on tty name even for /dev/console
 
 * declare /etc/os-release cross-distro standard
 

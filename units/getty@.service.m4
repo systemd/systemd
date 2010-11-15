@@ -22,7 +22,6 @@ After=rc-local.service
 Before=getty.target
 
 [Service]
-Environment=TERM=linux
 ExecStart=-/sbin/agetty %I 38400
 Restart=always
 RestartSec=0

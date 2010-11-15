@@ -372,6 +372,8 @@ char *fstab_node_to_udev_node(const char *p);
 
 void filter_environ(const char *prefix);
 
+const char *default_term_for_tty(const char *tty);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

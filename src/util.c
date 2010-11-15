@@ -3470,6 +3470,21 @@ void filter_environ(const char *prefix) {
         environ[j] = NULL;
 }
 
+const char *default_term_for_tty(const char *tty) {
+        assert(tty);
+
+        if (startswith(tty, "/dev/"))
+                tty += 5;
+
+        if (startswith(tty, "tty") &&
+            tty[3] >= '0' && tty[3] <= '9')
+                return "TERM=linux";
+
+        /* FIXME: Proper handling of /dev/console would be cool */
+
+        return "TERM=vt100-nav";
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

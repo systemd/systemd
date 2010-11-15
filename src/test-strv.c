@@ -37,5 +37,18 @@ int main(int argc, char *argv[]) {
                 free(t);
         }
 
+        printf("%s\n", default_term_for_tty("/dev/tty23"));
+        printf("%s\n", default_term_for_tty("/dev/ttyS23"));
+        printf("%s\n", default_term_for_tty("/dev/tty0"));
+        printf("%s\n", default_term_for_tty("/dev/pty0"));
+        printf("%s\n", default_term_for_tty("/dev/pts/0"));
+        printf("%s\n", default_term_for_tty("/dev/console"));
+        printf("%s\n", default_term_for_tty("tty23"));
+        printf("%s\n", default_term_for_tty("ttyS23"));
+        printf("%s\n", default_term_for_tty("tty0"));
+        printf("%s\n", default_term_for_tty("pty0"));
+        printf("%s\n", default_term_for_tty("pts/0"));
+        printf("%s\n", default_term_for_tty("console"));
+
         return 0;
 }

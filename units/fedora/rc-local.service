@@ -11,7 +11,6 @@ ConditionPathExists=/etc/rc.local
 
 [Service]
 Type=forking
-Environment=TERM=linux
 ExecStart=/etc/rc.local start
 TimeoutSec=0
 StandardOutput=tty

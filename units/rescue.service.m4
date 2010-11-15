@@ -16,7 +16,6 @@ Before=shutdown.target
 
 [Service]
 Environment=HOME=/root
-Environment=TERM=vt100-nav
 WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth --hide-splash
 ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" or ^D to activate default mode.'
