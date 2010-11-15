@@ -79,8 +79,6 @@
 
 * declare /etc/os-release cross-distro standard
 
-* add ConditionDirectoryNotEmpty=
-
 Pre v12:
 
 * fix hotplug transactions
