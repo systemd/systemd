@@ -128,7 +128,7 @@ static uint64_t get_session_id(int *mode) {
                 r = safe_atou32(s, &u);
                 free(s);
 
-                if (r >= 0 && u != (uint32_t) -1) {
+                if (r >= 0 && u != (uint32_t) -1 && u > 0) {
                         *mode = SESSION_ID_AUDIT;
                         return (uint64_t) u;
                 }
@@ -179,31 +179,49 @@ static int get_user_data(
                 const char **ret_username,
                 struct passwd **ret_pw) {
 
-        const char *username;
-        struct passwd *pw;
+        const char *username = NULL;
+        struct passwd *pw = NULL;
         int r;
+        bool have_loginuid = false;
+        char *s;
 
         assert(handle);
         assert(ret_username);
         assert(ret_pw);
 
-        if ((r = pam_get_user(handle, &username, NULL)) != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to get user name.");
-                return r;
+        if (read_one_line_file("/proc/self/loginuid", &s) >= 0) {
+                uint32_t u;
+
+                r = safe_atou32(s, &u);
+                free(s);
+
+                if (r >= 0 && u != (uint32_t) -1 && u > 0) {
+                        have_loginuid = true;
+                        pw = pam_modutil_getpwuid(handle, u);
+                }
         }
 
-        if (!username || !*username) {
-                pam_syslog(handle, LOG_ERR, "User name not valid.");
-                return PAM_AUTH_ERR;
+        if (!have_loginuid) {
+                if ((r = pam_get_user(handle, &username, NULL)) != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to get user name.");
+                        return r;
+                }
+
+                if (!username || !*username) {
+                        pam_syslog(handle, LOG_ERR, "User name not valid.");
+                        return PAM_AUTH_ERR;
+                }
+
+                pw = pam_modutil_getpwnam(handle, username);
         }
 
-        if (!(pw = pam_modutil_getpwnam(handle, username))) {
+        if (!pw) {
                 pam_syslog(handle, LOG_ERR, "Failed to get user data.");
                 return PAM_USER_UNKNOWN;
         }
 
         *ret_pw = pw;
-        *ret_username = username;
+        *ret_username = username ? username : pw->pw_name;
 
         return PAM_SUCCESS;
 }

@@ -71,8 +71,6 @@
 
 * allow runtime changing of log level and target
 
-* in the PAM module rely on loginuid to figure out XDG_RUNTIME_DIR
-
 * automatically determine TERM= based on tty name even for /dev/console
 
 * declare /etc/os-release cross-distro standard
