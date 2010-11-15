@@ -218,7 +218,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-debug.mount \
 	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
-	units/tmp.mount \
 	units/var-lock.mount \
 	units/var-run.mount \
 	units/hwclock-load.service \
