@@ -163,7 +163,7 @@ static int create_disk(
         to = NULL;
 
         e = unit_name_escape(name);
-        if (asprintf(&to, "%s/dev-mapper-%s.device.wants/%s", arg_dest, e, n) < 0) {
+        if (asprintf(&to, "%s/dev-mapper-%s.device.requires/%s", arg_dest, e, n) < 0) {
                 r = -ENOMEM;
                 goto fail;
         }

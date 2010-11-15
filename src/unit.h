@@ -353,11 +353,6 @@ struct UnitVTable {
         /* Can units of this type have multiple names? */
         bool no_alias:1;
 
-        /* If true units of this types can never have "Requires"
-         * dependencies, because state changes can only be observed,
-         * not triggered */
-        bool no_requires:1;
-
         /* Instances make no sense for this type */
         bool no_instances:1;
 

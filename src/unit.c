@@ -1456,15 +1456,6 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
         if (u == other)
                 return 0;
 
-        if (UNIT_VTABLE(u)->no_requires &&
-            (d == UNIT_REQUIRES ||
-             d == UNIT_REQUIRES_OVERRIDABLE ||
-             d == UNIT_REQUISITE ||
-             d == UNIT_REQUISITE_OVERRIDABLE ||
-             d == UNIT_BIND_TO)) {
-                    return -EINVAL;
-        }
-
         if ((r = set_ensure_allocated(&u->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0)
                 return r;
 

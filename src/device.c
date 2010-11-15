@@ -562,7 +562,6 @@ DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
 const UnitVTable device_vtable = {
         .suffix = ".device",
 
-        .no_requires = true,
         .no_instances = true,
         .no_snapshots = true,
         .no_isolate = true,
