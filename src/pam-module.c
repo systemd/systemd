@@ -335,7 +335,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
                 r = asprintf(&buf, "/user/%s/%s", username, id);
         } else
-                r = asprintf(&buf, "/user/%s/user", username);
+                r = asprintf(&buf, "/user/%s/master", username);
 
         if (r < 0) {
                 r = PAM_BUF_ERR;
@@ -369,7 +369,7 @@ static int session_remains(pam_handle_t *handle, const char *user_path) {
 
         while ((r = cg_read_subgroup(d, &subgroup)) > 0) {
 
-                remains = !streq(subgroup, "user");
+                remains = !streq(subgroup, "master");
                 free(subgroup);
 
                 if (remains)
@@ -430,7 +430,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if ((id = pam_getenv(handle, "XDG_SESSION_ID")) && created) {
 
                 if (asprintf(&session_path, "/user/%s/%s", username, id) < 0 ||
-                    asprintf(&nosession_path, "/user/%s/user", username) < 0) {
+                    asprintf(&nosession_path, "/user/%s/master", username) < 0) {
                         r = PAM_BUF_ERR;
                         goto finish;
                 }
