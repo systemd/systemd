@@ -573,6 +573,7 @@
 
                         <varlistentry>
                                 <term><varname>ConditionPathExists=</varname></term>
+                                <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
                                 <term><varname>ConditionNull=</varname></term>
 
@@ -594,7 +595,12 @@
                                 is prefixed with an exclamation mark
                                 (!), the test is negated, and the unit
                                 only started if the path does not
-                                exist. Similarly
+                                exist. <varname>ConditionDirectoryNotEmpty=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a cetrain path is
+                                exists and is a non-empty
+                                directory. Similarly
                                 <varname>ConditionKernelCommandLine=</varname>
                                 may be used to check whether a
                                 specific kernel command line option is

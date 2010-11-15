@@ -1448,7 +1448,8 @@ static int config_parse_condition_path(
                 return 0;
         }
 
-        if (!(c = condition_new(CONDITION_PATH_EXISTS, rvalue, negate)))
+        if (!(c = condition_new(streq(lvalue, "ConditionPathExists") ? CONDITION_PATH_EXISTS : CONDITION_DIRECTORY_NOT_EMPTY,
+                                rvalue, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1815,6 +1816,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "DefaultDependencies",    config_parse_bool,            &u->meta.default_dependencies,                   "Unit"    },
                 { "JobTimeoutSec",          config_parse_usec,            &u->meta.job_timeout,                            "Unit"    },
                 { "ConditionPathExists",    config_parse_condition_path,  u,                                               "Unit"    },
+                { "ConditionDirectoryNotEmpty", config_parse_condition_path,  u,                                           "Unit"    },
                 { "ConditionKernelCommandLine", config_parse_condition_kernel, u,                                          "Unit"    },
                 { "ConditionNull",          config_parse_condition_null,  u,                                               "Unit"    },
 

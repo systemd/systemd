@@ -355,9 +355,13 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
                         good = access(s->path, F_OK) >= 0;
                         break;
 
-                case PATH_DIRECTORY_NOT_EMPTY:
-                        good = dir_is_empty(s->path) == 0;
+                case PATH_DIRECTORY_NOT_EMPTY: {
+                        int k;
+
+                        k = dir_is_empty(s->path);
+                        good = !(k == -ENOENT || k > 0);
                         break;
+                }
 
                 case PATH_CHANGED: {
                         bool b;

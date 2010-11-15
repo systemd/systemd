@@ -106,6 +106,13 @@ bool condition_test(Condition *c) {
         case CONDITION_PATH_EXISTS:
                 return (access(c->parameter, F_OK) >= 0) == !c->negate;
 
+        case CONDITION_DIRECTORY_NOT_EMPTY: {
+                int k;
+
+                k = dir_is_empty(c->parameter);
+                return !(k == -ENOENT || k > 0) == !c->negate;
+        }
+
         case CONDITION_KERNEL_COMMAND_LINE:
                 return !!test_kernel_command_line(c->parameter) == !c->negate;
 
