@@ -907,7 +907,7 @@ static void transaction_drop_redundant(Manager *m) {
                         LIST_FOREACH(transaction, k, j) {
 
                                 if (!job_is_anchor(k) &&
-                                    job_type_is_redundant(k->type, unit_active_state(k->unit)))
+                                    (j->installed || job_type_is_redundant(k->type, unit_active_state(k->unit))))
                                         continue;
 
                                 changes_something = true;
@@ -917,7 +917,7 @@ static void transaction_drop_redundant(Manager *m) {
                         if (changes_something)
                                 continue;
 
-                        log_debug("Found redundant job %s/%s, dropping.", j->unit->meta.id, job_type_to_string(j->type));
+                        /* log_debug("Found redundant job %s/%s, dropping.", j->unit->meta.id, job_type_to_string(j->type)); */
                         transaction_delete_job(m, j, false);
                         again = true;
                         break;
@@ -1069,10 +1069,15 @@ static void transaction_collect_garbage(Manager *m) {
                 again = false;
 
                 HASHMAP_FOREACH(j, m->transaction_jobs, i) {
-                        if (j->object_list)
+                        if (j->object_list) {
+                                /* log_debug("Keeping job %s/%s because of %s/%s", */
+                                /*           j->unit->meta.id, job_type_to_string(j->type), */
+                                /*           j->object_list->subject ? j->object_list->subject->unit->meta.id : "root", */
+                                /*           j->object_list->subject ? job_type_to_string(j->object_list->subject->type) : "root"); */
                                 continue;
+                        }
 
-                        log_debug("Garbage collecting job %s/%s", j->unit->meta.id, job_type_to_string(j->type));
+                        /* log_debug("Garbage collecting job %s/%s", j->unit->meta.id, job_type_to_string(j->type)); */
                         transaction_delete_job(m, j, true);
                         again = true;
                         break;
@@ -1184,8 +1189,10 @@ static int transaction_apply(Manager *m) {
         }
 
         while ((j = hashmap_steal_first(m->transaction_jobs))) {
-                if (j->installed)
+                if (j->installed) {
+                        /* log_debug("Skipping already installed job %s/%s as %u", j->unit->meta.id, job_type_to_string(j->type), (unsigned) j->id); */
                         continue;
+                }
 
                 if (j->unit->meta.job)
                         job_free(j->unit->meta.job);
@@ -1352,7 +1359,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool o
         if (is_new)
                 *is_new = true;
 
-        log_debug("Added job %s/%s to transaction.", unit->meta.id, job_type_to_string(type));
+        /* log_debug("Added job %s/%s to transaction.", unit->meta.id, job_type_to_string(type)); */
 
         return j;
 }

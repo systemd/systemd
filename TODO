@@ -84,8 +84,6 @@
 
 Pre v12:
 
-* fsck-root.service/start gets queued twice
-
 * fix hotplug transactions
 
 External:
