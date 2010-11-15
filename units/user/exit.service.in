@@ -15,4 +15,4 @@ After=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@SYSTEMCTL@ --session --force exit
+ExecStart=@SYSTEMCTL@ --user --force exit

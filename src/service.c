@@ -1014,7 +1014,7 @@ static int service_add_default_dependencies(Service *s) {
                 if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
-        } else if (s->meta.manager->running_as == MANAGER_SESSION) {
+        } else if (s->meta.manager->running_as == MANAGER_USER) {
 
                 if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SOCKETS_TARGET, NULL, true)) < 0)
                         return r;

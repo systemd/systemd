@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemctl</refname>
-                <refpurpose>Control the systemd system and session manager</refpurpose>
+                <refpurpose>Control the systemd system and service manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -59,7 +59,7 @@
                 <para><command>systemctl</command> may be used to
                 introspect and control the state of the
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                system and session manager.</para>
+                system and service manager.</para>
         </refsect1>
 
         <refsect1>
@@ -178,10 +178,10 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--session</option></term>
+                                <term><option>--user</option></term>
 
                                 <listitem><para>Talk to the systemd
-                                session manager of the calling user.</para></listitem>
+                                manager of the calling user.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -224,10 +224,10 @@
                                 <listitem><para>When used with
                                 <command>enable</command> and
                                 <command>disable</command>, operate on the
-                                global session configuŕation
+                                global user configuŕation
                                 directory, thus enabling or disabling
                                 a unit file globally for all future
-                                sessions of all users.</para></listitem>
+                                logins of all users.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -598,11 +598,11 @@
 
                                 <para>Depending on whether
                                 <option>--system</option>,
-                                <option>--session</option> or
+                                <option>--user</option> or
                                 <option>--global</option> is specified
                                 this enables the unit for the system,
-                                for sessions of the calling user only
-                                or for all future session of all
+                                for the calling user only
+                                or for all future logins of all
                                 users. Note that in the latter case no
                                 systemd daemon configuration is
                                 reloaded.</para>
@@ -643,7 +643,7 @@
 
                                 <para>This command honours
                                 <option>--system</option>,
-                                <option>--session</option>,
+                                <option>--user</option>,
                                 <option>--global</option> in a similar
                                 way as
                                 <command>enable</command>.</para>
@@ -942,9 +942,9 @@
 
                                 <listitem><para>Ask the systemd
                                 manager to quit. This is only
-                                supported for session managers
+                                supported for user service managers
                                 (i.e. in conjunction with the
-                                <option>--session</option> option) and
+                                <option>--user</option> option) and
                                 will fail otherwise.</para></listitem>
                         </varlistentry>
                 </variablelist>

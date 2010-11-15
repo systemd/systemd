@@ -760,8 +760,8 @@
                         --variable=systemdsystemunitdir</command> (for
                         system services), resp. <command>pkg-config
                         systemd
-                        --variable=systemdsessionunitdir</command>
-                        (for session services). This will make the
+                        --variable=systemduserunitdir</command>
+                        (for user services). This will make the
                         services available in the system on explicit
                         request but not activate them automatically
                         during boot. Optionally, during package
@@ -795,7 +795,7 @@ AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir" -a "x$with_sy
                         machines, and optionally allows their
                         installation even on machines lacking
                         systemd. (Modification of this snippet for the
-                        session unit directory is left as excercise to the
+                        user unit directory is left as excercise to the
                         reader.)</para>
 
                         <para>Additionally, to ensure that

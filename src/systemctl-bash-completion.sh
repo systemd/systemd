@@ -44,7 +44,7 @@ _systemctl () {
         local -A OPTS=(
                [STANDALONE]='--all -a --defaults --fail --force -f --full --global
                              --help -h --no-ask-password --no-block --no-reload --no-wall
-                             --order --require --quiet -q --session --system --version'
+                             --order --require --quiet -q --system --user --version'
                       [ARG]='--kill-mode --kill-who --property -p --signal -s --type -t'
         )
 

@@ -22,7 +22,7 @@ using GLib;
 using DBus;
 using Pango;
 
-static bool session = false;
+static bool user = false;
 
 public class LeftLabel : Label {
         public LeftLabel(string? text = null) {
@@ -103,7 +103,7 @@ public class MainWindow : Window {
         private ComboBox unit_type_combo_box;
 
         public MainWindow() throws DBus.Error {
-                title = session ? "systemd Session Manager" : "systemd System Manager";
+                title = user ? "systemd User Service Manager" : "systemd System Manager";
                 position = WindowPosition.CENTER;
                 set_default_size(1000, 700);
                 set_border_width(12);
@@ -297,7 +297,7 @@ public class MainWindow : Window {
 
                 bbox.pack_start(cancel_button, false, true, 0);
 
-                bus = DBus.Bus.get(session ? DBus.BusType.SESSION : DBus.BusType.SYSTEM);
+                bus = DBus.Bus.get(user ? DBus.BusType.SESSION : DBus.BusType.SYSTEM);
 
                 manager = bus.get_object(
                                 "org.freedesktop.systemd1",
@@ -967,8 +967,8 @@ public class MainWindow : Window {
 }
 
 static const OptionEntry entries[] = {
-        { "session", 0,   0,                   OptionArg.NONE,   out session, "Connect to session bus", null },
-        { "system",  0,   OptionFlags.REVERSE, OptionArg.NONE,   out session, "Connect to system bus", null },
+        { "user",    0,   0,                   OptionArg.NONE, out user, "Connect to user service manager", null },
+        { "system",  0,   OptionFlags.REVERSE, OptionArg.NONE, out user, "Connect to system manager",       null },
         { null }
 };
 

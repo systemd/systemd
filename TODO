@@ -42,8 +42,6 @@
 
 * add systemctl switch to dump transaction without executing it
 
-* system.conf/session.conf man page
-
 * suspend, resume
 
 * systemctl auto-pager a la git
@@ -78,8 +76,6 @@
 * automatically determine TERM= based on tty name. (TERM=linux vs. TERM=vt100-nav)
 
 * declare /etc/os-release cross-distro standard
-
-* rename s/session/user/g
 
 * fix hotplug transactions
 

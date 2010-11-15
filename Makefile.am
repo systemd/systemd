@@ -30,9 +30,9 @@ bashcompletiondir=$(sysconfdir)/bash_completion.d
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
-sessionunitdir=$(pkgdatadir)/session
+userunitdir=$(pkgdatadir)/user
 tmpfilesdir=$(sysconfdir)/tmpfiles.d
-sessiongeneratordir=$(pkglibexecdir)/session-generators
+usergeneratordir=$(pkglibexecdir)/user-generators
 
 # And these are the special ones for /
 rootdir=@rootdir@
@@ -49,9 +49,9 @@ AM_CPPFLAGS = \
 	-DSYSTEM_DATA_UNIT_PATH=\"$(systemunitdir)\" \
 	-DSYSTEM_SYSVINIT_PATH=\"$(SYSTEM_SYSVINIT_PATH)\" \
 	-DSYSTEM_SYSVRCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
-	-DSESSION_CONFIG_FILE=\"$(pkgsysconfdir)/session.conf\" \
-	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
-	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
+	-DUSER_CONFIG_FILE=\"$(pkgsysconfdir)/user.conf\" \
+	-DUSER_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/user\" \
+	-DUSER_DATA_UNIT_PATH=\"$(userunitdir)\" \
 	-DSYSTEMD_CGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
@@ -61,7 +61,7 @@ AM_CPPFLAGS = \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-DSYSTEMD_CRYPTSETUP_PATH=\"$(rootlibexecdir)/systemd-cryptsetup\" \
 	-DSYSTEM_GENERATOR_PATH=\"$(systemgeneratordir)\" \
-	-DSESSION_GENERATOR_PATH=\"$(sessiongeneratordir)\" \
+	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
@@ -268,13 +268,13 @@ nodist_systemunit_DATA = \
 	units/quotacheck.service \
 	units/rescue.service
 
-dist_sessionunit_DATA = \
-	units/session/default.target \
-	units/session/exit.target
+dist_userunit_DATA = \
+	units/user/default.target \
+	units/user/exit.target
 
-nodist_sessionunit_DATA = \
-	units/session/remote-fs.target \
-	units/session/exit.service
+nodist_userunit_DATA = \
+	units/user/remote-fs.target \
+	units/user/exit.service
 
 EXTRA_DIST = \
 	units/getty@.service.m4 \
@@ -307,7 +307,7 @@ EXTRA_DIST = \
 	units/poweroff.service.in \
 	units/reboot.service.in \
 	units/kexec.service.in \
-	units/session/exit.service.in \
+	units/user/exit.service.in \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
 	units/quotacheck.service.in \
@@ -1008,19 +1008,19 @@ M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM=1 < $< > $@ || rm $@
 
-M4_PROCESS_SESSION = \
+M4_PROCESS_USER = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SESSION=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_USER=1 < $< > $@ || rm $@
 
 units/%: units/%.m4 Makefile
 	$(M4_PROCESS_SYSTEM)
 
-units/session/%: units/%.m4 Makefile
-	$(M4_PROCESS_SESSION)
+units/user/%: units/%.m4 Makefile
+	$(M4_PROCESS_USER)
 
 CLEANFILES = \
 	$(nodist_systemunit_DATA) \
-	$(nodist_sessionunit_DATA) \
+	$(nodist_userunit_DATA) \
 	$(nodist_man_MANS) \
 	${XML_IN_FILES:.xml.in=.html} \
 	$(pkgconfigdata_DATA)
@@ -1105,7 +1105,7 @@ CLEANFILES += \
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir) \
-		$(DESTDIR)$(sessionunitdir) \
+		$(DESTDIR)$(userunitdir) \
 		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
 		$(DESTDIR)$(systemunitdir)/basic.target.wants \
@@ -1123,11 +1123,11 @@ install-data-hook:
 		$(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/session \
+		$(DESTDIR)$(pkgsysconfdir)/user \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
-		rm -f session && \
-		$(LN_S) $(pkgsysconfdir)/session session )
+		rm -f user && \
+		$(LN_S) $(pkgsysconfdir)/user user )
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
 		rm -f systemd-initctl.socket systemd-logger.socket systemd-shutdownd.socket syslog.socket && \
 		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
@@ -1167,7 +1167,7 @@ install-data-hook:
 		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
 		$(LN_S) ../var-run.mount var-run.mount && \
 		$(LN_S) ../var-lock.mount var-lock.mount )
-	( cd $(DESTDIR)$(sessionunitdir) && \
+	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
 		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \

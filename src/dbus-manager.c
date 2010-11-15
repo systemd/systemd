@@ -854,7 +854,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
 
                 if (m->running_as == MANAGER_SYSTEM) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for session managers.");
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
                         return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
                 }
 

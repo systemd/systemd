@@ -30,11 +30,11 @@
 
 #include "path-lookup.h"
 
-int session_config_home(char **config_home) {
+int user_config_home(char **config_home) {
         const char *e;
 
         if ((e = getenv("XDG_CONFIG_HOME"))) {
-                if (asprintf(config_home, "%s/systemd/session", e) < 0)
+                if (asprintf(config_home, "%s/systemd/user", e) < 0)
                         return -ENOMEM;
 
                 return 1;
@@ -42,7 +42,7 @@ int session_config_home(char **config_home) {
                 const char *home;
 
                 if ((home = getenv("HOME"))) {
-                        if (asprintf(config_home, "%s/.config/systemd/session", home) < 0)
+                        if (asprintf(config_home, "%s/.config/systemd/user", home) < 0)
                                 return -ENOMEM;
 
                         return 1;
@@ -52,7 +52,7 @@ int session_config_home(char **config_home) {
         return 0;
 }
 
-static char** session_dirs(void) {
+static char** user_dirs(void) {
         const char *home, *e;
         char *config_home = NULL, *data_home = NULL;
         char **config_dirs = NULL, **data_dirs = NULL;
@@ -67,7 +67,7 @@ static char** session_dirs(void) {
          * as data, and allow overriding as configuration.
          */
 
-        if (session_config_home(&config_home) < 0)
+        if (user_config_home(&config_home) < 0)
                 goto fail;
 
         home = getenv("HOME");
@@ -81,11 +81,11 @@ static char** session_dirs(void) {
          * /etc/systemd/ anyway. */
 
         if ((e = getenv("XDG_DATA_HOME"))) {
-                if (asprintf(&data_home, "%s/systemd/session", e) < 0)
+                if (asprintf(&data_home, "%s/systemd/user", e) < 0)
                         goto fail;
 
         } else if (home) {
-                if (asprintf(&data_home, "%s/.local/share/systemd/session", home) < 0)
+                if (asprintf(&data_home, "%s/.local/share/systemd/user", home) < 0)
                         goto fail;
 
                 /* There is really no need for two unit dirs in $HOME,
@@ -96,7 +96,7 @@ static char** session_dirs(void) {
                  * one. */
 
                 mkdir_parents(data_home, 0777);
-                (void) symlink("../../../.config/systemd/session", data_home);
+                (void) symlink("../../../.config/systemd/user", data_home);
         }
 
         if ((e = getenv("XDG_DATA_DIRS")))
@@ -115,12 +115,12 @@ static char** session_dirs(void) {
                 r = t;
         }
 
-        if (!(t = strv_merge_concat(r, config_dirs, "/systemd/session")))
+        if (!(t = strv_merge_concat(r, config_dirs, "/systemd/user")))
                 goto finish;
         strv_free(r);
         r = t;
 
-        if (!(t = strv_append(r, SESSION_CONFIG_UNIT_PATH)))
+        if (!(t = strv_append(r, USER_CONFIG_UNIT_PATH)))
                 goto fail;
         strv_free(r);
         r = t;
@@ -132,12 +132,12 @@ static char** session_dirs(void) {
                 r = t;
         }
 
-        if (!(t = strv_merge_concat(r, data_dirs, "/systemd/session")))
+        if (!(t = strv_merge_concat(r, data_dirs, "/systemd/user")))
                 goto fail;
         strv_free(r);
         r = t;
 
-        if (!(t = strv_append(r, SESSION_DATA_UNIT_PATH)))
+        if (!(t = strv_append(r, USER_DATA_UNIT_PATH)))
                 goto fail;
         strv_free(r);
         r = t;
@@ -176,8 +176,8 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                 /* Nothing is set, so let's figure something out. */
                 strv_free(p->unit_path);
 
-                if (running_as == MANAGER_SESSION) {
-                        if (!(p->unit_path = session_dirs()))
+                if (running_as == MANAGER_USER) {
+                        if (!(p->unit_path = user_dirs()))
                                 return -ENOMEM;
                 } else
                         if (!(p->unit_path = strv_new(

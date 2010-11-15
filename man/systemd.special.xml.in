@@ -698,9 +698,9 @@
         </refsect1>
 
         <refsect1>
-                <title>Special Session Units</title>
+                <title>Special User Units</title>
 
-                <para>When systemd runs as a service instance, the
+                <para>When systemd runs as a user instance, the
                 following special units are available, which have
                 similar definitions as their system counterparts:
                 <filename>default.target</filename>,
@@ -719,22 +719,22 @@
                                 <listitem>
                                         <para>A special service unit
                                         for shutting down the
-                                        session.</para>
+                                        user service manager.</para>
 
                                         <para>Applications wanting to
-                                        terminate the session should
-                                        start this unit. If systemd
-                                        receives SIGTERM or SIGINT
-                                        when running as session daemon
-                                        it will start this
-                                        unit.</para>
+                                        terminate the user service
+                                        manager should start this
+                                        unit. If systemd receives
+                                        SIGTERM or SIGINT when running
+                                        as user service daemon it will
+                                        start this unit.</para>
 
                                         <para>Normally, this pulls in
                                         <filename>shutdown.target</filename>
                                         which in turn should be
                                         conflicted by all units that
                                         want to be shut down on
-                                        session exit.</para>
+                                        user service manager exit.</para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>

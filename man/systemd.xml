@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd</refname>
                 <refname>init</refname>
-                <refpurpose>systemd System and Session Manager</refpurpose>
+                <refpurpose>systemd System and Service Manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -60,7 +60,7 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>systemd is a system and session manager for
+                <para>systemd is a system and service manager for
                 Linux operating systems. When run as first process on
                 boot (as PID 1), it acts as init system that brings
                 up and maintains userspace services.</para>
@@ -77,7 +77,7 @@
                 <para>When run as system instance, systemd interprets
                 the configuration file
                 <filename>system.conf</filename>, otherwise
-                <filename>session.conf</filename>. See
+                <filename>user.conf</filename>. See
                 <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information.</para>
         </refsect1>
@@ -136,10 +136,10 @@
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--system</option></term>
-                                <term><option>--session</option></term>
+                                <term><option>--user</option></term>
 
                                 <listitem><para>Tell systemd to run a
-                                system instance (resp. session
+                                system instance (resp. user
                                 instance), even if the process ID is
                                 not 1 (resp. is 1), i.e. systemd is
                                 not (resp. is) run as init process.
@@ -159,27 +159,36 @@
                         <varlistentry>
                                 <term><option>--dump-core</option></term>
 
-                                <listitem><para>Dump core on crash. This switch has no effect when run as session instance.</para></listitem>
+                                <listitem><para>Dump core on
+                                crash. This switch has no effect when
+                                run as user
+                                instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--crash-shell</option></term>
 
-                                <listitem><para>Run shell on crash. This switch has no effect when run as session instance.</para></listitem>
+                                <listitem><para>Run shell on
+                                crash. This switch has no effect when
+                                run as user
+                                instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--confirm-spawn</option></term>
 
-                                <listitem><para>Ask for confirmation when spawning processes. This switch has no effect when run as session instance.</para></listitem>
+                                <listitem><para>Ask for confirmation
+                                when spawning processes. This switch
+                                has no effect when run as user
+                                instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--show-status=</option></term>
 
                                 <listitem><para>Show terse service
                                 status information while booting. This
-                                switch has no effect when run as
-                                session instance. Takes a boolean
-                                argument which may be omitted
-                                which is interpreted as
+                                switch has no effect when run as user
+                                instance. Takes a boolean argument
+                                which may be omitted which is
+                                interpreted as
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
@@ -188,7 +197,7 @@
                                 <listitem><para>Controls whether
                                 output of SysV init scripts will be
                                 directed to the console. This switch
-                                has no effect when run as session
+                                has no effect when run as user
                                 instance. Takes a boolean argument
                                 which may be omitted which is
                                 interpreted as
@@ -489,10 +498,10 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term>Session unit directories</term>
+                                <term>User unit directories</term>
 
                                 <listitem><para>Similar rules apply
-                                for the session unit
+                                for the user unit
                                 directories. However, here the <ulink
                                 url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
                                 Base Directory specification</ulink>
@@ -500,11 +509,11 @@
                                 units. Applications should place their
                                 unit files in the directory returned
                                 by <command>pkg-config systemd
-                                --variable=systemdsessionunitdir</command>. Global
+                                --variable=systemduserunitdir</command>. Global
                                 configuration is done in the directory
                                 reported by <command>pkg-config
                                 systemd
-                                --variable=systemdsessionconfdir</command>. The
+                                --variable=systemduserconfdir</command>. The
                                 <command>enable</command> and
                                 <command>disable</command> commands of
                                 the
@@ -565,12 +574,12 @@
                                 to <command>systemctl
                                 daemon-reexec</command>.</para>
 
-                                <para>systemd session managers will
+                                <para>systemd user managers will
                                 start the
                                 <filename>exit.target</filename> unit
                                 when this signal is received. This is
                                 mostly equivalent to
-                                <command>systemctl --session start
+                                <command>systemctl --user start
                                 exit.target</command>.</para></listitem>
                         </varlistentry>
 
@@ -585,7 +594,7 @@
                                 <command>systemctl start
                                 ctl-alt-del.target</command>.</para>
 
-                                <para>systemd session managers
+                                <para>systemd user managers
                                 treat this signal the same way as
                                 SIGTERM.</para></listitem>
                         </varlistentry>
@@ -602,7 +611,7 @@
                                 kbrequest.target</command>.</para>
 
                                 <para>This signal is ignored by
-                                systemd session
+                                systemd user
                                 managers.</para></listitem>
                         </varlistentry>
 
@@ -757,7 +766,7 @@
                                 <term><varname>$XDG_DATA_HOME</varname></term>
                                 <term><varname>$XDG_DATA_DIRS</varname></term>
 
-                                <listitem><para>The systemd session
+                                <listitem><para>The systemd user
                                 manager uses these variables in
                                 accordance to the <ulink
                                 url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG

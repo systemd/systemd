@@ -51,7 +51,7 @@ typedef enum ManagerExitCode {
 
 typedef enum ManagerRunningAs {
         MANAGER_SYSTEM,
-        MANAGER_SESSION,
+        MANAGER_USER,
         _MANAGER_RUNNING_AS_MAX,
         _MANAGER_RUNNING_AS_INVALID = -1
 } ManagerRunningAs;

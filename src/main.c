@@ -514,7 +514,7 @@ static int parse_config_file(void) {
         const char *fn;
         int r;
 
-        fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : SESSION_CONFIG_FILE;
+        fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : USER_CONFIG_FILE;
 
         if (!(f = fopen(fn, "re"))) {
                 if (errno == ENOENT)
@@ -573,7 +573,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_LOCATION,
                 ARG_UNIT,
                 ARG_SYSTEM,
-                ARG_SESSION,
+                ARG_USER,
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_DUMP_CORE,
@@ -592,7 +592,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-location",             optional_argument, NULL, ARG_LOG_LOCATION             },
                 { "unit",                     required_argument, NULL, ARG_UNIT                     },
                 { "system",                   no_argument,       NULL, ARG_SYSTEM                   },
-                { "session",                  no_argument,       NULL, ARG_SESSION                  },
+                { "user",                     no_argument,       NULL, ARG_USER                     },
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
@@ -671,8 +671,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_running_as = MANAGER_SYSTEM;
                         break;
 
-                case ARG_SESSION:
-                        arg_running_as = MANAGER_SESSION;
+                case ARG_USER:
+                        arg_running_as = MANAGER_USER;
                         break;
 
                 case ARG_TEST:
@@ -794,14 +794,14 @@ static int parse_argv(int argc, char *argv[]) {
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
-               "Starts up and maintains the system or a session.\n\n"
+               "Starts up and maintains the system or user services.\n\n"
                "  -h --help                      Show this help\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --introspect[=INTERFACE]    Extract D-Bus interface data\n"
                "     --unit=UNIT                 Set default unit\n"
                "     --system                    Run a system instance, even if PID != 1\n"
-               "     --session                   Run a session instance\n"
+               "     --user                      Run a user instance\n"
                "     --dump-core                 Dump core on crash\n"
                "     --crash-shell               Run shell on crash\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
@@ -951,7 +951,7 @@ int main(int argc, char *argv[]) {
                 if (label_init() < 0)
                         goto finish;
         } else {
-                arg_running_as = MANAGER_SESSION;
+                arg_running_as = MANAGER_USER;
                 log_set_target(LOG_TARGET_CONSOLE);
         }
 
@@ -1235,7 +1235,7 @@ finish:
                 if (arg_running_as == MANAGER_SYSTEM)
                         args[i++] = "--system";
                 else
-                        args[i++] = "--session";
+                        args[i++] = "--user";
 
                 if (arg_dump_core)
                         args[i++] = "--dump-core";

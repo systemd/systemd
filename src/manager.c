@@ -2015,7 +2015,7 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
 
         dbus_error_init(&error);
 
-        log_info("Activating special unit %s", name);
+        log_debug("Activating special unit %s", name);
 
         if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL)) < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error(&error, r));
@@ -2839,7 +2839,7 @@ void manager_run_generators(Manager *m) {
 
         assert(m);
 
-        generator_path = m->running_as == MANAGER_SYSTEM ? SYSTEM_GENERATOR_PATH : SESSION_GENERATOR_PATH;
+        generator_path = m->running_as == MANAGER_SYSTEM ? SYSTEM_GENERATOR_PATH : USER_GENERATOR_PATH;
         if (!(d = opendir(generator_path))) {
 
                 if (errno == ENOENT)
@@ -2852,9 +2852,9 @@ void manager_run_generators(Manager *m) {
         if (!m->generator_unit_path) {
                 char *p;
                 char system_path[] = "/dev/.systemd/generator-XXXXXX",
-                        session_path[] = "/tmp/systemd-generator-XXXXXX";
+                        user_path[] = "/tmp/systemd-generator-XXXXXX";
 
-                if (!(p = mkdtemp(m->running_as == MANAGER_SYSTEM ? system_path : session_path))) {
+                if (!(p = mkdtemp(m->running_as == MANAGER_SYSTEM ? system_path : user_path))) {
                         log_error("Failed to generate generator directory: %m");
                         goto finish;
                 }
@@ -2990,7 +2990,7 @@ void manager_undo_generators(Manager *m) {
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
         [MANAGER_SYSTEM] = "system",
-        [MANAGER_SESSION] = "session"
+        [MANAGER_USER] = "user"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_running_as, ManagerRunningAs);

@@ -61,7 +61,7 @@ static const char *arg_type = NULL;
 static char **arg_property = NULL;
 static bool arg_all = false;
 static bool arg_fail = false;
-static bool arg_session = false;
+static bool arg_user = false;
 static bool arg_global = false;
 static bool arg_immediate = false;
 static bool arg_no_block = false;
@@ -1234,7 +1234,7 @@ static int start_unit_one(
 
         if (need_daemon_reload(bus, name))
                 log_warning("Unit file of created job changed on disk, 'systemctl %s daemon-reload' recommended.",
-                            arg_session ? "--session" : "--system");
+                            arg_user ? "--user" : "--system");
 
         if (!arg_no_block) {
                 char *p;
@@ -1937,7 +1937,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",
                        ansi_highlight(true),
                        ansi_highlight(false),
-                       arg_session ? "--session" : "--system");
+                       arg_user ? "--user" : "--system");
 }
 
 static int status_property(const char *name, DBusMessageIter *iter, UnitStatusInfo *i) {
@@ -3919,13 +3919,13 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
 
 static char *get_config_path(void) {
 
-        if (arg_session && arg_global)
-                return strdup(SESSION_CONFIG_UNIT_PATH);
+        if (arg_user && arg_global)
+                return strdup(USER_CONFIG_UNIT_PATH);
 
-        if (arg_session) {
+        if (arg_user) {
                 char *p;
 
-                if (session_config_home(&p) < 0)
+                if (user_config_home(&p) < 0)
                         return NULL;
 
                 return p;
@@ -3946,7 +3946,7 @@ static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         zero(paths);
-        if ((r = lookup_paths_init(&paths, arg_session ? MANAGER_SESSION : MANAGER_SYSTEM)) < 0) {
+        if ((r = lookup_paths_init(&paths, arg_user ? MANAGER_USER : MANAGER_SYSTEM)) < 0) {
                 log_error("Failed to determine lookup paths: %s", strerror(-r));
                 goto finish;
         }
@@ -4010,9 +4010,9 @@ static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
                     /* Don't try to reload anything when updating a unit globally */
                     !arg_global &&
                     /* Don't try to reload anything if we are called for system changes but the system wasn't booted with systemd */
-                    (arg_session || sd_booted() > 0) &&
+                    (arg_user || sd_booted() > 0) &&
                     /* Don't try to reload anything if we are running in a chroot environment */
-                    (arg_session || running_in_chroot() <= 0) ) {
+                    (arg_user || running_in_chroot() <= 0) ) {
                         int q;
 
                         if ((q = daemon_reload(bus, args, n)) < 0)
@@ -4047,8 +4047,8 @@ static int systemctl_help(void) {
                "                      pending\n"
                "  -q --quiet          Suppress output\n"
                "     --no-block       Do not wait until operation finished\n"
-               "     --system         Connect to system bus\n"
-               "     --session        Connect to session bus\n"
+               "     --system         Connect to system manager\n"
+               "     --user           Connect to user service manager\n"
                "     --order          When generating graph for dot, show only order\n"
                "     --require        When generating graph for dot, show only requirement\n"
                "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
@@ -4105,7 +4105,7 @@ static int systemctl_help(void) {
                "  poweroff                        Shut down and power-off the system\n"
                "  reboot                          Shut down and reboot the system\n"
                "  kexec                           Shut down and reboot the system with kexec\n"
-               "  exit                            Ask for session termination\n",
+               "  exit                            Ask for user instance termination\n",
                program_invocation_short_name);
 
         return 0;
@@ -4182,7 +4182,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_FAIL = 0x100,
                 ARG_VERSION,
-                ARG_SESSION,
+                ARG_USER,
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_NO_BLOCK,
@@ -4205,7 +4205,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "all",       no_argument,       NULL, 'a'           },
                 { "full",      no_argument,       NULL, ARG_FULL      },
                 { "fail",      no_argument,       NULL, ARG_FAIL      },
-                { "session",   no_argument,       NULL, ARG_SESSION   },
+                { "user",      no_argument,       NULL, ARG_USER      },
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "global",    no_argument,       NULL, ARG_GLOBAL    },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
@@ -4273,12 +4273,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_fail = true;
                         break;
 
-                case ARG_SESSION:
-                        arg_session = true;
+                case ARG_USER:
+                        arg_user = true;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_session = false;
+                        arg_user = false;
                         break;
 
                 case ARG_NO_BLOCK:
@@ -4315,7 +4315,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_GLOBAL:
                         arg_global = true;
-                        arg_session = true;
+                        arg_user = true;
                         break;
 
                 case ARG_DEFAULTS:
@@ -5236,7 +5236,7 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        bus_connect(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
+        bus_connect(arg_user ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
 
         switch (arg_action) {
 

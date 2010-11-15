@@ -252,7 +252,7 @@ int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_attr_(
   fine. You should NOT protect them with a call to this function. Also
   note that this function checks whether the system, not the user
   session is controlled by systemd. However the functions above work
-  for both session and system services.
+  for both user and system services.
 
   See sd_booted(3) for more information.
 */

@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemadm</refname>
                 <refpurpose>Graphical frontend for the systemd system
-                and session manager</refpurpose>
+                and service manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -58,7 +58,7 @@
                 <title>Description</title>
 
                 <para><command>systemadm</command> is a graphical
-                frontend for the systemd system and session manager
+                frontend for the systemd system and service manager
                 and allows introspection and control of
                 systemd.</para>
         </refsect1>
@@ -87,10 +87,10 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--session</option></term>
+                                <term><option>--user</option></term>
 
                                 <listitem><para>Connect to the systemd
-                                session manager of the calling
+                                manager of the calling
                                 user.</para></listitem>
                         </varlistentry>
 

@@ -864,7 +864,7 @@ static int bus_init_api(Manager *m) {
         if (m->running_as == MANAGER_SYSTEM && m->system_bus)
                 m->api_bus = m->system_bus;
         else {
-                if (!(m->api_bus = dbus_bus_get_private(m->running_as == MANAGER_SESSION ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error))) {
+                if (!(m->api_bus = dbus_bus_get_private(m->running_as == MANAGER_USER ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error))) {
                         log_debug("Failed to get API D-Bus connection, retrying later: %s", error.message);
                         r = 0;
                         goto fail;
