@@ -39,6 +39,17 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_FAILED] = UNIT_FAILED
 };
 
+static void path_unwatch_one(Path *p, PathSpec *s) {
+
+        if (s->inotify_fd < 0)
+                return;
+
+        unit_unwatch_fd(UNIT(p), &s->watch);
+
+        close_nointr_nofail(s->inotify_fd);
+        s->inotify_fd = -1;
+}
+
 static void path_done(Unit *u) {
         Path *p = PATH(u);
         PathSpec *s;
@@ -46,7 +57,9 @@ static void path_done(Unit *u) {
         assert(p);
 
         while ((s = p->specs)) {
+                path_unwatch_one(p, s);
                 LIST_REMOVE(PathSpec, spec, p->specs, s);
+                free(s->path);
                 free(s);
         }
 }
@@ -166,17 +179,6 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix,
                         path_type_to_string(s->type),
                         s->path);
-}
-
-static void path_unwatch_one(Path *p, PathSpec *s) {
-
-        if (s->inotify_fd < 0)
-                return;
-
-        unit_unwatch_fd(UNIT(p), &s->watch);
-
-        close_nointr_nofail(s->inotify_fd);
-        s->inotify_fd = -1;
 }
 
 static int path_watch_one(Path *p, PathSpec *s) {
