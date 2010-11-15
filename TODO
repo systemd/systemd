@@ -79,7 +79,7 @@
 
 * declare /etc/os-release cross-distro standard
 
-Pre v12:
+* rename s/session/user/g
 
 * fix hotplug transactions
 

@@ -2192,6 +2192,9 @@ static int process_event(Manager *m, struct epoll_event *ev) {
 
         assert(w = ev->data.ptr);
 
+        if (w->type == WATCH_INVALID)
+                return 0;
+
         switch (w->type) {
 
         case WATCH_SIGNAL:
