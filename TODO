@@ -82,6 +82,8 @@
 
 * declare /etc/os-release cross-distro standard
 
+* add ConditionDirectoryNotEmpty=
+
 Pre v12:
 
 * fix hotplug transactions
@@ -95,6 +97,8 @@ External:
 * place /etc/inittab with explaining blurb.
 
 * pam_securetty should honour console=
+
+* sysctl should support sysctl.conf.d directory
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 

@@ -100,9 +100,9 @@ static int create_disk(
                 "[Unit]\n"
                 "Description=Cryptography Setup for %%f\n"
                 "DefaultDependencies=no\n"
-                "BindTo=%s\n"
+                "BindTo=%s dev-mapper-%%i.device\n"
                 "After=systemd-readahead-collect.service systemd-readahead-replay.service %s\n"
-                "Before=dev-mapper-%%i.device shutdown.target\n",
+                "Before=dev-mapper-%%i.device shutdown.target local-fs.target\n",
                 d, d);
 
         if (password && (streq(password, "/dev/urandom") ||
