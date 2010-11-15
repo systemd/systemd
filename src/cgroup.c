@@ -230,8 +230,12 @@ int manager_setup_cgroup(Manager *m) {
         if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &current)) < 0)
                 goto finish;
 
-        snprintf(suffix, sizeof(suffix), "/systemd-%lu", (unsigned long) getpid());
-        char_array_0(suffix);
+        if (m->running_as == MANAGER_SYSTEM)
+                strcpy(suffix, "/system");
+        else {
+                snprintf(suffix, sizeof(suffix), "/systemd-%lu", (unsigned long) getpid());
+                char_array_0(suffix);
+        }
 
         free(m->cgroup_hierarchy);
         if (endswith(current, suffix)) {
