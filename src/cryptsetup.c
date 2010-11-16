@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <errno.h>
+#include <sys/mman.h>
 
 #include <libcryptsetup.h>
 
@@ -180,6 +181,9 @@ int main(int argc, char *argv[]) {
 
                 if (argc >= 6 && argv[5][0] && !streq(argv[5], "-"))
                         parse_options(argv[5]);
+
+                /* A delicious drop of snake oil */
+                mlockall(MCL_FUTURE);
 
                 if ((k = crypt_init(&cd, argv[3]))) {
                         log_error("crypt_init() failed: %s", strerror(-k));
