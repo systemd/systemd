@@ -77,6 +77,8 @@
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
+* add to cpu cgroup by default
+
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
