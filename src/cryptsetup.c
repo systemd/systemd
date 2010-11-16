@@ -232,8 +232,17 @@ int main(int argc, char *argv[]) {
                         password = NULL;
 
                         if (!key_file) {
+                                char *text;
 
-                                if ((k = ask_password_auto("Please enter passphrase for disk:", "drive-harddisk", until, &password)) < 0) {
+                                if (asprintf(&text, "Please enter passphrase for disk %s", argv[3]) < 0) {
+                                        log_error("Out of memory");
+                                        goto finish;
+                                }
+
+                                k = ask_password_auto(text, "drive-harddisk", until, &password);
+                                free(text);
+
+                                if (k < 0) {
                                         log_error("Failed to query password: %s", strerror(-k));
                                         goto finish;
                                 }
@@ -241,7 +250,15 @@ int main(int argc, char *argv[]) {
                                 if (opt_verify) {
                                         char *password2 = NULL;
 
-                                        if ((k = ask_password_auto("Please enter passphrase for disk (verification):", "drive-harddisk", until, &password2)) < 0) {
+                                        if (asprintf(&text, "Please enter passphrase for disk %s (verification)", argv[3]) < 0) {
+                                                log_error("Out of memory");
+                                                goto finish;
+                                        }
+
+                                        k = ask_password_auto(text, "drive-harddisk", until, &password2);
+                                        free(text);
+
+                                        if (k < 0) {
                                                 log_error("Failed to query verification password: %s", strerror(-k));
                                                 goto finish;
                                         }
