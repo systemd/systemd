@@ -80,9 +80,9 @@ static int ask_password_plymouth(const char *message, usec_t until, const char *
 
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path+1, "/ply-boot-protocol", sizeof(sa.un.sun_path)-1);
-
-        if (connect(fd, &sa.sa, sizeof(sa.un)) < 0) {
+        strncpy(sa.un.sun_path+1, "/org/freedesktop/plymouthd", sizeof(sa.un.sun_path)-1);
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+                log_error("FIALED TO CONNECT: %m");
                 r = -errno;
                 goto finish;
         }
@@ -481,7 +481,7 @@ static int watch_passwords(void) {
 
         for (;;) {
                 if ((r = show_passwords()) < 0)
-                        break;
+                        goto finish;
 
                 if (poll(pollfd, _FD_MAX, -1) < 0) {
 
@@ -613,6 +613,9 @@ int main(int argc, char *argv[]) {
                 r = watch_passwords();
         else
                 r = show_passwords();
+
+        if (r < 0)
+                log_error("Error: %s", strerror(-r));
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

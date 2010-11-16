@@ -2447,8 +2447,8 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path+1, "/ply-boot-protocol", sizeof(sa.un.sun_path)-1);
-        if (connect(fd, &sa.sa, sizeof(sa.un)) < 0) {
+        strncpy(sa.un.sun_path+1, "/org/freedesktop/plymouthd", sizeof(sa.un.sun_path)-1);
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
 
                 if (errno != EPIPE &&
                     errno != EAGAIN &&
