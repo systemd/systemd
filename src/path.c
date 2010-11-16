@@ -383,6 +383,7 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
         }
 
         if (good) {
+                log_debug("%s got triggered.", p->meta.id);
                 path_enter_running(p);
                 return;
         }
@@ -485,7 +486,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
             p->state != PATH_RUNNING)
                 return;
 
-        log_debug("inotify wakeup on %s.", u->meta.id);
+        /* log_debug("inotify wakeup on %s.", u->meta.id); */
 
         if (events != EPOLLIN) {
                 log_error("Got Invalid poll event on inotify.");
