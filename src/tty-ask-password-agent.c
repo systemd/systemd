@@ -46,6 +46,7 @@ static enum {
 } arg_action = ACTION_QUERY;
 
 static bool arg_plymouth = false;
+static bool arg_console = false;
 
 static int ask_password_plymouth(const char *message, usec_t until, const char *flag_file, char **_passphrase) {
         int fd = -1, notify = -1;
@@ -289,8 +290,22 @@ static int parse_password(const char *filename, char **wall) {
 
                 if (arg_plymouth)
                         r = ask_password_plymouth(message, not_after, filename, &password);
-                else
+                else {
+                        int tty_fd = -1;
+
+                        if (arg_console)
+                                if ((tty_fd = acquire_terminal("/dev/console", false, false, false)) < 0) {
+                                        r = tty_fd;
+                                        goto finish;
+                                }
+
                         r = ask_password_tty(message, not_after, filename, &password);
+
+                        if (arg_console) {
+                                close_nointr_nofail(tty_fd);
+                                release_terminal();
+                        }
+                }
 
                 if (r < 0) {
                         log_error("Failed to query password: %s", strerror(-r));
@@ -336,7 +351,7 @@ finish:
         return r;
 }
 
-static int tty_block(void) {
+static int wall_tty_block(void) {
         char *p;
         const char *t;
         int fd;
@@ -359,7 +374,7 @@ static int tty_block(void) {
         return fd;
 }
 
-static bool tty_match(const char *path) {
+static bool wall_tty_match(const char *path) {
         int fd;
         char *p;
 
@@ -425,7 +440,7 @@ static int show_passwords(void) {
                 free(p);
 
                 if (wall) {
-                        utmp_wall(wall, tty_match);
+                        utmp_wall(wall, wall_tty_match);
                         free(wall);
                 }
         }
@@ -449,7 +464,7 @@ static int watch_passwords(void) {
         sigset_t mask;
         int r;
 
-        tty_block_fd = tty_block();
+        tty_block_fd = wall_tty_block();
 
         mkdir_p("/dev/.systemd/ask-password", 0755);
 
@@ -481,7 +496,7 @@ static int watch_passwords(void) {
 
         for (;;) {
                 if ((r = show_passwords()) < 0)
-                        goto finish;
+                        log_error("Failed to show password: %s", strerror(-r));
 
                 if (poll(pollfd, _FD_MAX, -1) < 0) {
 
@@ -523,7 +538,8 @@ static int help(void) {
                "     --query    Process pending password requests\n"
                "     --watch    Continously process password requests\n"
                "     --wall     Continously forward password requests to wall\n"
-               "     --plymouth Ask question with Plymouth instead of on TTY\n",
+               "     --plymouth Ask question with Plymouth instead of on TTY\n"
+               "     --console  Ask question on /dev/console instead of current TTY\n",
                program_invocation_short_name);
 
         return 0;
@@ -536,7 +552,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QUERY,
                 ARG_WATCH,
                 ARG_WALL,
-                ARG_PLYMOUTH
+                ARG_PLYMOUTH,
+                ARG_CONSOLE
         };
 
         static const struct option options[] = {
@@ -546,6 +563,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "watch",    no_argument, NULL, ARG_WATCH    },
                 { "wall",     no_argument, NULL, ARG_WALL     },
                 { "plymouth", no_argument, NULL, ARG_PLYMOUTH },
+                { "console",  no_argument, NULL, ARG_CONSOLE  },
                 { NULL,    0,           NULL, 0               }
         };
 
@@ -582,6 +600,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_plymouth = true;
                         break;
 
+                case ARG_CONSOLE:
+                        arg_console = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -607,6 +629,11 @@ int main(int argc, char *argv[]) {
 
         if ((r = parse_argv(argc, argv)) <= 0)
                 goto finish;
+
+        if (arg_console) {
+                setsid();
+                release_terminal();
+        }
 
         if (arg_action == ACTION_WATCH ||
             arg_action == ACTION_WALL)
