@@ -256,12 +256,12 @@ if test "$have_gtk" = "yes"; then
         AC_SUBST(DBUSGLIB_CFLAGS)
         AC_SUBST(DBUSGLIB_LIBS)
 
-        PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify >= 0.7.0 ])
+        PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify ])
         AC_SUBST(LIBNOTIFY_CFLAGS)
         AC_SUBST(LIBNOTIFY_LIBS)
 fi
 
-AM_PROG_VALAC([0.11])
+AM_PROG_VALAC([0.9])
 AC_SUBST(VAPIDIR)
 AM_CONDITIONAL(HAVE_VALAC, test x"$VALAC" != x)
 

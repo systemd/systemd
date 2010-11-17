@@ -38,8 +38,8 @@ public class PasswordDialog : Dialog {
                 set_default_response(ResponseType.OK);
                 set_icon_name(icon);
 
-                add_button(Stock.CANCEL, ResponseType.CANCEL);
-                add_button(Stock.OK, ResponseType.OK);
+                add_button(STOCK_CANCEL, ResponseType.CANCEL);
+                add_button(STOCK_OK, ResponseType.OK);
 
                 Container content = (Container) get_content_area();
 
@@ -181,7 +181,8 @@ public class MyStatusIcon : StatusIcon {
 
                 set_visible(true);
 
-                Notification n = new Notification(title, message, icon);
+                Notification n = new Notification(title, message, icon, null);
+                n.attach_to_status_icon(this);
                 n.set_timeout(5000);
                 n.show();
 
@@ -225,7 +226,7 @@ public class MyStatusIcon : StatusIcon {
 
                 OutputStream stream = new UnixOutputStream(to_process, true);
 
-                stream.write(password.data, null);
+                stream.write(password, password.length, null);
         }
 }
 
