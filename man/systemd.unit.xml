@@ -352,7 +352,7 @@
                                 unexpectedly disappear if a service
                                 terminates on its own choice, a device
                                 is unplugged or a mount point
-                                unmounted with involvement of
+                                unmounted without involvement of
                                 systemd.</para></listitem>
                         </varlistentry>
 
