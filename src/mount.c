@@ -488,7 +488,7 @@ static int mount_load(Unit *u) {
                 if ((r = mount_add_target_links(m)) < 0)
                         return r;
 
-                if ((r = unit_add_default_cgroup(u)) < 0)
+                if ((r = unit_add_default_cgroups(u)) < 0)
                         return r;
 
                 if (m->meta.default_dependencies)

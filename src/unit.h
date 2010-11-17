@@ -414,7 +414,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
 int unit_add_cgroup(Unit *u, CGroupBonding *b);
 int unit_add_cgroup_from_text(Unit *u, const char *name);
-int unit_add_default_cgroup(Unit *u);
+int unit_add_default_cgroups(Unit *u);
 CGroupBonding* unit_get_default_cgroup(Unit *u);
 
 int unit_choose_id(Unit *u, const char *name);

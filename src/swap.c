@@ -289,7 +289,7 @@ static int swap_load(Unit *u) {
                 if ((r = swap_add_target_links(s)) < 0)
                         return r;
 
-                if ((r = unit_add_default_cgroup(u)) < 0)
+                if ((r = unit_add_default_cgroups(u)) < 0)
                         return r;
 
                 if (s->meta.default_dependencies)

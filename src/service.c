@@ -1055,7 +1055,7 @@ static int service_load(Unit *u) {
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                         return r;
 
-                if ((r = unit_add_default_cgroup(u)) < 0)
+                if ((r = unit_add_default_cgroups(u)) < 0)
                         return r;
 
 #ifdef HAVE_SYSV_COMPAT

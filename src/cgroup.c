@@ -46,7 +46,7 @@ int cgroup_bonding_realize(CGroupBonding *b) {
 
         b->realized = true;
 
-        if (b->only_us && b->clean_up)
+        if (b->ours)
                 cg_trim(b->controller, b->path, false);
 
         return 0;
@@ -57,7 +57,7 @@ int cgroup_bonding_realize_list(CGroupBonding *first) {
         int r;
 
         LIST_FOREACH(by_unit, b, first)
-                if ((r = cgroup_bonding_realize(b)) < 0)
+                if ((r = cgroup_bonding_realize(b)) < 0 && b->essential)
                         return r;
 
         return 0;
@@ -71,16 +71,18 @@ void cgroup_bonding_free(CGroupBonding *b) {
 
                 LIST_REMOVE(CGroupBonding, by_unit, b->unit->meta.cgroup_bondings, b);
 
-                assert_se(f = hashmap_get(b->unit->meta.manager->cgroup_bondings, b->path));
-                LIST_REMOVE(CGroupBonding, by_path, f, b);
+                if (streq(b->controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                        assert_se(f = hashmap_get(b->unit->meta.manager->cgroup_bondings, b->path));
+                        LIST_REMOVE(CGroupBonding, by_path, f, b);
 
-                if (f)
-                        hashmap_replace(b->unit->meta.manager->cgroup_bondings, b->path, f);
-                else
-                        hashmap_remove(b->unit->meta.manager->cgroup_bondings, b->path);
+                        if (f)
+                                hashmap_replace(b->unit->meta.manager->cgroup_bondings, b->path, f);
+                        else
+                                hashmap_remove(b->unit->meta.manager->cgroup_bondings, b->path);
+                }
         }
 
-        if (b->realized && b->only_us && b->clean_up) {
+        if (b->realized && b->ours) {
 
                 if (cgroup_bonding_is_empty(b) > 0)
                         cg_delete(b->controller, b->path);
@@ -103,7 +105,7 @@ void cgroup_bonding_free_list(CGroupBonding *first) {
 void cgroup_bonding_trim(CGroupBonding *b, bool delete_root) {
         assert(b);
 
-        if (b->realized && b->only_us && b->clean_up)
+        if (b->realized && b->ours)
                 cg_trim(b->controller, b->path, delete_root);
 }
 
@@ -132,22 +134,19 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid) {
         int r;
 
         LIST_FOREACH(by_unit, b, first)
-                if ((r = cgroup_bonding_install(b, pid)) < 0)
+                if ((r = cgroup_bonding_install(b, pid)) < 0 && b->essential)
                         return r;
 
         return 0;
 }
 
 int cgroup_bonding_kill(CGroupBonding *b, int sig, Set *s) {
-        int r;
-
         assert(b);
         assert(sig >= 0);
 
-        if ((r = cgroup_bonding_realize(b)) < 0)
-                return r;
-
-        assert(b->realized);
+        /* Don't kill cgroups that aren't ours */
+        if (!b->realized || !b->ours)
+                return 0;
 
         return cg_kill_recursive(b->controller, b->path, sig, true, false, s);
 }
@@ -196,7 +195,7 @@ int cgroup_bonding_is_empty(CGroupBonding *b) {
                 return 1;
 
         /* It's not only us using this cgroup, so we just don't know */
-        return b->only_us ? 0 : -EAGAIN;
+        return b->ours ? 0 : -EAGAIN;
 }
 
 int cgroup_bonding_is_empty_list(CGroupBonding *first) {
@@ -372,7 +371,7 @@ Unit* cgroup_unit_by_pid(Manager *m, pid_t pid) {
                 if (!b->unit)
                         continue;
 
-                if (b->only_us)
+                if (b->ours)
                         return b->unit;
         }
 
@@ -409,7 +408,7 @@ pid_t cgroup_bonding_search_main_pid(CGroupBonding *b) {
 
         assert(b);
 
-        if (!b->only_us)
+        if (!b->ours)
                 return 0;
 
         if ((r = cg_enumerate_processes(b->controller, b->path, &f)) < 0)

@@ -1682,7 +1682,6 @@ char *unit_dbus_path(Unit *u) {
 }
 
 int unit_add_cgroup(Unit *u, CGroupBonding *b) {
-        CGroupBonding *l;
         int r;
 
         assert(u);
@@ -1697,12 +1696,16 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
         /* Ensure this hasn't been added yet */
         assert(!b->unit);
 
-        l = hashmap_get(u->meta.manager->cgroup_bondings, b->path);
-        LIST_PREPEND(CGroupBonding, by_path, l, b);
+        if (streq(b->controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                CGroupBonding *l;
 
-        if ((r = hashmap_replace(u->meta.manager->cgroup_bondings, b->path, l)) < 0) {
-                LIST_REMOVE(CGroupBonding, by_path, l, b);
-                return r;
+                l = hashmap_get(u->meta.manager->cgroup_bondings, b->path);
+                LIST_PREPEND(CGroupBonding, by_path, l, b);
+
+                if ((r = hashmap_replace(u->meta.manager->cgroup_bondings, b->path, l)) < 0) {
+                        LIST_REMOVE(CGroupBonding, by_path, l, b);
+                        return r;
+                }
         }
 
         LIST_PREPEND(CGroupBonding, by_unit, u->meta.cgroup_bondings, b);
@@ -1767,8 +1770,7 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
 
         b->controller = controller;
         b->path = path;
-        b->only_us = false;
-        b->clean_up = false;
+        b->ours = false;
 
         if ((r = unit_add_cgroup(u, b)) < 0)
                 goto fail;
@@ -1783,35 +1785,51 @@ fail:
         return r;
 }
 
-int unit_add_default_cgroup(Unit *u) {
-        CGroupBonding *b;
+int unit_add_default_cgroups(Unit *u) {
+        CGroupBonding *b = NULL;
         int r = -ENOMEM;
+        const char * const default_controllers[] = {
+                SYSTEMD_CGROUP_CONTROLLER,
+                "cpu",
+                NULL
+        };
+        const char * const*c;
 
         assert(u);
 
-        /* Adds in the default cgroup data, if it wasn't specified yet */
+        /* Adds in the default cgroups, if it wasn't specified yet */
 
-        if (unit_get_default_cgroup(u))
-                return 0;
+        STRV_FOREACH(c, default_controllers) {
 
-        if (!(b = new0(CGroupBonding, 1)))
-                return -ENOMEM;
+                if (cgroup_bonding_find_list(u->meta.cgroup_bondings, *c))
+                        continue;
 
-        if (!(b->path = default_cgroup_path(u)))
-                goto fail;
+                if (!(b = new0(CGroupBonding, 1)))
+                        return -ENOMEM;
 
-        b->clean_up = true;
-        b->only_us = true;
+                if (!(b->path = default_cgroup_path(u)))
+                        goto fail;
 
-        if ((r = unit_add_cgroup(u, b)) < 0)
-                goto fail;
+                if (!(b->controller = strdup(*c)))
+                        goto fail;
+
+                b->ours = true;
+                b->essential = c == default_controllers; /* the first one is essential */
+
+                if ((r = unit_add_cgroup(u, b)) < 0)
+                        goto fail;
+
+                b = NULL;
+        }
 
         return 0;
 
 fail:
-        free(b->path);
-        free(b->controller);
-        free(b);
+        if (b) {
+                free(b->path);
+                free(b->controller);
+                free(b);
+        }
 
         return r;
 }
