@@ -49,6 +49,7 @@
 #include "missing.h"
 #include "label.h"
 #include "build.h"
+#include "strv.h"
 
 static enum {
         ACTION_RUN,
@@ -72,6 +73,7 @@ static bool arg_sysv_console = true;
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char *arg_console = NULL;
+static char **arg_default_controllers = NULL;
 
 static FILE* serialization = NULL;
 
@@ -502,6 +504,7 @@ static int parse_config_file(void) {
                 { "CPUAffinity", config_parse_cpu_affinity, NULL,               "Manager" },
                 { "MountAuto",   config_parse_bool,         &arg_mount_auto,    "Manager" },
                 { "SwapAuto",    config_parse_bool,         &arg_swap_auto,     "Manager" },
+                { "DefaultControllers", config_parse_strv,  &arg_default_controllers, "Manager" },
                 { NULL, NULL, NULL, NULL }
         };
 
@@ -1089,6 +1092,9 @@ int main(int argc, char *argv[]) {
         if (arg_console)
                 manager_set_console(m, arg_console);
 
+        if (arg_default_controllers)
+                manager_set_default_controllers(m, arg_default_controllers);
+
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
 
@@ -1211,6 +1217,7 @@ finish:
 
         free(arg_default_unit);
         free(arg_console);
+        strv_free(arg_default_controllers);
 
         dbus_shutdown();
 

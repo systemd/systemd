@@ -167,7 +167,9 @@
         "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"MountAuto\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"
+        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n"
+                                                                        \
 
 #ifdef HAVE_SYSV_COMPAT
 #define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
@@ -319,7 +321,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
                 { "org.freedesktop.systemd1.Manager", "ControlGroupHierarchy", bus_property_append_string, "s", m->cgroup_hierarchy },
                 { "org.freedesktop.systemd1.Manager", "MountAuto",     bus_property_append_bool,      "b",  &m->mount_auto     },
-                { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto     },
+                { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto      },
+                { "org.freedesktop.systemd1.Manager", "DefaultControllers", bus_property_append_strv, "as", m->default_controllers },
 #ifdef HAVE_SYSV_COMPAT
                 { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
                 { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },

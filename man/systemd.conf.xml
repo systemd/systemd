@@ -112,6 +112,21 @@
                                 whether this job is left to some other
                                 system script.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultControllers=cpu</varname></term>
+
+                                <listitem><para>Configures in which
+                                cgroup controller hierarchies to
+                                create per-service cgroups
+                                automatically, in addition to the
+                                name=systemd named hierarchy. Defaults
+                                to 'cpu'. Takes a space seperated list
+                                of controller names. Pass an empty
+                                string to ensure that systemd does not
+                                touch any hiearchies but its
+                                own.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 

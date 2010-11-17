@@ -222,6 +222,9 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         if (!(m->environment = strv_copy(environ)))
                 goto fail;
 
+        if (!(m->default_controllers = strv_new("cpu", NULL)))
+                goto fail;
+
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
 
@@ -460,6 +463,8 @@ void manager_free(Manager *m) {
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
+
+        strv_free(m->default_controllers);
 
         hashmap_free(m->cgroup_bondings);
         set_free_free(m->unit_path_cache);
@@ -2986,6 +2991,20 @@ void manager_undo_generators(Manager *m) {
 
         free(m->generator_unit_path);
         m->generator_unit_path = NULL;
+}
+
+int manager_set_default_controllers(Manager *m, char **controllers) {
+        char **l;
+
+        assert(m);
+
+        if (!(l = strv_copy(controllers)))
+                return -ENOMEM;
+
+        strv_free(m->default_controllers);
+        m->default_controllers = l;
+
+        return 0;
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

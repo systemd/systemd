@@ -1785,53 +1785,59 @@ fail:
         return r;
 }
 
-int unit_add_default_cgroups(Unit *u) {
+static int unit_add_one_default_cgroup(Unit *u, const char *controller) {
         CGroupBonding *b = NULL;
         int r = -ENOMEM;
-        const char * const default_controllers[] = {
-                SYSTEMD_CGROUP_CONTROLLER,
-                "cpu",
-                NULL
-        };
-        const char * const*c;
 
         assert(u);
 
-        /* Adds in the default cgroups, if it wasn't specified yet */
+        if (!controller)
+                controller = SYSTEMD_CGROUP_CONTROLLER;
 
-        STRV_FOREACH(c, default_controllers) {
+        if (cgroup_bonding_find_list(u->meta.cgroup_bondings, controller))
+                return 0;
 
-                if (cgroup_bonding_find_list(u->meta.cgroup_bondings, *c))
-                        continue;
+        if (!(b = new0(CGroupBonding, 1)))
+                return -ENOMEM;
 
-                if (!(b = new0(CGroupBonding, 1)))
-                        return -ENOMEM;
+        if (!(b->controller = strdup(controller)))
+                goto fail;
 
-                if (!(b->path = default_cgroup_path(u)))
-                        goto fail;
+        if (!(b->path = default_cgroup_path(u)))
+                goto fail;
 
-                if (!(b->controller = strdup(*c)))
-                        goto fail;
+        b->ours = true;
+        b->essential = streq(controller, SYSTEMD_CGROUP_CONTROLLER);
 
-                b->ours = true;
-                b->essential = c == default_controllers; /* the first one is essential */
-
-                if ((r = unit_add_cgroup(u, b)) < 0)
-                        goto fail;
-
-                b = NULL;
-        }
+        if ((r = unit_add_cgroup(u, b)) < 0)
+                goto fail;
 
         return 0;
 
 fail:
-        if (b) {
-                free(b->path);
-                free(b->controller);
-                free(b);
-        }
+        free(b->path);
+        free(b->controller);
+        free(b);
 
         return r;
+}
+
+int unit_add_default_cgroups(Unit *u) {
+        char **c;
+        int r;
+        assert(u);
+
+        /* Adds in the default cgroups, if they weren't specified
+         * otherwise. */
+
+        if ((r = unit_add_one_default_cgroup(u, NULL)) < 0)
+                return r;
+
+        STRV_FOREACH(c, u->meta.manager->default_controllers)
+                if ((r = unit_add_one_default_cgroup(u, *c)) < 0)
+                        return r;
+
+        return 0;
 }
 
 CGroupBonding* unit_get_default_cgroup(Unit *u) {
