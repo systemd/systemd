@@ -88,6 +88,10 @@
 
 * add to cpu cgroup by default
 
+* introduce crypttab.target
+
+* make cryptsetup lower --iter-time
+
 External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
