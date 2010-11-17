@@ -200,6 +200,26 @@
                                 terminated only on their complete
                                 logout.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>controllers=</option></term>
+
+                                <listitem><para>Takes a comma
+                                seperated list of cgroup controllers
+                                in which hierarchies a user/session
+                                cgroup will be created by defautl for
+                                each user logging in. If ommited,
+                                defaults to 'cpu', meaning that in
+                                addition to creating per-user and
+                                per-session cgroups in systemd's own
+                                hierarchy, groups are created in the
+                                'cpu' hierarchy, on order to ensure
+                                that every use and every sessions gets
+                                an equal amount of CPU time,
+                                regardless how many processes a user
+                                or session might
+                                own.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>Note that setting <varname>kill-user=1</varname>
