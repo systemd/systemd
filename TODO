@@ -1,5 +1,3 @@
-* SIGQUIT on shutdown? avahi-daemon[202]: Got SIGQUIT, quitting.
-
 * check if bind mounts work:
     https://bugzilla.novell.com/show_bug.cgi?id=652762
 
