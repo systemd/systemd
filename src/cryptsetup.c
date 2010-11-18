@@ -274,7 +274,7 @@ int main(int argc, char *argv[]) {
                         if (!key_file) {
                                 char *text;
 
-                                if (asprintf(&text, "Please enter passphrase for disk %s!", argv[2]) < 0) {
+                                if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0) {
                                         log_error("Out of memory");
                                         goto finish;
                                 }
@@ -290,7 +290,7 @@ int main(int argc, char *argv[]) {
                                 if (opt_verify) {
                                         char *password2 = NULL;
 
-                                        if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", argv[2]) < 0) {
+                                        if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0) {
                                                 log_error("Out of memory");
                                                 goto finish;
                                         }
