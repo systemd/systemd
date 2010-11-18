@@ -212,7 +212,7 @@ static int nftw_cb(
 
 int mount_setup(void) {
 
-        const char *symlinks =
+        const char symlinks[] =
                 "/proc/kcore\0"      "/dev/core\0"
                 "/proc/self/fd\0"    "/dev/fd\0"
                 "/proc/self/fd/0\0"  "/dev/stdin\0"
