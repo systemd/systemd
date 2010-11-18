@@ -298,7 +298,9 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool ig
 
         if (rem)
                 if ((r = cg_rmdir(controller, path)) < 0) {
-                        if (ret >= 0 && r != -ENOENT)
+                        if (ret >= 0 &&
+                            r != -ENOENT &&
+                            r != -EBUSY)
                                 ret = r;
                 }
 
@@ -459,7 +461,9 @@ int cg_migrate_recursive(const char *controller, const char *from, const char *t
 
         if (rem)
                 if ((r = cg_rmdir(controller, from)) < 0) {
-                        if (ret >= 0 && r != -ENOENT)
+                        if (ret >= 0 &&
+                            r != -ENOENT &&
+                            r != -EBUSY)
                                 ret = r;
                 }
 
