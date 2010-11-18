@@ -1,7 +1,3 @@
-* leaving file open on mounted non-root filesystems breaks shutdown
-  systemd is confused if something goes:
-    mounted→unmounting→mounted
-
 * SIGQUIT on shutdown? avahi-daemon[202]: Got SIGQUIT, quitting.
 
 * check if bind mounts work:

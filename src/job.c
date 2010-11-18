@@ -531,7 +531,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
 
                 } else if (t == JOB_STOP) {
 
-                        SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
+                        SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTED_BY], i)
                                 if (other->meta.job &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
