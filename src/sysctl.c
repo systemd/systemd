@@ -54,7 +54,9 @@ static void apply_sysctl(const char *property, const char *value) {
 
         if ((r = write_one_line_file(p, value)) < 0) {
                 log_warning("Failed to write '%s' to '%s': %s", value, p, strerror(-r));
-                exit_code = r;
+
+                if (r != -ENOENT)
+                        exit_code = r;
         }
 
         free(p);
