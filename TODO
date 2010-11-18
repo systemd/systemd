@@ -53,7 +53,7 @@
 
 * readahead: btrfs/LVM SSD detection
 
-* man pages for: locale.conf, vconsole.conf modules-load.d
+* man pages for: locale.conf, vconsole.conf, modules-load.d, /etc/os-release
 
 * when processes remain in a service even though the start command failed enter active
 
@@ -70,8 +70,6 @@
 * allow runtime changing of log level and target
 
 * automatically determine TERM= based on tty name even for /dev/console
-
-* declare /etc/os-release cross-distro standard
 
 * fix hotplug transactions
 

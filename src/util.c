@@ -2979,80 +2979,113 @@ void status_printf(const char *format, ...) {
 }
 
 void status_welcome(void) {
+        char *pretty_name = NULL, *ansi_color = NULL;
+        const char *const_pretty = NULL, *const_color = NULL;
+        int r;
+
+        if ((r = parse_env_file("/etc/os-release", NEWLINE,
+                                "PRETTY_NAME", &pretty_name,
+                                "ANSI_COLOR", &ansi_color,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/os-release: %s", strerror(-r));
+        }
 
 #if defined(TARGET_FEDORA)
-        char *r;
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/system-release", &pretty_name)) < 0) {
 
-        if (read_one_line_file("/etc/system-release", &r) < 0)
-                return;
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/system-release: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
 
-        truncate_nl(r);
+        if (!ansi_color && pretty_name) {
 
-        /* This tries to mimic the color magic the old Red Hat sysinit
-         * script did. */
+                /* This tries to mimic the color magic the old Red Hat sysinit
+                 * script did. */
 
-        if (startswith(r, "Red Hat"))
-                status_printf("Welcome to \x1B[0;31m%s\x1B[0m!\n", r); /* Red for RHEL */
-        else if (startswith(r, "Fedora"))
-                status_printf("Welcome to \x1B[0;34m%s\x1B[0m!\n", r); /* Blue for Fedora */
-        else
-                status_printf("Welcome to \x1B[1m%s\x1B[0m!\n", r); /* Highlight for everything else */
-
-        free(r);
+                if (startswith(pretty_name, "Red Hat"))
+                        const_color = "0;31"; /* Red for RHEL */
+                else if (startswith(pretty_name, "Fedora"))
+                        const_color = "0;34"; /* Blue for Fedora */
+        }
 
 #elif defined(TARGET_SUSE)
-        char *r;
 
-        if (read_one_line_file("/etc/SuSE-release", &r) < 0)
-                return;
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/SuSE-release", &pretty_name)) < 0) {
 
-        truncate_nl(r);
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/SuSE-release: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
 
-        status_printf("Welcome to \x1B[0;32m%s\x1B[0m!\n", r); /* Green for SUSE */
-        free(r);
+        if (!ansi_color)
+                const_color = "0;32"; /* Green for openSUSE */
 
 #elif defined(TARGET_GENTOO)
-        char *r;
 
-        if (read_one_line_file("/etc/gentoo-release", &r) < 0)
-                return;
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/gentoo-release", &pretty_name)) < 0) {
 
-        truncate_nl(r);
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/gentoo-release: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
 
-        status_printf("Welcome to \x1B[1;34m%s\x1B[0m!\n", r); /* Light Blue for Gentoo */
-
-        free(r);
+        if (!ansi_color)
+                const_color = "1;34"; /* Light Blue for Gentoo */
 
 #elif defined(TARGET_DEBIAN)
-        char *r;
 
-        if (read_one_line_file("/etc/debian_version", &r) < 0)
-                return;
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/debian_version", &pretty_name)) < 0) {
 
-        truncate_nl(r);
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/debian_version: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
 
-        status_printf("Welcome to Debian \x1B[1;31m%s\x1B[0m!\n", r); /* Light Red for Debian */
+        if (!ansi_color)
+                const_color = "1;31"; /* Light Red for Debian */
 
-        free(r);
 #elif defined(TARGET_UBUNTU)
-        char *desc = NULL;
-        char *codename = NULL;
 
-        if (parse_env_file("/etc/lsb-release", NEWLINE,
-                "DISTRIB_DESCRIPTION", &desc,
-                "DISTRIB_CODENAME", &codename, NULL) < 0)
-                return;
-        if (desc && codename)
-                /* Light Red for Ubuntu */
-                status_printf("Welcome to \x1B[1;31m%s\x1B[0m (%s)\n",
-                        desc, codename);
-        free(desc);
-        free(codename);
+        if ((r = parse_env_file("/etc/lsb-release", NEWLINE,
+                                "DISTRIB_DESCRIPTION", &pretty_name,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/lsb-release: %s", strerror(-r));
+        }
+
+        if (!ansi_color)
+                const_color = "0;33"; /* Orange/Brown for Ubuntu */
+
 #elif defined(TARGET_ARCH)
-        status_printf("Welcome to \x1B[1;36mArch Linux\x1B[0m!\n"); /* Cyan for Arch */
-#else
-#warning "You probably should add a welcome text logic here."
+
+        if (!pretty_name)
+                const_pretty = "Arch Linux";
+
+        if (!ansi_color)
+                const_color = "1;36"; /* Cyan for Arch */
 #endif
+
+        if (!pretty_name && !const_pretty)
+                const_pretty = "Linux";
+
+        if (!ansi_color && !const_color)
+                const_color = "1";
+
+        status_printf("Welcome to \x1B[%sm%s\x1B[0m!\n",
+                      const_color ? const_color : ansi_color,
+                      const_pretty ? const_pretty : pretty_name);
 }
 
 char *replace_env(const char *format, char **env) {
