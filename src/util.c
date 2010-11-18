@@ -495,6 +495,9 @@ int write_one_line_file(const char *fn, const char *line) {
                 goto finish;
         }
 
+        if (!endswith(line, "\n"))
+                fputc('\n', f);
+
         r = 0;
 finish:
         fclose(f);

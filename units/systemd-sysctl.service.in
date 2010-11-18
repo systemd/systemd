@@ -12,9 +12,9 @@ Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=basic.target shutdown.target
 ConditionPathExists=/etc/sysctl.conf
+ConditionDirectoryNotEmpty=/etc/sysctl.d
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/sbin/sysctl -e -q -p /etc/sysctl.conf
-StandardOutput=syslog
+ExecStart=@rootlibexecdir@/systemd-sysctl

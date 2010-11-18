@@ -119,7 +119,8 @@ rootlibexec_PROGRAMS = \
 	systemd-fsck \
 	systemd-quotacheck \
 	systemd-timestamp \
-	systemd-ac-power
+	systemd-ac-power \
+	systemd-sysctl
 
 if HAVE_LIBCRYPTSETUP
 rootlibexec_PROGRAMS += \
@@ -223,7 +224,6 @@ dist_systemunit_DATA = \
 	units/var-run.mount \
 	units/hwclock-load.service \
 	units/hwclock-save.service \
-	units/sysctl.service \
 	units/remount-rootfs.service \
 	units/printer.target \
 	units/bluetooth.target \
@@ -261,6 +261,7 @@ nodist_systemunit_DATA = \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-plymouth.service \
 	units/systemd-ask-password-console.service \
+	units/systemd-sysctl.service \
 	units/syslog.target \
 	units/halt.service \
 	units/poweroff.service \
@@ -306,6 +307,7 @@ EXTRA_DIST = \
 	units/systemd-ask-password-wall.service.in \
 	units/systemd-ask-password-plymouth.service.in \
 	units/systemd-ask-password-console.service.in \
+	units/systemd-sysctl.service.in \
 	units/syslog.target.in \
 	units/halt.service.in \
 	units/poweroff.service.in \
@@ -711,6 +713,15 @@ systemd_tmpfiles_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_tmpfiles_LDADD = \
+	libsystemd-basic.la
+
+systemd_sysctl_SOURCES = \
+	src/sysctl.c
+
+systemd_sysctl_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_sysctl_LDADD = \
 	libsystemd-basic.la
 
 systemd_fsck_SOURCES = \
@@ -1227,7 +1238,7 @@ install-data-hook:
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
 			systemd-tmpfiles-setup.service \
-			sysctl.service \
+			systemd-sysctl.service \
 			systemd-ask-password-console.path && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
@@ -1238,7 +1249,7 @@ install-data-hook:
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
-		$(LN_S) ../sysctl.service sysctl.service && \
+		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
