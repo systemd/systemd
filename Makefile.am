@@ -188,6 +188,7 @@ dist_systemunit_DATA = \
 	units/halt.target \
 	units/kexec.target \
 	units/local-fs.target \
+	units/cryptsetup.target \
 	units/network.target \
 	units/nss-lookup.target \
 	units/mail-transfer-agent.target \
@@ -1161,12 +1162,14 @@ install-data-hook:
 			fsck-root.service \
 			remount-rootfs.service \
 			var-run.mount \
-			var-lock.mount && \
+			var-lock.mount \
+			cryptsetup.target && \
 		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
 		$(LN_S) ../fsck-root.service fsck-root.service && \
 		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
 		$(LN_S) ../var-run.mount var-run.mount && \
-		$(LN_S) ../var-lock.mount var-lock.mount )
+		$(LN_S) ../var-lock.mount var-lock.mount && \
+		$(LN_S) ../cryptsetup.target )
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \

@@ -102,7 +102,7 @@ static int create_disk(
                 "DefaultDependencies=no\n"
                 "BindTo=%s dev-mapper-%%i.device\n"
                 "After=systemd-readahead-collect.service systemd-readahead-replay.service %s\n"
-                "Before=dev-mapper-%%i.device shutdown.target local-fs.target\n",
+                "Before=dev-mapper-%%i.device shutdown.target cryptsetup.target\n",
                 d, d);
 
         if (password && (streq(password, "/dev/urandom") ||
@@ -156,6 +156,25 @@ static int create_disk(
                         log_error("Failed to create symlink '%s' to '%s': %m", from, to);
                         r = -errno;
                         goto fail;
+                }
+
+                free(to);
+                to = NULL;
+
+                if (!options || !has_option(options, "nofail")) {
+
+                        if (asprintf(&to, "%s/cryptsetup.target.wants/%s", arg_dest, n) < 0) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        mkdir_parents(to, 0755);
+
+                        if (symlink(from, to) < 0) {
+                                log_error("Failed to create symlink '%s' to '%s': %m", from, to);
+                                r = -errno;
+                                goto fail;
+                        }
                 }
         }
 
