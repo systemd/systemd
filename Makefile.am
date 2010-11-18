@@ -232,7 +232,8 @@ dist_systemunit_DATA = \
 	units/systemd-tmpfiles-clean.timer \
 	units/quotaon.service \
 	units/systemd-ask-password-wall.path \
-	units/systemd-ask-password-plymouth.path
+	units/systemd-ask-password-plymouth.path \
+	units/systemd-ask-password-console.path
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
@@ -259,6 +260,7 @@ nodist_systemunit_DATA = \
 	units/systemd-user-sessions.service \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-plymouth.service \
+	units/systemd-ask-password-console.service \
 	units/syslog.target \
 	units/halt.service \
 	units/poweroff.service \
@@ -303,6 +305,7 @@ EXTRA_DIST = \
 	units/systemd-user-sessions.service.in \
 	units/systemd-ask-password-wall.service.in \
 	units/systemd-ask-password-plymouth.service.in \
+	units/systemd-ask-password-console.service.in \
 	units/syslog.target.in \
 	units/halt.service.in \
 	units/poweroff.service.in \
@@ -1224,7 +1227,8 @@ install-data-hook:
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
 			systemd-tmpfiles-setup.service \
-			sysctl.service && \
+			sysctl.service \
+			systemd-ask-password-console.path && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
@@ -1234,7 +1238,8 @@ install-data-hook:
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
-		$(LN_S) ../sysctl.service sysctl.service )
+		$(LN_S) ../sysctl.service sysctl.service && \
+		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
 		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )
@@ -1256,10 +1261,9 @@ if TARGET_FEDORA
 		rm -f halt-local.service && \
 		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f plymouth-start.service systemd-ask-password-plymouth.path plymouth-read-write.service && \
+		rm -f plymouth-start.service plymouth-read-write.service && \
 		$(LN_S) ../plymouth-start.service plymouth-start.service && \
-		$(LN_S) ../plymouth-read-write.service plymouth-read-write.service && \
-		$(LN_S) ../systemd-ask-password-plymouth.path systemd-ask-password-plymouth.path )
+		$(LN_S) ../plymouth-read-write.service plymouth-read-write.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f plymouth-quit.service  && \
 		$(LN_S) ../plymouth-quit.service plymouth-quit.service )
