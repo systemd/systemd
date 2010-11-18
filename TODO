@@ -2,9 +2,6 @@
   systemd is confused if something goes:
     mounted→unmounting→mounted
 
-* /lib/systemd/systemd-user-sessions stop seems to leave
-  processes behind
-
 * SIGQUIT on shutdown? avahi-daemon[202]: Got SIGQUIT, quitting.
 
 * check if bind mounts work:
