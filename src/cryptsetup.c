@@ -24,6 +24,7 @@
 #include <sys/mman.h>
 
 #include <libcryptsetup.h>
+#include <libudev.h>
 
 #include "log.h"
 #include "util.h"
@@ -140,11 +141,47 @@ static void log_glue(int level, const char *msg, void *usrptr) {
         log_debug("%s", msg);
 }
 
+static char *disk_description(const char *path) {
+        struct udev *udev = NULL;
+        struct udev_device *device = NULL;
+        struct stat st;
+        char *description = NULL;
+        const char *model;
+
+        assert(path);
+
+        if (stat(path, &st) < 0)
+                return NULL;
+
+        if (!S_ISBLK(st.st_mode))
+                return NULL;
+
+        if (!(udev = udev_new()))
+                return NULL;
+
+        if (!(device = udev_device_new_from_devnum(udev, 'b', st.st_rdev)))
+                goto finish;
+
+        if ((model = udev_device_get_property_value(device, "ID_MODEL_FROM_DATABASE")) ||
+            (model = udev_device_get_property_value(device, "ID_MODEL")))
+                description = strdup(model);
+
+finish:
+        if (device)
+                udev_device_unref(device);
+
+        if (udev)
+                udev_unref(udev);
+
+        return description;
+}
+
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
         struct crypt_device *cd = NULL;
         char *password = NULL, *truncated_cipher = NULL;
-        const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL;
+        const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
+        char *description = NULL;
 
         if (argc < 3) {
                 log_error("This program requires at least two arguments.");
@@ -184,6 +221,9 @@ int main(int argc, char *argv[]) {
 
                 /* A delicious drop of snake oil */
                 mlockall(MCL_FUTURE);
+
+                description = disk_description(argv[3]);
+                name = description ? description : argv[2];
 
                 if ((k = crypt_init(&cd, argv[3]))) {
                         log_error("crypt_init() failed: %s", strerror(-k));
@@ -381,6 +421,8 @@ finish:
         free(truncated_cipher);
 
         free(password);
+
+        free(description);
 
         return r;
 }

@@ -773,10 +773,12 @@ systemd_cryptsetup_SOURCES = \
 
 systemd_cryptsetup_CFLAGS = \
 	$(LIBCRYPTSETUP_CFLAGS) \
+	$(UDEV_CFLAGS) \
 	$(AM_CFLAGS)
 
 systemd_cryptsetup_LDADD = \
 	$(LIBCRYPTSETUP_LIBS) \
+	$(UDEV_LIBS) \
 	libsystemd-basic.la
 
 systemd_cryptsetup_generator_SOURCES = \

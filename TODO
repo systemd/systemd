@@ -57,8 +57,6 @@
 
 * when processes remain in a service even though the start command failed enter active
 
-* parse early boot time env var from dracut RD_TIMEOUT, drop RD_xxx
-
 * add seperate man page for [Install] settings
 
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
@@ -75,8 +73,6 @@
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
-* read description string from device in crypttsetup
-
 External:
 
 * make cryptsetup lower --iter-time
@@ -88,8 +84,6 @@ External:
 * place /etc/inittab with explaining blurb.
 
 * pam_securetty should honour console=
-
-* sysctl should support sysctl.conf.d directory
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 
