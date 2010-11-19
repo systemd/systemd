@@ -10,7 +10,7 @@ Description=Apply System Clock UTC Offset
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service
-Before=basic.target shutdown.target udev.service
+Before=sysinit.target shutdown.target udev.service
 
 [Service]
 Type=oneshot
@@ -30,4 +30,4 @@ StandardOutput=syslog
 # system time as part of kernel setup.
 
 [Install]
-WantedBy=basic.target
+WantedBy=sysinit.target

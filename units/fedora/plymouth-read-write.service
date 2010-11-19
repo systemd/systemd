@@ -9,7 +9,7 @@
 Description=Tell Plymouth To Write Out Runtime Data
 DefaultDependencies=no
 After=local-fs.target
-Before=basic.target
+Before=sysinit.target
 
 [Service]
 ExecStart=-/bin/plymouth update-root-fs --read-write

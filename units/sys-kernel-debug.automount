@@ -8,7 +8,7 @@
 [Unit]
 Description=Debug File System Automount Point
 DefaultDependencies=no
-Before=basic.target
+Before=sysinit.target
 
 [Automount]
 Where=/sys/kernel/debug
