@@ -65,30 +65,11 @@
 		containing action, mode, ownership and age
 		fields:</para>
 
-                <programlisting>type path          mode uid  gid  age
+                <programlisting>Type Path          Mode UID  GID  Age
 d    /var/run/user 0755 root root 10d</programlisting>
 
                 <refsect2>
-                        <title>mode</title>
-
-                        <para>The file access mode to use for this
-                        file or directory. If ommited or when set to -
-                        the default is used: 0755 for directories,
-                        0644 for files.</para>
-                </refsect2>
-
-                <refsect2>
-                        <title>uid, gid</title>
-
-                        <para>The user and group to use for this file
-                        or directory. This may either be a numeric
-                        user/group ID or a user or group name. If
-                        ommited or when set to - the default 0 is
-                        used.</para>
-                </refsect2>
-
-                <refsect2>
-                        <title>type</title>
+                        <title>Type</title>
                         <variablelist>
                                 <varlistentry>
                                         <term><varname>f</varname></term>
@@ -128,7 +109,26 @@ d    /var/run/user 0755 root root 10d</programlisting>
                 </refsect2>
 
                 <refsect2>
-                        <title>age</title>
+                        <title>Mode</title>
+
+                        <para>The file access mode to use for this
+                        file or directory. If ommited or when set to -
+                        the default is used: 0755 for directories,
+                        0644 for files.</para>
+                </refsect2>
+
+                <refsect2>
+                        <title>UID, GID</title>
+
+                        <para>The user and group to use for this file
+                        or directory. This may either be a numeric
+                        user/group ID or a user or group name. If
+                        ommited or when set to - the default 0 is
+                        used.</para>
+                </refsect2>
+
+                <refsect2>
+                        <title>Age</title>
                         <para>The date field, when set, is used to
                         decide what files to delete when cleaning. If
                         a file or directory is older than the current
