@@ -28,8 +28,6 @@
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
 
-* chkconfig/systemd enable glue
-
 * io priority during initialization
 
 * if a service fails too often, make the service enter failed mode, and the socket, too.
@@ -70,6 +68,12 @@
 * fix hotplug transactions
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
+
+Fedora:
+
+* obsolete readhead in system pkgs
+
+* chkconfig → systemd enable/daemon-reload glue
 
 External:
 

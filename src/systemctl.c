@@ -2338,7 +2338,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
         return 0;
 }
 
-static int show_one(DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
+static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
         DBusMessage *m = NULL, *reply = NULL;
         const char *interface = "";
         int r;
@@ -2438,7 +2438,8 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
                 print_status_info(&info);
 
         if (!streq_ptr(info.active_state, "active") &&
-            !streq_ptr(info.active_state, "reloading"))
+            !streq_ptr(info.active_state, "reloading") &&
+            streq(verb, "status"))
                 /* According to LSB: "program not running" */
                 r = 3;
 
@@ -2477,7 +2478,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 /* If not argument is specified inspect the manager
                  * itself */
 
-                ret = show_one(bus, "/org/freedesktop/systemd1", show_properties, &new_line);
+                ret = show_one(args[0], bus, "/org/freedesktop/systemd1", show_properties, &new_line);
                 goto finish;
         }
 
@@ -2611,7 +2612,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                if ((r = show_one(bus, path, show_properties, &new_line)) != 0)
+                if ((r = show_one(args[0], bus, path, show_properties, &new_line)) != 0)
                         ret = r;
 
                 dbus_message_unref(m);
