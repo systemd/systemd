@@ -167,9 +167,15 @@
 
                 <para>If you interpreting this file from code or a
                 shell script, use the ID and VERSION_ID fields. When
-                looking for an OS indetification string for
+                looking for an OS identification string for
                 presentation to the user use the PRETTY_STRING
                 field.</para>
+
+                <para>Note that operating system vendors may choose
+                not to provide version information, for example to
+                accomodate for rolling releases. In this case VERSION
+                and VERSION_ID may be unset. Applications should not
+                rely on these fields to be set.</para>
         </refsect1>
 
         <refsect1>

@@ -75,6 +75,8 @@ Fedora:
 
 * chkconfig → systemd enable/daemon-reload glue
 
+* /var/lock, /var/run → what happens if rpm stuff is no %ghosted?
+
 External:
 
 * make cryptsetup lower --iter-time
