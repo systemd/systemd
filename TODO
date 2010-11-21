@@ -53,8 +53,6 @@
 
 * readahead: btrfs/LVM SSD detection
 
-* man pages for: modules-load.d, /etc/os-release
-
 * when processes remain in a service even though the start command failed enter active
 
 * add seperate man page for [Install] settings

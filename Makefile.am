@@ -509,7 +509,8 @@ MANPAGES = \
 	man/hostname.5 \
 	man/vconsole.conf.5 \
 	man/locale.conf.5 \
-	man/os-release.5
+	man/os-release.5 \
+	man/modules-load.d.5
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \

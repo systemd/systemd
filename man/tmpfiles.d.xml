@@ -42,8 +42,12 @@
 
         <refnamediv>
                 <refname>tmpfiles.d</refname>
-                <refpurpose>configuration for creation, deletion and cleaning of tmpfiles</refpurpose>
+                <refpurpose>Configuration for creation, deletion and cleaning of temporary and volatile files</refpurpose>
         </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/tmpfiles.d/*.conf</filename></para>
+        </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
@@ -55,7 +59,7 @@
 		<filename>/var/run</filename> or
 		<filename>/tmp</filename>).  Each configuration file
 		is named in the style of
-		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename></para>
+		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename>.</para>
         </refsect1>
 
         <refsect1>
@@ -73,37 +77,37 @@ d    /var/run/user 0755 root root 10d</programlisting>
                         <variablelist>
                                 <varlistentry>
                                         <term><varname>f</varname></term>
-                                        <listitem><para>create a file if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a file if it doesn't exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>F</varname></term>
-                                        <listitem><para>create or truncate a file</para></listitem>
+                                        <listitem><para>Create or truncate a file</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>d</varname></term>
-                                        <listitem><para>create a directory if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a directory if it doesn't exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>D</varname></term>
-                                        <listitem><para>create or empty a directory</para></listitem>
+                                        <listitem><para>Create or empty a directory</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>x</varname></term>
-                                        <listitem><para>ignore a path</para></listitem>
+                                        <listitem><para>Ignore a path</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>r</varname></term>
-                                        <listitem><para>remove a path</para></listitem>
+                                        <listitem><para>Remove a path</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>R</varname></term>
-                                        <listitem><para>recursively remove a path</para></listitem>
+                                        <listitem><para>Recursively remove a path</para></listitem>
                                 </varlistentry>
                         </variablelist>
                 </refsect2>
