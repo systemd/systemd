@@ -53,7 +53,7 @@
 
 * readahead: btrfs/LVM SSD detection
 
-* man pages for: locale.conf, vconsole.conf, modules-load.d, /etc/os-release
+* man pages for: modules-load.d, /etc/os-release
 
 * when processes remain in a service even though the start command failed enter active
 
