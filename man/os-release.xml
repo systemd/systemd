@@ -1,0 +1,194 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="os-release">
+        <refentryinfo>
+                <title>os-release</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>os-release</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>os-release</refname>
+                <refpurpose>Operating system identification</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/os-release</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>The <filename>/etc/os-release</filename> file
+                contains operating system identification data.</para>
+
+                <para>The basic file format of
+                <filename>os-release</filename> is a
+                newline-separated list of environment-like
+                shell-compatible variable assignments. It is possible
+                to source the configuration from shell scripts,
+                however, beyond mere variable assignments no shell
+                features are supported, allowing applications to read
+                the file without implementing a shell compatible
+                execution engine.</para>
+
+                <para><filename>/etc/os-release</filename> contains
+                data that is defined by the operating system vendor
+                and should not be changed by the administrator.</para>
+
+                <para>Depending on the operating system other
+                configuration files might be checked for OS
+                identification as well, however only as
+                fallback.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following OS identifications parameters may be set using
+                <filename>/etc/os-release</filename>:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>NAME=</varname></term>
+
+                                <listitem><para>A string identifying
+                                the operating system, without a
+                                version string, and not necessarily
+                                suitable for presentation to the
+                                user. If not set defaults to
+                                <literal>Linux</literal>. Example:
+                                <literal>NAME=Fedora</literal> or
+                                <literal>NAME="Debian
+                                GNU/Linux"</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>VERSION=</varname></term>
+
+                                <listitem><para>A string identifying
+                                the operating system version,
+                                excluding any name information and
+                                suitable for presentation to the
+                                user. Example:
+                                <literal>VERSION=15</literal> or
+                                <literal>VERSION="15
+                                (Rawhide)"</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ID=</varname></term>
+
+                                <listitem><para>A lower-case string
+                                identifying the operating system,
+                                excluding any version information and
+                                suitable for processing by scripts. If
+                                not set defaults to
+                                <literal>linux</literal>. Example:
+                                <literal>ID=fedora</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>VERSION_ID=</varname></term>
+
+                                <listitem><para>A lower-case string
+                                (mostly numeric) identifying the
+                                operating system version, excluding
+                                any name information and suitable for
+                                processing by scripts. Example:
+                                <literal>VERSION_ID=15</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PRETTY_NAME=</varname></term>
+
+                                <listitem><para>A pretty operating
+                                system name in a format suitable for
+                                presentation to the user. May or may
+                                not contain an OS version of some
+                                kind, as suitable. If not set defaults
+                                to <literal>Linux</literal>. Example:
+                                <literal>PRETTY_NAME=Fedora 15
+                                (Rawhide)</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ANSI_COLOR=</varname></term>
+
+                                <listitem><para>A suggested
+                                presentation color when showing the
+                                distribution name on the console. This
+                                should be specified as string suitable
+                                for inclusion in the ESC [ m
+                                ANSI/ECMA-48 escape code for setting
+                                graphical rendition. Example:
+                                <literal>ANSI_COLOR=0;31</literal> for
+                                red, or
+                                <literal>ANSI_COLOR=1;34</literal> for
+                                light blue.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <para>If you interpreting this file from code or a
+                shell script, use the ID and VERSION_ID fields. When
+                looking for an OS indetification string for
+                presentation to the user use the PRETTY_STRING
+                field.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+
+                <programlisting>NAME=Fedora
+VERSION=15 (Rawhide)
+ID=fedora
+VERSION_ID=15
+PRETTY_NAME=Fedora 15 (Rawhide)
+ANSI_COLOR=0;34</programlisting>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
