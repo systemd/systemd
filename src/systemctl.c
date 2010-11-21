@@ -3886,6 +3886,68 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
         }
 
         if (!f) {
+#if defined(TARGET_FEDORA) && defined (HAVE_SYSV_COMPAT)
+
+                if (endswith(i->name, ".service")) {
+                        char *sysv;
+                        bool exists;
+
+                        if (asprintf(&sysv, SYSTEM_SYSVINIT_PATH "/%s", i->name) < 0) {
+                                log_error("Out of memory");
+                                return -ENOMEM;
+                        }
+
+                        sysv[strlen(sysv) - sizeof(".service") + 1] = 0;
+                        exists = access(sysv, F_OK) >= 0;
+
+                        if (exists) {
+                                pid_t pid;
+                                siginfo_t status;
+
+                                const char *argv[] = {
+                                        "/sbin/chkconfig",
+                                        NULL,
+                                        NULL,
+                                        NULL
+                                };
+
+                                log_info("%s is not a native service, redirecting to /sbin/chkconfig.", i->name);
+
+                                argv[1] = file_name_from_path(sysv);
+                                argv[2] =
+                                        streq(verb, "enable") ? "on" :
+                                        streq(verb, "disable") ? "off" : NULL;
+
+                                log_info("Executing %s %s %s", argv[0], argv[1], strempty(argv[2]));
+
+                                if ((pid = fork()) < 0) {
+                                        log_error("Failed to fork: %m");
+                                        free(sysv);
+                                        return -errno;
+                                } else if (pid == 0) {
+                                        execv(argv[0], (char**) argv);
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                free(sysv);
+
+                                if ((r = wait_for_terminate(pid, &status)) < 0)
+                                        return r;
+
+                                if (status.si_code == CLD_EXITED) {
+                                        if (status.si_status == 0 && (streq(verb, "enable") || streq(verb, "disable")))
+                                                n_symlinks ++;
+
+                                        return status.si_status == 0 ? 0 : -EINVAL;
+                                } else
+                                        return -EPROTO;
+                        }
+
+                        free(sysv);
+                }
+
+#endif
+
                 log_error("Couldn't find %s.", i->name);
                 return -ENOENT;
         }
