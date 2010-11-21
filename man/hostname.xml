@@ -69,7 +69,7 @@
 
                 <para>Depending on the operating system other
                 configuration files might be checked for configuration
-                of the host name, however only as fallback.</para>
+                of the host name as well, however only as fallback.</para>
         </refsect1>
 
         <refsect1>

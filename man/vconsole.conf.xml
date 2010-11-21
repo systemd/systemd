@@ -1,0 +1,131 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="hostname">
+        <refentryinfo>
+                <title>vconsole.conf</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>vconsole.conf</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>vconsole.conf</refname>
+                <refpurpose>configuration file for the virtual console</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/vconsole.conf</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>The <filename>/etc/vconsole.conf</filename> file
+                configures the virtual console, i.e. keyboard mapping
+                and console font.</para>
+
+                <para>The basic file format of the
+                <filename>vconsole.conf</filename> is a set of
+                environment-like shell-compatible variable
+                assignments. It is possible to source the
+                configuration from shell scripts, however, beyond mere
+                variable assignments no shell features are supported,
+                allowing applications to read the file without
+                containing a shell compatible execution engine.</para>
+
+                <para>Note that the kernel command line options
+                <varname>vconsole.keymap=</varname>,
+                <varname>vconsole.keymap.toggle=</varname>,
+                <varname>vconsole.font=</varname>,
+                <varname>vconsole.font.map=</varname>,
+                <varname>vconsole.font.unimap=</varname> can be used
+                to override the console settings at boot.</para>
+
+                <para>Depending on the operating system other
+                configuration files might be checked for configuration
+                of the virtual console as well, however only as
+                fallback.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>KEYMAP=</varname></term>
+                                <term><varname>KEYMAP_TOGGLE=</varname></term>
+
+                                <listitem><para>Configures the key
+                                mapping table of for they
+                                keyboard. <varname>KEYMAP=</varname>
+                                defaults to <literal>us</literal> if
+                                not set. The
+                                <varname>KEYMAP_TOGGLE=</varname> can
+                                be used to configured a second toggle
+                                keymap and is by default
+                                unset.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>FONT=</varname></term>
+                                <term><varname>FONT_MAP=</varname></term>
+                                <term><varname>FONT_UNIMAP=</varname></term>
+
+                                <listitem><para>Configures the console
+                                font, the console map and the unicode
+                                font map. <varname>FONT=</varname>
+                                defaults to
+                                <literal>latarcyrheb-sun16</literal>.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
