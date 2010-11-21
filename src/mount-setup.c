@@ -138,8 +138,9 @@ static int mount_cgroup_controllers(void) {
         for (;;) {
                 MountPoint p;
                 char *controller, *where;
+                int enabled = false;
 
-                if (fscanf(f, "%ms %*i %*i %*i", &controller) != 1) {
+                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 1) {
 
                         if (feof(f))
                                 break;
@@ -147,6 +148,11 @@ static int mount_cgroup_controllers(void) {
                         log_error("Failed to parse /proc/cgroups.");
                         r = -EIO;
                         goto finish;
+                }
+
+                if (!enabled) {
+                        free(controller);
+                        continue;
                 }
 
                 if (asprintf(&where, "/sys/fs/cgroup/%s", controller) < 0) {
