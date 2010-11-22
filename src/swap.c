@@ -199,9 +199,15 @@ static int swap_add_device_links(Swap *s) {
         else
                 return 0;
 
-        return unit_add_node_link(UNIT(s), s->what,
-                                  !p->noauto && p->nofail &&
-                                  s->meta.manager->running_as == MANAGER_SYSTEM);
+        if (is_device_path(s->what))
+                return unit_add_node_link(UNIT(s), s->what,
+                                          !p->noauto && p->nofail &&
+                                          s->meta.manager->running_as == MANAGER_SYSTEM);
+        else
+                /* File based swap devices need to be ordered after
+                 * remount-rootfs.service, since they might need a
+                 * writable file system. */
+                return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_ROOTFS_SERVICE, NULL, true);
 }
 
 static int swap_add_default_dependencies(Swap *s) {
