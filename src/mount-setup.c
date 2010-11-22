@@ -140,7 +140,7 @@ static int mount_cgroup_controllers(void) {
                 char *controller, *where;
                 int enabled = false;
 
-                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 1) {
+                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
 
                         if (feof(f))
                                 break;
