@@ -26,7 +26,7 @@
 #include "dbus-unit.h"
 #include "bus-errors.h"
 
-const char bus_unit_interface[] = BUS_UNIT_INTERFACE;
+const char bus_unit_interface[] _introspect_("Unit") = BUS_UNIT_INTERFACE;
 
 #define INVALIDATING_PROPERTIES                 \
         "LoadState\0"                           \

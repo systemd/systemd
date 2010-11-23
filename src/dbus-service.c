@@ -90,7 +90,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
-const char bus_service_interface[] = BUS_SERVICE_INTERFACE;
+const char bus_service_interface[] _introspect_("Service") = BUS_SERVICE_INTERFACE;
 
 const char bus_service_invalidating_properties[] =
         "ExecStartPre\0"

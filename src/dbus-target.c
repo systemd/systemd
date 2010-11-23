@@ -38,7 +38,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
-const char bus_target_interface[] = BUS_TARGET_INTERFACE;
+const char bus_target_interface[] _introspect_("Target") = BUS_TARGET_INTERFACE;
 
 DBusHandlerResult bus_target_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {

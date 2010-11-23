@@ -47,7 +47,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
-const char bus_swap_interface[] = BUS_SWAP_INTERFACE;
+const char bus_swap_interface[] _introspect_("Swap") = BUS_SWAP_INTERFACE;
 
 const char bus_swap_invalidating_properties[] =
         "What\0"

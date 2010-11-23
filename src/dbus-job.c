@@ -43,7 +43,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                  \
         "</node>\n"
 
-const char bus_job_interface[] = BUS_JOB_INTERFACE;
+const char bus_job_interface[] _introspect_("Job") = BUS_JOB_INTERFACE;
 
 #define INVALIDATING_PROPERTIES                 \
         "State\0"                               \

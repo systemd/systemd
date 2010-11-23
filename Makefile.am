@@ -1118,8 +1118,12 @@ CLEANFILES += \
 	${XML_IN_FILES:.xml.in=.html.in}
 endif
 
+DBUS_PREPROCESS = $(CPP) -P $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
+
 org.freedesktop.systemd1.%.xml: systemd
-	$(AM_V_GEN)SYSTEMD_SKIP_API_MOUNTS=1 ./systemd --introspect=${@:.xml=} > $@
+	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 CLEANFILES += \
 	$(dbusinterface_DATA)

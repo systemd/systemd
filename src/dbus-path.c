@@ -41,7 +41,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
-const char bus_path_interface[] = BUS_PATH_INTERFACE;
+const char bus_path_interface[] _introspect_("Path") = BUS_PATH_INTERFACE;
 
 static int bus_path_append_paths(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Path *p = data;

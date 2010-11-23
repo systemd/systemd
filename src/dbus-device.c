@@ -37,7 +37,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
-const char bus_device_interface[] = BUS_DEVICE_INTERFACE;
+const char bus_device_interface[] _introspect_("Device") = BUS_DEVICE_INTERFACE;
 
 const char bus_device_invalidating_properties[] =
         "SysFSPath\0"

@@ -50,7 +50,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
-const char bus_mount_interface[] = BUS_MOUNT_INTERFACE;
+const char bus_mount_interface[] _introspect_("Mount") = BUS_MOUNT_INTERFACE;
 
 const char bus_mount_invalidating_properties[] =
         "What\0"

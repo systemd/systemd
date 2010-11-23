@@ -38,7 +38,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                 \
         "</node>\n"
 
-const char bus_automount_interface[] = BUS_AUTOMOUNT_INTERFACE;
+const char bus_automount_interface[] _introspect_("Automount") = BUS_AUTOMOUNT_INTERFACE;
 
 DBusHandlerResult bus_automount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {

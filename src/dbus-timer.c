@@ -42,7 +42,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
-const char bus_timer_interface[] = BUS_TIMER_INTERFACE;
+const char bus_timer_interface[] _introspect_("Timer") = BUS_TIMER_INTERFACE;
 
 const char bus_timer_invalidating_properties[] =
         "Timers\0"
