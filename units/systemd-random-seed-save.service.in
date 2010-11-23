@@ -8,7 +8,8 @@
 [Unit]
 Description=Save Random Seed
 DefaultDependencies=no
-Before=poweroff.service reboot.service halt.service
+After=systemd-random-seed-load.service
+Before=shutdown.target
 Conflicts=systemd-random-seed-load.service
 
 [Service]

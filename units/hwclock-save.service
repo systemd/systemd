@@ -8,7 +8,9 @@
 [Unit]
 Description=Update RTC With System Clock
 DefaultDependencies=no
-Before=poweroff.service reboot.service halt.service
+After=hwclock-load.service
+Before=shutdown.target
+Conflicts=hwclock-load.service
 
 [Service]
 Type=oneshot
