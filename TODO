@@ -71,9 +71,15 @@
 
 * alsa rule file, alsa service files, alsa state file → /var/lib, sequencer soll by device node ladbar
 
+* place introspection data in ELF sections, read them with objcopy
+
+* sendmail.service doesn't get rid PID file, fails to kill everything on stop
+
+* global defaults for StandardOuput=xxx
+
 Fedora:
 
-* obsolete readhead in system pkgs
+* obsolete readhead in systemd pkg
 
 * chkconfig → systemd enable/daemon-reload glue
 
