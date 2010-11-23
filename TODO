@@ -69,6 +69,8 @@
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
+* alsa rule file, alsa service files, alsa state file → /var/lib, sequencer soll by device node ladbar
+
 Fedora:
 
 * obsolete readhead in system pkgs

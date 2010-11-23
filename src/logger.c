@@ -318,7 +318,7 @@ static int stream_process(Stream *s, usec_t ts) {
                         return 0;
 
                 log_warning("Failed to read from stream: %m");
-                return -1;
+                return -errno;
         }
 
 
