@@ -30,7 +30,7 @@
 #include "fdset.h"
 
 /* Enforce upper limit how many names we allow */
-#define MANAGER_MAX_NAMES 2048
+#define MANAGER_MAX_NAMES 131072 /* 128K */
 
 typedef struct Manager Manager;
 typedef enum WatchType WatchType;
