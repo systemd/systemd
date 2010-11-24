@@ -55,7 +55,7 @@ static const MountPoint mount_table[] = {
 };
 
 /* These are API file systems that might be mounted by other software,
- * we just list them here so that we know that we should igore them */
+ * we just list them here so that we know that we should ignore them */
 
 static const char * const ignore_paths[] = {
         "/selinux",
@@ -78,7 +78,7 @@ bool mount_point_is_api(const char *path) {
 }
 
 bool mount_point_ignore(const char *path) {
-       unsigned i;
+        unsigned i;
 
         for (i = 0; i < ELEMENTSOF(ignore_paths); i++)
                 if (path_equal(path, ignore_paths[i]))
