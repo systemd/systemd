@@ -317,7 +317,8 @@ EXTRA_DIST = \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
 	units/quotacheck.service.in \
-	systemd.pc.in
+	systemd.pc.in \
+	introspect.awk
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
