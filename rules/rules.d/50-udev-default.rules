@@ -42,7 +42,6 @@ SUBSYSTEM=="drm",		GROUP="video"
 
 # sound
 SUBSYSTEM=="sound",		GROUP="audio"
-KERNEL=="mixer0",		SYMLINK+="mixer"
 
 # DVB (video)
 SUBSYSTEM=="dvb", GROUP="video"
