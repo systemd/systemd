@@ -1122,7 +1122,7 @@ DBUS_PREPROCESS = $(CPP) -P $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
 
 org.freedesktop.systemd1.%.xml: systemd
 	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f introspect.awk | \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 CLEANFILES += \
