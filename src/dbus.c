@@ -998,7 +998,7 @@ int bus_init(Manager *m) {
                 }
 
         if (m->subscribed_data_slot < 0)
-                if (!dbus_pending_call_allocate_data_slot(&m->subscribed_data_slot)) {
+                if (!dbus_connection_allocate_data_slot(&m->subscribed_data_slot)) {
                         log_error("Not enough memory");
                         return -ENOMEM;
                 }
@@ -1110,7 +1110,7 @@ void bus_done(Manager *m) {
                dbus_pending_call_free_data_slot(&m->name_data_slot);
 
         if (m->subscribed_data_slot >= 0)
-                dbus_pending_call_free_data_slot(&m->subscribed_data_slot);
+                dbus_connection_free_data_slot(&m->subscribed_data_slot);
 }
 
 static void query_pid_pending_cb(DBusPendingCall *pending, void *userdata) {
