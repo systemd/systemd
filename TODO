@@ -9,6 +9,15 @@
 * dot output for --test showing the 'initial transaction'
 
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
+  - check timerfd() patch: http://lkml.org/lkml/2010/11/23/290
+
+* systemd --user
+  - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
+
+* add VT tracking:
+    - provide CK functionality
+    - start getty 2-6 only when actual vt switch happens
+      (same model as socket on-demand activation)
 
 * implicitly import "defaults" settings file into all types
 
@@ -45,11 +54,6 @@
 * suspend, resume
 
 * systemctl auto-pager a la git
-
-* add VT tracking:
-    - provide CK functionality
-    - start getty 2-6 only when actual vt switch happens
-      (same model as socket on-demand activation)
 
 * readahead: btrfs/LVM SSD detection
 
