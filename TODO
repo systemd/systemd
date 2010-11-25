@@ -1,5 +1,7 @@
-* check if bind mounts work:
-    https://bugzilla.novell.com/show_bug.cgi?id=652762
+* bind mounts with 'fsck' fail and block for a minute:
+    /foo /bar none bind 1 1
+  (using fsck is wrong, but why do we block for a minute
+   instead of just handling the error)
 
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
@@ -44,10 +46,10 @@
 
 * systemctl auto-pager a la git
 
-* merge CK
-
-* start getty 2-6 only when actual vt switch happens
-  (same model as socket on-demand activation)
+* add VT tracking:
+    - provide CK functionality
+    - start getty 2-6 only when actual vt switch happens
+      (same model as socket on-demand activation)
 
 * readahead: btrfs/LVM SSD detection
 
