@@ -334,10 +334,6 @@ dist_systemunit_DATA += \
 	units/fedora/plymouth-halt.service
 endif
 
-if TARGET_GENTOO
-dist_systemunit_DATA += \
-	units/gentoo/xdm.service
-endif
 
 if TARGET_ARCH
 dist_systemunit_DATA += \
@@ -1305,14 +1301,6 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service && \
 		$(LN_S) prefdm.service display-manager.service )
-	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
-		rm -f display-manager.service && \
-		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
-endif
-if TARGET_GENTOO
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f display-manager.service && \
-		$(LN_S) xdm.service display-manager.service )
 	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
