@@ -28,10 +28,10 @@ AUTHOR:
 
 REQUIREMENTS:
         Linux kernel >= 2.6.30 (with autofs4, devtmpfs, cgroups)
-        libudev >= 160
-        libcgroup >= 0.35
-        vala >= 0.80
+        libudev >= 163
+        dbus >= 1.4.0
+        vala >= 0.10
+        util-linux > v2.18 (requires fsck -l, agetty -s)
         gtk+ >= 2.20
-        dbus >= 1.2.24
         libcap
         PAM >= 1.1.2 (optional)
