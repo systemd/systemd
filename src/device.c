@@ -468,6 +468,9 @@ static int device_enumerate(Manager *m) {
                         goto fail;
                 }
 
+                if (udev_monitor_set_receive_buffer_size(m->udev_monitor, 128*1024*1024) < 0)
+                        log_error("Failed to set udev event buffer size.");
+
                 if (udev_monitor_filter_add_match_tag(m->udev_monitor, "systemd") < 0) {
                         r = -ENOMEM;
                         goto fail;
@@ -524,10 +527,20 @@ void device_fd_event(Manager *m, int events) {
         const char *action;
 
         assert(m);
-        assert(events == EPOLLIN);
+
+        if (events != EPOLLIN) {
+                static RATELIMIT_DEFINE(limit, 10*USEC_PER_SEC, 5);
+
+                if (!ratelimit_test(&limit))
+                        log_error("Failed to get udev event: %m");
+                return;
+        }
 
         if (!(dev = udev_monitor_receive_device(m->udev_monitor))) {
-                log_error("Failed to receive device.");
+                /*
+                 * libudev might filter-out devices which pass the bloom filter,
+                 * so getting NULL here is not neccessarily an error
+                 */
                 return;
         }
 
