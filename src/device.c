@@ -533,7 +533,8 @@ void device_fd_event(Manager *m, int events) {
 
                 if (!ratelimit_test(&limit))
                         log_error("Failed to get udev event: %m");
-                return;
+                if (!(events & EPOLLIN))
+                        return;
         }
 
         if (!(dev = udev_monitor_receive_device(m->udev_monitor))) {
