@@ -83,6 +83,10 @@
 
 * global defaults for StandardOuput=xxx
 
+* Make EnvironmentFile=-/fooobar/waldo ingnore errors while reading /foobar/waldo
+
+* mkswap/mke2fs is called on wrong devices in crypto devices.
+
 Fedora:
 
 * obsolete readhead in systemd pkg
