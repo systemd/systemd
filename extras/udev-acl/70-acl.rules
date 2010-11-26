@@ -26,6 +26,8 @@ SUBSYSTEM=="block", ENV{ID_CDROM}=="1", TAG+="udev-acl"
 SUBSYSTEM=="sound", TAG+="udev-acl"
 # sound jack-sense
 SUBSYSTEM=="input", SUBSYSTEMS=="sound", TAG+="udev-acl"
+# ffado is an userspace driver for firewire sound cards
+SUBSYSTEM=="firewire", ENV{ID_FFADO}=="1", TAG+="udev-acl"
 
 # webcams, frame grabber, TV cards
 SUBSYSTEM=="video4linux", TAG+="udev-acl"
