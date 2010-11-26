@@ -75,10 +75,6 @@
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
-* alsa rule file, alsa service files, alsa state file → /var/lib, sequencer soll by device node ladbar
-
-* place introspection data in ELF sections, read them with objcopy
-
 * sendmail.service doesn't get rid PID file, fails to kill everything on stop
 
 * global defaults for StandardOuput=xxx
