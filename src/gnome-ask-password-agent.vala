@@ -38,8 +38,13 @@ public class PasswordDialog : Dialog {
                 set_default_response(ResponseType.OK);
                 set_icon_name(icon);
 
+#if LIBNOTIFY07
                 add_button(Stock.CANCEL, ResponseType.CANCEL);
                 add_button(Stock.OK, ResponseType.OK);
+#else
+                add_button(STOCK_CANCEL, ResponseType.CANCEL);
+                add_button(STOCK_OK, ResponseType.OK);
+#endif
 
                 Container content = (Container) get_content_area();
 
@@ -181,7 +186,12 @@ public class MyStatusIcon : StatusIcon {
 
                 set_visible(true);
 
+#if LIBNOTIFY07
                 Notification n = new Notification(title, message, icon);
+#else
+                Notification n = new Notification(title, message, icon, null);
+                n.attach_to_status_icon(this);
+#endif
                 n.set_timeout(5000);
                 n.show();
 
@@ -225,7 +235,11 @@ public class MyStatusIcon : StatusIcon {
 
                 OutputStream stream = new UnixOutputStream(to_process, true);
 
+#if LIBNOTIFY07
                 stream.write(password.data, null);
+#else
+                stream.write(password, password.length, null);
+#endif
         }
 }
 
