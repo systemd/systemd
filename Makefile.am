@@ -357,7 +357,8 @@ dist_polkitpolicy_DATA = \
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
-	libsystemd-core.la
+	libsystemd-core.la \
+	libsystemd-daemon.la
 
 libsystemd_basic_la_SOURCES = \
 	src/util.c \
@@ -443,6 +444,9 @@ libsystemd_core_la_LIBADD = \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS)
 
+libsystemd_daemon_la_SOURCES = \
+	src/sd-daemon.c
+
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
 # list the .h files as dependencies if we want make dist to work.
@@ -450,6 +454,7 @@ libsystemd_core_la_LIBADD = \
 EXTRA_DIST += \
 	${libsystemd_basic_la_SOURCES:.c=.h} \
 	${libsystemd_core_la_SOURCES:.c=.h} \
+	${libsystemd_daemon_la_SOURCES:.c=.h} \
 	src/macro.h \
 	src/ioprio.h \
 	src/missing.h \
@@ -458,7 +463,6 @@ EXTRA_DIST += \
 	src/linux/auto_dev-ioctl.h \
 	src/linux/fanotify.h \
 	src/initreq.h \
-	src/sd-daemon.h \
 	src/sd-readahead.h \
 	src/special.h \
 	src/dbus-common.h \
@@ -595,11 +599,11 @@ test_hostname_LDADD = \
 	libsystemd-basic.la
 
 test_daemon_SOURCES = \
-	src/test-daemon.c \
-	src/sd-daemon.c
+	src/test-daemon.c
 
 test_daemon_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	libsystemd-daemon.la
 
 test_cgroup_SOURCES = \
 	src/test-cgroup.c \
@@ -631,16 +635,15 @@ test_strv_LDADD = \
 
 systemd_logger_SOURCES = \
 	src/logger.c \
-	src/sd-daemon.c \
 	src/tcpwrap.c
 
 systemd_logger_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-daemon.la \
 	$(LIBWRAP_LIBS)
 
 systemd_initctl_SOURCES = \
 	src/initctl.c \
-	src/sd-daemon.c \
 	src/dbus-common.c
 
 systemd_initctl_CFLAGS = \
@@ -649,6 +652,7 @@ systemd_initctl_CFLAGS = \
 
 systemd_initctl_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
 systemd_update_utmp_SOURCES = \
@@ -677,14 +681,14 @@ systemd_random_seed_LDADD = \
 
 systemd_shutdownd_SOURCES = \
 	src/utmp-wtmp.c \
-	src/sd-daemon.c \
 	src/shutdownd.c
 
 systemd_shutdownd_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_shutdownd_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	libsystemd-daemon.la
 
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
@@ -836,21 +840,20 @@ systemd_cgroups_agent_LDADD = \
 
 systemd_kmsg_syslogd_SOURCES = \
 	src/kmsg-syslogd.c \
-	src/sd-daemon.c \
 	src/fdset.c
 
 systemd_kmsg_syslogd_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_kmsg_syslogd_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	libsystemd-daemon.la
 
 systemctl_SOURCES = \
 	src/systemctl.c \
 	src/utmp-wtmp.c \
 	src/dbus-common.c \
 	src/path-lookup.c \
-	src/sd-daemon.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
 	src/exit-status.c \
@@ -862,15 +865,16 @@ systemctl_CFLAGS = \
 
 systemctl_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
 systemd_notify_SOURCES = \
 	src/notify.c \
-	src/sd-daemon.c \
 	src/sd-readahead.c
 
 systemd_notify_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	libsystemd-daemon.la
 
 systemd_ask_password_SOURCES = \
 	src/ask-password.c \
@@ -887,7 +891,6 @@ systemd_reply_password_LDADD = \
 
 systemd_readahead_collect_SOURCES = \
 	src/readahead-collect.c \
-	src/sd-daemon.c \
 	src/readahead-common.c
 
 systemd_readahead_collect_CFLAGS = \
@@ -895,11 +898,11 @@ systemd_readahead_collect_CFLAGS = \
 
 systemd_readahead_collect_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-daemon.la \
 	$(UDEV_LIBS)
 
 systemd_readahead_replay_SOURCES = \
 	src/readahead-replay.c \
-	src/sd-daemon.c \
 	src/readahead-common.c
 
 systemd_readahead_replay_CFLAGS = \
@@ -907,6 +910,7 @@ systemd_readahead_replay_CFLAGS = \
 
 systemd_readahead_replay_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-daemon.la \
 	$(UDEV_LIBS)
 
 systemd_cgls_SOURCES = \
@@ -985,8 +989,7 @@ systemd_tty_ask_password_agent_LDADD = \
 
 pam_systemd_la_SOURCES = \
 	src/pam-module.c \
-	src/cgroup-util.c \
-	src/sd-daemon.c
+	src/cgroup-util.c
 
 pam_systemd_la_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1001,6 +1004,7 @@ pam_systemd_la_LDFLAGS = \
 
 pam_systemd_la_LIBADD = \
 	libsystemd-basic.la \
+	libsystemd-daemon.la \
 	$(PAM_LIBS)
 
 SED_PROCESS = \
