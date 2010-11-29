@@ -32,7 +32,7 @@
 
 #if defined(TARGET_FEDORA)
 #define FILENAME "/etc/sysconfig/network"
-#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
+#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE) || defined(TARGET_FRUGALWARE)
 #define FILENAME "/etc/HOSTNAME"
 #elif defined(TARGET_ARCH)
 #define FILENAME "/etc/rc.conf"
@@ -137,7 +137,7 @@ finish:
         fclose(f);
         return r;
 
-#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
+#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE) || defined(TARGET_FRUGALWARE)
         return read_and_strip_hostname(FILENAME, hn);
 #else
         return -ENOENT;

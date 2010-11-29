@@ -290,6 +290,7 @@ if test "z$with_distro" = "z"; then
                 AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
                 AC_CHECK_FILE(/etc/gentoo-release,with_distro="gentoo")
                 AC_CHECK_FILE(/etc/slackware-version,with_distro="slackware")
+                AC_CHECK_FILE(/etc/frugalware-release,with_distro="frugalware")
         fi
         if test "z$with_distro" = "z"; then
                 with_distro=`uname -s`
@@ -362,6 +363,12 @@ case $with_distro in
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
                 M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
                 ;;
+        frugalware)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d
+                SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
+                M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
+                ;;
         other)
                 AS_IF([test "x$with_syslog_service" = "x"],
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
@@ -411,6 +418,7 @@ AM_CONDITIONAL(TARGET_DEBIAN_OR_UBUNTU, test x"$with_distro" = xdebian -o x"$wit
 AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
+AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
 
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 

@@ -267,6 +267,19 @@ int main(int argc, char **argv) {
                                 log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
                 }
 
+#elif defined(TARGET_FRUGALWARE)
+                if ((r = parse_env_file("/etc/sysconfig/keymap", NEWLINE,
+                                        "keymap", &vc_keymap,
+                                        NULL)) < 0) {
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/keymap: %s", strerror(-r));
+                }
+                if ((r = parse_env_file("/etc/sysconfig/font", NEWLINE,
+                                        "font", &vc_font,
+                                        NULL)) < 0) {
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/font: %s", strerror(-r));
+                }
 #elif defined(TARGET_GENTOO)
                 if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
                                         "unicode", &vc_unicode,
