@@ -416,21 +416,31 @@
                                 units specified on the command
                                 line. If the units are not running yet
                                 the operation will
-                                fail.</para></listitem>
+                                fail. Note that for compatibility
+                                with Red Hat init scripts
+                                <command>condrestart</command> is
+                                equivalent to this command.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>reload-or-restart [NAME...]</command></term>
+
+                                <listitem><para>Reload one or more
+                                units if they support it. If not,
+                                restart them instead. If the units
+                                are not running yet they will be
+                                started.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><command>reload-or-try-restart [NAME...]</command></term>
 
                                 <listitem><para>Reload one or more
                                 units if they support it. If not,
-                                restart them instead. Note that for
-                                compatibility with SysV and Red Hat
-                                init scripts
-                                <command>force-reload</command> and
-                                <command>condrestart</command> may be
-                                used as equivalent commands to
-                                <command>reload-or-try-restart</command>.</para></listitem>
+                                restart them instead. If the units
+                                are not running yet the operation
+                                will fail. Note that for
+                                compatibility with SysV init scripts
+                                <command>force-reload</command> is
+                                equivalent to this command.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>isolate [NAME]</command></term>
