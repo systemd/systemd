@@ -6,18 +6,7 @@
 # forward scsi device event to corresponding block device
 ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="block", ATTR{block/*/uevent}="change"
 
-# from this point on, we don't care about remove envets
-#
 ACTION=="remove", GOTO="persistent_storage_end"
-
-# run scsi_id and ata_id on the actual SCSI device
-SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", ENV{ID_SERIAL}!="?*", ATTR{vendor}=="ATA", IMPORT{program}="ata_id --export $root/bsg/$kernel"
-# ATA/ATAPI devices is of type 0x05 and vendor is usually not ATA
-SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", ENV{ID_SERIAL}!="?*", ATTR{type}=="5", IMPORT{program}="ata_id --export $root/bsg/$kernel"
-SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --whitelisted --export --device $root/bsg/$kernel"
-
-# from this point on, only care about block devices
-#
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
 # skip rules for inappropriate block devices
@@ -32,9 +21,6 @@ ENV{DEVTYPE}=="partition", IMPORT{parent}="ID_*"
 # virtio-blk
 KERNEL=="vd*[!0-9]", ATTRS{serial}=="?*", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/virtio-$env{ID_SERIAL}"
 KERNEL=="vd*[0-9]", ATTRS{serial}=="?*", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/virtio-$env{ID_SERIAL}-part%n"
-
-# import ata_id/scsi_id data from the scsi_device captured above, if available
-SUBSYSTEMS=="scsi", IMPORT{parent}="ID_*"
 
 # USB devices use their own serial number
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
