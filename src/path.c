@@ -189,7 +189,7 @@ static int path_watch_one(Path *p, PathSpec *s) {
         };
 
         bool exists = false;
-        char *k;
+        char *k, *slash;
         int r;
 
         assert(p);
@@ -213,15 +213,15 @@ static int path_watch_one(Path *p, PathSpec *s) {
         if ((s->primary_wd = inotify_add_watch(s->inotify_fd, k, flags_table[s->type])) >= 0)
                 exists = true;
 
-        for (;;) {
+        do {
                 int flags;
-                char *slash;
 
                 /* This assumes the path was passed through path_kill_slashes()! */
                 if (!(slash = strrchr(k, '/')))
                         break;
 
-                *slash = 0;
+                /* Trim the path at the last slash. Keep the slash if it's the root dir. */
+                slash[slash == k] = 0;
 
                 flags = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB;
                 if (!exists)
@@ -229,7 +229,7 @@ static int path_watch_one(Path *p, PathSpec *s) {
 
                 if (inotify_add_watch(s->inotify_fd, k, flags) >= 0)
                         exists = true;
-        }
+        } while (slash != k);
 
         return 0;
 
