@@ -63,7 +63,7 @@ static int parse_proc_cmdline(void) {
 static void test_files(void) {
 #ifdef TARGET_FEDORA
         /* This exists only on Fedora */
-        if (access("/forcequoatcheck", F_OK) >= 0)
+        if (access("/forcequotacheck", F_OK) >= 0)
                 arg_force = true;
 #endif
 }
