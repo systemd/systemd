@@ -32,6 +32,7 @@ REQUIREMENTS:
         dbus >= 1.4.0
         vala >= 0.10
         util-linux > v2.18 (requires fsck -l, agetty -s)
+        sulogin (from sysvinit-tools)
         gtk+ >= 2.20
         libcap
         PAM >= 1.1.2 (optional)
