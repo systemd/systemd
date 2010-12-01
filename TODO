@@ -1,5 +1,3 @@
-* test and adjust rate limiter. triggers with scsi_debug
-
 * bind mounts with 'fsck' fail and block for a minute:
     /foo /bar none bind 1 1
   (using fsck is wrong, but why do we block for a minute
