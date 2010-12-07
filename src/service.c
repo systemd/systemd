@@ -248,6 +248,11 @@ static char *sysv_translate_name(const char *name) {
                 /* Drop Arch-style background prefix */
                 strcpy(stpcpy(r, name + 1), ".service");
 #endif
+#ifdef TARGET_FRUGALWARE
+        else if (startswith(name, "rc."))
+                /* Drop Frugalware-style rc. prefix */
+                strcpy(stpcpy(r, name + 3), ".service");
+#endif
         else
                 /* Normal init scripts */
                 strcpy(stpcpy(r, name), ".service");
@@ -882,6 +887,18 @@ static int service_load_sysv_name(Service *s, const char *name) {
                         if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
                                 return -ENOMEM;
 
+                        path[strlen(path)-8] = 0;
+                        r = service_load_sysv_path(s, path);
+                        free(path);
+                }
+
+                if (r >= 0 && s->meta.load_state == UNIT_STUB) {
+                        /* Try Frugalware style rc.xxx init scripts */
+
+                        if (asprintf(&path, "%s/rc.%s", *p, name) < 0)
+                                return -ENOMEM;
+
+			/* Drop .service suffix */
                         path[strlen(path)-8] = 0;
                         r = service_load_sysv_path(s, path);
                         free(path);
