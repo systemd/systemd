@@ -601,6 +601,7 @@ dist_udevkeymap_DATA = \
 
 udevkeymapforcereldir = $(libexecdir)/keymaps/force-release
 dist_udevkeymapforcerel_DATA = \
+	extras/keymap/force-release-maps/dell-touchpad \
 	extras/keymap/force-release-maps/hp-other \
 	extras/keymap/force-release-maps/samsung-other \
 	extras/keymap/force-release-maps/common-volume-keys
