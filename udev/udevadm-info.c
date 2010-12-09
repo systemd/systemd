@@ -154,7 +154,7 @@ static void print_record(struct udev_device *device)
 	printf("\n");
 }
 
-static int stat_device(const char *name, int export, const char *prefix)
+static int stat_device(const char *name, bool export, const char *prefix)
 {
 	struct stat statbuf;
 
@@ -198,8 +198,8 @@ static int export_devices(struct udev *udev)
 int udevadm_info(struct udev *udev, int argc, char *argv[])
 {
 	struct udev_device *device = NULL;
-	int root = 0;
-	int export = 0;
+	bool root = 0;
+	bool export = 0;
 	const char *export_prefix = NULL;
 	char path[UTIL_PATH_SIZE];
 	char name[UTIL_PATH_SIZE];
@@ -324,7 +324,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		case 'r':
 			if (action == ACTION_NONE)
 				action = ACTION_ROOT;
-			root = 1;
+			root = true;
 			break;
 		case 'd':
 			action = ACTION_DEVICE_ID_FILE;
@@ -337,7 +337,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			export_devices(udev);
 			goto exit;
 		case 'x':
-			export = 1;
+			export = true;
 			break;
 		case 'P':
 			export_prefix = optarg;
@@ -417,7 +417,17 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		case QUERY_PROPERTY:
 			list_entry = udev_device_get_properties_list_entry(device);
 			while (list_entry != NULL) {
-				printf("%s=%s\n", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
+				if (export) {
+					const char *prefix = export_prefix;
+
+					if (prefix == NULL)
+						prefix = "";
+					printf("%s%s='%s'\n", prefix,
+					       udev_list_entry_get_name(list_entry),
+					       udev_list_entry_get_value(list_entry));
+				} else {
+					printf("%s=%s\n", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
+				}
 				list_entry = udev_list_entry_get_next(list_entry);
 			}
 			break;
