@@ -119,6 +119,18 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--export</option></term>
+          <listitem>
+            <para>Print output as key/value pairs. Values are enclosed in single quotes.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--export-prefix=<replaceable>name</replaceable></option></term>
+          <listitem>
+            <para>Add a prefix to the key name of exported values.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>--device-id-of-file=<replaceable>file</replaceable></option></term>
           <listitem>
             <para>Print major/minor numbers of the underlying device, where the file
