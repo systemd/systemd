@@ -26,15 +26,16 @@
 static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size)
 {
 	char path[UTIL_PATH_SIZE];
+	char target[UTIL_PATH_SIZE];
 	ssize_t len;
 	const char *pos;
 
 	util_strscpyl(path, sizeof(path), syspath, "/", slink, NULL);
-	len = readlink(path, path, sizeof(path));
-	if (len <= 0 || len == (ssize_t)sizeof(path))
+	len = readlink(path, target, sizeof(target));
+	if (len <= 0 || len == (ssize_t)sizeof(target))
 		return -1;
-	path[len] = '\0';
-	pos = strrchr(path, '/');
+	target[len] = '\0';
+	pos = strrchr(target, '/');
 	if (pos == NULL)
 		return -1;
 	pos = &pos[1];
