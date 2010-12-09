@@ -273,23 +273,24 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "syslog",               SPECIAL_SYSLOG_TARGET,
                 "time",                 SPECIAL_RTC_SET_TARGET,
 
-                /* Debian extensions */
+                /* common extensions */
+                "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
+                "null",                 NULL,
+
 #if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
                 "mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
 #endif
-                "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
 
 #ifdef TARGET_FEDORA
-                /* Fedora extensions */
                 "MTA",                  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
                 "smtpdaemon",           SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
                 "httpd",                SPECIAL_HTTP_DAEMON_TARGET,
 #endif
 
-                /* SuSE extensions */
-                "null",                 NULL
-
+#ifdef TARGET_SUSE
+                "smtp",                 SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+#endif
         };
 
         unsigned i;
