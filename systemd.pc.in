@@ -8,9 +8,9 @@
 prefix=@prefix@
 exec_prefix=${prefix}
 systemdsystemunitdir=@systemunitdir@
-systemdsessionunitdir=@pkgdatadir@/session
+systemduserunitdir=@pkgdatadir@/user
 systemdsystemconfdir=@pkgsysconfdir@/system
-systemdsessionconfdir=@pkgsysconfdir@/session
+systemduserconfdir=@pkgsysconfdir@/user
 
 Name: systemd
 Description: systemd System and Service Manager
