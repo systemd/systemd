@@ -369,6 +369,7 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct udev *udev = udev_device_get_udev(dev);
+	char filename[UTIL_PATH_SIZE];
 	struct udev_list_entry *list_entry;
 	int err = 0;
 
@@ -381,6 +382,13 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 		err = -1;
 		goto exit;
 	}
+
+	/* always add /dev/{block,char}/$major:$minor */
+	snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
+		 udev_get_dev_path(udev),
+		 strcmp(udev_device_get_subsystem(dev), "block") == 0 ? "block" : "char",
+		 major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
+	node_symlink(udev, udev_device_get_devnode(dev), filename);
 
 	/* create/update symlinks, add symlinks to name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev)) {
@@ -401,6 +409,7 @@ int udev_node_remove(struct udev_device *dev)
 	const char *devnode;
 	struct stat stats;
 	struct udev_device *dev_check;
+	char filename[UTIL_PATH_SIZE];
 	int err = 0;
 
 	/* remove/update symlinks, remove symlinks from name index */
@@ -434,6 +443,13 @@ int udev_node_remove(struct udev_device *dev)
 	err = util_unlink_secure(udev, devnode);
 	if (err == 0)
 		util_delete_path(udev, devnode);
+
+	/* remove /dev/{block,char}/$major:$minor */
+	snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
+		 udev_get_dev_path(udev),
+		 strcmp(udev_device_get_subsystem(dev), "block") == 0 ? "block" : "char",
+		 major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
+	unlink(filename);
 out:
 	return err;
 }
