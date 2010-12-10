@@ -195,6 +195,60 @@ static int export_devices(struct udev *udev)
 	return 0;
 }
 
+static int convert_db(struct udev *udev)
+{
+	struct udev_enumerate *udev_enumerate;
+	struct udev_list_entry *list_entry;
+
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
+		return -1;
+	udev_enumerate_scan_devices(udev_enumerate);
+	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
+		struct udev_device *device;
+
+		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
+		if (device != NULL) {
+			const char *id;
+			struct stat statbuf;
+			char to[UTIL_PATH_SIZE];
+			char devpath[UTIL_PATH_SIZE];
+			char from[UTIL_PATH_SIZE];
+
+			id = udev_device_get_id_filename(device);
+			if (id == NULL)
+				goto next;
+			util_strscpyl(to, sizeof(to), udev_get_dev_path(udev), "/.udev/db/", id, NULL);
+
+			/* do not overwrite a new database file */
+			if (lstat(to, &statbuf) == 0)
+				goto next;
+
+			/* find old database with $subsys:$sysname */
+			util_strscpyl(from, sizeof(from), udev_get_dev_path(udev),
+				     "/.udev/db/", udev_device_get_subsystem(device), ":",
+				     udev_device_get_sysname(device), NULL);
+			if (lstat(from, &statbuf) == 0) {
+				rename(from, to);
+				goto next;
+			}
+
+			/* find old database with the encoded devpath */
+			util_path_encode(udev_device_get_devpath(device), devpath, sizeof(devpath));
+			util_strscpyl(from, sizeof(from), udev_get_dev_path(udev),
+				      "/.udev/db/", devpath, NULL);
+			if (lstat(from, &statbuf) == 0) {
+				rename(from, to);
+				goto next;
+			}
+next:
+			udev_device_unref(device);
+		}
+	}
+	udev_enumerate_unref(udev_enumerate);
+	return 0;
+}
+
 int udevadm_info(struct udev *udev, int argc, char *argv[])
 {
 	struct udev_device *device = NULL;
@@ -212,6 +266,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		{ "query", required_argument, NULL, 'q' },
 		{ "attribute-walk", no_argument, NULL, 'a' },
 		{ "export-db", no_argument, NULL, 'e' },
+		{ "convert-db", no_argument, NULL, 'C' },
 		{ "root", no_argument, NULL, 'r' },
 		{ "device-id-of-file", required_argument, NULL, 'd' },
 		{ "export", no_argument, NULL, 'x' },
@@ -336,6 +391,9 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		case 'e':
 			export_devices(udev);
 			goto exit;
+		case 'C':
+			convert_db(udev);
+			goto exit;
 		case 'x':
 			export = true;
 			break;
@@ -359,7 +417,10 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			       "  --attribute-walk           print all key matches while walking along the chain\n"
 			       "                             of parent devices\n"
 			       "  --device-id-of-file=<file> print major:minor of device containing this file\n"
+			       "  --export                   export key/value pairs\n"
+			       "  --export-prefix            export the key name with a prefix\n"
 			       "  --export-db                export the content of the udev database\n"
+			       "  --convert-db               convert older version of database without a reboot\n"
 			       "  --help\n\n");
 			goto exit;
 		default:

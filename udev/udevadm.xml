@@ -144,6 +144,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--convert-db</option></term>
+          <listitem>
+            <para>Convert the database of an earlier udev version to the current format. This
+            is only useful on udev version upgrades, where the content of the old database might
+            be needed for the running system, and it is not sufficient for it, to be re-created
+            with the next bootup.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>--version</option></term>
           <listitem>
             <para>Print version.</para>

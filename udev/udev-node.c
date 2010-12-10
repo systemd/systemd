@@ -298,10 +298,8 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 	dbg(udev, "update symlink '%s' of '%s'\n", slink, udev_device_get_syspath(dev));
 
 	util_path_encode(&slink[strlen(udev_get_dev_path(udev))+1], name_enc, sizeof(name_enc));
-	snprintf(dirname, sizeof(dirname), "%s/.udev/links/%s", udev_get_dev_path(udev), name_enc);
-	snprintf(filename, sizeof(filename), "%s/%c%u:%u", dirname,
-		 strcmp(udev_device_get_subsystem(dev), "block") == 0 ? 'b' : 'c',
-		 major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
+	util_strscpyl(dirname, sizeof(dirname), udev_get_dev_path(udev), "/.udev/links/", name_enc, NULL);
+	util_strscpyl(filename, sizeof(filename), dirname, "/", udev_device_get_id_filename(dev), NULL);
 
 	if (!add) {
 		dbg(udev, "removing index: '%s'\n", filename);

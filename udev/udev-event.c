@@ -535,6 +535,9 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	struct udev_device *dev = event->dev;
 	int err = 0;
 
+	if (udev_device_get_subsystem(dev) == NULL)
+		return -1;
+
 	if (strcmp(udev_device_get_action(dev), "remove") == 0) {
 		udev_device_read_db(dev);
 		udev_device_delete_db(dev);

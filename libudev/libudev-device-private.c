@@ -24,23 +24,18 @@
 
 static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
 {
+	const char *id;
 	struct udev *udev = udev_device_get_udev(dev);
 	char filename[UTIL_PATH_SIZE];
 
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/tags/", tag, "/",
-		      udev_device_get_subsystem(dev), ":", udev_device_get_sysname(dev), NULL);
+	id = udev_device_get_id_filename(dev);
+	if (id == NULL)
+		return;
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/tags/", tag, "/", id, NULL);
 
 	if (add) {
 		util_create_path(udev, filename);
 		symlink(udev_device_get_devpath(dev), filename);
-		/* possibly cleanup old entries after a device renaming */
-		if (udev_device_get_sysname_old(dev) != NULL) {
-			char filename_old[UTIL_PATH_SIZE];
-
-			util_strscpyl(filename_old, sizeof(filename_old), udev_get_dev_path(udev), "/.udev/tags/", tag, "/",
-				      udev_device_get_subsystem(dev), ":", udev_device_get_sysname_old(dev), NULL);
-			unlink(filename_old);
-		}
 	} else {
 		unlink(filename);
 	}
@@ -79,6 +74,7 @@ int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, 
 
 int udev_device_update_db(struct udev_device *udev_device)
 {
+	const char *id;
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
 	char filename_tmp[UTIL_PATH_SIZE];
@@ -90,8 +86,10 @@ int udev_device_update_db(struct udev_device *udev_device)
 	struct udev_list_entry *list_entry;
 	int ret;
 
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
-		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
+	id = udev_device_get_id_filename(udev_device);
+	if (id == NULL)
+		return -1;
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/", id, NULL);
 	util_strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
 
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
@@ -169,11 +167,14 @@ out:
 
 int udev_device_delete_db(struct udev_device *udev_device)
 {
+	const char *id;
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
 
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
-		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
+	id = udev_device_get_id_filename(udev_device);
+	if (id == NULL)
+		return -1;
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/", id, NULL);
 	unlink(filename);
 	return 0;
 }

@@ -54,6 +54,7 @@ struct udev_device {
 	char *devpath_old;
 	char *sysname_old;
 	char *knodename;
+	char *id_filename;
 	char **envp;
 	char *monitor_buf;
 	size_t monitor_buf_len;
@@ -230,6 +231,7 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
 
 int udev_device_read_db(struct udev_device *udev_device)
 {
+	const char *id;
 	struct stat stats;
 	char filename[UTIL_PATH_SIZE];
 	char line[UTIL_LINE_SIZE];
@@ -238,8 +240,10 @@ int udev_device_read_db(struct udev_device *udev_device)
 	if (udev_device->db_loaded)
 		return 0;
 
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/.udev/db/",
-		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
+	id = udev_device_get_id_filename(udev_device);
+	if (id == NULL)
+		return -1;
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/.udev/db/", id, NULL);
 
 	if (lstat(filename, &stats) != 0) {
 		dbg(udev_device->udev, "no db file to read %s: %m\n", filename);
@@ -799,6 +803,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->devpath_old);
 	free(udev_device->sysname_old);
 	free(udev_device->knodename);
+	free(udev_device->id_filename);
 	free(udev_device->envp);
 	free(udev_device->monitor_buf);
 	dbg(udev_device->udev, "udev_device: %p released\n", udev_device);
@@ -1287,6 +1292,40 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 	return 0;
 }
 
+const char *udev_device_get_id_filename(struct udev_device *udev_device)
+{
+	if (udev_device->id_filename == NULL) {
+		if (udev_device_get_subsystem(udev_device) == NULL)
+			return NULL;
+
+		if (major(udev_device_get_devnum(udev_device)) > 0) {
+			/* use dev_t -- b259:131072, c254:0 */
+			if (asprintf(&udev_device->id_filename, "%c%u:%u",
+				     strcmp(udev_device_get_subsystem(udev_device), "block") == 0 ? 'b' : 'c',
+				     major(udev_device_get_devnum(udev_device)),
+				     minor(udev_device_get_devnum(udev_device))) < 0)
+				udev_device->id_filename = NULL;
+		} else if (strcmp(udev_device_get_subsystem(udev_device), "net") == 0) {
+			/* use netdev ifindex -- n3 */
+			if (asprintf(&udev_device->id_filename, "n%u", udev_device_get_ifindex(udev_device)) < 0)
+				udev_device->id_filename = NULL;
+		} else {
+			/*
+			 * use $subsys:$syname -- pci:0000:00:1f.2
+			 * sysname() has '!' translated, get it from devpath
+			 */
+			const char *sysname;
+			sysname = strrchr(udev_device->devpath, '/');
+			if (sysname == NULL)
+				return NULL;
+			sysname = &sysname[1];
+			if (asprintf(&udev_device->id_filename, "+%s:%s", udev_device_get_subsystem(udev_device), sysname) < 0)
+				udev_device->id_filename = NULL;
+		}
+	}
+	return udev_device->id_filename;
+}
+
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag)
 {
 	if (strchr(tag, ':') != NULL || strchr(tag, ' ') != NULL)
@@ -1500,7 +1539,11 @@ int udev_device_get_event_timeout(struct udev_device *udev_device)
 
 int udev_device_set_event_timeout(struct udev_device *udev_device, int event_timeout)
 {
+	char num[32];
+
 	udev_device->event_timeout = event_timeout;
+	snprintf(num, sizeof(num), "%u", event_timeout);
+	udev_device_add_property(udev_device, "TIMEOUT", num);
 	return 0;
 }
 
@@ -1560,6 +1603,10 @@ int udev_device_get_ifindex(struct udev_device *udev_device)
 
 int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
 {
+	char num[32];
+
 	udev_device->ifindex = ifindex;
+	snprintf(num, sizeof(num), "%u", ifindex);
+	udev_device_add_property(udev_device, "IFINDEX", num);
 	return 0;
 }

@@ -109,7 +109,6 @@ unlink:
 void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 {
 	char filename[UTIL_PATH_SIZE];
-	char majmin[UTIL_PATH_SIZE];
 	int wd;
 
 	if (inotify_fd < 0)
@@ -123,13 +122,10 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 		return;
 	}
 
-	snprintf(majmin, sizeof(majmin), "%c%i:%i",
-		 strcmp(udev_device_get_subsystem(dev), "block") == 0 ? 'b' : 'c',
-		 major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
 	snprintf(filename, sizeof(filename), "%s/.udev/watch/%d", udev_get_dev_path(udev), wd);
 	util_create_path(udev, filename);
 	unlink(filename);
-	symlink(majmin, filename);
+	symlink(udev_device_get_id_filename(dev), filename);
 
 	udev_device_set_watch_handle(dev, wd);
 }
