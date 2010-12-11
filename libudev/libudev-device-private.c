@@ -72,96 +72,83 @@ int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, 
 	return 0;
 }
 
+static bool device_has_info(struct udev_device *udev_device)
+{
+	struct udev_list_entry *list_entry;
+
+	if (udev_device_get_devlinks_list_entry(udev_device) != NULL)
+		return true;
+	if (udev_device_get_devlink_priority(udev_device) != 0)
+		return true;
+	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
+		if (udev_list_entry_get_flags(list_entry))
+			return true;
+	if (udev_device_get_tags_list_entry(udev_device) != NULL)
+		return true;
+	if (udev_device_get_watch_handle(udev_device) >= 0)
+		return true;
+	return false;
+}
+
 int udev_device_update_db(struct udev_device *udev_device)
 {
+	bool has_info;
 	const char *id;
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
 	char filename_tmp[UTIL_PATH_SIZE];
 	FILE *f;
-	char target[232]; /* on 64bit, tmpfs inlines up to 239 bytes */
 	size_t devlen = strlen(udev_get_dev_path(udev))+1;
-	char *s;
-	size_t l;
-	struct udev_list_entry *list_entry;
-	int ret;
 
 	id = udev_device_get_id_filename(udev_device);
 	if (id == NULL)
 		return -1;
+
+	has_info = device_has_info(udev_device);
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/", id, NULL);
-	util_strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
 
-	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
-		if (udev_list_entry_get_flags(list_entry))
-			goto file;
-	if (udev_device_get_tags_list_entry(udev_device) != NULL)
-		goto file;
-	if (udev_device_get_devlink_priority(udev_device) != 0)
-		goto file;
-	if (udev_device_get_event_timeout(udev_device) >= 0)
-		goto file;
-	if (udev_device_get_watch_handle(udev_device) >= 0)
-		goto file;
-	if (udev_device_get_devnode(udev_device) == NULL)
-		goto out;
-
-	/*
-	 * if we have only the node and symlinks to store, try not to waste
-	 * tmpfs memory -- store values, if they fit, in a symlink target
-	 */
-	s = target;
-	l = util_strpcpy(&s, sizeof(target), &udev_device_get_devnode(udev_device)[devlen]);
-	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device)) {
-		l = util_strpcpyl(&s, l, " ", &udev_list_entry_get_name(list_entry)[devlen], NULL);
-		if (l == 0) {
-			info(udev, "size of links too large, create file\n");
-			goto file;
-		}
+	/* do not store anything for otherwise empty devices */
+	if (!has_info && udev_device_get_devnode(udev_device) == NULL) {
+		unlink(filename);
+		return 0;
 	}
-	udev_selinux_setfscreatecon(udev, filename_tmp, S_IFLNK);
+
+	/* write a database file */
+	util_strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
 	util_create_path(udev, filename_tmp);
-	ret = symlink(target, filename_tmp);
-	udev_selinux_resetfscreatecon(udev);
-	if (ret != 0)
-		goto file;
-	ret = rename(filename_tmp, filename);
-	if (ret != 0)
-		goto file;
-	info(udev, "created db link (%s)\n", target);
-	goto out;
-file:
-	util_create_path(udev, filename_tmp);
-	f = fopen(filename_tmp, "w");
+	f = fopen(filename_tmp, "we");
 	if (f == NULL) {
 		err(udev, "unable to create temporary db file '%s': %m\n", filename_tmp);
 		return -1;
 	}
 
-	if (udev_device_get_devnode(udev_device) != NULL) {
-		fprintf(f, "N:%s\n", &udev_device_get_devnode(udev_device)[devlen]);
-		udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device))
-			fprintf(f, "S:%s\n", &udev_list_entry_get_name(list_entry)[devlen]);
+	if (has_info) {
+		struct udev_list_entry *list_entry;
+
+		if (udev_device_get_devnode(udev_device) != NULL) {
+			fprintf(f, "N:%s\n", &udev_device_get_devnode(udev_device)[devlen]);
+			udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device))
+				fprintf(f, "S:%s\n", &udev_list_entry_get_name(list_entry)[devlen]);
+		}
+		if (udev_device_get_devlink_priority(udev_device) != 0)
+			fprintf(f, "L:%i\n", udev_device_get_devlink_priority(udev_device));
+		if (udev_device_get_watch_handle(udev_device) >= 0)
+			fprintf(f, "W:%i\n", udev_device_get_watch_handle(udev_device));
+		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
+			if (!udev_list_entry_get_flags(list_entry))
+				continue;
+			fprintf(f, "E:%s=%s\n",
+				udev_list_entry_get_name(list_entry),
+				udev_list_entry_get_value(list_entry));
+		}
+		udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
+			fprintf(f, "G:%s\n", udev_list_entry_get_name(list_entry));
 	}
-	if (udev_device_get_devlink_priority(udev_device) != 0)
-		fprintf(f, "L:%i\n", udev_device_get_devlink_priority(udev_device));
-	if (udev_device_get_event_timeout(udev_device) >= 0)
-		fprintf(f, "T:%i\n", udev_device_get_event_timeout(udev_device));
-	if (udev_device_get_watch_handle(udev_device) >= 0)
-		fprintf(f, "W:%i\n", udev_device_get_watch_handle(udev_device));
-	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
-		if (!udev_list_entry_get_flags(list_entry))
-			continue;
-		fprintf(f, "E:%s=%s\n",
-			udev_list_entry_get_name(list_entry),
-			udev_list_entry_get_value(list_entry));
-	}
-	udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
-		fprintf(f, "G:%s\n", udev_list_entry_get_name(list_entry));
+
 	fclose(f);
 	rename(filename_tmp, filename);
-	info(udev, "created db file for '%s' in '%s'\n", udev_device_get_devpath(udev_device), filename);
-out:
+	info(udev, "created %s file '%s' for '%s'\n", has_info ? "db" : "empty", 
+	     filename, udev_device_get_devpath(udev_device));
 	return 0;
 }
 

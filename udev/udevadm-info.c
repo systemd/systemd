@@ -210,38 +210,44 @@ static int convert_db(struct udev *udev)
 		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
 		if (device != NULL) {
 			const char *id;
-			struct stat statbuf;
+			struct stat stats;
 			char to[UTIL_PATH_SIZE];
 			char devpath[UTIL_PATH_SIZE];
 			char from[UTIL_PATH_SIZE];
 
 			id = udev_device_get_id_filename(device);
-			if (id == NULL)
-				goto next;
+			if (id == NULL) {
+				udev_device_unref(device);
+				continue;
+			}
 			util_strscpyl(to, sizeof(to), udev_get_dev_path(udev), "/.udev/db/", id, NULL);
-
-			/* do not overwrite a new database file */
-			if (lstat(to, &statbuf) == 0)
-				goto next;
 
 			/* find old database with $subsys:$sysname */
 			util_strscpyl(from, sizeof(from), udev_get_dev_path(udev),
 				     "/.udev/db/", udev_device_get_subsystem(device), ":",
 				     udev_device_get_sysname(device), NULL);
-			if (lstat(from, &statbuf) == 0) {
-				rename(from, to);
-				goto next;
+			if (lstat(from, &stats) == 0) {
+				if (lstat(to, &stats) == 0)
+					unlink(from);
+				else
+					rename(from, to);
 			}
 
 			/* find old database with the encoded devpath */
 			util_path_encode(udev_device_get_devpath(device), devpath, sizeof(devpath));
 			util_strscpyl(from, sizeof(from), udev_get_dev_path(udev),
 				      "/.udev/db/", devpath, NULL);
-			if (lstat(from, &statbuf) == 0) {
-				rename(from, to);
-				goto next;
+			if (lstat(from, &stats) == 0) {
+				if (lstat(to, &stats) == 0)
+					unlink(from);
+				else
+					rename(from, to);
 			}
-next:
+
+			/* read the old database, and write out a new one */
+			udev_device_read_db(device);
+			udev_device_update_db(device);
+
 			udev_device_unref(device);
 		}
 	}

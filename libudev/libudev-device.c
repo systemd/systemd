@@ -232,70 +232,28 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
 int udev_device_read_db(struct udev_device *udev_device)
 {
 	const char *id;
-	struct stat stats;
 	char filename[UTIL_PATH_SIZE];
 	char line[UTIL_LINE_SIZE];
 	FILE *f;
 
 	if (udev_device->db_loaded)
 		return 0;
+	udev_device->db_loaded = true;
 
 	id = udev_device_get_id_filename(udev_device);
 	if (id == NULL)
 		return -1;
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/.udev/db/", id, NULL);
-
-	if (lstat(filename, &stats) != 0) {
-		dbg(udev_device->udev, "no db file to read %s: %m\n", filename);
-		return -1;
-	}
-	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
-		char target[UTIL_PATH_SIZE];
-		char devnode[UTIL_PATH_SIZE];
-		int target_len;
-		char *next;
-
-		target_len = readlink(filename, target, sizeof(target));
-		if (target_len <= 0 || target_len == sizeof(target)) {
-			info(udev_device->udev, "error reading db link %s: %m\n", filename);
-			return -1;
-		}
-		target[target_len] = '\0';
-
-		next = strchr(target, ' ');
-		if (next != NULL) {
-			next[0] = '\0';
-			next = &next[1];
-		}
-		util_strscpyl(devnode, sizeof(devnode), udev_get_dev_path(udev_device->udev), "/", target, NULL);
-		udev_device_set_devnode(udev_device, devnode);
-		while (next != NULL) {
-			char devlink[UTIL_PATH_SIZE];
-			const char *lnk;
-
-			lnk = next;
-			next = strchr(next, ' ');
-			if (next != NULL) {
-				next[0] = '\0';
-				next = &next[1];
-			}
-			util_strscpyl(devlink, sizeof(devlink), udev_get_dev_path(udev_device->udev), "/", lnk, NULL);
-			udev_device_add_devlink(udev_device, devlink, 0);
-		}
-		info(udev_device->udev, "device %p filled with db symlink data '%s'\n", udev_device, udev_device->devnode);
-		return 0;
-	}
-
 	f = fopen(filename, "re");
 	if (f == NULL) {
-		dbg(udev_device->udev, "error reading db file %s: %m\n", filename);
+		info(udev_device->udev, "no db file to read %s: %m\n", filename);
 		return -1;
 	}
-	udev_device->db_loaded = true;
 
 	while (fgets(line, sizeof(line), f)) {
 		ssize_t len;
 		const char *val;
+		struct udev_list_entry *entry;
 
 		len = strlen(line);
 		if (len < 4)
@@ -314,11 +272,9 @@ int udev_device_read_db(struct udev_device *udev_device)
 		case 'L':
 			udev_device_set_devlink_priority(udev_device, atoi(val));
 			break;
-		case 'T':
-			udev_device_set_event_timeout(udev_device, atoi(val));
-			break;
 		case 'E':
-			udev_device_add_property_from_string(udev_device, val);
+			entry = udev_device_add_property_from_string(udev_device, val);
+			udev_list_entry_set_flags(entry, 1);
 			break;
 		case 'G':
 			udev_device_add_tag(udev_device, val);
@@ -888,9 +844,11 @@ const char *udev_device_get_devnode(struct udev_device *udev_device)
 
 	/* we might get called before we handled an event and have a db, use the kernel-provided name */
 	if (udev_device->devnode == NULL && udev_device_get_knodename(udev_device) != NULL) {
-		if (asprintf(&udev_device->devnode, "%s/%s",
-			     udev_get_dev_path(udev_device->udev), udev_device_get_knodename(udev_device)) < 0)
-			return NULL;
+		char filename[UTIL_NAME_SIZE];
+
+		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/",
+			      udev_device_get_knodename(udev_device), NULL);
+		udev_device_set_devnode(udev_device, filename);
 		return udev_device->devnode;
 	}
 
@@ -1271,8 +1229,6 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 {
 	free(udev_device->devnode);
 	udev_device->devnode = strdup(devnode);
-	if (devnode == NULL)
-		return 0;
 	if (udev_device->devnode == NULL)
 		return -ENOMEM;
 	udev_device_add_property(udev_device, "DEVNAME", udev_device->devnode);
@@ -1516,7 +1472,9 @@ int udev_device_set_knodename(struct udev_device *udev_device, const char *knode
 	udev_device->knodename = strdup(knodename);
 	if (udev_device->knodename == NULL)
 		return -ENOMEM;
-	udev_device_add_property(udev_device, "DEVNAME", udev_device->knodename);
+	/* do not overwrite the udev property with the kernel property */
+	if (udev_device->devnode == NULL)
+		udev_device_add_property(udev_device, "DEVNAME", udev_device->knodename);
 	return 0;
 }
 
