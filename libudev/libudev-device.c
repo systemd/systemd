@@ -475,6 +475,32 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	return udev_device_new_from_syspath(udev, path);
 }
 
+struct udev_device *udev_device_new_from_id_filename(struct udev *udev, char *id)
+{
+	char type;
+	int maj, min;
+	char subsys[UTIL_PATH_SIZE];
+	char *sysname;
+
+	switch(id[0]) {
+	case 'b':
+	case 'c':
+		if (sscanf(id, "%c%i:%i", &type, &maj, &min) != 3)
+			return NULL;
+		return udev_device_new_from_devnum(udev, type, makedev(maj, min));
+	case '+':
+		util_strscpy(subsys, sizeof(subsys), &id[1]);
+		sysname = strchr(subsys, ':');
+		if (sysname == NULL)
+			return NULL;
+		sysname[0] = '\0';
+		sysname = &sysname[1];
+		return udev_device_new_from_subsystem_sysname(udev, subsys, sysname);
+	default:
+		return NULL;
+	}
+}
+
 /**
  * udev_device_new_from_subsystem_sysname:
  * @udev: udev library context

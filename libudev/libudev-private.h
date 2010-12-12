@@ -66,6 +66,7 @@ struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 
 /* libudev-device.c */
 struct udev_device *udev_device_new(struct udev *udev);
+struct udev_device *udev_device_new_from_id_filename(struct udev *udev, char *id);
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
 int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype);

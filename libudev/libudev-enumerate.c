@@ -714,22 +714,11 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 				continue;
 			for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 				struct udev_device *dev;
-				char syspath[UTIL_PATH_SIZE];
-				char *s;
-				size_t l;
-				ssize_t len;
 
 				if (dent->d_name[0] == '.')
 					continue;
 
-				s = syspath;
-				l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev), NULL);
-				len = readlinkat(dirfd(dir), dent->d_name, s, l);
-				if (len <= 0 || (size_t)len == l)
-					continue;
-				s[len] = '\0';
-
-				dev = udev_device_new_from_syspath(udev_enumerate->udev, syspath);
+				dev = udev_device_new_from_id_filename(udev_enumerate->udev, dent->d_name);
 				if (dev == NULL)
 					continue;
 				syspath_add(udev_enumerate, udev_device_get_syspath(dev));

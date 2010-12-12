@@ -72,8 +72,6 @@ void udev_watch_restore(struct udev *udev)
 			size_t l;
 			ssize_t len;
 			struct udev_device *dev;
-			int maj, min;
-			char type;
 
 			if (ent->d_name[0] == '.')
 				continue;
@@ -85,9 +83,7 @@ void udev_watch_restore(struct udev *udev)
 				goto unlink;
 			s[len] = '\0';
 
-			if (sscanf(s, "%c%i:%i", &type, &maj, &min) != 3)
-				goto unlink;
-			dev = udev_device_new_from_devnum(udev, type, makedev(maj, min));
+			dev = udev_device_new_from_id_filename(udev, s);
 			if (dev == NULL)
 				goto unlink;
 
@@ -158,9 +154,6 @@ struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
 	char *s;
 	size_t l;
 	ssize_t len;
-	int maj, min;
-	char type;
-	dev_t devnum;
 
 	if (inotify_fd < 0 || wd < 0)
 		return NULL;
@@ -173,8 +166,5 @@ struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
 		return NULL;
 	s[len] = '\0';
 
-	if (sscanf(s, "%c%i:%i", &type, &maj, &min) != 3)
-		return NULL;
-	devnum = makedev(maj, min);
-	return udev_device_new_from_devnum(udev, type, devnum);
+	return udev_device_new_from_id_filename(udev, s);
 }

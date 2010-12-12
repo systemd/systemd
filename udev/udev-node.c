@@ -243,26 +243,20 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
 	for (;;) {
 		struct udev_device *dev_db;
 		struct dirent *dent;
-		int maj, min;
-		char type, type2;
-		dev_t devnum;
 
 		dent = readdir(dir);
 		if (dent == NULL || dent->d_name[0] == '\0')
 			break;
 		if (dent->d_name[0] == '.')
 			continue;
-		if (sscanf(dent->d_name, "%c%i:%i", &type, &maj, &min) != 3)
-			continue;
-		info(udev, "found '%c%i:%i' claiming '%s'\n", type, maj, min, stackdir);
-		devnum = makedev(maj, min);
+
+		info(udev, "found '%s' claiming '%s'\n", dent->d_name, stackdir);
 
 		/* did we find ourself? */
-		type2 = strcmp(udev_device_get_subsystem(dev), "block") == 0 ? 'b' : 'c';
-		if (udev_device_get_devnum(dev) == devnum && type == type2)
+		if (strcmp(dent->d_name, udev_device_get_id_filename(dev)) == 0)
 			continue;
 
-		dev_db = udev_device_new_from_devnum(udev, type, devnum);
+		dev_db = udev_device_new_from_id_filename(udev, dent->d_name);
 		if (dev_db != NULL) {
 			const char *devnode;
 

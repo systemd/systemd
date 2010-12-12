@@ -34,8 +34,12 @@ static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/tags/", tag, "/", id, NULL);
 
 	if (add) {
+		int fd;
+
 		util_create_path(udev, filename);
-		symlink(udev_device_get_devpath(dev), filename);
+		fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
+		if (fd >= 0)
+			close(fd);
 	} else {
 		unlink(filename);
 	}
