@@ -89,6 +89,9 @@ static bool device_has_info(struct udev_device *udev_device)
 			return true;
 	if (udev_device_get_tags_list_entry(udev_device) != NULL)
 		return true;
+	if (udev_device_get_knodename(udev_device) != NULL)
+		if (strcmp(udev_device_get_devnode(udev_device), udev_device_get_knodename(udev_device)) != 0)
+			return true;
 	if (udev_device_get_watch_handle(udev_device) >= 0)
 		return true;
 	return false;
@@ -102,7 +105,6 @@ int udev_device_update_db(struct udev_device *udev_device)
 	char filename[UTIL_PATH_SIZE];
 	char filename_tmp[UTIL_PATH_SIZE];
 	FILE *f;
-	size_t devlen = strlen(udev_get_dev_path(udev))+1;
 
 	id = udev_device_get_id_filename(udev_device);
 	if (id == NULL)
@@ -127,6 +129,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 	}
 
 	if (has_info) {
+		size_t devlen = strlen(udev_get_dev_path(udev))+1;
 		struct udev_list_entry *list_entry;
 
 		if (udev_device_get_devnode(udev_device) != NULL) {
