@@ -2080,7 +2080,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 	can_set_name = ((strcmp(udev_device_get_action(event->dev), "remove") != 0) &&
 			(major(udev_device_get_devnum(event->dev)) > 0 ||
-			 strcmp(udev_device_get_subsystem(event->dev), "net") == 0));
+			 udev_device_get_ifindex(event->dev) > 0));
 
 	/* loop through token list, match, run actions or forward to next rule */
 	cur = &rules->tokens[0];

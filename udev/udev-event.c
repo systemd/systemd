@@ -564,7 +564,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		udev_rules_apply_to_event(rules, event);
 
 		/* rename a new network interface, if needed */
-		if (strcmp(udev_device_get_subsystem(dev), "net") == 0 && strcmp(udev_device_get_action(dev), "add") == 0 &&
+		if (udev_device_get_ifindex(dev) > 0 && strcmp(udev_device_get_action(dev), "add") == 0 &&
 		    event->name != NULL && strcmp(event->name, udev_device_get_sysname(dev)) != 0) {
 			char syspath[UTIL_PATH_SIZE];
 			char *pos;

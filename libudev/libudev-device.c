@@ -1287,7 +1287,7 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device)
 				     major(udev_device_get_devnum(udev_device)),
 				     minor(udev_device_get_devnum(udev_device))) < 0)
 				udev_device->id_filename = NULL;
-		} else if (strcmp(udev_device_get_subsystem(udev_device), "net") == 0) {
+		} else if (udev_device_get_ifindex(udev_device) > 0) {
 			/* use netdev ifindex -- n3 */
 			if (asprintf(&udev_device->id_filename, "n%u", udev_device_get_ifindex(udev_device)) < 0)
 				udev_device->id_filename = NULL;
@@ -1582,6 +1582,8 @@ int udev_device_set_watch_handle(struct udev_device *udev_device, int handle)
 
 int udev_device_get_ifindex(struct udev_device *udev_device)
 {
+	if (!udev_device->info_loaded)
+		udev_device_read_uevent_file(udev_device);
 	return udev_device->ifindex;
 }
 
