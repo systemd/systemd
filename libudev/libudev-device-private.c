@@ -78,6 +78,7 @@ int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, 
 
 static bool device_has_info(struct udev_device *udev_device)
 {
+	struct udev *udev = udev_device_get_udev(udev_device);
 	struct udev_list_entry *list_entry;
 
 	if (udev_device_get_devlinks_list_entry(udev_device) != NULL)
@@ -89,9 +90,12 @@ static bool device_has_info(struct udev_device *udev_device)
 			return true;
 	if (udev_device_get_tags_list_entry(udev_device) != NULL)
 		return true;
-	if (udev_device_get_knodename(udev_device) != NULL)
-		if (strcmp(udev_device_get_devnode(udev_device), udev_device_get_knodename(udev_device)) != 0)
+	if (udev_device_get_devnode(udev_device) != NULL && udev_device_get_knodename(udev_device) != NULL) {
+		size_t devlen = strlen(udev_get_dev_path(udev))+1;
+
+		if (strcmp(&udev_device_get_devnode(udev_device)[devlen], udev_device_get_knodename(udev_device)) != 0)
 			return true;
+	}
 	if (udev_device_get_watch_handle(udev_device) >= 0)
 		return true;
 	return false;
