@@ -631,12 +631,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			/* set device node name */
 			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", event->name, NULL);
 			udev_device_set_devnode(dev, filename);
-		}
 
-		udev_device_update_db(dev);
-		udev_device_tag_index(dev, event->dev_db, true);
-
-		if (major(udev_device_get_devnum(dev)) != 0) {
 			/* remove/update possible left-over symlinks from old database entry */
 			if (event->dev_db != NULL)
 				udev_node_update_old_links(dev, event->dev_db);
@@ -647,6 +642,10 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 			err = udev_node_add(dev, event->mode, event->uid, event->gid);
 		}
+
+		udev_device_update_db(dev);
+		udev_device_tag_index(dev, event->dev_db, true);
+		udev_device_set_is_initialized(dev);
 
 		udev_device_unref(event->dev_db);
 		event->dev_db = NULL;

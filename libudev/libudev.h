@@ -88,6 +88,7 @@ const char *udev_device_get_syspath(struct udev_device *udev_device);
 const char *udev_device_get_sysname(struct udev_device *udev_device);
 const char *udev_device_get_sysnum(struct udev_device *udev_device);
 const char *udev_device_get_devnode(struct udev_device *udev_device);
+int udev_device_get_is_initialized(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device);
@@ -141,6 +142,7 @@ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, co
 int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value);
 int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname);
 int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const char *tag);
+int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev_enumerate);
 int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath);
 /* run enumeration with active filters */
 int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate);

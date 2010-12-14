@@ -57,6 +57,7 @@ struct udev_enumerate {
 	unsigned int devices_cur;
 	unsigned int devices_max;
 	bool devices_uptodate:1;
+	bool match_is_initialized;
 };
 
 /**
@@ -457,6 +458,32 @@ int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const ch
 }
 
 /**
+ * udev_enumerate_add_match_is_initialized:
+ * @udev_enumerate: context
+ *
+ * Match only devices which udev has set up already. This makes
+ * sure, that the device node permissions and context are properly set
+ * and that network devices are fully renamed.
+ *
+ * Usually, devices which are found in the kernel but not already
+ * handled by udev, have still pending events. Services should subscribe
+ * to monitor events and wait for these devices to become ready, instead
+ * of using uninitialized devices.
+ *
+ * For now, this will not affect devices which do not have a device node
+ * and are not network interfaces.
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
+int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev_enumerate)
+{
+	if (udev_enumerate == NULL)
+		return -EINVAL;
+	udev_enumerate->match_is_initialized = true;
+	return 0;
+}
+
+/**
  * udev_enumerate_add_match_sysname:
  * @udev_enumerate: context
  * @sysname: filter for the name of the device to include in the list
@@ -601,6 +628,21 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 		if (dev == NULL)
 			continue;
 
+		if (udev_enumerate->match_is_initialized) {
+			/*
+			 * All devices with a device node or network interfaces
+			 * possibly need udev to adjust the device node permission
+			 * or context, or rename the interface before it can be
+			 * reliably used from other processes.
+			 *
+			 * For now, we can only check these types of devices, we
+			 * might not store a database, and have no way to find out
+			 * for all other types of devices.
+			 */
+			if (!udev_device_get_is_initialized(dev) &&
+			    (major(udev_device_get_devnum(dev)) > 0 || udev_device_get_ifindex(dev) > 0))
+				goto nomatch;
+		}
 		if (!match_tag(udev_enumerate, dev))
 			goto nomatch;
 		if (!match_property(udev_enumerate, dev))

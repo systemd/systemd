@@ -81,6 +81,7 @@ struct udev_device {
 	bool info_loaded;
 	bool db_loaded;
 	bool uevent_loaded;
+	bool is_initialized;
 };
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
@@ -249,6 +250,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 		info(udev_device->udev, "no db file to read %s: %m\n", filename);
 		return -1;
 	}
+	udev_device->is_initialized = true;
 
 	while (fgets(line, sizeof(line), f)) {
 		ssize_t len;
@@ -1306,6 +1308,31 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device)
 		}
 	}
 	return udev_device->id_filename;
+}
+
+/**
+ * udev_device_get_is_initialized:
+ * @udev_device: udev device
+ *
+ * Check if udev has already handled the device and has set up
+ * device node permissions and context, or has renamed a network
+ * device.
+ *
+ * For now, this is only implemented for devices with a device node
+ * or network interfaces. All other devices return 1 here.
+ *
+ * Returns: 1 if the device is set up. 0 otherwise.
+ **/
+int udev_device_get_is_initialized(struct udev_device *udev_device)
+{
+	if (!udev_device->info_loaded)
+		udev_device_read_db(udev_device);
+	return udev_device->is_initialized;
+}
+
+void udev_device_set_is_initialized(struct udev_device *udev_device)
+{
+	udev_device->is_initialized = true;
 }
 
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag)

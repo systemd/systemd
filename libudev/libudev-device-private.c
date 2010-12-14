@@ -114,7 +114,9 @@ int udev_device_update_db(struct udev_device *udev_device)
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/", id, NULL);
 
 	/* do not store anything for otherwise empty devices */
-	if (!has_info && udev_device_get_devnode(udev_device) == NULL) {
+	if (!has_info &&
+	    major(udev_device_get_devnum(udev_device)) == 0 &&
+	    udev_device_get_ifindex(udev_device) == 0) {
 		unlink(filename);
 		return 0;
 	}
