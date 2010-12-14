@@ -32,6 +32,7 @@ G_BEGIN_DECLS
 
 typedef struct _GUdevClient GUdevClient;
 typedef struct _GUdevDevice GUdevDevice;
+typedef struct _GUdevEnumerator GUdevEnumerator;
 
 /**
  * GUdevDeviceNumber:

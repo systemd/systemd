@@ -86,6 +86,7 @@ struct _GUdevDevicePrivate
   /* computed ondemand and cached */
   gchar **device_file_symlinks;
   gchar **property_keys;
+  gchar **tags;
   GHashTable *prop_strvs;
   GHashTable *sysfs_attr_strvs;
 };
@@ -99,6 +100,7 @@ g_udev_device_finalize (GObject *object)
 
   g_strfreev (device->priv->device_file_symlinks);
   g_strfreev (device->priv->property_keys);
+  g_strfreev (device->priv->tags);
 
   if (device->priv->udevice != NULL)
     udev_device_unref (device->priv->udevice);
@@ -889,3 +891,37 @@ g_udev_device_get_sysfs_attr_as_strv (GUdevDevice  *device,
 out:
   return (const gchar* const *) result;
 }
+
+/**
+ * g_udev_device_get_tags:
+ * @device: A #GUdevDevice.
+ *
+ * Gets all tags for @device.
+ *
+ * Returns: (transfer none) (array zero-terminated=1) (element-type utf8): A %NULL terminated string array of tags. This array is owned by @device and should not be freed by the caller.
+ *
+ * Since: 165
+ */
+const gchar* const *
+g_udev_device_get_tags (GUdevDevice  *device)
+{
+  struct udev_list_entry *l;
+  GPtrArray *p;
+
+  g_return_val_if_fail (G_UDEV_IS_DEVICE (device), NULL);
+
+  if (device->priv->tags != NULL)
+    goto out;
+
+  p = g_ptr_array_new ();
+  for (l = udev_device_get_tags_list_entry (device->priv->udevice); l != NULL; l = udev_list_entry_get_next (l))
+    {
+      g_ptr_array_add (p, g_strdup (udev_list_entry_get_name (l)));
+    }
+  g_ptr_array_add (p, NULL);
+  device->priv->tags = (gchar **) g_ptr_array_free (p, FALSE);
+
+ out:
+  return (const gchar * const *) device->priv->tags;
+}
+

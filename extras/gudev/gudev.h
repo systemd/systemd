@@ -27,6 +27,7 @@
 #include <gudev/gudevtypes.h>
 #include <gudev/gudevclient.h>
 #include <gudev/gudevdevice.h>
+#include <gudev/gudevenumerator.h>
 #undef _GUDEV_INSIDE_GUDEV_H
 
 #endif /* __G_UDEV_H__ */

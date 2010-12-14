@@ -334,7 +334,8 @@ libgudev_include_HEADERS = \
 	extras/gudev/gudevenumtypes.h \
 	extras/gudev/gudevtypes.h \
 	extras/gudev/gudevclient.h \
-	extras/gudev/gudevdevice.h
+	extras/gudev/gudevdevice.h \
+	extras/gudev/gudevenumerator.h
 
 lib_LTLIBRARIES += extras/gudev/libgudev-1.0.la
 pkgconfig_DATA += extras/gudev/gudev-1.0.pc
@@ -348,6 +349,8 @@ extras_gudev_libgudev_1_0_la_SOURCES = \
 	extras/gudev/gudevclient.c \
 	extras/gudev/gudevdevice.h \
 	extras/gudev/gudevdevice.c \
+	extras/gudev/gudevenumerator.h \
+	extras/gudev/gudevenumerator.c \
 	extras/gudev/gudevprivate.h
 
 dist_extras_gudev_libgudev_1_0_la_SOURCES = \
@@ -418,8 +421,10 @@ extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefil
 		$(or $(wildcard $(top_builddir)/extras/gudev/gudevenumtypes.h),$(top_srcdir)/extras/gudev/gudevenumtypes.h) \
 		$(top_srcdir)/extras/gudev/gudevclient.h \
 		$(top_srcdir)/extras/gudev/gudevdevice.h \
+		$(top_srcdir)/extras/gudev/gudevenumerator.h \
 		$(top_srcdir)/extras/gudev/gudevclient.c \
-		$(top_srcdir)/extras/gudev/gudevdevice.c
+		$(top_srcdir)/extras/gudev/gudevdevice.c \
+		$(top_srcdir)/extras/gudev/gudevenumerator.c
 
 extras/gudev/GUdev-1.0.typelib: extras/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
 	$(AM_V_GEN)g-ir-compiler $< -o $@

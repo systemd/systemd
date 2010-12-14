@@ -40,6 +40,7 @@ g_udev_device_get_device_file
 g_udev_device_get_device_file_symlinks
 g_udev_device_get_parent
 g_udev_device_get_parent_with_subsystem
+g_udev_device_get_tags
 g_udev_device_get_property_keys
 g_udev_device_has_property
 g_udev_device_get_property
@@ -64,3 +65,28 @@ G_UDEV_IS_DEVICE_CLASS
 G_UDEV_DEVICE_GET_CLASS
 </SECTION>
 
+<SECTION>
+<FILE>gudevenumerator</FILE>
+<TITLE>GUdevEnumerator</TITLE>
+GUdevEnumerator
+GUdevEnumeratorClass
+g_udev_enumerator_new
+g_udev_enumerator_add_match_subsystem
+g_udev_enumerator_add_nomatch_subsystem
+g_udev_enumerator_add_match_sysfs_attr
+g_udev_enumerator_add_nomatch_sysfs_attr
+g_udev_enumerator_add_match_property
+g_udev_enumerator_add_match_name
+g_udev_enumerator_add_match_tag
+g_udev_enumerator_add_match_is_initialized
+g_udev_enumerator_add_sysfs_path
+g_udev_enumerator_execute
+<SUBSECTION Standard>
+G_UDEV_ENUMERATOR
+G_UDEV_IS_ENUMERATOR
+G_UDEV_TYPE_ENUMERATOR
+g_udev_enumerator_get_type
+G_UDEV_ENUMERATOR_CLASS
+G_UDEV_IS_ENUMERATOR_CLASS
+G_UDEV_ENUMERATOR_GET_CLASS
+</SECTION>

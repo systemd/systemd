@@ -47,12 +47,13 @@
  * memory) and as such there are no asynchronous versions of the
  * provided methods.
  *
- * To get information about a device, use
+ * To get #GUdevDevice objects, use
  * g_udev_client_query_by_subsystem(),
  * g_udev_client_query_by_device_number(),
  * g_udev_client_query_by_device_file(),
- * g_udev_client_query_by_sysfs_path() or
- * g_udev_client_query_by_subsystem_and_name().
+ * g_udev_client_query_by_sysfs_path(),
+ * g_udev_client_query_by_subsystem_and_name()
+ * or the #GUdevEnumerator type.
  *
  * To listen to uevents, connect to the #GUdevClient::uevent signal.
  */
@@ -459,8 +460,6 @@ g_udev_client_query_by_device_file (GUdevClient  *client,
  * @sysfs_path: A sysfs path.
  *
  * Looks up a device for a sysfs path.
- *
- * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_sysfs_path (GUdevClient  *client,
@@ -516,5 +515,12 @@ g_udev_client_query_by_subsystem_and_name (GUdevClient  *client,
 
  out:
   return device;
+}
+
+struct udev *
+_g_udev_client_get_udev (GUdevClient *client)
+{
+  g_return_val_if_fail (G_UDEV_IS_CLIENT (client), NULL);
+  return client->priv->udev;
 }
 

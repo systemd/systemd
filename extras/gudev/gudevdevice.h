@@ -120,6 +120,7 @@ gboolean            g_udev_device_get_sysfs_attr_as_boolean (GUdevDevice  *devic
                                                              const gchar  *name);
 const gchar* const *g_udev_device_get_sysfs_attr_as_strv    (GUdevDevice  *device,
                                                              const gchar  *name);
+const gchar* const *g_udev_device_get_tags                  (GUdevDevice  *device);
 
 G_END_DECLS
 

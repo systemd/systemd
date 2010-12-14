@@ -75,6 +75,7 @@
     </partintro>
     <xi:include href="xml/gudevclient.xml"/>
     <xi:include href="xml/gudevdevice.xml"/>
+    <xi:include href="xml/gudevenumerator.xml"/>
   </reference>
 
   <chapter id="gudev-hierarchy">
@@ -83,6 +84,14 @@
   </chapter>
   <index>
     <title>Index</title>
+  </index>
+  <index role="deprecated">
+    <title>Index of deprecated symbols</title>
+    <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index role="165">
+    <title>Index of new symbols in 165</title>
+    <xi:include href="xml/api-index-165.xml"><xi:fallback /></xi:include>
   </index>
 
 </book>
