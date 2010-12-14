@@ -4,6 +4,7 @@ const GLib = imports.gi.GLib;
 const GUdev = imports.gi.GUdev;
 
 function print_device(device) {
+  print("  initialized:           " + device.get_is_initialized());
   print("  subsystem:             " + device.get_subsystem());
   print("  devtype:               " + device.get_devtype());
   print("  name:                  " + device.get_name());

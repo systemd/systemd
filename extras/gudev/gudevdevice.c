@@ -925,3 +925,19 @@ g_udev_device_get_tags (GUdevDevice  *device)
   return (const gchar * const *) device->priv->tags;
 }
 
+/**
+ * g_udev_device_get_is_initialized:
+ * @device: A #GUdevDevice.
+ *
+ * Gets whether @device has been initalized.
+ *
+ * Returns: Whether @device has been initialized.
+ *
+ * Since: 165
+ */
+gboolean
+g_udev_device_get_is_initialized (GUdevDevice  *device)
+{
+  g_return_val_if_fail (G_UDEV_IS_DEVICE (device), FALSE);
+  return udev_device_get_is_initialized (device->priv->udevice);
+}
