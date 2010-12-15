@@ -16,8 +16,12 @@
 
 * add VT tracking:
     - provide CK functionality
-    - start getty 2-6 only when actual vt switch happens
-      (same model as socket on-demand activation)
+    - start getty only when actual vt switch happens (same model as
+      socket on-demand activation). allocate the next free tty and
+      start a getty there. this way, pressing alt-f[1-12] will switch
+      through running X and getty sessions, and any unallocated
+      activated tty will start a new getty. the hardcoding of
+      getty[1-6] will entirely go away.
 
 * implicitly import "defaults" settings file into all types
 
