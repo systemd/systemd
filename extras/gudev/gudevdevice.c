@@ -941,3 +941,24 @@ g_udev_device_get_is_initialized (GUdevDevice  *device)
   g_return_val_if_fail (G_UDEV_IS_DEVICE (device), FALSE);
   return udev_device_get_is_initialized (device->priv->udevice);
 }
+
+/**
+ * g_udev_device_get_usec_since_initialized:
+ * @device: A #GUdevDevice.
+ *
+ * Gets number of micro-seconds since @device was initialized.
+ *
+ * This only works for devices with properties in the udev
+ * database. All other devices return 0.
+ *
+ * Returns: Number of micro-seconds since @device was initialized or 0 if unknown.
+ *
+ * Since: 165
+ */
+guint64
+g_udev_device_get_usec_since_initialized (GUdevDevice *device)
+{
+  g_return_val_if_fail (G_UDEV_IS_DEVICE (device), 0);
+  return udev_device_get_usec_since_initialized (device->priv->udevice);
+}
+

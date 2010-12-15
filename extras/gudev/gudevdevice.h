@@ -77,6 +77,7 @@ struct _GUdevDeviceClass
 
 GType               g_udev_device_get_type                  (void) G_GNUC_CONST;
 gboolean            g_udev_device_get_is_initialized        (GUdevDevice  *device);
+guint64             g_udev_device_get_usec_since_initialized (GUdevDevice  *device);
 const gchar        *g_udev_device_get_subsystem             (GUdevDevice  *device);
 const gchar        *g_udev_device_get_devtype               (GUdevDevice  *device);
 const gchar        *g_udev_device_get_name                  (GUdevDevice  *device);
