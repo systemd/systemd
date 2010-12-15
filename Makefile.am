@@ -321,9 +321,9 @@ dist_udevrules_DATA += \
 # ------------------------------------------------------------------------------
 # GUdev - libudev gobject interface
 # ------------------------------------------------------------------------------
-LIBGUDEV_CURRENT=0
-LIBGUDEV_REVISION=1
-LIBGUDEV_AGE=0
+LIBGUDEV_CURRENT=1
+LIBGUDEV_REVISION=0
+LIBGUDEV_AGE=1
 
 SUBDIRS += extras/gudev/docs
 
