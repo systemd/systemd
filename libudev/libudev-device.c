@@ -63,6 +63,7 @@ struct udev_device {
 	struct udev_list_node sysattr_list;
 	struct udev_list_node tags_list;
 	unsigned long long int seqnum;
+	unsigned long long int usec_initialized;
 	int event_timeout;
 	int timeout;
 	int devlink_priority;
@@ -283,6 +284,9 @@ int udev_device_read_db(struct udev_device *udev_device)
 			break;
 		case 'W':
 			udev_device_set_watch_handle(udev_device, atoi(val));
+			break;
+		case 'I':
+			udev_device_set_usec_initialized(udev_device, strtoull(val, NULL, 10));
 			break;
 		}
 	}
@@ -1095,6 +1099,44 @@ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
 }
 
 /**
+ * udev_device_get_usec_since_initialized:
+ * @udev_device: udev device
+ *
+ * Return the number of microseconds passed since udev set up the
+ * device for the first time.
+ *
+ * This is only implemented for devices with need to store properties
+ * in the udev database. All other devices return 0 here.
+ *
+ * Returns: the number of microseconds since the device was first seen.
+ **/
+unsigned long long int udev_device_get_usec_since_initialized(struct udev_device *udev_device)
+{
+	unsigned long long now;
+
+	if (udev_device == NULL)
+		return 0;
+	if (!udev_device->info_loaded)
+		udev_device_read_db(udev_device);
+	if (udev_device->usec_initialized == 0)
+		return 0;
+	now = usec_monotonic();
+	if (now == 0)
+		return 0;
+	return now - udev_device->usec_initialized;
+}
+
+unsigned long long udev_device_get_usec_initialized(struct udev_device *udev_device)
+{
+	return udev_device->usec_initialized;
+}
+
+void udev_device_set_usec_initialized(struct udev_device *udev_device, unsigned long long usec_initialized)
+{
+	udev_device->usec_initialized = usec_initialized;
+}
+
+/**
  * udev_device_get_sysattr_value:
  * @udev_device: udev device
  * @sysattr: attribute name
@@ -1318,7 +1360,7 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device)
  * device node permissions and context, or has renamed a network
  * device.
  *
- * For now, this is only implemented for devices with a device node
+ * This is only implemented for devices with a device node
  * or network interfaces. All other devices return 1 here.
  *
  * Returns: 1 if the device is set up. 0 otherwise.

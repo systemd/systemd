@@ -55,6 +55,7 @@ udev_device_get_devnum
 udev_device_get_action
 udev_device_get_sysattr_value
 udev_device_get_seqnum
+udev_device_get_usec_since_initialized
 </SECTION>
 
 <SECTION>

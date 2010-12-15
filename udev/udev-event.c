@@ -643,6 +643,13 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			err = udev_node_add(dev, event->mode, event->uid, event->gid);
 		}
 
+		/* preserve old, or get new initialization timestamp */
+		if (event->dev_db != NULL && udev_device_get_usec_initialized(event->dev_db) > 0)
+			udev_device_set_usec_initialized(event->dev, udev_device_get_usec_initialized(event->dev_db));
+		else
+			udev_device_set_usec_initialized(event->dev, usec_monotonic());
+
+		/* (re)write database file */
 		udev_device_update_db(dev);
 		udev_device_tag_index(dev, event->dev_db, true);
 		udev_device_set_is_initialized(dev);

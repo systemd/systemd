@@ -18,6 +18,7 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <time.h>
 #include <sys/stat.h>
 
 #include "libudev.h"
@@ -552,4 +553,16 @@ uint64_t util_string_bloom64(const char *str)
 	bits |= 1LLU << ((hash >> 12) & 63);
 	bits |= 1LLU << ((hash >> 18) & 63);
 	return bits;
+}
+
+#define USEC_PER_SEC  1000000ULL
+#define NSEC_PER_USEC 1000ULL
+unsigned long long usec_monotonic(void)
+{
+	struct timespec ts;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+		return 0;
+	return (unsigned long long) ts.tv_sec * USEC_PER_SEC +
+	       (unsigned long long) ts.tv_nsec / NSEC_PER_USEC;
 }

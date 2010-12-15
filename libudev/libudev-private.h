@@ -98,6 +98,8 @@ int udev_device_get_event_timeout(struct udev_device *udev_device);
 int udev_device_set_event_timeout(struct udev_device *udev_device, int event_timeout);
 int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum);
 int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum);
+unsigned long long udev_device_get_usec_initialized(struct udev_device *udev_device);
+void udev_device_set_usec_initialized(struct udev_device *udev_device, unsigned long long usec_initialized);
 int udev_device_get_devlink_priority(struct udev_device *udev_device);
 int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
 int udev_device_get_watch_handle(struct udev_device *udev_device);
@@ -224,6 +226,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 		     const sigset_t *sigmask, bool reset_prio);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string,
 				      char *result, size_t maxsize, int read_value);
+unsigned long long usec_monotonic(void);
 
 /* libudev-selinux-private.c */
 #ifndef WITH_SELINUX

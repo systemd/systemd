@@ -6,6 +6,6 @@ includedir=@prefix@/include
 Name: libudev
 Description: Library to access udev device information
 Version: @VERSION@
-Libs: -L${libdir} -ludev
+Libs: -L${libdir} -ludev -lrt
 Libs.private: 
 Cflags: -I${includedir}
