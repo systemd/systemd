@@ -115,7 +115,7 @@
 
                                 <listitem><para>In the child, call
                                 <function>fork()</function> again, to
-                                ensure the daemon can never re-aquire
+                                ensure the daemon can never re-acquire
                                 a terminal again.</para></listitem>
 
                                 <listitem><para>Call <function>exit()</function> in the
@@ -644,7 +644,7 @@
                         to the CPU and IO schedulers. If a process
                         executed by the init system shall not
                         negatively impact the amount of CPU or IO
-                        bandwith available to other processes, it
+                        bandwidth available to other processes, it
                         should be configured with
                         <varname>CPUSchedulingPolicy=idle</varname>
                         and/or
