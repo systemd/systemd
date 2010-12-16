@@ -2,6 +2,36 @@ udev 165
 ========
 Bugfixes.
 
+The udev database has changed, After installation of a new udev
+version, 'udevadm info --convert-db' should be called, to let the new
+udev/libudev version read the already stored data.
+
+udevadm now supports quoting of property values, and prefixing of
+key names:
+  $ udevadm info --export --export-prefix=MY_ --query=property -n sda
+  MY_MAJOR='259'
+  MY_MINOR='0'
+  MY_DEVNAME='/dev/sda'
+  MY_DEVTYPE='disk'
+  ...
+
+libudev now supports:
+  udev_device_get_is_initialized()
+  udev_enumerate_add_match_is_initialized()
+to be able to skip devices the kernel has created , but udev has
+not already handled.
+
+libudev now supports:
+  udev_device_get_usec_since_initialized()
+to retrieve the "age" of a udev device record.
+
+GUdev supports a more generic GUdevEnumerator class, udev TAG
+handling, device initialization and timestamp now.
+
+The counterpart of /sys/dev/{char,block}/$major:$minor,
+/dev/{char,block}/$major:$minor symlinks are now unconditionally
+created, even when no rule files exist.
+
 udev 164
 ========
 Bugfixes.
