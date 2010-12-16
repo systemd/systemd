@@ -855,9 +855,10 @@ static int service_load_sysv_name(Service *s, const char *name) {
         assert(s);
         assert(name);
 
-        /* For SysV services we strip the boot. or .sh
+        /* For SysV services we strip the boot.*, rc.* and *.sh
          * prefixes/suffixes. */
         if (startswith(name, "boot.") ||
+            startswith(name, "rc.") ||
             endswith(name, ".sh.service"))
                 return -ENOENT;
 
@@ -873,36 +874,42 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
                 r = service_load_sysv_path(s, path);
 
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
-                        /* Try Debian style xxx.sh source'able init scripts */
+                        /* Try Debian style *.sh source'able init scripts */
                         strcat(path, ".sh");
                         r = service_load_sysv_path(s, path);
                 }
-
+#endif
                 free(path);
 
+#ifdef TARGET_SUSE
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
-                        /* Try SUSE style boot.xxx init scripts */
+                        /* Try SUSE style boot.* init scripts */
 
                         if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
                                 return -ENOMEM;
 
+                        /* Drop .service suffix */
                         path[strlen(path)-8] = 0;
                         r = service_load_sysv_path(s, path);
                         free(path);
                 }
+#endif
 
+#ifdef TARGET_FRUGALWARE
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
-                        /* Try Frugalware style rc.xxx init scripts */
+                        /* Try Frugalware style rc.* init scripts */
 
                         if (asprintf(&path, "%s/rc.%s", *p, name) < 0)
                                 return -ENOMEM;
 
-			/* Drop .service suffix */
+                        /* Drop .service suffix */
                         path[strlen(path)-8] = 0;
                         r = service_load_sysv_path(s, path);
                         free(path);
                 }
+#endif
 
                 if (r < 0)
                         return r;
