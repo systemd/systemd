@@ -1,3 +1,66 @@
+Summary of changes from v164 to v165
+============================================
+
+Andy Whitcroft (1):
+      keymap: Add release quirks for two Zepto Znote models and AMILO Xi 2428
+
+Bastien Nocera (2):
+      keymap: Add force release for HP touchpad off
+      extras/keymap: Make touchpad buttons consistent
+
+David Henningsson (1):
+      Add ACLs for FFADO supported sound cards
+
+David Zeuthen (6):
+      ata_id: Support SG_IO version 4 interface
+      Run scsi_id and ata_id on the scsi_device object
+      Use ata_id, not scsi_id, on ATAPI devices
+      Add GUdevEnumerator type and Device.get_tags() method
+      Add g_udev_device_get_is_initialized() method
+      gudev: Add Device.get_usec_since_initialized
+
+Harald Hoyer (2):
+      udev-rules.c: change import property buffer to 16384 bytes
+      70-acl.rules: add ACLs for ID_PDA devices
+
+Jakub Wilk (1):
+      man: udev - workaraound -> workaround
+
+Jan Drzewiecki (1):
+      cdrom_id: Fix media state for unreadable DVDs
+
+Kay Sievers (19):
+      version bump
+      rules: 78-sound-card - remove specific hardware matches, they do not belong here
+      rules: drop OSS audio rule
+      rules: drop alsa jack-plug input devices
+      rules: revert bsg use until the event ordering problem is sorted out
+      libudev: do not overwrite path with readlink() call
+      udevadm: info - honor --export and --export-prefix for property query
+      udevadm: info - honor --export, --export-prefix=
+      udevd: use dev_t or netif ifindex as database key
+      udevd: always create /dev/{char,block}/$major:$minor
+      udevd: simplify udev database and fix DEVNAME handling
+      udevd: switch to common id_filename functions
+      udevd: write full database file for (unsupported) renamed device nodes
+      check ifindex > 0 instead of subsystem == "net"
+      libudev: enumerate - allow to filter-out not-already-initialized devices
+      libudev: fix renamed device nodes detection logic
+      libudev: record and export "age" of device record
+      gudev: bump minor version
+      update NEWS
+
+Martin Pitt (5):
+      keymap: Add Sony Vaio VGN71
+      keymap: Add some more Sony Vaio VGN-* models
+      Add ACL for media player USB devices
+      keymap: Fix struck Touchpad key on Dell Latitude E series
+      keymap: Fix struck Touchpad key on Dell Precision M series
+
+Michal Soltys (1):
+      udevd: create static nodes before /dev/null is needed
+
+
 Summary of changes from v163 to v164
 ============================================
 

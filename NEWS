@@ -32,6 +32,8 @@ The counterpart of /sys/dev/{char,block}/$major:$minor,
 /dev/{char,block}/$major:$minor symlinks are now unconditionally
 created, even when no rule files exist.
 
+New and updated keymaps.
+
 udev 164
 ========
 Bugfixes.
