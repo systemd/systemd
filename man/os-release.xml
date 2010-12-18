@@ -173,7 +173,7 @@
 
                 <para>Note that operating system vendors may choose
                 not to provide version information, for example to
-                accomodate for rolling releases. In this case VERSION
+                accommodate for rolling releases. In this case VERSION
                 and VERSION_ID may be unset. Applications should not
                 rely on these fields to be set.</para>
         </refsect1>

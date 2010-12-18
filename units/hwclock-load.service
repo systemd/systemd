@@ -18,7 +18,7 @@ RemainAfterExit=yes
 ExecStart=/sbin/hwclock --systz
 StandardOutput=syslog
 
-# Note the weird semantics if hwclock and the kernel here: the first
+# Note the weird semantics of hwclock and the kernel here: the first
 # settimeofday() invocation from userspace is special and may be used
 # to set the offset from UTC of the system clock. It is independent
 # of any specific RTC device. This is mostly a crufty hack to support
