@@ -3047,12 +3047,16 @@ void status_welcome(void) {
 #elif defined(TARGET_DEBIAN)
 
         if (!pretty_name) {
-                if ((r = read_one_line_file("/etc/debian_version", &pretty_name)) < 0) {
+                char *version;
+                if ((r = read_one_line_file("/etc/debian_version", &version)) < 0) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/debian_version: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                } else {
+                        truncate_nl(version);
+                        pretty_name = strappend("Debian ", version);
+                        free(version);
+                }
         }
 
         if (!ansi_color)
