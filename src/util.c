@@ -3048,6 +3048,7 @@ void status_welcome(void) {
 
         if (!pretty_name) {
                 char *version;
+
                 if ((r = read_one_line_file("/etc/debian_version", &version)) < 0) {
 
                         if (r != -ENOENT)
@@ -3056,6 +3057,9 @@ void status_welcome(void) {
                         truncate_nl(version);
                         pretty_name = strappend("Debian ", version);
                         free(version);
+
+                        if (!pretty_name)
+                                log_warning("Failed to allocate Debian version string.");
                 }
         }
 
