@@ -102,6 +102,7 @@ static int parse_argv(pam_handle_t *handle,
                 }
         }
 
+#if 0
         if (!controller_set && controllers) {
                 char **l;
 
@@ -112,6 +113,7 @@ static int parse_argv(pam_handle_t *handle,
 
                 *controllers = l;
         }
+#endif
 
         if (controllers)
                 strv_remove(*controllers, "name=systemd");
