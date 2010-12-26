@@ -174,13 +174,21 @@ dist_man_MANS = \
 	udev/udevadm.8 \
 	udev/udevd.8
 
+dist_noinst_DATA = \
+	udev/udev.html \
+	udev/udevadm.html \
+	udev/udevd.html
+
 EXTRA_DIST += \
 	udev/udev.xml \
 	udev/udevadm.xml \
 	udev/udevd.xml
 
-%.7 %.8 : %.xml
+udev/%.7 udev/%.8 : udev/%.xml
 	$(AM_V_GEN)$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+
+udev/%.html : udev/%.xml
+	$(AM_V_GEN)$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
 
 # ------------------------------------------------------------------------------
 # udev tests
@@ -685,5 +693,6 @@ git-release:
 	git prune
 
 doc-sync:
+	rsync -av udev/*.html master.kernel.org:/pub/linux/utils/kernel/hotplug/udev/
 	rsync -av --delete libudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/libudev/
 	rsync -av --delete extras/gudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/gudev/
