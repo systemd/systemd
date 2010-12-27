@@ -237,19 +237,23 @@ static char *sysv_translate_name(const char *name) {
         if (!(r = new(char, strlen(name) + sizeof(".service"))))
                 return NULL;
 
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+        if (endswith(name, ".sh"))
+                /* Drop Debian-style .sh suffix */
+                strcpy(stpcpy(r, name) - 3, ".service");
+#endif
+#ifdef TARGET_SUSE
         if (startswith(name, "boot."))
                 /* Drop SuSE-style boot. prefix */
                 strcpy(stpcpy(r, name + 5), ".service");
-        else if (endswith(name, ".sh"))
-                /* Drop Debian-style .sh suffix */
-                strcpy(stpcpy(r, name) - 3, ".service");
+#endif
 #ifdef TARGET_ARCH
-        else if (startswith(name, "@"))
+        if (startswith(name, "@"))
                 /* Drop Arch-style background prefix */
                 strcpy(stpcpy(r, name + 1), ".service");
 #endif
 #ifdef TARGET_FRUGALWARE
-        else if (startswith(name, "rc."))
+        if (startswith(name, "rc."))
                 /* Drop Frugalware-style rc. prefix */
                 strcpy(stpcpy(r, name + 3), ".service");
 #endif
@@ -857,10 +861,20 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
         /* For SysV services we strip the boot.*, rc.* and *.sh
          * prefixes/suffixes. */
-        if (startswith(name, "boot.") ||
-            startswith(name, "rc.") ||
-            endswith(name, ".sh.service"))
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+        if (endswith(name, ".sh.service"))
                 return -ENOENT;
+#endif
+
+#ifdef TARGET_SUSE
+        if (startswith(name, "boot."))
+                return -ENOENT;
+#endif
+
+#ifdef TARGET_FRUGALWARE
+        if (startswith(name, "rc."))
+                return -ENOENT;
+#endif
 
         STRV_FOREACH(p, s->meta.manager->lookup_paths.sysvinit_path) {
                 char *path;
