@@ -3079,13 +3079,6 @@ void status_welcome(void) {
         if (!ansi_color)
                 const_color = "0;33"; /* Orange/Brown for Ubuntu */
 
-#elif defined(TARGET_ARCH)
-
-        if (!pretty_name)
-                const_pretty = "Arch Linux";
-
-        if (!ansi_color)
-                const_color = "1;36"; /* Cyan for Arch */
 #endif
 
         if (!pretty_name && !const_pretty)
