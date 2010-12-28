@@ -1,9 +1,15 @@
 * drop IN_ATTRIB from inotify watches for .path units where possible to avoid
   lots of wakeups due to /dev changing when we watch a subdir of /dev.
 
+* Support ProcessNeededForShutdown=true to allow stuff like mdmon
+  to br killed very late after the rootfs is read only
+
+* Integrate "mdadm --wait-clean". Maybe just let SIGTERM to mdmon trigger the
+  needed action
+
 * bind mounts with 'fsck' fail and block for a minute:
     /foo /bar none bind 1 1
-  (using fsck is wrong, but why do we block for a minute
+  (requesting fsck is wrong, but why do we block for a minute
    instead of just handling the error)
 
 * oneshot services which do not remain: 'exited' instead of 'dead'?
