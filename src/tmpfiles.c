@@ -149,7 +149,7 @@ static int dir_cleanup(
                                 DIR *sub_dir;
                                 int q;
 
-                                sub_dir = xopendirat(dirfd(d), dent->d_name);
+                                sub_dir = xopendirat(dirfd(d), dent->d_name, O_NOFOLLOW);
                                 if (sub_dir == NULL) {
                                         if (errno != ENOENT) {
                                                 log_error("opendir(%s/%s) failed: %m", p, dent->d_name);

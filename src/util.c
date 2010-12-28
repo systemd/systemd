@@ -3402,8 +3402,8 @@ bool null_or_empty(struct stat *st) {
         return false;
 }
 
-DIR *xopendirat(int fd, const char *name) {
-        return fdopendir(openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
+DIR *xopendirat(int fd, const char *name, int flags) {
+        return fdopendir(openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags));
 }
 
 int signal_from_string_try_harder(const char *s) {

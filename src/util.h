@@ -363,7 +363,7 @@ _noreturn_ void freeze(void);
 
 bool null_or_empty(struct stat *st);
 
-DIR *xopendirat(int dirfd, const char *name);
+DIR *xopendirat(int dirfd, const char *name, int flags);
 
 void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t);
 void dual_timestamp_deserialize(const char *value, dual_timestamp *t);
