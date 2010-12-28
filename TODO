@@ -2,7 +2,7 @@
   lots of wakeups due to /dev changing when we watch a subdir of /dev.
 
 * Support ProcessNeededForShutdown=true to allow stuff like mdmon
-  to br killed very late after the rootfs is read only
+  to be killed very late after the rootfs is read only
 
 * Integrate "mdadm --wait-clean". Maybe just let SIGTERM to mdmon trigger the
   needed action
@@ -13,7 +13,7 @@
    instead of just handling the error)
 
 * oneshot services which do not remain: 'exited' instead of 'dead'?
-  it should be visible in 'systemctl' that they have been run
+  it should be visible in 'systemctl' that they have been run?
 
 * dot output for --test showing the 'initial transaction'
 
@@ -31,6 +31,7 @@
       through running X and getty sessions, and any unallocated
       activated tty will start a new getty. the hardcoding of
       getty[1-6] will entirely go away.
+    - http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
 
 * implicitly import "defaults" settings file into all types
 
@@ -83,6 +84,8 @@
 * allow runtime changing of log level and target
 
 * automatically determine TERM= based on tty name even for /dev/console
+    http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
+    http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=b7b8de087384cc1954a8cd075af3f9e5977caa2e
 
 * fix hotplug transactions
 
@@ -111,6 +114,7 @@ External:
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
 
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
+    http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match
 
 * place /etc/inittab with explaining blurb.
 
