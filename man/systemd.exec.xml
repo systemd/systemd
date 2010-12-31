@@ -382,7 +382,7 @@
                                 available options are identical to
                                 those of
                                 <varname>StandardOutput=</varname>,
-                                whith one exception: if set to
+                                with one exception: if set to
                                 <option>inherit</option> the file
                                 descriptor used for standard output is
                                 duplicated for standard error. This
@@ -678,7 +678,7 @@
                                 restricting access with these options
                                 does not extend to submounts of a
                                 directory. You must list submounts
-                                separately in these setttings to
+                                separately in these settings to
                                 ensure the same limited access. These
                                 options may be specified more than
                                 once in which case all directories

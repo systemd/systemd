@@ -271,11 +271,11 @@
                                 <literal>-</literal> an exit code of
                                 the command normally considered a
                                 failure (i.e. non-zero exit status or
-                                abormal exit due to signal) is ignored
+                                abnormal exit due to signal) is ignored
                                 and considered success. If both
                                 <literal>-</literal> and
                                 <literal>@</literal> are used for the
-                                same command the former must preceed
+                                same command the former must precede
                                 the latter. Unless
                                 <varname>Type=forking</varname> is
                                 set, the process started via this
@@ -314,7 +314,7 @@
                                 after the other,
                                 serially. Alternatively, these
                                 directives may be specified more than
-                                once whith the same effect. However,
+                                once with the same effect. However,
                                 the latter syntax is not recommended
                                 for compatibility with parsers
                                 suitable for XDG
@@ -441,7 +441,7 @@
                                 i.e. terminated with an exit code of
                                 0. If set to
                                 <option>on-failure</option> it will be
-                                restared only when it exited with an
+                                restarted only when it exited with an
                                 exit code not equalling 0, or when
                                 terminated by a signal. If set to
                                 <option>on-abort</option> it will be

@@ -598,7 +598,7 @@
                                 exist. <varname>ConditionDirectoryNotEmpty=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
-                                but verifies whether a cetrain path is
+                                but verifies whether a certain path is
                                 exists and is a non-empty
                                 directory. Similarly
                                 <varname>ConditionKernelCommandLine=</varname>
@@ -607,7 +607,7 @@
                                 set (or if prefixed with the
                                 exclamation mark unset). The argument
                                 must either be a single word, or an
-                                assignment (i.e. two words, seperated
+                                assignment (i.e. two words, separated
                                 by the equality sign). In the former
                                 case the kernel command line is
                                 searched for the word appearing as is,
@@ -624,7 +624,7 @@
                                 will always fail, otherwise
                                 succeed. If multiple conditions are
                                 specified the unit will be executed
-                                iff at least one of them applies
+                                if at least one of them applies
                                 (i.e. a logical OR is
                                 applied).</para></listitem>
                         </varlistentry>

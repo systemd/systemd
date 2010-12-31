@@ -76,7 +76,7 @@
                 implied.</para>
 
                 <para>Note that to specify a wall message you must
-                speciy a time argument, too.</para>
+                specify a time argument, too.</para>
 
                 <para>If the time argument is used, 5 minutes
                 before the system goes down the

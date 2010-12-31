@@ -205,9 +205,9 @@
                                 <term><option>controllers=</option></term>
 
                                 <listitem><para>Takes a comma
-                                seperated list of cgroup controllers
+                                separated list of cgroup controllers
                                 in which hierarchies a user/session
-                                cgroup will be created by defautl for
+                                cgroup will be created by default for
                                 each user logging in. If ommited,
                                 defaults to 'cpu', meaning that in
                                 addition to creating per-user and

@@ -116,7 +116,7 @@ d    /var/run/user 0755 root root 10d</programlisting>
                         <title>Mode</title>
 
                         <para>The file access mode to use for this
-                        file or directory. If ommited or when set to -
+                        file or directory. If omitted or when set to -
                         the default is used: 0755 for directories,
                         0644 for files.</para>
                 </refsect2>
@@ -127,7 +127,7 @@ d    /var/run/user 0755 root root 10d</programlisting>
                         <para>The user and group to use for this file
                         or directory. This may either be a numeric
                         user/group ID or a user or group name. If
-                        ommited or when set to - the default 0 is
+                        omitted or when set to - the default 0 is
                         used.</para>
                 </refsect2>
 
@@ -155,7 +155,7 @@ d    /var/run/user 0755 root root 10d</programlisting>
 
                         <para>If multiple integers and units are specified the time values are summed up.</para>
 
-                        <para>The age field only applies to lines starting with d, D and x. If ommited or set to - no automatic clean-up is done.</para>
+                        <para>The age field only applies to lines starting with d, D and x. If omitted or set to - no automatic clean-up is done.</para>
 
                 </refsect2>
 

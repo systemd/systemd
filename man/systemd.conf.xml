@@ -85,7 +85,7 @@
                                 <listitem><para>Configures various
                                 parameters of basic manager
                                 operation. These options may be
-                                overriden by the respective command
+                                overridden by the respective command
                                 line arguments. See
                                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 for details about these command line
@@ -121,10 +121,10 @@
                                 create per-service cgroups
                                 automatically, in addition to the
                                 name=systemd named hierarchy. Defaults
-                                to 'cpu'. Takes a space seperated list
+                                to 'cpu'. Takes a space separated list
                                 of controller names. Pass an empty
                                 string to ensure that systemd does not
-                                touch any hiearchies but its
+                                touch any hierarchies but its
                                 own.</para></listitem>
                         </varlistentry>
                 </variablelist>
