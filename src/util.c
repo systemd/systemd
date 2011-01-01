@@ -3386,6 +3386,8 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
 }
 
 void freeze(void) {
+        sync();
+
         for (;;)
                 pause();
 }

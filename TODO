@@ -1,3 +1,5 @@
+* excluse java hsp files by default https://bugzilla.redhat.com/show_bug.cgi?id=527425
+
 * drop IN_ATTRIB from inotify watches for .path units where possible to avoid
   lots of wakeups due to /dev changing when we watch a subdir of /dev.
 
