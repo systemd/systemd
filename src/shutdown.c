@@ -362,7 +362,6 @@ int main(int argc, char *argv[]) {
         r = -errno;
 
   error:
-        sync();
         log_error("Critical error while doing system shutdown: %s", strerror(-r));
 
         freeze();
