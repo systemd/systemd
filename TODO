@@ -69,8 +69,6 @@
 
 * suspend, resume
 
-* systemctl auto-pager a la git
-
 * readahead: btrfs/LVM SSD detection
 
 * when processes remain in a service even though the start command failed enter active

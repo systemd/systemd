@@ -65,6 +65,7 @@ static bool arg_user = false;
 static bool arg_global = false;
 static bool arg_immediate = false;
 static bool arg_no_block = false;
+static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_sync = false;
 static bool arg_no_wall = false;
@@ -4110,6 +4111,7 @@ static int systemctl_help(void) {
                "                      pending\n"
                "  -q --quiet          Suppress output\n"
                "     --no-block       Do not wait until operation finished\n"
+               "     --no-pager       Do not pipe output into a pager.\n"
                "     --system         Connect to system manager\n"
                "     --user           Connect to user service manager\n"
                "     --order          When generating graph for dot, show only order\n"
@@ -4249,6 +4251,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_NO_BLOCK,
+		ARG_NO_PAGER,
                 ARG_NO_WALL,
                 ARG_ORDER,
                 ARG_REQUIRE,
@@ -4272,6 +4275,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "global",    no_argument,       NULL, ARG_GLOBAL    },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL   },
                 { "quiet",     no_argument,       NULL, 'q'           },
                 { "order",     no_argument,       NULL, ARG_ORDER     },
@@ -4347,6 +4351,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_NO_BLOCK:
                         arg_no_block = true;
                         break;
+
+		case ARG_NO_PAGER:
+			arg_no_pager = true;
+			break;
 
                 case ARG_NO_WALL:
                         arg_no_wall = true;
@@ -5274,6 +5282,48 @@ static int runlevel_main(void) {
         return 0;
 }
 
+static void pager_open(void) {
+	pid_t pid;
+	int fd[2];
+	const char *pager = getenv("PAGER");
+
+	if (!on_tty() || arg_no_pager)
+		return;
+	if (!pager)
+		pager = "less";
+	else if (!*pager || !strcmp(pager, "cat"))
+		return;
+
+	if (pipe(fd) < 0)
+		return;
+	pid = fork();
+	if (pid < 0) {
+		close(fd[0]);
+		close(fd[1]);
+		return;
+	}
+
+	/* Return in the child */
+	if (!pid) {
+		dup2(fd[1], 1);
+		close(fd[0]);
+		close(fd[1]);
+		return;
+	}
+
+	/* The original process turns into the PAGER */
+	dup2(fd[0], 0);
+	close(fd[0]);
+	close(fd[1]);
+
+	setenv("LESS", "FRSX", 0);
+	execlp(pager, pager, NULL);
+	execl("/bin/sh", "sh", "-c", pager, NULL);
+
+	log_error("unable to execute pager '%s'", pager);
+	_exit(EXIT_FAILURE);
+}
+
 int main(int argc, char*argv[]) {
         int r, retval = EXIT_FAILURE;
         DBusConnection *bus = NULL;
@@ -5290,6 +5340,8 @@ int main(int argc, char*argv[]) {
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
+
+	pager_open();
 
         /* /sbin/runlevel doesn't need to communicate via D-Bus, so
          * let's shortcut this */
