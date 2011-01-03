@@ -4251,7 +4251,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_NO_BLOCK,
-		ARG_NO_PAGER,
+                ARG_NO_PAGER,
                 ARG_NO_WALL,
                 ARG_ORDER,
                 ARG_REQUIRE,
@@ -4352,9 +4352,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_no_block = true;
                         break;
 
-		case ARG_NO_PAGER:
-			arg_no_pager = true;
-			break;
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
+                        break;
 
                 case ARG_NO_WALL:
                         arg_no_wall = true;
@@ -5283,45 +5283,56 @@ static int runlevel_main(void) {
 }
 
 static void pager_open(void) {
-	pid_t pid;
-	int fd[2];
-	const char *pager = getenv("PAGER");
+        pid_t pid;
+        int fd[2];
+        const char *pager;
 
-	if (!on_tty() || arg_no_pager)
-		return;
-	if (!pager)
-		pager = "less";
-	else if (!*pager || !strcmp(pager, "cat"))
-		return;
+        if (!on_tty() || arg_no_pager)
+                return;
 
-	if (pipe(fd) < 0)
-		return;
-	pid = fork();
-	if (pid < 0) {
-		close(fd[0]);
-		close(fd[1]);
-		return;
-	}
+        if ((pager = getenv("PAGER")))
+                if (!*pager || streq(pager, "cat"))
+                        return;
 
-	/* Return in the child */
-	if (!pid) {
-		dup2(fd[1], 1);
-		close(fd[0]);
-		close(fd[1]);
-		return;
-	}
+        if (pipe(fd) < 0) {
+                log_error("Failed to create pager pipe: %m");
+                return;
+        }
 
-	/* The original process turns into the PAGER */
-	dup2(fd[0], 0);
-	close(fd[0]);
-	close(fd[1]);
+        pid = fork();
+        if (pid < 0) {
+                log_error("Failed to fork pager: %m");
+                close_pipe(fd);
+                return;
+        }
 
-	setenv("LESS", "FRSX", 0);
-	execlp(pager, pager, NULL);
-	execl("/bin/sh", "sh", "-c", pager, NULL);
+        /* The original process turns into the PAGER */
+        if (pid != 0) {
 
-	log_error("unable to execute pager '%s'", pager);
-	_exit(EXIT_FAILURE);
+                dup2(fd[0], STDIN_FILENO);
+                close_pipe(fd);
+
+                if (!getenv("LESS"))
+                        setenv("LESS", "FRSX", 0);
+
+                if (pager) {
+                        execlp(pager, pager, NULL);
+                        execl("/bin/sh", "sh", "-c", pager, NULL);
+                } else {
+                        execlp("sensible-pager", "sensible-pager", NULL);
+                        execlp("less", "less", NULL);
+                        execlp("more", "more", NULL);
+                }
+
+                log_error("Unable to execute pager: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        /* Return in the child */
+        if (dup2(fd[1], STDOUT_FILENO) < 0)
+                log_error("Failed to duplicate pager pipe: %m");
+
+        close_pipe(fd);
 }
 
 int main(int argc, char*argv[]) {
@@ -5341,7 +5352,7 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-	pager_open();
+        pager_open();
 
         /* /sbin/runlevel doesn't need to communicate via D-Bus, so
          * let's shortcut this */
