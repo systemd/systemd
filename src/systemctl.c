@@ -110,6 +110,8 @@ static enum dot {
 
 static bool private_bus = false;
 
+static pid_t pager_pid = 0;
+
 static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
 
 static bool on_tty(void) {
@@ -5283,9 +5285,11 @@ static int runlevel_main(void) {
 }
 
 static void pager_open(void) {
-        pid_t pid;
         int fd[2];
         const char *pager;
+
+        if (pager_pid > 0)
+                return;
 
         if (!on_tty() || arg_no_pager)
                 return;
@@ -5299,21 +5303,23 @@ static void pager_open(void) {
                 return;
         }
 
-        pid = fork();
-        if (pid < 0) {
+        pager_pid = fork();
+        if (pager_pid < 0) {
                 log_error("Failed to fork pager: %m");
                 close_pipe(fd);
                 return;
         }
 
-        /* The original process turns into the PAGER */
-        if (pid != 0) {
+        /* In the child start the pager */
+        if (pager_pid == 0) {
 
                 dup2(fd[0], STDIN_FILENO);
                 close_pipe(fd);
 
                 if (!getenv("LESS"))
                         setenv("LESS", "FRSX", 0);
+
+                prctl(PR_SET_PDEATHSIG, SIGTERM);
 
                 if (pager) {
                         execlp(pager, pager, NULL);
@@ -5328,11 +5334,23 @@ static void pager_open(void) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Return in the child */
+        /* Return in the parent */
         if (dup2(fd[1], STDOUT_FILENO) < 0)
                 log_error("Failed to duplicate pager pipe: %m");
 
         close_pipe(fd);
+}
+
+static void pager_close(void) {
+        siginfo_t dummy;
+
+        if (pager_pid <= 0)
+                return;
+
+        /* Inform pager that we are done */
+        fclose(stdout);
+        wait_for_terminate(pager_pid, &dummy);
+        pager_pid = 0;
 }
 
 int main(int argc, char*argv[]) {
@@ -5416,6 +5434,8 @@ finish:
         dbus_shutdown();
 
         strv_free(arg_property);
+
+        pager_close();
 
         return retval;
 }
