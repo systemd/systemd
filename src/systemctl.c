@@ -118,6 +118,12 @@ static void pager_open(void);
 static bool on_tty(void) {
         static int t = -1;
 
+        /* Note that this is invoked relatively early, before we start
+         * the pager. That means the value we return reflects whether
+         * we originally were started on a tty, not if we currently
+         * are. But this is intended, since we want color, and so on
+         * when run in our own pager. */
+
         if (_unlikely_(t < 0))
                 t = isatty(STDOUT_FILENO) > 0;
 
@@ -5336,7 +5342,14 @@ static void pager_open(void) {
                         execlp(pager, pager, NULL);
                         execl("/bin/sh", "sh", "-c", pager, NULL);
                 } else {
-                        execlp("sensible-pager", "sensible-pager", NULL);
+                        /* Debian's alternatives command for pagers is
+                         * called 'pager'. Note that we do not call
+                         * sensible-pagers here, since that is just a
+                         * shell script that implements a logic that
+                         * is similar to this one anyway, but is
+                         * Debian-specific. */
+                        execlp("pager", "pager", NULL);
+
                         execlp("less", "less", NULL);
                         execlp("more", "more", NULL);
                 }
