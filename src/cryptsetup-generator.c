@@ -122,13 +122,13 @@ static int create_disk(
 
         if (options && has_option(options, "tmp"))
                 fprintf(f,
-                        "ExecStartPost=/sbin/mke2fs '%s'",
-                        u);
+                        "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'",
+                        name);
 
         if (options && has_option(options, "swap"))
                 fprintf(f,
-                        "ExecStartPost=/sbin/mkswap '%s'",
-                        u);
+                        "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'",
+                        name);
 
         fflush(f);
 
