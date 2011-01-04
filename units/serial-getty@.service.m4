@@ -22,7 +22,7 @@ After=rc-local.service
 Before=getty.target
 
 [Service]
-Environment=TERM=vt100-nav
+Environment=TERM=vt100
 m4_ifdef(`TARGET_FEDORA',
 ExecStartPre=-/sbin/securetty %I
 )m4_dnl

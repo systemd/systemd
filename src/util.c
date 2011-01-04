@@ -3521,7 +3521,7 @@ const char *default_term_for_tty(const char *tty) {
 
         /* FIXME: Proper handling of /dev/console would be cool */
 
-        return "TERM=vt100-nav";
+        return "TERM=vt100";
 }
 
 static const char *const ioprio_class_table[] = {
