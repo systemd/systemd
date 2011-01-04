@@ -5328,8 +5328,7 @@ static void pager_open(void) {
                 dup2(fd[0], STDIN_FILENO);
                 close_pipe(fd);
 
-                if (!getenv("LESS"))
-                        setenv("LESS", "FRSX", 0);
+                setenv("LESS", "FRSX", 0);
 
                 prctl(PR_SET_PDEATHSIG, SIGTERM);
 
