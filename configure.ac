@@ -411,7 +411,7 @@ else
 fi
 
 AC_ARG_WITH([tty-gid],
-        [AS_HELP_STRING([--tty-gid=GID],
+        [AS_HELP_STRING([--with-tty-gid=GID],
                 [Specify the numeric GID of the 'tty' group])],
         [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
         [])
