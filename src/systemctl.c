@@ -113,6 +113,7 @@ static bool private_bus = false;
 static pid_t pager_pid = 0;
 
 static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
+static void pager_open(void);
 
 static bool on_tty(void) {
         static int t = -1;
@@ -420,6 +421,8 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         assert(bus);
+
+        pager_open();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -766,6 +769,8 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         assert(bus);
+
+        pager_open();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -2477,6 +2482,9 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
 
         show_properties = !streq(args[0], "status");
 
+        if (show_properties)
+                pager_open();
+
         if (show_properties && n <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
@@ -2860,6 +2868,8 @@ static int dump(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
+        pager_open();
+
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
                               "/org/freedesktop/systemd1",
@@ -3221,6 +3231,8 @@ static int show_enviroment(DBusConnection *bus, char **args, unsigned n) {
                 *property = "Environment";
 
         dbus_error_init(&error);
+
+        pager_open();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -5369,8 +5381,6 @@ int main(int argc, char*argv[]) {
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
-
-        pager_open();
 
         /* /sbin/runlevel doesn't need to communicate via D-Bus, so
          * let's shortcut this */
