@@ -92,6 +92,10 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         assert(fn);
 
         if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0) {
+
+                if (errno == ENOENT)
+                        return 0;
+
                 log_warning("open(%s) failed: %m", fn);
                 r = -errno;
                 goto finish;

@@ -60,9 +60,12 @@ static int unpack_file(FILE *pack) {
         char_array_0(fn);
         truncate_nl(fn);
 
-        if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0)
-                log_warning("open(%s) failed: %m", fn);
-        else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
+        if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0) {
+
+                if (errno != ENOENT)
+                        log_warning("open(%s) failed: %m", fn);
+
+        } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
                 close_nointr_nofail(fd);
                 fd = -1;
         }
@@ -136,7 +139,7 @@ static int replay(const char *root) {
         }
 
         if ((!(pack = fopen(pack_fn, "re")))) {
-                if (errno == -ENOENT)
+                if (errno == ENOENT)
                         log_debug("No pack file found.");
                 else {
                         log_error("Failed to open pack file: %m");
