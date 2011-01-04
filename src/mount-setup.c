@@ -35,6 +35,10 @@
 #include "util.h"
 #include "label.h"
 
+#ifndef TTY_GID
+#define TTY_GID 5
+#endif
+
 typedef struct MountPoint {
         const char *what;
         const char *where;
@@ -49,7 +53,7 @@ static const MountPoint mount_table[] = {
         { "sysfs",    "/sys",                   "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "devtmpfs", "/dev",                   "devtmpfs", "mode=755",          MS_NOSUID,                    true },
         { "tmpfs",    "/dev/shm",               "tmpfs",    "mode=1777",         MS_NOSUID|MS_NODEV,           true },
-        { "devpts",   "/dev/pts",               "devpts",   NULL,                MS_NOSUID|MS_NOEXEC,          false },
+        { "devpts",   "/dev/pts",               "devpts",   "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, false },
         { "tmpfs",    "/sys/fs/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "cgroup",   "/sys/fs/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 };

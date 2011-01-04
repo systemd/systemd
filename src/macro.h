@@ -47,6 +47,9 @@
 #define _weakref_(x) __attribute__((weakref(#x)))
 #define _introspect_(x) __attribute__((section("introspect." x)))
 
+#define XSTRINGIFY(x) #x
+#define STRINGIFY(x) XSTRINGIFY(x)
+
 /* Rounds up */
 static inline size_t ALIGN(size_t l) {
         return ((l + sizeof(void*) - 1) & ~(sizeof(void*) - 1));

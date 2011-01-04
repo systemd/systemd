@@ -410,6 +410,12 @@ else
         SYSTEM_SYSV_COMPAT="no"
 fi
 
+AC_ARG_WITH([tty-gid],
+        [AS_HELP_STRING([--tty-gid=GID],
+                [Specify the numeric GID of the 'tty' group])],
+        [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
+        [])
+
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
