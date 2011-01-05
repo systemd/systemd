@@ -25,6 +25,9 @@
 * somehow some /etc/fstab supplied mount params are never applied to api fs
   https://bugzilla.redhat.com/show_bug.cgi?id=663108
 
+* automount units can cause a segfault:
+  https://bugs.freedesktop.org/show_bug.cgi?id=32076
+
 * support globs in systemd-tmpfiles
 
 * drop IN_ATTRIB from inotify watches for .path units where possible to avoid
