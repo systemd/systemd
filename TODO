@@ -16,9 +16,6 @@
 * load EnvironmentFile= when starting services, not when reloading configuration
   https://bugzilla.redhat.com/show_bug.cgi?id=661282
 
-* nicer warning messages if two files include the same file names in /etc/tmpfiles.d
-  https://bugzilla.redhat.com/show_bug.cgi?id=662490
-
 * somehow some /etc/fstab supplied mount params are never applied to api fs
   https://bugzilla.redhat.com/show_bug.cgi?id=663108
 
