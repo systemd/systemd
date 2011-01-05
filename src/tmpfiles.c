@@ -591,6 +591,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, cons
         }
 
         if ((r = hashmap_put(items, i->path, i)) < 0) {
+                if (r == -EEXIST) {
+                        log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
+                        r = 0;
+                        goto finish;
+                }
+
                 log_error("Failed to insert item %s: %s", i->path, strerror(-r));
                 goto finish;
         }
