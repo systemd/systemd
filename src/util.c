@@ -3436,7 +3436,18 @@ bool null_or_empty(struct stat *st) {
 }
 
 DIR *xopendirat(int fd, const char *name, int flags) {
-        return fdopendir(openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags));
+        int nfd;
+        DIR *d;
+
+        if ((nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags)) < 0)
+                return NULL;
+
+        if (!(d = fdopendir(nfd))) {
+                close_nointr_nofail(nfd);
+                return NULL;
+        }
+
+        return d;
 }
 
 int signal_from_string_try_harder(const char *s) {
