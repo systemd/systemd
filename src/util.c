@@ -3326,6 +3326,44 @@ char *unquote(const char *s, const char* quotes) {
         return strdup(s);
 }
 
+char *normalize_env_assignment(const char *s) {
+        char *name, *value, *p, *r;
+
+        p = strchr(s, '=');
+
+        if (!p) {
+                if (!(r = strdup(s)))
+                        return NULL;
+
+                return strstrip(r);
+        }
+
+        if (!(name = strndup(s, p - s)))
+                return NULL;
+
+        if (!(p = strdup(p+1))) {
+                free(name);
+                return NULL;
+        }
+
+        value = unquote(strstrip(p), QUOTES);
+        free(p);
+
+        if (!value) {
+                free(p);
+                free(name);
+                return NULL;
+        }
+
+        if (asprintf(&r, "%s=%s", name, value) < 0)
+                r = NULL;
+
+        free(value);
+        free(name);
+
+        return r;
+}
+
 int wait_for_terminate(pid_t pid, siginfo_t *status) {
         assert(pid >= 1);
         assert(status);

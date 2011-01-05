@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
                 NULL
         };
 
-        char **i, **r;
+        char **i, **r, *t;
 
         r = replace_env_argv((char**) line, (char**) env);
 
@@ -56,4 +56,45 @@ int main(int argc, char *argv[]) {
 
         strv_free(r);
 
+        t = normalize_env_assignment("foo=bar");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("=bar");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("foo=");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("=");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=\"waldo\"");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=\"waldo");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=waldo\"");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=\'");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=\'\'");
+        printf("%s\n", t);
+        free(t);
+
+        return 0;
 }

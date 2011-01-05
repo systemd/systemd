@@ -1360,7 +1360,7 @@ static int config_parse_env_file(
         }
 
         while (!feof(f)) {
-                char l[LINE_MAX], *p;
+                char l[LINE_MAX], *p, *u;
                 char **t;
 
                 if (!fgets(l, sizeof(l), f)) {
@@ -1381,7 +1381,21 @@ static int config_parse_env_file(
                 if (strchr(COMMENTS, *p))
                         continue;
 
-                t = strv_env_set(*env, p);
+                if (!(u = normalize_env_assignment(p))) {
+                        log_error("Out of memory");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                t = strv_env_set(*env, u);
+                free(u);
+
+                if (!t) {
+                        log_error("Out of memory");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
                 strv_free(*env);
                 *env = t;
         }
