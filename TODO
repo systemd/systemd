@@ -1,4 +1,31 @@
-* excluse java hsp files by default https://bugzilla.redhat.com/show_bug.cgi?id=527425
+* support caching password questions in plymouth and on the console
+  https://bugzilla.redhat.com/show_bug.cgi?id=655538
+
+* make it possible to disable hwclock-save.service
+  https://bugzilla.redhat.com/show_bug.cgi?id=297421
+
+* dep loop when using encrypted swap
+  https://bugzilla.redhat.com/show_bug.cgi?id=657234
+
+* exclude java hsp files by default
+  https://bugzilla.redhat.com/show_bug.cgi?id=527425
+
+* make failing dm detaching in systemd-shutdown less noisy
+  https://bugzilla.redhat.com/show_bug.cgi?id=657497
+
+* handle quotes in files read by EnvironmentFile= properly
+  https://bugzilla.redhat.com/show_bug.cgi?id=661291
+
+* load EnvironmentFile= when starting services, not when reloading configuration
+  https://bugzilla.redhat.com/show_bug.cgi?id=661282
+
+* nicer warning messages if two files include the same file names in /etc/tmpfiles.d
+  https://bugzilla.redhat.com/show_bug.cgi?id=662490
+
+* somehow some /etc/fstab supplied mount params are never applied to api fs
+  https://bugzilla.redhat.com/show_bug.cgi?id=663108
+
+* support globs in systemd-tmpfiles
 
 * drop IN_ATTRIB from inotify watches for .path units where possible to avoid
   lots of wakeups due to /dev changing when we watch a subdir of /dev.
