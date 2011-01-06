@@ -328,10 +328,13 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         /* If we don't know this name, fallback heuristics to figure
          * out whether something is a target or a service alias. */
 
-        if (*name == '$')
+        if (*name == '$') {
+                if (!unit_prefix_is_valid(n))
+                        return -EINVAL;
+
                 /* Facilities starting with $ are most likely targets */
                 r = unit_name_build(n, NULL, ".target");
-        else if (filename && streq(name, filename))
+        } else if (filename && streq(name, filename))
                 /* Names equalling the file name of the services are redundant */
                 return 0;
         else
@@ -684,10 +687,14 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         }
 
                                         r = sysv_translate_facility(n, file_name_from_path(path), &m);
-                                        free(n);
 
-                                        if (r < 0)
-                                                goto finish;
+                                        if (r < 0) {
+                                                log_error("[%s:%u] Failed to translate LSB dependency %s, ignoring: %s", path, line, n, strerror(-r));
+                                                free(n);
+                                                continue;
+                                        }
+
+                                        free(n);
 
                                         if (r == 0)
                                                 continue;
