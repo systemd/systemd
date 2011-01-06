@@ -466,12 +466,24 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
 
 static int loopback_points_list_detach(MountPoint **head, bool *changed) {
         MountPoint *m, *n;
-        int n_failed = 0;
+        int n_failed = 0, k;
+        struct stat root_st;
 
         assert(head);
 
+        k = lstat("/", &root_st);
+
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
                 int r;
+                struct stat loopback_st;
+
+                if (k >= 0 &&
+                    major(root_st.st_dev) != 0 &&
+                    lstat(m->path, &loopback_st) >= 0 &&
+                    root_st.st_dev == loopback_st.st_rdev) {
+                        n_failed ++;
+                        continue;
+                }
 
                 if ((r = delete_loopback(m->path)) >= 0) {
 
@@ -490,12 +502,22 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed) {
 
 static int dm_points_list_detach(MountPoint **head, bool *changed) {
         MountPoint *m, *n;
-        int n_failed = 0;
+        int n_failed = 0, k;
+        struct stat root_st;
 
         assert(head);
 
+        k = lstat("/", &root_st);
+
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
                 int r;
+
+                if (k >= 0 &&
+                    major(root_st.st_dev) != 0 &&
+                    root_st.st_dev == m->devnum) {
+                        n_failed ++;
+                        continue;
+                }
 
                 if ((r = delete_dm(m->devnum)) >= 0) {
 
