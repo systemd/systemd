@@ -1,3 +1,5 @@
+* configurable jitter for timer events
+
 * dbus should run with oom adjust set
 
 * support caching password questions in plymouth and on the console
