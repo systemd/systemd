@@ -1,3 +1,5 @@
+* dbus should run with oom adjust set
+
 * support caching password questions in plymouth and on the console
   https://bugzilla.redhat.com/show_bug.cgi?id=655538
 
@@ -118,8 +120,6 @@
 * sendmail.service doesn't get rid PID file, fails to kill everything on stop
 
 * global defaults for StandardOuput=xxx
-
-* Make EnvironmentFile=-/fooobar/waldo ingnore errors while reading /foobar/waldo
 
 * mkswap/mke2fs is called on wrong devices in crypto devices.
 

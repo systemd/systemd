@@ -275,8 +275,13 @@
                                 contain new-line separated variable
                                 assignments. Empty lines and lines
                                 starting with ; or # will be ignored,
-                                which may be used for
-                                commenting.</para></listitem>
+                                which may be used for commenting. The
+                                argument passed should be an absolute
+                                file name, optionally prefixed with
+                                "-", which indicates that if the file
+                                does not exist it won't be read and no
+                                error or warning message is
+                                logged.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
