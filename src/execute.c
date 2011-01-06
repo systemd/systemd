@@ -1406,6 +1406,9 @@ void exec_context_done(ExecContext *c) {
 
         if (c->cpuset)
                 CPU_FREE(c->cpuset);
+
+        free(c->utmp_id);
+        c->utmp_id = NULL;
 }
 
 void exec_command_done(ExecCommand *c) {

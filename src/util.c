@@ -3090,6 +3090,9 @@ void status_welcome(void) {
         status_printf("Welcome to \x1B[%sm%s\x1B[0m!\n",
                       const_color ? const_color : ansi_color,
                       const_pretty ? const_pretty : pretty_name);
+
+        free(ansi_color);
+        free(pretty_name);
 }
 
 char *replace_env(const char *format, char **env) {
