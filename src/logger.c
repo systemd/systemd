@@ -187,8 +187,28 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
                 for (;;) {
                         ssize_t n;
 
-                        if ((n = sendmsg(s->server->syslog_fd, &msghdr, MSG_NOSIGNAL)) < 0)
+                        if ((n = sendmsg(s->server->syslog_fd, &msghdr, MSG_NOSIGNAL)) < 0) {
+
+                                if (errno == ESRCH) {
+                                        pid_t our_pid;
+
+                                        /* Hmm, maybe the process this
+                                         * line originates from is
+                                         * dead? Then let's patch in
+                                         * our own pid and retry,
+                                         * since we have nothing
+                                         * better */
+
+                                        our_pid = getpid();
+
+                                        if (ucred->pid != our_pid) {
+                                                ucred->pid = our_pid;
+                                                continue;
+                                        }
+                                }
+
                                 return -errno;
+                        }
 
                         if (!s->server->syslog_is_stream ||
                             (size_t) n >= IOVEC_TOTAL_SIZE(iovec, ELEMENTSOF(iovec)))
