@@ -1303,6 +1303,8 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
+                final_env = strv_env_clean(final_env);
+
                 execve(command->path, final_argv, final_env);
                 r = EXIT_EXEC;
 

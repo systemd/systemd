@@ -1399,7 +1399,7 @@ static int config_parse_env_file(
                         goto finish;
                 }
 
-                t = strv_env_set(*env, u);
+                t = strv_append(*env, u);
                 free(u);
 
                 if (!t) {

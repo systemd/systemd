@@ -380,7 +380,7 @@ static int env_append(char **r, char ***k, char **a) {
 
         /* Add the entries of a to *k unless they already exist in *r
          * in which case they are overriden instead. This assumes
-         * there is enough space in the r */
+         * there is enough space in the r array. */
 
         for (; *a; a++) {
                 char **j;
@@ -555,4 +555,25 @@ char *strv_env_get_with_length(char **l, const char *name, size_t k) {
 
 char *strv_env_get(char **l, const char *name) {
         return strv_env_get_with_length(l, name, strlen(name));
+}
+
+char **strv_env_clean(char **l) {
+        char **r, **ret;
+
+        for (r = ret = l; *l; l++) {
+                const char *equal;
+
+                equal = strchr(*l, '=');
+
+                if (equal && equal[1] == 0) {
+                        free(*l);
+                        continue;
+                }
+
+                *(r++) = *l;
+        }
+
+        *r = NULL;
+
+        return ret;
 }
