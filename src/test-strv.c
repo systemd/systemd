@@ -20,9 +20,17 @@
 ***/
 
 #include <string.h>
+
 #include "util.h"
+#include "specifier.h"
 
 int main(int argc, char *argv[]) {
+        const Specifier table[] = {
+                { 'a', specifier_string, (char*) "AAAA" },
+                { 'b', specifier_string, (char*) "BBBB" },
+                { 0, NULL, NULL }
+        };
+
         char *w, *state;
         size_t l;
         const char test[] = "test a b c 'd' e '' '' hhh '' ''";
@@ -49,6 +57,10 @@ int main(int argc, char *argv[]) {
         printf("%s\n", default_term_for_tty("pty0"));
         printf("%s\n", default_term_for_tty("pts/0"));
         printf("%s\n", default_term_for_tty("console"));
+
+        w = specifier_printf("xxx a=%a b=%b yyy", table, NULL);
+        printf("<%s>\n", w);
+        free(w);
 
         return 0;
 }

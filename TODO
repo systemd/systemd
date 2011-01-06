@@ -1,3 +1,9 @@
+* support remote/ssh systemctl/systemadm, and local privileged access
+
+* finish syslog socket stuff
+
+* when starting systemd --user we get "Failed to set udev event buffer size."
+
 * configurable jitter for timer events
 
 * dbus should run with oom adjust set
@@ -5,17 +11,11 @@
 * support caching password questions in plymouth and on the console
   https://bugzilla.redhat.com/show_bug.cgi?id=655538
 
-* make it possible to disable hwclock-save.service
-  https://bugzilla.redhat.com/show_bug.cgi?id=297421
-
 * dep loop when using encrypted swap
   https://bugzilla.redhat.com/show_bug.cgi?id=657234
 
 * exclude java hsp files by default
   https://bugzilla.redhat.com/show_bug.cgi?id=527425
-
-* make failing dm detaching in systemd-shutdown less noisy
-  https://bugzilla.redhat.com/show_bug.cgi?id=657497
 
 * load EnvironmentFile= when starting services, not when reloading configuration
   https://bugzilla.redhat.com/show_bug.cgi?id=661282
