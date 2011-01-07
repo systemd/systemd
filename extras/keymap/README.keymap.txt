@@ -51,11 +51,7 @@ for inclusion you need to do the following steps:
  In the following commands, the name will be written as "input/eventX" (replace
  X with the appropriate number).
 
- 2. Dump current mapping:
-
- sudo /lib/udev/keymap input/eventX > /tmp/orig-map.txt
-
- 3. Find broken scan codes:
+ 2. Find broken scan codes:
 
  sudo /lib/udev/keymap -i input/eventX
 
@@ -80,18 +76,16 @@ for inclusion you need to do the following steps:
  this case as well, as it can be worked around in
  /lib/udev/keymaps/95-keyboard-force-release.rules .
 
- 4. Find out your system vendor and product:
+ 3. Find out your system vendor and product:
 
  cat /sys/class/dmi/id/sys_vendor
  cat /sys/class/dmi/id/product_name
 
- 5. Generate a device dump with "udevadm info --export-db > /tmp/udev-db.txt".
+ 4. Generate a device dump with "udevadm info --export-db > /tmp/udev-db.txt".
 
- 6. Send the system vendor/product names, the key mapping from step 3,
- /tmp/orig-map.txt from step 2, and /tmp/udev-db.txt from step 5
- to the bug tracker, so that they can be included in the next release:
-
-   https://bugs.launchpad.net/udev/+bugs
+ 6. Send the system vendor/product names, the key mapping from step 2,
+ and /tmp/udev-db.txt from step 4 to the linux-hotplug@vger.kernel.org mailing
+ list, so that they can be included in the next release.
 
 For local testing, copy your map file to /lib/udev/keymaps/ with an appropriate
 name, and add an appropriate udev rule to /lib/udev/rules.d/95-keymap.rules:
