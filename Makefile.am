@@ -633,8 +633,7 @@ test_env_replace_LDADD = \
 
 test_strv_SOURCES = \
 	src/test-strv.c \
-	src/specifier.c \
-	src/specifier.h
+	src/specifier.c
 
 test_strv_CFLAGS = \
 	$(AM_CFLAGS)
