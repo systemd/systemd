@@ -468,8 +468,10 @@ static int device_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                if (udev_monitor_set_receive_buffer_size(m->udev_monitor, 128*1024*1024) < 0)
-                        log_error("Failed to set udev event buffer size.");
+                /* This will fail if we are unprivileged, but that
+                 * should not matter much, as user instances won't run
+                 * during boot. */
+                udev_monitor_set_receive_buffer_size(m->udev_monitor, 128*1024*1024);
 
                 if (udev_monitor_filter_add_match_tag(m->udev_monitor, "systemd") < 0) {
                         r = -ENOMEM;
