@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
@@ -274,41 +275,87 @@ static int read_event(int fd, struct input_event* ev)
 	return 1;
 }
 
-static void print_key(struct input_event *event)
+static void print_key(uint32_t scancode, uint16_t keycode, int has_scan, int has_key)
 {
-	static int cur_scancode = 0;
 	const char *keyname;
 
-	/* save scan code for next EV_KEY event */
-	if (event->type == EV_MSC && event->code == MSC_SCAN)
-	    cur_scancode = event->value;
+	/* ignore key release events */
+	if (has_key == 1)
+		return;
 
-	/* key press */
-	if (event->type == EV_KEY && event->value) {
-		keyname = key_names[event->code];
-		if (keyname != NULL)
-			printf("scan code: 0x%02X   key code: %s\n", cur_scancode,
-			    format_keyname(key_names[event->code]));
-		else
-			printf("scan code: 0x%02X   key code: %03X\n", cur_scancode,
-			    event->code);
+	if (has_key == 0 && has_scan != 0) {
+		fprintf(stderr, "got scan code event 0x%02X without a key code event\n",
+			scancode);
+		return;
 	}
+
+	if (has_scan != 0)
+		printf("scan code: 0x%02X   ", scancode);
+	else
+		printf("(no scan code received)  ");
+
+	keyname = key_names[keycode];
+	if (keyname != NULL)
+		printf("key code: %s\n", format_keyname(keyname));
+	else
+		printf("key code: %03X\n", keycode);
 }
 
 static void interactive(int fd)
 {
 	struct input_event ev;
+	uint32_t last_scan = 0;
+	uint16_t last_key = 0;
+	int has_scan; /* boolean */
+	int has_key; /* 0: none, 1: release, 2: press */
 
 	/* grab input device */
 	ioctl(fd, EVIOCGRAB, 1);
-
 	puts("Press ESC to finish");
-	while (read_event(fd, &ev)) {
-		print_key(&ev);
 
-		/* stop on Escape key release */
-		if (ev.type == EV_KEY && ev.code == KEY_ESC && ev.value == 0)
-			break;
+	has_scan = has_key = 0;
+	while (read_event(fd, &ev)) {
+		/* Drivers usually send the scan code first, then the key code,
+		 * then a SYN. Some drivers (like thinkpad_acpi) send the key
+		 * code first, and some drivers might not send SYN events, so
+		 * keep a robust state machine which can deal with any of those
+		 */
+
+		if (ev.type == EV_MSC && ev.code == MSC_SCAN) {
+			if (has_scan) {
+				fputs("driver did not send SYN event in between key events; previous event:\n",
+				      stderr);
+				print_key(last_scan, last_key, has_scan, has_key);
+				has_key = 0;
+			}
+
+			last_scan = ev.value;
+			has_scan = 1;
+			/*printf("--- got scan %u; has scan %i key %i\n", last_scan, has_scan, has_key); */
+		}
+		else if (ev.type == EV_KEY) {
+			if (has_key) {
+				fputs("driver did not send SYN event in between key events; previous event:\n",
+				      stderr);
+				print_key(last_scan, last_key, has_scan, has_key);
+				has_scan = 0;
+			}
+
+		       	last_key = ev.code;
+			has_key = 1 + ev.value;
+			/*printf("--- got key %hu; has scan %i key %i\n", last_key, has_scan, has_key);*/
+
+			/* Stop on ESC */
+			if (ev.code == KEY_ESC && ev.value == 0)
+				break;
+		}
+		else if (ev.type == EV_SYN) {
+			/*printf("--- got SYN; has scan %i key %i\n", has_scan, has_key);*/
+			print_key(last_scan, last_key, has_scan, has_key);
+
+			has_scan = has_key = 0;
+		}
+
 	}
 
 	/* release input device */
