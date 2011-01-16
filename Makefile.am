@@ -341,12 +341,6 @@ dist_systemunit_DATA += \
 	units/fedora/plymouth-halt.service
 endif
 
-
-if TARGET_ARCH
-dist_systemunit_DATA += \
-	units/arch/rc-local.service
-endif
-
 dist_doc_DATA = \
 	README \
 	LICENSE \
