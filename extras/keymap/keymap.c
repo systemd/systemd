@@ -256,6 +256,24 @@ static const char* default_keymap_path(const char* path)
 	return path;
 }
 
+/* read one event; return 1 if valid */
+static int read_event(int fd, struct input_event* ev)
+{
+	int ret;
+	ret = read(fd, ev, sizeof(struct input_event));
+
+	if (ret < 0) {
+		perror("read");
+		return 0;
+	}
+	if (ret != sizeof(struct input_event)) {
+		fprintf(stderr, "did not get enough data for event struct, aborting\n");
+		return 0;
+	}
+
+	return 1;
+}
+
 static void print_key(struct input_event *event)
 {
 	static int cur_scancode = 0;
@@ -280,28 +298,17 @@ static void print_key(struct input_event *event)
 static void interactive(int fd)
 {
 	struct input_event ev;
-	int run = 1;
 
 	/* grab input device */
 	ioctl(fd, EVIOCGRAB, 1);
 
 	puts("Press ESC to finish");
-	while (run) {
-		switch (read(fd, &ev, sizeof(ev))) {
-		case -1:
-			perror("read");
-			run = 0;
+	while (read_event(fd, &ev)) {
+		print_key(&ev);
+
+		/* stop on Escape key release */
+		if (ev.type == EV_KEY && ev.code == KEY_ESC && ev.value == 0)
 			break;
-		case 0:
-			run = 0;
-			break;
-		default:
-			print_key(&ev);
-			/* stop on Escape key release */
-			if (ev.type == EV_KEY && ev.code == KEY_ESC && ev.value == 0)
-				run = 0;
-			break;
-		}
 	}
 
 	/* release input device */
