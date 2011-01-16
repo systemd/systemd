@@ -311,7 +311,7 @@ static void interactive(int fd)
 
 	/* grab input device */
 	ioctl(fd, EVIOCGRAB, 1);
-	puts("Press ESC to finish");
+	puts("Press ESC to finish, or Control-C if this device is not your primary keyboard");
 
 	has_scan = has_key = 0;
 	while (read_event(fd, &ev)) {
