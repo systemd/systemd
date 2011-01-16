@@ -247,11 +247,6 @@ static char *sysv_translate_name(const char *name) {
                 /* Drop SuSE-style boot. prefix */
                 strcpy(stpcpy(r, name + 5), ".service");
 #endif
-#ifdef TARGET_ARCH
-        if (startswith(name, "@"))
-                /* Drop Arch-style background prefix */
-                strcpy(stpcpy(r, name + 1), ".service");
-#endif
 #ifdef TARGET_FRUGALWARE
         if (startswith(name, "rc."))
                 /* Drop Frugalware-style rc. prefix */
@@ -2872,66 +2867,8 @@ static int service_enumerate(Manager *m) {
         Unit *service;
         Iterator j;
         int r;
-#ifdef TARGET_ARCH
-        Unit *previous = NULL;
-        char *arch_daemons = NULL;
-        char *arch_daemons_stripped = NULL;
-        char **arch_daemons_split = NULL;
-#endif
 
         assert(m);
-
-#ifdef TARGET_ARCH
-        if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
-                                "DAEMONS", &arch_daemons,
-                                NULL)) < 0) {
-
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
-
-        } else if (arch_daemons) {
-                if (!(arch_daemons_stripped = strchr(arch_daemons, '(')))
-                        arch_daemons_stripped = arch_daemons;
-                else
-                        arch_daemons_stripped++; /* strip start paren */
-
-                arch_daemons_stripped[strcspn(arch_daemons_stripped, ")")] = 0; /* strip end paren */
-
-                if (!(arch_daemons_split = strv_split_quoted(arch_daemons_stripped))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                STRV_FOREACH(p, arch_daemons_split) {
-
-                        free(name);
-                        name = NULL;
-
-                        if (**p == '!') /* daemons prefixed with ! are disabled, so ignore them */
-                                continue;
-
-                        if (!(name = sysv_translate_name(*p))) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        if ((r = manager_load_unit_prepare(m, name, NULL, NULL, &service)) < 0) {
-                                log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
-                                continue;
-                        }
-
-                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, "multi-user.target", NULL, true)) < 0)
-                                goto finish;
-
-                        if (previous)
-                                if ((r = unit_add_dependency(service, UNIT_AFTER, previous, true)) < 0)
-                                        goto finish;
-
-                        if (**p != '@') /* daemons prefixed with @ can be started in the background */
-                                previous = service;
-                }
-        }
-#endif
 
         zero(runlevel_services);
 
@@ -3070,10 +3007,6 @@ finish:
         free(path);
         free(fpath);
         free(name);
-#ifdef TARGET_ARCH
-        free(arch_daemons);
-        free(arch_daemons_split);
-#endif
 
         for (i = 0; i < ELEMENTSOF(rcnd_table); i++)
                 set_free(runlevel_services[i]);
