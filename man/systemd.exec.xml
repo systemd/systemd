@@ -50,29 +50,32 @@
         <refsynopsisdiv>
                 <para><filename>systemd.service</filename>,
                 <filename>systemd.socket</filename>,
-                <filename>systemd.mount</filename></para>
+                <filename>systemd.mount</filename>,
+                <filename>systemd.swap</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
                 <para>Unit configuration files for services, sockets
-                and mount points share a subset of configuration
-                options which define the execution environment of
-                spawned processes.</para>
+                mount points and swap devices share a subset of
+                configuration options which define the execution
+                environment of spawned processes.</para>
 
                 <para>This man page lists the configuration options
                 shared by these three unit types. See
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for the common options of all unit configuration
                 files, and
-                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>, <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 and
                 <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information on the specific unit
                 configuration files. The execution specific
                 configuration options are configured in the [Service],
-                [Socket] resp. [Mount] section, depending on the unit
+                [Socket], [Mount] resp. [Swap] section, depending on the unit
                 type.</para>
         </refsect1>
 
@@ -766,6 +769,7 @@
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                   </para>
         </refsect1>

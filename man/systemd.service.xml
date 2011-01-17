@@ -560,8 +560,10 @@
                                 <option>control-group</option>.</para>
 
                                 <para>Processes will first be
-                                terminated via SIGTERM. If then after
-                                a delay (configured via the
+                                terminated via SIGTERM (unless this is
+                                changed via
+                                <varname>KillSignal=</varname>). If
+                                then after a delay (configured via the
                                 <varname>TimeoutSec=</varname> option)
                                 processes still remain, the
                                 termination request is repeated with
@@ -569,6 +571,14 @@
                                 <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for more
                                 information.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillSignal=</varname></term>
+                                <listitem><para>Specifies which signal
+                                to use when killing a
+                                service. Defaults to SIGTERM.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>

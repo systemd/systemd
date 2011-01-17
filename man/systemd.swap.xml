@@ -95,8 +95,12 @@
 
                 <para>Swap files must include a [Swap] section, which
                 carries information about the swap device it
-                supervises. The options specific to the [Swap] section
-                of swap units are the following:</para>
+                supervises. A number of options that may be used in
+                this section are shared with other unit types. These
+                options are documented in
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+                options specific to the [Swap] section of swap units
+                are the following:</para>
 
                 <variablelist>
 
@@ -128,6 +132,50 @@
                                 file. This takes an integer. This
                                 setting is optional.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>TimeoutSec=</varname></term>
+                                <listitem><para>Configures the time to
+                                wait for the swapon command to
+                                finish. If a command does not exit
+                                within the configured time the swap
+                                will be considered failed and be shut
+                                down again. All commands still running
+                                will be terminated forcibly via
+                                SIGTERM, and after another delay of
+                                this time with SIGKILL. (See
+                                <option>KillMode=</option> below.)
+                                Takes a unit-less value in seconds, or
+                                a time span value such as "5min
+                                20s". Pass 0 to disable the timeout
+                                logic. Defaults to
+                                60s.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillMode=</varname></term>
+                                <listitem><para>Specifies how
+                                processes of this swap shall be
+                                killed. One of
+                                <option>control-group</option>,
+                                <option>process-group</option>,
+                                <option>process</option>,
+                                <option>none</option>.</para>
+
+                                <para>This option is mostly equivalent
+                                to the <option>KillMode=</option>
+                                option of service files. See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillSignal=</varname></term>
+                                <listitem><para>Specifies which signal
+                                to use when killing a process of this
+                                swap. Defaults to SIGTERM.
+                                </para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
@@ -137,6 +185,7 @@
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>

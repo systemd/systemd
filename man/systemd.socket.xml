@@ -520,6 +520,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>KillSignal=</varname></term>
+                                <listitem><para>Specifies which signal
+                                to use when killing a process of this
+                                socket. Defaults to SIGTERM.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Service=</varname></term>
                                 <listitem><para>Specifies the service
                                 unit name to activate on incoming

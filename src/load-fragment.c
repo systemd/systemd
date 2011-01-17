@@ -1914,6 +1914,8 @@ static int load_from_path(Unit *u, const char *path) {
 
                 { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap"    },
                 { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap"    },
+                { "TimeoutSec",             config_parse_usec,            &u->swap.timeout_usec,                           "Swap"    },
+                EXEC_CONTEXT_CONFIG_ITEMS(u->swap.exec_context, "Swap"),
 
                 { "OnActiveSec",            config_parse_timer,           &u->timer,                                       "Timer"   },
                 { "OnBootSec",              config_parse_timer,           &u->timer,                                       "Timer"   },

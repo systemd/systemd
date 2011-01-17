@@ -231,6 +231,15 @@
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillSignal=</varname></term>
+                                <listitem><para>Specifies which signal
+                                to use when killing a process of this
+                                mount. Defaults to SIGTERM.
+                                </para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
