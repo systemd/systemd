@@ -1,3 +1,7 @@
+* FAT uuids are uppercase, systemd refers to them in lowercase, breakage (mjg59)
+
+* make usage of SIGKILL when shutting down services optional
+
 * figure out what happened to bluez patch
 
 * in pam_systemd: add option to kill normal user sessions on logout but only those with uid != 0
