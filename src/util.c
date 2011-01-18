@@ -3531,7 +3531,7 @@ char *fstab_node_to_udev_node(const char *p) {
                 if (!t)
                         return NULL;
 
-                r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));
+                r = asprintf(&dn, "/dev/disk/by-uuid/%s", t);
                 free(t);
 
                 if (r < 0)
