@@ -11,8 +11,6 @@
 * sometimes processes seem to remain when we kill a service
   http://lists.fedoraproject.org/pipermail/devel/2011-January/147559.html
 
-* when launching pager, take number of columns first
-
 * support remote/ssh systemctl/systemadm, and local privileged access
 
 * finish syslog socket stuff

@@ -5316,6 +5316,10 @@ static void pager_open(void) {
                 if (!*pager || streq(pager, "cat"))
                         return;
 
+        /* Determine and cache number of columns before we spawn the
+         * pager so that we get the value from the actual tty */
+        columns();
+
         if (pipe(fd) < 0) {
                 log_error("Failed to create pager pipe: %m");
                 return;
