@@ -145,6 +145,7 @@ struct ExecContext {
         /* Not relevant for spawning processes, just for killing */
         KillMode kill_mode;
         int kill_signal;
+        bool send_sigkill;
 
         cap_t capabilities;
         int secure_bits;

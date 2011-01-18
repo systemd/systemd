@@ -1688,8 +1688,13 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_STOP_PRE_SIGTERM:
-                log_warning("%s stopping timed out. Killing.", u->meta.id);
-                socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s stopping timed out. Killing.", u->meta.id);
+                        socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, false);
+                } else {
+                        log_warning("%s stopping timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        socket_enter_stop_post(s, false);
+                }
                 break;
 
         case SOCKET_STOP_PRE_SIGKILL:
@@ -1703,8 +1708,13 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_FINAL_SIGTERM:
-                log_warning("%s stopping timed out (2). Killing.", u->meta.id);
-                socket_enter_signal(s, SOCKET_FINAL_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s stopping timed out (2). Killing.", u->meta.id);
+                        socket_enter_signal(s, SOCKET_FINAL_SIGKILL, false);
+                } else {
+                        log_warning("%s stopping timed out (2). Skipping SIGKILL. Ignoring.", u->meta.id);
+                        socket_enter_dead(s, false);
+                }
                 break;
 
         case SOCKET_FINAL_SIGKILL:

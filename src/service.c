@@ -2712,8 +2712,14 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_STOP_SIGTERM:
-                log_warning("%s stopping timed out. Killing.", u->meta.id);
-                service_enter_signal(s, SERVICE_STOP_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s stopping timed out. Killing.", u->meta.id);
+                        service_enter_signal(s, SERVICE_STOP_SIGKILL, false);
+                } else {
+                        log_warning("%s stopping timed out. Skipping SIGKILL.", u->meta.id);
+                        service_enter_stop_post(s, false);
+                }
+
                 break;
 
         case SERVICE_STOP_SIGKILL:
@@ -2731,8 +2737,14 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_FINAL_SIGTERM:
-                log_warning("%s stopping timed out (2). Killing.", u->meta.id);
-                service_enter_signal(s, SERVICE_FINAL_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s stopping timed out (2). Killing.", u->meta.id);
+                        service_enter_signal(s, SERVICE_FINAL_SIGKILL, false);
+                } else {
+                        log_warning("%s stopping timed out (2). Skipping SIGKILL. Entering failed mode.", u->meta.id);
+                        service_enter_dead(s, false, true);
+                }
+
                 break;
 
         case SERVICE_FINAL_SIGKILL:

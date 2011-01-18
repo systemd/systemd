@@ -4,8 +4,6 @@
 
 * Fix multiple reload statements
 
-* make usage of SIGKILL when shutting down services optional
-
 * figure out what happened to bluez patch
 
 * in pam_systemd: add option to kill normal user sessions on logout but only those with uid != 0
@@ -22,8 +20,6 @@
 * support remote/ssh systemctl/systemadm, and local privileged access
 
 * finish syslog socket stuff
-
-* when starting systemd --user we get "Failed to set udev event buffer size."
 
 * configurable jitter for timer events
 

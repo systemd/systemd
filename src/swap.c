@@ -995,13 +995,23 @@ static void swap_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SWAP_ACTIVATING_SIGTERM:
-                log_warning("%s activation timed out. Killing.", u->meta.id);
-                swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s activation timed out. Killing.", u->meta.id);
+                        swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, false);
+                } else {
+                        log_warning("%s activation timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        swap_enter_dead(s, false);
+                }
                 break;
 
         case SWAP_DEACTIVATING_SIGTERM:
-                log_warning("%s deactivation timed out. Killing.", u->meta.id);
-                swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s deactivation timed out. Killing.", u->meta.id);
+                        swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, false);
+                } else {
+                        log_warning("%s deactivation timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        swap_enter_dead(s, false);
+                }
                 break;
 
         case SWAP_ACTIVATING_SIGKILL:

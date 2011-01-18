@@ -528,6 +528,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SendSIGKILL=</varname></term>
+                                <listitem><para>Specifies whether to
+                                send SIGKILL to remaining processes
+                                after a timeout, if the normal
+                                shutdown procedure left processes of
+                                the socket around. Takes a boolean
+                                value. Defaults to "yes".
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Service=</varname></term>
                                 <listitem><para>Specifies the service
                                 unit name to activate on incoming

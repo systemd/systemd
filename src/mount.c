@@ -1156,18 +1156,45 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case MOUNT_MOUNTING_SIGTERM:
-                log_warning("%s mounting timed out. Killing.", u->meta.id);
-                mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, false);
+                if (m->exec_context.send_sigkill) {
+                        log_warning("%s mounting timed out. Killing.", u->meta.id);
+                        mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, false);
+                } else {
+                        log_warning("%s mounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+
+                        if (m->from_proc_self_mountinfo)
+                                mount_enter_mounted(m, false);
+                        else
+                                mount_enter_dead(m, false);
+                }
                 break;
 
         case MOUNT_REMOUNTING_SIGTERM:
-                log_warning("%s remounting timed out. Killing.", u->meta.id);
-                mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, false);
+                if (m->exec_context.send_sigkill) {
+                        log_warning("%s remounting timed out. Killing.", u->meta.id);
+                        mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, false);
+                } else {
+                        log_warning("%s remounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+
+                        if (m->from_proc_self_mountinfo)
+                                mount_enter_mounted(m, false);
+                        else
+                                mount_enter_dead(m, false);
+                }
                 break;
 
         case MOUNT_UNMOUNTING_SIGTERM:
-                log_warning("%s unmounting timed out. Killing.", u->meta.id);
-                mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, false);
+                if (m->exec_context.send_sigkill) {
+                        log_warning("%s unmounting timed out. Killing.", u->meta.id);
+                        mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, false);
+                } else {
+                        log_warning("%s unmounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+
+                        if (m->from_proc_self_mountinfo)
+                                mount_enter_mounted(m, false);
+                        else
+                                mount_enter_dead(m, false);
+                }
                 break;
 
         case MOUNT_MOUNTING_SIGKILL:

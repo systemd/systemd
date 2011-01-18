@@ -1349,6 +1349,7 @@ void exec_context_init(ExecContext *c) {
         c->syslog_level_prefix = true;
         c->mount_flags = MS_SHARED;
         c->kill_signal = SIGTERM;
+        c->send_sigkill = true;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1618,9 +1619,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sKillMode: %s\n"
-                "%sKillSignal: SIG%s\n",
+                "%sKillSignal: SIG%s\n"
+                "%sSendSIGKILL: %s\n",
                 prefix, kill_mode_to_string(c->kill_mode),
-                prefix, signal_to_string(c->kill_signal));
+                prefix, signal_to_string(c->kill_signal),
+                prefix, yes_no(c->send_sigkill));
 
         if (c->utmp_id)
                 fprintf(f,

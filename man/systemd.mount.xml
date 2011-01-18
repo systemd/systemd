@@ -240,6 +240,16 @@
                                 </para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>SendSIGKILL=</varname></term>
+                                <listitem><para>Specifies whether to
+                                send SIGKILL to remaining processes
+                                after a timeout, if the normal
+                                shutdown procedure left processes of
+                                the mount around. Takes a boolean
+                                value. Defaults to "yes".
+                                </para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 

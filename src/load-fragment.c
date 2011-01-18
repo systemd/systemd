@@ -1820,6 +1820,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }, \
                 { "KillMode",               config_parse_kill_mode,       &(context).kill_mode,                            section   }, \
                 { "KillSignal",             config_parse_kill_signal,     &(context).kill_signal,                          section   }, \
+                { "SendSIGKILL",            config_parse_bool,            &(context).send_sigkill,                         section   }, \
                 { "UtmpIdentifier",         config_parse_string_printf,   &(context).utmp_id,                              section   }
 
         const ConfigItem items[] = {

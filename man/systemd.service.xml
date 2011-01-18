@@ -560,14 +560,17 @@
                                 <option>control-group</option>.</para>
 
                                 <para>Processes will first be
-                                terminated via SIGTERM (unless this is
-                                changed via
+                                terminated via SIGTERM (unless the
+                                signal to send is changed via
                                 <varname>KillSignal=</varname>). If
                                 then after a delay (configured via the
                                 <varname>TimeoutSec=</varname> option)
                                 processes still remain, the
                                 termination request is repeated with
-                                the SIGKILL signal. See
+                                the SIGKILL signal (unless this is
+                                disabled via the
+                                <varname>SendSIGKILL=</varname>
+                                option). See
                                 <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for more
                                 information.</para></listitem>
@@ -578,6 +581,17 @@
                                 <listitem><para>Specifies which signal
                                 to use when killing a
                                 service. Defaults to SIGTERM.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SendSIGKILL=</varname></term>
+                                <listitem><para>Specifies whether to
+                                send SIGKILL to remaining processes
+                                after a timeout, if the normal
+                                shutdown procedure left processes of
+                                the service around. Takes a boolean
+                                value. Defaults to "yes".
                                 </para></listitem>
                         </varlistentry>
 
