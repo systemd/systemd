@@ -2650,7 +2650,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 if (success)
                                         service_enter_running(s, true);
                                 else
-                                        service_enter_stop(s, false);
+                                        service_enter_running(s, false);
 
                                 break;
 

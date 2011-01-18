@@ -1,5 +1,3 @@
-* don't fail a service if reload fails
-
 * reload PID file after reload, allow dynamically changing main PIDs
 
 * Fix multiple reload statements
