@@ -1,6 +1,33 @@
-* reload PID file after reload, allow dynamically changing main PIDs
+Bugs:
 
 * Fix multiple reload statements
+
+* sometimes processes seem to remain when we kill a service
+  http://lists.fedoraproject.org/pipermail/devel/2011-January/147559.html
+
+* dep loop when using encrypted swap
+  https://bugzilla.redhat.com/show_bug.cgi?id=657234
+
+* somehow some /etc/fstab supplied mount params are never applied to api fs
+  https://bugzilla.redhat.com/show_bug.cgi?id=663108
+
+* automount units can cause a segfault:
+  https://bugs.freedesktop.org/show_bug.cgi?id=32076
+
+* bind mounts with 'fsck' fail and block for a minute:
+    /foo /bar none bind 1 1
+  (requesting fsck is wrong, but why do we block for a minute
+   instead of just handling the error)
+
+* isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
+
+* sendmail.service doesn't get rid PID file, fails to kill everything on stop
+
+Features:
+
+* maybe introduce ExecRestartPre=
+
+* reload PID file after reload, allow dynamically changing main PIDs
 
 * figure out what happened to bluez patch
 
@@ -8,34 +35,20 @@
 
 * Patch systemd-fsck to use -C and pass console fd to it
 
-* sometimes processes seem to remain when we kill a service
-  http://lists.fedoraproject.org/pipermail/devel/2011-January/147559.html
-
 * support remote/ssh systemctl/systemadm, and local privileged access
 
 * finish syslog socket stuff
 
 * configurable jitter for timer events
 
-* dbus should run with oom adjust set
-
 * support caching password questions in plymouth and on the console
   https://bugzilla.redhat.com/show_bug.cgi?id=655538
-
-* dep loop when using encrypted swap
-  https://bugzilla.redhat.com/show_bug.cgi?id=657234
 
 * exclude java hsp files by default
   https://bugzilla.redhat.com/show_bug.cgi?id=527425
 
 * load EnvironmentFile= when starting services, not when reloading configuration
   https://bugzilla.redhat.com/show_bug.cgi?id=661282
-
-* somehow some /etc/fstab supplied mount params are never applied to api fs
-  https://bugzilla.redhat.com/show_bug.cgi?id=663108
-
-* automount units can cause a segfault:
-  https://bugs.freedesktop.org/show_bug.cgi?id=32076
 
 * support globs in systemd-tmpfiles
 
@@ -47,11 +60,6 @@
 
 * Integrate "mdadm --wait-clean". Maybe just let SIGTERM to mdmon trigger the
   needed action
-
-* bind mounts with 'fsck' fail and block for a minute:
-    /foo /bar none bind 1 1
-  (requesting fsck is wrong, but why do we block for a minute
-   instead of just handling the error)
 
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run?
@@ -126,19 +134,9 @@
     http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
     http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=b7b8de087384cc1954a8cd075af3f9e5977caa2e
 
-* fix hotplug transactions
-
-* isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
-
-* sendmail.service doesn't get rid PID file, fails to kill everything on stop
-
 * global defaults for StandardOuput=xxx
 
-* mkswap/mke2fs is called on wrong devices in crypto devices.
-
 Fedora:
-
-* obsolete readhead in systemd pkg
 
 * chkconfig → systemd enable/daemon-reload glue
 
@@ -154,8 +152,6 @@ External:
     http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match
 
 * place /etc/inittab with explaining blurb.
-
-* pam_securetty should honour console=
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 

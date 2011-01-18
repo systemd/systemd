@@ -23,9 +23,6 @@ Before=getty.target
 
 [Service]
 Environment=TERM=vt100
-m4_ifdef(`TARGET_FEDORA',
-ExecStartPre=-/sbin/securetty %I
-)m4_dnl
 ExecStart=-/sbin/agetty -s %I 115200,38400,9600
 Restart=always
 RestartSec=0
