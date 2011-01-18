@@ -202,6 +202,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>keep-root=</option></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true, all processes
+                                created by the root user (UID 0) during his
+                                session and from his session will be
+                                kept around after he logged out. This
+                                option allows cancelling the effect of
+                                <option>kill-session=1</option> and
+                                <option>kill-user=1</option> for the
+                                root user.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>controllers=</option></term>
 
                                 <listitem><para>Takes a comma
@@ -230,7 +244,8 @@
                 <para>If the options are omitted they default to
                 <option>create-session=1</option>,
                 <option>kill-session=0</option>,
-                <option>kill-user=0</option>.</para>
+                <option>kill-user=0</option>,
+                <option>keep-root=1</option>.</para>
         </refsect1>
 
         <refsect1>

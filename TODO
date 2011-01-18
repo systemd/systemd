@@ -4,8 +4,6 @@
 
 * figure out what happened to bluez patch
 
-* in pam_systemd: add option to kill normal user sessions on logout but only those with uid != 0
-
 * introduce StandardOutput=syslog+console and StandardOutput=kmsg+console to support fsck output at boot
 
 * Patch systemd-fsck to use -C and pass console fd to it
