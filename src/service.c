@@ -1029,6 +1029,12 @@ static int service_verify(Service *s) {
                 return -EINVAL;
         }
 
+        if (s->type == SERVICE_ONESHOT &&
+            s->exec_command[SERVICE_EXEC_RELOAD]) {
+                log_error("%s has an ExecReload setting, which is not allowed for Type=oneshot services. Refusing.", s->meta.id);
+                return -EINVAL;
+        }
+
         if (s->type == SERVICE_DBUS && !s->bus_name) {
                 log_error("%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", s->meta.id);
                 return -EINVAL;
