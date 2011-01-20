@@ -103,10 +103,20 @@ struct Service {
 
         ServiceState state, deserialized_state;
 
+        /* The exit status of the real main process */
         ExecStatus main_exec_status;
 
+        /* The currently executed control process */
         ExecCommand *control_command;
+
+        /* The currently executed main process, which may be NULL if
+         * the main process got started via forking mode and not by
+         * us */
+        ExecCommand *main_command;
+
+        /* The ID of the control command currently being executed */
         ServiceExecCommand control_command_id;
+
         pid_t main_pid, control_pid;
         int socket_fd;
 

@@ -211,6 +211,7 @@ static void service_done(Unit *u) {
         exec_context_done(&s->exec_context);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
+        s->main_command = NULL;
 
         /* This will leak a process, but at least no memory or any of
          * our resources */
@@ -1400,8 +1401,10 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_RELOAD &&
             state != SERVICE_STOP &&
             state != SERVICE_STOP_SIGTERM &&
-            state != SERVICE_STOP_SIGKILL)
+            state != SERVICE_STOP_SIGKILL) {
                 service_unwatch_main_pid(s);
+                s->main_command = NULL;
+        }
 
         if (state != SERVICE_START_PRE &&
             state != SERVICE_START &&
@@ -1782,8 +1785,9 @@ static void service_enter_stop_post(Service *s, bool success) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_STOP_POST;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST])) {
+                s->control_command_id = SERVICE_EXEC_STOP_POST;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1901,8 +1905,9 @@ static void service_enter_stop(Service *s, bool success) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_STOP;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP])) {
+                s->control_command_id = SERVICE_EXEC_STOP;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1950,8 +1955,9 @@ static void service_enter_start_post(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_START_POST;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
+                s->control_command_id = SERVICE_EXEC_START_POST;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1977,6 +1983,7 @@ fail:
 static void service_enter_start(Service *s) {
         pid_t pid;
         int r;
+        ExecCommand *c;
 
         assert(s);
 
@@ -1988,11 +1995,20 @@ static void service_enter_start(Service *s) {
         else
                 service_unwatch_main_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_START;
-        s->control_command = s->exec_command[SERVICE_EXEC_START];
+        if (s->type == SERVICE_FORKING) {
+                s->control_command_id = SERVICE_EXEC_START;
+                c = s->control_command = s->exec_command[SERVICE_EXEC_START];
+
+                s->main_command = NULL;
+        } else {
+                s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+                s->control_command = NULL;
+
+                c = s->main_command = s->exec_command[SERVICE_EXEC_START];
+        }
 
         if ((r = service_spawn(s,
-                               s->control_command,
+                               c,
                                s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
                                true,
                                true,
@@ -2047,8 +2063,9 @@ static void service_enter_start_pre(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_START_PRE;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE])) {
+                s->control_command_id = SERVICE_EXEC_START_PRE;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -2107,8 +2124,9 @@ static void service_enter_reload(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_RELOAD;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD])) {
+                s->control_command_id = SERVICE_EXEC_RELOAD;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -2182,20 +2200,18 @@ static void service_run_next_main(Service *s, bool success) {
         int r;
 
         assert(s);
-        assert(s->control_command);
-        assert(s->control_command->command_next);
+        assert(s->main_command);
+        assert(s->main_command->command_next);
+        assert(s->type == SERVICE_ONESHOT);
 
         if (!success)
                 s->failure = true;
 
-        assert(s->control_command_id == SERVICE_EXEC_START);
-        assert(s->type == SERVICE_ONESHOT);
-
-        s->control_command = s->control_command->command_next;
+        s->main_command = s->main_command->command_next;
         service_unwatch_main_pid(s);
 
         if ((r = service_spawn(s,
-                               s->control_command,
+                               s->main_command,
                                false,
                                true,
                                true,
@@ -2510,10 +2526,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->main_pid = 0;
                 exec_status_exit(&s->main_exec_status, pid, code, status, s->exec_context.utmp_id);
 
-                if (s->type != SERVICE_FORKING && s->control_command) {
-                        s->control_command->exec_status = s->main_exec_status;
+                /* If this is not a forking service than the main
+                 * process got started and hence we copy the exit
+                 * status so that it is recorded both as main and as
+                 * control process exit status */
+                if (s->main_command) {
+                        s->main_command->exec_status = s->main_exec_status;
 
-                        if (s->control_command->ignore)
+                        if (s->main_command->ignore)
                                 success = true;
                 }
 
@@ -2521,8 +2541,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                          "%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
-                if (s->control_command &&
-                    s->control_command->command_next &&
+                if (s->main_command &&
+                    s->main_command->command_next &&
                     success) {
 
                         /* There is another command to *
@@ -2535,9 +2555,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         /* The service exited, so the service is officially
                          * gone. */
-
-                        s->control_command = NULL;
-                        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+                        s->main_command = NULL;
 
                         switch (s->state) {
 
