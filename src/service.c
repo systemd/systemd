@@ -34,6 +34,7 @@
 #include "dbus-service.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "exit-status.h"
 
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"

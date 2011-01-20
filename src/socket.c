@@ -41,6 +41,7 @@
 #include "special.h"
 #include "bus-errors.h"
 #include "label.h"
+#include "exit-status.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,

@@ -1847,14 +1847,30 @@ static void print_status_info(UnitStatusInfo *i) {
 
         LIST_FOREACH(exec, p, i->exec) {
                 char *t;
+                bool good;
 
                 /* Only show exited processes here */
                 if (p->code == 0)
                         continue;
 
                 t = strv_join(p->argv, " ");
-                printf("\t Process: %u %s=%s (code=%s, ", p->pid, p->name, strna(t), sigchld_code_to_string(p->code));
+                printf("\t Process: %u %s=%s ", p->pid, p->name, strna(t));
                 free(t);
+
+#ifdef HAVE_SYSV_COMPAT
+                if (i->is_sysv)
+                        good = is_clean_exit_lsb(p->code, p->status);
+                else
+#endif
+                        good = is_clean_exit(p->code, p->status);
+
+                if (!good) {
+                        on = ansi_highlight(true);
+                        off = ansi_highlight(false);
+                } else
+                        on = off = "";
+
+                printf("%s(code=%s, ", on, sigchld_code_to_string(p->code));
 
                 if (p->code == CLD_EXITED) {
                         const char *c;
@@ -1870,7 +1886,10 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 } else
                         printf("signal=%s", signal_to_string(p->status));
-                printf(")\n");
+
+                printf(")%s\n", off);
+
+                on = off = NULL;
 
                 if (i->main_pid == p->pid &&
                     i->start_timestamp == p->start_timestamp &&

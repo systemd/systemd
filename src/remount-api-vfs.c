@@ -31,6 +31,7 @@
 #include "util.h"
 #include "set.h"
 #include "mount-setup.h"
+#include "exit-status.h"
 
 /* Goes through /etc/fstab and remounts all API file systems, applying
  * options that are in /etc/fstab that systemd might not have

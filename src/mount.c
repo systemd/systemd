@@ -36,6 +36,7 @@
 #include "dbus-mount.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "exit-status.h"
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,

@@ -820,7 +820,8 @@ systemd_vconsole_setup_LDADD = \
 
 systemd_remount_api_vfs_SOURCES = \
 	src/remount-api-vfs.c \
-	src/mount-setup.c
+	src/mount-setup.c \
+	src/exit-status.c
 
 systemd_remount_api_vfs_CFLAGS = \
 	$(AM_CFLAGS)

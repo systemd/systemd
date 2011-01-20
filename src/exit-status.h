@@ -22,6 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 typedef enum ExitStatus {
         /* EXIT_SUCCESS defined by libc */
         /* EXIT_FAILURE defined by libc */
@@ -74,5 +76,8 @@ typedef enum ExitStatusLevel {
 } ExitStatusLevel;
 
 const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level);
+
+bool is_clean_exit(int code, int status);
+bool is_clean_exit_lsb(int code, int status);
 
 #endif

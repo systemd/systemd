@@ -20,6 +20,7 @@
 ***/
 
 #include <stdlib.h>
+#include <sys/wait.h>
 
 #include "exit-status.h"
 
@@ -142,4 +143,32 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
         }
 
         return NULL;
+}
+
+
+bool is_clean_exit(int code, int status) {
+
+        if (code == CLD_EXITED)
+                return status == 0;
+
+        /* If a daemon does not implement handlers for some of the
+         * signals that's not considered an unclean shutdown */
+        if (code == CLD_KILLED)
+                return
+                        status == SIGHUP ||
+                        status == SIGINT ||
+                        status == SIGTERM ||
+                        status == SIGPIPE;
+
+        return false;
+}
+
+bool is_clean_exit_lsb(int code, int status) {
+
+        if (is_clean_exit(code, status))
+                return true;
+
+        return
+                code == CLD_EXITED &&
+                (status == EXIT_NOTINSTALLED || status == EXIT_NOTCONFIGURED);
 }
