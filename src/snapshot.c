@@ -45,7 +45,7 @@ static void snapshot_set_state(Snapshot *s, SnapshotState state) {
                           snapshot_state_to_string(old_state),
                           snapshot_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static int snapshot_load(Unit *u) {

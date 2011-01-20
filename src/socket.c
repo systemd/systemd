@@ -880,7 +880,7 @@ static void socket_set_state(Socket *s, SocketState state) {
                           socket_state_to_string(old_state),
                           socket_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static int socket_coldplug(Unit *u) {

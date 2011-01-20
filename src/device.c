@@ -92,7 +92,7 @@ static void device_set_state(Device *d, DeviceState state) {
                           device_state_to_string(old_state),
                           device_state_to_string(state));
 
-        unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static int device_coldplug(Unit *u) {

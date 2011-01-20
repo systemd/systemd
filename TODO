@@ -1,5 +1,7 @@
 Bugs:
 
+* Don't try to connect to dbus during early boot
+
 * Fix multiple reload statements
 
 * sometimes processes seem to remain when we kill a service

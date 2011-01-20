@@ -118,6 +118,8 @@ struct Service {
 
         /* If we shut down, remember why */
         bool failure:1;
+        bool reload_failure:1;
+
         bool main_pid_known:1;
         bool bus_name_good:1;
         bool forbid_restart:1;

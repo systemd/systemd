@@ -456,7 +456,7 @@ int unit_reload(Unit *u);
 
 int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error);
 
-void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns);
+void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
 int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w);
 void unit_unwatch_fd(Unit *u, Watch *w);

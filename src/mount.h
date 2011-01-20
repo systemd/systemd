@@ -79,6 +79,7 @@ struct Mount {
         bool just_changed:1;
 
         bool failure:1;
+        bool reload_failure:1;
 
         mode_t directory_mode;
 

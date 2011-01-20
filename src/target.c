@@ -49,7 +49,7 @@ static void target_set_state(Target *t, TargetState state) {
                           target_state_to_string(old_state),
                           target_state_to_string(state));
 
-        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static int target_add_default_dependencies(Target *t) {

@@ -1067,7 +1067,7 @@ static void retroactively_stop_dependencies(Unit *u) {
                         unit_check_unneeded(other);
 }
 
-void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
+void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         dual_timestamp ts;
         bool unexpected;
 
@@ -1134,7 +1134,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
                         if (u->meta.job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
-                                        job_finish_and_invalidate(u->meta.job, true);
+                                        job_finish_and_invalidate(u->meta.job, reload_success);
                                 else if (ns != UNIT_ACTIVATING && ns != UNIT_RELOADING) {
                                         unexpected = true;
 

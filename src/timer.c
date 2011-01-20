@@ -152,7 +152,7 @@ static void timer_set_state(Timer *t, TimerState state) {
                           timer_state_to_string(old_state),
                           timer_state_to_string(state));
 
-        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static void timer_enter_waiting(Timer *t, bool initial);

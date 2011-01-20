@@ -1446,7 +1446,8 @@ static void service_set_state(Service *s, ServiceState state) {
         if (old_state != state)
                 log_debug("%s changed %s -> %s", s->meta.id, service_state_to_string(old_state), service_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], !s->reload_failure);
+        s->reload_failure = false;
 }
 
 static int service_coldplug(Unit *u) {
@@ -2120,7 +2121,8 @@ static void service_enter_reload(Service *s) {
 
 fail:
         log_warning("%s failed to run 'reload' task: %s", s->meta.id, strerror(-r));
-        service_enter_stop(s, false);
+        s->reload_failure = true;
+        service_enter_running(s, true);
 }
 
 static void service_run_next_control(Service *s, bool success) {
@@ -2161,7 +2163,10 @@ fail:
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
         else if (s->state == SERVICE_STOP_POST)
                 service_enter_dead(s, false, true);
-        else
+        else if (s->state == SERVICE_RELOAD) {
+                s->reload_failure = true;
+                service_enter_running(s, true);
+        } else
                 service_enter_stop(s, false);
 }
 
@@ -2647,11 +2652,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 /* Fall through */
 
                         case SERVICE_RELOAD:
-                                if (success)
-                                        service_enter_running(s, true);
-                                else
-                                        service_enter_running(s, false);
-
+                                s->reload_failure = !success;
+                                service_enter_running(s, true);
                                 break;
 
                         case SERVICE_STOP:
@@ -2701,9 +2703,14 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_START_POST:
-        case SERVICE_RELOAD:
                 log_warning("%s operation timed out. Stopping.", u->meta.id);
                 service_enter_stop(s, false);
+                break;
+
+        case SERVICE_RELOAD:
+                log_warning("%s operation timed out. Stopping.", u->meta.id);
+                s->reload_failure = true;
+                service_enter_running(s, true);
                 break;
 
         case SERVICE_STOP:

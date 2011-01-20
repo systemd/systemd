@@ -501,7 +501,7 @@ static void swap_set_state(Swap *s, SwapState state) {
                           swap_state_to_string(old_state),
                           swap_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static int swap_coldplug(Unit *u) {

@@ -279,7 +279,7 @@ static void path_set_state(Path *p, PathState state) {
                           path_state_to_string(old_state),
                           path_state_to_string(state));
 
-        unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static void path_enter_waiting(Path *p, bool initial, bool recheck);
