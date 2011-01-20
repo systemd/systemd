@@ -19,7 +19,6 @@
 
 using Gtk;
 using GLib;
-using DBus;
 using Pango;
 
 static bool user = false;
@@ -79,7 +78,6 @@ public class MainWindow : Window {
         private Button server_snapshot_button;
         private Button server_reload_button;
 
-        private Connection bus;
         private Manager manager;
 
         private RightLabel unit_id_label;
@@ -102,9 +100,9 @@ public class MainWindow : Window {
 
         private ComboBox unit_type_combo_box;
 
-        public MainWindow() throws DBus.Error {
+        public MainWindow() throws IOError {
                 title = user ? "systemd User Service Manager" : "systemd System Manager";
-                position = WindowPosition.CENTER;
+                set_position(WindowPosition.CENTER);
                 set_default_size(1000, 700);
                 set_border_width(12);
                 destroy.connect(Gtk.main_quit);
@@ -297,12 +295,10 @@ public class MainWindow : Window {
 
                 bbox.pack_start(cancel_button, false, true, 0);
 
-                bus = DBus.Bus.get(user ? DBus.BusType.SESSION : DBus.BusType.SYSTEM);
-
-                manager = bus.get_object(
+                manager = Bus.get_proxy_sync(
+                                user ? BusType.SESSION : BusType.SYSTEM,
                                 "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager") as Manager;
+                                "/org/freedesktop/systemd1");
 
                 manager.unit_new.connect(on_unit_new);
                 manager.job_new.connect(on_job_new);
@@ -317,7 +313,7 @@ public class MainWindow : Window {
                 populate_job_model();
         }
 
-        public void populate_unit_model() throws DBus.Error {
+        public void populate_unit_model() throws IOError {
                 unit_model.clear();
 
                 var list = manager.list_units();
@@ -325,18 +321,17 @@ public class MainWindow : Window {
                 foreach (var i in list) {
                         TreeIter iter;
 
-                        Properties p = bus.get_object(
+                        Properties p = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
                                         "org.freedesktop.systemd1",
-                                        i.unit_path,
-                                        "org.freedesktop.DBus.Properties") as Properties;
-
+                                        i.unit_path);
 
                         p.properties_changed.connect(on_unit_changed);
 
-                        Unit u = bus.get_object(
+                        Unit u = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
                                         "org.freedesktop.systemd1",
-                                        i.unit_path,
-                                        "org.freedesktop.systemd1.Unit") as Unit;
+                                        i.unit_path);
 
                         unit_model.append(out iter);
                         unit_model.set(iter,
@@ -350,7 +345,7 @@ public class MainWindow : Window {
                 }
         }
 
-        public void populate_job_model() throws DBus.Error {
+        public void populate_job_model() throws IOError {
                 job_model.clear();
 
                 var list = manager.list_jobs();
@@ -358,17 +353,17 @@ public class MainWindow : Window {
                 foreach (var i in list) {
                         TreeIter iter;
 
-                        Properties p = bus.get_object(
+                        Properties p = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
                                         "org.freedesktop.systemd1",
-                                        i.job_path,
-                                        "org.freedesktop.DBus.Properties") as Properties;
+                                        i.job_path);
 
                         p.properties_changed.connect(on_job_changed);
 
-                        Job j = bus.get_object(
+                        Job j = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
                                         "org.freedesktop.systemd1",
-                                        i.job_path,
-                                        "org.freedesktop.systemd1.Job") as Job;
+                                        i.job_path);
 
                         job_model.append(out iter);
                         job_model.set(iter,
@@ -601,7 +596,7 @@ public class MainWindow : Window {
 
                 try {
                         u.start("replace");
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
         }
@@ -614,7 +609,7 @@ public class MainWindow : Window {
 
                 try {
                         u.stop("replace");
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
         }
@@ -627,7 +622,7 @@ public class MainWindow : Window {
 
                 try {
                         u.reload("replace");
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
         }
@@ -640,7 +635,7 @@ public class MainWindow : Window {
 
                 try {
                         u.restart("replace");
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
         }
@@ -653,52 +648,61 @@ public class MainWindow : Window {
 
                 try {
                         j.cancel();
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
         }
 
         public void update_unit_iter(TreeIter iter, string id, Unit u) {
 
-                string t = "";
-                Unit.JobLink jl = u.job;
+                try  {
+                        string t = "";
+                        Unit.JobLink jl = u.job;
 
-                if (jl.id != 0) {
-                        Job j = bus.get_object(
-                                        "org.freedesktop.systemd1",
-                                        jl.path,
-                                        "org.freedesktop.systemd1.Job") as Job;
+                        if (jl.id != 0) {
+                                Job j = Bus.get_proxy_sync(
+                                                user ? BusType.SESSION : BusType.SYSTEM,
+                                                "org.freedesktop.systemd1",
+                                                jl.path);
 
-                        t = j.job_type;
+                                t = j.job_type;
+                        }
+
+                        unit_model.set(iter,
+                                       0, id,
+                                       1, u.description,
+                                       2, u.load_state,
+                                       3, u.active_state,
+                                       4, u.sub_state,
+                                       5, t != "" ? "→ %s".printf(t) : "",
+                                       6, u);
+                } catch (IOError e) {
+                        show_error(e.message);
                 }
-
-                unit_model.set(iter,
-                               0, id,
-                               1, u.description,
-                               2, u.load_state,
-                               3, u.active_state,
-                               4, u.sub_state,
-                               5, t != "" ? "→ %s".printf(t) : "",
-                               6, u);
         }
 
         public void on_unit_new(string id, ObjectPath path) {
-                Properties p = bus.get_object(
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.DBus.Properties") as Properties;
+                try {
 
-                p.properties_changed.connect(on_unit_changed);
+                        Properties p = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
+                                        "org.freedesktop.systemd1",
+                                        path);
 
-                TreeIter iter;
-                unit_model.append(out iter);
+                        p.properties_changed.connect(on_unit_changed);
 
-                Unit u = bus.get_object(
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit") as Unit;
+                        TreeIter iter;
+                        unit_model.append(out iter);
 
-                update_unit_iter(iter, id, u);
+                        Unit u = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
+                                        "org.freedesktop.systemd1",
+                                        path);
+
+                        update_unit_iter(iter, id, u);
+                } catch (IOError e) {
+                        show_error(e.message);
+                }
         }
 
         public void update_job_iter(TreeIter iter, uint32 id, Job j) {
@@ -713,22 +717,28 @@ public class MainWindow : Window {
 
         public void on_job_new(uint32 id, ObjectPath path) {
 
-                Properties p = bus.get_object(
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.DBus.Properties") as Properties;
+                try  {
 
-                p.properties_changed.connect(on_job_changed);
+                        Properties p = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
+                                        "org.freedesktop.systemd1",
+                                        path);
 
-                TreeIter iter;
-                job_model.append(out iter);
+                        p.properties_changed.connect(on_job_changed);
 
-                Job j = bus.get_object(
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Job") as Job;
+                        TreeIter iter;
+                        job_model.append(out iter);
 
-                update_job_iter(iter, id, j);
+                        Job j = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
+                                        "org.freedesktop.systemd1",
+                                        path);
+
+                        update_job_iter(iter, id, j);
+
+                } catch (IOError e) {
+                        show_error(e.message);
+                }
         }
 
         public void on_unit_removed(string id, ObjectPath path) {
@@ -775,65 +785,76 @@ public class MainWindow : Window {
         }
 
         public void on_unit_changed(Properties p, string iface, HashTable<string, Value?> changed_properties, string[] invalidated_properties) {
-                TreeIter iter;
-                string id;
 
-                Unit u = bus.get_object(
-                                p.get_bus_name(),
-                                p.get_path(),
-                                "org.freedesktop.systemd1.Unit") as Unit;
+                try {
+                        TreeIter iter;
+                        string id;
 
-                if (!(unit_model.get_iter_first(out iter)))
-                        return;
+                        Unit u = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
+                                        p.get_name(),
+                                        p.get_object_path());
 
-                id = u.id;
+                        if (!(unit_model.get_iter_first(out iter)))
+                                return;
 
-                do {
-                        string name;
+                        id = u.id;
 
-                        unit_model.get(iter, 0, out name);
+                        do {
+                                string name;
 
-                        if (id == name) {
-                                update_unit_iter(iter, id, u);
+                                unit_model.get(iter, 0, out name);
 
-                                if (current_unit_id == id)
-                                        show_unit(u);
+                                if (id == name) {
+                                        update_unit_iter(iter, id, u);
 
-                                break;
-                        }
+                                        if (current_unit_id == id)
+                                                show_unit(u);
 
-                } while (unit_model.iter_next(ref iter));
+                                        break;
+                                }
+
+                        } while (unit_model.iter_next(ref iter));
+
+                } catch (IOError e) {
+                        show_error(e.message);
+                }
         }
 
         public void on_job_changed(Properties p, string iface, HashTable<string, Value?> changed_properties, string[] invalidated_properties) {
-                TreeIter iter;
-                uint32 id;
+                try {
+                        TreeIter iter;
+                        uint32 id;
 
-                Job j = bus.get_object(
-                                p.get_bus_name(),
-                                p.get_path(),
-                                "org.freedesktop.systemd1.Job") as Job;
+                        Job j = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
+                                        p.get_name(),
+                                        p.get_object_path());
 
-                if (!(job_model.get_iter_first(out iter)))
-                        return;
+                        if (!(job_model.get_iter_first(out iter)))
+                                return;
 
-                id = j.id;
+                        id = j.id;
 
-                do {
-                        uint32 k;
+                        do {
+                                uint32 k;
 
-                        job_model.get(iter, 5, out k);
+                                job_model.get(iter, 5, out k);
 
-                        if (id == k) {
-                                update_job_iter(iter, id, j);
+                                if (id == k) {
+                                        update_job_iter(iter, id, j);
 
-                                if (current_job_id == id)
-                                        show_job(j);
+                                        if (current_job_id == id)
+                                                show_job(j);
 
-                                break;
-                        }
+                                        break;
+                                }
 
-                } while (job_model.iter_next(ref iter));
+                        } while (job_model.iter_next(ref iter));
+
+                } catch (IOError e) {
+                        show_error(e.message);
+                }
         }
 
         public bool unit_filter(TreeModel model, TreeIter iter) {
@@ -886,7 +907,7 @@ public class MainWindow : Window {
         public void on_server_reload() {
                 try {
                         manager.reload();
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
         }
@@ -898,7 +919,7 @@ public class MainWindow : Window {
                         if (unit_type_combo_box.get_active() != 0)
                                 unit_type_combo_box.set_active(8);
 
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
         }
@@ -912,10 +933,10 @@ public class MainWindow : Window {
                 try {
                         var path = manager.load_unit(t);
 
-                        Unit u = bus.get_object(
+                        Unit u = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
                                         "org.freedesktop.systemd1",
-                                        path,
-                                        "org.freedesktop.systemd1.Unit") as Unit;
+                                        path);
 
                         var m = new MessageDialog(this,
                                                   DialogFlags.DESTROY_WITH_PARENT,
@@ -927,7 +948,7 @@ public class MainWindow : Window {
                         m.destroy();
 
                         show_unit(u);
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
         }
@@ -941,13 +962,13 @@ public class MainWindow : Window {
                 try {
                         string path = manager.get_unit(uri);
 
-                        Unit u = bus.get_object(
+                        Unit u = Bus.get_proxy_sync(
+                                        user ? BusType.SESSION : BusType.SYSTEM,
                                         "org.freedesktop.systemd1",
-                                        path,
-                                        "org.freedesktop.systemd1.Unit") as Unit;
+                                        path);
 
                         show_unit(u);
-                } catch (DBus.Error e) {
+                } catch (IOError e) {
                         show_error(e.message);
                 }
 
@@ -987,7 +1008,7 @@ int main(string[] args) {
                 window.show_all();
 
                 Gtk.main();
-        } catch (DBus.Error e) {
+        } catch (IOError e) {
                 show_error(e.message);
         } catch (GLib.Error e) {
                 show_error(e.message);

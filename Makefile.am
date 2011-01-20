@@ -933,7 +933,6 @@ systemadm_SOURCES = \
 
 systemadm_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUSGLIB_CFLAGS) \
 	$(GTK_CFLAGS) \
 	-Wno-unused-variable \
 	-Wno-unused-function \
@@ -941,13 +940,11 @@ systemadm_CFLAGS = \
 	-Wno-format-nonliteral
 
 systemadm_VALAFLAGS = \
-	--pkg=dbus-glib-1 \
 	--pkg=posix \
 	--pkg=gtk+-2.0 \
 	-g
 
 systemadm_LDADD = \
-	$(DBUSGLIB_LIBS) \
 	$(GTK_LIBS)
 
 systemd_gnome_ask_password_agent_SOURCES = \
@@ -955,7 +952,6 @@ systemd_gnome_ask_password_agent_SOURCES = \
 
 systemd_gnome_ask_password_agent_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUSGLIB_CFLAGS) \
 	$(LIBNOTIFY_CFLAGS) \
 	$(GTK_CFLAGS) \
 	-Wno-unused-variable \
@@ -964,7 +960,6 @@ systemd_gnome_ask_password_agent_CFLAGS = \
 	-Wno-format-nonliteral
 
 systemd_gnome_ask_password_agent_VALAFLAGS = \
-	--pkg=dbus-glib-1 \
 	--pkg=posix \
 	--pkg=gtk+-2.0 \
 	--pkg=linux \
@@ -978,7 +973,6 @@ systemd_gnome_ask_password_agent_VALAFLAGS += \
 	-g
 
 systemd_gnome_ask_password_agent_LDADD = \
-	$(DBUSGLIB_LIBS) \
 	$(LIBNOTIFY_LIBS) \
 	$(GTK_LIBS)
 

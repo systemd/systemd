@@ -19,7 +19,6 @@
 
 using Gtk;
 using GLib;
-using DBus;
 using Linux;
 using Posix;
 using Notify;
@@ -102,14 +101,19 @@ public class MyStatusIcon : StatusIcon {
                 activate.connect(status_icon_activate);
         }
 
-        void file_monitor_changed(GLib.File file, GLib.File? other_file, GLib.FileMonitorEvent event_type) throws GLib.Error {
+        void file_monitor_changed(GLib.File file, GLib.File? other_file, GLib.FileMonitorEvent event_type) {
 
                 if (!file.get_basename().has_prefix("ask."))
                         return;
 
                 if (event_type == FileMonitorEvent.CREATED ||
-                    event_type == FileMonitorEvent.DELETED)
-                        look_for_password();
+                    event_type == FileMonitorEvent.DELETED) {
+                        try {
+                                look_for_password();
+                        } catch (Error e) {
+                                show_error(e.message);
+                        }
+                }
         }
 
         void look_for_password() throws GLib.Error {
@@ -198,7 +202,7 @@ public class MyStatusIcon : StatusIcon {
                 return true;
         }
 
-        void status_icon_activate() throws GLib.Error {
+        void status_icon_activate() {
 
                 if (current == null)
                         return;
@@ -222,24 +226,28 @@ public class MyStatusIcon : StatusIcon {
 
                 int to_process;
 
-                Process.spawn_async_with_pipes(
-                                null,
-                                { "/usr/bin/pkexec", "/lib/systemd/systemd-reply-password", result == ResponseType.OK ? "1" : "0", socket },
-                                null,
-                                0,
-                                null,
-                                null,
-                                out to_process,
-                                null,
-                                null);
+                try {
+                        Process.spawn_async_with_pipes(
+                                        null,
+                                        { "/usr/bin/pkexec", "/lib/systemd/systemd-reply-password", result == ResponseType.OK ? "1" : "0", socket },
+                                        null,
+                                        0,
+                                        null,
+                                        null,
+                                        out to_process,
+                                        null,
+                                        null);
 
-                OutputStream stream = new UnixOutputStream(to_process, true);
+                        OutputStream stream = new UnixOutputStream(to_process, true);
 
 #if LIBNOTIFY07
-                stream.write(password.data, null);
+                        stream.write(password.data, null);
 #else
-                stream.write(password, password.length, null);
+                        stream.write(password, password.length, null);
 #endif
+                } catch (Error e) {
+                        show_error(e.message);
+                }
         }
 }
 
@@ -261,8 +269,6 @@ int main(string[] args) {
                 MyStatusIcon i = new MyStatusIcon();
                 Gtk.main();
 
-        } catch (DBus.Error e) {
-                show_error(e.message);
         } catch (GLib.Error e) {
                 show_error(e.message);
         }
