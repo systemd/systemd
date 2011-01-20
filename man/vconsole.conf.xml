@@ -120,6 +120,20 @@
         </refsect1>
 
         <refsect1>
+                <title>Example</title>
+
+                <example>
+                        <title>German keyboard and console</title>
+
+                        <para><filename>/etc/vconsole.conf:</filename></para>
+
+                        <programlisting>KEYMAP=de-latin1
+FONT=latarcyrheb-sun16</programlisting>
+                </example>
+
+        </refsect1>
+
+        <refsect1>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

@@ -117,6 +117,19 @@
                 this file. For details about the meaning and semantics
                 of these settings, refer to
                 <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+
+                <example>
+                        <title>German locale with english messages</title>
+
+                        <para><filename>/etc/locale.conf:</filename></para>
+
+                        <programlisting>LANG=de_DE.UTF-8
+LC_MESSAGE=C</programlisting>
+                </example>
 
         </refsect1>
 
