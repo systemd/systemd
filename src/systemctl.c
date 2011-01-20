@@ -1615,6 +1615,8 @@ finish:
 }
 
 typedef struct ExecStatusInfo {
+        char *name;
+
         char *path;
         char **argv;
 
@@ -1632,6 +1634,7 @@ typedef struct ExecStatusInfo {
 static void exec_status_info_free(ExecStatusInfo *i) {
         assert(i);
 
+        free(i->name);
         free(i->path);
         strv_free(i->argv);
         free(i);
@@ -1850,7 +1853,7 @@ static void print_status_info(UnitStatusInfo *i) {
                         continue;
 
                 t = strv_join(p->argv, " ");
-                printf("\t Process: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
+                printf("\t Process: %u %s=%s (code=%s, ", p->pid, p->name, strna(t), sigchld_code_to_string(p->code));
                 free(t);
 
                 if (p->code == CLD_EXITED) {
@@ -2082,6 +2085,11 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                                 if (!(info = new0(ExecStatusInfo, 1)))
                                         return -ENOMEM;
+
+                                if (!(info->name = strdup(name))) {
+                                        free(info);
+                                        return -ENOMEM;
+                                }
 
                                 if ((r = exec_status_info_deserialize(&sub, info)) < 0) {
                                         free(info);
