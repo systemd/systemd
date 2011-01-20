@@ -69,7 +69,7 @@ typedef struct BusProperty {
         " </method>\n"                                                  \
         "</interface>\n"
 
-int bus_init(Manager *m);
+int bus_init(Manager *m, bool try_bus_connect);
 void bus_done(Manager *m);
 
 unsigned bus_dispatch(Manager *m);

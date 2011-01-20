@@ -1194,7 +1194,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         /* The bus just might have become available,
                          * hence try to connect to it, if we aren't
                          * yet connected. */
-                        bus_init(u->meta.manager);
+                        bus_init(u->meta.manager, true);
 
                 if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
                         /* The syslog daemon just might have become

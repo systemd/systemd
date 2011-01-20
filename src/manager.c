@@ -259,7 +259,7 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
                 goto fail;
 
         /* Try to connect to the busses, if possible. */
-        if ((r = bus_init(m)) < 0)
+        if ((r = bus_init(m, running_as != MANAGER_SYSTEM)) < 0)
                 goto fail;
 
 #ifdef HAVE_AUDIT
@@ -2102,7 +2102,7 @@ static int manager_process_signal_fd(Manager *m) {
 
                         if (!u || UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
                                 log_info("Trying to reconnect to bus...");
-                                bus_init(m);
+                                bus_init(m, true);
                         }
 
                         if (!u || !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u))) {

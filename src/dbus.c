@@ -982,7 +982,7 @@ fail:
         return r;
 }
 
-int bus_init(Manager *m) {
+int bus_init(Manager *m, bool try_bus_connect) {
         int r;
 
         if (set_ensure_allocated(&m->bus_connections, trivial_hash_func, trivial_compare_func) < 0 ||
@@ -1003,9 +1003,13 @@ int bus_init(Manager *m) {
                         return -ENOMEM;
                 }
 
-        if ((r = bus_init_system(m)) < 0 ||
-            (r = bus_init_api(m)) < 0 ||
-            (r = bus_init_private(m)) < 0)
+        if (try_bus_connect) {
+                if ((r = bus_init_system(m)) < 0 ||
+                    (r = bus_init_api(m)) < 0)
+                        return r;
+        }
+
+        if ((r = bus_init_private(m)) < 0)
                 return r;
 
         return 0;

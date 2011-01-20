@@ -1,7 +1,5 @@
 Bugs:
 
-* Don't try to connect to dbus during early boot
-
 * sometimes processes seem to remain when we kill a service
   http://lists.fedoraproject.org/pipermail/devel/2011-January/147559.html
 
