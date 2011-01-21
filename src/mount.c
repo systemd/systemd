@@ -98,11 +98,20 @@ static void mount_parameters_done(MountParameters *p) {
 
 static void mount_done(Unit *u) {
         Mount *m = MOUNT(u);
+        Meta *other;
 
         assert(m);
 
         free(m->where);
         m->where = NULL;
+
+        /* Try to detach us from the automount unit if there is any */
+        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_AUTOMOUNT]) {
+                Automount *a = (Automount*) other;
+
+                if (a->mount == m)
+                        a->mount = NULL;
+        }
 
         mount_parameters_done(&m->parameters_etc_fstab);
         mount_parameters_done(&m->parameters_proc_self_mountinfo);

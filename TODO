@@ -9,9 +9,6 @@ Bugs:
 * somehow some /etc/fstab supplied mount params are never applied to api fs
   https://bugzilla.redhat.com/show_bug.cgi?id=663108
 
-* automount units can cause a segfault:
-  https://bugs.freedesktop.org/show_bug.cgi?id=32076
-
 * bind mounts with 'fsck' fail and block for a minute:
     /foo /bar none bind 1 1
   (requesting fsck is wrong, but why do we block for a minute
