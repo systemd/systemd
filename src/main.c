@@ -899,7 +899,7 @@ static void test_mtab(void) {
         if (readlink_malloc("/etc/mtab", &p) >= 0) {
                 bool b;
 
-                b = streq(p, "/proc/self/mounts");
+                b = streq(p, "/proc/self/mounts") || streq(p, "/proc/mounts");
                 free(p);
 
                 if (b)
