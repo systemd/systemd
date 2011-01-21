@@ -372,6 +372,7 @@ static int mount_add_device_links(Mount *m) {
         }
 
         if (p->passno > 0 &&
+            !mount_is_bind(p) &&
             UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM &&
             !path_equal(m->where, "/")) {
                 char *name;
