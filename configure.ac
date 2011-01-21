@@ -263,7 +263,7 @@ if test "$have_gtk" = "yes"; then
 fi
 AM_CONDITIONAL(LIBNOTIFY07, [ test "$libnotify07" = "yes" ])
 
-AM_PROG_VALAC([0.11])
+AM_PROG_VALAC([0.10])
 AC_SUBST(VAPIDIR)
 AM_CONDITIONAL(HAVE_VALAC, test x"$VALAC" != x)
 
