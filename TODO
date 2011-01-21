@@ -1,8 +1,5 @@
 Bugs:
 
-* sometimes processes seem to remain when we kill a service
-  http://lists.fedoraproject.org/pipermail/devel/2011-January/147559.html
-
 * dep loop when using encrypted swap
   https://bugzilla.redhat.com/show_bug.cgi?id=657234
 
@@ -10,8 +7,6 @@ Bugs:
   https://bugzilla.redhat.com/show_bug.cgi?id=663108
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
-
-* sendmail.service doesn't get rid PID file, fails to kill everything on stop
 
 Features:
 
