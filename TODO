@@ -8,6 +8,8 @@ Bugs:
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
+* when plymouth is disabled the console password entry stuff seems to be borked
+
 Features:
 
 * maybe introduce ExecRestartPre=
