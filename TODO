@@ -1,8 +1,5 @@
 Bugs:
 
-* dep loop when using encrypted swap
-  https://bugzilla.redhat.com/show_bug.cgi?id=657234
-
 * somehow some /etc/fstab supplied mount params are never applied to api fs
   https://bugzilla.redhat.com/show_bug.cgi?id=663108
 

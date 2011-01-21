@@ -9,6 +9,3 @@
 
 [Unit]
 Description=Encrypted Volumes
-
-[Install]
-WantedBy=local-fs.target
