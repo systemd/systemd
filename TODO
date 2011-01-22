@@ -6,8 +6,11 @@ Bugs:
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
 * when plymouth is disabled the console password entry stuff seems to be borked
+  https://bugzilla.redhat.com/show_bug.cgi?id=655538
 
 Features:
+
+* PID heuristik bei Type=forking ausmachbar machen
 
 * maybe introduce ExecRestartPre=
 
