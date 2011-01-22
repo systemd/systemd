@@ -250,7 +250,7 @@ int parse_boolean(const char *v) {
 }
 
 int parse_pid(const char *s, pid_t* ret_pid) {
-        unsigned long ul;
+        unsigned long ul = 0;
         pid_t pid;
         int r;
 

@@ -188,7 +188,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self,
         my_pid = getpid();
 
         do {
-                pid_t pid;
+                pid_t pid = 0;
                 done = true;
 
                 if ((r = cg_enumerate_processes(controller, path, &f)) < 0) {
@@ -362,7 +362,7 @@ int cg_migrate(const char *controller, const char *from, const char *to, bool ig
         my_pid = getpid();
 
         do {
-                pid_t pid;
+                pid_t pid = 0;
                 done = true;
 
                 if ((r = cg_enumerate_tasks(controller, from, &f)) < 0) {
@@ -782,9 +782,9 @@ finish:
 }
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
-        pid_t pid;
+        pid_t pid = 0;
         int r;
-        FILE *f;
+        FILE *f = NULL;
         bool found = false;
 
         assert(controller);
