@@ -386,6 +386,7 @@ int main(int argc, char *argv[]) {
                 if (try >= opt_tries) {
                         log_error("Too many attempts.");
                         r = EXIT_FAILURE;
+                        goto finish;
                 }
 
         } else if (streq(argv[1], "detach")) {

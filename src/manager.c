@@ -2428,7 +2428,6 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         union sockaddr_union sa;
         int n = 0;
         char *message = NULL;
-        ssize_t r;
 
         /* Don't generate plymouth events if the service was already
          * started and we're just deserializing */
@@ -2472,7 +2471,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         }
 
         errno = 0;
-        if ((r = write(fd, message, n + 1)) != n + 1) {
+        if (write(fd, message, n + 1) != n + 1) {
 
                 if (errno != EPIPE &&
                     errno != EAGAIN &&

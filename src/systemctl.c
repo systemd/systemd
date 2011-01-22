@@ -502,8 +502,10 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                 c++;
         }
 
-        qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
-        output_units_list(unit_infos, c);
+        if (c > 0) {
+                qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+                output_units_list(unit_infos, c);
+        }
 
         r = 0;
 

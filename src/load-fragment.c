@@ -191,7 +191,6 @@ static int config_parse_listen(
                 void *data,
                 void *userdata) {
 
-        int r;
         SocketPort *p;
         Socket *s;
 
@@ -217,7 +216,7 @@ static int config_parse_listen(
         } else {
                 p->type = SOCKET_SOCKET;
 
-                if ((r = socket_address_parse(&p->address, rvalue)) < 0) {
+                if (socket_address_parse(&p->address, rvalue) < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
                         return 0;
@@ -289,14 +288,14 @@ static int config_parse_nice(
                 void *userdata) {
 
         ExecContext *c = data;
-        int priority, r;
+        int priority;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atoi(rvalue, &priority)) < 0) {
+        if (safe_atoi(rvalue, &priority) < 0) {
                 log_error("[%s:%u] Failed to parse nice priority, ignoring: %s. ", filename, line, rvalue);
                 return 0;
         }
@@ -322,14 +321,14 @@ static int config_parse_oom_score_adjust(
                 void *userdata) {
 
         ExecContext *c = data;
-        int oa, r;
+        int oa;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atoi(rvalue, &oa)) < 0) {
+        if (safe_atoi(rvalue, &oa) < 0) {
                 log_error("[%s:%u] Failed to parse the OOM score adjust value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -506,14 +505,13 @@ static int config_parse_usec(
                 void *userdata) {
 
         usec_t *usec = data;
-        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((r = parse_usec(rvalue, usec)) < 0) {
+        if (parse_usec(rvalue, usec) < 0) {
                 log_error("[%s:%u] Failed to parse time value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -893,14 +891,13 @@ static int config_parse_timer_slack_nsec(
 
         ExecContext *c = data;
         unsigned long u;
-        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atolu(rvalue, &u)) < 0) {
+        if (safe_atolu(rvalue, &u) < 0) {
                 log_error("[%s:%u] Failed to parse time slack value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -928,7 +925,7 @@ static int config_parse_limit(
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atollu(rvalue, &u)) < 0) {
+        if (safe_atollu(rvalue, &u) < 0) {
                 log_error("[%s:%u] Failed to parse resource value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -985,14 +982,14 @@ static int config_parse_sysv_priority(
                 void *userdata) {
 
         int *priority = data;
-        int r, i;
+        int i;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atoi(rvalue, &i)) < 0 || i < 0) {
+        if (safe_atoi(rvalue, &i) < 0 || i < 0) {
                 log_error("[%s:%u] Failed to parse SysV start priority, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -1012,14 +1009,14 @@ static int config_parse_fsck_passno(
                 void *userdata) {
 
         int *passno = data;
-        int r, i;
+        int i;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atoi(rvalue, &i)) < 0 || i < 0) {
+        if (safe_atoi(rvalue, &i) || i < 0) {
                 log_error("[%s:%u] Failed to parse fsck pass number, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -1104,7 +1101,6 @@ static int config_parse_timer(
 
         Timer *t = data;
         usec_t u;
-        int r;
         TimerValue *v;
         TimerBase b;
 
@@ -1118,7 +1114,7 @@ static int config_parse_timer(
                 return 0;
         }
 
-        if ((r = parse_usec(rvalue, &u)) < 0) {
+        if (parse_usec(rvalue, &u) < 0) {
                 log_error("[%s:%u] Failed to parse timer value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -1379,7 +1375,6 @@ static int config_parse_env_file(
                         if (feof(f))
                                 break;
 
-                        r = -errno;
                         log_error("[%s:%u] Failed to read environment file '%s', ignoring: %m", filename, line, rvalue);
                         r = 0;
                         goto finish;
@@ -1431,7 +1426,6 @@ static int config_parse_ip_tos(
                 void *userdata) {
 
         int *ip_tos = data, x;
-        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1439,7 +1433,7 @@ static int config_parse_ip_tos(
         assert(data);
 
         if ((x = ip_tos_from_string(rvalue)) < 0)
-                if ((r = safe_atoi(rvalue, &x)) < 0) {
+                if (safe_atoi(rvalue, &x) < 0) {
                         log_error("[%s:%u] Failed to parse IP TOS value, ignoring: %s", filename, line, rvalue);
                         return 0;
                 }

@@ -43,6 +43,7 @@ static void apply_sysctl(const char *property, const char *value) {
         if (!(p = new(char, sizeof(PROC_SYS_PREFIX) + strlen(property)))) {
                 log_error("Out of memory");
                 exit_code = -ENOMEM;
+                return;
         }
 
         n = stpcpy(p, PROC_SYS_PREFIX);

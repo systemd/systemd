@@ -46,7 +46,9 @@ static int parse_argv(pam_handle_t *handle,
                       char ***controllers) {
 
         unsigned i;
+#if 0
         bool controller_set = false;
+#endif
 
         assert(argc >= 0);
         assert(argc == 0 || argv);
@@ -104,7 +106,9 @@ static int parse_argv(pam_handle_t *handle,
                                 *controllers = l;
                         }
 
+#if 0
                         controller_set = true;
+#endif
 
                 } else {
                         pam_syslog(handle, LOG_ERR, "Unknown parameter '%s'.", argv[i]);

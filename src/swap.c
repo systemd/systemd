@@ -1090,7 +1090,7 @@ int swap_fd_event(Manager *m, int events) {
         assert(m);
         assert(events & EPOLLPRI);
 
-        if ((r == swap_load_proc_swaps(m, true)) < 0) {
+        if ((r = swap_load_proc_swaps(m, true)) < 0) {
                 log_error("Failed to reread /proc/swaps: %s", strerror(-r));
 
                 /* Reset flags, just in case, for late calls */

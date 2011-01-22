@@ -474,7 +474,7 @@ static void item_free(Item *i) {
 static int parse_line(const char *fname, unsigned line, const char *buffer, const char *prefix) {
         Item *i;
         char *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
-        int r, n;
+        int r;
 
         assert(fname);
         assert(line >= 1);
@@ -485,19 +485,19 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, cons
                 return -ENOMEM;
         }
 
-        if ((n = sscanf(buffer,
-                        "%c "
-                        "%ms "
-                        "%ms "
-                        "%ms "
-                        "%ms "
-                        "%ms",
-                        &i->type,
-                        &i->path,
-                        &mode,
-                        &user,
-                        &group,
-                        &age)) < 2) {
+        if (sscanf(buffer,
+                   "%c "
+                   "%ms "
+                   "%ms "
+                   "%ms "
+                   "%ms "
+                   "%ms",
+                   &i->type,
+                   &i->path,
+                   &mode,
+                   &user,
+                   &group,
+                   &age) < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 r = -EIO;
                 goto finish;
