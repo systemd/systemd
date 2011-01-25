@@ -8,6 +8,10 @@ Bugs:
 * when plymouth is disabled the console password entry stuff seems to be borked
   https://bugzilla.redhat.com/show_bug.cgi?id=655538
 
+* fsck.btrfs non-existance should not cause mounting to fail
+
+* need a way to apply mount options of api vfs from systemd unit files instead of fstab
+
 Features:
 
 * PID heuristik bei Type=forking ausmachbar machen
