@@ -97,4 +97,9 @@ SUBSYSTEM=="mmc", RUN+="/sbin/modprobe -b mmc_block"
 SUBSYSTEM=="pnp", DRIVER!="?*", \
   RUN{ignore_error}+="/bin/sh -c '/sbin/modprobe -a $$(while read id; do echo pnp:d$$id; done < /sys$devpath/id)'"
 
+# see extras/qemu/42-qemu-usb.rules, version for 2.6.32 + older.
+ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Mouse", ATTR{serial}=="42", TEST=="power/level", ATTR{power/level}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Tablet", ATTR{serial}=="42", TEST=="power/level", ATTR{power/level}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Keyboard", ATTR{serial}=="42", TEST=="power/level", ATTR{power/level}="auto"
+
 LABEL="kernel_compat_end"
