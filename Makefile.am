@@ -320,7 +320,7 @@ dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
 # ------------------------------------------------------------------------------
 # qemu -- qemu/kvm guest tweaks
 # ------------------------------------------------------------------------------
-dist_udevrules_DATA += extras/qemu/99-qemu-usb.rules
+dist_udevrules_DATA += extras/qemu/42-qemu-usb.rules
 
 if ENABLE_EXTRAS
 # ------------------------------------------------------------------------------
