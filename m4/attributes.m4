@@ -39,7 +39,7 @@ AC_DEFUN([CC_CHECK_CFLAGS_SILENT], [
   AC_CACHE_VAL(AS_TR_SH([cc_cv_cflags_$1]),
     [ac_save_CFLAGS="$CFLAGS"
      CFLAGS="$CFLAGS $1"
-     AC_COMPILE_IFELSE([int a;],
+     AC_COMPILE_IFELSE([AC_LANG_SOURCE([int a;])],
        [eval "AS_TR_SH([cc_cv_cflags_$1])='yes'"],
        [eval "AS_TR_SH([cc_cv_cflags_$1])='no'"])
      CFLAGS="$ac_save_CFLAGS"
@@ -147,7 +147,7 @@ AC_DEFUN([CC_CHECK_ATTRIBUTE], [
     AS_TR_SH([cc_cv_attribute_$1]),
     [ac_save_CFLAGS="$CFLAGS"
      CFLAGS="$CFLAGS $cc_cv_werror"
-     AC_COMPILE_IFELSE([$3],
+     AC_COMPILE_IFELSE([AC_LANG_SOURCE([$3])],
        [eval "AS_TR_SH([cc_cv_attribute_$1])='yes'"],
        [eval "AS_TR_SH([cc_cv_attribute_$1])='no'"])
      CFLAGS="$ac_save_CFLAGS"
@@ -271,11 +271,11 @@ AC_DEFUN([CC_FUNC_EXPECT], [
     [cc_cv_func_expect],
     [ac_save_CFLAGS="$CFLAGS"
      CFLAGS="$CFLAGS $cc_cv_werror"
-     AC_COMPILE_IFELSE(
+     AC_COMPILE_IFELSE([AC_LANG_SOURCE(
        [int some_function() {
         int a = 3;
         return (int)__builtin_expect(a, 3);
-	}],
+	}])],
        [cc_cv_func_expect=yes],
        [cc_cv_func_expect=no])
      CFLAGS="$ac_save_CFLAGS"
@@ -295,11 +295,11 @@ AC_DEFUN([CC_ATTRIBUTE_ALIGNED], [
     [ac_save_CFLAGS="$CFLAGS"
      CFLAGS="$CFLAGS $cc_cv_werror"
      for cc_attribute_align_try in 64 32 16 8 4 2; do
-        AC_COMPILE_IFELSE([
+        AC_COMPILE_IFELSE([AC_LANG_SOURCE([
           int main() {
             static char c __attribute__ ((aligned($cc_attribute_align_try))) = 0;
             return c;
-          }], [cc_cv_attribute_aligned=$cc_attribute_align_try; break])
+          }])], [cc_cv_attribute_aligned=$cc_attribute_align_try; break])
      done
      CFLAGS="$ac_save_CFLAGS"
   ])
