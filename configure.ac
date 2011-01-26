@@ -274,16 +274,16 @@ if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
         else
-                AC_CHECK_FILE(/etc/redhat-release,with_distro="fedora")
-                AC_CHECK_FILE(/etc/SuSE-release,with_distro="suse")
-                AC_CHECK_FILE(/etc/debian_version,with_distro="debian")
+                test -f "/etc/redhat-release" && with_distro="fedora"
+                test -f "/etc/SuSE-release" && with_distro="suse"
+                test -f "/etc/debian_version" &&  with_distro="debian"
+                test -f "/etc/arch-release" && with_distro="arch"
+                test -f "/etc/gentoo-release" && with_distro="gentoo"
+                test -f "/etc/slackware-version" && with_distro="slackware"
+                test -f "/etc/frugalware-release" && with_distro="frugalware"
                 if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
                         with_distro="ubuntu"
                 fi
-                AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
-                AC_CHECK_FILE(/etc/gentoo-release,with_distro="gentoo")
-                AC_CHECK_FILE(/etc/slackware-version,with_distro="slackware")
-                AC_CHECK_FILE(/etc/frugalware-release,with_distro="frugalware")
         fi
         if test "z$with_distro" = "z"; then
                 with_distro=`uname -s`
