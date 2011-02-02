@@ -306,7 +306,7 @@ static int config_parse_nice(
         }
 
         c->nice = priority;
-        c->nice_set = false;
+        c->nice_set = true;
 
         return 0;
 }
