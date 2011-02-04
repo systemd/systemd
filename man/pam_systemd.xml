@@ -222,17 +222,30 @@
                                 separated list of cgroup controllers
                                 in which hierarchies a user/session
                                 cgroup will be created by default for
-                                each user logging in. If ommited,
-                                defaults to 'cpu', meaning that in
-                                addition to creating per-user and
-                                per-session cgroups in systemd's own
-                                hierarchy, groups are created in the
-                                'cpu' hierarchy, on order to ensure
-                                that every use and every sessions gets
-                                an equal amount of CPU time,
-                                regardless how many processes a user
-                                or session might
-                                own.</para></listitem>
+                                each user logging in, in addition to
+                                the cgroup in the named 'name=systemd'
+                                hierarchy. If ommited, defaults to an
+                                empty list. This may be used to move
+                                user sessions into their own groups in
+                                the 'cpu' hierarchy which ensures that
+                                every logged in user gets an equal
+                                amount of CPU time regardless how many
+                                processes he has
+                                started.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>reset-controllers=</option></term>
+
+                                <listitem><para>Takes a comma
+                                separated list of cgroup controllers
+                                in which hierarchies the logged in
+                                processes will be reset to the root
+                                cgroup. If ommited, defaults to 'cpu',
+                                meaning that a 'cpu' cgroup grouping
+                                inherited from the login manager will
+                                be reset for the processes of the
+                                logged in user.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -245,7 +258,8 @@
                 <option>create-session=1</option>,
                 <option>kill-session=0</option>,
                 <option>kill-user=0</option>,
-                <option>keep-root=1</option>.</para>
+                <option>keep-root=1</option>,
+                <option>reset-controllers=cpu</option>.</para>
         </refsect1>
 
         <refsect1>

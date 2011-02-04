@@ -43,12 +43,11 @@ static int parse_argv(pam_handle_t *handle,
                       bool *kill_session,
                       bool *kill_user,
                       bool *keep_root,
-                      char ***controllers) {
+                      char ***controllers,
+                      char ***reset_controllers) {
 
         unsigned i;
-#if 0
-        bool controller_set = false;
-#endif
+        bool reset_controller_set = false;
 
         assert(argc >= 0);
         assert(argc == 0 || argv);
@@ -106,9 +105,21 @@ static int parse_argv(pam_handle_t *handle,
                                 *controllers = l;
                         }
 
-#if 0
-                        controller_set = true;
-#endif
+                } else if (startswith(argv[i], "reset-controllers=")) {
+
+                        if (reset_controllers) {
+                                char **l;
+
+                                if (!(l = strv_split(argv[i] + 18, ","))) {
+                                        pam_syslog(handle, LOG_ERR, "Out of memory.");
+                                        return -ENOMEM;
+                                }
+
+                                strv_free(*reset_controllers);
+                                *reset_controllers = l;
+                        }
+
+                        reset_controller_set = true;
 
                 } else {
                         pam_syslog(handle, LOG_ERR, "Unknown parameter '%s'.", argv[i]);
@@ -116,8 +127,7 @@ static int parse_argv(pam_handle_t *handle,
                 }
         }
 
-#if 0
-        if (!controller_set && controllers) {
+        if (!reset_controller_set && reset_controllers) {
                 char **l;
 
                 if (!(l = strv_new("cpu", NULL))) {
@@ -125,12 +135,14 @@ static int parse_argv(pam_handle_t *handle,
                         return -ENOMEM;
                 }
 
-                *controllers = l;
+                *reset_controllers = l;
         }
-#endif
 
         if (controllers)
                 strv_remove(*controllers, "name=systemd");
+
+        if (reset_controllers)
+                strv_remove(*reset_controllers, "name=systemd");
 
         if (kill_session && *kill_session && kill_user)
                 *kill_user = true;
@@ -320,6 +332,22 @@ static int create_user_group(
         return PAM_SUCCESS;
 }
 
+static int reset_group(
+                pam_handle_t *handle,
+                const char *controller) {
+
+        int r;
+
+        assert(handle);
+
+        if ((r = cg_attach(controller, "/", 0)) < 0) {
+                pam_syslog(handle, LOG_ERR, "Failed to reset cgroup for controller %s: %s", controller, strerror(-r));
+                return PAM_SESSION_ERR;
+        }
+
+        return PAM_SUCCESS;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -331,7 +359,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         char *buf = NULL;
         int lock_fd = -1;
         bool create_session = true;
-        char **controllers = NULL, **c;
+        char **controllers = NULL, **reset_controllers = NULL, **c;
 
         assert(handle);
 
@@ -341,7 +369,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
 
-        if (parse_argv(handle, argc, argv, &create_session, NULL, NULL, NULL, &controllers) < 0)
+        if (parse_argv(handle, argc, argv, &create_session, NULL, NULL, NULL, &controllers, &reset_controllers) < 0)
                 return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
@@ -429,6 +457,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         STRV_FOREACH(c, controllers)
                 create_user_group(handle, *c, buf, pw, true, false);
 
+        STRV_FOREACH(c, reset_controllers)
+                reset_group(handle, *c);
+
         r = PAM_SUCCESS;
 
 finish:
@@ -438,6 +469,7 @@ finish:
                 close_nointr_nofail(lock_fd);
 
         strv_free(controllers);
+        strv_free(reset_controllers);
 
         return r;
 }
@@ -490,7 +522,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
 
-        if (parse_argv(handle, argc, argv, NULL, &kill_session, &kill_user, &keep_root, &controllers) < 0)
+        if (parse_argv(handle, argc, argv, NULL, &kill_session, &kill_user, &keep_root, &controllers, NULL) < 0)
                 return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)

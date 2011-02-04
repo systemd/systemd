@@ -918,7 +918,6 @@ static int config_parse_limit(
 
         struct rlimit **rl = data;
         unsigned long long u;
-        int r;
 
         assert(filename);
         assert(lvalue);
