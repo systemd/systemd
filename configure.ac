@@ -319,11 +319,13 @@ case $with_distro in
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 M4_DISTRO_FLAG=-DTARGET_FEDORA=1
+		have_plymouth=true
                 ;;
         suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
                 M4_DISTRO_FLAG=-DTARGET_SUSE=1
+		have_plymouth=true
                 ;;
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
@@ -426,6 +428,8 @@ AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
 AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
+
+AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
 
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 

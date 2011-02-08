@@ -331,14 +331,18 @@ if TARGET_FEDORA
 dist_systemunit_DATA += \
 	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
-	units/fedora/halt-local.service \
-	units/fedora/plymouth-start.service \
-	units/fedora/plymouth-read-write.service \
-	units/fedora/plymouth-quit.service \
-	units/fedora/plymouth-reboot.service \
-	units/fedora/plymouth-kexec.service \
-	units/fedora/plymouth-poweroff.service \
-	units/fedora/plymouth-halt.service
+	units/fedora/halt-local.service
+endif
+
+if HAVE_PLYMOUTH
+dist_systemunit_DATA += \
+	units/plymouth-start.service \
+	units/plymouth-read-write.service \
+	units/plymouth-quit.service \
+	units/plymouth-reboot.service \
+	units/plymouth-kexec.service \
+	units/plymouth-poweroff.service \
+	units/plymouth-halt.service
 endif
 
 dist_doc_DATA = \
@@ -1271,20 +1275,13 @@ install-data-hook:
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
-if TARGET_FEDORA
+if HAVE_PLYMOUTH
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
 		$(DESTDIR)$(systemunitdir)/reboot.target.wants \
 		$(DESTDIR)$(systemunitdir)/kexec.target.wants \
 		$(DESTDIR)$(systemunitdir)/poweroff.target.wants \
-		$(DESTDIR)$(systemunitdir)/halt.target.wants \
-		$(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f rc-local.service && \
-		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
-	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
-		rm -f halt-local.service && \
-		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
+		$(DESTDIR)$(systemunitdir)/halt.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f plymouth-start.service plymouth-read-write.service && \
 		$(LN_S) ../plymouth-start.service plymouth-start.service && \
@@ -1304,6 +1301,16 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir)/halt.target.wants && \
 		rm -f plymouth-halt.service && \
 		$(LN_S) ../plymouth-halt.service plymouth-halt.service )
+endif
+
+if TARGET_FEDORA
+	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
+		rm -f halt-local.service && \
+		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service && \
 		$(LN_S) prefdm.service display-manager.service )
