@@ -3017,6 +3017,21 @@ void status_welcome(void) {
         if (!ansi_color)
                 const_color = "1;34"; /* Light Blue for Gentoo */
 
+#elif defined(TARGET_ALTLINUX)
+
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/altlinux-release", &pretty_name)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/altlinux-release: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
+
+        if (!ansi_color)
+                const_color = "0;36"; /* Cyan for ALTLinux */
+
+
 #elif defined(TARGET_DEBIAN)
 
         if (!pretty_name) {

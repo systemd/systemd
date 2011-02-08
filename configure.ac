@@ -269,7 +269,7 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_PATH_PROG([M4], [m4])
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -281,6 +281,7 @@ if test "z$with_distro" = "z"; then
                 test -f "/etc/gentoo-release" && with_distro="gentoo"
                 test -f "/etc/slackware-version" && with_distro="slackware"
                 test -f "/etc/frugalware-release" && with_distro="frugalware"
+                test -f "/etc/altlinux-release" && with_distro="altlinux"
                 if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
                         with_distro="ubuntu"
                 fi
@@ -362,6 +363,12 @@ case $with_distro in
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
                 M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
                 ;;
+        altlinux)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
+                SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
+                M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
+                ;;
         other)
                 AS_IF([test "x$with_syslog_service" = "x"],
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
@@ -418,6 +425,7 @@ AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
+AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
 
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 

@@ -280,6 +280,24 @@ int main(int argc, char **argv) {
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/sysconfig/font: %s", strerror(-r));
                 }
+
+#elif defined(TARGET_ALTLINUX)
+                if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                        "KEYTABLE", &vc_keymap,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
+                }
+
+                if ((r = parse_env_file("/etc/sysconfig/consolefont", NEWLINE,
+                                        "SYSFONT", &vc_font,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/console: %s", strerror(-r));
+                }
+
 #elif defined(TARGET_GENTOO)
                 if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
                                         "unicode", &vc_unicode,
