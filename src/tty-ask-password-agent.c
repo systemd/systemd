@@ -83,7 +83,7 @@ static int ask_password_plymouth(const char *message, usec_t until, const char *
         sa.sa.sa_family = AF_UNIX;
         strncpy(sa.un.sun_path+1, "/org/freedesktop/plymouthd", sizeof(sa.un.sun_path)-1);
         if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
-                log_error("FIALED TO CONNECT: %m");
+                log_error("FAILED TO CONNECT: %m");
                 r = -errno;
                 goto finish;
         }

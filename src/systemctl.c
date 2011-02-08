@@ -151,13 +151,15 @@ static void spawn_ask_password_agent(void) {
 
         if (child == 0) {
                 /* In the child */
-
                 const char * const args[] = {
                         SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH,
                         "--watch",
                         NULL
                 };
 
+                int fd;
+
+                /* Make sure the agent goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
                         _exit(EXIT_FAILURE);
 
@@ -165,6 +167,31 @@ static void spawn_ask_password_agent(void) {
                  * to set the death signal */
                 if (getppid() != parent)
                         _exit(EXIT_SUCCESS);
+
+                /* Don't leak fds to the agent */
+                close_all_fds(NULL, 0);
+
+                /* Detach from stdin/stdout/stderr. and reopen
+                 * /dev/tty for them. This is important to ensure that
+                 * when systemctl is started via popen() or a similar
+                 * call that expects to read EOF we actually do
+                 * generate EOF and not delay this indefinitely by
+                 * because we keep an unused copy of stdin around. */
+                if ((fd = open("/dev/tty", O_RDWR|O_CLOEXEC|O_NONBLOCK)) < 0) {
+                        log_error("Failed to open /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                close(STDIN_FILENO);
+                close(STDOUT_FILENO);
+                close(STDERR_FILENO);
+
+                dup2(fd, STDIN_FILENO);
+                dup2(fd, STDOUT_FILENO);
+                dup2(fd, STDERR_FILENO);
+
+                if (fd > 2)
+                        close(fd);
 
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
