@@ -99,7 +99,7 @@
         "  <property name=\"RefuseManualStop\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultDependencies\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"ControlGroup\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NeedDaemonReload\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"JobTimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
@@ -143,7 +143,7 @@
         { "org.freedesktop.systemd1.Unit", "AllowIsolate",         bus_property_append_bool,       "b",    &u->meta.allow_isolate            }, \
         { "org.freedesktop.systemd1.Unit", "DefaultDependencies",  bus_property_append_bool,       "b",    &u->meta.default_dependencies     }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
-        { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "ControlGroup",         bus_unit_append_cgroups,        "as",   u                                 }, \
         { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }, \
         { "org.freedesktop.systemd1.Unit", "JobTimeoutUSec",       bus_property_append_usec,       "t",    &u->meta.job_timeout              }
 
