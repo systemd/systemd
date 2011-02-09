@@ -141,6 +141,9 @@ static void spawn_ask_password_agent(void) {
         if (!arg_ask_password)
                 return;
 
+        if (arg_user)
+                return;
+
         parent = getpid();
 
         /* Spawns a temporary TTY agent, making sure it goes away when
