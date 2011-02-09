@@ -584,8 +584,12 @@ int main(int argc, char *argv[])
 		printf("ID_MODEL=%s\n", model);
 		printf("ID_MODEL_ENC=%s\n", model_enc);
 		printf("ID_REVISION=%s\n", revision);
-		printf("ID_SERIAL=%s_%s\n", model, serial);
-		printf("ID_SERIAL_SHORT=%s\n", serial);
+		if (serial[0] != '\0') {
+			printf("ID_SERIAL=%s_%s\n", model, serial);
+			printf("ID_SERIAL_SHORT=%s\n", serial);
+		} else {
+			printf("ID_SERIAL=%s\n", model);
+		}
 
 		if (id.command_set_1 & (1<<5)) {
 			printf ("ID_ATA_WRITE_CACHE=1\n");
