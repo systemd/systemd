@@ -5,7 +5,7 @@
 0x85 brightnessdown # Fn+Down arrow Brightness Down
 0x86 brightnessup # Fn+Up arrow Brightness Up
 0x87 battery # Fn+F3 battery icon
-0x88 wlan # Fn+F2 Turn On/Off Wireless
+0x88 unknown # Fn+F2 Turn On/Off Wireless - handled in hardware
 0x89 ejectclosecd # Fn+F10 Eject CD
 0x8A suspend # Fn+F1 hibernate
 0x8B switchvideomode # Fn+F8 CRT/LCD (high keycode: "displaytoggle")
