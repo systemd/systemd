@@ -180,7 +180,7 @@ static void spawn_ask_password_agent(void) {
                  * call that expects to read EOF we actually do
                  * generate EOF and not delay this indefinitely by
                  * because we keep an unused copy of stdin around. */
-                if ((fd = open("/dev/tty", O_RDWR|O_CLOEXEC|O_NONBLOCK)) < 0) {
+                if ((fd = open("/dev/tty", O_RDWR)) < 0) {
                         log_error("Failed to open /dev/tty: %m");
                         _exit(EXIT_FAILURE);
                 }
