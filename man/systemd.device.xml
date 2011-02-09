@@ -123,6 +123,25 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SYSTEMD_READY=</varname></term>
+                                <listitem><para>If set to 0 systemd
+                                will consider this device unplugged
+                                even if it shows up in the udev
+                                tree. If this property is unset or set
+                                to 1 the device will be considered
+                                plugged the moment it shows up in the
+                                udev tree. This property has no
+                                influence on the behaviour when a
+                                device disappears from the udev
+                                tree. This option is useful to support
+                                devices that initially show up in an
+                                unitialized state in the tree, and for
+                                which a changed event is generated the
+                                moment they are fully set
+                                up.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>ID_MODEL_FROM_DATABASE=</varname></term>
                                 <term><varname>ID_MODEL=</varname></term>
 
