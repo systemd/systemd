@@ -233,6 +233,7 @@ dist_systemunit_DATA = \
 	units/hwclock-save.service \
 	units/remount-rootfs.service \
 	units/printer.target \
+	units/sound.target \
 	units/bluetooth.target \
 	units/smartcard.target \
 	units/systemd-readahead-done.timer \
@@ -1201,13 +1202,14 @@ install-data-hook:
 		$(LN_S) ../var-run.mount var-run.mount && \
 		$(LN_S) ../var-lock.mount var-lock.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
-		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
+		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target sound.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
 		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \
 		$(LN_S) $(systemunitdir)/local-fs.target local-fs.target && \
 		$(LN_S) $(systemunitdir)/swap.target swap.target && \
 		$(LN_S) $(systemunitdir)/bluetooth.target bluetooth.target && \
-		$(LN_S) $(systemunitdir)/printer.target printer.target)
+		$(LN_S) $(systemunitdir)/printer.target printer.target && \
+		$(LN_S) $(systemunitdir)/sound.target sound.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel0.target runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target runlevel6.target && \
 		$(LN_S) poweroff.target runlevel0.target && \

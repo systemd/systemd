@@ -31,5 +31,6 @@ SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/bluet
 SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}="bluetooth.target"
 SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
 ENV{ID_SMARTCARD_READER}=="*?", TAG+="systemd", ENV{SYSTEMD_WANTS}="smartcard.target"
+SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}="sound.target"
 
 LABEL="systemd_end"
