@@ -174,6 +174,8 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+14, /* systemd: Immediate poweroff */
                         SIGRTMIN+15, /* systemd: Immediate reboot */
                         SIGRTMIN+16, /* systemd: Immediate kexec */
+                        SIGRTMIN+20, /* systemd: enable status messages */
+                        SIGRTMIN+21, /* systemd: disable status messages */
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
@@ -2177,7 +2179,21 @@ static int manager_process_signal_fd(Manager *m) {
                                 break;
                         }
 
-                        log_warning("Got unhandled signal <%s>.", strna(signal_to_string(sfsi.ssi_signo)));
+                        switch (sfsi.ssi_signo - SIGRTMIN) {
+
+                        case 20:
+                                log_debug("Enabling showing of status.");
+                                m->show_status = true;
+                                break;
+
+                        case 21:
+                                log_debug("Disabling showing of status.");
+                                m->show_status = false;
+                                break;
+
+                        default:
+                                log_warning("Got unhandled signal <%s>.", strna(signal_to_string(sfsi.ssi_signo)));
+                        }
                 }
                 }
         }

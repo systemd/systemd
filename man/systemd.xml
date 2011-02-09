@@ -720,6 +720,63 @@
                                 <command>systemctl start
                                 reboot.target</command>.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+6</term>
+
+                                <listitem><para>Reboots the machine via kexec,
+                                starts the
+                                <filename>kexec.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl start
+                                kexec.target</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+13</term>
+
+                                <listitem><para>Immediately halts the machine.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+14</term>
+
+                                <listitem><para>Immediately powers off the machine.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+15</term>
+
+                                <listitem><para>Immediately reboots the machine.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+16</term>
+
+                                <listitem><para>Immediately reboots the machine with kexec.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+20</term>
+
+                                <listitem><para>Enables display of
+                                status messages on the console, as
+                                controlled via
+                                <varname>systemd.show_status=1</varname>
+                                on the kernel command
+                                line.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+21</term>
+
+                                <listitem><para>Disables display of
+                                status messages on the console, as
+                                controlled via
+                                <varname>systemd.show_status=0</varname>
+                                on the kernel command
+                                line.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
