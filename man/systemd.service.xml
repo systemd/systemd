@@ -223,7 +223,11 @@
                                 daemon. Use of this option is
                                 recommended for services where
                                 <varname>Type=</varname> is set to
-                                <option>forking</option>.</para>
+                                <option>forking</option>. systemd will
+                                read the PID of the main process of
+                                the daemon after start-up of the
+                                service. systemd will not write to the
+                                file configured here.</para>
                                 </listitem>
                         </varlistentry>
 

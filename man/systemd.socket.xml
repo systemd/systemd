@@ -113,6 +113,17 @@
                 <para>Socket units may be used to implement on-demand
                 starting of services, as well as parallelized starting
                 of services.</para>
+
+                <para>Note that the daemon software configured for
+                socket activation with socket units needs to be able
+                to accept sockets from systemd, either via systemd's
+                native socket passing interface (see
+                <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                for details) or via the traditional
+                <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style
+                socket passing (i.e. sockets passed in via STDIN and
+                STDOUT, using <varname>StandardInput=socket</varname>
+                in the service file).</para>
         </refsect1>
 
         <refsect1>
