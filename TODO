@@ -1,8 +1,5 @@
 Bugs:
 
-* somehow some /etc/fstab supplied mount params are never applied to api fs
-  https://bugzilla.redhat.com/show_bug.cgi?id=663108
-
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
 * when plymouth is disabled the console password entry stuff seems to be borked
@@ -10,23 +7,19 @@ Bugs:
 
 * fsck.btrfs non-existance should not cause mounting to fail
 
-* need a way to apply mount options of api vfs from systemd unit files instead of fstab
-
 Features:
 
-* make it possible to enable status msgs via RT sigs
+* need a way to apply mount options of api vfs from systemd unit files instead of fstab
 
 * udisks should not use udisks-part-id, instead use blkid. also not probe /dev/loopxxx
 
-* snd-seq muss weg
+* snd-seq should go, https://bugzilla.redhat.com/show_bug.cgi?id=676095
 
-* mount.tmpfs soll weg und grep weg
+* mount.tmpfs should be optimized, https://bugzilla.redhat.com/show_bug.cgi?id=676100
 
 * mdmon is irre
 
 * gnome-shell python script/glxinfo/is-accelerated wech
-
-* plymouth muss sauber exiten, wenn's schon läuft
 
 * pull in by udev change event instead of only start event
 

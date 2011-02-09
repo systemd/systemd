@@ -526,7 +526,7 @@ fail:
 void device_fd_event(Manager *m, int events) {
         struct udev_device *dev;
         int r;
-        const char *action;
+        const char *action, *ready;
 
         assert(m);
 
@@ -552,7 +552,9 @@ void device_fd_event(Manager *m, int events) {
                 goto fail;
         }
 
-        if (streq(action, "remove")) {
+        ready = udev_device_get_property_value(dev, "SYSTEMD_READY");
+
+        if (streq(action, "remove") || (ready && parse_boolean(ready) == 0)) {
                 if ((r = device_process_removed_device(m, dev)) < 0) {
                         log_error("Failed to process udev device event: %s", strerror(-r));
                         goto fail;
