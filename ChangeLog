@@ -1,3 +1,36 @@
+Summary of changes from v165 to v166
+============================================
+
+Chris Bagwell (1):
+      Remap Eee PC touchpad toggle key to F21 used by X
+
+Gerd Hoffmann (1):
+      extras: add rules for qemu guests
+
+Jürgen Kaiser (1):
+      keymap: Add Acer Aspire 8930
+
+Kay Sievers (7):
+      version bump
+      man: generate html pages for www.kernel.org
+      man: fix typo
+      make: fix qemu rules file name
+      extras: qemu - fix typo
+      ata_id: do not print empty serial numbers to avoid unwanted trailing '_'
+      update gitignore
+
+Martin Pitt (6):
+      keymap: Add Acer TravelMate C310
+      keymap: Update README.keymap.txt
+      keymap: Add Lenovo ThinkPad X201 tablet
+      keymap: Move reading of event in separate function
+      keymap: More robust state machine
+      keymap: Explain how to end the program
+
+Matthew Garrett (1):
+      keymap: Remove wlan from Dell
+
+
 Summary of changes from v164 to v165
 ============================================
 
