@@ -36,6 +36,8 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/param.h>
+#include <glob.h>
+#include <fnmatch.h>
 
 #include "log.h"
 #include "util.h"
@@ -50,10 +52,13 @@
  * bootup. */
 
 enum {
+        /* These ones take file names */
         CREATE_FILE = 'f',
         TRUNCATE_FILE = 'F',
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
+
+        /* These ones take globs */
         IGNORE_PATH = 'x',
         REMOVE_PATH = 'r',
         RECURSIVE_REMOVE_PATH = 'R'
@@ -74,13 +79,28 @@ typedef struct Item {
         bool age_set:1;
 } Item;
 
-static Hashmap *items = NULL;
+static Hashmap *items = NULL, *globs = NULL;
 
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 
 #define MAX_DEPTH 256
+
+static bool needs_glob(int t) {
+        return t == IGNORE_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH;
+}
+
+static struct Item* find_glob(Hashmap *h, const char *match) {
+        Item *j;
+        Iterator i;
+
+        HASHMAP_FOREACH(j, h, i)
+                if (fnmatch(j->path, match, FNM_PATHNAME|FNM_PERIOD) == 0)
+                        return j;
+
+        return NULL;
+}
 
 static int dir_cleanup(
                 const char *p,
@@ -134,6 +154,9 @@ static int dir_cleanup(
 
                 /* Is there an item configured for this path? */
                 if (hashmap_get(items, sub_path))
+                        continue;
+
+                if (find_glob(globs, sub_path))
                         continue;
 
                 if (S_ISDIR(s.st_mode)) {
@@ -411,7 +434,7 @@ finish:
         return r;
 }
 
-static int remove_item(Item *i) {
+static int remove_item(Item *i, const char *instance) {
         int r;
 
         assert(i);
@@ -425,8 +448,8 @@ static int remove_item(Item *i) {
                 break;
 
         case REMOVE_PATH:
-                if (remove(i->path) < 0 && errno != ENOENT) {
-                        log_error("remove(%s): %m", i->path);
+                if (remove(instance) < 0 && errno != ENOENT) {
+                        log_error("remove(%s): %m", instance);
                         return -errno;
                 }
 
@@ -434,13 +457,57 @@ static int remove_item(Item *i) {
 
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                if ((r = rm_rf(i->path, false, i->type == RECURSIVE_REMOVE_PATH)) < 0 &&
+                if ((r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH)) < 0 &&
                     r != -ENOENT) {
-                        log_error("rm_rf(%s): %s", i->path, strerror(-r));
+                        log_error("rm_rf(%s): %s", instance, strerror(-r));
                         return r;
                 }
 
                 break;
+        }
+
+        return 0;
+}
+
+static int remove_item_glob(Item *i) {
+        assert(i);
+
+        switch (i->type) {
+
+        case CREATE_FILE:
+        case TRUNCATE_FILE:
+        case CREATE_DIRECTORY:
+        case IGNORE_PATH:
+                break;
+
+        case REMOVE_PATH:
+        case TRUNCATE_DIRECTORY:
+        case RECURSIVE_REMOVE_PATH: {
+                int r = 0, k;
+                glob_t g;
+                char **fn;
+
+                zero(g);
+
+                errno = 0;
+                if ((k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g)) != 0) {
+
+                        if (k != GLOB_NOMATCH) {
+                                if (errno != 0)
+                                        errno = EIO;
+
+                                log_error("glob(%s) failed: %m", i->path);
+                                return -errno;
+                        }
+                }
+
+                STRV_FOREACH(fn, g.gl_pathv)
+                        if ((k = remove_item(i, *fn)) < 0)
+                                r = k;
+
+                globfree(&g);
+                return r;
+        }
         }
 
         return 0;
@@ -452,7 +519,7 @@ static int process_item(Item *i) {
         assert(i);
 
         r = arg_create ? create_item(i) : 0;
-        q = arg_remove ? remove_item(i) : 0;
+        q = arg_remove ? remove_item_glob(i) : 0;
         p = arg_clean ? clean_item(i) : 0;
 
         if (r < 0)
@@ -590,7 +657,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, cons
                 i->age_set = true;
         }
 
-        if ((r = hashmap_put(items, i->path, i)) < 0) {
+        if ((r = hashmap_put(needs_glob(i->type) ? globs : items, i->path, i)) < 0) {
                 if (r == -EEXIST) {
                         log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
                         r = 0;
@@ -721,7 +788,10 @@ int main(int argc, char *argv[]) {
 
         label_init();
 
-        if (!(items = hashmap_new(string_hash_func, string_compare_func))) {
+        items = hashmap_new(string_hash_func, string_compare_func);
+        globs = hashmap_new(string_hash_func, string_compare_func);
+
+        if (!items || !globs) {
                 log_error("Out of memory");
                 r = EXIT_FAILURE;
                 goto finish;
@@ -796,6 +866,10 @@ int main(int argc, char *argv[]) {
 
         free(de);
 
+        HASHMAP_FOREACH(i, globs, iterator)
+                if (process_item(i) < 0)
+                        r = EXIT_FAILURE;
+
         HASHMAP_FOREACH(i, items, iterator)
                 if (process_item(i) < 0)
                         r = EXIT_FAILURE;
@@ -805,6 +879,7 @@ finish:
                 item_free(i);
 
         hashmap_free(items);
+        hashmap_free(globs);
 
         label_finish();
 

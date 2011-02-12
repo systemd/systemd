@@ -9,6 +9,8 @@ Bugs:
 
 Features:
 
+* perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
+
 * tty name lock for password agent is broken, since it will always lock "/dev/tty" since we now reattach the agent process when forking it off systemctl
 
 * need a way to apply mount options of api vfs from systemd unit files instead of fstab
@@ -49,8 +51,6 @@ Features:
 
 * load EnvironmentFile= when starting services, not when reloading configuration
   https://bugzilla.redhat.com/show_bug.cgi?id=661282
-
-* support globs in systemd-tmpfiles
 
 * drop IN_ATTRIB from inotify watches for .path units where possible to avoid
   lots of wakeups due to /dev changing when we watch a subdir of /dev.

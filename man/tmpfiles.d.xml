@@ -54,11 +54,11 @@
 
 		<para><command>systemd</command> uses
 		<filename>/etc/tmpfiles.d/</filename> to describe the
-		creation, cleaning and removal of temporary files and
-		directories which usually reside in
-		<filename>/var/run</filename> or
-		<filename>/tmp</filename>).  Each configuration file
-		is named in the style of
+		creation, cleaning and removal of volatile files and
+		directories which usually reside in directories such
+		as <filename>/var/run</filename> or
+		<filename>/tmp</filename>.  Each configuration file is
+		named in the style of
 		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename>.</para>
         </refsect1>
 
@@ -97,17 +97,41 @@ d    /var/run/user 0755 root root 10d</programlisting>
 
                                 <varlistentry>
                                         <term><varname>x</varname></term>
-                                        <listitem><para>Ignore a path</para></listitem>
+                                        <listitem><para>Ignore a path
+                                        during cleaning. Use this type
+                                        to exclude paths from clean-up
+                                        as controlled with the Age
+                                        parameter. Note that lines of
+                                        this type do not influence the
+                                        effect of r or R lines. Lines
+                                        of this type accept
+                                        shell-style globs in place of
+                                        of normal path
+                                        names.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>r</varname></term>
-                                        <listitem><para>Remove a path</para></listitem>
+                                        <listitem><para>Remove a file
+                                        or directory if it
+                                        exists. This may not be used
+                                        to remove non-empty
+                                        directories, use R for
+                                        that. Lines of this type
+                                        accept shell-style globs in
+                                        place of normal path
+                                        names.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>R</varname></term>
-                                        <listitem><para>Recursively remove a path</para></listitem>
+                                        <listitem><para>Recursively
+                                        remove a path and all its
+                                        subdirectories (if it is a
+                                        directory). Lines of this type
+                                        accept shell-style globs in
+                                        place of normal path
+                                        names.</para></listitem>
                                 </varlistentry>
                         </variablelist>
                 </refsect2>
@@ -115,10 +139,11 @@ d    /var/run/user 0755 root root 10d</programlisting>
                 <refsect2>
                         <title>Mode</title>
 
-                        <para>The file access mode to use for this
-                        file or directory. If omitted or when set to -
-                        the default is used: 0755 for directories,
-                        0644 for files.</para>
+                        <para>The file access mode to use when
+                        creating this file or directory. If omitted or
+                        when set to - the default is used: 0755 for
+                        directories, 0644 for files. This parameter is
+                        ignored for x, r, R lines.</para>
                 </refsect2>
 
                 <refsect2>
@@ -127,8 +152,9 @@ d    /var/run/user 0755 root root 10d</programlisting>
                         <para>The user and group to use for this file
                         or directory. This may either be a numeric
                         user/group ID or a user or group name. If
-                        omitted or when set to - the default 0 is
-                        used.</para>
+                        omitted or when set to - the default 0 (root)
+                        is used. . These parameters are ignored for x,
+                        r, R lines.</para>
                 </refsect2>
 
                 <refsect2>
