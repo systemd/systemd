@@ -126,8 +126,6 @@ Features:
 
 * systemctl condrestart should return 0 if service isn't running
 
-* tmpfiles: allow specification of .conf files on cmdline
-
 * allow runtime changing of log level and target
 
 * automatically determine TERM= based on tty name even for /dev/console

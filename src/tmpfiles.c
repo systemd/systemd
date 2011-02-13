@@ -85,6 +85,8 @@ static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 
+static const char *arg_prefix = NULL;
+
 #define MAX_DEPTH 256
 
 static bool needs_glob(int t) {
@@ -538,7 +540,7 @@ static void item_free(Item *i) {
         free(i);
 }
 
-static int parse_line(const char *fname, unsigned line, const char *buffer, const char *prefix) {
+static int parse_line(const char *fname, unsigned line, const char *buffer) {
         Item *i;
         char *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
         int r;
@@ -590,7 +592,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, cons
 
         path_kill_slashes(i->path);
 
-        if (prefix && !path_startswith(i->path, prefix)) {
+        if (arg_prefix && !path_startswith(i->path, arg_prefix)) {
                 r = 0;
                 goto finish;
         }
@@ -698,12 +700,13 @@ static int scandir_filter(const struct dirent *d) {
 
 static int help(void) {
 
-        printf("%s [OPTIONS...]\n\n"
-               "Create and clean up temporary directories.\n\n"
+        printf("%s [OPTIONS...] [CONFIGURATION FILE]\n\n"
+               "Create and clean up temporary files and directories.\n\n"
                "  -h --help             Show this help\n"
                "     --create           Create marked files/directories\n"
                "     --clean            Clean up marked directories\n"
-               "     --remove           Remove marked files/directories\n",
+               "     --remove           Remove marked files/directories\n"
+               "     --prefix=PATH      Only apply rules that apply to paths\n",
                program_invocation_short_name);
 
         return 0;
@@ -714,7 +717,8 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_CREATE,
                 ARG_CLEAN,
-                ARG_REMOVE
+                ARG_REMOVE,
+                ARG_PREFIX
         };
 
         static const struct option options[] = {
@@ -722,6 +726,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "create",    no_argument,       NULL, ARG_CREATE    },
                 { "clean",     no_argument,       NULL, ARG_CLEAN     },
                 { "remove",    no_argument,       NULL, ARG_REMOVE    },
+                { "prefix",    required_argument, NULL, ARG_PREFIX    },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -750,6 +755,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_remove = true;
                         break;
 
+                case ARG_PREFIX:
+                        arg_prefix = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -760,27 +769,65 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (!arg_clean && !arg_create && !arg_remove) {
-                help();
+                log_error("You need to specify at leat one of --clean, --create or --remove.");
                 return -EINVAL;
         }
 
         return 1;
 }
 
+static int read_config_file(const char *fn, bool ignore_enoent) {
+        FILE *f;
+        unsigned v = 0;
+        int r = 0;
+
+        assert(fn);
+
+        if (!(f = fopen(fn, "re"))) {
+
+                if (ignore_enoent && errno == ENOENT)
+                        return 0;
+
+                log_error("Failed to open %s: %m", fn);
+                return -errno;
+        }
+
+        for (;;) {
+                char line[LINE_MAX], *l;
+                int k;
+
+                if (!(fgets(line, sizeof(line), f)))
+                        break;
+
+                v++;
+
+                l = strstrip(line);
+                if (*l == '#' || *l == 0)
+                        continue;
+
+                if ((k = parse_line(fn, v, l)) < 0)
+                        if (r == 0)
+                                r = k;
+        }
+
+        if (ferror(f)) {
+                log_error("Failed to read from file %s: %m", fn);
+                if (r == 0)
+                        r = -EIO;
+        }
+
+        fclose(f);
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
-        struct dirent **de = NULL;
-        int r, n, j;
-        const char *prefix = NULL;
+        int r;
         Item *i;
         Iterator iterator;
 
         if ((r = parse_argv(argc, argv)) <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
-        if (optind < argc)
-                prefix = argv[optind];
-        else
-                prefix = "/";
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -797,74 +844,50 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((n = scandir("/etc/tmpfiles.d/", &de, scandir_filter, alphasort)) < 0) {
-
-                if (errno == ENOENT)
-                        r = EXIT_SUCCESS;
-                else {
-                        log_error("Failed to enumerate /etc/tmpfiles.d/ files: %m");
-                        r = EXIT_FAILURE;
-                }
-
-                goto finish;
-        }
-
         r = EXIT_SUCCESS;
 
-        for (j = 0; j < n; j++) {
-                int k;
-                char *fn;
-                FILE *f;
-                unsigned v;
+        if (optind < argc) {
+                int j;
 
-                k = asprintf(&fn, "/etc/tmpfiles.d/%s", de[j]->d_name);
-                free(de[j]);
+                for (j = optind; j < argc; j++)
+                        if (read_config_file(argv[j], false) < 0)
+                                r = EXIT_FAILURE;
 
-                if (k < 0) {
-                        log_error("Failed to allocate file name.");
-                        r = EXIT_FAILURE;
-                        continue;
-                }
+        } else {
+                int n, j;
+                struct dirent **de = NULL;
 
-                if (!(f = fopen(fn, "re"))) {
+                if ((n = scandir("/etc/tmpfiles.d/", &de, scandir_filter, alphasort)) < 0) {
 
                         if (errno != ENOENT) {
-                                log_error("Failed to open %s: %m", fn);
+                                log_error("Failed to enumerate /etc/tmpfiles.d/ files: %m");
                                 r = EXIT_FAILURE;
                         }
 
-                        free(fn);
-                        continue;
+                        goto finish;
                 }
 
-                v = 0;
-                for (;;) {
-                        char line[LINE_MAX], *l;
+                for (j = 0; j < n; j++) {
+                        int k;
+                        char *fn;
 
-                        if (!(fgets(line, sizeof(line), f)))
-                                break;
+                        k = asprintf(&fn, "/etc/tmpfiles.d/%s", de[j]->d_name);
+                        free(de[j]);
 
-                        v++;
-
-                        l = strstrip(line);
-                        if (*l == '#' || *l == 0)
-                                continue;
-
-                        if (parse_line(fn, v, l, prefix) < 0)
+                        if (k < 0) {
+                                log_error("Failed to allocate file name.");
                                 r = EXIT_FAILURE;
+                                continue;
+                        }
+
+                        if (read_config_file(fn, true) < 0)
+                                r = EXIT_FAILURE;
+
+                        free(fn);
                 }
 
-                if (ferror(f)) {
-                        r = EXIT_FAILURE;
-                        log_error("Failed to read from file %s: %m", fn);
-                }
-
-                free(fn);
-
-                fclose(f);
+                free(de);
         }
-
-        free(de);
 
         HASHMAP_FOREACH(i, globs, iterator)
                 if (process_item(i) < 0)
