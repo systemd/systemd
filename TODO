@@ -11,8 +11,6 @@ Features:
 
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
-* tty name lock for password agent is broken, since it will always lock "/dev/tty" since we now reattach the agent process when forking it off systemctl
-
 * need a way to apply mount options of api vfs from systemd unit files instead of fstab
 
 * udisks should not use udisks-part-id, instead use blkid. also not probe /dev/loopxxx

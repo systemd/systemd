@@ -121,7 +121,7 @@ static bool on_tty(void) {
         /* Note that this is invoked relatively early, before we start
          * the pager. That means the value we return reflects whether
          * we originally were started on a tty, not if we currently
-         * are. But this is intended, since we want color, and so on
+         * are. But this is intended, since we want colour and so on
          * when run in our own pager. */
 
         if (_unlikely_(t < 0))
@@ -174,27 +174,32 @@ static void spawn_ask_password_agent(void) {
                 /* Don't leak fds to the agent */
                 close_all_fds(NULL, 0);
 
-                /* Detach from stdin/stdout/stderr. and reopen
-                 * /dev/tty for them. This is important to ensure that
-                 * when systemctl is started via popen() or a similar
-                 * call that expects to read EOF we actually do
-                 * generate EOF and not delay this indefinitely by
-                 * because we keep an unused copy of stdin around. */
-                if ((fd = open("/dev/tty", O_RDWR)) < 0) {
-                        log_error("Failed to open /dev/tty: %m");
-                        _exit(EXIT_FAILURE);
+                if (!isatty(STDOUT_FILENO) || !isatty(STDERR_FILENO)) {
+                        /* Detach from stdout/stderr. and reopen
+                         * /dev/tty for them. This is important to
+                         * ensure that when systemctl is started via
+                         * popen() or a similar call that expects to
+                         * read EOF we actually do generate EOF and
+                         * not delay this indefinitely by because we
+                         * keep an unused copy of stdin around. */
+                        if ((fd = open("/dev/tty", O_WRONLY)) < 0) {
+                                log_error("Failed to open /dev/tty: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        if (!isatty(STDOUT_FILENO)) {
+                                close(STDOUT_FILENO);
+                                dup2(fd, STDOUT_FILENO);
+                        }
+
+                        if (!isatty(STDERR_FILENO)) {
+                                close(STDERR_FILENO);
+                                dup2(fd, STDERR_FILENO);
+                        }
+
+                        if (fd > 2)
+                                close(fd);
                 }
-
-                close(STDIN_FILENO);
-                close(STDOUT_FILENO);
-                close(STDERR_FILENO);
-
-                dup2(fd, STDIN_FILENO);
-                dup2(fd, STDOUT_FILENO);
-                dup2(fd, STDERR_FILENO);
-
-                if (fd > 2)
-                        close(fd);
 
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
