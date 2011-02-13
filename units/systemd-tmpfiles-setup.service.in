@@ -16,4 +16,4 @@ ConditionPathExists=/etc/tmpfiles.d
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-tmpfiles --create --remove
+ExecStart=@rootbindir@/systemd-tmpfiles --create --remove

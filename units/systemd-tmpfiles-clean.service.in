@@ -15,5 +15,5 @@ ConditionPathExists=/etc/tmpfiles.d
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-tmpfiles --clean
+ExecStart=@rootbindir@/systemd-tmpfiles --clean
 IOSchedulingClass=idle

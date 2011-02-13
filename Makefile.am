@@ -95,7 +95,8 @@ rootbin_PROGRAMS = \
 	systemctl \
 	systemd-notify \
 	systemd-ask-password \
-	systemd-tty-ask-password-agent
+	systemd-tty-ask-password-agent \
+	systemd-tmpfiles
 
 bin_PROGRAMS = \
 	systemd-cgls
@@ -121,7 +122,6 @@ rootlibexec_PROGRAMS = \
 	systemd-reply-password \
 	systemd-readahead-collect \
 	systemd-readahead-replay \
-	systemd-tmpfiles \
 	systemd-user-sessions \
 	systemd-fsck \
 	systemd-quotacheck \
