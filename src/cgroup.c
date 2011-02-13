@@ -403,7 +403,7 @@ char *cgroup_bonding_to_string(CGroupBonding *b) {
 
 pid_t cgroup_bonding_search_main_pid(CGroupBonding *b) {
         FILE *f;
-        pid_t pid = 0, npid;
+        pid_t pid = 0, npid, mypid;
 
         assert(b);
 
@@ -413,15 +413,22 @@ pid_t cgroup_bonding_search_main_pid(CGroupBonding *b) {
         if (cg_enumerate_processes(b->controller, b->path, &f) < 0)
                 return 0;
 
+        mypid = getpid();
+
         while (cg_read_pid(f, &npid) > 0)  {
+                pid_t ppid;
 
                 if (npid == pid)
                         continue;
 
+                /* Ignore processes that aren't our kids */
+                if (get_parent_of_pid(npid, &ppid) >= 0 && ppid != mypid)
+                        continue;
+
                 if (pid != 0) {
-                        /* Dang, there's more than one PID in this
-                         * group, so we don't know what process is the
-                         * main process. */
+                        /* Dang, there's more than one daemonized PID
+                        in this group, so we don't know what process
+                        is the main process. */
                         pid = 0;
                         break;
                 }
