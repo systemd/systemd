@@ -124,10 +124,6 @@ Features:
 
 * allow runtime changing of log level and target
 
-* automatically determine TERM= based on tty name even for /dev/console
-    http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
-    http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=b7b8de087384cc1954a8cd075af3f9e5977caa2e
-
 * global defaults for StandardOuput=xxx
 
 Fedora:
