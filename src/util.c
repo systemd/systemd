@@ -3550,18 +3550,28 @@ void filter_environ(const char *prefix) {
 }
 
 const char *default_term_for_tty(const char *tty) {
+        char *active = NULL;
+        const char *term;
+
         assert(tty);
 
         if (startswith(tty, "/dev/"))
                 tty += 5;
 
-        if (startswith(tty, "tty") &&
-            tty[3] >= '0' && tty[3] <= '9')
-                return "TERM=linux";
+        /* Resolve where /dev/console is pointing when determining
+         * TERM */
+        if (streq(tty, "console"))
+                if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
+                        truncate_nl(active);
+                        tty = active;
+                }
 
-        /* FIXME: Proper handling of /dev/console would be cool */
+        term = (startswith(tty, "tty") &&
+                tty[3] >= '0' && tty[3] <= '9') ? "TERM=linux" : "TERM=vt100";
 
-        return "TERM=vt100";
+        free(active);
+
+        return term;
 }
 
 bool running_in_vm(void) {
