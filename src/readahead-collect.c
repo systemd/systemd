@@ -649,6 +649,11 @@ int main(int argc, char *argv[]) {
                 return 0;
         }
 
+        if (running_in_vm()) {
+                log_info("Disabling readahead collector due to execution in virtual machine.");
+                return 0;
+        }
+
         if (!(shared = shared_get()))
                 return 1;
 

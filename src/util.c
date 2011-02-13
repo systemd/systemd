@@ -3564,6 +3564,82 @@ const char *default_term_for_tty(const char *tty) {
         return "TERM=vt100";
 }
 
+bool running_in_vm(void) {
+
+#if defined(__i386__) || defined(__x86_64__)
+
+        /* Both CPUID and DMI are x86 specific interfaces... */
+
+        const char *const dmi_vendors[] = {
+                "/sys/class/dmi/id/sys_vendor",
+                "/sys/class/dmi/id/board_vendor",
+                "/sys/class/dmi/id/bios_vendor"
+        };
+
+        uint32_t eax = 0x40000000;
+        union {
+                uint32_t sig32[3];
+                char text[13];
+        } sig;
+
+        unsigned i;
+
+        for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
+                char *s;
+                bool b;
+
+                if (read_one_line_file(dmi_vendors[i], &s) < 0)
+                        continue;
+
+                b = startswith(s, "QEMU") ||
+                        /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+                        startswith(s, "VMware") ||
+                        startswith(s, "VMW") ||
+                        startswith(s, "Microsoft Corporation") ||
+                        startswith(s, "innotek GmbH") ||
+                        startswith(s, "Xen");
+
+                free(s);
+
+                if (b)
+                        return true;
+        }
+
+        /* http://lwn.net/Articles/301888/ */
+        zero(sig);
+
+
+#if defined (__i386__)
+#define REG_a "eax"
+#define REG_b "ebx"
+#elif defined (__amd64__)
+#define REG_a "rax"
+#define REG_b "rbx"
+#endif
+
+        __asm__ __volatile__ (
+                /* ebx/rbx is being used for PIC! */
+                "  push %%"REG_b"         \n\t"
+                "  cpuid                  \n\t"
+                "  mov %%ebx, %1          \n\t"
+                "  pop %%"REG_b"          \n\t"
+
+                : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
+                : "0" (eax)
+        );
+
+        if (streq(sig.text, "XenVMMXenVMM") ||
+            streq(sig.text, "KVMKVMKVM") ||
+            /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+            streq(sig.text, "VMwareVMware") ||
+            /* http://msdn.microsoft.com/en-us/library/bb969719.aspx */
+            streq(sig.text, "Microsoft Hv"))
+                return true;
+#endif
+
+        return false;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
