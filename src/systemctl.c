@@ -161,6 +161,7 @@ static void spawn_ask_password_agent(void) {
                 };
 
                 int fd;
+                bool stdout_is_tty, stderr_is_tty;
 
                 /* Make sure the agent goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
@@ -174,7 +175,10 @@ static void spawn_ask_password_agent(void) {
                 /* Don't leak fds to the agent */
                 close_all_fds(NULL, 0);
 
-                if (!isatty(STDOUT_FILENO) || !isatty(STDERR_FILENO)) {
+                stdout_is_tty = isatty(STDOUT_FILENO);
+                stderr_is_tty = isatty(STDERR_FILENO);
+
+                if (!stdout_is_tty || !stderr_is_tty) {
                         /* Detach from stdout/stderr. and reopen
                          * /dev/tty for them. This is important to
                          * ensure that when systemctl is started via
@@ -187,15 +191,11 @@ static void spawn_ask_password_agent(void) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        if (!isatty(STDOUT_FILENO)) {
-                                close(STDOUT_FILENO);
+                        if (!stdout_is_tty)
                                 dup2(fd, STDOUT_FILENO);
-                        }
 
-                        if (!isatty(STDERR_FILENO)) {
-                                close(STDERR_FILENO);
+                        if (!stderr_is_tty)
                                 dup2(fd, STDERR_FILENO);
-                        }
 
                         if (fd > 2)
                                 close(fd);
