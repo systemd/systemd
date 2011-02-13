@@ -216,6 +216,30 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>GuessMainPID=</varname></term>
+
+                                <listitem><para>Takes a boolean value
+                                that specifies whether systemd should
+                                try to guess the main PID of a service
+                                should if it cannot be determined
+                                reliably. This option is ignored
+                                unless <option>Type=forking</option>
+                                is set and <option>PIDFile=</option>
+                                is unset because for the other types
+                                or with an explicitly configured PID
+                                file the main PID is always known. The
+                                guessing algorithm might come to
+                                incorrect conclusions if a daemon
+                                consists of more than one process. If
+                                the main PID cannot be determined
+                                failure detection and automatic
+                                restarting of a service will not work
+                                reliably. Defaults to
+                                <option>yes</option>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>PIDFile=</varname></term>
 
                                 <listitem><para>Takes an absolute file

@@ -125,6 +125,7 @@ struct Service {
         bool permissions_start_only;
         bool root_directory_start_only;
         bool remain_after_exit;
+        bool guess_main_pid;
 
         /* If we shut down, remember why */
         bool failure:1;

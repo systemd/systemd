@@ -9,6 +9,8 @@ Bugs:
 
 Features:
 
+* Maybe store in unit files whether a service should be enabled by default on package installation
+
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
 * need a way to apply mount options of api vfs from systemd unit files instead of fstab
@@ -23,11 +25,7 @@ Features:
 
 * gnome-shell python script/glxinfo/is-accelerated wech
 
-* PID heuristik bei Type=forking ausmachbar machen
-
 * maybe introduce ExecRestartPre=
-
-* reload PID file after reload, allow dynamically changing main PIDs
 
 * figure out what happened to bluez patch
 
