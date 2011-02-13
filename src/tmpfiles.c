@@ -700,13 +700,13 @@ static int scandir_filter(const struct dirent *d) {
 
 static int help(void) {
 
-        printf("%s [OPTIONS...] [CONFIGURATION FILE]\n\n"
-               "Create and clean up temporary files and directories.\n\n"
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
+               "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help             Show this help\n"
                "     --create           Create marked files/directories\n"
                "     --clean            Clean up marked directories\n"
                "     --remove           Remove marked files/directories\n"
-               "     --prefix=PATH      Only apply rules that apply to paths\n",
+               "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n",
                program_invocation_short_name);
 
         return 0;

@@ -1,0 +1,150 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-tmpfiles">
+
+        <refentryinfo>
+                <title>systemd-tmpfiles</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-tmpfiles</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-tmpfiles</refname>
+                <refpurpose>Creates, deletes and cleans up volatile
+                and temporary files and directories.</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-tmpfiles <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">CONFIGURATION FILE</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-tmpfiles</command> creates,
+                deletes and cleans up volatile ad temporary files and
+                directories, based on the configuration from
+                <filename>/etc/tmpfiles.d/</filename>. See
+                <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more details on these files.</para>
+
+                <para>If invoked with no arguments applies all
+                directives from all configuration files in
+                <filename>/etc/tmpfiles.d/*.conf</filename>. If one or
+                more absolute file names are passed on the command
+                line only the directives in these files are
+                applied.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><option>--create</option></term>
+                                <listitem><para>If this option is passed all
+                                files and directories marked with f,
+                                F, d, D in the configuration files are
+                                created.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--clean</option></term>
+                                <listitem><para>If this option is
+                                passed all files and directories with
+                                an age parameter configured will be
+                                cleaned up.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--remove</option></term>
+                                <listitem><para>If this option is
+                                passed all files and directories marked
+                                with r, R in the configuration files
+                                are removed.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--prefix=PATH</option></term>
+                                <listitem><para>Only apply rules that
+                                apply to paths with the specified
+                                prefix.</para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+
+                <para>It is possible to combine
+                <option>--create</option>, <option>--clean</option>,
+                and <option>--remove</option> in one invocation. For
+                example, during boot the following command line is
+                executed to ensure that all temporary and volatile
+                directores are removed and created according to the
+                configuration file:</para>
+
+                <programlisting>systemctl-tmpfiles --remove --create</programlisting>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>tmpwatch</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

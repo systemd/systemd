@@ -42,7 +42,8 @@
 
         <refnamediv>
                 <refname>tmpfiles.d</refname>
-                <refpurpose>Configuration for creation, deletion and cleaning of temporary and volatile files</refpurpose>
+                <refpurpose>Configuration for creation, deletion and
+                cleaning of volatile and temporary files</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -52,13 +53,14 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd</command> uses
+		<para><command>systemd-tmpfiles</command> uses the
+		configuration files in
 		<filename>/etc/tmpfiles.d/</filename> to describe the
-		creation, cleaning and removal of volatile files and
-		directories which usually reside in directories such
-		as <filename>/var/run</filename> or
-		<filename>/tmp</filename>.  Each configuration file is
-		named in the style of
+		creation, cleaning and removal of volatile and
+		temporary files and directories which usually reside
+		in directories such as <filename>/var/run</filename>
+		or <filename>/tmp</filename>. Each configuration file
+		is named in the style of
 		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename>.</para>
         </refsect1>
 
@@ -201,7 +203,8 @@ d /var/run/uscreens 0755 root root 10d12h</programlisting>
         <refsect1>
                 <title>See Also</title>
                 <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
