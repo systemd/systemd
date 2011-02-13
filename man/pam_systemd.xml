@@ -202,17 +202,43 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>keep-root=</option></term>
+                                <term><option>kill-only-users=</option></term>
 
-                                <listitem><para>Takes a boolean
-                                argument. If true, all processes
-                                created by the root user (UID 0) during his
-                                session and from his session will be
-                                kept around after he logged out. This
-                                option allows cancelling the effect of
-                                <option>kill-session=1</option> and
-                                <option>kill-user=1</option> for the
-                                root user.</para></listitem>
+                                <listitem><para>Takes a comma
+                                separated list of user names or
+                                numeric user ids as argument. If this
+                                option is used the effect of the
+                                <option>kill-session=</option> and
+                                <option>kill-user=</option> options
+                                will apply only to the listed
+                                users. If this option is not used the
+                                option applies to all local
+                                users. Note that
+                                <option>kill-exclude-users=</option>
+                                takes precedence over this list and is
+                                hence subtracted from the list
+                                specified here.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>kill-exclude-users=</option></term>
+
+                                <listitem><para>Takes a comma
+                                separated list of user names or
+                                numeric user ids as argument. Users
+                                listed in this argument will not be
+                                subject to the effect of
+                                <option>kill-session=</option> or
+                                <option>kill-user=</option>.  Note
+                                that that this option takes precedence
+                                over
+                                <option>kill-only-users=</option>, and
+                                hence whatever is listed for
+                                <option>kill-exclude-users=</option>
+                                is guaranteed to never be killed by
+                                this PAM module, independent of any
+                                other configuration
+                                setting.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -259,7 +285,9 @@
                 <option>kill-session=0</option>,
                 <option>kill-user=0</option>,
                 <option>keep-root=1</option>,
-                <option>reset-controllers=cpu</option>.</para>
+                <option>reset-controllers=cpu</option>,
+                <option>kill-only-users=</option>,
+                <option>kill-exclude-users=root</option>.</para>
         </refsect1>
 
         <refsect1>

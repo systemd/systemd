@@ -42,12 +42,14 @@ static int parse_argv(pam_handle_t *handle,
                       bool *create_session,
                       bool *kill_session,
                       bool *kill_user,
-                      bool *keep_root,
                       char ***controllers,
-                      char ***reset_controllers) {
+                      char ***reset_controllers,
+                      char ***kill_only_users,
+                      char ***kill_exclude_users) {
 
         unsigned i;
         bool reset_controller_set = false;
+        bool kill_exclude_users_set = false;
 
         assert(argc >= 0);
         assert(argc == 0 || argv);
@@ -82,15 +84,6 @@ static int parse_argv(pam_handle_t *handle,
                         if (kill_user)
                                 *kill_user = k;
 
-                } else if (startswith(argv[i], "keep-root=")) {
-                        if ((k = parse_boolean(argv[i] + 10)) < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to parse keep-root= argument.");
-                                return k;
-                        }
-
-                        if (keep_root)
-                                *keep_root = k;
-
                 } else if (startswith(argv[i], "controllers=")) {
 
                         if (controllers) {
@@ -121,6 +114,36 @@ static int parse_argv(pam_handle_t *handle,
 
                         reset_controller_set = true;
 
+                } else if (startswith(argv[i], "kill-only-users=")) {
+
+                        if (kill_only_users) {
+                                char **l;
+
+                                if (!(l = strv_split(argv[i] + 16, ","))) {
+                                        pam_syslog(handle, LOG_ERR, "Out of memory.");
+                                        return -ENOMEM;
+                                }
+
+                                strv_free(*kill_only_users);
+                                *kill_only_users = l;
+                        }
+
+                } else if (startswith(argv[i], "kill-exclude-users=")) {
+
+                        if (kill_exclude_users) {
+                                char **l;
+
+                                if (!(l = strv_split(argv[i] + 19, ","))) {
+                                        pam_syslog(handle, LOG_ERR, "Out of memory.");
+                                        return -ENOMEM;
+                                }
+
+                                strv_free(*kill_exclude_users);
+                                *kill_exclude_users = l;
+                        }
+
+                        kill_exclude_users_set = true;
+
                 } else {
                         pam_syslog(handle, LOG_ERR, "Unknown parameter '%s'.", argv[i]);
                         return -EINVAL;
@@ -146,6 +169,17 @@ static int parse_argv(pam_handle_t *handle,
 
         if (kill_session && *kill_session && kill_user)
                 *kill_user = true;
+
+        if (!kill_exclude_users_set && kill_exclude_users) {
+                char **l;
+
+                if (!(l = strv_new("root", NULL))) {
+                        pam_syslog(handle, LOG_ERR, "Out of memory");
+                        return -ENOMEM;
+                }
+
+                *kill_exclude_users = l;
+        }
 
         return 0;
 }
@@ -369,7 +403,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
 
-        if (parse_argv(handle, argc, argv, &create_session, NULL, NULL, NULL, &controllers, &reset_controllers) < 0)
+        if (parse_argv(handle,
+                       argc, argv,
+                       &create_session, NULL, NULL,
+                       &controllers, &reset_controllers,
+                       NULL, NULL) < 0)
                 return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
@@ -500,6 +538,54 @@ static int session_remains(pam_handle_t *handle, const char *user_path) {
         return !!remains;
 }
 
+static bool check_user_lists(
+                pam_handle_t *handle,
+                uid_t uid,
+                char **kill_only_users,
+                char **kill_exclude_users) {
+
+        const char *name = NULL;
+        char **l;
+
+        assert(handle);
+
+        if (uid == 0)
+                name = "root"; /* Avoid obvious NSS requests, to suppress network traffic */
+        else {
+                struct passwd *pw;
+
+                if ((pw = pam_modutil_getpwuid(handle, uid)))
+                        name = pw->pw_name;
+        }
+
+        STRV_FOREACH(l, kill_exclude_users) {
+                uint32_t id;
+
+                if (safe_atou32(*l, &id) >= 0)
+                        if ((uid_t) id == uid)
+                                return false;
+
+                if (name && streq(name, *l))
+                        return false;
+        }
+
+        if (strv_isempty(kill_only_users))
+                return true;
+
+        STRV_FOREACH(l, kill_only_users) {
+                uint32_t id;
+
+                if (safe_atou32(*l, &id) >= 0)
+                        if ((uid_t) id == uid)
+                                return true;
+
+                if (name && streq(name, *l))
+                        return true;
+        }
+
+        return false;
+}
+
 _public_ PAM_EXTERN int pam_sm_close_session(
                 pam_handle_t *handle,
                 int flags,
@@ -508,13 +594,12 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         const char *username = NULL;
         bool kill_session = false;
         bool kill_user = false;
-        bool keep_root = true;
         int lock_fd = -1, r;
         char *session_path = NULL, *nosession_path = NULL, *user_path = NULL;
         const char *id;
         struct passwd *pw;
         const void *created = NULL;
-        char **controllers = NULL, **c;
+        char **controllers = NULL, **c, **kill_only_users = NULL, **kill_exclude_users = NULL;
 
         assert(handle);
 
@@ -522,7 +607,11 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
 
-        if (parse_argv(handle, argc, argv, NULL, &kill_session, &kill_user, &keep_root, &controllers, NULL) < 0)
+        if (parse_argv(handle,
+                       argc, argv,
+                       NULL, &kill_session, &kill_user,
+                       &controllers, NULL,
+                       &kill_only_users, &kill_exclude_users) < 0)
                 return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
@@ -557,7 +646,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                         goto finish;
                 }
 
-                if (kill_session && (pw->pw_uid != 0 || !keep_root))  {
+                if (kill_session && check_user_lists(handle, pw->pw_uid, kill_only_users, kill_exclude_users))  {
                         pam_syslog(handle, LOG_INFO, "Killing remaining processes of user session %s of %s.", id, username);
 
                         /* Kill processes in session cgroup, and delete it */
@@ -591,7 +680,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 pam_syslog(handle, LOG_ERR, "Failed to determine whether a session remains: %s", strerror(-r));
 
         /* Kill user processes not attached to any session */
-        if (kill_user && r == 0 && (pw->pw_uid != 0 || !keep_root)) {
+        if (kill_user && r == 0 && check_user_lists(handle, pw->pw_uid, kill_only_users, kill_exclude_users)) {
 
                 /* Kill user cgroup */
                 if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, user_path, true)) < 0)
@@ -635,6 +724,8 @@ finish:
         free(user_path);
 
         strv_free(controllers);
+        strv_free(kill_exclude_users);
+        strv_free(kill_only_users);
 
         return r;
 }

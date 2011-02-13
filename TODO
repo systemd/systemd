@@ -147,8 +147,6 @@ External:
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
     http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match
 
-* place /etc/inittab with explaining blurb.
-
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 
 https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
