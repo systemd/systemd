@@ -169,6 +169,13 @@ static int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return r;
 
+#ifdef HAVE_SYSV_COMPAT
+        if (SERVICE(u)->sysv_path) {
+                log_error("Using SysV services for socket activation is not supported. Refusing.");
+                return -ENOENT;
+        }
+#endif
+
         u->meta.no_gc = true;
         s->service = SERVICE(u);
         return 0;
@@ -1354,12 +1361,19 @@ static int socket_start(Unit *u) {
                 if (s->service->meta.load_state != UNIT_LOADED)
                         return -ENOENT;
 
-                /* If the service is alredy actvie we cannot start the
+                /* If the service is alredy active we cannot start the
                  * socket */
                 if (s->service->state != SERVICE_DEAD &&
                     s->service->state != SERVICE_FAILED &&
                     s->service->state != SERVICE_AUTO_RESTART)
                         return -EBUSY;
+
+#ifdef HAVE_SYSV_COMPAT
+                if (s->service->sysv_path) {
+                        log_error("Using SysV services for socket activation is not supported. Refusing.");
+                        return -ENOENT;
+                }
+#endif
         }
 
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);
