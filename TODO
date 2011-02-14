@@ -5,9 +5,7 @@ Bugs:
 * when plymouth is disabled the console password entry stuff seems to be borked
   https://bugzilla.redhat.com/show_bug.cgi?id=655538
 
-* fsck.btrfs non-existance should not cause mounting to fail
-
-* single user service needs to be masked?
+* systemctl default is started when we type "reboot" at rescue mode prompt
 
 Features:
 

@@ -57,7 +57,7 @@ static void start_target(const char *target, bool isolate) {
         else
                 mode = "replace";
 
-        log_debug("Running request %s/start/%s", target, mode);
+        log_info("Running request %s/start/%s", target, mode);
 
         if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnitReplace"))) {
                 log_error("Could not allocate message.");
@@ -247,12 +247,16 @@ int main(int argc, char *argv[]) {
                 else
                         log_error("fsck failed due to unknown reason.");
 
-                if (status.si_code == CLD_EXITED && status.si_status & 2)
+                if (status.si_code == CLD_EXITED && (status.si_status & 2) && root_directory)
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET, false);
-                else
+                else if (status.si_code == CLD_EXITED && (status.si_status & 6))
                         /* Some other problem */
                         start_target(SPECIAL_EMERGENCY_TARGET, true);
+                else {
+                        r = EXIT_SUCCESS;
+                        log_warning("Ignoring error.");
+                }
 
         } else
                 r = EXIT_SUCCESS;
