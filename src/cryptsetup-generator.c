@@ -98,7 +98,7 @@ static int create_disk(
 
         fprintf(f,
                 "[Unit]\n"
-                "Description=Cryptography Setup for %%f\n"
+                "Description=Cryptography Setup for %%I\n"
                 "DefaultDependencies=no\n"
                 "BindTo=%s dev-mapper-%%i.device\n"
                 "After=systemd-readahead-collect.service systemd-readahead-replay.service %s\n"
