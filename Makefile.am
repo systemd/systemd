@@ -41,6 +41,7 @@ rootsbindir=$(rootdir)/sbin
 rootlibexecdir=$(rootdir)/lib/systemd
 systemunitdir=$(rootdir)/lib/systemd/system
 systemgeneratordir=$(rootdir)/lib/systemd/system-generators
+systemshutdowndir=$(rootdir)/lib/systemd/system-shutdown
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -62,6 +63,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_CRYPTSETUP_PATH=\"$(rootlibexecdir)/systemd-cryptsetup\" \
 	-DSYSTEM_GENERATOR_PATH=\"$(systemgeneratordir)\" \
 	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
+	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
@@ -375,7 +377,8 @@ libsystemd_basic_la_SOURCES = \
 	src/conf-parser.c \
 	src/socket-util.c \
 	src/log.c \
-	src/ratelimit.c
+	src/ratelimit.c \
+	src/exit-status.c
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -403,7 +406,6 @@ libsystemd_core_la_SOURCES = \
 	src/load-dropin.c \
 	src/execute.c \
 	src/utmp-wtmp.c \
-	src/exit-status.c \
 	src/dbus.c \
 	src/dbus-manager.c \
 	src/dbus-unit.c \

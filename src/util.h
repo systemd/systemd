@@ -375,6 +375,8 @@ const char *default_term_for_tty(const char *tty);
 
 bool running_in_vm(void);
 
+void execute_directory(const char *directory, DIR *_d, char *argv[]);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

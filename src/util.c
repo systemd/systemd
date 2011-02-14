@@ -59,6 +59,7 @@
 #include "strv.h"
 #include "label.h"
 #include "exit-status.h"
+#include "hashmap.h"
 
 bool streq_ptr(const char *a, const char *b) {
 
@@ -3662,6 +3663,119 @@ bool running_in_vm(void) {
 #endif
 
         return false;
+}
+
+void execute_directory(const char *directory, DIR *d, char *argv[]) {
+        DIR *_d = NULL;
+        struct dirent *de;
+        Hashmap *pids = NULL;
+
+        assert(directory);
+
+        /* Executes all binaries in a directory in parallel and waits
+         * until all they all finished. */
+
+        if (!d) {
+                if (!(_d = opendir(directory))) {
+
+                        if (errno == ENOENT)
+                                return;
+
+                        log_error("Failed to enumerate directory %s: %m", directory);
+                        return;
+                }
+
+                d = _d;
+        }
+
+        if (!(pids = hashmap_new(trivial_hash_func, trivial_compare_func))) {
+                log_error("Failed to allocate set.");
+                goto finish;
+        }
+
+        while ((de = readdir(d))) {
+                char *path;
+                pid_t pid;
+                int k;
+
+                if (ignore_file(de->d_name))
+                        continue;
+
+                if (de->d_type != DT_REG &&
+                    de->d_type != DT_LNK &&
+                    de->d_type != DT_UNKNOWN)
+                        continue;
+
+                if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {
+                        log_error("Out of memory");
+                        continue;
+                }
+
+                if ((pid = fork()) < 0) {
+                        log_error("Failed to fork: %m");
+                        free(path);
+                        continue;
+                }
+
+                if (pid == 0) {
+                        char *_argv[2];
+                        /* Child */
+
+                        if (!argv) {
+                                _argv[0] = path;
+                                _argv[1] = NULL;
+                                argv = _argv;
+                        } else
+                                if (!argv[0])
+                                        argv[0] = path;
+
+                        execv(path, argv);
+
+                        log_error("Failed to execute %s: %m", path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                log_debug("Spawned %s as %lu", path, (unsigned long) pid);
+
+                if ((k = hashmap_put(pids, UINT_TO_PTR(pid), path)) < 0) {
+                        log_error("Failed to add PID to set: %s", strerror(-k));
+                        free(path);
+                }
+        }
+
+        while (!hashmap_isempty(pids)) {
+                siginfo_t si;
+                char *path;
+
+                zero(si);
+                if (waitid(P_ALL, 0, &si, WEXITED) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        log_error("waitid() failed: %m");
+                        goto finish;
+                }
+
+                if ((path = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
+                        if (!is_clean_exit(si.si_code, si.si_status)) {
+                                if (si.si_code == CLD_EXITED)
+                                        log_error("%s exited with exit status %i.", path, si.si_status);
+                                else
+                                        log_error("%s terminated by signal %s.", path, signal_to_string(si.si_status));
+                        } else
+                                log_debug("%s exited successfully.", path);
+
+                        free(path);
+                }
+        }
+
+finish:
+        if (_d)
+                closedir(_d);
+
+        if (pids)
+                hashmap_free_free(pids);
 }
 
 static const char *const ioprio_class_table[] = {

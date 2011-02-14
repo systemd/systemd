@@ -2836,9 +2836,8 @@ void manager_check_finished(Manager *m) {
 
 void manager_run_generators(Manager *m) {
         DIR *d = NULL;
-        struct dirent *de;
-        Hashmap *pids = NULL;
         const char *generator_path;
+        const char *argv[3];
 
         assert(m);
 
@@ -2868,83 +2867,11 @@ void manager_run_generators(Manager *m) {
                 }
         }
 
-        if (!(pids = hashmap_new(trivial_hash_func, trivial_compare_func))) {
-                log_error("Failed to allocate set.");
-                goto finish;
-        }
+        argv[0] = NULL; /* Leave this empty, execute_directory() will fill something in */
+        argv[1] = m->generator_unit_path;
+        argv[2] = NULL;
 
-        while ((de = readdir(d))) {
-                char *path;
-                pid_t pid;
-                int k;
-
-                if (ignore_file(de->d_name))
-                        continue;
-
-                if (de->d_type != DT_REG &&
-                    de->d_type != DT_LNK &&
-                    de->d_type != DT_UNKNOWN)
-                        continue;
-
-                if (asprintf(&path, "%s/%s", generator_path, de->d_name) < 0) {
-                        log_error("Out of memory");
-                        continue;
-                }
-
-                if ((pid = fork()) < 0) {
-                        log_error("Failed to fork: %m");
-                        free(path);
-                        continue;
-                }
-
-                if (pid == 0) {
-                        const char *arguments[5];
-                        /* Child */
-
-                        arguments[0] = path;
-                        arguments[1] = m->generator_unit_path;
-                        arguments[2] = NULL;
-
-                        execv(path, (char **) arguments);
-
-                        log_error("Failed to execute %s: %m", path);
-                        _exit(EXIT_FAILURE);
-                }
-
-                log_debug("Spawned generator %s as %lu", path, (unsigned long) pid);
-
-                if ((k = hashmap_put(pids, UINT_TO_PTR(pid), path)) < 0) {
-                        log_error("Failed to add PID to set: %s", strerror(-k));
-                        free(path);
-                }
-        }
-
-        while (!hashmap_isempty(pids)) {
-                siginfo_t si;
-                char *path;
-
-                zero(si);
-                if (waitid(P_ALL, 0, &si, WEXITED) < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        log_error("waitid() failed: %m");
-                        goto finish;
-                }
-
-                if ((path = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
-                        if (!is_clean_exit(si.si_code, si.si_status)) {
-                                if (si.si_code == CLD_EXITED)
-                                        log_error("%s exited with exit status %i.", path, si.si_status);
-                                else
-                                        log_error("%s terminated by signal %s.", path, signal_to_string(si.si_status));
-                        } else
-                                log_debug("Generator %s exited successfully.", path);
-
-                        free(path);
-                }
-        }
+        execute_directory(generator_path, d, (char**) argv);
 
         if (rmdir(m->generator_unit_path) >= 0) {
                 /* Uh? we were able to remove this dir? I guess that
@@ -2973,9 +2900,6 @@ void manager_run_generators(Manager *m) {
 finish:
         if (d)
                 closedir(d);
-
-        if (pids)
-                hashmap_free_free(pids);
 }
 
 void manager_undo_generators(Manager *m) {
