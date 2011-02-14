@@ -461,7 +461,6 @@ void manager_free(Manager *m) {
 #endif
 
         free(m->notify_socket);
-        free(m->console);
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
@@ -2781,22 +2780,6 @@ void manager_reset_failed(Manager *m) {
 
         HASHMAP_FOREACH(u, m->units, i)
                 unit_reset_failed(u);
-}
-
-int manager_set_console(Manager *m, const char *console) {
-        char *c;
-
-        assert(m);
-
-        if (!(c = strdup(console)))
-                return -ENOMEM;
-
-        free(m->console);
-        m->console = c;
-
-        log_debug("Using kernel console %s", c);
-
-        return 0;
 }
 
 bool manager_unit_pending_inactive(Manager *m, const char *name) {

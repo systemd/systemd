@@ -81,7 +81,7 @@ static int target_add_default_dependencies(Target *t) {
 }
 
 static int target_add_getty_dependencies(Target *t) {
-        char *n;
+        char *n, *active;
         int r;
 
         assert(t);
@@ -89,23 +89,39 @@ static int target_add_getty_dependencies(Target *t) {
         if (!unit_has_name(UNIT(t), SPECIAL_GETTY_TARGET))
                 return 0;
 
-        /* Automatically add in a serial getty on the kernel
-         * console */
-        if (t->meta.manager->console && !tty_is_vc(t->meta.manager->console)) {
+        if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
+                const char *tty;
 
-                /* We assume that gettys on virtual terminals are
-                 * started via manual configuration and do this magic
-                 * only for non-VC terminals. */
+                truncate_nl(active);
+                if ((tty = strrchr(active, ' ')))
+                        tty ++;
+                else
+                        tty = active;
 
-                log_debug("Automatically adding serial getty for %s", t->meta.manager->console);
-                if (!(n = unit_name_replace_instance(SPECIAL_SERIAL_GETTY_SERVICE, t->meta.manager->console)))
-                        return -ENOMEM;
+                /* Automatically add in a serial getty on the kernel
+                 * console */
+                if (!tty_is_vc(tty)) {
 
-                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_WANTS, n, NULL, true);
-                free(n);
+                        /* We assume that gettys on virtual terminals are
+                         * started via manual configuration and do this magic
+                         * only for non-VC terminals. */
 
-                if (r < 0)
-                        return r;
+                        log_debug("Automatically adding serial getty for /dev/%s", tty);
+                        if (!(n = unit_name_replace_instance(SPECIAL_SERIAL_GETTY_SERVICE, tty))) {
+                                free(active);
+                                return -ENOMEM;
+                        }
+
+                        r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_WANTS, n, NULL, true);
+                        free(n);
+
+                        if (r < 0) {
+                                free(active);
+                                return r;
+                        }
+                }
+
+                free(active);
         }
 
         /* Automatically add in a serial getty on the first

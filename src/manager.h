@@ -148,7 +148,6 @@ struct Manager {
         dual_timestamp startup_timestamp;
         dual_timestamp finish_timestamp;
 
-        char *console;
         char *generator_unit_path;
 
         /* Data specific to the device subsystem */
@@ -256,7 +255,6 @@ unsigned manager_dispatch_load_queue(Manager *m);
 unsigned manager_dispatch_run_queue(Manager *m);
 unsigned manager_dispatch_dbus_queue(Manager *m);
 
-int manager_set_console(Manager *m, const char *console);
 int manager_set_default_controllers(Manager *m, char **controllers);
 
 int manager_loop(Manager *m);

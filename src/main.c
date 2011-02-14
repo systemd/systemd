@@ -72,7 +72,6 @@ static bool arg_sysv_console = true;
 #endif
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
-static char *arg_console = NULL;
 static char **arg_default_controllers = NULL;
 
 static FILE* serialization = NULL;
@@ -328,26 +327,6 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n");
-
-        } else if (startswith(word, "console=")) {
-                const char *k;
-                size_t l;
-                char *w = NULL;
-
-                k = word + 8;
-                l = strcspn(k, ",");
-
-                /* Ignore the console setting if set to a VT */
-                if (l < 4 ||
-                    !startswith(k, "tty") ||
-                    k[3+strspn(k+3, "0123456789")] != 0) {
-
-                        if (!(w = strndup(k, l)))
-                                return -ENOMEM;
-                }
-
-                free(arg_console);
-                arg_console = w;
 
         } else if (streq(word, "quiet")) {
                 arg_show_status = false;
@@ -1094,9 +1073,6 @@ int main(int argc, char *argv[]) {
         if (dual_timestamp_is_set(&initrd_timestamp))
                 m->initrd_timestamp = initrd_timestamp;
 
-        if (arg_console)
-                manager_set_console(m, arg_console);
-
         if (arg_default_controllers)
                 manager_set_default_controllers(m, arg_default_controllers);
 
@@ -1221,7 +1197,6 @@ finish:
                 manager_free(m);
 
         free(arg_default_unit);
-        free(arg_console);
         strv_free(arg_default_controllers);
 
         dbus_shutdown();
