@@ -3573,7 +3573,13 @@ const char *default_term_for_tty(const char *tty) {
         if (streq(tty, "console"))
                 if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
                         truncate_nl(active);
-                        tty = active;
+
+                        /* If multiple log outputs are configured the
+                         * last one is what /dev/console points to */
+                        if ((tty = strrchr(active, ' ')))
+                                tty++;
+                        else
+                                tty = active;
                 }
 
         term = tty_is_vc(tty) ? "TERM=linux" : "TERM=vt100";
