@@ -498,7 +498,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
         job_free(j);
 
         if (!success && j->type == JOB_START)
-                unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u));
+                unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ", see 'systemctl status %s' for details.\n", unit_description(u), u->meta.id);
 
         /* Fail depending jobs on failure */
         if (!success) {
