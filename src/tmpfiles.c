@@ -80,6 +80,7 @@ typedef struct Item {
 } Item;
 
 static Hashmap *items = NULL, *globs = NULL;
+static Set *unix_sockets = NULL;
 
 static bool arg_create = false;
 static bool arg_clean = false;
@@ -102,6 +103,78 @@ static struct Item* find_glob(Hashmap *h, const char *match) {
                         return j;
 
         return NULL;
+}
+
+static void load_unix_sockets(void) {
+        FILE *f = NULL;
+        char line[LINE_MAX];
+
+        if (unix_sockets)
+                return;
+
+        /* We maintain a cache of the sockets we found in
+         * /proc/net/unix to speed things up a little. */
+
+        if (!(unix_sockets = set_new(string_hash_func, string_compare_func)))
+                return;
+
+        if (!(f = fopen("/proc/net/unix", "re")))
+                return;
+
+        if (!(fgets(line, sizeof(line), f)))
+                goto fail;
+
+        for (;;) {
+                char *p, *s;
+                int k;
+
+                if (!(fgets(line, sizeof(line), f)))
+                        break;
+
+                truncate_nl(line);
+
+                if (strlen(line) < 53)
+                        continue;
+
+                p = line + 53;
+                p += strspn(p, WHITESPACE);
+                p += strcspn(p, WHITESPACE);
+                p += strspn(p, WHITESPACE);
+
+                if (*p != '/')
+                        continue;
+
+                if (!(s = strdup(p)))
+                        goto fail;
+
+                if ((k = set_put(unix_sockets, s)) < 0) {
+                        free(s);
+
+                        if (k != -EEXIST)
+                                goto fail;
+                }
+        }
+
+        return;
+
+fail:
+        set_free_free(unix_sockets);
+        unix_sockets = NULL;
+
+        if (f)
+                fclose(f);
+}
+
+static bool unix_socket_alive(const char *fn) {
+        assert(fn);
+
+        load_unix_sockets();
+
+        if (unix_sockets)
+                return !!set_get(unix_sockets, (char*) fn);
+
+        /* We don't know, so assume yes */
+        return true;
 }
 
 static int dir_cleanup(
@@ -214,7 +287,7 @@ static int dir_cleanup(
                         if (s.st_mode & S_ISVTX)
                                 continue;
 
-                        if (mountpoint) {
+                        if (mountpoint && S_ISREG(s.st_mode)) {
                                 if (streq(dent->d_name, ".journal") &&
                                     s.st_uid == 0)
                                         continue;
@@ -223,6 +296,10 @@ static int dir_cleanup(
                                     streq(dent->d_name, "aquota.group"))
                                         continue;
                         }
+
+                        /* Ignore sockets that are listed in /proc/net/unix */
+                        if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path))
+                                continue;
 
                         age = MAX3(timespec_load(&s.st_mtim),
                                    timespec_load(&s.st_atim),
@@ -901,8 +978,13 @@ finish:
         while ((i = hashmap_steal_first(items)))
                 item_free(i);
 
+        while ((i = hashmap_steal_first(globs)))
+                item_free(i);
+
         hashmap_free(items);
         hashmap_free(globs);
+
+        set_free_free(unix_sockets);
 
         label_finish();
 
