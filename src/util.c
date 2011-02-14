@@ -3549,6 +3549,16 @@ void filter_environ(const char *prefix) {
         environ[j] = NULL;
 }
 
+bool tty_is_vc(const char *tty) {
+        assert(tty);
+
+        if (startswith(tty, "/dev/"))
+                tty += 5;
+
+        return startswith(tty, "tty") &&
+                tty[3] >= '0' && tty[3] <= '9';
+}
+
 const char *default_term_for_tty(const char *tty) {
         char *active = NULL;
         const char *term;
@@ -3566,9 +3576,7 @@ const char *default_term_for_tty(const char *tty) {
                         tty = active;
                 }
 
-        term = (startswith(tty, "tty") &&
-                tty[3] >= '0' && tty[3] <= '9') ? "TERM=linux" : "TERM=vt100";
-
+        term = tty_is_vc(tty) ? "TERM=linux" : "TERM=vt100";
         free(active);
 
         return term;

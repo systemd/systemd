@@ -91,7 +91,12 @@ static int target_add_getty_dependencies(Target *t) {
 
         /* Automatically add in a serial getty on the kernel
          * console */
-        if (t->meta.manager->console) {
+        if (t->meta.manager->console && !tty_is_vc(t->meta.manager->console)) {
+
+                /* We assume that gettys on virtual terminals are
+                 * started via manual configuration and do this magic
+                 * only for non-VC terminals. */
+
                 log_debug("Automatically adding serial getty for %s", t->meta.manager->console);
                 if (!(n = unit_name_replace_instance(SPECIAL_SERIAL_GETTY_SERVICE, t->meta.manager->console)))
                         return -ENOMEM;
