@@ -11,6 +11,9 @@ DefaultDependencies=no
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=local-fs.target shutdown.target remount-rootfs.service quotacheck.service
 
+# Dracut informs us with this flag file if the root fsck was already run
+ConditionPathExists=!/dev/.initramfs/fsck
+
 [Service]
 Type=oneshot
 RemainAfterExit=no

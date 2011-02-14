@@ -7,6 +7,8 @@ Bugs:
 
 * fsck.btrfs non-existance should not cause mounting to fail
 
+* single user service needs to be masked?
+
 Features:
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
