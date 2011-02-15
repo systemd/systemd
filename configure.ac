@@ -118,6 +118,9 @@ if test "x$enable_extras" = xyes; then
 fi
 AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
 
+AC_CHECK_HEADER([linux/videodev.h], [have_videodev_h=yes], [])
+AM_CONDITIONAL(HAVE_V4L1, [test "x$have_videodev_h" = "xyes"])
+
 AC_ARG_ENABLE([introspection],
 	AS_HELP_STRING([--disable-introspection], [disable GObject introspection]),
 	[], [enable_introspection=yes])
