@@ -28,7 +28,6 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
-#include <linux/videodev.h>
 #include <linux/videodev2.h>
 
 int main (int argc, char *argv[])
@@ -81,19 +80,6 @@ int main (int argc, char *argv[])
 			printf("tuner:");
 		if ((v2cap.capabilities & V4L2_CAP_RADIO) > 0)
 			printf("radio:");
-		printf("\n");
-	} else if (ioctl (fd, VIDIOCGCAP, &v1cap) == 0) {
-		printf("ID_V4L_VERSION=1\n");
-		printf("ID_V4L_PRODUCT=%s\n", v1cap.name);
-		printf("ID_V4L_CAPABILITIES=:");
-		if ((v1cap.type & VID_TYPE_CAPTURE) > 0)
-			printf("capture:");
-		if ((v1cap.type & VID_TYPE_OVERLAY) > 0)
-			printf("video_overlay:");
-		if (v1cap.audios > 0)
-			printf("audio:");
-		if ((v1cap.type & VID_TYPE_TUNER) > 0)
-			printf("tuner:");
 		printf("\n");
 	}
 
