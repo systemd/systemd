@@ -219,6 +219,8 @@ struct Manager {
         bool mount_auto;
         bool swap_auto;
 
+        ExecOutput default_std_output, default_std_error;
+
         int n_deserializing;
 
         unsigned n_installed_jobs;

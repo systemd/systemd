@@ -168,8 +168,9 @@
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"MountAuto\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
-        "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n"
-                                                                        \
+        "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n"
 
 #ifdef HAVE_SYSV_COMPAT
 #define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
@@ -205,6 +206,7 @@
 const char bus_manager_interface[] _introspect_("Manager") = BUS_MANAGER_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_exec_output, exec_output, ExecOutput);
 
 static int bus_manager_append_log_target(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         const char *t;
@@ -323,6 +325,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "MountAuto",     bus_property_append_bool,      "b",  &m->mount_auto     },
                 { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto      },
                 { "org.freedesktop.systemd1.Manager", "DefaultControllers", bus_property_append_strv, "as", m->default_controllers },
+                { "org.freedesktop.systemd1.Manager", "DefaultStandardOutput", bus_manager_append_exec_output, "s", &m->default_std_output },
+                { "org.freedesktop.systemd1.Manager", "DefaultStandardError",  bus_manager_append_exec_output, "s", &m->default_std_error  },
 #ifdef HAVE_SYSV_COMPAT
                 { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
                 { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },

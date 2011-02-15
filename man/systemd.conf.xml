@@ -81,6 +81,8 @@
                                 <term><varname>ShowStatus=yes</varname></term>
                                 <term><varname>SysVConsole=yes</varname></term>
                                 <term><varname>CrashChVT=1</varname></term>
+                                <term><varname>DefaultStandardOutput=null</varname></term>
+                                <term><varname>DefaultStandardError=inherit</varname></term>
 
                                 <listitem><para>Configures various
                                 parameters of basic manager

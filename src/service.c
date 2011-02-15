@@ -121,6 +121,8 @@ static void service_init(Unit *u) {
         s->guess_main_pid = true;
 
         exec_context_init(&s->exec_context);
+        s->exec_context.std_output = u->meta.manager->default_std_output;
+        s->exec_context.std_error = u->meta.manager->default_std_error;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 
@@ -817,7 +819,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->restart = SERVICE_RESTART_NO;
         s->exec_context.std_output =
                 (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
-                ? EXEC_OUTPUT_TTY : EXEC_OUTPUT_NULL;
+                ? EXEC_OUTPUT_TTY : s->meta.manager->default_std_output;
         s->exec_context.kill_mode = KILL_PROCESS_GROUP;
 
         /* We use the long description only if

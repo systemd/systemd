@@ -7,6 +7,8 @@ Bugs:
 
 * systemctl default is started when we type "reboot" at rescue mode prompt
 
+* mkswap/mke2fs aus cryptsetup unit muss vor dem mounten ausgeführt werden.
+
 Features:
 
 * look up crypto partition mount points via fstab to show to the user when prompting for a password
@@ -123,8 +125,6 @@ Features:
 * systemctl condrestart should return 0 if service isn't running
 
 * allow runtime changing of log level and target
-
-* global defaults for StandardOuput=xxx
 
 Fedora:
 

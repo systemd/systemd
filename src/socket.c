@@ -77,6 +77,8 @@ static void socket_init(Unit *u) {
         s->mark = -1;
 
         exec_context_init(&s->exec_context);
+        s->exec_context.std_output = u->meta.manager->default_std_output;
+        s->exec_context.std_error = u->meta.manager->default_std_error;
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 }

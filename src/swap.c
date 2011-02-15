@@ -82,6 +82,7 @@ static void swap_unset_proc_swaps(Swap *s) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
 
         exec_context_init(&s->exec_context);
+        s->exec_context.std_output = EXEC_OUTPUT_KMSG;
 
         s->parameters_etc_fstab.priority = s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 

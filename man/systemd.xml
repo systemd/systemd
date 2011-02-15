@@ -250,6 +250,30 @@
                                 it defaults to
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
+                        <varlistentry>
+                                <term><option>--default-standard-output=</option></term>
+                                <term><option>--default-standard-error=</option></term>
+
+                                <listitem><para>Sets the default
+                                output resp. error output for all
+                                services and sockets, i.e. controls
+                                the default for
+                                <option>StandardOutput=</option>
+                                resp. <option>StandardExecute=</option>
+                                (see
+                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details). Takes one of
+                                <option>inherit</option>,
+                                <option>null</option>,
+                                <option>tty</option>,
+                                <option>syslog</option>,
+                                <option>syslog+console</option>,
+                                <option>kmsg</option>,
+                                <option>kmsg-console</option>.  If the
+                                argument is omitted it defaults to
+                                <option>null</option>
+                                resp. <option>inherit</option>.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
@@ -979,6 +1003,18 @@
                                 with the same effect as the
                                 <varname>$SYSTEMD_LOG_TARGET</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>, <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LOCATION</varname>
                                 environment variables described above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.default_standard_output=</varname></term>
+                                <term><varname>systemd.default_standard_error=</varname></term>
+                                <listitem><para>Controls default
+                                standard output/error output for
+                                services, with the same effect as the
+                                <option>--default-standard-output=</option>
+                                resp. <option>--default-standard-error=</option>
+                                command line arguments described
+                                above.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
