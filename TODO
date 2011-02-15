@@ -11,8 +11,6 @@ Features:
 
 * look up crypto partition mount points via fstab to show to the user when prompting for a password
 
-* prohibit socket activation of sysv services
-
 * Maybe store in unit files whether a service should be enabled by default on package installation
 
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
@@ -32,8 +30,6 @@ Features:
 * maybe introduce ExecRestartPre=
 
 * figure out what happened to bluez patch
-
-* introduce StandardOutput=syslog+console and StandardOutput=kmsg+console to support fsck output at boot
 
 * Patch systemd-fsck to use -C and pass console fd to it
 

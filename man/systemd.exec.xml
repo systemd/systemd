@@ -350,7 +350,9 @@
                                 <option>null</option>,
                                 <option>tty</option>,
                                 <option>syslog</option>,
-                                <option>kmsg</option> or
+                                <option>kmsg</option>,
+                                <option>kmsg+console</option>,
+                                <option>syslog+console</option> or
                                 <option>socket</option>. If set to
                                 <option>inherit</option> the file
                                 descriptor of standard input is
@@ -374,9 +376,13 @@
                                 system logger. <option>kmsg</option>
                                 connects it with the kernel log buffer
                                 which is accessible via
-                                <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>socket</option>
-                                connects standard output to a socket
-                                from socket activation, semantics are
+                                <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>syslog+console</option>
+                                and <option>kmsg+console</option> work
+                                similarly but copy the output to the
+                                system console as
+                                well. <option>socket</option> connects
+                                standard output to a socket from
+                                socket activation, semantics are
                                 similar to the respective option of
                                 <varname>StandardInput=</varname>.
                                 This setting defaults to

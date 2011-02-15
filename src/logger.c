@@ -84,7 +84,8 @@ struct Stream {
         uid_t uid;
         gid_t gid;
 
-        bool prefix;
+        bool prefix:1;
+        bool tee_console:1;
 
         char buffer[LINE_MAX];
         size_t length;
@@ -228,6 +229,20 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
         } else
                 assert_not_reached("Unknown log target");
 
+        if (s->tee_console) {
+                int console;
+
+                if ((console = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) >= 0) {
+                        IOVEC_SET_STRING(iovec[0], s->process);
+                        IOVEC_SET_STRING(iovec[1], header_pid);
+                        IOVEC_SET_STRING(iovec[2], p);
+                        IOVEC_SET_STRING(iovec[3], (char*) "\n");
+
+                        writev(console, iovec, 4);
+                }
+
+        }
+
         return 0;
 }
 
@@ -242,9 +257,9 @@ static int stream_line(Stream *s, char *p, usec_t ts) {
         switch (s->state) {
 
         case STREAM_TARGET:
-                if (streq(p, "syslog"))
+                if (streq(p, "syslog") || streq(p, "syslog+console"))
                         s->target = STREAM_SYSLOG;
-                else if (streq(p, "kmsg")) {
+                else if (streq(p, "kmsg") || streq(p, "kmsg+console")) {
 
                         if (s->server->kmsg_fd >= 0 && s->uid == 0)
                                 s->target = STREAM_KMSG;
@@ -256,6 +271,10 @@ static int stream_line(Stream *s, char *p, usec_t ts) {
                         log_warning("Failed to parse log target line.");
                         return -EBADMSG;
                 }
+
+                if (endswith(p, "+console"))
+                        s->tee_console = true;
+
                 s->state = STREAM_PRIORITY;
                 return 0;
 

@@ -78,7 +78,9 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_NULL,
         EXEC_OUTPUT_TTY,
         EXEC_OUTPUT_SYSLOG,
+        EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
         EXEC_OUTPUT_KMSG,
+        EXEC_OUTPUT_KMSG_AND_CONSOLE,
         EXEC_OUTPUT_SOCKET,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1
