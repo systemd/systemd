@@ -214,8 +214,6 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
 
-        m->default_std_output = EXEC_OUTPUT_NULL;
-
 #ifdef HAVE_AUDIT
         m->audit_fd = -1;
 #endif

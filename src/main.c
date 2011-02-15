@@ -73,7 +73,7 @@ static bool arg_sysv_console = true;
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char **arg_default_controllers = NULL;
-static ExecOutput arg_default_std_output = EXEC_OUTPUT_NULL;
+static ExecOutput arg_default_std_output = EXEC_OUTPUT_INHERIT;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 
 static FILE* serialization = NULL;

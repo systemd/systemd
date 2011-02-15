@@ -271,8 +271,7 @@
                                 <option>kmsg</option>,
                                 <option>kmsg-console</option>.  If the
                                 argument is omitted it defaults to
-                                <option>null</option>
-                                resp. <option>inherit</option>.</para></listitem>
+                                <option>inherit</option>.</para></listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>
