@@ -44,7 +44,6 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 	struct udev_ctrl *uctrl = NULL;
 	int rc = 1;
 
-	/* compat values with '_' will be removed in a future release */
 	static const struct option options[] = {
 		{ "log-priority", required_argument, NULL, 'l' },
 		{ "stop-exec-queue", no_argument, NULL, 's' },

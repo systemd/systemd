@@ -274,8 +274,7 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 			/* skip to be delayed devices, and add them to the end of the list */
 			if (devices_delay_end(udev_enumerate->udev, entry->syspath)) {
 				syspath_add(udev_enumerate, entry->syspath);
-				/* need to update prev here for the case realloc() gives
-				   a different address */
+				/* need to update prev here for the case realloc() gives a different address */
 				prev = &udev_enumerate->devices[i];
 				continue;
 			}
