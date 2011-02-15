@@ -38,7 +38,6 @@ int main (int argc, char *argv[])
 	};
 	int fd;
 	char *device;
-	struct video_capability v1cap;
 	struct v4l2_capability v2cap;
 
 	while (1) {
