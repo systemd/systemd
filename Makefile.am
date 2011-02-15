@@ -313,12 +313,10 @@ libexec_PROGRAMS += extras/usb_id/usb_id
 # ------------------------------------------------------------------------------
 # v4l_id - video4linux capabilities
 # ------------------------------------------------------------------------------
-if HAVE_V4L1
 extras_v4l_id_v4l_id_SOURCES = extras/v4l_id/v4l_id.c
 extras_v4l_id_v4l_id_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/v4l_id/v4l_id
 dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
-endif
 
 endif # ENABLE_EXTRAS
 
