@@ -115,11 +115,11 @@ if test "x$enable_extras" = xyes; then
 
 	AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
 	AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
-
-	AC_CHECK_HEADER([linux/videodev.h], [have_videodev_h=yes], [])
-	AM_CONDITIONAL(HAVE_V4L1, [test "x$have_videodev_h" = "xyes"])
 fi
 AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
+
+AC_CHECK_HEADER([linux/videodev.h], [have_videodev_h=yes], [])
+AM_CONDITIONAL(HAVE_V4L1, [test "x$have_videodev_h" = "xyes"])
 
 AC_ARG_ENABLE([introspection],
 	AS_HELP_STRING([--disable-introspection], [disable GObject introspection]),
