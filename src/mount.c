@@ -466,6 +466,9 @@ static int mount_load(Unit *u) {
 
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
+                if ((r = unit_add_exec_dependencies(u, &m->exec_context)) < 0)
+                        return r;
+
                 if (m->meta.fragment_path)
                         m->from_fragment = true;
 

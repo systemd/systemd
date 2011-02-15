@@ -264,6 +264,8 @@ static int swap_load(Unit *u) {
                 return r;
 
         if (u->meta.load_state == UNIT_LOADED) {
+                if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
+                        return r;
 
                 if (s->meta.fragment_path)
                         s->from_fragment = true;
