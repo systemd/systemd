@@ -9,6 +9,9 @@ Bugs:
 
 * mkswap/mke2fs aus cryptsetup unit muss vor dem mounten ausgeführt werden.
 
+* exclude java hsp files by default
+  https://bugzilla.redhat.com/show_bug.cgi?id=527425
+
 Features:
 
 * look up crypto partition mount points via fstab to show to the user when prompting for a password
@@ -17,17 +20,8 @@ Features:
 
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
-* need a way to apply mount options of api vfs from systemd unit files instead of fstab
-
-* udisks should not use udisks-part-id, instead use blkid. also not probe /dev/loopxxx
-
-* snd-seq should go, https://bugzilla.redhat.com/show_bug.cgi?id=676095
-
-* mount.tmpfs should be optimized, https://bugzilla.redhat.com/show_bug.cgi?id=676100
-
-* mdmon is irre
-
-* gnome-shell python script/glxinfo/is-accelerated wech
+* need a way to apply mount options of api vfs from systemd unit files
+  (or some other modern source?) instead of fstab
 
 * maybe introduce ExecRestartPre=
 
@@ -44,9 +38,6 @@ Features:
 * support caching password questions in plymouth and on the console
   https://bugzilla.redhat.com/show_bug.cgi?id=655538
 
-* exclude java hsp files by default
-  https://bugzilla.redhat.com/show_bug.cgi?id=527425
-
 * load EnvironmentFile= when starting services, not when reloading configuration
   https://bugzilla.redhat.com/show_bug.cgi?id=661282
 
@@ -54,13 +45,10 @@ Features:
   lots of wakeups due to /dev changing when we watch a subdir of /dev.
 
 * Support ProcessNeededForShutdown=true to allow stuff like mdmon
-  to be killed very late after the rootfs is read only
+  to be killed very late after the rootfs is read only (?)
 
 * Integrate "mdadm --wait-clean". Maybe just let SIGTERM to mdmon trigger the
   needed action
-
-* oneshot services which do not remain: 'exited' instead of 'dead'?
-  it should be visible in 'systemctl' that they have been run?
 
 * dot output for --test showing the 'initial transaction'
 
@@ -116,8 +104,6 @@ Features:
 
 * readahead: btrfs/LVM SSD detection
 
-* when processes remain in a service even though the start command failed enter active
-
 * add seperate man page for [Install] settings
 
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
@@ -133,6 +119,14 @@ Fedora:
 * /var/lock, /var/run → what happens if rpm stuff is no %ghosted?
 
 External:
+
+* udisks should not use udisks-part-id, instead use blkid. also not probe /dev/loopxxx
+
+* snd-seq should go, https://bugzilla.redhat.com/show_bug.cgi?id=676095
+
+* mount.tmpfs should be optimized, https://bugzilla.redhat.com/show_bug.cgi?id=676100
+
+* gnome-shell python script/glxinfo/is-accelerated wech
 
 * make cryptsetup lower --iter-time
 
