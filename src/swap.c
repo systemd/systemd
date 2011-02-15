@@ -177,6 +177,7 @@ static int swap_add_target_links(Swap *s) {
                 return r;
 
         if (!p->noauto &&
+            !p->nofail &&
             (p->handle || s->meta.manager->swap_auto) &&
             s->from_etc_fstab &&
             s->meta.manager->running_as == MANAGER_SYSTEM)
