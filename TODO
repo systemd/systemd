@@ -10,6 +10,8 @@ Bugs:
 
 Features:
 
+* Make use of UnknownInterface, UnknownObject
+
 * increase password timeout
 
 * look up crypto partition mount points via fstab to show to the user when prompting for a password
