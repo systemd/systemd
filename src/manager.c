@@ -913,7 +913,8 @@ static void transaction_drop_redundant(Manager *m) {
                         LIST_FOREACH(transaction, k, j) {
 
                                 if (!job_is_anchor(k) &&
-                                    (j->installed || job_type_is_redundant(k->type, unit_active_state(k->unit))))
+                                    (k->installed || job_type_is_redundant(k->type, unit_active_state(k->unit))) &&
+                                    (!k->unit->meta.job || !job_type_is_conflicting(k->type, k->unit->meta.job->type)))
                                         continue;
 
                                 changes_something = true;
@@ -1422,6 +1423,11 @@ static int transaction_add_job_and_dependencies(
         assert(m);
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
+
+        /* log_debug("Pulling in %s/%s from %s/%s", */
+        /*           unit->meta.id, job_type_to_string(type), */
+        /*           by ? by->unit->meta.id : "NA", */
+        /*           by ? job_type_to_string(by->type) : "NA"); */
 
         if (unit->meta.load_state != UNIT_LOADED &&
             unit->meta.load_state != UNIT_ERROR &&

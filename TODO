@@ -7,12 +7,16 @@ Bugs:
 
 * systemctl default is started when we type "reboot" at rescue mode prompt
 
-* mkswap/mke2fs aus cryptsetup unit muss vor dem mounten ausgeführt werden.
-
 * exclude java hsp files by default
   https://bugzilla.redhat.com/show_bug.cgi?id=527425
 
 Features:
+
+* add --ignore-deps to systemctl
+
+* add --failed to systemctl
+
+* increase password timeout
 
 * look up crypto partition mount points via fstab to show to the user when prompting for a password
 
