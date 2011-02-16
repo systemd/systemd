@@ -5,16 +5,12 @@ Bugs:
 * when plymouth is disabled the console password entry stuff seems to be borked
   https://bugzilla.redhat.com/show_bug.cgi?id=655538
 
-* systemctl default is started when we type "reboot" at rescue mode prompt
-
 * exclude java hsp files by default
   https://bugzilla.redhat.com/show_bug.cgi?id=527425
 
 Features:
 
 * add --ignore-deps to systemctl
-
-* add --failed to systemctl
 
 * increase password timeout
 

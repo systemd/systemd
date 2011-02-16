@@ -76,6 +76,7 @@ static bool arg_full = false;
 static bool arg_force = false;
 static bool arg_defaults = false;
 static bool arg_ask_password = false;
+static bool arg_failed = false;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static const char *arg_kill_mode = NULL;
@@ -347,8 +348,11 @@ static int compare_unit_info(const void *a, const void *b) {
         return strcasecmp(u->id, v->id);
 }
 
-static bool output_show_job(const struct unit_info *u) {
+static bool output_show_unit(const struct unit_info *u) {
         const char *dot;
+
+        if (arg_failed)
+                return streq(u->active_state, "failed");
 
         return (!arg_type || ((dot = strrchr(u->id, '.')) &&
                               streq(dot+1, arg_type))) &&
@@ -364,7 +368,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         job_len = sizeof("JOB")-1;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                if (!output_show_job(u))
+                if (!output_show_unit(u))
                         continue;
 
                 active_len = MAX(active_len, strlen(u->active_state));
@@ -388,7 +392,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 const char *on_loaded, *off_loaded;
                 const char *on_active, *off_active;
 
-                if (!output_show_job(u))
+                if (!output_show_unit(u))
                         continue;
 
                 n_shown++;
@@ -4190,6 +4194,7 @@ static int systemctl_help(void) {
                "  -t --type=TYPE      List only units of a particular type\n"
                "  -p --property=NAME  Show only properties by this name\n"
                "  -a --all            Show all units/properties, including dead/empty ones\n"
+               "     --failed         Show only failed units\n"
                "     --full           Don't ellipsize unit names on output\n"
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
                "                      pending\n"
@@ -4344,7 +4349,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_DEFAULTS,
                 ARG_KILL_MODE,
                 ARG_KILL_WHO,
-                ARG_NO_ASK_PASSWORD
+                ARG_NO_ASK_PASSWORD,
+                ARG_FAILED
         };
 
         static const struct option options[] = {
@@ -4353,6 +4359,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "type",      required_argument, NULL, 't'           },
                 { "property",  required_argument, NULL, 'p'           },
                 { "all",       no_argument,       NULL, 'a'           },
+                { "failed",    no_argument,       NULL, ARG_FAILED    },
                 { "full",      no_argument,       NULL, ARG_FULL      },
                 { "fail",      no_argument,       NULL, ARG_FAIL      },
                 { "user",      no_argument,       NULL, ARG_USER      },
@@ -4454,6 +4461,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_FULL:
                         arg_full = true;
+                        break;
+
+                case ARG_FAILED:
+                        arg_failed = true;
                         break;
 
                 case 'q':

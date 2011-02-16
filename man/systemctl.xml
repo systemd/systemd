@@ -127,6 +127,15 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--failed</option></term>
+
+                                <listitem><para>When listing units,
+                                show only failed units. Do not confuse
+                                with
+                                <option>--fail</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--full</option></term>
 
                                 <listitem><para>Do not ellipsize unit
@@ -144,7 +153,9 @@
                                 unfinished job, fail the command. If
                                 this is not specified the requested
                                 operation will replace the pending job,
-                                if necessary.</para></listitem>
+                                if necessary. Do not confuse
+                                with
+                                <option>--failed</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
