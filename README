@@ -30,9 +30,27 @@ REQUIREMENTS:
         Linux kernel >= 2.6.30 (with autofs4, devtmpfs, cgroups)
         libudev >= 163
         dbus >= 1.4.0
+        libcap
+        gtk+ >= 2.20 (optional)
+        PAM >= 1.1.2 (optional)
+        libcryptsetup (optional)
+        libaudit (optional)
+        libselinux (optional)
+        tcpwrappers (optional)
+        libnotify (optional)
+
+        When you build from git you need the following additional dependencies:
+
         vala >= 0.10
+        docbook-xsl
+        xsltproc
+        automake
+        autoconf
+        libtool
+
+        During runtime you need the following dependencies:
+
         util-linux > v2.18 (requires fsck -l, agetty -s)
         sulogin (from sysvinit-tools)
-        gtk+ >= 2.20
-        libcap
-        PAM >= 1.1.2 (optional)
+        plymouth (optional)
+        dracut (optional)
