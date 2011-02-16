@@ -60,7 +60,7 @@
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
 static bool arg_all = false;
-static bool arg_fail = false;
+static const char *arg_job_mode = "replace";
 static bool arg_user = false;
 static bool arg_global = false;
 static bool arg_immediate = false;
@@ -1384,9 +1384,7 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 mode =
                         (streq(args[0], "isolate") ||
                          streq(args[0], "rescue")  ||
-                         streq(args[0], "emergency")) ? "isolate" :
-                                             arg_fail ? "fail" :
-                                                        "replace";
+                         streq(args[0], "emergency")) ? "isolate" : arg_job_mode;
 
                 one_name = table[verb_to_action(args[0])];
 
@@ -4198,6 +4196,8 @@ static int systemctl_help(void) {
                "     --full           Don't ellipsize unit names on output\n"
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
                "                      pending\n"
+               "     --ignore-dependencies\n"
+               "                      When queueing a new job, ignore all its dependencies\n"
                "  -q --quiet          Suppress output\n"
                "     --no-block       Do not wait until operation finished\n"
                "     --no-pager       Do not pipe output into a pager.\n"
@@ -4335,6 +4335,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_FAIL = 0x100,
+                ARG_IGNORE_DEPENDENCIES,
                 ARG_VERSION,
                 ARG_USER,
                 ARG_SYSTEM,
@@ -4362,6 +4363,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "failed",    no_argument,       NULL, ARG_FAILED    },
                 { "full",      no_argument,       NULL, ARG_FULL      },
                 { "fail",      no_argument,       NULL, ARG_FAIL      },
+                { "ignore-dependencies", no_argument, NULL, ARG_IGNORE_DEPENDENCIES },
                 { "user",      no_argument,       NULL, ARG_USER      },
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "global",    no_argument,       NULL, ARG_GLOBAL    },
@@ -4428,7 +4430,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FAIL:
-                        arg_fail = true;
+                        arg_job_mode = "fail";
+                        break;
+
+                case ARG_IGNORE_DEPENDENCIES:
+                        arg_job_mode = "ignore-dependencies";
                         break;
 
                 case ARG_USER:

@@ -159,6 +159,21 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--ignore-dependencies</option></term>
+
+                                <listitem><para>When enqueuing a new
+                                job ignore all its dependencies and
+                                execute it immediately. If passed no
+                                required units of the unit passed will
+                                be pulled in, and no ordering
+                                dependencies will be honoured. This is
+                                mostly a debugging and rescue tool for
+                                the administrator and should not be
+                                used by
+                                applications.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--quiet</option></term>
                                 <term><option>-q</option></term>
 

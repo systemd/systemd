@@ -309,8 +309,12 @@ bool job_is_runnable(Job *j) {
 
         /* Checks whether there is any job running for the units this
          * job needs to be running after (in the case of a 'positive'
-         * job type) or before (in the case of a 'negative' job type
-         * . */
+         * job type) or before (in the case of a 'negative' job
+         * type. */
+
+        /* First check if there is an override */
+        if (j->ignore_deps)
+                return true;
 
         if (j->type == JOB_START ||
             j->type == JOB_VERIFY_ACTIVE ||
@@ -667,7 +671,8 @@ DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
 static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL] = "fail",
         [JOB_REPLACE] = "replace",
-        [JOB_ISOLATE] = "isolate"
+        [JOB_ISOLATE] = "isolate",
+        [JOB_IGNORE_DEPENDENCIES] = "ignore-dependencies"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);

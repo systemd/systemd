@@ -66,6 +66,7 @@ enum JobMode {
         JOB_FAIL,
         JOB_REPLACE,
         JOB_ISOLATE,
+        JOB_IGNORE_DEPENDENCIES,
         _JOB_MODE_MAX,
         _JOB_MODE_INVALID = -1
 };
@@ -116,6 +117,7 @@ struct Job {
         bool in_dbus_queue:1;
         bool sent_dbus_new_signal:1;
         bool failed:1;
+        bool ignore_deps:1;
 };
 
 Job* job_new(Manager *m, JobType type, Unit *unit);
