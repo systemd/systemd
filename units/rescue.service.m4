@@ -23,7 +23,7 @@ m4_ifdef(`TARGET_FEDORA',
 `EnvironmentFile=/etc/sysconfig/init
 ExecStart=-/bin/bash -c "exec ${SINGLE}"',
 `ExecStart=-/sbin/sulogin')
-ExecStopPost=/bin/systemctl default
+ExecStopPost=-/bin/systemctl --fail default
 StandardInput=tty-force
 KillMode=process-group
 
