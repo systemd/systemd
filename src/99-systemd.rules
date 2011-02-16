@@ -7,12 +7,12 @@
 
 ACTION!="add|change", GOTO="systemd_end"
 
-ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
-
 KERNEL=="tty[0-9]|tty1[0-2]", TAG+="systemd"
 KERNEL=="ttyS*", TAG+="systemd"
 
 SUBSYSTEM=="block", KERNEL!="ram*|loop*", TAG+="systemd"
+SUBSYSTEM=="block", KERNEL!="ram*|loop*", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
+SUBSYSTEM=="block", KERNEL!="ram*|loop*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_USAGE}=="", ENV{SYSTEMD_READY}="0"
 
 # We need a hardware independent way to identify network devices. We
 # use the /sys/subsystem path for this. Current vanilla kernels don't
