@@ -3076,7 +3076,7 @@ void status_welcome(void) {
         if (!ansi_color && !const_color)
                 const_color = "1";
 
-        status_printf("Welcome to \x1B[%sm%s\x1B[0m!\n",
+        status_printf("\nWelcome to \x1B[%sm%s\x1B[0m!\n\n",
                       const_color ? const_color : ansi_color,
                       const_pretty ? const_pretty : pretty_name);
 
