@@ -331,7 +331,12 @@ void sigset_add_many(sigset_t *ss, ...);
 
 char* gethostname_malloc(void);
 char* getlogname_malloc(void);
-int getttyname_malloc(char **r);
+
+int getttyname_malloc(int fd, char **r);
+int getttyname_harder(int fd, char **r);
+
+int get_ctty_devnr(dev_t *d);
+int get_ctty(char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 

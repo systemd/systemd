@@ -370,7 +370,7 @@ int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
                 goto finish;
         }
 
-        getttyname_malloc(&tty);
+        getttyname_harder(STDIN_FILENO, &tty);
 
         if (asprintf(&text,
                      "\a\r\n"

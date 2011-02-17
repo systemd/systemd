@@ -353,13 +353,13 @@ finish:
 
 static int wall_tty_block(void) {
         char *p;
-        const char *t;
-        int fd;
+        int fd, r;
+        dev_t devnr;
 
-        if (!(t = ttyname(STDIN_FILENO)))
-                return -errno;
+        if ((r = get_ctty_devnr(&devnr)) < 0)
+                return -r;
 
-        if (asprintf(&p, "/dev/.systemd/ask-password-block/%s", file_name_from_path(t)) < 0)
+        if (asprintf(&p, "/dev/.systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
                 return -ENOMEM;
 
         mkdir_parents(p, 0700);
@@ -375,8 +375,25 @@ static int wall_tty_block(void) {
 }
 
 static bool wall_tty_match(const char *path) {
-        int fd;
+        int fd, k;
         char *p;
+        struct stat st;
+
+        if (path_is_absolute(path))
+                k = lstat(path, &st);
+        else {
+                if (asprintf(&p, "/dev/%s", path) < 0)
+                        return true;
+
+                k = lstat(p, &st);
+                free(p);
+        }
+
+        if (k < 0)
+                return true;
+
+        if (!S_ISCHR(st.st_mode))
+                return true;
 
         /* We use named pipes to ensure that wall messages suggesting
          * password entry are not printed over password prompts
@@ -386,7 +403,7 @@ static bool wall_tty_match(const char *path) {
          * advantage that the block will automatically go away if the
          * process dies. */
 
-        if (asprintf(&p, "/dev/.systemd/ask-password-block/%s", file_name_from_path(path)) < 0)
+        if (asprintf(&p, "/dev/.systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0)
                 return true;
 
         fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);

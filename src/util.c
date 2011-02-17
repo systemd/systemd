@@ -2749,25 +2749,118 @@ char* getlogname_malloc(void) {
         return name;
 }
 
-int getttyname_malloc(char **r) {
-        char path[PATH_MAX], *p, *c;
+int getttyname_malloc(int fd, char **r) {
+        char path[PATH_MAX], *c;
         int k;
 
         assert(r);
 
-        if ((k = ttyname_r(STDIN_FILENO, path, sizeof(path))) != 0)
+        if ((k = ttyname_r(fd, path, sizeof(path))) != 0)
                 return -k;
 
         char_array_0(path);
 
-        p = path;
-        if (startswith(path, "/dev/"))
-                p += 5;
-
-        if (!(c = strdup(p)))
+        if (!(c = strdup(startswith(path, "/dev/") ? path + 5 : path)))
                 return -ENOMEM;
 
         *r = c;
+        return 0;
+}
+
+int getttyname_harder(int fd, char **r) {
+        int k;
+        char *s;
+
+        if ((k = getttyname_malloc(fd, &s)) < 0)
+                return k;
+
+        if (streq(s, "tty")) {
+                free(s);
+                return get_ctty(r);
+        }
+
+        *r = s;
+        return 0;
+}
+
+int get_ctty_devnr(dev_t *d) {
+        int k;
+        char line[256], *p;
+        unsigned long ttynr;
+        FILE *f;
+
+        if (!(f = fopen("/proc/self/stat", "r")))
+                return -errno;
+
+        if (!(fgets(line, sizeof(line), f))) {
+                k = -errno;
+                fclose(f);
+                return k;
+        }
+
+        fclose(f);
+
+        if (!(p = strrchr(line, ')')))
+                return -EIO;
+
+        p++;
+
+        if (sscanf(p, " "
+                   "%*c "  /* state */
+                   "%*d "  /* ppid */
+                   "%*d "  /* pgrp */
+                   "%*d "  /* session */
+                   "%lu ", /* ttynr */
+                   &ttynr) != 1)
+                return -EIO;
+
+        *d = (dev_t) ttynr;
+        return 0;
+}
+
+int get_ctty(char **r) {
+        int k;
+        char fn[128], *s, *b, *p;
+        dev_t devnr;
+
+        assert(r);
+
+        if ((k = get_ctty_devnr(&devnr)) < 0)
+                return k;
+
+        snprintf(fn, sizeof(fn), "/dev/char/%u:%u", major(devnr), minor(devnr));
+        char_array_0(fn);
+
+        if ((k = readlink_malloc(fn, &s)) < 0) {
+
+                if (k != -ENOENT)
+                        return k;
+
+                /* Probably something like the ptys which have no
+                 * symlink in /dev/char. Let's return something
+                 * vaguely useful. */
+
+                if (!(b = strdup(fn + 5)))
+                        return -ENOMEM;
+
+                *r = b;
+                return 0;
+        }
+
+        if (startswith(s, "/dev/"))
+                p = s + 5;
+        else if (startswith(s, "../"))
+                p = s + 3;
+        else
+                p = s;
+
+        b = strdup(p);
+        free(s);
+
+        if (!b)
+                return -ENOMEM;
+
+        *r = b;
         return 0;
 }
 
