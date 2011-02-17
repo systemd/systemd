@@ -147,6 +147,8 @@ static void load_unix_sockets(void) {
                 if (!(s = strdup(p)))
                         goto fail;
 
+                path_kill_slashes(s);
+
                 if ((k = set_put(unix_sockets, s)) < 0) {
                         free(s);
 
