@@ -2134,8 +2134,32 @@ finish:
 
 int open_terminal(const char *name, int mode) {
         int fd, r;
+        unsigned c = 0;
 
-        if ((fd = open(name, mode)) < 0)
+        /*
+         * If a TTY is in the process of being closed opening it might
+         * cause EIO. This is horribly awful, but unlikely to be
+         * changed in the kernel. Hence we work around this problem by
+         * retrying a couple of times.
+         *
+         * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
+         */
+
+        for (;;) {
+                if ((fd = open(name, mode)) >= 0)
+                        break;
+
+                if (errno != EIO)
+                        return -errno;
+
+                if (c >= 20)
+                        return -errno;
+
+                usleep(50 * USEC_PER_MSEC);
+                c++;
+        }
+
+        if (fd < 0)
                 return -errno;
 
         if ((r = isatty(fd)) < 0) {
