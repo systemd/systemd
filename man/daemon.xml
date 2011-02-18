@@ -841,7 +841,7 @@ fi
 %preun
 if [ $1 -eq 0 ]; then
         # On uninstall (not upgrade), disable and stop the units
-        /bin/systemctl disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+        /bin/systemctl --no-reload disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
         /bin/systemctl stop foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 fi
 
@@ -870,7 +870,7 @@ fi</programlisting>
 
                         <programlisting>%triggerun -- foobar &lt; 0.47.11-1
 if /sbin/chkconfig foobar ; then
-        /bin/systemctl enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
+        /bin/systemctl --no-reload enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 fi</programlisting>
 
                         <para>Where 0.47.11-1 is the first package
