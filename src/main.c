@@ -1012,6 +1012,11 @@ int main(int argc, char *argv[]) {
         if (parse_argv(argc, argv) < 0)
                 goto finish;
 
+        if (arg_action == ACTION_TEST && geteuid() == 0) {
+                log_error("Don't run test mode as root.");
+                goto finish;
+        }
+
         /* If Plymouth is being run make sure we show the status, so
          * that there's something nice to see when people press Esc */
         if (access("/dev/.systemd/plymouth", F_OK) >= 0)
