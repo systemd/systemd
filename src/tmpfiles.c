@@ -303,6 +303,10 @@ static int dir_cleanup(
                         if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path))
                                 continue;
 
+                        /* Ignore device nodes */
+                        if (S_ISCHR(s.st_mode) || S_ISBLK(s.st_mode))
+                                continue;
+
                         age = MAX3(timespec_load(&s.st_mtim),
                                    timespec_load(&s.st_atim),
                                    timespec_load(&s.st_ctim));
