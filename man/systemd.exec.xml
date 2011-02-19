@@ -412,7 +412,7 @@
                                 <filename>/dev/console</filename>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><varname>SyslogIdentifer=</varname></term>
+                                <term><varname>SyslogIdentifier=</varname></term>
                                 <listitem><para>Sets the process name
                                 to prefix log lines sent to syslog or
                                 the kernel log buffer with. If not set
