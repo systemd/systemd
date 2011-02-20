@@ -39,7 +39,7 @@
 #include "fdset.h"
 
 #define SERVER_FD_MAX 16
-#define TIMEOUT ((int) (10*MSEC_PER_SEC))
+#define TIMEOUT ((int) (5*MSEC_PER_MINUTE))
 
 typedef struct Stream Stream;
 
