@@ -20,3 +20,4 @@ RemainAfterExit=no
 ExecStart=@rootlibexecdir@/systemd-fsck
 StandardOutput=syslog+console
 FsckPassNo=1
+TimeoutSec=0

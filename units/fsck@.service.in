@@ -17,3 +17,4 @@ Type=oneshot
 RemainAfterExit=no
 ExecStart=@rootlibexecdir@/systemd-fsck %f
 StandardOutput=syslog+console
+TimeoutSec=0
