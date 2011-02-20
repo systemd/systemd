@@ -4668,6 +4668,18 @@ static int parse_time_spec(const char *t, usec_t *_u) {
         return 0;
 }
 
+static bool kexec_loaded(void) {
+       bool loaded = false;
+       char *s;
+
+       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) >= 0) {
+               if (s[0] == '1')
+                       loaded = true;
+               free(s);
+       }
+       return loaded;
+}
+
 static int shutdown_parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -4705,7 +4717,10 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'r':
-                        arg_action = ACTION_REBOOT;
+                        if (kexec_loaded())
+                                arg_action = ACTION_KEXEC;
+                        else
+                                arg_action = ACTION_REBOOT;
                         break;
 
                 case 'h':
@@ -4898,7 +4913,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_POWEROFF;
                         return halt_parse_argv(argc, argv);
                 } else if (strstr(program_invocation_short_name, "reboot")) {
-                        arg_action = ACTION_REBOOT;
+                        if (kexec_loaded())
+                                arg_action = ACTION_KEXEC;
+                        else
+                                arg_action = ACTION_REBOOT;
                         return halt_parse_argv(argc, argv);
                 } else if (strstr(program_invocation_short_name, "shutdown")) {
                         arg_action = ACTION_POWEROFF;
@@ -5498,6 +5516,7 @@ int main(int argc, char*argv[]) {
         case ACTION_HALT:
         case ACTION_POWEROFF:
         case ACTION_REBOOT:
+        case ACTION_KEXEC:
                 r = halt_main(bus);
                 break;
 
