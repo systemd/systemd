@@ -8,7 +8,7 @@
 [Unit]
 Description=Serial Getty on %I
 BindTo=dev-%i.device
-After=dev-%i.device systemd-user-sessions.service
+After=dev-%i.device systemd-user-sessions.service plymouth-quit.service
 m4_ifdef(`TARGET_FEDORA',
 After=rc-local.service
 )m4_dnl

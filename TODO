@@ -1,3 +1,7 @@
+F15:
+
+* dep cycle basic → udev-retry → auditd → iptables → basic
+
 Bugs:
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
