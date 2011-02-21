@@ -306,7 +306,7 @@ static int mount_add_target_links(Mount *m) {
                 return r;
 
         if (after)
-                if ((r = unit_add_dependency_by_name(tu, UNIT_AFTER, after, NULL, true)) < 0)
+                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true)) < 0)
                         return r;
 
         if (automount && m->meta.manager->running_as == MANAGER_SYSTEM) {
