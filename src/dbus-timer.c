@@ -96,10 +96,24 @@ static int bus_timer_append_timers(Manager *m, DBusMessageIter *i, const char *p
         return 0;
 }
 
+static int bus_timer_append_unit(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *t;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        t = u->timer.unit ? u->timer.unit->meta.id : "";
+
+        return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
+}
+
 DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Timer", "Unit",           bus_property_append_string, "s",      u->timer.unit->meta.id },
+                { "org.freedesktop.systemd1.Timer", "Unit",           bus_timer_append_unit,      "s",      u                      },
                 { "org.freedesktop.systemd1.Timer", "Timers",         bus_timer_append_timers,    "a(stt)", u                      },
                 { "org.freedesktop.systemd1.Timer", "NextElapseUSec", bus_property_append_usec,   "t",      &u->timer.next_elapse  },
                 { NULL, NULL, NULL, NULL, NULL }

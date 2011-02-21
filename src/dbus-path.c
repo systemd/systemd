@@ -72,10 +72,24 @@ static int bus_path_append_paths(Manager *m, DBusMessageIter *i, const char *pro
         return 0;
 }
 
+static int bus_path_append_unit(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *t;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        t = u->path.unit ? u->path.unit->meta.id : "";
+
+        return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
+}
+
 DBusHandlerResult bus_path_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Path", "Unit",  bus_property_append_string, "s",     u->path.unit->meta.id  },
+                { "org.freedesktop.systemd1.Path", "Unit",  bus_path_append_unit,       "s",     u                      },
                 { "org.freedesktop.systemd1.Path", "Paths", bus_path_append_paths,      "a(ss)", u                      },
                 { NULL, NULL, NULL, NULL, NULL }
         };
