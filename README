@@ -27,7 +27,7 @@ AUTHOR:
         Lennart Poettering with major support from Kay Sievers
 
 REQUIREMENTS:
-        Linux kernel >= 2.6.30 (with autofs4, devtmpfs, cgroups)
+        Linux kernel >= 2.6.30 (with autofs4, devtmpfs, cgroups, ipv6)
         libudev >= 163
         dbus >= 1.4.0
         libcap
