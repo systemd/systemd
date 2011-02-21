@@ -583,7 +583,7 @@ static void automount_enter_runnning(Automount *a) {
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {
-                log_warning("%s failed stat automount point: %m", a->meta.id);
+                log_warning("%s failed to stat automount point: %m", a->meta.id);
                 goto fail;
         }
 

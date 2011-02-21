@@ -736,7 +736,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
         if (target->meta.type != UNIT_TARGET)
                 return 0;
 
-        /* Only add the dependency if boths units are loaded, so that
+        /* Only add the dependency if both units are loaded, so that
          * that loop check below is reliable */
         if (u->meta.load_state != UNIT_LOADED ||
             target->meta.load_state != UNIT_LOADED)
@@ -1124,7 +1124,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         job_add_to_run_queue(u->meta.job);
 
                 /* Let's check whether this state change constitutes a
-                 * finished job, or maybe cotradicts a running job and
+                 * finished job, or maybe contradicts a running job and
                  * hence needs to invalidate jobs. */
 
                 switch (u->meta.job->type) {

@@ -294,7 +294,7 @@ static unsigned manager_dispatch_cleanup_queue(Manager *m) {
 }
 
 enum {
-        GC_OFFSET_IN_PATH,  /* This one is on the path we were travelling */
+        GC_OFFSET_IN_PATH,  /* This one is on the path we were traveling */
         GC_OFFSET_UNSURE,   /* No clue */
         GC_OFFSET_GOOD,     /* We still need this unit */
         GC_OFFSET_BAD,      /* We don't need this unit anymore */
@@ -768,7 +768,7 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
 
         /* Tries to delete one item in the linked list
          * j->transaction_next->transaction_next->... that conflicts
-         * whith another one, in an attempt to make an inconsistent
+         * with another one, in an attempt to make an inconsistent
          * transaction work. */
 
         /* We rely here on the fact that if a merged with b does not
@@ -1286,7 +1286,7 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
                         break;
 
                 if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains unmergable jobs: %s", bus_error(e, r));
+                        log_warning("Requested transaction contains unmergeable jobs: %s", bus_error(e, r));
                         goto rollback;
                 }
 
@@ -1330,7 +1330,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool o
         assert(m);
         assert(unit);
 
-        /* Looks for an axisting prospective job and returns that. If
+        /* Looks for an existing prospective job and returns that. If
          * it doesn't exist it is created and added to the prospective
          * jobs list. */
 

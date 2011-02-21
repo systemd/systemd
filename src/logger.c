@@ -520,7 +520,7 @@ static int server_init(Server *s, unsigned n_sockets) {
 
                 /* We use ev.data.ptr instead of ev.data.fd here,
                  * since on 64bit archs fd is 32bit while a pointer is
-                 * 64bit. To make sure we can easily distuingish fd
+                 * 64bit. To make sure we can easily distinguish fd
                  * values and pointer values we want to make sure to
                  * write the full field unconditionally. */
 

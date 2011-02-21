@@ -93,7 +93,7 @@ struct Watch {
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
-         * incosistent. However the subset of it that is loaded may
+         * inconsistent. However the subset of it that is loaded may
          * not, and the list of jobs may neither. */
 
         /* Active jobs and units */
@@ -194,7 +194,7 @@ struct Manager {
         int gc_marker;
         unsigned n_in_gc_queue;
 
-        /* Make sure the user cannot accidentaly unmount our cgroup
+        /* Make sure the user cannot accidentally unmount our cgroup
          * file system */
         int pin_cgroupfs_fd;
 

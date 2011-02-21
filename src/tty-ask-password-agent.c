@@ -625,8 +625,8 @@ static int help(void) {
                "  -h --help     Show this help\n"
                "     --list     Show pending password requests\n"
                "     --query    Process pending password requests\n"
-               "     --watch    Continously process password requests\n"
-               "     --wall     Continously forward password requests to wall\n"
+               "     --watch    Continuously process password requests\n"
+               "     --wall     Continuously forward password requests to wall\n"
                "     --plymouth Ask question with Plymouth instead of on TTY\n"
                "     --console  Ask question on /dev/console instead of current TTY\n",
                program_invocation_short_name);

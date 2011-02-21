@@ -335,7 +335,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 /* Facilities starting with $ are most likely targets */
                 r = unit_name_build(n, NULL, ".target");
         } else if (filename && streq(name, filename))
-                /* Names equalling the file name of the services are redundant */
+                /* Names equaling the file name of the services are redundant */
                 return 0;
         else
                 /* Everything else we assume to be normal service names */
@@ -2777,7 +2777,7 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_STOP_SIGKILL:
-                /* Uh, wie sent a SIGKILL and it is still not gone?
+                /* Uh, we sent a SIGKILL and it is still not gone?
                  * Must be something we cannot kill, so let's just be
                  * weirded out and continue */
 
@@ -3052,7 +3052,7 @@ static int service_enumerate(Manager *m) {
 
         /* We honour K links only for halt/reboot. For the normal
          * runlevels we assume the stop jobs will be implicitly added
-         * by the core logic. Also, we don't really distuingish here
+         * by the core logic. Also, we don't really distinguish here
          * between the runlevels 0 and 6 and just add them to the
          * special shutdown target. On SUSE the boot.d/ runlevel is
          * also used for shutdown, so we add links for that too to the

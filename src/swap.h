@@ -89,7 +89,7 @@ struct Swap {
 
         Watch timer_watch;
 
-        /* In order to be able to distuingish dependencies on
+        /* In order to be able to distinguish dependencies on
         different device nodes we might end up creating multiple
         devices for the same swap. We chain them up here. */
 

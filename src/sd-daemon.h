@@ -185,7 +185,7 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
      READY=1      Tells systemd that daemon startup is finished (only
                   relevant for services of Type=notify). The passed
                   argument is a boolean "1" or "0". Since there is
-                  little value in signalling non-readiness the only
+                  little value in signaling non-readiness the only
                   value daemons should send is "READY=1".
 
      STATUS=...   Passes a single-line status string back to systemd
@@ -206,7 +206,7 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
                   fork off the process itself. Example: "MAINPID=4711"
 
   Daemons can choose to send additional variables. However, it is
-  recommened to prefix variable names not listed above with X_.
+  recommended to prefix variable names not listed above with X_.
 
   Returns a negative errno-style error code on failure. Returns > 0
   if systemd could be notified, 0 if it couldn't possibly because

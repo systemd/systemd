@@ -40,7 +40,7 @@ struct Device {
 
         char *sysfs;
 
-        /* In order to be able to distuingish dependencies on
+        /* In order to be able to distinguish dependencies on
         different device nodes we might end up creating multiple
         devices for the same sysfs path. We chain them up here. */
 

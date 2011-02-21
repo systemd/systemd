@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 
         /* We send this event to the private D-Bus socket and then the
          * system instance will forward this to the system bus. We do
-         * this to avoid an actviation loop when we start dbus when we
+         * this to avoid an activation loop when we start dbus when we
          * are called when the dbus service is shut down. */
 
         if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", &error))) {

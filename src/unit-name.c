@@ -213,7 +213,7 @@ char *unit_name_build_escape(const char *prefix, const char *instance, const cha
          * suffix and makes a nice string suitable as unit name of it,
          * escaping all weird chars on the way.
          *
-         * / becomes ., and all chars not alloweed in a unit name get
+         * / becomes ., and all chars not allowed in a unit name get
          * escaped as \xFF, including \ and ., of course. This
          * escaping is hence reversible.
          *

@@ -161,11 +161,11 @@ static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_d
 
                 /* The bind mount will always inherit the original
                  * flags. If we want to set any flag we need
-                 * to do so in a second indepdant step. */
+                 * to do so in a second independent step. */
                 if (flags)
                         r = mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|MS_REC|flags, NULL);
 
-                /* Avoid expontial growth of trees */
+                /* Avoid exponential growth of trees */
                 if (r >= 0 && path_equal(p->path, "/"))
                         r = mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|MS_UNBINDABLE|flags, NULL);
 

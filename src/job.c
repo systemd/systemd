@@ -101,7 +101,7 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool 
         /* Adds a new job link, which encodes that the 'subject' job
          * needs the 'object' job in some way. If 'subject' is NULL
          * this means the 'anchor' job (i.e. the one the user
-         * explcitily asked for) is the requester. */
+         * explicitly asked for) is the requester. */
 
         if (!(l = new0(JobDependency, 1)))
                 return NULL;

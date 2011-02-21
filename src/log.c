@@ -45,7 +45,7 @@ static bool syslog_is_stream = false;
 static bool show_color = false;
 static bool show_location = false;
 
-/* Akin to glibc's __abort_msg; which is private and we hance cannot
+/* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
 
@@ -74,7 +74,7 @@ static int log_open_console(void) {
                         return console_fd;
                 }
 
-                log_debug("Succesfully opened /dev/console for logging.");
+                log_debug("Successfully opened /dev/console for logging.");
         } else
                 console_fd = STDERR_FILENO;
 
@@ -100,7 +100,7 @@ static int log_open_kmsg(void) {
                 return -errno;
         }
 
-        log_debug("Succesfully opened /dev/kmsg for logging.");
+        log_debug("Successfully opened /dev/kmsg for logging.");
 
         return 0;
 }
@@ -171,7 +171,7 @@ static int log_open_syslog(void) {
         } else
                 syslog_is_stream = false;
 
-        log_debug("Succesfully opened syslog for logging.");
+        log_debug("Successfully opened syslog for logging.");
 
         return 0;
 

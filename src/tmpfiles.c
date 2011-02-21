@@ -852,7 +852,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (!arg_clean && !arg_create && !arg_remove) {
-                log_error("You need to specify at leat one of --clean, --create or --remove.");
+                log_error("You need to specify at least one of --clean, --create or --remove.");
                 return -EINVAL;
         }
 

@@ -334,7 +334,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (retries >= FINALIZE_ATTEMPTS)
-                log_error("Too many interations, giving up.");
+                log_error("Too many iterations, giving up.");
 
         execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, NULL);
 

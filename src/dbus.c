@@ -418,7 +418,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                                         goto oom;
                         }
 
-                        /* On success we don't do anything, the service will be spwaned now */
+                        /* On success we don't do anything, the service will be spawned now */
                 }
         }
 

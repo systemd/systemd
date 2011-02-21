@@ -592,7 +592,7 @@ static int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const c
 
                 /* If there are multiple users with the same id, make
                  * sure to leave $USER to the configured value instead
-                 * of the first occurence in the database. However if
+                 * of the first occurrence in the database. However if
                  * the uid was configured by a numeric uid, then let's
                  * pick the real username from /etc/passwd. */
                 if (*username && p)
@@ -617,7 +617,7 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
 
         assert(context);
 
-        /* Lookup and ser GID and supplementary group list. Here too
+        /* Lookup and set GID and supplementary group list. Here too
          * we avoid NSS lookups for gid=0. */
 
         if (context->group || username) {
@@ -700,7 +700,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
 
                 /* First step: If we need to keep capabilities but
                  * drop privileges we need to make sure we keep our
-                 * caps, whiel we drop priviliges. */
+                 * caps, whiel we drop privileges. */
                 if (uid != 0) {
                         int sb = context->secure_bits|SECURE_KEEP_CAPS;
 
@@ -709,7 +709,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
                                         return -errno;
                 }
 
-                /* Second step: set the capabilites. This will reduce
+                /* Second step: set the capabilities. This will reduce
                  * the capabilities to the minimum we need. */
 
                 if (!(d = cap_dup(context->capabilities)))
@@ -780,7 +780,7 @@ static int setup_pam(
         assert(pam_env);
 
         /* We set up PAM in the parent process, then fork. The child
-         * will then stay around untill killed via PR_GET_PDEATHSIG or
+         * will then stay around until killed via PR_GET_PDEATHSIG or
          * systemd via the cgroup logic. It will then remove the PAM
          * session again. The parent process will exec() the actual
          * daemon. We do things this way to ensure that the main PID
@@ -841,7 +841,7 @@ static int setup_pam(
 
                 /* Wait until our parent died. This will most likely
                  * not work since the kernel does not allow
-                 * unpriviliged paretns kill their priviliged children
+                 * unprivileged parents kill their privileged children
                  * this way. We rely on the control groups kill logic
                  * to do the rest for us. */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
@@ -1242,7 +1242,7 @@ int exec_spawn(ExecCommand *command,
                                         goto fail;
                                 }
 
-                        /* PR_GET_SECUREBITS is not priviliged, while
+                        /* PR_GET_SECUREBITS is not privileged, while
                          * PR_SET_SECUREBITS is. So to suppress
                          * potential EPERMs we'll try not to call
                          * PR_SET_SECUREBITS unless necessary. */
@@ -1779,7 +1779,7 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
         assert(e);
 
         if (*l) {
-                /* It's kinda important that we keep the order here */
+                /* It's kind of important, that we keep the order here */
                 LIST_FIND_TAIL(ExecCommand, command, *l, end);
                 LIST_INSERT_AFTER(ExecCommand, command, *l, end, e);
         } else

@@ -20,7 +20,7 @@
   we those lookups involve synchronously talking to services that we
   would need to start up.
 
-- Do not acccess any directories outside of /etc/, /dev, /lib from the
+- Do not access any directories outside of /etc/, /dev, /lib from the
   init daemon to avoid deadlocks with the automounter.
 
 - Don't synchronously talk to any other service, due to risk of

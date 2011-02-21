@@ -1363,7 +1363,7 @@ static int socket_start(Unit *u) {
                 if (s->service->meta.load_state != UNIT_LOADED)
                         return -ENOENT;
 
-                /* If the service is alredy active we cannot start the
+                /* If the service is already active we cannot start the
                  * socket */
                 if (s->service->state != SERVICE_DEAD &&
                     s->service->state != SERVICE_FAILED &&
@@ -1798,7 +1798,7 @@ void socket_connection_unref(Socket *s) {
 
         /* The service is dead. Yay!
          *
-         * This is strictly for one-onstance-per-connection
+         * This is strictly for one-instance-per-connection
          * services. */
 
         assert(s->n_connections > 0);

@@ -196,7 +196,7 @@ struct Meta {
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 
-        /* Create default depedencies */
+        /* Create default dependencies */
         bool default_dependencies;
 
         /* Refuse manual starting, allow starting only indirectly via dependency. */
@@ -290,7 +290,7 @@ struct UnitVTable {
 
         /* Returns the substate specific to this unit type as
          * string. This is purely information so that we can give the
-         * user a more finegrained explanation in which actual state a
+         * user a more fine grained explanation in which actual state a
          * unit is in. */
         const char* (*sub_state_to_string)(Unit *u);
 

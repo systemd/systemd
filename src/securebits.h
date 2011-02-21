@@ -16,7 +16,7 @@
 #define SECURE_NOROOT_LOCKED		1  /* make bit-0 immutable */
 
 /* When set, setuid to/from uid 0 does not trigger capability-"fixup".
-   When unset, to provide compatiblility with old programs relying on
+   When unset, to provide compatibility with old programs relying on
    set*uid to gain/lose privilege, transitions to/from uid 0 cause
    capabilities to be gained/lost. */
 #define SECURE_NO_SETUID_FIXUP		2

@@ -74,14 +74,14 @@ int main(int argc, char *argv[]) {
         assert_se(manager_add_job(m, JOB_START, g, JOB_REPLACE, false, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
-        printf("Test7: (Unmeargable job type, fail)\n");
+        printf("Test7: (Unmergeable job type, fail)\n");
         assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, false, NULL, &j) == -EEXIST);
 
         printf("Test8: (Mergeable job type, fail)\n");
         assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, false, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
-        printf("Test9: (Unmeargable job type, replace)\n");
+        printf("Test9: (Unmergeable job type, replace)\n");
         assert_se(manager_add_job(m, JOB_STOP, g, JOB_REPLACE, false, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
         assert_se(manager_load_unit(m, "h.service", NULL, NULL, &h) >= 0);
         manager_dump_units(m, stdout, "\t");
 
-        printf("Test10: (Unmeargable job type of auxiliary job, fail)\n");
+        printf("Test10: (Unmergeable job type of auxiliary job, fail)\n");
         assert_se(manager_add_job(m, JOB_START, h, JOB_FAIL, false, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 

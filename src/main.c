@@ -858,7 +858,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
         assert(_fds);
 
         if ((r = manager_open_serialization(m, &f)) < 0) {
-                log_error("Failed to create serialization faile: %s", strerror(-r));
+                log_error("Failed to create serialization file: %s", strerror(-r));
                 goto fail;
         }
 
@@ -974,7 +974,7 @@ int main(int argc, char *argv[]) {
         char systemd[] = "systemd";
 
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
-                /* This is compatbility support for SysV, where
+                /* This is compatibility support for SysV, where
                  * calling init as a user is identical to telinit. */
 
                 errno = -ENOENT;

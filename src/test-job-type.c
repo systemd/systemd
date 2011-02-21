@@ -55,7 +55,7 @@ int main(int argc, char*argv[]) {
                                         assert(!job_type_is_mergeable(b, c) || job_type_is_mergeable(d, c));
 
                                         /* Verify that if a merged
-                                         * with b is not mergable with
+                                         * with b is not mergeable with
                                          * c then either a or b is not
                                          * mergeable with c either. */
                                         assert(job_type_is_mergeable(d, c) || !job_type_is_mergeable(a, c) || !job_type_is_mergeable(b, c));

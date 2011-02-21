@@ -355,7 +355,7 @@ char **strv_remove(char **l, const char *s) {
         if (!l)
                 return NULL;
 
-        /* Drops every occurence of s in the string list */
+        /* Drops every occurrence of s in the string list */
 
         for (f = t = l; *f; f++) {
 
@@ -379,7 +379,7 @@ static int env_append(char **r, char ***k, char **a) {
                 return 0;
 
         /* Add the entries of a to *k unless they already exist in *r
-         * in which case they are overriden instead. This assumes
+         * in which case they are overridden instead. This assumes
          * there is enough space in the r array. */
 
         for (; *a; a++) {
@@ -474,7 +474,7 @@ char **strv_env_delete(char **x, unsigned n_lists, ...) {
         char **l, **k, **r, **j;
         va_list ap;
 
-        /* Deletes every entry fromx that is mentioned in the other
+        /* Deletes every entry from x that is mentioned in the other
          * string lists */
 
         n = strv_length(x);
