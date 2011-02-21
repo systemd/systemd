@@ -3706,7 +3706,8 @@ const char *default_term_for_tty(const char *tty) {
         return term;
 }
 
-bool running_in_vm(void) {
+/* Returns a short identifier for the various VM implementations */
+int detect_vm(const char **id) {
 
 #if defined(__i386__) || defined(__x86_64__)
 
@@ -3718,38 +3719,61 @@ bool running_in_vm(void) {
                 "/sys/class/dmi/id/bios_vendor"
         };
 
-        uint32_t eax = 0x40000000;
+        const char dmi_vendor_table[] =
+                "QEMU\0"                  "qemu\0"
+                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+                "VMware\0"                "vmware\0"
+                "VMW\0"                   "vmware\0"
+                "Microsoft Corporation\0" "microsoft\0"
+                "innotek GmbH\0"          "oracle\0"
+                "Xen\0"                   "xen\0"
+                "\0";
+
+        const char cpuid_vendor_table[] =
+                "XenVMMXenVMM\0"          "xen\0"
+                "KVMKVMKVM\0"             "kvm\0"
+                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+                "VMwareVMware\0"          "vmware\0"
+                /* http://msdn.microsoft.com/en-us/library/ff542428.aspx */
+                "Microsoft Hv\0"          "microsoft\0"
+                "\0";
+
+        uint32_t eax, ecx;
         union {
                 uint32_t sig32[3];
                 char text[13];
         } sig;
 
         unsigned i;
+        const char *j, *k;
 
         for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
                 char *s;
-                bool b;
+                int r;
+                const char *found = NULL;
 
-                if (read_one_line_file(dmi_vendors[i], &s) < 0)
+                if ((r = read_one_line_file(dmi_vendors[i], &s)) < 0) {
+                        if (r != -ENOENT)
+                                return r;
+
                         continue;
+                }
 
-                b = startswith(s, "QEMU") ||
-                        /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                        startswith(s, "VMware") ||
-                        startswith(s, "VMW") ||
-                        startswith(s, "Microsoft Corporation") ||
-                        startswith(s, "innotek GmbH") ||
-                        startswith(s, "Xen");
-
+                NULSTR_FOREACH_PAIR(j, k, dmi_vendor_table)
+                        if (startswith(s, j))
+                                found = k;
                 free(s);
 
-                if (b)
-                        return true;
+                if (found) {
+                        if (id)
+                                *id = found;
+
+                        return 1;
+                }
         }
 
         /* http://lwn.net/Articles/301888/ */
         zero(sig);
-
 
 #if defined (__i386__)
 #define REG_a "eax"
@@ -3759,27 +3783,80 @@ bool running_in_vm(void) {
 #define REG_b "rbx"
 #endif
 
+        /* First detect whether there is a hypervisor */
+        eax = 1;
         __asm__ __volatile__ (
                 /* ebx/rbx is being used for PIC! */
                 "  push %%"REG_b"         \n\t"
                 "  cpuid                  \n\t"
-                "  mov %%ebx, %1          \n\t"
                 "  pop %%"REG_b"          \n\t"
 
-                : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
+                : "=a" (eax), "=c" (ecx)
                 : "0" (eax)
         );
 
-        if (streq(sig.text, "XenVMMXenVMM") ||
-            streq(sig.text, "KVMKVMKVM") ||
-            /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-            streq(sig.text, "VMwareVMware") ||
-            /* http://msdn.microsoft.com/en-us/library/bb969719.aspx */
-            streq(sig.text, "Microsoft Hv"))
-                return true;
+        if (ecx & 0x80000000U) {
+
+                /* There is a hypervisor, see what it is */
+                eax = 0x40000000U;
+                __asm__ __volatile__ (
+                        /* ebx/rbx is being used for PIC! */
+                        "  push %%"REG_b"         \n\t"
+                        "  cpuid                  \n\t"
+                        "  mov %%ebx, %1          \n\t"
+                        "  pop %%"REG_b"          \n\t"
+
+                        : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
+                        : "0" (eax)
+                );
+
+                NULSTR_FOREACH_PAIR(j, k, cpuid_vendor_table)
+                        if (streq(sig.text, j)) {
+
+                                if (id)
+                                        *id = k;
+
+                                return 1;
+                        }
+
+                if (id)
+                        *id = "other";
+
+                return 1;
+        }
 #endif
 
-        return false;
+        return 0;
+}
+
+/* Returns a short identifier for the various VM/container implementations */
+int detect_virtualization(const char **id) {
+        int r;
+
+        /* Unfortunately most of these operations require root access
+         * in one way or another */
+        if (geteuid() != 0)
+                return -EPERM;
+
+        if ((r = running_in_chroot()) > 0) {
+                if (id)
+                        *id = "chroot";
+
+                return r;
+        }
+
+        /* /proc/vz exists in container and outside of the container,
+         * /proc/bc only outside of the container. */
+        if (access("/proc/vz", F_OK) >= 0 &&
+            access("/proc/bc", F_OK) < 0) {
+
+                if (id)
+                        *id = "openvz";
+
+                return 1;
+        }
+
+        return detect_vm(id);
 }
 
 void execute_directory(const char *directory, DIR *d, char *argv[]) {

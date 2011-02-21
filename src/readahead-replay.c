@@ -346,8 +346,8 @@ int main(int argc, char*argv[]) {
                 return 0;
         }
 
-        if (running_in_vm()) {
-                log_info("Disabling readahead replay due to execution in virtual machine.");
+        if (detect_virtualization(NULL) > 0) {
+                log_info("Disabling readahead replay due to execution in virtualized environment.");
                 return 0;
         }
 

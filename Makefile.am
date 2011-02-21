@@ -129,6 +129,7 @@ rootlibexec_PROGRAMS = \
 	systemd-quotacheck \
 	systemd-timestamp \
 	systemd-ac-power \
+	systemd-detect-virt \
 	systemd-sysctl
 
 if HAVE_LIBCRYPTSETUP
@@ -782,6 +783,15 @@ systemd_ac_power_CFLAGS = \
 systemd_ac_power_LDADD = \
 	libsystemd-basic.la \
 	$(UDEV_LIBS)
+
+systemd_detect_virt_SOURCES = \
+	src/detect-virt.c
+
+systemd_detect_virt_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_detect_virt_LDADD = \
+	libsystemd-basic.la
 
 systemd_cryptsetup_SOURCES = \
 	src/cryptsetup.c \
