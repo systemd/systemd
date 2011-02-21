@@ -28,15 +28,14 @@ typedef struct RateLimit {
         usec_t interval;
         usec_t begin;
         unsigned burst;
-        unsigned n_printed, n_missed;
+        unsigned num;
 } RateLimit;
 
 #define RATELIMIT_DEFINE(_name, _interval, _burst)       \
         RateLimit _name = {                              \
                 .interval = (_interval),                 \
                 .burst = (_burst),                       \
-                .n_printed = 0,                          \
-                .n_missed = 0,                           \
+                .num = 0,                                \
                 .begin = 0                               \
         }
 
@@ -45,8 +44,7 @@ typedef struct RateLimit {
                 RateLimit *_r = &(v);                    \
                 _r->interval = (_interval);              \
                 _r->burst = (_burst);                    \
-                _r->n_printed = 0;                       \
-                _r->n_missed = 0;                        \
+                _r->num = 0;                             \
                 _r->begin = 0;                           \
         } while (false);
 

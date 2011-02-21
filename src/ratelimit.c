@@ -38,25 +38,19 @@ bool ratelimit_test(RateLimit *r) {
 
         if (r->begin <= 0 ||
             r->begin + r->interval < ts) {
-
-                if (r->n_missed > 0)
-                        log_warning("%u events suppressed", r->n_missed);
-
                 r->begin = ts;
 
-                /* Reset counters */
-                r->n_printed = 0;
-                r->n_missed = 0;
+                /* Reset counter */
+                r->num = 0;
                 goto good;
         }
 
-        if (r->n_printed <= r->burst)
+        if (r->num <= r->burst)
                 goto good;
 
-        r->n_missed++;
         return false;
 
 good:
-        r->n_printed++;
+        r->num++;
         return true;
 }
