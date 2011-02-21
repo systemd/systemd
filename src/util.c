@@ -3719,7 +3719,7 @@ int detect_vm(const char **id) {
                 "/sys/class/dmi/id/bios_vendor"
         };
 
-        const char dmi_vendor_table[] =
+        static const char dmi_vendor_table[] =
                 "QEMU\0"                  "qemu\0"
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
                 "VMware\0"                "vmware\0"
@@ -3729,7 +3729,7 @@ int detect_vm(const char **id) {
                 "Xen\0"                   "xen\0"
                 "\0";
 
-        const char cpuid_vendor_table[] =
+        static const char cpuid_vendor_table[] =
                 "XenVMMXenVMM\0"          "xen\0"
                 "KVMKVMKVM\0"             "kvm\0"
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */

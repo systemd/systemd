@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (r > 0)
-                printf("%s\n", id);
+                puts(id);
 
         return r == 0;
 }
