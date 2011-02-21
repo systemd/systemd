@@ -64,6 +64,8 @@ static bool test_kernel_command_line(const char *parameter) {
         size_t l, pl;
         bool found = false;
 
+        assert(parameter);
+
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return false;
@@ -98,6 +100,28 @@ static bool test_kernel_command_line(const char *parameter) {
         return found;
 }
 
+static bool test_virtualization(const char *parameter) {
+        int r, b;
+        const char *id;
+
+        assert(parameter);
+
+        if ((r = detect_virtualization(&id)) < 0) {
+                log_warning("Failed to detect virtualization, ignoring: %s", strerror(-r));
+                return false;
+        }
+
+        b = parse_boolean(parameter);
+
+        if (r > 0 && b > 0)
+                return true;
+
+        if (r == 0 && b == 0)
+                return true;
+
+        return streq(parameter, id);
+}
+
 bool condition_test(Condition *c) {
         assert(c);
 
@@ -115,6 +139,9 @@ bool condition_test(Condition *c) {
 
         case CONDITION_KERNEL_COMMAND_LINE:
                 return !!test_kernel_command_line(c->parameter) == !c->negate;
+
+        case CONDITION_VIRTUALIZATION:
+                return !!test_virtualization(c->parameter) == !c->negate;
 
         case CONDITION_NULL:
                 return !c->negate;

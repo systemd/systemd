@@ -1503,6 +1503,34 @@ static int config_parse_condition_kernel(
         return 0;
 }
 
+static int config_parse_condition_virt(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = data;
+        bool negate;
+        Condition *c;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((negate = rvalue[0] == '!'))
+                rvalue++;
+
+        if (!(c = condition_new(CONDITION_VIRTUALIZATION, rvalue, negate)))
+                return -ENOMEM;
+
+        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        return 0;
+}
+
 static int config_parse_condition_null(
                 const char *filename,
                 unsigned line,
@@ -1714,6 +1742,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_condition_path,   "CONDITION" },
                 { config_parse_condition_kernel, "CONDITION" },
                 { config_parse_condition_null,   "CONDITION" },
+                { config_parse_condition_virt,   "CONDITION" },
         };
 
         assert(f);
@@ -1838,6 +1867,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ConditionPathExists",    config_parse_condition_path,  u,                                               "Unit"    },
                 { "ConditionDirectoryNotEmpty", config_parse_condition_path,  u,                                           "Unit"    },
                 { "ConditionKernelCommandLine", config_parse_condition_kernel, u,                                          "Unit"    },
+                { "ConditionVirtualization",config_parse_condition_virt,  u,                                               "Unit"    },
                 { "ConditionNull",          config_parse_condition_null,  u,                                               "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },

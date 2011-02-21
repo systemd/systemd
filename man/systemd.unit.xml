@@ -575,6 +575,7 @@
                                 <term><varname>ConditionPathExists=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
+                                <term><varname>ConditionVirtualization=</varname></term>
                                 <term><varname>ConditionNull=</varname></term>
 
                                 <listitem><para>Before starting a unit
@@ -615,7 +616,24 @@
                                 assignment. In the latter case the
                                 exact assignment is looked for with
                                 right and left hand side
-                                matching. Finally,
+                                matching. <varname>ConditionVirtualization=</varname>
+                                may be used to check whether the
+                                system is executed in a virtualized
+                                environment and optionally test
+                                whether it is a specific
+                                implementation. Takes either boolean
+                                value to check if being executed in any
+                                virtual environment or one of the
+                                <varname>qemu</varname>,
+                                <varname>kvm</varname>,
+                                <varname>vmware</varname>,
+                                <varname>microsoft</varname>,
+                                <varname>oracle</varname>,
+                                <varname>xen</varname>,
+                                <varname>openvz</varname> to test
+                                against a specific implementation. The
+                                test may be negated by prepending an
+                                exclamation mark. Finally,
                                 <varname>ConditionNull=</varname> may
                                 be used to add a constant condition
                                 check value to the unit. It takes a
@@ -623,9 +641,9 @@
                                 <varname>false</varname> the condition
                                 will always fail, otherwise
                                 succeed. If multiple conditions are
-                                specified the unit will be executed
-                                if at least one of them applies
-                                (i.e. a logical OR is
+                                specified the unit will be executed if
+                                at least one of them applies (i.e. a
+                                logical OR is
                                 applied).</para></listitem>
                         </varlistentry>
                 </variablelist>
