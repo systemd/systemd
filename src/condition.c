@@ -138,10 +138,10 @@ bool condition_test(Condition *c) {
         }
 
         case CONDITION_KERNEL_COMMAND_LINE:
-                return !!test_kernel_command_line(c->parameter) == !c->negate;
+                return test_kernel_command_line(c->parameter) == !c->negate;
 
         case CONDITION_VIRTUALIZATION:
-                return !!test_virtualization(c->parameter) == !c->negate;
+                return test_virtualization(c->parameter) == !c->negate;
 
         case CONDITION_NULL:
                 return !c->negate;
