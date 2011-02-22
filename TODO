@@ -2,20 +2,34 @@ F15:
 
 * dep cycle basic → udev-retry → auditd → iptables → basic
 
-Bugs:
-
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
 * when plymouth is disabled the console password entry stuff seems to be borked
   https://bugzilla.redhat.com/show_bug.cgi?id=655538
 
+* increase password timeout
+  https://bugzilla.redhat.com/show_bug.cgi?id=677962
+
+* finish syslog socket stuff
+
+* support caching password questions in plymouth and on the console
+  https://bugzilla.redhat.com/show_bug.cgi?id=677438
+
+* load EnvironmentFile= when starting services, not when reloading configuration
+  https://bugzilla.redhat.com/show_bug.cgi?id=661282
+
+* drop IN_ATTRIB from inotify watches for .path units where possible to avoid
+  lots of wakeups due to /dev changing when we watch a subdir of /dev.
+
+* NFS, networkmanager ordering issue
+
 Features:
+
+* invoke vhangup() before and after invoking getty
 
 * support "auto" and "comment=systemd.automount" at the same time for an fstab entry
 
 * Make use of UnknownInterface, UnknownObject
-
-* increase password timeout
 
 * look up crypto partition mount points via fstab to show to the user when prompting for a password
 
@@ -34,18 +48,7 @@ Features:
 
 * support remote/ssh systemctl/systemadm, and local privileged access
 
-* finish syslog socket stuff
-
 * configurable jitter for timer events
-
-* support caching password questions in plymouth and on the console
-  https://bugzilla.redhat.com/show_bug.cgi?id=655538
-
-* load EnvironmentFile= when starting services, not when reloading configuration
-  https://bugzilla.redhat.com/show_bug.cgi?id=661282
-
-* drop IN_ATTRIB from inotify watches for .path units where possible to avoid
-  lots of wakeups due to /dev changing when we watch a subdir of /dev.
 
 * Support ProcessNeededForShutdown=true to allow stuff like mdmon
   to be killed very late after the rootfs is read only (?)
@@ -114,12 +117,6 @@ Features:
 * systemctl condrestart should return 0 if service isn't running
 
 * allow runtime changing of log level and target
-
-Fedora:
-
-* chkconfig → systemd enable/daemon-reload glue
-
-* /var/lock, /var/run → what happens if rpm stuff is no %ghosted?
 
 External:
 
