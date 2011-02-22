@@ -12,3 +12,4 @@ After=rc-local.service plymouth-start.service
 [Service]
 ExecStart=-/bin/plymouth quit
 Type=oneshot
+TimeoutSec=20

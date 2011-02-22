@@ -27,6 +27,8 @@ Features:
 
 * invoke vhangup() before and after invoking getty
 
+* skip readahead on physically r/o media
+
 * support "auto" and "comment=systemd.automount" at the same time for an fstab entry
 
 * Make use of UnknownInterface, UnknownObject
