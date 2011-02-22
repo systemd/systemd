@@ -3713,7 +3713,7 @@ int detect_vm(const char **id) {
 
         /* Both CPUID and DMI are x86 specific interfaces... */
 
-        const char *const dmi_vendors[] = {
+        static const char *const dmi_vendors[] = {
                 "/sys/class/dmi/id/sys_vendor",
                 "/sys/class/dmi/id/board_vendor",
                 "/sys/class/dmi/id/bios_vendor"
@@ -3727,6 +3727,7 @@ int detect_vm(const char **id) {
                 "Microsoft Corporation\0" "microsoft\0"
                 "innotek GmbH\0"          "oracle\0"
                 "Xen\0"                   "xen\0"
+                "Bochs\0"                 "bochs\0"
                 "\0";
 
         static const char cpuid_vendor_table[] =
@@ -3743,9 +3744,59 @@ int detect_vm(const char **id) {
                 uint32_t sig32[3];
                 char text[13];
         } sig;
-
         unsigned i;
         const char *j, *k;
+        bool hypervisor;
+
+        /* http://lwn.net/Articles/301888/ */
+        zero(sig);
+
+#if defined (__i386__)
+#define REG_a "eax"
+#define REG_b "ebx"
+#elif defined (__amd64__)
+#define REG_a "rax"
+#define REG_b "rbx"
+#endif
+
+        /* First detect whether there is a hypervisor */
+        eax = 1;
+        __asm__ __volatile__ (
+                /* ebx/rbx is being used for PIC! */
+                "  push %%"REG_b"         \n\t"
+                "  cpuid                  \n\t"
+                "  pop %%"REG_b"          \n\t"
+
+                : "=a" (eax), "=c" (ecx)
+                : "0" (eax)
+        );
+
+        hypervisor = !!(ecx & ecx & 0x80000000U);
+
+        if (hypervisor) {
+
+                /* There is a hypervisor, see what it is */
+                eax = 0x40000000U;
+                __asm__ __volatile__ (
+                        /* ebx/rbx is being used for PIC! */
+                        "  push %%"REG_b"         \n\t"
+                        "  cpuid                  \n\t"
+                        "  mov %%ebx, %1          \n\t"
+                        "  pop %%"REG_b"          \n\t"
+
+                        : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
+                        : "0" (eax)
+                );
+
+                NULSTR_FOREACH_PAIR(j, k, cpuid_vendor_table)
+                        if (streq(sig.text, j)) {
+
+                                if (id)
+                                        *id = k;
+
+                                return 1;
+                        }
+        }
 
         for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
                 char *s;
@@ -3772,60 +3823,14 @@ int detect_vm(const char **id) {
                 }
         }
 
-        /* http://lwn.net/Articles/301888/ */
-        zero(sig);
-
-#if defined (__i386__)
-#define REG_a "eax"
-#define REG_b "ebx"
-#elif defined (__amd64__)
-#define REG_a "rax"
-#define REG_b "rbx"
-#endif
-
-        /* First detect whether there is a hypervisor */
-        eax = 1;
-        __asm__ __volatile__ (
-                /* ebx/rbx is being used for PIC! */
-                "  push %%"REG_b"         \n\t"
-                "  cpuid                  \n\t"
-                "  pop %%"REG_b"          \n\t"
-
-                : "=a" (eax), "=c" (ecx)
-                : "0" (eax)
-        );
-
-        if (ecx & 0x80000000U) {
-
-                /* There is a hypervisor, see what it is */
-                eax = 0x40000000U;
-                __asm__ __volatile__ (
-                        /* ebx/rbx is being used for PIC! */
-                        "  push %%"REG_b"         \n\t"
-                        "  cpuid                  \n\t"
-                        "  mov %%ebx, %1          \n\t"
-                        "  pop %%"REG_b"          \n\t"
-
-                        : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
-                        : "0" (eax)
-                );
-
-                NULSTR_FOREACH_PAIR(j, k, cpuid_vendor_table)
-                        if (streq(sig.text, j)) {
-
-                                if (id)
-                                        *id = k;
-
-                                return 1;
-                        }
-
+        if (hypervisor) {
                 if (id)
                         *id = "other";
 
                 return 1;
         }
-#endif
 
+#endif
         return 0;
 }
 
