@@ -923,6 +923,8 @@ static struct dual_timestamp* parse_initrd_timestamp(struct dual_timestamp *t) {
 static void test_mtab(void) {
         char *p;
 
+        /* Check that /etc/mtab is a symlink */
+
         if (readlink_malloc("/etc/mtab", &p) >= 0) {
                 bool b;
 
@@ -933,9 +935,33 @@ static void test_mtab(void) {
                         return;
         }
 
-        log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
-                  "This is not supported anymore. "
-                  "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+        log_warning("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
+                    "This is not supported anymore. "
+                    "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+}
+
+static void test_usr(void) {
+        struct stat a, b;
+        bool seperate = false;
+
+        /* Check that /usr is not a seperate fs */
+
+        if (lstat("/", &a) >= 0 && lstat("/usr", &b) >= 0)
+                if (a.st_dev != b.st_dev)
+                        seperate = true;
+
+        /* This check won't work usually during boot, since /usr is
+         * probably not mounted yet, hence let's add a second
+         * check. We just check whether /usr is an empty directory. */
+
+        if (dir_is_empty("/usr") > 0)
+                seperate = true;
+
+        if (!seperate)
+                return;
+
+        log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
+                    "Some things will probably break (sometimes even silently) in mysterious ways.");
 }
 
 int main(int argc, char *argv[]) {
@@ -1108,6 +1134,7 @@ int main(int argc, char *argv[]) {
                 mkdir_p("/dev/.systemd/ask-password/", 0755);
 
                 test_mtab();
+                test_usr();
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {
