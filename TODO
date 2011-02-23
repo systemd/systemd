@@ -19,6 +19,10 @@ F15:
 
 Features:
 
+* introduce simple way to do mandatory conditions
+
+* detect LXC environment
+
 * invoke vhangup() before and after invoking getty
 
 * skip readahead on physically r/o media
