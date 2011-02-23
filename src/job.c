@@ -376,6 +376,7 @@ int job_run_and_invalidate(Job *j) {
 
         j->state = JOB_RUNNING;
         job_add_to_dbus_queue(j);
+        job_start_timer(j);
 
         /* While we execute this operation the job might go away (for
          * example: because it is replaced by a new, conflicting
@@ -394,6 +395,7 @@ int job_run_and_invalidate(Job *j) {
                          * wait */
                         if (r == -EBADR)
                                 r = 0;
+
                         break;
 
                 case JOB_VERIFY_ACTIVE: {
