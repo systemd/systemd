@@ -23,6 +23,13 @@ using Pango;
 
 static bool user = false;
 
+public string format_time(uint64 time_ns) {
+        if (time_ns <= 0)
+                return "";
+        Time timestamp = Time.local((time_t) (time_ns / 1000000));
+        return timestamp.format("%a, %d %b %Y %H:%M:%S");
+}
+
 public class LeftLabel : Label {
         public LeftLabel(string? text = null) {
                 if (text != null)
@@ -515,19 +522,10 @@ public class MainWindow : Window {
                 else
                         unit_fragment_path_label.set_text_or_na();
 
-                uint64 t = unit.active_enter_timestamp;
-                if (t > 0) {
-                        Time timestamp = Time.local((time_t) (t / 1000000));
-                        unit_active_enter_timestamp_label.set_text_or_na(timestamp.format("%a, %d %b %Y %H:%M:%S %z"));
-                } else
-                        unit_active_enter_timestamp_label.set_text_or_na();
 
-                t = unit.active_exit_timestamp;
-                if (t > 0) {
-                        Time timestamp = Time.local((time_t) (t / 1000000));
-                        unit_active_exit_timestamp_label.set_text_or_na(timestamp.format("%a, %d %b %Y %H:%M:%S %z"));
-                } else
-                        unit_active_exit_timestamp_label.set_text_or_na();
+                unit_active_enter_timestamp_label.set_text_or_na(format_time(unit.active_enter_timestamp));
+
+                unit_active_exit_timestamp_label.set_text_or_na(format_time(unit.active_exit_timestamp));
 
                 bool b = unit.can_start;
                 start_button.set_sensitive(b);
