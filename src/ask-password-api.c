@@ -111,7 +111,7 @@ int ask_password_tty(
                         y = now(CLOCK_MONOTONIC);
 
                         if (y > until) {
-                                r = -ETIMEDOUT;
+                                r = -ETIME;
                                 goto finish;
                         }
 
@@ -373,7 +373,7 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                if ((k = poll(pollfd, _FD_MAX, until-t/USEC_PER_MSEC)) < 0) {
+                if ((k = poll(pollfd, _FD_MAX, (until-t)/USEC_PER_MSEC)) < 0) {
 
                         if (errno == EINTR)
                                 continue;
