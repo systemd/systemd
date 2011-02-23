@@ -22,6 +22,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <mntent.h>
 
 #include <libcryptsetup.h>
 #include <libudev.h>
@@ -164,7 +165,8 @@ static char *disk_description(const char *path) {
                 goto finish;
 
         if ((model = udev_device_get_property_value(device, "ID_MODEL_FROM_DATABASE")) ||
-            (model = udev_device_get_property_value(device, "ID_MODEL")))
+            (model = udev_device_get_property_value(device, "ID_MODEL")) ||
+            (model = udev_device_get_property_value(device, "DM_NAME")))
                 description = strdup(model);
 
 finish:
@@ -177,12 +179,40 @@ finish:
         return description;
 }
 
+static char *disk_mount_point(const char *label) {
+        char *mp = NULL, *device = NULL;
+        FILE *f = NULL;
+        struct mntent *m;
+
+        /* Yeah, we don't support native systemd unit files here for now */
+
+        if (asprintf(&device, "/dev/mapper/%s", label) < 0)
+                goto finish;
+
+        if (!(f = setmntent("/etc/fstab", "r")))
+                goto finish;
+
+        while ((m = getmntent(f)))
+                if (path_equal(m->mnt_fsname, device)) {
+                        mp = strdup(m->mnt_dir);
+                        break;
+                }
+
+finish:
+        if (f)
+                endmntent(f);
+
+        free(device);
+
+        return mp;
+}
+
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
         struct crypt_device *cd = NULL;
         char **passwords = NULL, *truncated_cipher = NULL;
         const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
-        char *description = NULL;
+        char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
 
         if (argc < 3) {
                 log_error("This program requires at least two arguments.");
@@ -200,6 +230,8 @@ int main(int argc, char *argv[]) {
                 const char *key_file = NULL;
                 usec_t until;
                 crypt_status_info status;
+
+                /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
 
                 if (argc < 4) {
                         log_error("attach requires at least two arguments.");
@@ -224,7 +256,24 @@ int main(int argc, char *argv[]) {
                 mlockall(MCL_FUTURE);
 
                 description = disk_description(argv[3]);
-                name = description ? description : argv[2];
+                mount_point = disk_mount_point(argv[2]);
+
+                if (description && streq(argv[2], description)) {
+                        /* If the description string is simply the
+                         * volume name, then let's not show this
+                         * twice */
+                        free(description);
+                        description = NULL;
+                }
+
+                if (mount_point && description)
+                        asprintf(&name_buffer, "%s (%s) on %s", description, argv[2], mount_point);
+                else if (mount_point)
+                        asprintf(&name_buffer, "%s on %s", argv[2], mount_point);
+                else if (description)
+                        asprintf(&name_buffer, "%s (%s)", description, argv[2]);
+
+                name = name_buffer ? name_buffer : argv[2];
 
                 if ((k = crypt_init(&cd, argv[3]))) {
                         log_error("crypt_init() failed: %s", strerror(-k));
@@ -317,6 +366,8 @@ int main(int argc, char *argv[]) {
 
                                         strv_free(passwords2);
                                 }
+
+                                strv_uniq(passwords);
 
                                 STRV_FOREACH(p, passwords) {
                                         char *c;
@@ -442,6 +493,8 @@ finish:
         strv_free(passwords);
 
         free(description);
+        free(mount_point);
+        free(name_buffer);
 
         return r;
 }
