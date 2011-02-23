@@ -16,10 +16,10 @@ Before=shutdown.target
 [Service]
 Environment=HOME=/root
 WorkingDirectory=/root
-ExecStartPre=-/bin/plymouth --hide-splash
+ExecStartPre=-/bin/plymouth quit
 ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" or ^D to activate default mode.'
 ExecStart=-/sbin/sulogin
-ExecStopPost=/bin/systemctl default
+ExecStopPost=/bin/systemctl --fail default
 StandardInput=tty-force
 KillMode=process-group
 
