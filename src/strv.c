@@ -577,3 +577,45 @@ char **strv_env_clean(char **l) {
 
         return ret;
 }
+
+char **strv_parse_nulstr(const char *s, size_t l) {
+        const char *p;
+        unsigned c = 0, i = 0;
+        char **v;
+
+        assert(s || l <= 0);
+
+        if (l <= 0)
+                return strv_new(NULL, NULL);
+
+        for (p = s; p < s + l; p++)
+                if (*p == 0)
+                        c++;
+
+        if (s[l-1] != 0)
+                c++;
+
+        if (!(v = new0(char*, c+1)))
+                return NULL;
+
+        p = s;
+        while (p < s + l) {
+                const char *e;
+
+                e = memchr(p, 0, s + l - p);
+
+                if (!(v[i++] = strndup(p, e ? e - p : s + l - p))) {
+                        strv_free(v);
+                        return NULL;
+                }
+
+                if (!e)
+                        break;
+
+                p = e + 1;
+        }
+
+        assert(i == c);
+
+        return v;
+}

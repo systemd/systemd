@@ -28,6 +28,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "strv.h"
 #include "ask-password-api.h"
 
 static const char *opt_type = NULL; /* LUKS1 or PLAIN */
@@ -179,7 +180,7 @@ finish:
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
         struct crypt_device *cd = NULL;
-        char *password = NULL, *truncated_cipher = NULL;
+        char **passwords = NULL, *truncated_cipher = NULL;
         const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
         char *description = NULL;
 
@@ -268,18 +269,19 @@ int main(int argc, char *argv[]) {
                 for (try = 0; try < opt_tries; try++) {
                         bool pass_volume_key = false;
 
-                        free(password);
-                        password = NULL;
+                        strv_free(passwords);
+                        passwords = NULL;
 
                         if (!key_file) {
                                 char *text;
+                                char **p;
 
                                 if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0) {
                                         log_error("Out of memory");
                                         goto finish;
                                 }
 
-                                k = ask_password_auto(text, "drive-harddisk", until, &password);
+                                k = ask_password_auto(text, "drive-harddisk", until, try == 0 && !opt_verify, &passwords);
                                 free(text);
 
                                 if (k < 0) {
@@ -288,14 +290,16 @@ int main(int argc, char *argv[]) {
                                 }
 
                                 if (opt_verify) {
-                                        char *password2 = NULL;
+                                        char **passwords2 = NULL;
+
+                                        assert(strv_length(passwords) == 1);
 
                                         if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0) {
                                                 log_error("Out of memory");
                                                 goto finish;
                                         }
 
-                                        k = ask_password_auto(text, "drive-harddisk", until, &password2);
+                                        k = ask_password_auto(text, "drive-harddisk", until, false, &passwords2);
                                         free(text);
 
                                         if (k < 0) {
@@ -303,28 +307,32 @@ int main(int argc, char *argv[]) {
                                                 goto finish;
                                         }
 
-                                        if (!streq(password, password2)) {
+                                        assert(strv_length(passwords2) == 1);
+
+                                        if (!streq(passwords[0], passwords2[0])) {
                                                 log_warning("Passwords did not match, retrying.");
-                                                free(password2);
+                                                strv_free(passwords2);
                                                 continue;
                                         }
 
-                                        free(password2);
+                                        strv_free(passwords2);
                                 }
 
-                                if (strlen(password)+1 < opt_key_size) {
+                                STRV_FOREACH(p, passwords) {
                                         char *c;
 
-                                        /* Pad password if necessary */
+                                        if (strlen(*p)+1 >= opt_key_size)
+                                                continue;
 
+                                        /* Pad password if necessary */
                                         if (!(c = new(char, opt_key_size))) {
                                                 log_error("Out of memory.");
                                                 goto finish;
                                         }
 
-                                        strncpy(c, password, opt_key_size);
-                                        free(password);
-                                        password = c;
+                                        strncpy(c, *p, opt_key_size);
+                                        free(*p);
+                                        *p = c;
                                 }
                         }
 
@@ -367,10 +375,20 @@ int main(int argc, char *argv[]) {
 
                         if (key_file)
                                 k = crypt_activate_by_keyfile(cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_key_size, flags);
-                        else if (pass_volume_key)
-                                k = crypt_activate_by_volume_key(cd, argv[2], password, opt_key_size, flags);
-                        else
-                                k = crypt_activate_by_passphrase(cd, argv[2], CRYPT_ANY_SLOT, password, strlen(password), flags);
+                        else {
+                                char **p;
+
+                                STRV_FOREACH(p, passwords) {
+
+                                        if (pass_volume_key)
+                                                k = crypt_activate_by_volume_key(cd, argv[2], *p, opt_key_size, flags);
+                                        else
+                                                k = crypt_activate_by_passphrase(cd, argv[2], CRYPT_ANY_SLOT, *p, strlen(*p), flags);
+
+                                        if (k >= 0)
+                                                break;
+                                }
+                        }
 
                         if (k >= 0)
                                 break;
@@ -421,7 +439,7 @@ finish:
 
         free(truncated_cipher);
 
-        free(password);
+        strv_free(passwords);
 
         free(description);
 

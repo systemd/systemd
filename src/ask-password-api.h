@@ -26,8 +26,8 @@
 
 int ask_password_tty(const char *message, usec_t until, const char *flag_file, char **_passphrase);
 
-int ask_password_agent(const char *message, const char *icon, usec_t until, char **_passphrase);
+int ask_password_agent(const char *message, const char *icon, usec_t until, bool accept_cached, char ***_passphrases);
 
-int ask_password_auto(const char *message, const char *icon, usec_t until, char **_passphrase);
+int ask_password_auto(const char *message, const char *icon, usec_t until, bool accept_cached, char ***_passphrases);
 
 #endif

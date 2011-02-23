@@ -65,6 +65,8 @@ char *strv_env_get(char **x, const char *n);
 
 char **strv_env_clean(char **l);
 
+char **strv_parse_nulstr(const char *s, size_t l);
+
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)
 

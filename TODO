@@ -4,16 +4,10 @@ F15:
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
-* when plymouth is disabled the console password entry stuff seems to be borked
-  https://bugzilla.redhat.com/show_bug.cgi?id=655538
-
 * increase password timeout
   https://bugzilla.redhat.com/show_bug.cgi?id=677962
 
 * finish syslog socket stuff
-
-* support caching password questions in plymouth and on the console
-  https://bugzilla.redhat.com/show_bug.cgi?id=677438
 
 * load EnvironmentFile= when starting services, not when reloading configuration
   https://bugzilla.redhat.com/show_bug.cgi?id=661282

@@ -27,7 +27,7 @@ AUTHOR:
         Lennart Poettering with major support from Kay Sievers
 
 REQUIREMENTS:
-        Linux kernel >= 2.6.30 (with autofs4, devtmpfs, cgroups, ipv6)
+        Linux kernel >= 2.6.30 (with devtmpfs, cgroups; optional but strongly recommended: autofs4, ipv6)
         libudev >= 163
         dbus >= 1.4.0
         libcap
@@ -47,10 +47,27 @@ REQUIREMENTS:
         automake
         autoconf
         libtool
+        make, gcc, and similar tools
 
         During runtime you need the following dependencies:
 
         util-linux > v2.18 (requires fsck -l, agetty -s)
-        sulogin (from sysvinit-tools)
+        sulogin (from sysvinit-tools, optional but recommended)
         plymouth (optional)
         dracut (optional)
+
+WARNINGS:
+        systemd will warn you during boot if /etc/mtab is not a
+        symlink to /proc/mounts. Please ensure that /etc/mtab is a
+        proper symlink.
+
+        systemd will warn you during boot if /usr is on a different
+        file system than /. While in systemd itself very little will
+        break if /usr is on a seperate partition many of its
+        dependencies very likely will break sooner or later in one
+        form or another. For example udev rules tend to refer to
+        binaries in /usr, binaries that link to libraries in /usr or
+        binaries that refer to data files in /usr. Since these
+        breakages are not always directly visible systemd will warn
+        about this, since this kind of file system setup is not really
+        supported anymore by the basic set of Linux OS components.
