@@ -40,7 +40,7 @@ typedef enum UnitDependency UnitDependency;
 #include "execute.h"
 #include "condition.h"
 
-#define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
+#define DEFAULT_TIMEOUT_USEC (3*USEC_PER_MINUTE)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
 enum UnitType {
