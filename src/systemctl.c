@@ -1248,11 +1248,19 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                         log_error("Job canceled.");
                 else if (streq(d.result, "dependency"))
                         log_error("A dependency job failed. See system logs for details.");
-                else
+                else if (!streq(d.result, "done"))
                         log_error("Job failed. See system logs and 'systemctl status' for details.");
         }
 
-        r = d.result ? -EIO : 0;
+        if (streq_ptr(d.result, "timeout"))
+                r = -ETIME;
+        else if (streq_ptr(d.result, "canceled"))
+                r = -ECANCELED;
+        else if (!streq_ptr(d.result, "done"))
+                r = -EIO;
+        else
+                r = 0;
+
         free(d.result);
 
 finish:
