@@ -461,8 +461,6 @@ int job_run_and_invalidate(Job *j) {
                         j->state = JOB_WAITING;
                 else if (r < 0)
                         r = job_finish_and_invalidate(j, JOB_FAILED);
-                else
-                        job_start_timer(j);
         }
 
         return r;
