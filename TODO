@@ -17,6 +17,8 @@ F15:
 
 * NFS, networkmanager ordering issue
 
+* Make systemd-cryptsetup cancellable
+
 Features:
 
 * introduce simple way to do mandatory conditions

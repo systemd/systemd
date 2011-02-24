@@ -8,7 +8,7 @@
 [Unit]
 Description=Getty on %I
 BindTo=dev-%i.device
-After=dev-%i.device systemd-user-sessions.service plymouth-quit.service
+After=dev-%i.device systemd-user-sessions.service plymouth-quit-wait.service
 m4_ifdef(`TARGET_FEDORA',
 After=rc-local.service
 )m4_dnl

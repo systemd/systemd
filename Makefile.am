@@ -243,7 +243,6 @@ dist_systemunit_DATA = \
 	units/systemd-tmpfiles-clean.timer \
 	units/quotaon.service \
 	units/systemd-ask-password-wall.path \
-	units/systemd-ask-password-plymouth.path \
 	units/systemd-ask-password-console.path
 
 nodist_systemunit_DATA = \
@@ -270,7 +269,6 @@ nodist_systemunit_DATA = \
 	units/systemd-tmpfiles-clean.service \
 	units/systemd-user-sessions.service \
 	units/systemd-ask-password-wall.service \
-	units/systemd-ask-password-plymouth.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
 	units/syslog.target \
@@ -316,7 +314,6 @@ EXTRA_DIST = \
 	units/systemd-tmpfiles-clean.service.in \
 	units/systemd-user-sessions.service.in \
 	units/systemd-ask-password-wall.service.in \
-	units/systemd-ask-password-plymouth.service.in \
 	units/systemd-ask-password-console.service.in \
 	units/systemd-sysctl.service.in \
 	units/syslog.target.in \
@@ -343,10 +340,18 @@ dist_systemunit_DATA += \
 	units/plymouth-start.service \
 	units/plymouth-read-write.service \
 	units/plymouth-quit.service \
+	units/plymouth-quit-wait.service \
 	units/plymouth-reboot.service \
 	units/plymouth-kexec.service \
 	units/plymouth-poweroff.service \
-	units/plymouth-halt.service
+	units/plymouth-halt.service \
+	units/systemd-ask-password-plymouth.path
+
+nodist_systemunit_DATA += \
+	units/systemd-ask-password-plymouth.service
+
+EXTRA_DIST += \
+	units/systemd-ask-password-plymouth.service.in
 endif
 
 dist_doc_DATA = \
@@ -1302,8 +1307,9 @@ if HAVE_PLYMOUTH
 		$(LN_S) ../plymouth-start.service plymouth-start.service && \
 		$(LN_S) ../plymouth-read-write.service plymouth-read-write.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f plymouth-quit.service  && \
-		$(LN_S) ../plymouth-quit.service plymouth-quit.service )
+		rm -f plymouth-quit.service plymouth-quit-wait.service && \
+		$(LN_S) ../plymouth-quit.service plymouth-quit.service && \
+		$(LN_S) ../plymouth-quit-wait.service plymouth-quit-wait.service )
 	( cd $(DESTDIR)$(systemunitdir)/reboot.target.wants && \
 		rm -f plymouth-reboot.service && \
 		$(LN_S) ../plymouth-reboot.service plymouth-reboot.service )
