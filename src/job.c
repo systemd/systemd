@@ -502,11 +502,11 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
         t = j->type;
         job_free(j);
 
-        if (result == JOB_FAILED && j->type == JOB_START)
+        if (result == JOB_FAILED && t == JOB_START)
                 unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ", see 'systemctl status %s' for details.\n", unit_description(u), u->meta.id);
-        else if (result == JOB_TIMEOUT && j->type == JOB_START)
+        else if (result == JOB_TIMEOUT && t == JOB_START)
                 unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
-        else if (result == JOB_TIMEOUT && j->type == JOB_STOP)
+        else if (result == JOB_TIMEOUT && t == JOB_STOP)
                 unit_status_printf(u, "Stopping %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
 
         /* Fail depending jobs on failure */
