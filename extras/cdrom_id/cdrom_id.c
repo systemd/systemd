@@ -737,7 +737,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 {
 	struct scsi_cmd sc;
 	unsigned char header[12];
-	unsigned char toc[2048];
+	unsigned char toc[65536];
 	unsigned int len, i, num_tracks;
 	unsigned char *p;
 	int err;
