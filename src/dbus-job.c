@@ -97,7 +97,7 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusConnection *connec
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-                job_free(j);
+                job_finish_and_invalidate(j, JOB_CANCELED);
 
         } else
                 return bus_default_message_handler(j->manager, connection, message, INTROSPECTION, properties);

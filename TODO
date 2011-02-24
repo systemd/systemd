@@ -19,6 +19,8 @@ F15:
 
 * Make systemd-cryptsetup cancellable
 
+* udev should be able to upgrade its database on its own
+
 Features:
 
 * introduce simple way to do mandatory conditions

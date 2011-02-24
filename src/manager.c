@@ -1823,7 +1823,7 @@ void manager_clear_jobs(Manager *m) {
         transaction_abort(m);
 
         while ((j = hashmap_first(m->jobs)))
-                job_free(j);
+                job_finish_and_invalidate(j, JOB_CANCELED);
 }
 
 unsigned manager_dispatch_run_queue(Manager *m) {
