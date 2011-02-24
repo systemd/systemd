@@ -295,10 +295,10 @@ oom:
         log_error("Failed to allocate job change signal.");
 }
 
-void bus_job_send_removed_signal(Job *j, bool success) {
+void bus_job_send_removed_signal(Job *j) {
         char *p = NULL;
         DBusMessage *m = NULL;
-        dbus_bool_t b = success;
+        const char *r;
 
         assert(j);
 
@@ -314,10 +314,12 @@ void bus_job_send_removed_signal(Job *j, bool success) {
         if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobRemoved")))
                 goto oom;
 
+        r = job_result_to_string(j->result);
+
         if (!dbus_message_append_args(m,
                                       DBUS_TYPE_UINT32, &j->id,
                                       DBUS_TYPE_OBJECT_PATH, &p,
-                                      DBUS_TYPE_BOOLEAN, &b,
+                                      DBUS_TYPE_STRING, &r,
                                       DBUS_TYPE_INVALID))
                 goto oom;
 

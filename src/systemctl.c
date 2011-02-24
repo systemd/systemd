@@ -1120,7 +1120,7 @@ finish:
 
 typedef struct WaitData {
         Set *set;
-        bool failed;
+        char *result;
 } WaitData;
 
 static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *message, void *data) {
@@ -1144,26 +1144,52 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 uint32_t id;
-                const char *path;
+                const char *path, *result;
                 dbus_bool_t success = true;
 
-                if (!dbus_message_get_args(message, &error,
-                                           DBUS_TYPE_UINT32, &id,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_BOOLEAN, &success,
-                                           DBUS_TYPE_INVALID))
-                        log_error("Failed to parse message: %s", bus_error_message(&error));
-                else {
+                if (dbus_message_get_args(message, &error,
+                                          DBUS_TYPE_UINT32, &id,
+                                          DBUS_TYPE_OBJECT_PATH, &path,
+                                          DBUS_TYPE_STRING, &result,
+                                          DBUS_TYPE_INVALID)) {
                         char *p;
 
                         if ((p = set_remove(d->set, (char*) path)))
                                 free(p);
 
-                        if (!success)
-                                d->failed = true;
+                        if (*result)
+                                d->result = strdup(result);
+
+                        goto finish;
                 }
+#ifndef LEGACY
+                dbus_error_free(&error);
+
+                if (dbus_message_get_args(message, &error,
+                                          DBUS_TYPE_UINT32, &id,
+                                          DBUS_TYPE_OBJECT_PATH, &path,
+                                          DBUS_TYPE_BOOLEAN, &success,
+                                          DBUS_TYPE_INVALID)) {
+                        char *p;
+
+                        /* Compatibility with older systemd versions <
+                         * 19 during upgrades. This should be dropped
+                         * one day */
+
+                        if ((p = set_remove(d->set, (char*) path)))
+                                free(p);
+
+                        if (!success)
+                                d->result = strdup("failed");
+
+                        goto finish;
+                }
+#endif
+
+                log_error("Failed to parse message: %s", bus_error_message(&error));
         }
 
+finish:
         dbus_error_free(&error);
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
@@ -1204,7 +1230,6 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
 
         zero(d);
         d.set = s;
-        d.failed = false;
 
         if (!dbus_connection_add_filter(bus, wait_filter, &d, NULL)) {
                 log_error("Failed to add filter.");
@@ -1216,10 +1241,19 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                dbus_connection_read_write_dispatch(bus, -1))
                 ;
 
-        if (!arg_quiet && d.failed)
-                log_error("Job failed. See system logs and 'systemctl status' for details.");
+        if (!arg_quiet && d.result) {
+                if (streq(d.result, "timeout"))
+                        log_error("Job timed out.");
+                else if (streq(d.result, "canceled"))
+                        log_error("Job canceled.");
+                else if (streq(d.result, "dependency"))
+                        log_error("A dependency job failed. See system logs for details.");
+                else
+                        log_error("Job failed. See system logs and 'systemctl status' for details.");
+        }
 
-        r = d.failed ? -EIO : 0;
+        r = d.result ? -EIO : 0;
+        free(d.result);
 
 finish:
         /* This is slightly dirty, since we don't undo the filter registration. */
@@ -2750,11 +2784,12 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobNew") ||
                    dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 uint32_t id;
-                const char *path;
+                const char *path, *result;
 
                 if (!dbus_message_get_args(message, &error,
                                            DBUS_TYPE_UINT32, &id,
                                            DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_STRING, &result,
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse message: %s", bus_error_message(&error));
                 else if (streq(dbus_message_get_member(message), "JobNew"))

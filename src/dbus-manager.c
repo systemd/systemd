@@ -143,7 +143,7 @@
         "  <signal name=\"JobRemoved\">\n"                              \
         "   <arg name=\"id\" type=\"u\"/>\n"                            \
         "   <arg name=\"job\" type=\"o\"/>\n"                           \
-        "   <arg name=\"success\" type=\"b\"/>\n"                       \
+        "   <arg name=\"result\" type=\"s\"/>\n"                        \
         "  </signal>"
 
 
