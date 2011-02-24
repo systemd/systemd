@@ -128,7 +128,7 @@ static int ask_password_plymouth(
                         y = now(CLOCK_MONOTONIC);
 
                         if (y > until) {
-                                r = -ETIMEDOUT;
+                                r = -ETIME;
                                 goto finish;
                         }
 
@@ -149,7 +149,7 @@ static int ask_password_plymouth(
                         r = -errno;
                         goto finish;
                 } else if (j == 0) {
-                        r = -ETIMEDOUT;
+                        r = -ETIME;
                         goto finish;
                 }
 

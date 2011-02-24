@@ -132,7 +132,7 @@ int ask_password_tty(
                         r = -errno;
                         goto finish;
                 } else if (k == 0) {
-                        r = -ETIMEDOUT;
+                        r = -ETIME;
                         goto finish;
                 }
 

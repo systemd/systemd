@@ -1361,6 +1361,7 @@ static const char *error_to_dbus(int error) {
                 return DBUS_ERROR_FILE_EXISTS;
 
         case -ETIMEDOUT:
+        case -ETIME:
                 return DBUS_ERROR_TIMEOUT;
 
         case -EIO:
