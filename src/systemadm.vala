@@ -30,6 +30,13 @@ public string format_time(uint64 time_ns) {
         return timestamp.format("%a, %d %b %Y %H:%M:%S");
 }
 
+public void new_column(TreeView view, int column_id, string title) {
+        TreeViewColumn col;
+        col = new TreeViewColumn.with_attributes(title, new CellRendererText(), "text", column_id);
+        col.set_sort_column_id(column_id);
+        view.insert_column(col, -1);
+}
+
 public class LeftLabel : Label {
         public LeftLabel(string? text = null) {
                 if (text != null)
@@ -171,22 +178,24 @@ public class MainWindow : Window {
                 unit_model_filter = new TreeModelFilter(unit_model, null);
                 unit_model_filter.set_visible_func(unit_filter);
 
-                unit_view = new TreeView.with_model(unit_model_filter);
+                TreeModelSort unit_model_sort = new TreeModelSort.with_model(unit_model_filter);
+
+                unit_view = new TreeView.with_model(unit_model_sort);
                 job_view = new TreeView.with_model(job_model);
 
                 unit_view.cursor_changed.connect(unit_changed);
                 job_view.cursor_changed.connect(job_changed);
 
-                unit_view.insert_column_with_attributes(-1, "Load State", new CellRendererText(), "text", 2);
-                unit_view.insert_column_with_attributes(-1, "Active State", new CellRendererText(), "text", 3);
-                unit_view.insert_column_with_attributes(-1, "Unit State", new CellRendererText(), "text", 4);
-                unit_view.insert_column_with_attributes(-1, "Unit", new CellRendererText(), "text", 0);
-                unit_view.insert_column_with_attributes(-1, "Job", new CellRendererText(), "text", 5);
+                new_column(unit_view, 2, "Load State");
+                new_column(unit_view, 3, "Active State");
+                new_column(unit_view, 4, "Unit State");
+                new_column(unit_view, 0, "Unit");
+                new_column(unit_view, 5, "Job");
 
-                job_view.insert_column_with_attributes(-1, "Job", new CellRendererText(), "text", 0);
-                job_view.insert_column_with_attributes(-1, "Unit", new CellRendererText(), "text", 1);
-                job_view.insert_column_with_attributes(-1, "Type", new CellRendererText(), "text", 2);
-                job_view.insert_column_with_attributes(-1, "State", new CellRendererText(), "text", 3);
+                new_column(job_view, 0, "Job");
+                new_column(job_view, 1, "Unit");
+                new_column(job_view, 2, "Type");
+                new_column(job_view, 3, "State");
 
                 ScrolledWindow scroll = new ScrolledWindow(null, null);
                 scroll.set_policy(PolicyType.AUTOMATIC, PolicyType.AUTOMATIC);
@@ -897,7 +906,7 @@ public class MainWindow : Window {
         }
 
         public void unit_type_changed() {
-                TreeModelFilter model = (TreeModelFilter) unit_view.get_model();
+                TreeModelFilter model = (TreeModelFilter) ((TreeModelSort) unit_view.get_model()).get_model();
 
                 model.refilter();
         }
