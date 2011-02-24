@@ -1071,6 +1071,16 @@ static void retroactively_stop_dependencies(Unit *u) {
                         unit_check_unneeded(other);
 }
 
+void unit_trigger_on_failure(Unit *u) {
+        Unit *other;
+        Iterator i;
+
+        assert(u);
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_ON_FAILURE], i)
+                manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         dual_timestamp ts;
         bool unexpected;
@@ -1183,13 +1193,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 
         if (ns != os && ns == UNIT_FAILED) {
-                Iterator i;
-                Unit *other;
-
-                SET_FOREACH(other, u->meta.dependencies[UNIT_ON_FAILURE], i)
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
-
                 log_notice("Unit %s entered failed state.", u->meta.id);
+                unit_trigger_on_failure(u);
         }
 
         /* Some names are special */

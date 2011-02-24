@@ -511,6 +511,8 @@ int unit_following_set(Unit *u, Set **s);
 UnitType unit_name_to_type(const char *n);
 bool unit_name_is_valid(const char *n, bool template_ok);
 
+void unit_trigger_on_failure(Unit *u);
+
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);
 
