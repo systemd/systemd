@@ -642,7 +642,7 @@ public class MainWindow : Window {
 
                 try {
                         u.start("replace");
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -655,7 +655,7 @@ public class MainWindow : Window {
 
                 try {
                         u.stop("replace");
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -668,7 +668,7 @@ public class MainWindow : Window {
 
                 try {
                         u.reload("replace");
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -681,7 +681,7 @@ public class MainWindow : Window {
 
                 try {
                         u.restart("replace");
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -694,7 +694,7 @@ public class MainWindow : Window {
 
                 try {
                         j.cancel();
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -722,7 +722,7 @@ public class MainWindow : Window {
                                        4, u.sub_state,
                                        5, t != "" ? "→ %s".printf(t) : "",
                                        6, u);
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -748,7 +748,7 @@ public class MainWindow : Window {
                         unit_map[id] = u;
 
                         update_unit_iter(iter, id, u);
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -784,7 +784,7 @@ public class MainWindow : Window {
 
                         update_job_iter(iter, id, j);
 
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -866,7 +866,7 @@ public class MainWindow : Window {
 
                         } while (unit_model.iter_next(ref iter));
 
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -902,7 +902,7 @@ public class MainWindow : Window {
 
                         } while (job_model.iter_next(ref iter));
 
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -957,7 +957,7 @@ public class MainWindow : Window {
         public void on_server_reload() {
                 try {
                         manager.reload();
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -969,7 +969,7 @@ public class MainWindow : Window {
                         if (unit_type_combo_box.get_active() != 0)
                                 unit_type_combo_box.set_active(8);
 
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -998,7 +998,7 @@ public class MainWindow : Window {
                         m.destroy();
 
                         show_unit(u);
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -1018,7 +1018,7 @@ public class MainWindow : Window {
                                         path);
 
                         show_unit(u);
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
 
