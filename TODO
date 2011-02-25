@@ -1,5 +1,7 @@
 F15:
 
+* swap units that are activated by one name but shown in the kernel under another are semi-broken
+
 * dep cycle basic → udev-retry → auditd → iptables → basic
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
@@ -19,7 +21,11 @@ F15:
 
 * Make systemd-cryptsetup cancellable
 
-* udev should be able to upgrade its database on its own
+* add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
+
+* hook emergency.target into local-fs.target in some way as OnFailure with isolate
+
+* convince Karel to give us our own mount option prefix
 
 Features:
 

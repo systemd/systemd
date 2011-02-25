@@ -121,7 +121,7 @@ static int mount_one(const MountPoint *p) {
                 return p->fatal ? -errno : 0;
         }
 
-        label_fix(p->where);
+        label_fix(p->where, false);
 
         return 0;
 }
@@ -216,7 +216,7 @@ static int nftw_cb(
         if (ftwbuf->level == 0)
                 return 0;
 
-        label_fix(fpath);
+        label_fix(fpath, true);
         return 0;
 };
 

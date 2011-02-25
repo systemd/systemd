@@ -65,7 +65,7 @@ int label_init(void) {
         return r;
 }
 
-int label_fix(const char *path) {
+int label_fix(const char *path, bool ignore_enoent) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -89,6 +89,10 @@ int label_fix(const char *path) {
 
                         /* If the FS doesn't support labels, then exit without warning */
                         if (r < 0 && errno == ENOTSUP)
+                                return 0;
+
+                        /* Ignore ENOENT in some cases */
+                        if (r < 0 && ignore_enoent && errno == ENOENT)
                                 return 0;
                 }
         }

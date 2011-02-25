@@ -507,7 +507,7 @@ static int create_item(Item *i) {
                 break;
         }
 
-        if ((r = label_fix(i->path)) < 0)
+        if ((r = label_fix(i->path, false)) < 0)
                 goto finish;
 
         log_debug("%s created successfully.", i->path);
