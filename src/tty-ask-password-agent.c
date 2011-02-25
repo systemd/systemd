@@ -375,7 +375,14 @@ static int parse_password(const char *filename, char **wall) {
                         packet_length = strlen(packet);
                 }
 
+                if (r == -ETIME || r == -ENOENT) {
+                        /* If the query went away, that's OK */
+                        r = 0;
+                        goto finish;
+                }
+
                 if (r < 0) {
+
                         log_error("Failed to query password: %s", strerror(-r));
                         goto finish;
                 }
