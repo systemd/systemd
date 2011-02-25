@@ -2496,15 +2496,25 @@ static const char *service_sub_state_to_string(Unit *u) {
         return service_state_to_string(SERVICE(u)->state);
 }
 
-#ifdef HAVE_SYSV_COMPAT
 static bool service_check_gc(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
 
-        return !!s->sysv_path;
-}
+        /* Never clean up services that still have a process around,
+         * even if the service is formally dead. */
+        if (cgroup_good(s) > 0 ||
+            main_pid_good(s) > 0 ||
+            control_pid_good(s) > 0)
+                return true;
+
+#ifdef HAVE_SYSV_COMPAT
+        if (s->sysv_path)
+                return true;
 #endif
+
+        return false;
+}
 
 static bool service_check_snapshot(Unit *u) {
         Service *s = SERVICE(u);
@@ -3317,9 +3327,7 @@ const UnitVTable service_vtable = {
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,
 
-#ifdef HAVE_SYSV_COMPAT
         .check_gc = service_check_gc,
-#endif
         .check_snapshot = service_check_snapshot,
 
         .sigchld_event = service_sigchld_event,
