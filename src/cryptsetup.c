@@ -207,12 +207,28 @@ finish:
         return mp;
 }
 
+static int help(void) {
+
+        printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
+               "%s detach VOLUME\n\n"
+               "Attaches or detaches an encrypted block device.\n",
+               program_invocation_short_name,
+               program_invocation_short_name);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
         struct crypt_device *cd = NULL;
         char **passwords = NULL, *truncated_cipher = NULL;
         const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
         char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
+
+        if (argc <= 1) {
+                help();
+                return EXIT_SUCCESS;
+        }
 
         if (argc < 3) {
                 log_error("This program requires at least two arguments.");
