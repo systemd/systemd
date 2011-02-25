@@ -180,7 +180,6 @@ int ask_password_tty(
         }
 
         if (ttyfd >= 0)
-                loop_write(ttyfd, "\n", 1, false);
 
         passphrase[p] = 0;
 
@@ -196,8 +195,11 @@ finish:
                 close_nointr_nofail(notify);
 
         if (ttyfd >= 0) {
-                if (reset_tty)
+
+                if (reset_tty) {
+                        loop_write(ttyfd, "\n", 1, false);
                         tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+                }
 
                 close_nointr_nofail(ttyfd);
         }

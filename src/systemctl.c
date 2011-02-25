@@ -112,6 +112,7 @@ static enum dot {
 static bool private_bus = false;
 
 static pid_t pager_pid = 0;
+static pid_t agent_pid = 0;
 
 static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
 static void pager_open(void);
@@ -132,7 +133,10 @@ static bool on_tty(void) {
 }
 
 static void spawn_ask_password_agent(void) {
-        pid_t parent, child;
+        pid_t parent;
+
+        if (agent_pid > 0)
+                return;
 
         /* We check STDIN here, not STDOUT, since this is about input,
          * not output */
@@ -150,16 +154,11 @@ static void spawn_ask_password_agent(void) {
         /* Spawns a temporary TTY agent, making sure it goes away when
          * we go away */
 
-        if ((child = fork()) < 0)
+        if ((agent_pid = fork()) < 0)
                 return;
 
-        if (child == 0) {
+        if (agent_pid == 0) {
                 /* In the child */
-                const char * const args[] = {
-                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH,
-                        "--watch",
-                        NULL
-                };
 
                 int fd;
                 bool stdout_is_tty, stderr_is_tty;
@@ -202,7 +201,9 @@ static void spawn_ask_password_agent(void) {
                                 close(fd);
                 }
 
-                execv(args[0], (char **) args);
+                execl(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, "--watch", NULL);
+
+                log_error("Unable to execute agent: %m");
                 _exit(EXIT_FAILURE);
         }
 }
@@ -5447,6 +5448,7 @@ static int runlevel_main(void) {
 static void pager_open(void) {
         int fd[2];
         const char *pager;
+        pid_t parent_pid;
 
         if (pager_pid > 0)
                 return;
@@ -5467,6 +5469,8 @@ static void pager_open(void) {
                 return;
         }
 
+        parent_pid = getpid();
+
         pager_pid = fork();
         if (pager_pid < 0) {
                 log_error("Failed to fork pager: %m");
@@ -5482,7 +5486,14 @@ static void pager_open(void) {
 
                 setenv("LESS", "FRSX", 0);
 
-                prctl(PR_SET_PDEATHSIG, SIGTERM);
+                /* Make sure the pager goes away when the parent dies */
+                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
+                        _exit(EXIT_FAILURE);
+
+                /* Check whether our parent died before we were able
+                 * to set the death signal */
+                if (getppid() != parent_pid)
+                        _exit(EXIT_SUCCESS);
 
                 if (pager) {
                         execlp(pager, pager, NULL);
@@ -5521,6 +5532,18 @@ static void pager_close(void) {
         fclose(stdout);
         wait_for_terminate(pager_pid, &dummy);
         pager_pid = 0;
+}
+
+static void agent_close(void) {
+        siginfo_t dummy;
+
+        if (agent_pid <= 0)
+                return;
+
+        /* Inform agent that we are done */
+        kill(agent_pid, SIGTERM);
+        wait_for_terminate(agent_pid, &dummy);
+        agent_pid = 0;
 }
 
 int main(int argc, char*argv[]) {
@@ -5605,6 +5628,7 @@ finish:
         strv_free(arg_property);
 
         pager_close();
+        agent_close();
 
         return retval;
 }

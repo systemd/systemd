@@ -6,9 +6,6 @@ F15:
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
-* increase password timeout
-  https://bugzilla.redhat.com/show_bug.cgi?id=677962
-
 * finish syslog socket stuff
 
 * load EnvironmentFile= when starting services, not when reloading configuration
@@ -18,8 +15,6 @@ F15:
   lots of wakeups due to /dev changing when we watch a subdir of /dev.
 
 * NFS, networkmanager ordering issue
-
-* Make systemd-cryptsetup cancellable
 
 * add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
 
