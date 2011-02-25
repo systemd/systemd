@@ -113,6 +113,7 @@ public class MainWindow : Window {
         private RightLabel job_type_label;
 
         private ComboBox unit_type_combo_box;
+        private CheckButton inactive_checkbox;
 
         public MainWindow() throws IOError {
                 title = user ? "systemd User Service Manager" : "systemd System Manager";
@@ -137,8 +138,7 @@ public class MainWindow : Window {
                 type_hbox.pack_start(unit_type_combo_box, false, false, 0);
                 unit_vbox.pack_start(type_hbox, false, false, 0);
 
-                unit_type_combo_box.append_text("Show All Units");
-                unit_type_combo_box.append_text("Show Only Live Units");
+                unit_type_combo_box.append_text("Show All");
                 unit_type_combo_box.append_text("Services");
                 unit_type_combo_box.append_text("Sockets");
                 unit_type_combo_box.append_text("Devices");
@@ -146,8 +146,12 @@ public class MainWindow : Window {
                 unit_type_combo_box.append_text("Automounts");
                 unit_type_combo_box.append_text("Targets");
                 unit_type_combo_box.append_text("Snapshots");
-                unit_type_combo_box.set_active(1);
+                unit_type_combo_box.set_active(0); // Show All
                 unit_type_combo_box.changed.connect(unit_type_changed);
+
+                inactive_checkbox = new CheckButton.with_label("inactive too");
+                inactive_checkbox.toggled.connect(unit_type_changed);
+                type_hbox.pack_start(inactive_checkbox, false, false, 0);
 
                 unit_load_entry = new Entry();
                 unit_load_button = new Button.with_mnemonic("_Load");
@@ -872,37 +876,31 @@ public class MainWindow : Window {
                 if (id == null)
                         return false;
 
+                if (!inactive_checkbox.get_active()
+                    && active_state == "inactive" && job == "")
+                        return false;
+
                 switch (unit_type_combo_box.get_active()) {
-
-                        case 0:
-                                return true;
-
-                        case 1:
-                                return active_state != "inactive" || job != "";
-
-                        case 2:
-                                return id.has_suffix(".service");
-
-                        case 3:
-                                return id.has_suffix(".socket");
-
-                        case 4:
-                                return id.has_suffix(".device");
-
-                        case 5:
-                                return id.has_suffix(".mount");
-
-                        case 6:
-                                return id.has_suffix(".automount");
-
-                        case 7:
-                                return id.has_suffix(".target");
-
-                        case 8:
-                                return id.has_suffix(".snapshot");
+                case 0:
+                        return true;
+                case 1:
+                        return id.has_suffix(".service");
+                case 2:
+                        return id.has_suffix(".socket");
+                case 3:
+                        return id.has_suffix(".device");
+                case 4:
+                        return id.has_suffix(".mount");
+                case 5:
+                        return id.has_suffix(".automount");
+                case 6:
+                        return id.has_suffix(".target");
+                case 7:
+                        return id.has_suffix(".snapshot");
+                default:
+                        assert(false);
+                        return false;
                 }
-
-                return false;
         }
 
         public void unit_type_changed() {
