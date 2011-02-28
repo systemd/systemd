@@ -315,7 +315,7 @@ static int parse_password(const char *filename, char **wall) {
                         struct sockaddr sa;
                         struct sockaddr_un un;
                 } sa;
-                size_t packet_length;
+                size_t packet_length = 0;
 
                 assert(arg_action == ACTION_QUERY ||
                        arg_action == ACTION_WATCH);
@@ -330,7 +330,7 @@ static int parse_password(const char *filename, char **wall) {
                 }
 
                 if (arg_plymouth) {
-                        char **passwords;
+                        char **passwords = NULL;
 
                         if ((r = ask_password_plymouth(message, not_after, filename, accept_cached, &passwords)) >= 0) {
                                 char **p;
