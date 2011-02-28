@@ -138,13 +138,16 @@ public class MainWindow : Window {
                 type_hbox.pack_start(unit_type_combo_box, false, false, 0);
                 unit_vbox.pack_start(type_hbox, false, false, 0);
 
-                unit_type_combo_box.append_text("Show All");
+                unit_type_combo_box.append_text("All unit types");
+                unit_type_combo_box.append_text("Targets");
                 unit_type_combo_box.append_text("Services");
-                unit_type_combo_box.append_text("Sockets");
                 unit_type_combo_box.append_text("Devices");
                 unit_type_combo_box.append_text("Mounts");
                 unit_type_combo_box.append_text("Automounts");
-                unit_type_combo_box.append_text("Targets");
+                unit_type_combo_box.append_text("Swaps");
+                unit_type_combo_box.append_text("Sockets");
+                unit_type_combo_box.append_text("Paths");
+                unit_type_combo_box.append_text("Timers");
                 unit_type_combo_box.append_text("Snapshots");
                 unit_type_combo_box.set_active(0); // Show All
                 unit_type_combo_box.changed.connect(unit_type_changed);
@@ -884,9 +887,9 @@ public class MainWindow : Window {
                 case 0:
                         return true;
                 case 1:
-                        return id.has_suffix(".service");
+                        return id.has_suffix(".target");
                 case 2:
-                        return id.has_suffix(".socket");
+                        return id.has_suffix(".service");
                 case 3:
                         return id.has_suffix(".device");
                 case 4:
@@ -894,8 +897,14 @@ public class MainWindow : Window {
                 case 5:
                         return id.has_suffix(".automount");
                 case 6:
-                        return id.has_suffix(".target");
+                        return id.has_suffix(".swap");
                 case 7:
+                        return id.has_suffix(".socket");
+                case 8:
+                        return id.has_suffix(".path");
+                case 9:
+                        return id.has_suffix(".timer");
+                case 10:
                         return id.has_suffix(".snapshot");
                 default:
                         assert(false);
