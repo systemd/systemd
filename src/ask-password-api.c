@@ -179,8 +179,6 @@ int ask_password_tty(
                 }
         }
 
-        if (ttyfd >= 0)
-
         passphrase[p] = 0;
 
         if (!(*_passphrase = strdup(passphrase))) {
