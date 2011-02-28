@@ -368,8 +368,10 @@ case $with_distro in
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                SPECIAL_SYSLOG_SERVICE=syslogd.service
                 AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
                 M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
+		have_plymouth=true
                 ;;
         other)
                 AS_IF([test "x$with_syslog_service" = "x"],
