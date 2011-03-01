@@ -1421,6 +1421,7 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                         streq(args[0], "condrestart")           ? "TryRestartUnit" :
                         streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
                         streq(args[0], "reload-or-try-restart") ||
+                        streq(args[0], "condreload") ||
                         streq(args[0], "force-reload")          ? "ReloadOrTryRestartUnit" :
                                                                   "StartUnit";
 
@@ -5166,6 +5167,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "reload-or-restart",     MORE,  2, start_unit        },
                 { "reload-or-try-restart", MORE,  2, start_unit        },
                 { "force-reload",          MORE,  2, start_unit        }, /* For compatibility with SysV */
+                { "condreload",            MORE,  2, start_unit        }, /* For compatibility with ALTLinux */
                 { "condrestart",           MORE,  2, start_unit        }, /* For compatibility with RH */
                 { "isolate",               EQUAL, 2, start_unit        },
                 { "kill",                  MORE,  2, kill_unit         },
