@@ -24,6 +24,10 @@ F15:
 
 Features:
 
+* maybe implement "systemctl mask" and "systemctl unmask", but not
+  document it? When doing that add switch to make this temporary by
+  placing mask links in /dev.
+
 * introduce simple way to do mandatory conditions
 
 * detect LXC environment
