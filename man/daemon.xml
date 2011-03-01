@@ -869,7 +869,7 @@ fi</programlisting>
                         a fragment like the following:</para>
 
                         <programlisting>%triggerun -- foobar &lt; 0.47.11-1
-if /sbin/chkconfig foobar ; then
+if /sbin/chkconfig --level 3 foobar ; then
         /bin/systemctl --no-reload enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
 fi</programlisting>
 
