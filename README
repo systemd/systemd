@@ -71,3 +71,13 @@ WARNINGS:
         breakages are not always directly visible systemd will warn
         about this, since this kind of file system setup is not really
         supported anymore by the basic set of Linux OS components.
+
+ENGINEERING AND CONSULTING SERVICES:
+        ProFUSION <http://profusion.mobi> offers professional
+        engineering and consulting services for systemd for embedded
+        and other use. Please contact Gustavo Barbieri
+        <barbieri@profusion.mobi> for more information.
+
+        Disclaimer: This notice is not a recommendation or official
+        endorsement. However, ProFUSION's upstream work has been very
+        beneficial for the systemd project.
