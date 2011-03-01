@@ -1418,7 +1418,8 @@ systemd_stdio_bridge_LDADD = \
 
 systemadm_SOURCES = \
 	src/systemadm.vala \
-	src/systemd-interfaces.vala
+	src/systemd-interfaces.vala \
+	src/wraplabel.vala
 
 systemadm_CFLAGS = \
 	$(AM_CFLAGS) \

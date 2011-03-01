@@ -46,12 +46,11 @@ public class LeftLabel : Label {
         }
 }
 
-public class RightLabel : Label {
+public class RightLabel : WrapLabel {
+
         public RightLabel(string? text = null) {
-                set_text_or_na(text);
-                set_alignment(0, 0);
-                set_ellipsize(EllipsizeMode.START);
                 set_selectable(true);
+                set_text_or_na(text);
         }
 
         public void set_text_or_na(string? text = null) {
