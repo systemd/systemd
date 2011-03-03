@@ -79,6 +79,8 @@ public class MainWindow : Window {
         private ListStore unit_model;
         private ListStore job_model;
 
+        private Gee.HashMap<string, Unit> unit_map;
+
         private Button start_button;
         private Button stop_button;
         private Button restart_button;
@@ -179,6 +181,8 @@ public class MainWindow : Window {
 
                 unit_model = new ListStore(7, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(Unit));
                 job_model = new ListStore(6, typeof(string), typeof(string), typeof(string), typeof(string), typeof(Job), typeof(uint32));
+
+                unit_map = new Gee.HashMap<string, Unit>();
 
                 TreeModelFilter unit_model_filter;
                 unit_model_filter = new TreeModelFilter(unit_model, null);
@@ -355,6 +359,8 @@ public class MainWindow : Window {
                                         "org.freedesktop.systemd1",
                                         i.unit_path);
 
+                        unit_map[i.id] = u;
+
                         unit_model.append(out iter);
                         unit_model.set(iter,
                                        0, i.id,
@@ -413,6 +419,10 @@ public class MainWindow : Window {
                 model.get(iter, 6, out u);
 
                 return u;
+        }
+
+        public Unit? get_unit(string id) {
+                return this.unit_map[id];
         }
 
         public void unit_changed() {
@@ -712,6 +722,8 @@ public class MainWindow : Window {
                                         "org.freedesktop.systemd1",
                                         path);
 
+                        unit_map[id] = u;
+
                         update_unit_iter(iter, id, u);
                 } catch (IOError e) {
                         show_error(e.message);
@@ -773,6 +785,8 @@ public class MainWindow : Window {
                         }
 
                 } while (unit_model.iter_next(ref iter));
+
+                unit_map.unset(id);
         }
 
         public void on_job_removed(uint32 id, ObjectPath path, string res) {
