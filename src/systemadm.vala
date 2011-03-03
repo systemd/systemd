@@ -457,6 +457,25 @@ public class MainWindow : Window {
                 unit_cgroup_label.set_text_or_na();
         }
 
+        public string format_unit_link(string i) {
+                Unit? u = get_unit(i);
+                if(u == null)
+                        return "<span color='grey'>" + i + "</span";
+
+                string color;
+                switch (u.sub_state) {
+                case "active": color = "blue"; break;
+                case "dead": color = "red"; break;
+                case "running": color = "green"; break;
+                default: color = "black"; break;
+                }
+                string span = "<span underline='none' color='" + color + "'>"
+                              + i + "(" +
+                              u.sub_state + ")" + "</span>";
+                return  " <a href='" + i + "'>" + span + "</a>";
+        }
+
+
         public string make_dependency_string(string? prefix, string word, string[] dependencies) {
                 Gee.Collection<unowned string> sorted = new Gee.TreeSet<string>();
                 foreach (string i in dependencies)
@@ -479,7 +498,7 @@ public class MainWindow : Window {
                                 first = false;
                         }
 
-                        r += " <a href=\"" + i + "\">" + i + "</a>";
+                        r += format_unit_link(i);
                 }
 
                 return r;
