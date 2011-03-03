@@ -43,7 +43,8 @@ static int scandir_filter(const struct dirent *d) {
                 return 0;
 
         if (d->d_type != DT_REG &&
-            d->d_type != DT_LNK)
+            d->d_type != DT_LNK &&
+            d->d_type != DT_UNKNOWN)
                 return 0;
 
         return endswith(d->d_name, ".conf");

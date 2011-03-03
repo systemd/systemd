@@ -507,6 +507,9 @@ static int show_passwords(void) {
                 int q;
                 char *wall;
 
+                /* We only support /dev on tmpfs, hence we can rely on
+                 * d_type to be reliable */
+
                 if (de->d_type != DT_REG)
                         continue;
 

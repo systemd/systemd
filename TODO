@@ -24,6 +24,12 @@ F15:
 
 Features:
 
+* failure error string in "systemctl status"
+
+* send SIGCONT before SIGTERM
+
+* make sure timeouts are applied to Type=oneshot services.
+
 * maybe implement "systemctl mask" and "systemctl unmask", but not
   document it? When doing that add switch to make this temporary by
   placing mask links in /dev.
