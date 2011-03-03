@@ -458,6 +458,10 @@ public class MainWindow : Window {
         }
 
         public string make_dependency_string(string? prefix, string word, string[] dependencies) {
+                Gee.Collection<unowned string> sorted = new Gee.TreeSet<string>();
+                foreach (string i in dependencies)
+                        sorted.add(i);
+
                 bool first = true;
                 string r;
 
@@ -466,7 +470,7 @@ public class MainWindow : Window {
                 else
                         r = prefix;
 
-                foreach (string i in dependencies) {
+                foreach (string i in sorted) {
                         if (r != "")
                                 r += first ? "\n" : ",";
 
