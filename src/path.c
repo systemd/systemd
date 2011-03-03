@@ -223,9 +223,9 @@ static int path_watch_one(Path *p, PathSpec *s) {
                 /* Trim the path at the last slash. Keep the slash if it's the root dir. */
                 slash[slash == k] = 0;
 
-                flags = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB;
+                flags = IN_MOVE_SELF;
                 if (!exists)
-                        flags |= IN_CREATE | IN_MOVED_TO;
+                        flags |= IN_DELETE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO;
 
                 if (inotify_add_watch(s->inotify_fd, k, flags) >= 0)
                         exists = true;
