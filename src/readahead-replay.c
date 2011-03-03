@@ -333,6 +333,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char*argv[]) {
         int r;
+        const char *root;
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
@@ -340,6 +341,8 @@ int main(int argc, char*argv[]) {
 
         if ((r = parse_argv(argc, argv)) <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+
+        root = optind < argc ? argv[optind] : "/";
 
         if (!enough_ram()) {
                 log_info("Disabling readahead replay due to low memory.");
@@ -357,7 +360,7 @@ int main(int argc, char*argv[]) {
         shared->replay = getpid();
         __sync_synchronize();
 
-        if (replay(optind < argc ? argv[optind] : "/") < 0)
+        if (replay(root) < 0)
                 return 1;
 
         return 0;

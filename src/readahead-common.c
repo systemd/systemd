@@ -114,6 +114,41 @@ finish:
         return b;
 }
 
+int fs_on_read_only(const char *p) {
+        struct stat st;
+        struct udev *udev = NULL;
+        struct udev_device *udev_device = NULL;
+        bool b = false;
+        const char *read_only;
+
+        assert(p);
+
+        if (stat(p, &st) < 0)
+                return -errno;
+
+        if (major(st.st_dev) == 0)
+                return false;
+
+        if (!(udev = udev_new()))
+                return -ENOMEM;
+
+        if (!(udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev)))
+                goto finish;
+
+        if ((read_only = udev_device_get_sysattr_value(udev_device, "ro")))
+                if ((b = streq(read_only, "1")))
+                        goto finish;
+
+finish:
+        if (udev_device)
+                udev_device_unref(udev_device);
+
+        if (udev)
+                udev_unref(udev);
+
+        return b;
+}
+
 bool enough_ram(void) {
         struct sysinfo si;
 

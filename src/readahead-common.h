@@ -32,6 +32,7 @@
 int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st);
 
 int fs_on_ssd(const char *p);
+int fs_on_read_only(const char *p);
 
 bool enough_ram(void);
 
