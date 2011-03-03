@@ -660,9 +660,9 @@ static void swap_enter_signal(Swap *s, SwapState state, bool success) {
                            state == SWAP_DEACTIVATING_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
                 if (s->control_pid > 0) {
-                        if (kill(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                 -s->control_pid :
-                                 s->control_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                             -s->control_pid :
+                                             s->control_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
                         else
@@ -681,7 +681,7 @@ static void swap_enter_signal(Swap *s, SwapState state, bool success) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, pid_set)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, true, pid_set)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -1301,7 +1301,7 @@ static int swap_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, pid_set)) < 0)
+                if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, false, pid_set)) < 0)
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                 r = q;
         }

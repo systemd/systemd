@@ -3977,6 +3977,17 @@ finish:
                 hashmap_free_free(pids);
 }
 
+int kill_and_sigcont(pid_t pid, int sig) {
+        int r;
+
+        r = kill(pid, sig) < 0 ? -errno : 0;
+
+        if (r >= 0)
+                kill(pid, SIGCONT);
+
+        return r;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

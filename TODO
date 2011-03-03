@@ -20,13 +20,11 @@ F15:
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
-* convince Karel to give us our own mount option prefix
-
 Features:
 
-* show failure error string in "systemctl status"
+* introduce "x-systemd-automount" as alternative to the "comment=systemd.automount" mount option
 
-* send SIGCONT before SIGTERM
+* show failure error string in "systemctl status"
 
 * make sure timeouts are applied to Type=oneshot services.
 

@@ -166,7 +166,7 @@ int cg_rmdir(const char *controller, const char *path) {
         return r < 0 ? -errno : 0;
 }
 
-int cg_kill(const char *controller, const char *path, int sig, bool ignore_self, Set *s) {
+int cg_kill(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, Set *s) {
         bool done = false;
         int r, ret = 0;
         pid_t my_pid;
@@ -211,8 +211,13 @@ int cg_kill(const char *controller, const char *path, int sig, bool ignore_self,
                         if (kill(pid, sig) < 0) {
                                 if (ret >= 0 && errno != ESRCH)
                                         ret = -errno;
-                        } else if (ret == 0)
+                        } else if (ret == 0) {
+
+                                if (sigcont)
+                                        kill(pid, SIGCONT);
+
                                 ret = 1;
+                        }
 
                         done = false;
 
@@ -250,7 +255,7 @@ finish:
         return ret;
 }
 
-int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self, bool rem, Set *s) {
+int cg_kill_recursive(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, bool rem, Set *s) {
         int r, ret = 0;
         DIR *d = NULL;
         char *fn;
@@ -264,7 +269,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool ig
                 if (!(s = allocated_set = set_new(trivial_hash_func, trivial_compare_func)))
                         return -ENOMEM;
 
-        ret = cg_kill(controller, path, sig, ignore_self, s);
+        ret = cg_kill(controller, path, sig, sigcont, ignore_self, s);
 
         if ((r = cg_enumerate_subgroups(controller, path, &d)) < 0) {
                 if (ret >= 0 && r != -ENOENT)
@@ -286,7 +291,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool ig
                         goto finish;
                 }
 
-                r = cg_kill_recursive(controller, p, sig, ignore_self, rem, s);
+                r = cg_kill_recursive(controller, p, sig, sigcont, ignore_self, rem, s);
                 free(p);
 
                 if (r != 0 && ret >= 0)
@@ -336,7 +341,7 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path, bool re
                 else
                         sig = 0;
 
-                if ((r = cg_kill_recursive(controller, path, sig, true, rem, NULL)) <= 0)
+                if ((r = cg_kill_recursive(controller, path, sig, true, true, rem, NULL)) <= 0)
                         return r;
 
                 usleep(200 * USEC_PER_MSEC);

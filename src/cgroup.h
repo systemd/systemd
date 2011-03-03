@@ -59,8 +59,8 @@ void cgroup_bonding_free_list(CGroupBonding *first);
 int cgroup_bonding_install(CGroupBonding *b, pid_t pid);
 int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid);
 
-int cgroup_bonding_kill(CGroupBonding *b, int sig, Set *s);
-int cgroup_bonding_kill_list(CGroupBonding *first, int sig, Set *s);
+int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s);
+int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, Set *s);
 
 void cgroup_bonding_trim(CGroupBonding *first, bool delete_root);
 void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root);

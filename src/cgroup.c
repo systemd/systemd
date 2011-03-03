@@ -140,7 +140,7 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid) {
         return 0;
 }
 
-int cgroup_bonding_kill(CGroupBonding *b, int sig, Set *s) {
+int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s) {
         assert(b);
         assert(sig >= 0);
 
@@ -148,10 +148,10 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig, Set *s) {
         if (!b->realized || !b->ours)
                 return 0;
 
-        return cg_kill_recursive(b->controller, b->path, sig, true, false, s);
+        return cg_kill_recursive(b->controller, b->path, sig, sigcont, true, false, s);
 }
 
-int cgroup_bonding_kill_list(CGroupBonding *first, int sig, Set *s) {
+int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, Set *s) {
         CGroupBonding *b;
         Set *allocated_set = NULL;
         int ret = -EAGAIN, r;
@@ -161,7 +161,7 @@ int cgroup_bonding_kill_list(CGroupBonding *first, int sig, Set *s) {
                         return -ENOMEM;
 
         LIST_FOREACH(by_unit, b, first) {
-                if ((r = cgroup_bonding_kill(b, sig, s)) < 0) {
+                if ((r = cgroup_bonding_kill(b, sig, sigcont, s)) < 0) {
                         if (r == -EAGAIN || r == -ESRCH)
                                 continue;
 

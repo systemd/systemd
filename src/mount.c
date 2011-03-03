@@ -729,9 +729,9 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                            state == MOUNT_REMOUNTING_SIGTERM) ? m->exec_context.kill_signal : SIGKILL;
 
                 if (m->control_pid > 0) {
-                        if (kill(m->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                 -m->control_pid :
-                                 m->control_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(m->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                             -m->control_pid :
+                                             m->control_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill control process %li: %m", (long) m->control_pid);
                         else
@@ -750,7 +750,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(m->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(m->meta.cgroup_bondings, sig, pid_set)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(m->meta.cgroup_bondings, sig, true, pid_set)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -1678,7 +1678,7 @@ static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError 
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(m->meta.cgroup_bondings, signo, pid_set)) < 0)
+                if ((q = cgroup_bonding_kill_list(m->meta.cgroup_bondings, signo, false, pid_set)) < 0)
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                 r = q;
         }

@@ -5532,6 +5532,7 @@ static void pager_close(void) {
 
         /* Inform pager that we are done */
         fclose(stdout);
+        kill(pager_pid, SIGCONT);
         wait_for_terminate(pager_pid, &dummy);
         pager_pid = 0;
 }
@@ -5544,6 +5545,7 @@ static void agent_close(void) {
 
         /* Inform agent that we are done */
         kill(agent_pid, SIGTERM);
+        kill(agent_pid, SIGCONT);
         wait_for_terminate(agent_pid, &dummy);
         agent_pid = 0;
 }

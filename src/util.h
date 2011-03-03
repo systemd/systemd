@@ -383,6 +383,8 @@ int detect_virtualization(const char **id);
 
 void execute_directory(const char *directory, DIR *_d, char *argv[]);
 
+int kill_and_sigcont(pid_t pid, int sig);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
