@@ -23,7 +23,6 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <string.h>
-#include <ftw.h>
 #include <stdio.h>
 #include <limits.h>
 
@@ -32,18 +31,15 @@
 
 #define PROC_SYS_PREFIX "/proc/sys/"
 
-static int exit_code = 0;
-
-static void apply_sysctl(const char *property, const char *value) {
+static int apply_sysctl(const char *property, const char *value) {
         char *p, *n;
-        int r;
+        int r = 0, k;
 
         log_debug("Setting '%s' to '%s'", property, value);
 
         if (!(p = new(char, sizeof(PROC_SYS_PREFIX) + strlen(property)))) {
                 log_error("Out of memory");
-                exit_code = -ENOMEM;
-                return;
+                return -ENOMEM;
         }
 
         n = stpcpy(p, PROC_SYS_PREFIX);
@@ -53,38 +49,44 @@ static void apply_sysctl(const char *property, const char *value) {
                 if (*n == '.')
                         *n = '/';
 
-        if ((r = write_one_line_file(p, value)) < 0) {
+        if ((k = write_one_line_file(p, value)) < 0) {
 
-                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "Failed to write '%s' to '%s': %s", value, p, strerror(-r));
+                log_full(k == -ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "Failed to write '%s' to '%s': %s", value, p, strerror(-k));
 
-                if (r != -ENOENT)
-                        exit_code = r;
+                if (k != -ENOENT && r == 0)
+                        r = k;
         }
 
         free(p);
+
+        return r;
 }
 
-static void apply_file(const char *path) {
+static int apply_file(const char *path, bool ignore_enoent) {
         FILE *f;
+        int r = 0;
 
         assert(path);
 
         if (!(f = fopen(path, "re"))) {
+                if (ignore_enoent && errno == ENOENT)
+                        return 0;
+
                 log_error("Failed to open file '%s', ignoring: %m", path);
-                exit_code = -errno;
-                return;
+                return -errno;
         }
 
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *value;
+                int k;
 
                 if (!fgets(l, sizeof(l), f)) {
                         if (feof(f))
                                 break;
 
                         log_error("Failed to read file '%s', ignoring: %m", path);
-                        exit_code = -errno;
+                        r = -errno;
                         goto finish;
                 }
 
@@ -98,40 +100,78 @@ static void apply_file(const char *path) {
 
                 if (!(value = strchr(p, '='))) {
                         log_error("Line is not an assignment in file '%s': %s", path, value);
-                        exit_code = -EINVAL;
+
+                        if (r == 0)
+                                r = -EINVAL;
                         continue;
                 }
 
                 *value = 0;
                 value++;
 
-                apply_sysctl(strstrip(p), strstrip(value));
+                if ((k = apply_sysctl(strstrip(p), strstrip(value))) < 0 && r == 0)
+                        r = k;
         }
 
 finish:
         fclose(f);
+
+        return r;
 }
 
-static int nftw_cb(
-                const char *fpath,
-                const struct stat *sb,
-                int tflag,
-                struct FTW *ftwbuf) {
+static int scandir_filter(const struct dirent *d) {
+        assert(d);
 
-        if (tflag != FTW_F)
+        if (ignore_file(d->d_name))
                 return 0;
 
-        if (ignore_file(fpath + ftwbuf->base))
+        if (d->d_type != DT_REG &&
+            d->d_type != DT_LNK &&
+            d->d_type != DT_UNKNOWN)
                 return 0;
 
-        if (!endswith(fpath, ".conf"))
-                return 0;
+        return endswith(d->d_name, ".conf");
+}
 
-        apply_file(fpath);
-        return 0;
-};
+static int apply_tree(const char *path) {
+        struct dirent **de = NULL;
+        int n, i, r = 0;
+
+        if ((n = scandir(path, &de, scandir_filter, alphasort)) < 0) {
+
+                if (errno == ENOENT)
+                        return 0;
+
+                log_error("Failed to enumerate %s files: %m", path);
+                return -errno;
+        }
+
+        for (i = 0; i < n; i++) {
+                char *fn;
+                int k;
+
+                k = asprintf(&fn, "%s/%s", path, de[i]->d_name);
+                free(de[i]);
+
+                if (k < 0) {
+                        log_error("Failed to allocate file name.");
+
+                        if (r == 0)
+                                r = -ENOMEM;
+                        continue;
+                }
+
+                if ((k = apply_file(fn, true)) < 0 && r == 0)
+                        r = k;
+        }
+
+        free(de);
+
+        return r;
+}
 
 int main(int argc, char *argv[]) {
+        int r = 0;
 
         if (argc > 2) {
                 log_error("This program expects one or no arguments.");
@@ -143,11 +183,15 @@ int main(int argc, char *argv[]) {
         log_open();
 
         if (argc > 1)
-                nftw(argv[1], nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
+                r = apply_file(argv[1], false);
         else {
-                nftw("/etc/sysctl.conf", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
-                nftw("/etc/sysctl.d", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
+                int k;
+
+                r = apply_file("/etc/sysctl.conf", true);
+
+                if ((k = apply_tree("/etc/sysctl.d")) < 0 && r == 0)
+                        r = k;
         }
 
-        return exit_code < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

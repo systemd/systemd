@@ -24,7 +24,7 @@ F15:
 
 Features:
 
-* failure error string in "systemctl status"
+* show failure error string in "systemctl status"
 
 * send SIGCONT before SIGTERM
 
