@@ -426,7 +426,7 @@ int main(int argc, char *argv[])
 	for (;;) {
 		int option;
 
-		option = getopt_long(argc, argv, "+dhV", options, NULL);
+		option = getopt_long(argc, argv, "+p:s:dhV", options, NULL);
 		if (option == -1)
 			break;
 
