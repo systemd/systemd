@@ -63,7 +63,7 @@ WARNINGS:
 
         systemd will warn you during boot if /usr is on a different
         file system than /. While in systemd itself very little will
-        break if /usr is on a seperate partition many of its
+        break if /usr is on a separate partition many of its
         dependencies very likely will break sooner or later in one
         form or another. For example udev rules tend to refer to
         binaries in /usr, binaries that link to libraries in /usr or

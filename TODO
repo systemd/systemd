@@ -14,8 +14,6 @@ F15:
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
-* s/seperate/separate/
-
 Features:
 
 * introduce "x-systemd-automount" as alternative to the "comment=systemd.automount" mount option
@@ -117,7 +115,7 @@ Features:
 
 * readahead: btrfs/LVM SSD detection
 
-* add seperate man page for [Install] settings
+* add separate man page for [Install] settings
 
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
 

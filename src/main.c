@@ -942,22 +942,22 @@ static void test_mtab(void) {
 
 static void test_usr(void) {
         struct stat a, b;
-        bool seperate = false;
+        bool separate = false;
 
-        /* Check that /usr is not a seperate fs */
+        /* Check that /usr is not a separate fs */
 
         if (lstat("/", &a) >= 0 && lstat("/usr", &b) >= 0)
                 if (a.st_dev != b.st_dev)
-                        seperate = true;
+                        separate = true;
 
         /* This check won't work usually during boot, since /usr is
          * probably not mounted yet, hence let's add a second
          * check. We just check whether /usr is an empty directory. */
 
         if (dir_is_empty("/usr") > 0)
-                seperate = true;
+                separate = true;
 
-        if (!seperate)
+        if (!separate)
                 return;
 
         log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
