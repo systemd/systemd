@@ -961,7 +961,8 @@ static void test_usr(void) {
                 return;
 
         log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
-                    "Some things will probably break (sometimes even silently) in mysterious ways.");
+                    "Some things will probably break (sometimes even silently) in mysterious ways. "
+                    "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
 
 int main(int argc, char *argv[]) {
