@@ -2370,6 +2370,25 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                         return 0;
 
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "EnvironmentFiles")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *path;
+                                dbus_bool_t ignore;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &ignore, false) >= 0)
+                                        printf("EnvironmentFile=%s (ignore=%s)\n", path, yes_no(ignore));
+
+                                dbus_message_iter_next(&sub);
+                        }
+
+                        return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Paths")) {
                         DBusMessageIter sub, sub2;
 

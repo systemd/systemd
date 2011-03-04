@@ -104,6 +104,8 @@ struct ExecCommand {
 
 struct ExecContext {
         char **environment;
+        char **environment_files;
+
         struct rlimit *rlimit[RLIMIT_NLIMITS];
         char *working_directory, *root_directory;
 
@@ -202,6 +204,8 @@ int exec_command_set(ExecCommand *c, const char *path, ...);
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
+
+int exec_context_load_environment(const ExecContext *c, char ***l);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status, const char *utmp_id);

@@ -33,6 +33,39 @@ DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_kill_mode, kill_mode, KillMod
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);
 
+int bus_execute_append_env_files(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        char **env_files = data, **j;
+        DBusMessageIter sub, sub2;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sb)", &sub))
+                return -ENOMEM;
+
+        STRV_FOREACH(j, env_files) {
+                dbus_bool_t b = false;
+                char *fn = *j;
+
+                if (fn[0] == '-') {
+                        b = true;
+                        fn++;
+                }
+
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &fn) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_BOOLEAN, &b) ||
+                    !dbus_message_iter_close_container(&sub, &sub2))
+                        return -ENOMEM;
+        }
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_execute_append_oom_score_adjust(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         int32_t n;

@@ -8,14 +8,13 @@ F15:
 
 * finish syslog socket stuff
 
-* load EnvironmentFile= when starting services, not when reloading configuration
-  https://bugzilla.redhat.com/show_bug.cgi?id=661282
-
 * NFS, networkmanager ordering issue
 
 * add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
+
+* s/seperate/separate/
 
 Features:
 

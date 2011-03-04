@@ -919,6 +919,7 @@ int exec_spawn(ExecCommand *command,
         int r;
         char *line;
         int socket_fd;
+        char **files_env = NULL;
 
         assert(command);
         assert(context);
@@ -939,21 +940,30 @@ int exec_spawn(ExecCommand *command,
         } else
                 socket_fd = -1;
 
+        if ((r = exec_context_load_environment(context, &files_env)) < 0) {
+                log_error("Failed to load environment files: %s", strerror(-r));
+                return r;
+        }
+
         if (!argv)
                 argv = command->argv;
 
-        if (!(line = exec_command_line(argv)))
-                return -ENOMEM;
+        if (!(line = exec_command_line(argv))) {
+                r = -ENOMEM;
+                goto fail_parent;
+        }
 
         log_debug("About to execute: %s", line);
         free(line);
 
         if (cgroup_bondings)
                 if ((r = cgroup_bonding_realize_list(cgroup_bondings)))
-                        return r;
+                        goto fail_parent;
 
-        if ((pid = fork()) < 0)
-                return -errno;
+        if ((pid = fork()) < 0) {
+                r = -errno;
+                goto fail_parent;
+        }
 
         if (pid == 0) {
                 int i;
@@ -983,7 +993,7 @@ int exec_spawn(ExecCommand *command,
                 if (sigemptyset(&ss) < 0 ||
                     sigprocmask(SIG_SETMASK, &ss, NULL) < 0) {
                         r = EXIT_SIGNAL_MASK;
-                        goto fail;
+                        goto fail_child;
                 }
 
                 /* Close sockets very early to make sure we don't
@@ -992,26 +1002,26 @@ int exec_spawn(ExecCommand *command,
                 if (close_all_fds(socket_fd >= 0 ? &socket_fd : fds,
                                   socket_fd >= 0 ? 1 : n_fds) < 0) {
                         r = EXIT_FDS;
-                        goto fail;
+                        goto fail_child;
                 }
 
                 if (!context->same_pgrp)
                         if (setsid() < 0) {
                                 r = EXIT_SETSID;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (context->tcpwrap_name) {
                         if (socket_fd >= 0)
                                 if (!socket_tcpwrap(socket_fd, context->tcpwrap_name)) {
                                         r = EXIT_TCPWRAP;
-                                        goto fail;
+                                        goto fail_child;
                                 }
 
                         for (i = 0; i < (int) n_fds; i++) {
                                 if (!socket_tcpwrap(fds[i], context->tcpwrap_name)) {
                                         r = EXIT_TCPWRAP;
-                                        goto fail;
+                                        goto fail_child;
                                 }
                         }
                 }
@@ -1024,12 +1034,12 @@ int exec_spawn(ExecCommand *command,
                         /* Set up terminal for the question */
                         if ((r = setup_confirm_stdio(context,
                                                      &saved_stdin, &saved_stdout)))
-                                goto fail;
+                                goto fail_child;
 
                         /* Now ask the question. */
                         if (!(line = exec_command_line(argv))) {
                                 r = EXIT_MEMORY;
-                                goto fail;
+                                goto fail_child;
                         }
 
                         r = ask(&response, "yns", "Execute %s? [Yes, No, Skip] ", line);
@@ -1037,17 +1047,17 @@ int exec_spawn(ExecCommand *command,
 
                         if (r < 0 || response == 'n') {
                                 r = EXIT_CONFIRM;
-                                goto fail;
+                                goto fail_child;
                         } else if (response == 's') {
                                 r = 0;
-                                goto fail;
+                                goto fail_child;
                         }
 
                         /* Release terminal for the question */
                         if ((r = restore_confirm_stdio(context,
                                                        &saved_stdin, &saved_stdout,
                                                        &keep_stdin, &keep_stdout)))
-                                goto fail;
+                                goto fail_child;
                 }
 
                 /* If a socket is connected to STDIN/STDOUT/STDERR, we
@@ -1058,24 +1068,24 @@ int exec_spawn(ExecCommand *command,
                 if (!keep_stdin)
                         if (setup_input(context, socket_fd, apply_tty_stdin) < 0) {
                                 r = EXIT_STDIN;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (!keep_stdout)
                         if (setup_output(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin) < 0) {
                                 r = EXIT_STDOUT;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (setup_error(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin) < 0) {
                         r = EXIT_STDERR;
-                        goto fail;
+                        goto fail_child;
                 }
 
                 if (cgroup_bondings)
                         if (cgroup_bonding_install_list(cgroup_bondings, 0) < 0) {
                                 r = EXIT_CGROUP;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (context->oom_score_adjust_set) {
@@ -1097,7 +1107,7 @@ int exec_spawn(ExecCommand *command,
 
                                 if (write_one_line_file("/proc/self/oom_adj", t) < 0) {
                                         r = EXIT_OOM_ADJUST;
-                                        goto fail;
+                                        goto fail_child;
                                 }
                         }
                 }
@@ -1105,7 +1115,7 @@ int exec_spawn(ExecCommand *command,
                 if (context->nice_set)
                         if (setpriority(PRIO_PROCESS, 0, context->nice) < 0) {
                                 r = EXIT_NICE;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (context->cpu_sched_set) {
@@ -1117,26 +1127,26 @@ int exec_spawn(ExecCommand *command,
                         if (sched_setscheduler(0, context->cpu_sched_policy |
                                                (context->cpu_sched_reset_on_fork ? SCHED_RESET_ON_FORK : 0), &param) < 0) {
                                 r = EXIT_SETSCHEDULER;
-                                goto fail;
+                                goto fail_child;
                         }
                 }
 
                 if (context->cpuset)
                         if (sched_setaffinity(0, CPU_ALLOC_SIZE(context->cpuset_ncpus), context->cpuset) < 0) {
                                 r = EXIT_CPUAFFINITY;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (context->ioprio_set)
                         if (ioprio_set(IOPRIO_WHO_PROCESS, 0, context->ioprio) < 0) {
                                 r = EXIT_IOPRIO;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (context->timer_slack_nsec_set)
                         if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
                                 r = EXIT_TIMERSLACK;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (context->utmp_id)
@@ -1146,13 +1156,13 @@ int exec_spawn(ExecCommand *command,
                         username = context->user;
                         if (get_user_creds(&username, &uid, &gid, &home) < 0) {
                                 r = EXIT_USER;
-                                goto fail;
+                                goto fail_child;
                         }
 
                         if (is_terminal_input(context->std_input))
                                 if (chown_terminal(STDIN_FILENO, uid) < 0) {
                                         r = EXIT_STDIN;
-                                        goto fail;
+                                        goto fail_child;
                                 }
                 }
 
@@ -1160,7 +1170,7 @@ int exec_spawn(ExecCommand *command,
                 if (context->pam_name && username) {
                         if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) < 0) {
                                 r = EXIT_PAM;
-                                goto fail;
+                                goto fail_child;
                         }
                 }
 #endif
@@ -1168,7 +1178,7 @@ int exec_spawn(ExecCommand *command,
                 if (apply_permissions)
                         if (enforce_groups(context, username, uid) < 0) {
                                 r = EXIT_GROUP;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 umask(context->umask);
@@ -1184,18 +1194,18 @@ int exec_spawn(ExecCommand *command,
                                              context->inaccessible_dirs,
                                              context->private_tmp,
                                              context->mount_flags)) < 0)
-                                goto fail;
+                                goto fail_child;
 
                 if (apply_chroot) {
                         if (context->root_directory)
                                 if (chroot(context->root_directory) < 0) {
                                         r = EXIT_CHROOT;
-                                        goto fail;
+                                        goto fail_child;
                                 }
 
                         if (chdir(context->working_directory ? context->working_directory : "/") < 0) {
                                 r = EXIT_CHDIR;
-                                goto fail;
+                                goto fail_child;
                         }
                 } else {
 
@@ -1205,13 +1215,13 @@ int exec_spawn(ExecCommand *command,
                                      context->root_directory ? context->root_directory : "",
                                      context->working_directory ? context->working_directory : "") < 0) {
                                 r = EXIT_MEMORY;
-                                goto fail;
+                                goto fail_child;
                         }
 
                         if (chdir(d) < 0) {
                                 free(d);
                                 r = EXIT_CHDIR;
-                                goto fail;
+                                goto fail_child;
                         }
 
                         free(d);
@@ -1223,7 +1233,7 @@ int exec_spawn(ExecCommand *command,
                     shift_fds(fds, n_fds) < 0 ||
                     flags_fds(fds, n_fds, context->non_blocking) < 0) {
                         r = EXIT_FDS;
-                        goto fail;
+                        goto fail_child;
                 }
 
                 if (apply_permissions) {
@@ -1234,14 +1244,14 @@ int exec_spawn(ExecCommand *command,
 
                                 if (setrlimit(i, context->rlimit[i]) < 0) {
                                         r = EXIT_LIMITS;
-                                        goto fail;
+                                        goto fail_child;
                                 }
                         }
 
                         if (context->user)
                                 if (enforce_user(context, uid) < 0) {
                                         r = EXIT_USER;
-                                        goto fail;
+                                        goto fail_child;
                                 }
 
                         /* PR_GET_SECUREBITS is not privileged, while
@@ -1251,39 +1261,39 @@ int exec_spawn(ExecCommand *command,
                         if (prctl(PR_GET_SECUREBITS) != context->secure_bits)
                                 if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
                                         r = EXIT_SECUREBITS;
-                                        goto fail;
+                                        goto fail_child;
                                 }
 
                         if (context->capabilities)
                                 if (cap_set_proc(context->capabilities) < 0) {
                                         r = EXIT_CAPABILITIES;
-                                        goto fail;
+                                        goto fail_child;
                                 }
                 }
 
                 if (!(our_env = new0(char*, 7))) {
                         r = EXIT_MEMORY;
-                        goto fail;
+                        goto fail_child;
                 }
 
                 if (n_fds > 0)
                         if (asprintf(our_env + n_env++, "LISTEN_PID=%lu", (unsigned long) getpid()) < 0 ||
                             asprintf(our_env + n_env++, "LISTEN_FDS=%u", n_fds) < 0) {
                                 r = EXIT_MEMORY;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (home)
                         if (asprintf(our_env + n_env++, "HOME=%s", home) < 0) {
                                 r = EXIT_MEMORY;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (username)
                         if (asprintf(our_env + n_env++, "LOGNAME=%s", username) < 0 ||
                             asprintf(our_env + n_env++, "USER=%s", username) < 0) {
                                 r = EXIT_MEMORY;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 if (is_terminal_input(context->std_input) ||
@@ -1291,25 +1301,26 @@ int exec_spawn(ExecCommand *command,
                     context->std_error == EXEC_OUTPUT_TTY)
                         if (!(our_env[n_env++] = strdup(default_term_for_tty(tty_path(context))))) {
                                 r = EXIT_MEMORY;
-                                goto fail;
+                                goto fail_child;
                         }
 
                 assert(n_env <= 7);
 
                 if (!(final_env = strv_env_merge(
-                                      4,
+                                      5,
                                       environment,
                                       our_env,
                                       context->environment,
+                                      files_env,
                                       pam_env,
                                       NULL))) {
                         r = EXIT_MEMORY;
-                        goto fail;
+                        goto fail_child;
                 }
 
                 if (!(final_argv = replace_env_argv(argv, final_env))) {
                         r = EXIT_MEMORY;
-                        goto fail;
+                        goto fail_child;
                 }
 
                 final_env = strv_env_clean(final_env);
@@ -1317,10 +1328,11 @@ int exec_spawn(ExecCommand *command,
                 execve(command->path, final_argv, final_env);
                 r = EXIT_EXEC;
 
-        fail:
+        fail_child:
                 strv_free(our_env);
                 strv_free(final_env);
                 strv_free(pam_env);
+                strv_free(files_env);
                 strv_free(final_argv);
 
                 if (saved_stdin >= 0)
@@ -1331,6 +1343,8 @@ int exec_spawn(ExecCommand *command,
 
                 _exit(r);
         }
+
+        strv_free(files_env);
 
         /* We add the new process to the cgroup both in the child (so
          * that we can be sure that no user code is ever executed
@@ -1346,6 +1360,11 @@ int exec_spawn(ExecCommand *command,
 
         *ret = pid;
         return 0;
+
+fail_parent:
+        strv_free(files_env);
+
+        return r;
 }
 
 void exec_context_init(ExecContext *c) {
@@ -1368,6 +1387,9 @@ void exec_context_done(ExecContext *c) {
 
         strv_free(c->environment);
         c->environment = NULL;
+
+        strv_free(c->environment_files);
+        c->environment_files = NULL;
 
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++) {
                 free(c->rlimit[l]);
@@ -1457,6 +1479,64 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
         }
 }
 
+int exec_context_load_environment(const ExecContext *c, char ***l) {
+        char **i, **r = NULL;
+
+        assert(c);
+        assert(l);
+
+        STRV_FOREACH(i, c->environment_files) {
+                char *fn;
+                int k;
+                bool ignore = false;
+                char **p;
+
+                fn = *i;
+
+                if (fn[0] == '-') {
+                        ignore = true;
+                        fn ++;
+                }
+
+                if (!path_is_absolute(fn)) {
+
+                        if (ignore)
+                                continue;
+
+                        strv_free(r);
+                        return -EINVAL;
+                }
+
+                if ((k = load_env_file(fn, &p)) < 0) {
+
+                        if (ignore)
+                                continue;
+
+                        strv_free(r);
+                        return k;
+                }
+
+                if (r == NULL)
+                        r = p;
+                else {
+                        char **m;
+
+                        m = strv_env_merge(2, r, p);
+                        strv_free(r);
+                        strv_free(p);
+
+                        if (!m)
+                                return -ENOMEM;
+
+                        r = m;
+                }
+        }
+
+        *l = r;
+
+        return 0;
+}
+
 static void strv_fprintf(FILE *f, char **l) {
         char **g;
 
@@ -1488,9 +1568,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp));
 
-        if (c->environment)
-                for (e = c->environment; *e; e++)
-                        fprintf(f, "%sEnvironment: %s\n", prefix, *e);
+        STRV_FOREACH(e, c->environment)
+                fprintf(f, "%sEnvironment: %s\n", prefix, *e);
+
+        STRV_FOREACH(e, c->environment_files)
+                fprintf(f, "%sEnvironmentFile: %s\n", prefix, *e);
 
         if (c->tcpwrap_name)
                 fprintf(f,

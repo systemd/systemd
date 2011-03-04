@@ -93,6 +93,7 @@
 
 #define BUS_EXEC_CONTEXT_PROPERTIES(interface, context)                 \
         { interface, "Environment",                   bus_property_append_strv,   "as",    (context).environment                   }, \
+        { interface, "EnvironmentFiles",              bus_execute_append_env_files, "a(sb)", (context).environment_files           }, \
         { interface, "UMask",                         bus_property_append_mode,   "u",     &(context).umask                        }, \
         { interface, "LimitCPU",                      bus_execute_append_rlimits, "t",     &(context)                              }, \
         { interface, "LimitFSIZE",                    bus_execute_append_rlimits, "t",     &(context)                              }, \
@@ -169,5 +170,6 @@ int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *
 int bus_execute_append_rlimits(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_command(Manager *m, DBusMessageIter *u, const char *property, void *data);
 int bus_execute_append_kill_mode(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_env_files(Manager *m, DBusMessageIter *i, const char *property, void *data);
 
 #endif

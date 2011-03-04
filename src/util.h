@@ -195,6 +195,7 @@ int read_one_line_file(const char *fn, char **line);
 int read_full_file(const char *fn, char **contents);
 
 int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
+int load_env_file(const char *fname, char ***l);
 
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
