@@ -284,7 +284,17 @@
                                 "-", which indicates that if the file
                                 does not exist it won't be read and no
                                 error or warning message is
-                                logged.</para></listitem>
+                                logged. The files listed with this
+                                directive will be read shortly before
+                                the process is executed. Settings from
+                                these files override settings made
+                                with
+                                <varname>Environment=</varname>. If
+                                the same variable is set twice from
+                                these files the files will be read in
+                                the order they are specified and the
+                                later setting will override the
+                                earlier setting. </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
