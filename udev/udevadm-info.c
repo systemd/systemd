@@ -33,47 +33,39 @@
 
 static void print_all_attributes(struct udev_device *device, const char *key)
 {
-	struct udev *udev = udev_device_get_udev(device);
-	DIR *dir;
-	struct dirent *dent;
+	struct udev_list_entry *sysattr;
 
-	dir = opendir(udev_device_get_syspath(device));
-	if (dir != NULL) {
-		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			struct stat statbuf;
-			const char *value;
-			size_t len;
+	udev_list_entry_foreach(sysattr, udev_device_get_sysattr_list_entry(device)) {
+		const char *name;
+		const char *value;
+		size_t len;
 
-			if (dent->d_name[0] == '.')
-				continue;
+		/* skip symlinks */
+		if (0 == strcmp("s", udev_list_entry_get_value(sysattr)))
+			continue;
 
-			if (strcmp(dent->d_name, "uevent") == 0)
-				continue;
-			if (strcmp(dent->d_name, "dev") == 0)
-				continue;
+		name = udev_list_entry_get_name(sysattr);
+		if (strcmp(name, "uevent") == 0)
+			continue;
+		if (strcmp(name, "dev") == 0)
+			continue;
 
-			if (fstatat(dirfd(dir), dent->d_name, &statbuf, AT_SYMLINK_NOFOLLOW) != 0)
-				continue;
-			if (S_ISLNK(statbuf.st_mode))
-				continue;
+		value = udev_device_get_sysattr_value(device, name);
+		if (value == NULL)
+			continue;
+		dbg(udev_device_get_udev(device), "attr '%s'='%s'\n", name, value);
 
-			value = udev_device_get_sysattr_value(device, dent->d_name);
-			if (value == NULL)
-				continue;
-			dbg(udev, "attr '%s'='%s'\n", dent->d_name, value);
-
-			/* skip nonprintable attributes */
-			len = strlen(value);
-			while (len > 0 && isprint(value[len-1]))
-				len--;
-			if (len > 0) {
-				dbg(udev, "attribute value of '%s' non-printable, skip\n", dent->d_name);
-				continue;
-			}
-
-			printf("    %s{%s}==\"%s\"\n", key, dent->d_name, value);
+		/* skip nonprintable attributes */
+		len = strlen(value);
+		while (len > 0 && isprint(value[len-1]))
+			len--;
+		if (len > 0) {
+			dbg(udev_device_get_udev(device),
+					"attribute value of '%s' non-printable, skip\n", name);
+			continue;
 		}
-		closedir(dir);
+
+		printf("    %s{%s}==\"%s\"\n", key, name, value);
 	}
 	printf("\n");
 }
