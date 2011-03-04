@@ -31,37 +31,50 @@
 
 #include "udev.h"
 
+static bool skip_attribute(const char *name)
+{
+	char *skip[] = {
+		"uevent",
+		"dev",
+		"modalias",
+		"resource",
+		"driver",
+		"subsystem",
+		"module",
+	};
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(skip); i++)
+		if (strcmp(name, skip[i]) == 0)
+			return true;
+	return false;
+}
+
 static void print_all_attributes(struct udev_device *device, const char *key)
 {
 	struct udev_list_entry *sysattr;
 
 	udev_list_entry_foreach(sysattr, udev_device_get_sysattr_list_entry(device)) {
+		struct udev *udev = udev_device_get_udev(device);
 		const char *name;
 		const char *value;
 		size_t len;
 
-		/* skip symlinks */
-		if (0 == strcmp("s", udev_list_entry_get_value(sysattr)))
-			continue;
-
 		name = udev_list_entry_get_name(sysattr);
-		if (strcmp(name, "uevent") == 0)
-			continue;
-		if (strcmp(name, "dev") == 0)
+		if (skip_attribute(name))
 			continue;
 
 		value = udev_device_get_sysattr_value(device, name);
 		if (value == NULL)
 			continue;
-		dbg(udev_device_get_udev(device), "attr '%s'='%s'\n", name, value);
+		dbg(udev, "attr '%s'='%s'\n", name, value);
 
 		/* skip nonprintable attributes */
 		len = strlen(value);
 		while (len > 0 && isprint(value[len-1]))
 			len--;
 		if (len > 0) {
-			dbg(udev_device_get_udev(device),
-					"attribute value of '%s' non-printable, skip\n", name);
+			dbg(udev, "attribute value of '%s' non-printable, skip\n", name);
 			continue;
 		}
 
