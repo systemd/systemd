@@ -941,15 +941,12 @@ static void test_mtab(void) {
 }
 
 static void test_usr(void) {
-        struct stat a, b;
         bool separate = false;
 
         /* Check that /usr is not a separate fs */
 
-        if (lstat("/", &a) >= 0 && lstat("/usr", &b) >= 0)
-                if (a.st_dev != b.st_dev)
-                        separate = true;
-
+        if (path_is_mount_point("/usr") > 0)
+                separate = true;
         /* This check won't work usually during boot, since /usr is
          * probably not mounted yet, hence let's add a second
          * check. We just check whether /usr is an empty directory. */
