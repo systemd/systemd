@@ -91,7 +91,12 @@ int machine_id_setup(void) {
 
         m = umask(0000);
 
-        if ((fd = open("/etc/machine-id", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644)) >= 0)
+        /* We create this 0444, to indicate that this isn't really
+         * something you should ever modify. Of course, since the file
+         * will be owned by root it doesn't matter much, but maybe
+         * people look. */
+
+        if ((fd = open("/etc/machine-id", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444)) >= 0)
                 writable = true;
         else {
                 if ((fd = open("/etc/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0) {
