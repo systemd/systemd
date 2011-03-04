@@ -150,7 +150,8 @@
 #define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"Distribution\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"Features\" type=\"s\" access=\"read\"/\n"   \
+        "  <property name=\"Features\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"Tainted\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InitRDTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -209,6 +210,32 @@ const char bus_manager_interface[] _introspect_("Manager") = BUS_MANAGER_INTERFA
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_exec_output, exec_output, ExecOutput);
+
+static int bus_manager_append_tainted(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        const char *t;
+        char buf[64] = "", *e = buf, *p = NULL;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        if (path_is_mount_point("/usr") > 0 || dir_is_empty("/usr") > 0)
+                e = stpcpy(e, "usr-separate-fs");
+
+        if (readlink_malloc("/etc/mtab", &p) < 0) {
+                if (e != buf)
+                        e = stpcpy(e, " ");
+                e = stpcpy(e, "etc-mtab-not-symlink");
+        } else
+                free(p);
+
+        t = buf;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
+                return -ENOMEM;
+
+        return 0;
+}
 
 static int bus_manager_append_log_target(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         const char *t;
@@ -310,6 +337,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "Distribution",  bus_property_append_string,    "s",  DISTRIBUTION       },
                 { "org.freedesktop.systemd1.Manager", "Features",      bus_property_append_string,    "s",  SYSTEMD_FEATURES   },
                 { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s",  &m->running_as     },
+                { "org.freedesktop.systemd1.Manager", "Tainted",       bus_manager_append_tainted,    "s",  m                  },
                 { "org.freedesktop.systemd1.Manager", "InitRDTimestamp", bus_property_append_uint64,  "t",  &m->initrd_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "FinishTimestamp", bus_property_append_uint64,  "t",  &m->finish_timestamp.realtime },
