@@ -61,6 +61,7 @@ struct udev_device {
 	struct udev_list_node devlinks_list;
 	struct udev_list_node properties_list;
 	struct udev_list_node sysattr_list;
+	struct udev_list_node available_sysattr_list;
 	struct udev_list_node tags_list;
 	unsigned long long int seqnum;
 	unsigned long long int usec_initialized;
@@ -83,6 +84,7 @@ struct udev_device {
 	bool db_loaded;
 	bool uevent_loaded;
 	bool is_initialized;
+	bool sysattrs_cached;
 };
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
@@ -361,6 +363,7 @@ struct udev_device *udev_device_new(struct udev *udev)
 	udev_list_init(&udev_device->devlinks_list);
 	udev_list_init(&udev_device->properties_list);
 	udev_list_init(&udev_device->sysattr_list);
+	udev_list_init(&udev_device->available_sysattr_list);
 	udev_list_init(&udev_device->tags_list);
 	udev_device->event_timeout = -1;
 	udev_device->watch_handle = -1;
@@ -785,6 +788,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->devlinks_list);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->properties_list);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->available_sysattr_list);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->tags_list);
 	free(udev_device->action);
 	free(udev_device->driver);
@@ -1233,6 +1237,83 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 	val = udev_list_entry_get_value(list_entry);
 out:
 	return val;
+}
+
+static int udev_device_cache_sysattrs(struct udev_device *udev_device)
+{
+	struct dirent *entry;
+	DIR *dir;
+	int num = 0;
+
+	if (udev_device == NULL)
+		return -1;
+	/* caching already done? */
+	if (udev_device->sysattrs_cached)
+		return 0;
+
+	dir = opendir(udev_device_get_syspath(udev_device));
+	if (!dir) {
+		dbg(udev_device->udev, "sysfs dir '%s' can not be opened\n",
+				udev_device_get_syspath(udev_device));
+		return -1;
+	}
+
+	while (NULL != (entry = readdir(dir))) {
+		char path[UTIL_PATH_SIZE];
+		struct stat statbuf;
+
+		/* only handle symlinks and regular files */
+		if (DT_LNK != entry->d_type && DT_REG != entry->d_type)
+			continue;
+
+		util_strscpyl(path, sizeof(path), udev_device_get_syspath(udev_device),
+				"/", entry->d_name, NULL);
+		if (0 != lstat(path, &statbuf))
+			continue;
+
+		if (0 == (statbuf.st_mode & S_IRUSR))
+			continue;
+
+		if (DT_LNK == entry->d_type) {
+			if (strcmp(entry->d_name, "driver") != 0 &&
+				strcmp(entry->d_name, "subsystem") != 0 &&
+				strcmp(entry->d_name, "module") != 0)
+				continue;
+		}
+		udev_list_entry_add(udev_device->udev,
+				&udev_device->available_sysattr_list, entry->d_name,
+				DT_LNK == entry->d_type ? "s" : "r", 0, 0);
+		++num;
+	}
+
+	dbg(udev_device->udev, "found %d sysattrs for '%s'\n", num,
+			udev_device_get_syspath(udev_device));
+	udev_device->sysattrs_cached = true;
+
+	return num;
+}
+
+/**
+ * udev_device_get_sysattr_list_entry:
+ * @udev_device: udev device
+ *
+ * Retrieve the list of available sysattrs, with value being empty;
+ * This is to be able to read all available sysfs attributes for a particular
+ * device without the necessity to access sysfs from outside libudev.
+ *
+ * Returns: the first entry of the property list
+ **/
+struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_device *udev_device)
+{
+	/* perform initial caching of sysattr list */
+	if (!udev_device->sysattrs_cached) {
+		int ret;
+		ret = udev_device_cache_sysattrs(udev_device);
+		if (0 > ret)
+			return NULL;
+	}
+
+	return udev_list_get_entry(&udev_device->available_sysattr_list);
 }
 
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath)
