@@ -282,7 +282,7 @@ static void path_set_state(Path *p, PathState state) {
         unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], true);
 }
 
-static void path_enter_waiting(Path *p, bool initial, bool recheck);
+static void path_enter_waiting(Path *p, bool initial, bool recheck, bool skip_watch);
 
 static int path_coldplug(Unit *u) {
         Path *p = PATH(u);
@@ -294,7 +294,7 @@ static int path_coldplug(Unit *u) {
 
                 if (p->deserialized_state == PATH_WAITING ||
                     p->deserialized_state == PATH_RUNNING)
-                        path_enter_waiting(p, true, true);
+                        path_enter_waiting(p, true, true, false);
                 else
                         path_set_state(p, p->deserialized_state);
         }
@@ -341,7 +341,7 @@ fail:
 }
 
 
-static void path_enter_waiting(Path *p, bool initial, bool recheck) {
+static void path_enter_waiting(Path *p, bool initial, bool recheck, bool skip_watch) {
         PathSpec *s;
         int r;
         bool good = false;
@@ -389,8 +389,16 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
         }
 
 waiting:
-        if ((r = path_watch(p)) < 0)
-                goto fail;
+        if (!skip_watch) {
+                if ((r = path_watch(p)) < 0)
+                        goto fail;
+
+                /* Hmm, so now we have created inotify watches, but the file
+                 * might have appeared/been removed by now, so we must
+                 * recheck */
+                path_enter_waiting(p, false, true, true);
+                return;
+        }
 
         path_set_state(p, PATH_WAITING);
         return;
@@ -410,7 +418,7 @@ static int path_start(Unit *u) {
                 return -ENOENT;
 
         p->failure = false;
-        path_enter_waiting(p, true, true);
+        path_enter_waiting(p, true, true, false);
 
         return 0;
 }
@@ -541,7 +549,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         if (changed)
                 path_enter_running(p);
         else
-                path_enter_waiting(p, false, true);
+                path_enter_waiting(p, false, true, false);
 
         free(buf);
 
@@ -590,7 +598,7 @@ void path_unit_notify(Unit *u, UnitActiveState new_state) {
                         /* Hmm, so inotify was triggered since the
                          * last activation, so I guess we need to
                          * recheck what is going on. */
-                        path_enter_waiting(p, false, p->inotify_triggered);
+                        path_enter_waiting(p, false, p->inotify_triggered, false);
                 }
         }
 
