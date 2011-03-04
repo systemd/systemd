@@ -155,7 +155,7 @@ int machine_id_setup(void) {
         if (r < 0)
                 log_error("Failed to mount /etc/machine-id: %s", strerror(-r));
         else
-                log_info("Installed non-transient /etc/machine-id file.");
+                log_info("Installed transient /etc/machine-id file.");
 
 finish:
 
