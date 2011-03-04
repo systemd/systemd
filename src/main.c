@@ -41,6 +41,7 @@
 #include "kmod-setup.h"
 #include "locale-setup.h"
 #include "selinux-setup.h"
+#include "machine-id-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
@@ -1127,6 +1128,7 @@ int main(int argc, char *argv[]) {
 
                 kmod_setup();
                 hostname_setup();
+                machine_id_setup();
                 loopback_setup();
 
                 mkdir_p("/dev/.systemd/ask-password/", 0755);

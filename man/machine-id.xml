@@ -1,0 +1,104 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="machine-id">
+        <refentryinfo>
+                <title>/etc/machine-id</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>machine-id</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>machine-id</refname>
+                <refpurpose>local machine ID configuration file</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/machine-id</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>The <filename>/etc/machine-id</filename> file
+                configures the unique machine id of the local system
+                that is set during installation. It should contain a
+                single newline-terminated, hexadecimal, lowercase 16
+                character machine ID string.</para>
+
+                <para>The machine ID is usually generated from a
+                random source during system installation and stays
+                constant for all subsequent boots. Optionally, for
+                stateless systems it is generated during runtime at
+                boot.</para>
+
+                <para>The machine ID does not change based on user
+                configuration, or when hardware is replaced.</para>
+
+                <para>This machine id follows the same format and
+                logic as the D-Bus machine ID.</para>
+
+                <para>Programs may use this ID to identify the host
+                with a globally unique ID in the network, that does
+                not change even if the local network configuration
+                changes. Due to this and its greater length it is
+                a more useful replacement than the
+                <citerefentry><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call POSIX specifies.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>History</title>
+
+                <para>The simple configuration file format of
+                <filename>/etc/machine-id</filename> originates in the
+                <filename>/var/lib/dbus/machine-id</filename> file
+                introduced by D-Bus. In fact this latter file might be a
+                symlink to the
+                <varname>/etc/machine-id</varname>.</para>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

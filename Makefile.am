@@ -98,7 +98,8 @@ rootbin_PROGRAMS = \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
-	systemd-tmpfiles
+	systemd-tmpfiles \
+	systemd-machine-id-setup
 
 bin_PROGRAMS = \
 	systemd-cgls
@@ -434,6 +435,7 @@ libsystemd_core_la_SOURCES = \
 	src/loopback-setup.c \
 	src/kmod-setup.c \
 	src/locale-setup.c \
+	src/machine-id-setup.c \
 	src/specifier.c \
 	src/unit-name.c \
 	src/fdset.c \
@@ -523,6 +525,7 @@ MANPAGES = \
 	man/systemd.conf.5 \
 	man/tmpfiles.d.5 \
 	man/hostname.5 \
+	man/machine-id.5 \
 	man/vconsole.conf.5 \
 	man/locale.conf.5 \
 	man/os-release.5 \
@@ -735,6 +738,16 @@ systemd_tmpfiles_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_tmpfiles_LDADD = \
+	libsystemd-basic.la
+
+systemd_machine_id_setup_SOURCES = \
+	src/machine-id-setup.c \
+	src/machine-id-main.c
+
+systemd_machine_id_setup_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_machine_id_setup_LDADD = \
 	libsystemd-basic.la
 
 systemd_sysctl_SOURCES = \
