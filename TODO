@@ -16,6 +16,10 @@ F15:
 
 Features:
 
+* guarantee /etc/machineid
+
+* add "tainted" flag to systemctl show output
+
 * introduce "x-systemd-automount" as alternative to the "comment=systemd.automount" mount option
 
 * show failure error string in "systemctl status"

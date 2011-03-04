@@ -26,6 +26,7 @@
 #include "dbus-manager.h"
 #include "strv.h"
 #include "bus-errors.h"
+#include "build.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
@@ -146,9 +147,10 @@
         "   <arg name=\"result\" type=\"s\"/>\n"                        \
         "  </signal>"
 
-
 #define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"Distribution\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"Features\" type=\"s\" access=\"read\"/\n"   \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InitRDTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -305,6 +307,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         const BusProperty properties[] = {
                 { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s",  PACKAGE_STRING     },
+                { "org.freedesktop.systemd1.Manager", "Distribution",  bus_property_append_string,    "s",  DISTRIBUTION       },
+                { "org.freedesktop.systemd1.Manager", "Features",      bus_property_append_string,    "s",  SYSTEMD_FEATURES   },
                 { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s",  &m->running_as     },
                 { "org.freedesktop.systemd1.Manager", "InitRDTimestamp", bus_property_append_uint64,  "t",  &m->initrd_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
