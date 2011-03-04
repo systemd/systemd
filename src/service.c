@@ -345,9 +345,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 return -ENOMEM;
 
 finish:
-
-        if (_r)
-                *_r = r;
+        *_r = r;
 
         return 1;
 }
