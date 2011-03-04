@@ -4087,10 +4087,15 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                                         return r;
 
                                 if (status.si_code == CLD_EXITED) {
-                                        if (status.si_status == 0 && (streq(verb, "enable") || streq(verb, "disable")))
+
+                                        if (streq(verb, "is-enabled"))
+                                                return status.si_status == 0 ? 1 : 0;
+
+                                        if (status.si_status == 0)
                                                 n_symlinks ++;
 
                                         return status.si_status == 0 ? 0 : -EINVAL;
+
                                 } else
                                         return -EPROTO;
                         }
@@ -4192,6 +4197,8 @@ static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
                         log_warning("Cannot install unit %s: %s", args[j], strerror(-r));
                         goto finish;
                 }
+
+        r = 0;
 
         while ((i = hashmap_first(will_install))) {
                 int q;
