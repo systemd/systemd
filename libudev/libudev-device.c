@@ -19,7 +19,11 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <net/if.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <linux/sockios.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -497,6 +501,35 @@ struct udev_device *udev_device_new_from_id_filename(struct udev *udev, char *id
 		if (sscanf(id, "%c%i:%i", &type, &maj, &min) != 3)
 			return NULL;
 		return udev_device_new_from_devnum(udev, type, makedev(maj, min));
+	case 'n': {
+		int sk;
+		struct ifreq ifr;
+		struct udev_device *dev;
+		int ifindex;
+
+		ifindex = strtoul(&id[1], NULL, 10);
+		if (ifindex <= 0)
+			return NULL;
+
+		sk = socket(PF_INET, SOCK_DGRAM, 0);
+		if (sk < 0)
+			return NULL;
+		memset(&ifr, 0x00, sizeof(struct ifreq));
+		ifr.ifr_ifindex = ifindex;
+		if (ioctl(sk, SIOCGIFNAME, &ifr) != 0) {
+			close(sk);
+			return NULL;
+		}
+		close(sk);
+
+		dev = udev_device_new_from_subsystem_sysname(udev, "net", ifr.ifr_name);
+		if (dev == NULL)
+			return NULL;
+		if (udev_device_get_ifindex(dev) == ifindex)
+			return dev;
+		udev_device_unref(dev);
+		return NULL;
+	}
 	case '+':
 		util_strscpy(subsys, sizeof(subsys), &id[1]);
 		sysname = strchr(subsys, ':');
