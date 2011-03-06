@@ -27,6 +27,7 @@
 #include "manager.h"
 
 typedef int (*BusPropertyCallback)(Manager *m, DBusMessageIter *iter, const char *property, void *data);
+typedef int (*BusPropertySetCallback)(Manager *m, DBusMessageIter *iter, const char *property);
 
 typedef struct BusProperty {
         const char *interface;           /* interface of the property */
@@ -34,6 +35,7 @@ typedef struct BusProperty {
         BusPropertyCallback append;      /* Function that is called to serialize this property */
         const char *signature;
         const void *data;                /* The data of this property */
+        BusPropertySetCallback set;      /* Function that is called to set this property */
 } BusProperty;
 
 #define BUS_PROPERTIES_INTERFACE                                        \
@@ -46,6 +48,11 @@ typedef struct BusProperty {
         "  <method name=\"GetAll\">\n"                                  \
         "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
         "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"Set\">\n"                                     \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
+        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"value\" direction=\"in\" type=\"v\"/>\n"       \
         "  </method>\n"                                                 \
         "  <signal name=\"PropertiesChanged\">\n"                       \
         "   <arg type=\"s\" name=\"interface\"/>\n"                     \

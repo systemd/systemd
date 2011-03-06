@@ -156,8 +156,8 @@
         "  <property name=\"InitRDTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"LogLevel\" type=\"s\" access=\"read\"/>\n"  \
-        "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"LogLevel\" type=\"s\" access=\"readwrite\"/>\n"  \
+        "  <property name=\"LogTarget\" type=\"s\" access=\"readwrite\"/>\n" \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"NInstalledJobs\" type=\"u\" access=\"read\"/>\n" \
@@ -252,6 +252,18 @@ static int bus_manager_append_log_target(Manager *m, DBusMessageIter *i, const c
         return 0;
 }
 
+static int bus_manager_set_log_target(Manager *m, DBusMessageIter *i, const char *property) {
+        const char *t;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        dbus_message_iter_get_basic(i, &t);
+
+        return log_set_target_from_string(t);
+}
+
 static int bus_manager_append_log_level(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         const char *t;
 
@@ -265,6 +277,18 @@ static int bus_manager_append_log_level(Manager *m, DBusMessageIter *i, const ch
                 return -ENOMEM;
 
         return 0;
+}
+
+static int bus_manager_set_log_level(Manager *m, DBusMessageIter *i, const char *property) {
+        const char *t;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        dbus_message_iter_get_basic(i, &t);
+
+        return log_set_max_level_from_string(t);
 }
 
 static int bus_manager_append_n_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
@@ -341,8 +365,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "InitRDTimestamp", bus_property_append_uint64,  "t",  &m->initrd_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "FinishTimestamp", bus_property_append_uint64,  "t",  &m->finish_timestamp.realtime },
-                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  NULL               },
-                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  NULL,               bus_manager_set_log_level},
+                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  NULL,               bus_manager_set_log_target},
                 { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "NInstalledJobs",bus_property_append_uint32,    "u",  &m->n_installed_jobs },

@@ -1316,6 +1316,58 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
 
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "Set") && properties) {
+                const char *interface, *property;
+                DBusMessageIter iter;
+                const BusProperty *p;
+
+                if (!dbus_message_iter_init(message, &iter) ||
+                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                        return bus_send_error_reply(m, c, message, NULL, -EINVAL);
+
+                dbus_message_iter_get_basic(&iter, &interface);
+
+                if (!dbus_message_iter_next(&iter) ||
+                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                        return bus_send_error_reply(m, c, message, NULL, -EINVAL);
+
+                dbus_message_iter_get_basic(&iter, &property);
+
+                if (!dbus_message_iter_next(&iter) ||
+                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT ||
+                    dbus_message_iter_has_next(&iter))
+                        return bus_send_error_reply(m, c, message, NULL, -EINVAL);
+
+                for (p = properties; p->property; p++)
+                        if (streq(p->interface, interface) && streq(p->property, property))
+                                break;
+
+                if (p->set) {
+                        DBusMessageIter sub;
+                        char *sig;
+
+                        dbus_message_iter_recurse(&iter, &sub);
+
+                        if (!(sig = dbus_message_iter_get_signature(&sub)))
+                                goto oom;
+
+                        if (!streq(sig, p->signature)) {
+                                dbus_free(sig);
+                                return bus_send_error_reply(m, c, message, NULL, -EINVAL);
+                        }
+
+                        dbus_free(sig);
+
+                        if ((r = p->set(m, &sub, property)) < 0) {
+                                if (r == -ENOMEM)
+                                        goto oom;
+                                return bus_send_error_reply(m, c, message, NULL, r);
+                        }
+
+                        if (!(reply = dbus_message_new_method_return(message)))
+                                goto oom;
+                } else
+                        return bus_send_error_reply(m, c, message, NULL, -EINVAL);
         }
 
         if (reply) {
