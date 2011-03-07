@@ -21,6 +21,7 @@ ENV{ID_HPLIP}=="1", TAG+="udev-acl"
 
 # optical drives
 SUBSYSTEM=="block", ENV{ID_CDROM}=="1", TAG+="udev-acl"
+SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", TAG+="udev-acl"
 
 # sound devices
 SUBSYSTEM=="sound", TAG+="udev-acl"
@@ -62,9 +63,6 @@ ENV{DDC_DEVICE}=="*?", TAG+="udev-acl"
 
 # media player raw devices (for user-mode drivers, Android SDK, etc.)
 SUBSYSTEM=="usb", ENV{ID_MEDIA_PLAYER}=="?*", TAG+="udev-acl"
-
-# /dev/sgX nodes for CD-ROM drives
-SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", TAG+="udev-acl"
 
 # apply ACL for all locally logged in users
 LABEL="acl_apply", TAG=="udev-acl", TEST=="/var/run/ConsoleKit/database", \
