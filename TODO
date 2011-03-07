@@ -18,6 +18,8 @@ F15:
 
 Features:
 
+* mount /dev/.run and /var/run as bind mounts
+
 * introduce "x-systemd-automount" as alternative to the "comment=systemd.automount" mount option
 
 * show failure error string in "systemctl status"
@@ -28,7 +30,7 @@ Features:
   document it? When doing that add switch to make this temporary by
   placing mask links in /dev.
 
-* introduce simple way to do mandatory conditions
+* introduce simple way to do mandatory conditions (make current conditions mandatory, and introduce =| as non-mandatory conditions)
 
 * detect LXC environment
 
