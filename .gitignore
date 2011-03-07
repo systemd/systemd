@@ -80,3 +80,4 @@ ltmain.sh
 *.tar.gz
 *.tar.xz
 libtool
+.vimrc
