@@ -1292,6 +1292,7 @@ install-data-hook:
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
 			systemd-ask-password-console.path \
+			systemd-kmsg-syslogd.service \
 			cryptsetup.target && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
@@ -1304,6 +1305,7 @@ install-data-hook:
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \
+		$(LN_S) ../systemd-kmsg-syslogd.service && \
 		$(LN_S) ../cryptsetup.target cryptsetup.target )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \

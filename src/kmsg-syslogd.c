@@ -39,7 +39,6 @@
 #include "fdset.h"
 
 #define SERVER_FD_MAX 16
-#define TIMEOUT ((int) (5*60*MSEC_PER_SEC))
 
 typedef struct Stream Stream;
 
@@ -512,7 +511,7 @@ int main(int argc, char *argv[]) {
                 struct epoll_event event;
                 int k;
 
-                if ((k = epoll_wait(server.epoll_fd, &event, 1, TIMEOUT)) < 0) {
+                if ((k = epoll_wait(server.epoll_fd, &event, 1, -1)) < 0) {
 
                         if (errno == EINTR)
                                 continue;
