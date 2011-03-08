@@ -33,7 +33,7 @@
 
 static bool skip_attribute(const char *name)
 {
-	char *skip[] = {
+	static const char const *skip[] = {
 		"uevent",
 		"dev",
 		"modalias",
