@@ -360,6 +360,11 @@ dist_systemunit_DATA += \
 	units/fedora/halt-local.service
 endif
 
+if TARGET_FRUGALWARE
+dist_systemunit_DATA += \
+	units/frugalware/display-manager.service
+endif
+
 if HAVE_PLYMOUTH
 dist_systemunit_DATA += \
 	units/plymouth-start.service \
