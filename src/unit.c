@@ -742,6 +742,12 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
             target->meta.load_state != UNIT_LOADED)
                 return 0;
 
+        /* If either side wants no automatic dependencies, then let's
+         * skip this */
+        if (!u->meta.default_dependencies ||
+            target->meta.default_dependencies)
+                return 0;
+
         /* Don't create loops */
         if (set_get(target->meta.dependencies[UNIT_BEFORE], u))
                 return 0;
@@ -750,27 +756,24 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 }
 
 static int unit_add_default_dependencies(Unit *u) {
+        static const UnitDependency deps[] = {
+                UNIT_REQUIRED_BY,
+                UNIT_REQUIRED_BY_OVERRIDABLE,
+                UNIT_WANTED_BY,
+                UNIT_BOUND_BY
+        };
+
         Unit *target;
         Iterator i;
         int r;
+        unsigned k;
 
         assert(u);
 
-        SET_FOREACH(target, u->meta.dependencies[UNIT_REQUIRED_BY], i)
-                if ((r = unit_add_default_target_dependency(u, target)) < 0)
-                        return r;
-
-        SET_FOREACH(target, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
-                if ((r = unit_add_default_target_dependency(u, target)) < 0)
-                        return r;
-
-        SET_FOREACH(target, u->meta.dependencies[UNIT_WANTED_BY], i)
-                if ((r = unit_add_default_target_dependency(u, target)) < 0)
-                        return r;
-
-        SET_FOREACH(target, u->meta.dependencies[UNIT_BOUND_BY], i)
-                if ((r = unit_add_default_target_dependency(u, target)) < 0)
-                        return r;
+        for (k = 0; k < ELEMENTSOF(deps); k++)
+                SET_FOREACH(target, u->meta.dependencies[deps[k]], i)
+                        if ((r = unit_add_default_target_dependency(u, target)) < 0)
+                                return r;
 
         return 0;
 }

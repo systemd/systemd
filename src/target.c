@@ -53,9 +53,19 @@ static void target_set_state(Target *t, TargetState state) {
 }
 
 static int target_add_default_dependencies(Target *t) {
+        static const UnitDependency deps[] = {
+                UNIT_REQUIRES,
+                UNIT_REQUIRES_OVERRIDABLE,
+                UNIT_REQUISITE,
+                UNIT_REQUISITE_OVERRIDABLE,
+                UNIT_WANTS,
+                UNIT_BIND_TO
+        };
+
         Iterator i;
         Unit *other;
         int r;
+        unsigned k;
 
         assert(t);
 
@@ -64,17 +74,10 @@ static int target_add_default_dependencies(Target *t) {
          * ordering manually we won't add anything in here to make
          * sure we don't create a loop. */
 
-        SET_FOREACH(other, t->meta.dependencies[UNIT_REQUIRES], i)
-                if ((r = unit_add_default_target_dependency(other, UNIT(t))) < 0)
-                    return r;
-
-        SET_FOREACH(other, t->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                if ((r = unit_add_default_target_dependency(other, UNIT(t))) < 0)
-                    return r;
-
-        SET_FOREACH(other, t->meta.dependencies[UNIT_WANTS], i)
-                if ((r = unit_add_default_target_dependency(other, UNIT(t))) < 0)
-                    return r;
+        for (k = 0; k < ELEMENTSOF(deps); k++)
+                SET_FOREACH(other, t->meta.dependencies[deps[k]], i)
+                        if ((r = unit_add_default_target_dependency(other, UNIT(t))) < 0)
+                                return r;
 
         /* Make sure targets are unloaded on shutdown */
         return unit_add_dependency_by_name(UNIT(t), UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
