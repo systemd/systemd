@@ -193,8 +193,11 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
                 if (r == -ENOMEM)
                         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-                if (r == -ENOENT)
-                        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+                if (r == -ENOENT) {
+                        DBusError e;
+                        dbus_set_error_const(&e, DBUS_ERROR_UNKNOWN_OBJECT, "Unknown job");
+                        return bus_send_error_reply(m, connection, message, &e, r);
+                }
 
                 return bus_send_error_reply(m, connection, message, NULL, r);
         }

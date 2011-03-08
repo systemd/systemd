@@ -24,6 +24,14 @@
 
 #include <dbus/dbus.h>
 
+#ifndef DBUS_ERROR_UNKNOWN_OBJECT
+#define DBUS_ERROR_UNKNOWN_OBJECT "org.freedesktop.DBus.Error.UnknownObject"
+#endif
+
+#ifndef DBUS_ERROR_UNKNOWN_INTERFACE
+#define DBUS_ERROR_UNKNOWN_INTERFACE "org.freedesktop.DBus.Error.UnknownInterface"
+#endif
+
 #include "manager.h"
 
 typedef int (*BusPropertyCallback)(Manager *m, DBusMessageIter *iter, const char *property, void *data);
