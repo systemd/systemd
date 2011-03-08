@@ -30,7 +30,7 @@
 #include "util.h"
 #include "log.h"
 
-#if defined(TARGET_FEDORA) || defined(TARGET_ALTLINUX)
+#if defined(TARGET_FEDORA) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA)
 #define FILENAME "/etc/sysconfig/network"
 #elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE) || defined(TARGET_FRUGALWARE)
 #define FILENAME "/etc/HOSTNAME"
@@ -87,7 +87,7 @@ static int read_and_strip_hostname(const char *path, char **hn) {
 
 static int read_distro_hostname(char **hn) {
 
-#if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX)
+#if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA)
         int r;
         FILE *f;
 

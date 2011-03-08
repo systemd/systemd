@@ -181,6 +181,28 @@ int locale_setup(void) {
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/profile.env: %s", strerror(-r));
         }
+#elif defined(TARGET_MANDRIVA)
+        if (r <= 0 &&
+            (r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
+                                "LANG",              &variables[VARIABLE_LANG],
+                                "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
+                                "LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
+                                "LC_TIME",           &variables[VARIABLE_LC_TIME],
+                                "LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
+                                "LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
+                                "LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
+                                "LC_PAPER",          &variables[VARIABLE_LC_PAPER],
+                                "LC_NAME",           &variables[VARIABLE_LC_NAME],
+                                "LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
+                                "LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
+                                "LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
+                                "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
+                                NULL)) < 0) {
+
+		if (r != -ENOENT)
+			log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+        }
+
 #endif
 
         if (!variables[VARIABLE_LANG]) {

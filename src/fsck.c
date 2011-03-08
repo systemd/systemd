@@ -121,7 +121,7 @@ static int parse_proc_cmdline(void) {
                         arg_skip = true;
                 else if (startswith(w, "fsck.mode"))
                         log_warning("Invalid fsck.mode= parameter. Ignoring.");
-#ifdef TARGET_FEDORA
+#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)
                 else if (strneq(w, "fastboot", l))
                         arg_skip = true;
                 else if (strneq(w, "forcefsck", l))

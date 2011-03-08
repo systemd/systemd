@@ -282,6 +282,7 @@ if test "z$with_distro" = "z"; then
                 test -f "/etc/slackware-version" && with_distro="slackware"
                 test -f "/etc/frugalware-release" && with_distro="frugalware"
                 test -f "/etc/altlinux-release" && with_distro="altlinux"
+                test -f "/etc/mandriva-release" && with_distro="mandriva"
                 if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
                         with_distro="ubuntu"
                 fi
@@ -373,6 +374,14 @@ case $with_distro in
                 M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
 		have_plymouth=true
                 ;;
+        mandriva)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
+                SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                SPECIAL_SYSLOG_SERVICE=rsyslog.service
+                AC_DEFINE(TARGET_MANDRIVA, [], [Target is Mandriva])
+                M4_DISTRO_FLAG=-DTARGET_MANDRIVA=1
+		have_plymouth=true
+                ;;
         other)
                 AS_IF([test "x$with_syslog_service" = "x"],
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
@@ -430,6 +439,7 @@ AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
 AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
+AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
 
 AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
 

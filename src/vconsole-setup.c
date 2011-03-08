@@ -147,6 +147,9 @@ int main(int argc, char **argv) {
 #ifdef TARGET_GENTOO
         char *vc_unicode = NULL;
 #endif
+#ifdef TARGET_MANDRIVA
+        char *vc_keytable = NULL;
+#endif
         int fd = -1;
         bool utf8;
         int r = EXIT_FAILURE;
@@ -344,6 +347,64 @@ int main(int argc, char **argv) {
                                         NULL)) < 0) {
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/conf.d/keymaps: %s", strerror(-r));
+                }
+
+#elif defined(TARGET_MANDRIVA)
+
+                if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
+                                        "SYSFONT", &vc_font,
+                                        "SYSFONTACM", &vc_font_map,
+                                        "UNIMAP", &vc_font_unimap,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+                }
+
+                if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                        "KEYTABLE", &vc_keytable,
+                                        "KEYMAP", &vc_keymap,
+                                        "UNIKEYTABLE", &vc_keymap,
+                                        "GRP_TOGGLE", &vc_keymap_toggle,
+                                        NULL)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+                }
+
+                if (vc_keytable) {
+                        if (vc_keymap)
+                                free(vc_keymap);
+                        if (utf8) {
+                                if (endswith(vc_keytable, ".uni") || strstr(vc_keytable, ".uni."))
+                                        vc_keymap = strdup(vc_keytable);
+                                else {
+                                        char *s;
+                                        if ((s = strstr(vc_keytable, ".map")))
+                                                vc_keytable[s-vc_keytable+1] = '\0';
+                                        vc_keymap = strappend(vc_keytable, ".uni");
+                                }
+                        } else
+                                vc_keymap = strdup(vc_keytable);
+
+                        free(vc_keytable);
+
+                        if (!vc_keymap) {
+                                log_error("Out of memory.");
+                                goto finish;
+                        }
+                }
+
+                if (access("/etc/sysconfig/console/default.kmap", F_OK) >= 0) {
+                        char *t;
+
+                        if (!(t = strdup("/etc/sysconfig/console/default.kmap"))) {
+                                log_error("Out of memory.");
+                                goto finish;
+                        }
+
+                        free(vc_keymap);
+                        vc_keymap = t;
                 }
 #endif
         }

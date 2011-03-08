@@ -1,0 +1,24 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Display Manager
+After=syslog.target livesys-late.service rc-local.service systemd-user-sessions.service
+After=network.target acpid.service fs.service haldaemon.service
+
+# Do not stop plymouth, it is done in prefdm if required
+Conflicts=plymouth-quit.service
+After=plymouth-quit.service
+
+# Hide SysV script
+Names=dm.service
+
+[Service]
+ExecStart=/etc/X11/prefdm
+Type=forking
+Restart=always
+RestartSec=0

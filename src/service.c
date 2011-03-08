@@ -275,7 +275,13 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         static const char * const table[] = {
                 /* LSB defined facilities */
                 "local_fs",             SPECIAL_LOCAL_FS_TARGET,
+#ifndef TARGET_MANDRIVA
+		/* Due to unfortunate name selection in Mandriva,
+		 * $network is provided by network-up which is ordered
+		 * after network which actually starts interfaces.
+		 * To break the loop, just ignore it */
                 "network",              SPECIAL_NETWORK_TARGET,
+#endif
                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
                 "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,

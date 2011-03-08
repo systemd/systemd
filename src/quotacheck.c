@@ -50,7 +50,7 @@ static int parse_proc_cmdline(void) {
                         arg_skip = true;
                 else if (startswith(w, "quotacheck.mode"))
                         log_warning("Invalid quotacheck.mode= parameter. Ignoring.");
-#ifdef TARGET_FEDORA
+#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)
                 else if (strneq(w, "forcequotacheck", l))
                         arg_force = true;
 #endif
@@ -61,8 +61,8 @@ static int parse_proc_cmdline(void) {
 }
 
 static void test_files(void) {
-#ifdef TARGET_FEDORA
-        /* This exists only on Fedora */
+#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)
+        /* This exists only on Fedora or Mandriva */
         if (access("/forcequotacheck", F_OK) >= 0)
                 arg_force = true;
 #endif

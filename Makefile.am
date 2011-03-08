@@ -84,10 +84,17 @@ AM_CPPFLAGS += \
 	-DKBD_SETFONT=\"/usr/bin/setfont\" \
 	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
 else
+if TARGET_MANDRIVA
+AM_CPPFLAGS += \
+	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
+	-DKBD_SETFONT=\"/bin/setfont\" \
+	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+else
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
 	-DKBD_SETFONT=\"/bin/setfont\" \
 	-DDEFAULT_FONT=\"latarcyrheb-sun16\"
+endif
 endif
 endif
 endif
@@ -333,6 +340,13 @@ EXTRA_DIST = \
 if TARGET_FEDORA
 dist_systemunit_DATA += \
 	units/fedora/prefdm.service \
+	units/fedora/rc-local.service \
+	units/fedora/halt-local.service
+endif
+
+if TARGET_MANDRIVA
+dist_systemunit_DATA += \
+	units/mandriva/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service
 endif
@@ -1357,6 +1371,23 @@ if TARGET_FEDORA
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
+
+if TARGET_MANDRIVA
+	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
+		rm -f halt-local.service && \
+		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f display-manager.service && \
+		$(LN_S) prefdm.service display-manager.service )
+	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
+endif
+
 if TARGET_DEBIAN_OR_UBUNTU
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel5.target && \

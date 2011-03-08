@@ -13,6 +13,9 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=basic.target
 Before=shutdown.target
+m4_ifdef(`TARGET_MANDRIVA',
+`# Hide SysV script
+Names=single.service')
 
 [Service]
 Environment=HOME=/root
@@ -22,7 +25,10 @@ ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" or ^D t
 m4_ifdef(`TARGET_FEDORA',
 `EnvironmentFile=/etc/sysconfig/init
 ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-`ExecStart=-/sbin/sulogin')
+m4_ifdef(`TARGET_MANDRIVA',
+`EnvironmentFile=/etc/sysconfig/init
+ExecStart=-/bin/bash -c "exec ${SINGLE}"',
+`ExecStart=-/sbin/sulogin'))
 ExecStopPost=-/bin/systemctl --fail default
 StandardInput=tty-force
 KillMode=process-group

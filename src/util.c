@@ -3252,6 +3252,32 @@ void status_welcome(void) {
         if (!ansi_color)
                 const_color = "0;33"; /* Orange/Brown for Ubuntu */
 
+#elif defined(TARGET_MANDRIVA)
+
+        if (!pretty_name) {
+                char *s, *p;
+
+                if ((r = read_one_line_file("/etc/mandriva-release", &s) < 0)) {
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/mandriva-release: %s", strerror(-r));
+                } else {
+                        p = strstr(s, " release ");
+                        if (p) {
+                                *p = '\0';
+                                p += 9;
+                                p[strcspn(p, " ")] = '\0';
+
+                                /* This corresponds to standard rc.sysinit */
+                                if (asprintf(&pretty_name, "%s\x1B[0;39m %s", s, p) > 0)
+                                        const_color = "1;36";
+                                else
+                                        log_warning("Failed to allocate Mandriva version string.");
+                        } else
+                                log_warning("Failed to parse /etc/mandriva-release");
+                        free(s);
+                }
+        }
+
 #endif
 
         if (!pretty_name && !const_pretty)
