@@ -289,9 +289,13 @@ static int mount_add_target_links(Mount *m) {
 
         noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
         nofail = !!mount_test_option(p->options, "nofail");
-        handle = !!mount_test_option(p->options, "comment=systemd.mount") ||
+        handle =
+                mount_test_option(p->options, "comment=systemd.mount") ||
+                mount_test_option(p->options, "x-systemd-mount") ||
                 m->meta.manager->mount_auto;
-        automount = !!mount_test_option(p->options, "comment=systemd.automount");
+        automount =
+                mount_test_option(p->options, "comment=systemd.automount") ||
+                mount_test_option(p->options, "x-systemd-automount");
 
         if (mount_test_option(p->options, "_netdev") ||
             (p->fstype && fstype_is_network(p->fstype))) {
