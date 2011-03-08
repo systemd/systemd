@@ -20,6 +20,8 @@ F15:
 
 * support chkconfig without forwarding to systemctl to facilitate upgrades
 
+* drop SIGHUP handling from rsyslog.service upstream
+
 Features:
 
 * consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
