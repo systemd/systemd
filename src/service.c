@@ -835,7 +835,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         if (description) {
                 char *d;
 
-                if (!(d = strappend(s->sysv_has_lsb ? "LSB: " : "SysV: ", description))) {
+                if (!(d = strappend(s->sysv_has_lsb ? "LSB: " : "SYSV: ", description))) {
                         r = -ENOMEM;
                         goto finish;
                 }
