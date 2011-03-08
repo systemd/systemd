@@ -11,8 +11,8 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=sysinit.target shutdown.target
-ConditionPathExists=/etc/sysctl.conf
-ConditionDirectoryNotEmpty=/etc/sysctl.d
+ConditionPathExists=|/etc/sysctl.conf
+ConditionDirectoryNotEmpty=|/etc/sysctl.d
 
 [Service]
 Type=oneshot

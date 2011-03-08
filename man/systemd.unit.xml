@@ -622,8 +622,8 @@
                                 environment and optionally test
                                 whether it is a specific
                                 implementation. Takes either boolean
-                                value to check if being executed in any
-                                virtual environment or one of the
+                                value to check if being executed in
+                                any virtual environment or one of the
                                 <varname>qemu</varname>,
                                 <varname>kvm</varname>,
                                 <varname>vmware</varname>,
@@ -642,9 +642,20 @@
                                 will always fail, otherwise
                                 succeed. If multiple conditions are
                                 specified the unit will be executed if
-                                at least one of them applies (i.e. a
-                                logical OR is
-                                applied).</para></listitem>
+                                all of them apply (i.e. a logical AND
+                                is applied). Condition checks can be
+                                prefixed with a pipe symbol (|) in
+                                which case a condition becomes a
+                                triggering condition. If at least one
+                                triggering condition is defined for a
+                                unit then the unit will be executed if
+                                at least one of the triggering
+                                conditions apply and all of the
+                                non-triggering conditions. If you
+                                prefix an argument with the pipe
+                                symbol and an exclamation mark the
+                                pipe symbol must be passed first, the
+                                exclamation second.</para></listitem>
                         </varlistentry>
                 </variablelist>
 

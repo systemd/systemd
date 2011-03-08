@@ -14,8 +14,6 @@ F15:
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
-* introduce simple way to do mandatory conditions (make current conditions mandatory, and introduce =| as non-mandatory conditions)
-
 * mount /dev/.run and /var/run as bind mounts
 
 * Make use of UnknownInterface, UnknownObject

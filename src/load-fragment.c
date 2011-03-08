@@ -1397,13 +1397,16 @@ static int config_parse_condition_path(
                 void *userdata) {
 
         Unit *u = data;
-        bool negate;
+        bool trigger, negate;
         Condition *c;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if ((trigger = rvalue[0] == '|'))
+                rvalue++;
 
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
@@ -1414,7 +1417,7 @@ static int config_parse_condition_path(
         }
 
         if (!(c = condition_new(streq(lvalue, "ConditionPathExists") ? CONDITION_PATH_EXISTS : CONDITION_DIRECTORY_NOT_EMPTY,
-                                rvalue, negate)))
+                                rvalue, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1431,7 +1434,7 @@ static int config_parse_condition_kernel(
                 void *userdata) {
 
         Unit *u = data;
-        bool negate;
+        bool trigger, negate;
         Condition *c;
 
         assert(filename);
@@ -1439,10 +1442,13 @@ static int config_parse_condition_kernel(
         assert(rvalue);
         assert(data);
 
+        if ((trigger = rvalue[0] == '|'))
+                rvalue++;
+
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
 
-        if (!(c = condition_new(CONDITION_KERNEL_COMMAND_LINE, rvalue, negate)))
+        if (!(c = condition_new(CONDITION_KERNEL_COMMAND_LINE, rvalue, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1459,7 +1465,7 @@ static int config_parse_condition_virt(
                 void *userdata) {
 
         Unit *u = data;
-        bool negate;
+        bool trigger, negate;
         Condition *c;
 
         assert(filename);
@@ -1467,10 +1473,13 @@ static int config_parse_condition_virt(
         assert(rvalue);
         assert(data);
 
+        if ((trigger = rvalue[0] == '|'))
+                rvalue++;
+
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
 
-        if (!(c = condition_new(CONDITION_VIRTUALIZATION, rvalue, negate)))
+        if (!(c = condition_new(CONDITION_VIRTUALIZATION, rvalue, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1488,13 +1497,16 @@ static int config_parse_condition_null(
 
         Unit *u = data;
         Condition *c;
-        bool negate;
+        bool trigger, negate;
         int b;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if ((trigger = rvalue[0] == '|'))
+                rvalue++;
 
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
@@ -1507,7 +1519,7 @@ static int config_parse_condition_null(
         if (!b)
                 negate = !negate;
 
-        if (!(c = condition_new(CONDITION_NULL, NULL, negate)))
+        if (!(c = condition_new(CONDITION_NULL, NULL, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);

@@ -39,12 +39,14 @@ typedef enum ConditionType {
 typedef struct Condition {
         ConditionType type;
         char *parameter;
-        bool negate;
+
+        bool trigger:1;
+        bool negate:1;
 
         LIST_FIELDS(struct Condition, conditions);
 } Condition;
 
-Condition* condition_new(ConditionType type, const char *parameter, bool negate);
+Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
 void condition_free(Condition *c);
 void condition_free_list(Condition *c);
 

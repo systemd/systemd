@@ -27,11 +27,12 @@
 #include "util.h"
 #include "condition.h"
 
-Condition* condition_new(ConditionType type, const char *parameter, bool negate) {
+Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
 
         c = new0(Condition, 1);
         c->type = type;
+        c->trigger = trigger;
         c->negate = negate;
 
         if (parameter)
@@ -153,17 +154,28 @@ bool condition_test(Condition *c) {
 
 bool condition_test_list(Condition *first) {
         Condition *c;
+        int triggered = -1;
 
         /* If the condition list is empty, then it is true */
         if (!first)
                 return true;
 
-        /* Otherwise, if any of the conditions apply we return true */
-        LIST_FOREACH(conditions, c, first)
-                if (condition_test(c))
-                        return true;
+        /* Otherwise, if all of the non-trigger conditions apply and
+         * if any of the trigger conditions apply (unless there are
+         * none) we return true */
+        LIST_FOREACH(conditions, c, first) {
+                bool b;
 
-        return false;
+                b = condition_test(c);
+
+                if (!c->trigger && !b)
+                        return false;
+
+                if (c->trigger && triggered <= 0)
+                        triggered = b;
+        }
+
+        return triggered != 0;
 }
 
 void condition_dump(Condition *c, FILE *f, const char *prefix) {
@@ -174,9 +186,10 @@ void condition_dump(Condition *c, FILE *f, const char *prefix) {
                 prefix = "";
 
         fprintf(f,
-                "%s%s: %s%s\n",
+                "%s%s: %s%s%s\n",
                 prefix,
                 condition_type_to_string(c->type),
+                c->trigger ? "|" : "",
                 c->negate ? "!" : "",
                 c->parameter);
 }
