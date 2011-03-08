@@ -16,17 +16,15 @@ F15:
 
 * mount /dev/.run and /var/run as bind mounts
 
-* Make use of UnknownInterface, UnknownObject
+* Make use of UnknownInterface
 
-* verify SYSTEMD_IGNORE_DEPENDENCIES support in /etc/rc.d/functions
+* support chkconfig without forwarding to systemctl to facilitate upgrades
 
 Features:
 
 * consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
 
 * consider services with any kind of link in /etc/systemd/system enabled
-
-* introduce "x-systemd-automount" as alternative to the "comment=systemd.automount" mount option
 
 * show failure error string in "systemctl status"
 
