@@ -1249,7 +1249,7 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                         log_error("Job canceled.");
                 else if (streq(d.result, "dependency"))
                         log_error("A dependency job failed. See system logs for details.");
-                else if (!streq(d.result, "done"))
+                else if (!streq(d.result, "done") && !streq(d.result, "skipped"))
                         log_error("Job failed. See system logs and 'systemctl status' for details.");
         }
 
@@ -1257,7 +1257,7 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                 r = -ETIME;
         else if (streq_ptr(d.result, "canceled"))
                 r = -ECANCELED;
-        else if (!streq_ptr(d.result, "done"))
+        else if (!streq_ptr(d.result, "done") && !streq_ptr(d.result, "skipped"))
                 r = -EIO;
         else
                 r = 0;
@@ -1417,11 +1417,15 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                         streq(args[0], "stop")                  ? "StopUnit" :
                         streq(args[0], "reload")                ? "ReloadUnit" :
                         streq(args[0], "restart")               ? "RestartUnit" :
+
                         streq(args[0], "try-restart")           ||
                         streq(args[0], "condrestart")           ? "TryRestartUnit" :
+
                         streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
+
                         streq(args[0], "reload-or-try-restart") ||
                         streq(args[0], "condreload") ||
+
                         streq(args[0], "force-reload")          ? "ReloadOrTryRestartUnit" :
                                                                   "StartUnit";
 

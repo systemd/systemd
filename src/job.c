@@ -465,6 +465,8 @@ int job_run_and_invalidate(Job *j) {
         if ((j = manager_get_job(m, id))) {
                 if (r == -EALREADY)
                         r = job_finish_and_invalidate(j, JOB_DONE);
+                else if (r == -ENOEXEC)
+                        r = job_finish_and_invalidate(j, JOB_SKIPPED);
                 else if (r == -EAGAIN)
                         j->state = JOB_WAITING;
                 else if (r < 0)
@@ -702,7 +704,8 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_CANCELED] = "canceled",
         [JOB_TIMEOUT] = "timeout",
         [JOB_FAILED] = "failed",
-        [JOB_DEPENDENCY] = "dependency"
+        [JOB_DEPENDENCY] = "dependency",
+        [JOB_SKIPPED] = "skipped"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

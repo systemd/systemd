@@ -78,6 +78,7 @@ enum JobResult {
         JOB_TIMEOUT,
         JOB_FAILED,
         JOB_DEPENDENCY,
+        JOB_SKIPPED,
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };
