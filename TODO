@@ -14,11 +14,19 @@ F15:
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
-* libudev is borked regarding tags
+* introduce simple way to do mandatory conditions (make current conditions mandatory, and introduce =| as non-mandatory conditions)
+
+* mount /dev/.run and /var/run as bind mounts
+
+* Make use of UnknownInterface, UnknownObject
+
+* verify SYSTEMD_IGNORE_DEPENDENCIES support in /etc/rc.d/functions
 
 Features:
 
-* mount /dev/.run and /var/run as bind mounts
+* consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
+
+* consider services with any kind of link in /etc/systemd/system enabled
 
 * introduce "x-systemd-automount" as alternative to the "comment=systemd.automount" mount option
 
@@ -30,17 +38,11 @@ Features:
   document it? When doing that add switch to make this temporary by
   placing mask links in /dev.
 
-* introduce simple way to do mandatory conditions (make current conditions mandatory, and introduce =| as non-mandatory conditions)
-
 * detect LXC environment
 
 * invoke vhangup() before and after invoking getty
 
 * support "auto" and "comment=systemd.automount" at the same time for an fstab entry
-
-* Make use of UnknownInterface, UnknownObject
-
-* look up crypto partition mount points via fstab to show to the user when prompting for a password
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
 
