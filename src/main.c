@@ -942,25 +942,13 @@ static void test_mtab(void) {
 }
 
 static void test_usr(void) {
-        bool separate = false;
 
         /* Check that /usr is not a separate fs */
 
-        if (path_is_mount_point("/usr") > 0)
-                separate = true;
-        /* This check won't work usually during boot, since /usr is
-         * probably not mounted yet, hence let's add a second
-         * check. We just check whether /usr is an empty directory. */
-
         if (dir_is_empty("/usr") > 0)
-                separate = true;
-
-        if (!separate)
-                return;
-
-        log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
-                    "Some things will probably break (sometimes even silently) in mysterious ways. "
-                    "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
+                log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
+                            "Some things will probably break (sometimes even silently) in mysterious ways. "
+                            "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
 
 int main(int argc, char *argv[]) {
