@@ -46,8 +46,7 @@
 const char bus_job_interface[] _introspect_("Job") = BUS_JOB_INTERFACE;
 
 #define INVALIDATING_PROPERTIES                 \
-        "State\0"                               \
-        "\0"                                    \
+        "State\0"
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_state, job_state, JobState);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_type, job_type, JobType);

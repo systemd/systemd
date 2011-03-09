@@ -40,8 +40,7 @@
 const char bus_device_interface[] _introspect_("Device") = BUS_DEVICE_INTERFACE;
 
 const char bus_device_invalidating_properties[] =
-        "SysFSPath\0"
-        "\0";
+        "SysFSPath\0";
 
 DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {

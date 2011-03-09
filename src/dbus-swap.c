@@ -54,8 +54,7 @@ const char bus_swap_invalidating_properties[] =
         "Priority\0"
         "ExecActivate\0"
         "ExecDeactivate\0"
-        "ControlPID\0"
-        "\0";
+        "ControlPID\0";
 
 static int bus_swap_append_priority(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Swap *s = data;

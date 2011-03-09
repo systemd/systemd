@@ -228,8 +228,7 @@ int mount_setup(void) {
                 "/proc/self/fd\0"    "/dev/fd\0"
                 "/proc/self/fd/0\0"  "/dev/stdin\0"
                 "/proc/self/fd/1\0"  "/dev/stdout\0"
-                "/proc/self/fd/2\0"  "/dev/stderr\0"
-                "\0";
+                "/proc/self/fd/2\0"  "/dev/stderr\0";
 
         int r;
         unsigned i;

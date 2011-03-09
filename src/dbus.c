@@ -1316,6 +1316,7 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
 
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "Set") && properties) {
                 const char *interface, *property;
                 DBusMessageIter iter;

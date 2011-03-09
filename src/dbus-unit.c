@@ -37,8 +37,7 @@ const char bus_unit_interface[] _introspect_("Unit") = BUS_UNIT_INTERFACE;
         "ActiveExitTimestamp\0"                 \
         "InactiveEnterTimestamp\0"              \
         "Job\0"                                 \
-        "NeedDaemonReload\0"                    \
-        "\0"
+        "NeedDaemonReload\0"
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         char *t;

@@ -102,8 +102,7 @@ const char bus_service_invalidating_properties[] =
         "ExecMain\0"
         "MainPID\0"
         "ControlPID\0"
-        "StatusText\0"
-        "\0";
+        "StatusText\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);

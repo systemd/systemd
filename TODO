@@ -22,6 +22,10 @@ F15:
 
 * drop SIGHUP handling from rsyslog.service upstream
 
+* teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
+
+* save/restore tool for SysV as requested by FPC
+
 Features:
 
 * consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"

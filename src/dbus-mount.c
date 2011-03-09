@@ -59,8 +59,7 @@ const char bus_mount_invalidating_properties[] =
         "ExecMount\0"
         "ExecUnmount\0"
         "ExecRemount\0"
-        "ControlPID\0"
-        "\0";
+        "ControlPID\0";
 
 static int bus_mount_append_what(Manager *n, DBusMessageIter *i, const char *property, void *data) {
         Mount *m = data;
