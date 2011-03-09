@@ -825,6 +825,15 @@ fail:
         return r;
 }
 
+bool unit_condition_test(Unit *u) {
+        assert(u);
+
+        dual_timestamp_get(&u->meta.condition_timestamp);
+        u->meta.condition_result = condition_test_list(u->meta.conditions);
+
+        return u->meta.condition_result;
+}
+
 /* Errors:
  *         -EBADR:     This unit type does not support starting.
  *         -EALREADY:  Unit is already started.
@@ -849,7 +858,7 @@ int unit_start(Unit *u) {
                 return -EALREADY;
 
         /* If the conditions failed, don't do anything at all */
-        if (!condition_test_list(u->meta.conditions)) {
+        if (!unit_condition_test(u)) {
                 log_debug("Starting of %s requested but condition failed. Ignoring.", u->meta.id);
                 return -EALREADY;
         }

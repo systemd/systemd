@@ -26,8 +26,6 @@ Features:
 
 * consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
 
-* store time when conditions where checked to inform admins about whether a unit was considered at all
-
 * consider services with any kind of link in /etc/systemd/system enabled
 
 * show failure error string in "systemctl status"

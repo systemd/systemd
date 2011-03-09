@@ -1831,6 +1831,9 @@ typedef struct UnitStatusInfo {
 
         int exit_code, exit_status;
 
+        usec_t condition_timestamp;
+        bool condition_result;
+
         /* Socket */
         unsigned n_accepted;
         unsigned n_connections;
@@ -1921,6 +1924,16 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf(" since %s\n", s2);
         else
                 printf("\n");
+
+        if (!i->condition_result && i->condition_timestamp > 0) {
+                s1 = format_timestamp_pretty(since1, sizeof(since1), i->condition_timestamp);
+                s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
+
+                if (s1)
+                        printf("\t          start condition failed at %s; %s\n", s2, s1);
+                else if (s2)
+                        printf("\t          start condition failed at %s\n", s2);
+        }
 
         if (i->sysfs_path)
                 printf("\t  Device: %s\n", i->sysfs_path);
@@ -2117,6 +2130,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->accept = b;
                 else if (streq(name, "NeedDaemonReload"))
                         i->need_daemon_reload = b;
+                else if (streq(name, "ConditionResult"))
+                        i->condition_result = b;
 
                 break;
         }
@@ -2174,6 +2189,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->inactive_exit_timestamp = (usec_t) u;
                 else if (streq(name, "ActiveExitTimestamp"))
                         i->active_exit_timestamp = (usec_t) u;
+                else if (streq(name, "ConditionTimestamp"))
+                        i->condition_timestamp = (usec_t) u;
 
                 break;
         }
