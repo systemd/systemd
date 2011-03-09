@@ -59,7 +59,7 @@ int selinux_setup(char *const argv[]) {
                return -errno;
 
        } else {
-               log_full(enforce > 0 ? LOG_ERR : LOG_DEBUG, "Failed to load SELinux policy.");
+               log_full(enforce > 0 ? LOG_ERR : LOG_WARNING, "Failed to load SELinux policy.");
 
                unlink("/dev/.systemd/relabel-devtmpfs");
 
