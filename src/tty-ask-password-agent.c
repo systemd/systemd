@@ -431,7 +431,7 @@ static int wall_tty_block(void) {
         if ((r = get_ctty_devnr(&devnr)) < 0)
                 return -r;
 
-        if (asprintf(&p, "/dev/.systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
+        if (asprintf(&p, "/dev/.run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
                 return -ENOMEM;
 
         mkdir_parents(p, 0700);
@@ -475,7 +475,7 @@ static bool wall_tty_match(const char *path) {
          * advantage that the block will automatically go away if the
          * process dies. */
 
-        if (asprintf(&p, "/dev/.systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0)
+        if (asprintf(&p, "/dev/.run/systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0)
                 return true;
 
         fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
@@ -494,7 +494,7 @@ static int show_passwords(void) {
         struct dirent *de;
         int r = 0;
 
-        if (!(d = opendir("/dev/.systemd/ask-password"))) {
+        if (!(d = opendir("/dev/.run/systemd/ask-password"))) {
                 if (errno == ENOENT)
                         return 0;
 
@@ -519,7 +519,7 @@ static int show_passwords(void) {
                 if (!startswith(de->d_name, "ask."))
                         continue;
 
-                if (!(p = strappend("/dev/.systemd/ask-password/", de->d_name))) {
+                if (!(p = strappend("/dev/.run/systemd/ask-password/", de->d_name))) {
                         log_error("Out of memory");
                         r = -ENOMEM;
                         goto finish;
@@ -558,14 +558,14 @@ static int watch_passwords(void) {
 
         tty_block_fd = wall_tty_block();
 
-        mkdir_p("/dev/.systemd/ask-password", 0755);
+        mkdir_p("/dev/.run/systemd/ask-password", 0755);
 
         if ((notify = inotify_init1(IN_CLOEXEC)) < 0) {
                 r = -errno;
                 goto finish;
         }
 
-        if (inotify_add_watch(notify, "/dev/.systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0) {
+        if (inotify_add_watch(notify, "/dev/.run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0) {
                 r = -errno;
                 goto finish;
         }

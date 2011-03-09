@@ -289,13 +289,13 @@ static int collect(const char *root) {
 
         log_debug("Collecting...");
 
-        if (access("/dev/.systemd/readahead/cancel", F_OK) >= 0) {
+        if (access("/dev/.run/systemd/readahead/cancel", F_OK) >= 0) {
                 log_debug("Collection canceled");
                 r = -ECANCELED;
                 goto finish;
         }
 
-        if (access("/dev/.systemd/readahead/done", F_OK) >= 0) {
+        if (access("/dev/.run/systemd/readahead/done", F_OK) >= 0) {
                 log_debug("Got termination request");
                 goto done;
         }

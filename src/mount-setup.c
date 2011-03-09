@@ -242,7 +242,7 @@ int mount_setup(void) {
          * appropriate labels, after mounting. The other virtual API
          * file systems do not need. */
 
-        if (unlink("/dev/.systemd/relabel-devtmpfs") >= 0)
+        if (unlink("/dev/.systemd-relabel-devtmpfs") >= 0)
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
 
         /* Create a few default symlinks, which are normally created
@@ -251,6 +251,10 @@ int mount_setup(void) {
 
         NULSTR_FOREACH_PAIR(j, k, symlinks)
                 symlink_and_label(j, k);
+
+        /* Create a few directories we always want around */
+        mkdir("/dev/.run/systemd", 0755);
+        mkdir("/dev/.run/systemd/ask-password", 0755);
 
         return mount_cgroup_controllers();
 }

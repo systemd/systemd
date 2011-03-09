@@ -42,8 +42,8 @@ static int touch(const char *path) {
 #if !defined(DISABLE_SYSTEMD) && defined(__linux__)
         int fd;
 
-        mkdir("/dev/.systemd", 0755);
-        mkdir("/dev/.systemd/readahead", 0755);
+        mkdir("/dev/.run/systemd", 0755);
+        mkdir("/dev/.run/systemd/readahead", 0755);
 
         if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666)) < 0)
                 return -errno;
@@ -66,11 +66,11 @@ int sd_readahead(const char *action) {
                 return -EINVAL;
 
         if (strcmp(action, "cancel") == 0)
-                return touch("/dev/.systemd/readahead/cancel");
+                return touch("/dev/.run/systemd/readahead/cancel");
         else if (strcmp(action, "done") == 0)
-                return touch("/dev/.systemd/readahead/done");
+                return touch("/dev/.run/systemd/readahead/done");
         else if (strcmp(action, "noreplay") == 0)
-                return touch("/dev/.systemd/readahead/noreplay");
+                return touch("/dev/.run/systemd/readahead/noreplay");
 
         return -EINVAL;
 }

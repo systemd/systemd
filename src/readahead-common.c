@@ -167,11 +167,11 @@ int open_inotify(void) {
                 return -errno;
         }
 
-        mkdir("/dev/.systemd", 0755);
-        mkdir("/dev/.systemd/readahead", 0755);
+        mkdir("/dev/.run/systemd", 0755);
+        mkdir("/dev/.run/systemd/readahead", 0755);
 
-        if (inotify_add_watch(fd, "/dev/.systemd/readahead", IN_CREATE) < 0) {
-                log_error("Failed to watch /dev/.systemd/readahead: %m");
+        if (inotify_add_watch(fd, "/dev/.run/systemd/readahead", IN_CREATE) < 0) {
+                log_error("Failed to watch /dev/.run/systemd/readahead: %m");
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -183,10 +183,10 @@ ReadaheadShared *shared_get(void) {
         int fd;
         ReadaheadShared *m = NULL;
 
-        mkdir("/dev/.systemd", 0755);
-        mkdir("/dev/.systemd/readahead", 0755);
+        mkdir("/dev/.run/systemd", 0755);
+        mkdir("/dev/.run/systemd/readahead", 0755);
 
-        if ((fd = open("/dev/.systemd/readahead/shared", O_CREAT|O_RDWR|O_CLOEXEC, 0644)) < 0) {
+        if ((fd = open("/dev/.run/systemd/readahead/shared", O_CREAT|O_RDWR|O_CLOEXEC, 0644)) < 0) {
                 log_error("Failed to create shared memory segment: %m");
                 goto finish;
         }

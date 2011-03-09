@@ -2550,22 +2550,20 @@ void manager_dispatch_bus_query_pid_done(
 }
 
 int manager_open_serialization(Manager *m, FILE **_f) {
-        char *path;
+        char *path = NULL;
         mode_t saved_umask;
         int fd;
         FILE *f;
 
         assert(_f);
 
-        if (m->running_as == MANAGER_SYSTEM) {
-                mkdir_p("/dev/.systemd", 0755);
+        if (m->running_as == MANAGER_SYSTEM)
+                asprintf(&path, "/dev/.run/systemd/dump-%lu-XXXXXX", (unsigned long) getpid());
+        else
+                asprintf(&path, "/tmp/systemd-dump-%lu-XXXXXX", (unsigned long) getpid());
 
-                if (asprintf(&path, "/dev/.systemd/dump-%lu-XXXXXX", (unsigned long) getpid()) < 0)
-                        return -ENOMEM;
-        } else {
-                if (asprintf(&path, "/tmp/systemd-dump-%lu-XXXXXX", (unsigned long) getpid()) < 0)
-                        return -ENOMEM;
-        }
+        if (!path)
+                return -ENOMEM;
 
         saved_umask = umask(0077);
         fd = mkostemp(path, O_RDWR|O_CLOEXEC);
@@ -2862,7 +2860,7 @@ void manager_run_generators(Manager *m) {
 
         if (!m->generator_unit_path) {
                 char *p;
-                char system_path[] = "/dev/.systemd/generator-XXXXXX",
+                char system_path[] = "/dev/.run/systemd/generator-XXXXXX",
                         user_path[] = "/tmp/systemd-generator-XXXXXX";
 
                 if (!(p = mkdtemp(m->running_as == MANAGER_SYSTEM ? system_path : user_path))) {

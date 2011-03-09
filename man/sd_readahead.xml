@@ -123,7 +123,7 @@
                 reference implementation.</para>
 
                 <para>Internally, this function creates a file in
-                <filename>/dev/.systemd/readahead/</filename> which is
+                <filename>/dev/.run/systemd/readahead/</filename> which is
                 then used as flag file to notify the read-ahead
                 subsystem.</para>
 

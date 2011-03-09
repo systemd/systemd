@@ -20,9 +20,13 @@ F15:
 
 * save/restore tool for SysV as requested by FPC
 
+* optionally create watched directories in .path units
+
 Features:
 
 * consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
+
+* store time when conditions where checked to inform admins about whether a unit was considered at all
 
 * consider services with any kind of link in /etc/systemd/system enabled
 
