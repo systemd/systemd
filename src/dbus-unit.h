@@ -104,6 +104,10 @@
         "  <property name=\"JobTimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
 
+#define BUS_UNIT_INTERFACES_LIST                \
+        BUS_GENERIC_INTERFACES_LIST             \
+        "org.freedesktop.systemd1.Unit\0"
+
 #define BUS_UNIT_PROPERTIES \
         { "org.freedesktop.systemd1.Unit", "Id",                   bus_property_append_string,     "s",    u->meta.id                        }, \
         { "org.freedesktop.systemd1.Unit", "Names",                bus_unit_append_names,          "as",   u                                 }, \

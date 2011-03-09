@@ -32,6 +32,14 @@
 #define DBUS_ERROR_UNKNOWN_INTERFACE "org.freedesktop.DBus.Error.UnknownInterface"
 #endif
 
+#ifndef DBUS_ERROR_UNKNOWN_PROPERTY
+#define DBUS_ERROR_UNKNOWN_PROPERTY "org.freedesktop.DBus.Error.UnknownProperty"
+#endif
+
+#ifndef DBUS_ERROR_PROPERTY_READ_ONLY
+#define DBUS_ERROR_PROPERTY_READ_ONLY "org.freedesktop.DBus.Error.PropertyReadOnly"
+#endif
+
 #include "manager.h"
 
 typedef int (*BusPropertyCallback)(Manager *m, DBusMessageIter *iter, const char *property, void *data);
@@ -84,6 +92,11 @@ typedef struct BusProperty {
         " </method>\n"                                                  \
         "</interface>\n"
 
+#define BUS_GENERIC_INTERFACES_LIST             \
+        "org.freedesktop.DBus.Properties\0"     \
+        "org.freedesktop.DBus.Introspectable\0" \
+        "org.freedesktop.DBus.Peer\0"
+
 int bus_init(Manager *m, bool try_bus_connect);
 void bus_done(Manager *m);
 
@@ -94,7 +107,7 @@ void bus_timeout_event(Manager *m, Watch *w, int events);
 
 int bus_query_pid(Manager *m, const char *name);
 
-DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBusMessage *message, const char* introspection, const BusProperty *properties);
+DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBusMessage *message, const char* introspection, const char *interfaces, const BusProperty *properties);
 DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessage *message, DBusError *bus_error, int error);
 
 int bus_broadcast(Manager *m, DBusMessage *message);

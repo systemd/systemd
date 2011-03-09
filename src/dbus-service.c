@@ -90,6 +90,10 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Service\0"
+
 const char bus_service_interface[] _introspect_("Service") = BUS_SERVICE_INTERFACE;
 
 const char bus_service_invalidating_properties[] =
@@ -144,5 +148,5 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, connection, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, connection, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

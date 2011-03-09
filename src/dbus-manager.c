@@ -206,6 +206,10 @@
 #define INTROSPECTION_END                                               \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_GENERIC_INTERFACES_LIST                  \
+        "org.freedesktop.systemd1.Manager\0"
+
 const char bus_manager_interface[] _introspect_("Manager") = BUS_MANAGER_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
@@ -1021,7 +1025,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 m->environment = e;
 
         } else
-                return bus_default_message_handler(m, connection, message, NULL, properties);
+                return bus_default_message_handler(m, connection, message, NULL, INTERFACES_LIST, properties);
 
         if (job_type != _JOB_TYPE_INVALID) {
                 const char *name, *smode, *old_name = NULL;

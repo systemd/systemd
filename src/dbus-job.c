@@ -45,6 +45,10 @@
 
 const char bus_job_interface[] _introspect_("Job") = BUS_JOB_INTERFACE;
 
+#define INTERFACES_LIST                              \
+        BUS_GENERIC_INTERFACES_LIST                  \
+        "org.freedesktop.systemd1.Job\0"
+
 #define INVALIDATING_PROPERTIES                 \
         "State\0"
 
@@ -99,7 +103,7 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusConnection *connec
                 job_finish_and_invalidate(j, JOB_CANCELED);
 
         } else
-                return bus_default_message_handler(j->manager, connection, message, INTROSPECTION, properties);
+                return bus_default_message_handler(j->manager, connection, message, INTROSPECTION, INTERFACES_LIST, properties);
 
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))

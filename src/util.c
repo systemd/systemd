@@ -4079,6 +4079,19 @@ int kill_and_sigcont(pid_t pid, int sig) {
         return r;
 }
 
+bool nulstr_contains(const char*nulstr, const char *needle) {
+        const char *i;
+
+        if (!nulstr)
+                return false;
+
+        NULSTR_FOREACH(i, nulstr)
+                if (streq(i, needle))
+                        return true;
+
+        return false;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

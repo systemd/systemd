@@ -38,6 +38,10 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Snapshot\0"
+
 const char bus_snapshot_interface[] _introspect_("Snapshot") = BUS_SNAPSHOT_INTERFACE;
 
 DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
@@ -60,7 +64,7 @@ DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusM
                         goto oom;
 
         } else
-                return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
+                return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
 
         if (reply) {
                 if (!dbus_connection_send(c, reply, NULL))

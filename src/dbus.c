@@ -1213,12 +1213,20 @@ oom:
         return -ENOMEM;
 }
 
-DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBusMessage *message, const char*introspection, const BusProperty *properties) {
+DBusHandlerResult bus_default_message_handler(
+                Manager *m,
+                DBusConnection *c,
+                DBusMessage *message,
+                const char *introspection,
+                const char *interfaces,
+                const BusProperty *properties) {
+
         DBusError error;
         DBusMessage *reply = NULL;
         int r;
 
         assert(m);
+        assert(c);
         assert(message);
 
         dbus_error_init(&error);
@@ -1269,6 +1277,13 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
 
                         if (!dbus_message_iter_close_container(&iter, &sub))
                                 goto oom;
+                } else {
+                        if (!nulstr_contains(interfaces, interface))
+                                dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface");
+                        else
+                                dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_PROPERTY, "Unknown property");
+
+                        return bus_send_error_reply(m, c, message, &error, -EINVAL);
                 }
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "GetAll") && properties) {
@@ -1282,6 +1297,11 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
                             DBUS_TYPE_STRING, &interface,
                             DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, c, message, &error, -EINVAL);
+
+                if (interface[0] && !nulstr_contains(interfaces, interface)) {
+                        dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface");
+                        return bus_send_error_reply(m, c, message, &error, -EINVAL);
+                }
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -1367,8 +1387,20 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
 
                         if (!(reply = dbus_message_new_method_return(message)))
                                 goto oom;
-                } else
-                        return bus_send_error_reply(m, c, message, NULL, -EINVAL);
+                } else {
+                        if (p->property)
+                                dbus_set_error_const(&error, DBUS_ERROR_PROPERTY_READ_ONLY, "Property read-only");
+                        else if (!nulstr_contains(interfaces, interface))
+                                dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface");
+                        else
+                                dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_PROPERTY, "Unknown property");
+
+                        return bus_send_error_reply(m, c, message, &error, -EINVAL);
+                }
+
+        } else if (!nulstr_contains(interfaces, dbus_message_get_interface(message))) {
+                dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface");
+                return bus_send_error_reply(m, c, message, &error, -EINVAL);
         }
 
         if (reply) {

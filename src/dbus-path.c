@@ -41,6 +41,10 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Path\0"
+
 const char bus_path_interface[] _introspect_("Path") = BUS_PATH_INTERFACE;
 
 static int bus_path_append_paths(Manager *m, DBusMessageIter *i, const char *property, void *data) {
@@ -94,5 +98,5 @@ DBusHandlerResult bus_path_message_handler(Unit *u, DBusConnection *c, DBusMessa
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

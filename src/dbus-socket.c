@@ -64,6 +64,10 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Socket\0"
+
 const char bus_socket_interface[] _introspect_("Socket") = BUS_SOCKET_INTERFACE;
 
 const char bus_socket_invalidating_properties[] =
@@ -109,5 +113,5 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }
