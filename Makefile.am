@@ -105,7 +105,9 @@ rootbin_PROGRAMS = \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
-	systemd-tmpfiles \
+	systemd-tmpfiles
+
+rootsbin_PROGRAMS = \
 	systemd-machine-id-setup
 
 bin_PROGRAMS = \
