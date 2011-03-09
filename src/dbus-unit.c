@@ -568,6 +568,8 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
 
                 if (r == -ENOENT) {
                         DBusError e;
+
+                        dbus_error_init(&e);
                         dbus_set_error_const(&e, DBUS_ERROR_UNKNOWN_OBJECT, "Unknown unit");
                         return bus_send_error_reply(m, connection, message, &e, r);
                 }
