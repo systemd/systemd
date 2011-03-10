@@ -22,8 +22,6 @@ F15:
 
 * bind mounts are ignored
 
-* SIGALRM in systemctl
-
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
 
 Features:

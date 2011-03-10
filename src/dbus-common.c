@@ -77,6 +77,9 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
                         return -EACCES;
                 }
 
+                /* This complexity should probably move into D-Bus itself:
+                 *
+                 * https://bugs.freedesktop.org/show_bug.cgi?id=35189 */
                 begin = tstamp = now(CLOCK_MONOTONIC);
                 for (;;) {
 

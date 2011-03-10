@@ -1815,8 +1815,9 @@ int close_all_fds(const int except[], unsigned n_except) {
                 if (ignore_file(de->d_name))
                         continue;
 
-                if ((r = safe_atoi(de->d_name, &fd)) < 0)
-                        goto finish;
+                if (safe_atoi(de->d_name, &fd) < 0)
+                        /* Let's better ignore this, just in case */
+                        continue;
 
                 if (fd < 3)
                         continue;
@@ -1839,16 +1840,13 @@ int close_all_fds(const int except[], unsigned n_except) {
                                 continue;
                 }
 
-                if ((r = close_nointr(fd)) < 0) {
+                if (close_nointr(fd) < 0) {
                         /* Valgrind has its own FD and doesn't want to have it closed */
-                        if (errno != EBADF)
-                                goto finish;
+                        if (errno != EBADF && r == 0)
+                                r = -errno;
                 }
         }
 
-        r = 0;
-
-finish:
         closedir(d);
         return r;
 }
@@ -3619,6 +3617,10 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
 }
 
 void freeze(void) {
+
+        /* Make sure nobody waits for us on a socket anymore */
+        close_all_fds(NULL, 0);
+
         sync();
 
         for (;;)
