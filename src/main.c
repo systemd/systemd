@@ -226,6 +226,8 @@ static int parse_proc_cmdline_word(const char *word) {
 
         static const char * const rlmap[] = {
                 "emergency", SPECIAL_EMERGENCY_TARGET,
+                "-b",        SPECIAL_EMERGENCY_TARGET,
+                "b",         SPECIAL_EMERGENCY_TARGET,
                 "single",    SPECIAL_RESCUE_TARGET,
                 "-s",        SPECIAL_RESCUE_TARGET,
                 "s",         SPECIAL_RESCUE_TARGET,
@@ -624,7 +626,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hD", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hDbsz:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -800,19 +802,29 @@ static int parse_argv(int argc, char *argv[]) {
                         log_set_max_level(LOG_DEBUG);
                         break;
 
-                case '?':
-                        return -EINVAL;
+                case 'b':
+                case 's':
+                case 'z':
+                        /* Just to eat away the sysvinit kernel
+                         * cmdline args without getopt() error
+                         * messages that we'll parse in
+                         * parse_proc_cmdline_word() or ignore. */
 
+                case '?':
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        if (getpid() != 1) {
+                                log_error("Unknown option code %c", c);
+                                return -EINVAL;
+                        }
+
+                        break;
                 }
 
         /* PID 1 will get the kernel arguments as parameters, which we
          * ignore and unconditionally read from
          * /proc/cmdline. However, we need to ignore those arguments
          * here. */
-        if (arg_running_as != MANAGER_SYSTEM && optind < argc) {
+        if (getpid() != 1 && optind < argc) {
                 log_error("Excess arguments.");
                 return -EINVAL;
         }

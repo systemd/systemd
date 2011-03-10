@@ -20,9 +20,15 @@ F15:
 
 * save/restore tool for SysV as requested by FPC
 
-* optionally create watched directories in .path units
+* bind mounts are ignored
+
+* SIGALRM in systemctl
+
+* 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
 
 Features:
+
+* optionally create watched directories in .path units
 
 * consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
 
