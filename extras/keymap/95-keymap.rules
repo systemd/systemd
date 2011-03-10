@@ -47,6 +47,7 @@ ENV{DMI_VENDOR}=="Sony*", KERNELS=="input*", ATTRS{name}=="Sony Vaio Keys", RUN+
 ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Eee PC WMI hotkeys", RUN+="keymap $name 0x6B f21"
 ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Eee PC Hotkey Driver", RUN+="keymap $name 0x37 f21"
 ENV{DMI_VENDOR}=="Acer*", KERNELS=="input*", ATTRS{name}=="Acer WMI hotkeys", RUN+="keymap $name 0x82 f21"
+ENV{DMI_VENDOR}=="MICRO-STAR*|Micro-Star*", KERNELS=="input*", ATTRS{name}=="MSI Laptop hotkeys", RUN+="keymap $name 0x213 f22 0x214 f23"
 
 # Older Vaios have some different keys
 ENV{DMI_VENDOR}=="Sony*", ATTR{[dmi/id]product_name}=="*PCG-C1*|*PCG-K25*|*PCG-F1*|*PCG-F2*|*PCG-F3*|*PCG-F4*|*PCG-F5*|*PCG-F6*|*PCG-FX*|*PCG-FRV*|*PCG-GR*|*PCG-TR*|*PCG-NV*|*PCG-Z*|*VGN-S360*", ATTRS{name}=="Sony Vaio Keys", RUN+="keymap $name module-sony-old"
