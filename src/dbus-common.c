@@ -27,6 +27,7 @@
 
 #include "log.h"
 #include "dbus-common.h"
+#include "util.h"
 
 int bus_check_peercred(DBusConnection *c) {
         int fd;
@@ -59,16 +60,51 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
 
         assert(_bus);
 
+#define TIMEOUT_USEC (60*USEC_PER_SEC)
+
         /* If we are root, then let's not go via the bus */
         if (geteuid() == 0 && t == DBUS_BUS_SYSTEM) {
+                usec_t begin, tstamp;
 
                 if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", error)))
                         return -EIO;
 
                 if (bus_check_peercred(bus) < 0) {
+                        dbus_connection_close(bus);
                         dbus_connection_unref(bus);
 
                         dbus_set_error_const(error, DBUS_ERROR_ACCESS_DENIED, "Failed to verify owner of bus.");
+                        return -EACCES;
+                }
+
+                begin = tstamp = now(CLOCK_MONOTONIC);
+                for (;;) {
+
+                        if (tstamp > begin + TIMEOUT_USEC)
+                                break;
+
+                        if (dbus_connection_get_is_authenticated(bus))
+                                break;
+
+                        if (!dbus_connection_read_write_dispatch(bus, ((begin + TIMEOUT_USEC - tstamp) + USEC_PER_MSEC - 1) / USEC_PER_MSEC))
+                                break;
+
+                        tstamp = now(CLOCK_MONOTONIC);
+                }
+
+                if (!dbus_connection_get_is_connected(bus)) {
+                        dbus_connection_close(bus);
+                        dbus_connection_unref(bus);
+
+                        dbus_set_error_const(error, DBUS_ERROR_NO_SERVER, "Connection terminated during authentication.");
+                        return -ECONNREFUSED;
+                }
+
+                if (!dbus_connection_get_is_authenticated(bus)) {
+                        dbus_connection_close(bus);
+                        dbus_connection_unref(bus);
+
+                        dbus_set_error_const(error, DBUS_ERROR_TIMEOUT, "Failed to authenticate in time.");
                         return -EACCES;
                 }
 
