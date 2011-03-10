@@ -198,8 +198,12 @@ static int open_file_and_lock(const char *fn) {
          * as the filesystems in question should be local, and only
          * locally accessible, and most likely even tmpfs. */
 
-        if (flock(fd, LOCK_EX) < 0)
-                return -errno;
+        if (flock(fd, LOCK_EX) < 0) {
+                int r = -errno;
+
+                close_nointr_nofail(fd);
+                return r;
+        }
 
         return fd;
 }
