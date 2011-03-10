@@ -269,7 +269,7 @@
                                 <option>syslog</option>,
                                 <option>syslog+console</option>,
                                 <option>kmsg</option>,
-                                <option>kmsg-console</option>.  If the
+                                <option>kmsg+console</option>.  If the
                                 argument is omitted it defaults to
                                 <option>inherit</option>.</para></listitem>
                         </varlistentry>
