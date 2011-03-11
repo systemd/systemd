@@ -239,7 +239,11 @@ public class MyStatusIcon : StatusIcon {
                                         null);
 
                         OutputStream stream = new UnixOutputStream(to_process, true);
+#if LIBNOTIFY07
                         stream.write(password.data, null);
+#else
+                        stream.write(password, password.length, null);
+#endif
                 } catch (Error e) {
                         show_error(e.message);
                 }
