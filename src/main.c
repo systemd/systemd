@@ -1051,7 +1051,7 @@ int main(int argc, char *argv[]) {
 
         /* If Plymouth is being run make sure we show the status, so
          * that there's something nice to see when people press Esc */
-        if (access("/dev/.systemd/plymouth", F_OK) >= 0)
+        if (access("/dev/.run/initramfs/plymouth", F_OK) >= 0)
                 arg_show_status = true;
 
         if (arg_action == ACTION_HELP) {
