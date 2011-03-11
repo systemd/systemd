@@ -468,9 +468,9 @@
 
                                 <listitem><para>Restart one or more
                                 units specified on the command
-                                line. If the units are not running yet
-                                the operation will
-                                fail. Note that for compatibility
+                                line if the units are running. Do
+                                nothing if units are not running.
+                                Note that for compatibility
                                 with Red Hat init scripts
                                 <command>condrestart</command> is
                                 equivalent to this command.</para></listitem>
