@@ -89,9 +89,9 @@ public class MyStatusIcon : StatusIcon {
 
         public MyStatusIcon() throws GLib.Error {
                 GLib.Object(icon_name : "dialog-password");
-                set_title("System Password");
+                set_title("System Password Request");
 
-                directory = File.new_for_path("/dev/.run/systemd/ask-password/");
+                directory = File.new_for_path("/var/run/systemd/ask-password/");
                 file_monitor = directory.monitor_directory(0);
                 file_monitor.changed.connect(file_monitor_changed);
 
@@ -145,7 +145,6 @@ public class MyStatusIcon : StatusIcon {
 
                 if (current == null)
                         set_visible(false);
-
         }
 
         bool load_password() throws GLib.Error {
@@ -179,6 +178,7 @@ public class MyStatusIcon : StatusIcon {
                 } catch (GLib.Error e) {
                         message = "Please Enter System Password!";
                 }
+
                 set_tooltip_text(message);
 
                 try {
@@ -239,12 +239,7 @@ public class MyStatusIcon : StatusIcon {
                                         null);
 
                         OutputStream stream = new UnixOutputStream(to_process, true);
-
-#if LIBNOTIFY07
                         stream.write(password.data, null);
-#else
-                        stream.write(password, password.length, null);
-#endif
                 } catch (Error e) {
                         show_error(e.message);
                 }
