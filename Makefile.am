@@ -58,6 +58,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-DSYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH=\"$(rootbindir)/systemd-tty-ask-password-agent\" \
+        -DSYSTEMD_STDIO_BRIDGE_BINARY_PATH=\"$(bindir)/systemd-stdio-bridge\" \
 	-DRUNTIME_DIR=\"$(localstatedir)/run\" \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-DSYSTEMD_CRYPTSETUP_PATH=\"$(rootlibexecdir)/systemd-cryptsetup\" \
@@ -111,7 +112,8 @@ rootsbin_PROGRAMS = \
 	systemd-machine-id-setup
 
 bin_PROGRAMS = \
-	systemd-cgls
+	systemd-cgls \
+	systemd-stdio-bridge
 
 if HAVE_GTK
 bin_PROGRAMS += \
@@ -978,6 +980,12 @@ systemd_cgls_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_cgls_LDADD = \
+	libsystemd-basic.la
+
+systemd_stdio_bridge_SOURCES = \
+	src/bridge.c
+
+systemd_stdio_bridge_LDADD = \
 	libsystemd-basic.la
 
 systemadm_SOURCES = \

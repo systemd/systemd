@@ -108,6 +108,12 @@ static enum dot {
         DOT_ORDER,
         DOT_REQUIRE
 } arg_dot = DOT_ALL;
+static enum transport {
+        TRANSPORT_NORMAL,
+        TRANSPORT_SSH,
+        TRANSPORT_POLKIT
+} arg_transport = TRANSPORT_NORMAL;
+static const char *arg_host = NULL;
 
 static bool private_bus = false;
 
@@ -2061,12 +2067,14 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 printf("\t  CGroup: %s\n", i->default_control_group);
 
-                if ((c = columns()) > 18)
-                        c -= 18;
-                else
-                        c = 0;
+                if (arg_transport != TRANSPORT_SSH) {
+                        if ((c = columns()) > 18)
+                                c -= 18;
+                        else
+                                c = 0;
 
-                show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
+                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
+                }
         }
 
         if (i->need_daemon_reload)
@@ -4290,22 +4298,25 @@ static int systemctl_help(void) {
                "                      pending\n"
                "     --ignore-dependencies\n"
                "                      When queueing a new job, ignore all its dependencies\n"
-               "  -q --quiet          Suppress output\n"
-               "     --no-block       Do not wait until operation finished\n"
-               "     --no-pager       Do not pipe output into a pager.\n"
-               "     --system         Connect to system manager\n"
-               "     --user           Connect to user service manager\n"
-               "     --order          When generating graph for dot, show only order\n"
-               "     --require        When generating graph for dot, show only requirement\n"
-               "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
-               "     --global         Enable/disable unit files globally\n"
-               "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
-               "                      configuration\n"
-               "     --no-ask-password\n"
-               "                      Do not ask for system passwords\n"
                "     --kill-mode=MODE How to send signal\n"
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
+               "  -H --host=[user@]host\n"
+               "                      Show information for remote host\n"
+               "  -P --privileged     Acquire privileges before execution\n"
+               "  -q --quiet          Suppress output\n"
+               "     --no-block       Do not wait until operation finished\n"
+               "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
+               "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
+               "                      configuration\n"
+               "     --no-pager       Do not pipe output into a pager.\n"
+               "     --no-ask-password\n"
+               "                      Do not ask for system passwords\n"
+               "     --order          When generating graph for dot, show only order\n"
+               "     --require        When generating graph for dot, show only requirement\n"
+               "     --system         Connect to system manager\n"
+               "     --user           Connect to user service manager\n"
+               "     --global         Enable/disable unit files globally\n"
                "  -f --force          When enabling unit files, override existing symlinks\n"
                "                      When shutting down, execute action immediately\n"
                "     --defaults       When disabling unit files, remove default symlinks only\n\n"
@@ -4472,6 +4483,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
                 { "signal",    required_argument, NULL, 's'           },
                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
+                { "host",      required_argument, NULL, 'H'           },
+                { "privileged",no_argument,       NULL, 'P'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4483,7 +4496,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* Only when running as systemctl we ask for passwords */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:aqfs:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -4605,6 +4618,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_ask_password = false;
                         break;
 
+                case 'P':
+                        arg_transport = TRANSPORT_POLKIT;
+                        break;
+
+                case 'H':
+                        arg_transport = TRANSPORT_SSH;
+                        arg_host = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -4612,6 +4634,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         log_error("Unknown option code %c", c);
                         return -EINVAL;
                 }
+        }
+
+        if (arg_transport != TRANSPORT_NORMAL && arg_user) {
+                log_error("Cannot access user instance remotely.");
+                return -EINVAL;
         }
 
         return 1;
@@ -5622,7 +5649,16 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        bus_connect(arg_user ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
+        if (arg_transport == TRANSPORT_NORMAL)
+                bus_connect(arg_user ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
+        else if (arg_transport == TRANSPORT_POLKIT) {
+                bus_connect_system_polkit(&bus, &error);
+                private_bus = false;
+        } else if (arg_transport == TRANSPORT_SSH) {
+                bus_connect_system_ssh(NULL, arg_host, &bus, &error);
+                private_bus = false;
+        } else
+                assert_not_reached("Uh, invalid transport...");
 
         switch (arg_action) {
 

@@ -27,4 +27,15 @@
                 <annotate key="org.freedesktop.policykit.exec.path">/lib/systemd/systemd-reply-password</annotate>
         </action>
 
+        <action id="org.freedesktop.systemd1.BusAccess">
+                <description>Privileged system and service manager access</description>
+                <message>Authentication is required to access the system and service manager.</message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>no</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/systemd-stdio-bridge</annotate>
+        </action>
+
 </policyconfig>

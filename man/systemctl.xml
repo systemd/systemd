@@ -382,6 +382,27 @@
                                 file that shall be
                                 disabled.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-H</option></term>
+                                <term><option>--host</option></term>
+
+                                <listitem><para>Execute operation
+                                remotely. Specifiy a hostname, or
+                                username and hostname seperated by @,
+                                to connect to. This will use SSH to
+                                talk to the remote systemd
+                                instance.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-P</option></term>
+                                <term><option>--privileged</option></term>
+
+                                <listitem><para>Acquire privileges via
+                                PolicyKit before executing the
+                                operation.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>The following commands are understood:</para>
