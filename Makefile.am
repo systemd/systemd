@@ -340,7 +340,7 @@ EXTRA_DIST = \
 	units/quotacheck.service.in \
 	systemd.pc.in \
 	introspect.awk \
-        src/org.freedesktop.systemd1.policy.in
+	src/org.freedesktop.systemd1.policy.in
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
@@ -1114,7 +1114,8 @@ CLEANFILES = \
 	$(nodist_userunit_DATA) \
 	$(nodist_man_MANS) \
 	${XML_IN_FILES:.xml.in=.html} \
-	$(pkgconfigdata_DATA)
+	$(pkgconfigdata_DATA) \
+	src/org.freedesktop.systemd1.policy
 
 if HAVE_VALAC
 CLEANFILES += \
