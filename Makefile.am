@@ -339,7 +339,8 @@ EXTRA_DIST = \
 	units/fsck-root.service.in \
 	units/quotacheck.service.in \
 	systemd.pc.in \
-	introspect.awk
+	introspect.awk \
+        src/org.freedesktop.systemd1.policy.in
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
@@ -386,7 +387,7 @@ dist_doc_DATA = \
 pkgconfigdata_DATA = \
 	systemd.pc
 
-dist_polkitpolicy_DATA = \
+polkitpolicy_DATA = \
 	src/org.freedesktop.systemd1.policy
 
 noinst_LTLIBRARIES = \
@@ -1069,6 +1070,7 @@ SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
                 -e 's,@rootbindir\@,$(rootbindir),g' \
+                -e 's,@bindir\@,$(bindir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
@@ -1088,6 +1090,9 @@ man/%: man/%.in Makefile
 	$(SED_PROCESS)
 
 %.pc: %.pc.in Makefile
+	$(SED_PROCESS)
+
+src/%.policy: src/%.policy.in Makefile
 	$(SED_PROCESS)
 
 M4_PROCESS_SYSTEM = \

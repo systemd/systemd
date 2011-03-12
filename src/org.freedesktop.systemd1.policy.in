@@ -24,7 +24,7 @@
                         <allow_inactive>no</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
-                <annotate key="org.freedesktop.policykit.exec.path">/lib/systemd/systemd-reply-password</annotate>
+                <annotate key="org.freedesktop.policykit.exec.path">@rootlibexecdir@/systemd-reply-password</annotate>
         </action>
 
         <action id="org.freedesktop.systemd1.BusAccess">
@@ -35,7 +35,7 @@
                         <allow_inactive>no</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
-                <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/systemd-stdio-bridge</annotate>
+                <annotate key="org.freedesktop.policykit.exec.path">@bindir@/systemd-stdio-bridge</annotate>
         </action>
 
 </policyconfig>
