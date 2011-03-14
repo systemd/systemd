@@ -390,6 +390,11 @@ int main(int argc, char *argv[]) {
 
         if (pid == 0) {
                 const char *hn;
+                const char *envp[] = {
+                        "HOME=/root",
+                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        NULL
+                };
 
                 /* child */
 
@@ -425,9 +430,11 @@ int main(int argc, char *argv[]) {
                         sethostname(hn, strlen(hn));
 
                 if (argc > optind)
-                        execvp(argv[optind], argv + optind);
-                else
-                        execl("/bin/bash", "/bin/bash", NULL);
+                        execvpe(argv[optind], argv + optind, (char**) envp);
+                else {
+                        chdir("/root");
+                        execle("/bin/bash", "-bash", NULL, (char**) envp);
+                }
 
                 log_error("execv() failed: %m");
 
