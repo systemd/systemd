@@ -383,7 +383,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Spawning namespace container on %s.", arg_directory);
 
-        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|CLONE_NEWNET, NULL)) < 0) {
+        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS, NULL)) < 0) {
                 log_error("clone() failed: %m");
                 goto finish;
         }
