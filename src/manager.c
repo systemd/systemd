@@ -90,8 +90,10 @@ static int manager_setup_notify(Manager *m) {
 
         if (getpid() != 1)
                 snprintf(sa.un.sun_path, sizeof(sa.un.sun_path), NOTIFY_SOCKET_USER "/%llu", random_ull());
-        else
+        else {
+                unlink(NOTIFY_SOCKET_SYSTEM);
                 strncpy(sa.un.sun_path, NOTIFY_SOCKET_SYSTEM, sizeof(sa.un.sun_path));
+        }
 
         if (sa.un.sun_path[0] == '@')
                 sa.un.sun_path[0] = 0;
