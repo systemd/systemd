@@ -115,6 +115,9 @@ bin_PROGRAMS = \
 	systemd-cgls \
 	systemd-stdio-bridge
 
+sbin_PROGRAMS = \
+        systemd-nspawn
+
 if HAVE_GTK
 bin_PROGRAMS += \
 	systemadm \
@@ -981,6 +984,15 @@ systemd_cgls_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_cgls_LDADD = \
+	libsystemd-basic.la
+
+systemd_nspawn_SOURCES = \
+	src/nspawn.c
+
+systemd_nspawn_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_nspawn_LDADD = \
 	libsystemd-basic.la
 
 systemd_stdio_bridge_SOURCES = \
