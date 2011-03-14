@@ -1024,7 +1024,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><filename>@/org/freedesktop/systemd1/notify</filename></term>
+                                <term><filename>/var/run/systemd/notify</filename></term>
 
                                 <listitem><para>Daemon status
                                 notification socket. This is an AF_UNIX
@@ -1037,7 +1037,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>@/org/freedesktop/systemd1/logger</filename></term>
+                                <term><filename>/var/run/systemd/logger</filename></term>
 
                                 <listitem><para>Used internally by the
                                 <filename>systemd-logger.service</filename>
@@ -1050,7 +1050,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>@/org/freedesktop/systemd1/shutdown</filename></term>
+                                <term><filename>/var/run/systemd/shutdownd</filename></term>
 
                                 <listitem><para>Used internally by the
                                 <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -1061,7 +1061,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>@/org/freedesktop/systemd1/private</filename></term>
+                                <term><filename>/var/run/systemd/private</filename></term>
 
                                 <listitem><para>Used internally as
                                 communication channel between

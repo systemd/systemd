@@ -49,10 +49,19 @@ int main(int argc, char *argv[]) {
          * this to avoid an activation loop when we start dbus when we
          * are called when the dbus service is shut down. */
 
-        if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
-                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
-                goto finish;
+        if (!(bus = dbus_connection_open_private("unix:path=/dev/.run/systemd/private", &error))) {
+#ifndef LEGACY
+                dbus_error_free(&error);
+
+                /* Retry with the pre v21 socket name, to ease upgrades */
+                if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
+#endif
+                        log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
+                        goto finish;
+                }
+#ifndef LEGACY
         }
+#endif
 
         if (bus_check_peercred(bus) < 0) {
                 log_error("Bus owner not root.");

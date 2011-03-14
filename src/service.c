@@ -1659,7 +1659,7 @@ static int service_spawn(
         }
 
         if (set_notify_socket)
-                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=@%s", s->meta.manager->notify_socket) < 0) {
+                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", s->meta.manager->notify_socket) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }

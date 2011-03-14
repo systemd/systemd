@@ -66,7 +66,8 @@
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
 
 /* Where clients shall send notification messages to */
-#define NOTIFY_SOCKET "/org/freedesktop/systemd1/notify"
+#define NOTIFY_SOCKET_SYSTEM "/dev/.run/systemd/notify"
+#define NOTIFY_SOCKET_USER "@/org/freedesktop/systemd1/notify"
 
 static int manager_setup_notify(Manager *m) {
         union {
@@ -88,9 +89,12 @@ static int manager_setup_notify(Manager *m) {
         sa.sa.sa_family = AF_UNIX;
 
         if (getpid() != 1)
-                snprintf(sa.un.sun_path+1, sizeof(sa.un.sun_path)-1, NOTIFY_SOCKET "/%llu", random_ull());
+                snprintf(sa.un.sun_path, sizeof(sa.un.sun_path), NOTIFY_SOCKET_USER "/%llu", random_ull());
         else
-                strncpy(sa.un.sun_path+1, NOTIFY_SOCKET, sizeof(sa.un.sun_path)-1);
+                strncpy(sa.un.sun_path, NOTIFY_SOCKET_SYSTEM, sizeof(sa.un.sun_path));
+
+        if (sa.un.sun_path[0] == '@')
+                sa.un.sun_path[0] = 0;
 
         if (bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
                 log_error("bind() failed: %m");
@@ -109,7 +113,10 @@ static int manager_setup_notify(Manager *m) {
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev) < 0)
                 return -errno;
 
-        if (!(m->notify_socket = strdup(sa.un.sun_path+1)))
+        if (sa.un.sun_path[0] == 0)
+                sa.un.sun_path[0] = '@';
+
+        if (!(m->notify_socket = strdup(sa.un.sun_path)))
                 return -ENOMEM;
 
         log_debug("Using notification socket %s", m->notify_socket);

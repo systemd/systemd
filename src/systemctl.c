@@ -5364,7 +5364,7 @@ static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
         zero(sockaddr);
         sockaddr.sa.sa_family = AF_UNIX;
         sockaddr.un.sun_path[0] = 0;
-        strncpy(sockaddr.un.sun_path+1, "/org/freedesktop/systemd1/shutdownd", sizeof(sockaddr.un.sun_path)-1);
+        strncpy(sockaddr.un.sun_path, "/dev/.run/systemd/shutdownd", sizeof(sockaddr.un.sun_path));
 
         zero(iovec);
         iovec.iov_base = (char*) &c;
@@ -5372,7 +5372,7 @@ static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
 
         zero(msghdr);
         msghdr.msg_name = &sockaddr;
-        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + 1 + sizeof("/org/freedesktop/systemd1/shutdownd") - 1;
+        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + sizeof("/dev/.run/systemd/shutdownd") - 1;
 
         msghdr.msg_iov = &iovec;
         msghdr.msg_iovlen = 1;

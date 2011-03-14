@@ -104,8 +104,16 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
 
         /* If we are root, then let's not go via the bus */
         if (geteuid() == 0 && t == DBUS_BUS_SYSTEM) {
-                if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", error)))
-                        return -EIO;
+
+                if (!(bus = dbus_connection_open_private("unix:path=/dev/.run/systemd/private", error))) {
+#ifndef LEGACY
+                        dbus_error_free(error);
+
+                        /* Retry with the pre v21 socket name, to ease upgrades */
+                        if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", error)))
+#endif
+                                return -EIO;
+                }
 
                 dbus_connection_set_exit_on_disconnect(bus, FALSE);
 

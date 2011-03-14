@@ -40,7 +40,7 @@ struct CGroupBonding;
 #include "util.h"
 
 /* Abstract namespace! */
-#define LOGGER_SOCKET "/org/freedesktop/systemd1/logger"
+#define LOGGER_SOCKET "/dev/.run/systemd/logger"
 
 /* This doesn't really belong here, but I couldn't find a better place to put this. */
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
