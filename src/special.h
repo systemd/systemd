@@ -63,8 +63,6 @@
 #define SPECIAL_KEXEC_TARGET "kexec.target"
 #define SPECIAL_DBUS_SERVICE "dbus.service"
 #define SPECIAL_DBUS_SOCKET "dbus.socket"
-#define SPECIAL_GETTY_TARGET "getty.target"
-#define SPECIAL_SERIAL_GETTY_SERVICE "serial-getty@.service"
 #define SPECIAL_REMOUNT_ROOTFS_SERVICE "remount-rootfs.service"
 
 #ifndef SPECIAL_SYSLOG_SERVICE

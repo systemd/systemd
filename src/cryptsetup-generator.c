@@ -222,7 +222,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        arg_dest = argv[1];
+        if (argc > 1)
+                arg_dest = argv[1];
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();

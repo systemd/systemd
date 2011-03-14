@@ -24,8 +24,6 @@ F15:
 
 * capability_bounding_set_drop not used.
 
-* remove getty magic, move it into a generator
-
 * recreate private socket on SIGUSR2
 
 Features:

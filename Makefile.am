@@ -143,11 +143,14 @@ rootlibexec_PROGRAMS = \
 	systemd-detect-virt \
 	systemd-sysctl
 
+systemgenerator_PROGRAMS = \
+        systemd-getty-generator
+
 if HAVE_LIBCRYPTSETUP
 rootlibexec_PROGRAMS += \
 	systemd-cryptsetup
 
-systemgenerator_PROGRAMS = \
+systemgenerator_PROGRAMS += \
 	systemd-cryptsetup-generator
 endif
 
@@ -854,6 +857,16 @@ systemd_cryptsetup_generator_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_cryptsetup_generator_LDADD = \
+	libsystemd-basic.la
+
+systemd_getty_generator_SOURCES = \
+	src/getty-generator.c \
+	src/unit-name.c
+
+systemd_getty_generator_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_getty_generator_LDADD = \
 	libsystemd-basic.la
 
 systemd_user_sessions_SOURCES = \
