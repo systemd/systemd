@@ -323,8 +323,10 @@ int main(int argc, char *argv[]) {
 
         /* If we are in a container, just exit, this will kill our
          * container for good. */
-        if (in_container)
+        if (in_container) {
+                log_error("Exiting container.");
                 exit(0);
+        }
 
         sync();
 
