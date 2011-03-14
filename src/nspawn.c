@@ -176,6 +176,9 @@ static int copy_devnodes(const char *dest) {
         int r = 0, k;
         char *tty = NULL;
         dev_t tty_devnum;
+        mode_t u;
+
+        u = umask(0000);
 
         NULSTR_FOREACH(d, devnodes) {
                 char *from = NULL, *to = NULL;
@@ -264,6 +267,8 @@ static int copy_devnodes(const char *dest) {
         }
 
         free(tty);
+
+        umask(u);
 
         return r;
 }
