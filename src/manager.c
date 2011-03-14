@@ -2057,6 +2057,8 @@ static int manager_process_signal_fd(Manager *m) {
         assert(m);
 
         for (;;) {
+                char *p = NULL;
+
                 if ((n = read(m->signal_watch.fd, &sfsi, sizeof(sfsi))) != sizeof(sfsi)) {
 
                         if (n >= 0)
@@ -2068,7 +2070,11 @@ static int manager_process_signal_fd(Manager *m) {
                         return -errno;
                 }
 
-                log_debug("Received SIG%s", strna(signal_to_string(sfsi.ssi_signo)));
+                get_process_name(sfsi.ssi_pid, &p);
+                log_debug("Received SIG%s from PID %lu (%s)",
+                          strna(signal_to_string(sfsi.ssi_signo)),
+                          (unsigned long) sfsi.ssi_pid, strna(p));
+                free(p);
 
                 switch (sfsi.ssi_signo) {
 
