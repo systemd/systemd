@@ -101,18 +101,19 @@ static int mount_all(const char *dest) {
                 const char *type;
                 const char *options;
                 unsigned long flags;
+                bool fatal;
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "proc",      "/proc",     "proc",      NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV },
-                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND },                      /* Bind mount first */
-                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT }, /* Then, make it r/o */
-                { "sysfs",     "/sys",      "sysfs",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY },
-                { "tmpfs",     "/dev",      "tmpfs",     "mode=755",  MS_NOSUID },
-                { "/dev/pts",  "/dev/pts",  "bind",      NULL,        MS_BIND },
-                { "tmpfs",     "/dev/.run", "tmpfs",     "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV },
+                { "proc",      "/proc",     "proc",      NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND, true },                      /* Bind mount first */
+                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, true }, /* Then, make it r/o */
+                { "sysfs",     "/sys",      "sysfs",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, true },
+                { "tmpfs",     "/dev",      "tmpfs",     "mode=755",  MS_NOSUID, true },
+                { "/dev/pts",  "/dev/pts",  "bind",      NULL,        MS_BIND, true },
+                { "tmpfs",     "/dev/.run", "tmpfs",     "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 #ifdef HAVE_SELINUX
-                { "selinux",   "/selinux",  "selinuxfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY },
+                { "selinux",   "/selinux",  "selinuxfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, false },
 #endif
         };
 
@@ -148,7 +149,8 @@ static int mount_all(const char *dest) {
                           where,
                           mount_table[k].type,
                           mount_table[k].flags,
-                          mount_table[k].options) < 0) {
+                          mount_table[k].options) < 0 &&
+                    mount_table[k].fatal) {
 
                         log_error("mount(%s) failed: %m", where);
 
