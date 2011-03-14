@@ -967,3 +967,31 @@ int cg_fix_path(const char *path, char **result) {
 
         return r;
 }
+
+int cg_get_user_path(char **path) {
+        char *root, *p;
+
+        assert(path);
+
+        /* Figure out the place to put user cgroups below. We use the
+         * same as PID 1 has but with the "/system" suffix replaced by
+         * "/user" */
+
+        if (cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &root) < 0)
+                p = strdup("/user");
+        else {
+                if (endswith(root, "/system"))
+                        root[strlen(root) - 7] = 0;
+                else if (streq(root, "/"))
+                        root[0] = 0;
+
+                p = strappend(root, "/user");
+                free(root);
+        }
+
+        if (!p)
+                return -ENOMEM;
+
+        *path = p;
+        return 0;
+}

@@ -68,4 +68,6 @@ int cg_install_release_agent(const char *controller, const char *agent);
 int cg_is_empty(const char *controller, const char *path, bool ignore_self);
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self);
 
+int cg_get_user_path(char **path);
+
 #endif
