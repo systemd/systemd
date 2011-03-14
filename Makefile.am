@@ -106,16 +106,12 @@ rootbin_PROGRAMS = \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
-	systemd-tmpfiles
-
-rootsbin_PROGRAMS = \
+	systemd-tmpfiles \
 	systemd-machine-id-setup
 
 bin_PROGRAMS = \
 	systemd-cgls \
-	systemd-stdio-bridge
-
-sbin_PROGRAMS = \
+	systemd-stdio-bridge \
         systemd-nspawn
 
 if HAVE_GTK
