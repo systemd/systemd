@@ -106,8 +106,18 @@ int main(int argc, char *argv[]) {
                 if (path_startswith(p, "/sys/fs/cgroup")) {
                         printf("Working Directory %s:\n", p);
                         r = show_cgroup_by_path(p, NULL, 0);
-                } else
-                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, "/", NULL, 0);
+                } else {
+                        char *root = NULL;
+                        const char *t = NULL;
+
+                        if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &root)) < 0)
+                                t = "/";
+                        else
+                                t = root;
+
+                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, t, NULL, 0);
+                        free(root);
+                }
 
                 free(p);
         }
