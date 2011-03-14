@@ -2448,8 +2448,19 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                 return;
         }
 
-        if (audit_log_user_comm_message(m->audit_fd, type, "", p, NULL, NULL, NULL, success) < 0)
-                log_error("Failed to send audit message: %m");
+        if (audit_log_user_comm_message(m->audit_fd, type, "", p, NULL, NULL, NULL, success) < 0) {
+                log_warning("Failed to send audit message: %m");
+
+                if (errno == EPERM) {
+                        /* We aren't allowed to send audit messages?
+                         * Then let's not retry again, to avoid
+                         * spamming the user with the same and same
+                         * messages over and over. */
+
+                        audit_close(m->audit_fd);
+                        m->audit_fd = -1;
+                }
+        }
 
         free(p);
 #endif
