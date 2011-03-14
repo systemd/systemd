@@ -174,9 +174,28 @@ int hostname_setup(void) {
                 else
                         log_warning("Failed to read configured hostname: %s", strerror(-r));
 
-                hn = "localhost";
+                hn = NULL;
         } else
                 hn = b;
+
+        if (!hn) {
+                /* Don't override the hostname if it is unset and not
+                 * explicitly configured */
+
+                char *old_hostname = NULL;
+
+                if ((old_hostname = gethostname_malloc())) {
+                        bool already_set;
+
+                        already_set = old_hostname[0] != 0;
+                        free(old_hostname);
+
+                        if (already_set)
+                                goto finish;
+                }
+
+                hn = "localhost";
+        }
 
         if (sethostname(hn, strlen(hn)) < 0) {
                 log_warning("Failed to set hostname to <%s>: %m", hn);
@@ -184,6 +203,7 @@ int hostname_setup(void) {
         } else
                 log_info("Set hostname to <%s>.", hn);
 
+finish:
         free(b);
 
         return r;
