@@ -366,7 +366,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (path_equal(arg_directory, "/")) {
-                log_error("Spawning constainer on root directory not supported.");
+                log_error("Spawning container on root directory not supported.");
                 goto finish;
         }
 
@@ -429,7 +429,7 @@ int main(int argc, char *argv[]) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_warn("container", pid);
+        r = wait_for_terminate_and_warn(argc > optind ? argv[optind] : "bash", pid);
 
         if (r < 0)
                 r = EXIT_FAILURE;
