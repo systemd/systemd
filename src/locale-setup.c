@@ -69,28 +69,29 @@ int locale_setup(void) {
 
         zero(variables);
 
-        if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
+        if (detect_virtualization(NULL) <= 0)
+                if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
 #ifdef TARGET_FEDORA
-                                "LANG",                     &variables[VARIABLE_LANG],
+                                        "LANG",                     &variables[VARIABLE_LANG],
 #endif
-                                "locale.LANG",              &variables[VARIABLE_LANG],
-                                "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
-                                "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
-                                "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
-                                "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
-                                "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
-                                "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                                "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
-                                "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
-                                "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
-                                "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
-                                "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                                "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
-                                NULL)) < 0) {
+                                        "locale.LANG",              &variables[VARIABLE_LANG],
+                                        "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
+                                        "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
+                                        "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
+                                        "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
+                                        "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
+                                        "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
+                                        "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
+                                        "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
+                                        "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
+                                        "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
+                                        "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
+                                        "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
+                                        NULL)) < 0) {
 
-                if (r != -ENOENT)
-                        log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
-        }
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
+                }
 
         /* Hmm, nothing set on the kernel cmd line? Then let's
          * try /etc/locale.conf */

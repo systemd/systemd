@@ -176,21 +176,22 @@ int main(int argc, char **argv) {
 
         utf8 = is_locale_utf8();
 
-        if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
+        if (detect_virtualization(NULL) <= 0)
+                if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
 #ifdef TARGET_FEDORA
-                                "SYSFONT", &vc_font,
-                                "KEYTABLE", &vc_keymap,
+                                        "SYSFONT", &vc_font,
+                                        "KEYTABLE", &vc_keymap,
 #endif
-                                "vconsole.keymap", &vc_keymap,
-                                "vconsole.keymap.toggle", &vc_keymap_toggle,
-                                "vconsole.font", &vc_font,
-                                "vconsole.font.map", &vc_font_map,
-                                "vconsole.font.unimap", &vc_font_unimap,
-                                NULL)) < 0) {
+                                        "vconsole.keymap", &vc_keymap,
+                                        "vconsole.keymap.toggle", &vc_keymap_toggle,
+                                        "vconsole.font", &vc_font,
+                                        "vconsole.font.map", &vc_font_map,
+                                        "vconsole.font.unimap", &vc_font_unimap,
+                                        NULL)) < 0) {
 
-                if (r != -ENOENT)
-                        log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
-        }
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
+                }
 
         /* Hmm, nothing set on the kernel cmd line? Then let's
          * try /etc/vconsole.conf */

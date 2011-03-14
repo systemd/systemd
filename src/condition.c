@@ -67,6 +67,9 @@ static bool test_kernel_command_line(const char *parameter) {
 
         assert(parameter);
 
+        if (detect_virtualization(NULL) > 0)
+                return false;
+
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return false;

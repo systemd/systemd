@@ -92,6 +92,9 @@ static int target_add_getty_dependencies(Target *t) {
         if (!unit_has_name(UNIT(t), SPECIAL_GETTY_TARGET))
                 return 0;
 
+        if (detect_container(NULL) > 0)
+                return 1;
+
         if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
                 const char *tty;
 
