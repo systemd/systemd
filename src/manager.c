@@ -2841,7 +2841,8 @@ void manager_check_finished(Manager *m) {
 
         dual_timestamp_get(&m->finish_timestamp);
 
-        if (m->running_as == MANAGER_SYSTEM) {
+        if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0) {
+
                 if (dual_timestamp_is_set(&m->initrd_timestamp)) {
                         log_info("Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
                                  format_timespan(kernel, sizeof(kernel),

@@ -26,6 +26,8 @@ F15:
 
 * remove getty magic, move it into a generator
 
+* recreate private socket on SIGUSR2
+
 Features:
 
 * optionally create watched directories in .path units
