@@ -3945,33 +3945,32 @@ int detect_vm(const char **id) {
         return 0;
 }
 
-/* Returns a short identifier for the various VM/container implementations */
-int detect_virtualization(const char **id) {
-        int r;
-        static __thread const char *cached_id = NULL;
-        const char *_id;
+int detect_container(const char **id) {
         FILE *f;
 
-        if (cached_id) {
+        /* Unfortunately many of these operations require root access
+         * in one way or another */
 
-                if (cached_id == (const char*) -1)
-                        return 0;
+        if (geteuid() != 0)
+                return -EPERM;
+
+        if (running_in_chroot() > 0) {
 
                 if (id)
-                        *id = cached_id;
+                        *id = "chroot";
 
                 return 1;
         }
 
-        /* Unfortunately most of these operations require root access
-         * in one way or another */
-        if (geteuid() != 0)
-                return -EPERM;
+        /* /proc/vz exists in container and outside of the container,
+         * /proc/bc only outside of the container. */
+        if (access("/proc/vz", F_OK) >= 0 &&
+            access("/proc/bc", F_OK) < 0) {
 
-        if ((r = running_in_chroot()) > 0) {
-                _id = "chroot";
-                r = 1;
-                goto finish;
+                if (id)
+                        *id = "openvz";
+
+                return 1;
         }
 
         if ((f = fopen("/proc/self/cgroup", "r"))) {
@@ -3991,36 +3990,49 @@ int detect_virtualization(const char **id) {
                         if (!streq(p, ":ns:/")) {
                                 fclose(f);
 
-                                r = 1;
-                                _id = "ns";
-                                goto finish;
+                                if (id)
+                                        *id = "ns";
+
+                                return 1;
                         }
                 }
 
                 fclose(f);
         }
 
-        /* /proc/vz exists in container and outside of the container,
-         * /proc/bc only outside of the container. */
-        if (access("/proc/vz", F_OK) >= 0 &&
-            access("/proc/bc", F_OK) < 0) {
-                _id = "openvz";
-                r = 1;
-                goto finish;
+        return 0;
+}
+
+/* Returns a short identifier for the various VM/container implementations */
+int detect_virtualization(const char **id) {
+        static __thread const char *cached_id = NULL;
+        const char *_id;
+        int r;
+
+        if (cached_id) {
+
+                if (cached_id == (const char*) -1)
+                        return 0;
+
+                if (id)
+                        *id = cached_id;
+
+                return 1;
         }
+
+        if ((r = detect_container(&_id)) != 0)
+                goto finish;
 
         r = detect_vm(&_id);
 
 finish:
-        if (r < 0)
-                return r;
-        else if (r > 0)
+        if (r > 0) {
                 cached_id = _id;
-        else
-                cached_id = (const char*) -1;
 
-        if (id)
-                *id = _id;
+                if (id)
+                        *id = _id;
+        } else if (r == 0)
+                cached_id = (const char*) -1;
 
         return r;
 }

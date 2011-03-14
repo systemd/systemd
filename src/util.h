@@ -380,6 +380,7 @@ bool tty_is_vc(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
 int detect_vm(const char **id);
+int detect_container(const char **id);
 int detect_virtualization(const char **id);
 
 void execute_directory(const char *directory, DIR *_d, char *argv[]);
