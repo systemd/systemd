@@ -254,7 +254,7 @@ static int copy_devnodes(const char *dest) {
                                         r = -errno;
                         }
 
-                        if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
+                        if (mount(from, to, "bind", MS_BIND|MS_RDONLY, NULL) < 0) {
                                 log_error("bind mount for /dev/console failed: %m");
 
                                 if (r == 0)

@@ -1021,7 +1021,7 @@ int main(int argc, char *argv[]) {
 
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
-                log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
 
                 /* This might actually not return, but cause a
                  * reexecution */
