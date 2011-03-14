@@ -546,6 +546,11 @@ static int parse_proc_cmdline(void) {
         int r;
         size_t l;
 
+        /* Don't read /proc/cmdline if we are in a container, since
+         * that is only relevant for the host system */
+        if (detect_container(NULL) > 0)
+                return 0;
+
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return 0;
@@ -625,6 +630,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 1);
         assert(argv);
+
+        if (getpid() == 1)
+                opterr = 0;
 
         while ((c = getopt_long(argc, argv, "hDbsz:", options, NULL)) >= 0)
 
@@ -820,13 +828,30 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-        /* PID 1 will get the kernel arguments as parameters, which we
-         * ignore and unconditionally read from
-         * /proc/cmdline. However, we need to ignore those arguments
-         * here. */
-        if (getpid() != 1 && optind < argc) {
-                log_error("Excess arguments.");
-                return -EINVAL;
+        if (optind < argc) {
+                if (getpid() != 1) {
+                        /* Hmm, when we aren't run as init system
+                         * let's complain about excess arguments */
+
+                        log_error("Excess arguments.");
+                        return -EINVAL;
+
+                } else if (detect_container(NULL) > 0) {
+                        char **a;
+
+                        /* All /proc/cmdline arguments the kernel
+                         * didn't understand it passed to us. We're
+                         * note really interested in that usually
+                         * since /proc/cmdline is more interesting and
+                         * complete. With one exception: if we are run
+                         * in a container /proc/cmdline is not
+                         * relevant for us, hence we rely on argv[]
+                         * instead. */
+
+                        for (a = argv + optind; a < argv + argc; a++)
+                                if ((r = parse_proc_cmdline_word(*a)) < 0)
+                                        return r;
+                }
         }
 
         return 0;
@@ -1093,6 +1118,9 @@ int main(int argc, char *argv[]) {
                  * kernel that don't really make sense for us. */
                 unsetenv("HOME");
                 unsetenv("TERM");
+
+                /* All other variables are left as is, so that clients
+                 * can still read them via /proc/1/environ */
         }
 
         /* Move out of the way, so that we won't block unmounts */
