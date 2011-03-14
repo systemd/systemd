@@ -36,6 +36,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "missing.h"
 
 static char *arg_directory = NULL;
 

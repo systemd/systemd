@@ -122,4 +122,8 @@ struct btrfs_ioctl_vol_args {
 #define BTRFS_SUPER_MAGIC 0x9123683E
 #endif
 
+#ifndef MS_MOVE
+#define MS_MOVE 8192
+#endif
+
 #endif
