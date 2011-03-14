@@ -355,7 +355,7 @@ static int delete_loopback(const char *device) {
         int fd, r;
 
         if ((fd = open(device, O_RDONLY|O_CLOEXEC)) < 0)
-                return -errno;
+                return errno == ENOENT ? 0 : -errno;
 
         r = ioctl(fd, LOOP_CLR_FD, 0);
         close_nointr_nofail(fd);
