@@ -2865,7 +2865,7 @@ int getttyname_harder(int fd, char **r) {
 
         if (streq(s, "tty")) {
                 free(s);
-                return get_ctty(r);
+                return get_ctty(r, NULL);
         }
 
         *r = s;
@@ -2907,7 +2907,7 @@ int get_ctty_devnr(dev_t *d) {
         return 0;
 }
 
-int get_ctty(char **r) {
+int get_ctty(char **r, dev_t *_devnr) {
         int k;
         char fn[128], *s, *b, *p;
         dev_t devnr;
@@ -2925,6 +2925,18 @@ int get_ctty(char **r) {
                 if (k != -ENOENT)
                         return k;
 
+                /* This is an ugly hack */
+                if (major(devnr) == 136) {
+                        if (asprintf(&b, "pts/%lu", (unsigned long) minor(devnr)) < 0)
+                                return -ENOMEM;
+
+                        *r = b;
+                        if (_devnr)
+                                *_devnr = devnr;
+
+                        return 0;
+                }
+
                 /* Probably something like the ptys which have no
                  * symlink in /dev/char. Let's return something
                  * vaguely useful. */
@@ -2933,6 +2945,9 @@ int get_ctty(char **r) {
                         return -ENOMEM;
 
                 *r = b;
+                if (_devnr)
+                        *_devnr = devnr;
+
                 return 0;
         }
 
@@ -2950,6 +2965,9 @@ int get_ctty(char **r) {
                 return -ENOMEM;
 
         *r = b;
+        if (_devnr)
+                *_devnr = devnr;
+
         return 0;
 }
 

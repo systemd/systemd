@@ -337,7 +337,7 @@ int getttyname_malloc(int fd, char **r);
 int getttyname_harder(int fd, char **r);
 
 int get_ctty_devnr(dev_t *d);
-int get_ctty(char **r);
+int get_ctty(char **r, dev_t *_devnr);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
