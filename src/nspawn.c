@@ -37,6 +37,8 @@
 #include "log.h"
 #include "util.h"
 #include "missing.h"
+#include "cgroup-util.h"
+#include "sd-daemon.h"
 
 static char *arg_directory = NULL;
 
@@ -347,7 +349,8 @@ static int is_os_tree(const char *path) {
 
 int main(int argc, char *argv[]) {
         pid_t pid = 0;
-        int r = EXIT_FAILURE;
+        int r = EXIT_FAILURE, k;
+        char *oldcg = NULL, *newcg = NULL;
 
         log_parse_environment();
         log_open();
@@ -376,6 +379,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (sd_booted() <= 0) {
+                log_error("Not running on a systemd system.");
+                goto finish;
+        }
+
         if (path_equal(arg_directory, "/")) {
                 log_error("Spawning container on root directory not supported.");
                 goto finish;
@@ -387,6 +395,21 @@ int main(int argc, char *argv[]) {
         }
 
         log_info("Spawning namespace container on %s.", arg_directory);
+
+        if ((k = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &oldcg)) < 0) {
+                log_error("Failed to determine current cgroup: %s", strerror(-k));
+                goto finish;
+        }
+
+        if (asprintf(&newcg, "%s/nspawn-%lu", oldcg, (unsigned long) getpid()) < 0) {
+                log_error("Failed to allocate cgroup path.");
+                goto finish;
+        }
+
+        if ((k = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, newcg, 0)) < 0)  {
+                log_error("Failed to create cgroup: %s", strerror(-k));
+                goto finish;
+        }
 
         if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS, NULL)) < 0) {
                 log_error("clone() failed: %m");
@@ -453,10 +476,15 @@ int main(int argc, char *argv[]) {
                 r = EXIT_FAILURE;
 
 finish:
-        free(arg_directory);
+        if (oldcg)
+                cg_attach(SYSTEMD_CGROUP_CONTROLLER, oldcg, 0);
 
-        if (pid > 0)
-                kill(pid, SIGTERM);
+        if (newcg)
+                cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, newcg, true);
+
+        free(arg_directory);
+        free(oldcg);
+        free(newcg);
 
         return r;
 }

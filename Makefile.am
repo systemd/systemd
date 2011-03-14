@@ -985,13 +985,15 @@ systemd_cgls_LDADD = \
 	libsystemd-basic.la
 
 systemd_nspawn_SOURCES = \
-	src/nspawn.c
+	src/nspawn.c \
+	src/cgroup-util.c
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_nspawn_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	libsystemd-daemon.la
 
 systemd_stdio_bridge_SOURCES = \
 	src/bridge.c
