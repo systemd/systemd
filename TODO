@@ -24,6 +24,8 @@ F15:
 
 * capability_bounding_set_drop not used.
 
+* remove getty magic, move it into a generator
+
 Features:
 
 * optionally create watched directories in .path units

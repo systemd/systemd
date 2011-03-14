@@ -1,3 +1,4 @@
+console-shell.service
 systemd-sysctl.service
 systemd-ask-password-console.service
 rescue.service

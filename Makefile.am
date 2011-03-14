@@ -260,6 +260,7 @@ dist_systemunit_DATA = \
 nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
+        units/console-shell.service \
 	units/graphical.target \
 	units/remote-fs.target \
 	units/multi-user.target \
@@ -304,6 +305,7 @@ nodist_userunit_DATA = \
 EXTRA_DIST = \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
+        units/console-shell.service.m4 \
 	units/graphical.target.m4 \
 	units/multi-user.target.m4 \
 	units/remote-fs.target.m4 \
