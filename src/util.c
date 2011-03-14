@@ -3948,6 +3948,20 @@ int detect_vm(const char **id) {
 /* Returns a short identifier for the various VM/container implementations */
 int detect_virtualization(const char **id) {
         int r;
+        static __thread const char *cached_id = NULL;
+        const char *_id;
+        FILE *f;
+
+        if (cached_id) {
+
+                if (cached_id == (const char*) -1)
+                        return 0;
+
+                if (id)
+                        *id = cached_id;
+
+                return 1;
+        }
 
         /* Unfortunately most of these operations require root access
          * in one way or another */
@@ -3955,24 +3969,60 @@ int detect_virtualization(const char **id) {
                 return -EPERM;
 
         if ((r = running_in_chroot()) > 0) {
-                if (id)
-                        *id = "chroot";
+                _id = "chroot";
+                r = 1;
+                goto finish;
+        }
 
-                return r;
+        if ((f = fopen("/proc/self/cgroup", "r"))) {
+
+                for (;;) {
+                        char line[LINE_MAX], *p;
+
+                        if (!fgets(line, sizeof(line), f))
+                                break;
+
+                        if (!(p = strchr(strstrip(line), ':')))
+                                continue;
+
+                        if (strncmp(p, ":ns:", 4))
+                                continue;
+
+                        if (!streq(p, ":ns:/")) {
+                                fclose(f);
+
+                                r = 1;
+                                _id = "ns";
+                                goto finish;
+                        }
+                }
+
+                fclose(f);
         }
 
         /* /proc/vz exists in container and outside of the container,
          * /proc/bc only outside of the container. */
         if (access("/proc/vz", F_OK) >= 0 &&
             access("/proc/bc", F_OK) < 0) {
-
-                if (id)
-                        *id = "openvz";
-
-                return 1;
+                _id = "openvz";
+                r = 1;
+                goto finish;
         }
 
-        return detect_vm(id);
+        r = detect_vm(&_id);
+
+finish:
+        if (r < 0)
+                return r;
+        else if (r > 0)
+                cached_id = _id;
+        else
+                cached_id = (const char*) -1;
+
+        if (id)
+                *id = _id;
+
+        return r;
 }
 
 void execute_directory(const char *directory, DIR *d, char *argv[]) {

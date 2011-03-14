@@ -22,6 +22,8 @@ F15:
 
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
 
+* capability_bounding_set_drop not used.
+
 Features:
 
 * optionally create watched directories in .path units
