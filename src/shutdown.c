@@ -96,125 +96,107 @@ static int killall(int sign) {
         return n_processes;
 }
 
-static int send_signal(int sign) {
-        sigset_t mask, oldmask;
+static void wait_for_children(int n_processes, sigset_t *mask) {
         usec_t until;
+
+        assert(mask);
+
+        until = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
+        for (;;) {
+                struct timespec ts;
+                int k;
+                usec_t n;
+
+                for (;;) {
+                        pid_t pid = waitpid(-1, NULL, WNOHANG);
+
+                        if (pid == 0)
+                                break;
+
+                        if (pid < 0 && errno == ECHILD)
+                                return;
+
+                        if (n_processes > 0)
+                                if (--n_processes == 0)
+                                        return;
+                }
+
+                n = now(CLOCK_MONOTONIC);
+                if (n >= until)
+                        return;
+
+                timespec_store(&ts, until - n);
+
+                if ((k = sigtimedwait(mask, NULL, &ts)) != SIGCHLD) {
+
+                        if (k < 0 && errno != EAGAIN) {
+                                log_error("sigtimedwait() failed: %m");
+                                return;
+                        }
+
+                        if (k >= 0)
+                                log_warning("sigtimedwait() returned unexpected signal.");
+                }
+        }
+}
+
+static void send_signal(int sign) {
+        sigset_t mask, oldmask;
         int n_processes;
-        struct timespec ts;
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);
-        if (sigprocmask(SIG_BLOCK, &mask, &oldmask) != 0)
-                return -errno;
+        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
 
-        if (kill(-1, SIGSTOP) < 0)
+        if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
                 log_warning("kill(-1, SIGSTOP) failed: %m");
 
         n_processes = killall(sign);
 
-        if (kill(-1, SIGCONT) < 0)
+        if (kill(-1, SIGCONT) < 0 && errno != ESRCH)
                 log_warning("kill(-1, SIGCONT) failed: %m");
 
         if (n_processes <= 0)
                 goto finish;
 
-        until = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
-        for (;;) {
-                int k;
-                usec_t n = now(CLOCK_MONOTONIC);
-
-                for (;;) {
-                        pid_t pid = waitpid(-1, NULL, WNOHANG);
-
-                        if (pid == 0)
-                                break;
-                        else if (pid < 0 && errno == ECHILD) {
-                                n_processes = 0;
-                                goto finish;
-                        }
-
-                        if (--n_processes == 0)
-                                goto finish;
-                }
-
-                if (n >= until)
-                        goto finish;
-
-                timespec_store(&ts, until - n);
-                if ((k = sigtimedwait(&mask, NULL, &ts)) != SIGCHLD) {
-                        if (k >= 0)
-                                log_warning("sigtimedwait() returned unexpected signal.");
-                        if (k < 0 && errno != EAGAIN)
-                                log_warning("sigtimedwait() failed: %m");
-                }
-        }
+        wait_for_children(n_processes, &mask);
 
 finish:
         sigprocmask(SIG_SETMASK, &oldmask, NULL);
-
-        return n_processes;
 }
 
-static int rescue_send_signal(int sign) {
+static void ultimate_send_signal(int sign) {
         sigset_t mask, oldmask;
-        usec_t until;
-        struct timespec ts;
         int r;
 
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGCHLD);
-        if (sigprocmask(SIG_BLOCK, &mask, &oldmask) != 0)
-                return -errno;
+        assert_se(sigemptyset(&mask) == 0);
+        assert_se(sigaddset(&mask, SIGCHLD) == 0);
+        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
 
-        if (kill(-1, SIGSTOP) < 0)
+        if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
                 log_warning("kill(-1, SIGSTOP) failed: %m");
 
         r = kill(-1, sign);
-        if (r < 0)
-                log_warning("kill(-1, %d) failed: %m", sign);
+        if (r < 0 && errno != ESRCH)
+                log_warning("kill(-1, %s) failed: %m", signal_to_string(sign));
 
-        if (kill(-1, SIGCONT) < 0)
+        if (kill(-1, SIGCONT) < 0 && errno != ESRCH)
                 log_warning("kill(-1, SIGCONT) failed: %m");
 
         if (r < 0)
                 goto finish;
 
-        until = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
-        for (;;) {
-                int k;
-                usec_t n = now(CLOCK_MONOTONIC);
-
-                for (;;) {
-                        pid_t pid = waitpid(-1, NULL, WNOHANG);
-                        if (pid == 0)
-                                break;
-                        else if (pid < 0 && errno == ECHILD)
-                                goto finish;
-                }
-
-                if (n >= until)
-                        goto finish;
-
-                timespec_store(&ts, until - n);
-                if ((k = sigtimedwait(&mask, NULL, &ts)) != SIGCHLD) {
-                        if (k >= 0)
-                                log_warning("sigtimedwait() returned unexpected signal.");
-                        if (k < 0 && errno != EAGAIN)
-                                log_warning("sigtimedwait() failed: %m");
-                }
-        }
+        wait_for_children(0, &mask);
 
 finish:
         sigprocmask(SIG_SETMASK, &oldmask, NULL);
-
-        return r;
 }
 
 int main(int argc, char *argv[]) {
         int cmd, r;
         unsigned retries;
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
-        bool killed_everbody = false;
+        bool killed_everbody = false, in_container;
 
         log_parse_environment();
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
@@ -231,6 +213,8 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
                 goto error;
         }
+
+        in_container = detect_container(NULL) > 0;
 
         if (streq(argv[1], "reboot"))
                 cmd = RB_AUTOBOOT;
@@ -251,14 +235,13 @@ int main(int argc, char *argv[]) {
                 log_warning("Cannot lock process memory: %m");
 
         log_info("Sending SIGTERM to remaining processes...");
-        r = send_signal(SIGTERM);
-        if (r < 0)
-                log_warning("Failed to send SIGTERM to remaining processes: %s", strerror(r));
+        send_signal(SIGTERM);
 
         log_info("Sending SIGKILL to remaining processes...");
-        r = send_signal(SIGKILL);
-        if (r < 0)
-                log_warning("Failed to send SIGKILL to remaining processes: %s", strerror(r));
+        send_signal(SIGKILL);
+
+        if (in_container)
+                need_swapoff = false;
 
         /* Unmount all mountpoints, swaps, and loopback devices */
         for (retries = 0; retries < FINALIZE_ATTEMPTS; retries++) {
@@ -325,8 +308,8 @@ int main(int argc, char *argv[]) {
                         }
 
                         log_warning("Cannot finalize remaining file systems and devices, trying to kill remaining processes.");
-                        rescue_send_signal(SIGTERM);
-                        rescue_send_signal(SIGKILL);
+                        ultimate_send_signal(SIGTERM);
+                        ultimate_send_signal(SIGKILL);
                         killed_everbody = true;
                 }
 
@@ -337,6 +320,11 @@ int main(int argc, char *argv[]) {
                 log_error("Too many iterations, giving up.");
 
         execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, NULL);
+
+        /* If we are in a container, just exit, this will kill our
+         * container for good. */
+        if (in_container)
+                exit(0);
 
         sync();
 
