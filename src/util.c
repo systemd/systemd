@@ -3616,7 +3616,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
         if (status.si_code == CLD_EXITED) {
                 if (status.si_status != 0) {
                         log_warning("%s failed with error code %i.", name, status.si_status);
-                        return -EPROTO;
+                        return status.si_status;
                 }
 
                 log_debug("%s succeeded.", name);
