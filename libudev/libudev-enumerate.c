@@ -751,7 +751,7 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 			struct dirent *dent;
 			char path[UTIL_PATH_SIZE];
 
-			util_strscpyl(path, sizeof(path), udev_get_dev_path(udev), "/.udev/tags/",
+			util_strscpyl(path, sizeof(path), udev_get_dev_path(udev), "/.run/udev/tags/",
 				      udev_list_entry_get_name(list_entry), NULL);
 			dir = opendir(path);
 			if (dir == NULL)

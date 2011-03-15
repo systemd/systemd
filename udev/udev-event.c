@@ -539,7 +539,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		return -1;
 
 	if (strcmp(udev_device_get_action(dev), "remove") == 0) {
-		udev_device_read_db(dev);
+		udev_device_read_db(dev, NULL);
 		udev_device_delete_db(dev);
 		udev_device_tag_index(dev, NULL, false);
 
@@ -553,7 +553,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	} else {
 		event->dev_db = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
 		if (event->dev_db != NULL) {
-			udev_device_read_db(event->dev_db);
+			udev_device_read_db(event->dev_db, NULL);
 			udev_device_set_info_loaded(event->dev_db);
 
 			/* disable watch during event processing */

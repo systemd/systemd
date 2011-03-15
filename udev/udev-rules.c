@@ -1803,7 +1803,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		add_matching_files(udev, &file_list, SYSCONFDIR "/udev/rules.d", ".rules");
 
 		/* read dynamic/temporary rules */
-		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/rules.d", NULL);
+		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/rules.d", NULL);
 		udev_list_init(&sort_list);
 		add_matching_files(udev, &sort_list, filename, ".rules");
 

@@ -78,7 +78,7 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
 int udev_device_add_property_from_string_parse_finish(struct udev_device *udev_device);
 char **udev_device_get_properties_envp(struct udev_device *udev_device);
 ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf);
-int udev_device_read_db(struct udev_device *udev_device);
+int udev_device_read_db(struct udev_device *udev_device, const char *dbfile);
 int udev_device_read_uevent_file(struct udev_device *udev_device);
 int udev_device_set_action(struct udev_device *udev_device, const char *action);
 int udev_device_set_driver(struct udev_device *udev_device, const char *driver);

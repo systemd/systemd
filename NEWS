@@ -2,6 +2,18 @@ udev 167
 ========
 Bugfixes.
 
+The udev runtime data moved from /dev/.udev/ to /dev/.run/udev/.
+On new systems the tmpfs mountpoint /var/run/ will have an
+"early-boot alias" /dev/.run/ where udev and a couple of other
+early-boot tools will put their runtime data.
+On systems with LVM used, packagers must make sure, that the
+initramfs creates the /dev/.run/ mountpoint for udev to store
+the data, so that the real root will not overmount it, which
+would make it invisible.
+
+The command 'udevadm info --convert-db' is gone. The udev daemon
+itself, at startup, converts any old database version if necessary.
+
 udev 166
 ========
 Bugfixes.

@@ -147,7 +147,7 @@ int main(int argc, char **argv)
 	}
 
 	util_path_encode(firmware, fwencpath, sizeof(fwencpath));
-	util_strscpyl(misspath, sizeof(misspath), udev_get_dev_path(udev), "/.udev/firmware-missing/", fwencpath, NULL);
+	util_strscpyl(misspath, sizeof(misspath), udev_get_dev_path(udev), "/.run/udev/firmware-missing/", fwencpath, NULL);
 	util_strscpyl(loadpath, sizeof(loadpath), udev_get_sys_path(udev), devpath, "/loading", NULL);
 
 	if (fwfile == NULL) {

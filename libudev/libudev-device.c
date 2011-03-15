@@ -237,24 +237,30 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
 	return udev_list_entry_get_value(list_entry);
 }
 
-int udev_device_read_db(struct udev_device *udev_device)
+int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
 {
-	const char *id;
 	char filename[UTIL_PATH_SIZE];
 	char line[UTIL_LINE_SIZE];
 	FILE *f;
 
-	if (udev_device->db_loaded)
-		return 0;
-	udev_device->db_loaded = true;
+	/* providing a database file will always force-load it */
+	if (dbfile == NULL) {
+		const char *id;
 
-	id = udev_device_get_id_filename(udev_device);
-	if (id == NULL)
-		return -1;
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/.udev/db/", id, NULL);
-	f = fopen(filename, "re");
+		if (udev_device->db_loaded)
+			return 0;
+		udev_device->db_loaded = true;
+
+		id = udev_device_get_id_filename(udev_device);
+		if (id == NULL)
+			return -1;
+		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/.run/udev/db3/", id, NULL);
+		dbfile = filename;
+	}
+
+	f = fopen(dbfile, "re");
 	if (f == NULL) {
-		info(udev_device->udev, "no db file to read %s: %m\n", filename);
+		info(udev_device->udev, "no db file to read %s: %m\n", dbfile);
 		return -1;
 	}
 	udev_device->is_initialized = true;
@@ -908,7 +914,7 @@ const char *udev_device_get_devnode(struct udev_device *udev_device)
 		return NULL;
 	if (!udev_device->info_loaded) {
 		udev_device_read_uevent_file(udev_device);
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	}
 
 	/* we might get called before we handled an event and have a db, use the kernel-provided name */
@@ -1002,7 +1008,7 @@ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->info_loaded)
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	return udev_list_get_entry(&udev_device->devlinks_list);
 }
 
@@ -1030,7 +1036,7 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
 		return NULL;
 	if (!udev_device->info_loaded) {
 		udev_device_read_uevent_file(udev_device);
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	}
 	if (!udev_device->devlinks_uptodate) {
 		char symlinks[UTIL_PATH_SIZE];
@@ -1154,7 +1160,7 @@ unsigned long long int udev_device_get_usec_since_initialized(struct udev_device
 	if (udev_device == NULL)
 		return 0;
 	if (!udev_device->info_loaded)
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	if (udev_device->usec_initialized == 0)
 		return 0;
 	now = usec_monotonic();
@@ -1471,7 +1477,7 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device)
 int udev_device_get_is_initialized(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	return udev_device->is_initialized;
 }
 
@@ -1519,7 +1525,7 @@ int udev_device_has_tag(struct udev_device *udev_device, const char *tag)
 	struct udev_list_entry *list_entry;
 
 	if (!udev_device->info_loaded)
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	list_entry = udev_device_get_tags_list_entry(udev_device);
 	list_entry =  udev_list_entry_get_by_name(list_entry, tag);
 	if (list_entry != NULL)
@@ -1689,7 +1695,7 @@ int udev_device_set_timeout(struct udev_device *udev_device, int timeout)
 int udev_device_get_event_timeout(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	return udev_device->event_timeout;
 }
 
@@ -1729,7 +1735,7 @@ int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 int udev_device_get_devlink_priority(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	return udev_device->devlink_priority;
 }
 
@@ -1742,7 +1748,7 @@ int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio)
 int udev_device_get_watch_handle(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		udev_device_read_db(udev_device);
+		udev_device_read_db(udev_device, NULL);
 	return udev_device->watch_handle;
 }
 
