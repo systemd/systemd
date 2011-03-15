@@ -1,0 +1,190 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-nspawn">
+
+        <refentryinfo>
+                <title>systemd-nspawn</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-nspawn</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-nspawn</refname>
+                <refpurpose>Spawn a namespace container for debugging, testing and building</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-nspawn <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">COMMAND</arg> <arg choice="opt" rep="repeat">ARGS</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-nspawn</command> may be used to
+                run a command or OS in a light-weight namespace
+                container. In many ways it is similar to
+                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                but more powerful since it fully virtualizes the file
+                system hierachy, as well as the process tree, the
+                various IPC subsystems and the host and domain
+                name.</para>
+
+                <para><command>systemd-nspawn</command> limits access
+                to various kernel interfaces in the container to
+                read-only, such as <filename>/sys</filename>,
+                <filename>/proc/sys</filename> or
+                <filename>/selinux</filename>. Network interfaces and
+                the system clock may not be changed from within the
+                container. Device nodes may not be created. The host
+                system cannot be rebooted and kernel modules may not
+                be loaded from within the container.</para>
+
+                <para>Note that even though these security precautions
+                are taken <command>systemd-nspawn</command> is not
+                suitable for secure container setups. Many of the
+                security features may be circumvented and are hence
+                primarily useful to avoid accidental changes to the
+                host system from the container. The intended use of
+                this program is debugging and testing as well as
+                building of packages, distributions and software
+                involved with boot and systems management.</para>
+
+                <para>In contrast to
+                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <command>systemd-nspawn</command> may be used to boot
+                full Linux-based operating systems in a
+                container.</para>
+
+                <para>Use a tool like
+                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry> or <citerefentry><refentrytitle>mock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to set up an OS directory tree suitable as file system
+                hierarchy for <command>systemd-nspawn</command> containers.</para>
+
+                <para>Note that <command>systemd-nspawn</command> will
+                mount file systems private to the container to
+                <filename>/dev</filename>,
+                <filename>/dev/.run</filename> and similar. These will
+                not be visible outside of the container, and their
+                contents will be lost when the container exits.</para>
+
+                <para>Note that running two
+                <command>systemd-nspawn</command> containers from the
+                same directory tree will not make processes in them
+                see each other. The PID namespace seperation of the
+                two containers is complete and the containers will
+                share very few runtime objects except for the
+                underlying file system.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>If no arguments are passed the container is set
+                up and a shell started in it, otherwise the passed
+                command and arguments are executed in it. The
+                following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--directory=</option></term>
+                                <term><option>--D</option></term>
+
+                                <listitem><para>Directory to use as
+                                file system root for the namespace
+                                container. If omitted the current
+                                directory will be
+                                used.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Example 1</title>
+
+                <programlisting># debootstrap --arch=amd64 unstable debian-tree/
+# systemd-nspawn -D debian-tree/</programlisting>
+
+                <para>This installs a minimal Debian unstable
+                distribution into the directory
+                <filename>debian-tree/</filename> and then spawns a
+                shell in a namespace container in it.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Example 2</title>
+
+                <programlisting># mock --init
+# systemd-nspawn -D /var/lib/mock/fedora-rawhide-x86_64/root/ /bin/systemd systemd.log_level=debug</programlisting>
+
+                <para>This installs a minimal Fedora distribution into
+                a subdirectory of <filename>/var/lib/mock/</filename>
+                and then boots an OS in a namespace container in it,
+                with systemd as init system, configured for debug
+                logging.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>The exit code of the program executed in the
+                container is returned.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>mock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
