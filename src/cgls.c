@@ -112,8 +112,12 @@ int main(int argc, char *argv[]) {
 
                         if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &root)) < 0)
                                 t = "/";
-                        else
-                                t = root;
+                        else {
+                                if (endswith(root, "/system"))
+                                        root[strlen(root)-7] = 0;
+
+                                t = root[0] ? root : "/";
+                        }
 
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, t, NULL, 0);
                         free(root);
