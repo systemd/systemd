@@ -484,6 +484,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         const char *p;
         char *mp;
         int r;
+        static __thread bool good = false;
 
         assert(controller);
         assert(fs);
@@ -504,9 +505,14 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (asprintf(&mp, "/sys/fs/cgroup/%s", p) < 0)
                 return -ENOMEM;
 
-        if ((r = path_is_mount_point(mp)) <= 0) {
-                free(mp);
-                return r < 0 ? r : -ENOENT;
+        if (!good) {
+                if ((r = path_is_mount_point(mp)) <= 0) {
+                        free(mp);
+                        return r < 0 ? r : -ENOENT;
+                }
+
+                /* Cache this to save a few stat()s */
+                good = true;
         }
 
         if (path && suffix)
