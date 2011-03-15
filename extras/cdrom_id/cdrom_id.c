@@ -261,168 +261,8 @@ static int cd_inquiry(struct udev *udev, int fd) {
 	return 0;
 }
 
-static int feature_profiles(struct udev *udev, const unsigned char *profiles, size_t size)
+static void feature_profile_media(struct udev *udev, int cur_profile)
 {
-	unsigned int i;
-
-	for (i = 0; i+4 <= size; i += 4) {
-		int profile;
-
-		profile = profiles[i] << 8 | profiles[i+1];
-		switch (profile) {
-		case 0x03:
-		case 0x04:
-		case 0x05:
-			info(udev, "profile 0x%02x mo\n", profile);
-			cd_mo = 1;
-			break;
-		case 0x08:
-			info(udev, "profile 0x%02x cd_rom\n", profile);
-			cd_cd_rom = 1;
-			break;
-		case 0x09:
-			info(udev, "profile 0x%02x cd_r\n", profile);
-			cd_cd_r = 1;
-			break;
-		case 0x0A:
-			info(udev, "profile 0x%02x cd_rw\n", profile);
-			cd_cd_rw = 1;
-			break;
-		case 0x10:
-			info(udev, "profile 0x%02x dvd_rom\n", profile);
-			cd_dvd_rom = 1;
-			break;
-		case 0x12:
-			info(udev, "profile 0x%02x dvd_ram\n", profile);
-			cd_dvd_ram = 1;
-			break;
-		case 0x13:
-		case 0x14:
-			info(udev, "profile 0x%02x dvd_rw\n", profile);
-			cd_dvd_rw = 1;
-			break;
-		case 0x1B:
-			info(udev, "profile 0x%02x dvd_plus_r\n", profile);
-			cd_dvd_plus_r = 1;
-			break;
-		case 0x1A:
-			info(udev, "profile 0x%02x dvd_plus_rw\n", profile);
-			cd_dvd_plus_rw = 1;
-			break;
-		case 0x2A:
-			info(udev, "profile 0x%02x dvd_plus_rw_dl\n", profile);
-			cd_dvd_plus_rw_dl = 1;
-			break;
-		case 0x2B:
-			info(udev, "profile 0x%02x dvd_plus_r_dl\n", profile);
-			cd_dvd_plus_r_dl = 1;
-			break;
-		case 0x40:
-			cd_bd = 1;
-			info(udev, "profile 0x%02x bd\n", profile);
-			break;
-		case 0x41:
-		case 0x42:
-			cd_bd_r = 1;
-			info(udev, "profile 0x%02x bd_r\n", profile);
-			break;
-		case 0x43:
-			cd_bd_re = 1;
-			info(udev, "profile 0x%02x bd_re\n", profile);
-			break;
-		case 0x50:
-			cd_hddvd = 1;
-			info(udev, "profile 0x%02x hddvd\n", profile);
-			break;
-		case 0x51:
-			cd_hddvd_r = 1;
-			info(udev, "profile 0x%02x hddvd_r\n", profile);
-			break;
-		case 0x52:
-			cd_hddvd_rw = 1;
-			info(udev, "profile 0x%02x hddvd_rw\n", profile);
-			break;
-		default:
-			info(udev, "profile 0x%02x <ignored>\n", profile);
-			break;
-		}
-	}
-	return 0;
-}
-
-static int cd_profiles_old_mmc(struct udev *udev, int fd)
-{
-	struct scsi_cmd sc;
-	int err;
-
-	unsigned char header[32];
-
-	scsi_cmd_init(udev, &sc, header, sizeof(header));
-	scsi_cmd_set(udev, &sc, 0, 0x51);
-	scsi_cmd_set(udev, &sc, 8, sizeof(header));
-	scsi_cmd_set(udev, &sc, 9, 0);
-	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
-	if ((err != 0)) {
-		info_scsi_cmd_err(udev, "READ DISC INFORMATION", err);
-		if (cd_media == 1) {
-			info(udev, "no current profile, but disc is present; assuming CD-ROM\n");
-			cd_media_cd_rom = 1;
-			return 0;
-		} else {
-			info(udev, "no current profile, assuming no media\n");
-			return -1;
-		}
-	};
-
-	cd_media = 1;
-
-	if (header[2] & 16) {
-		cd_media_cd_rw = 1;
-		info(udev, "profile 0x0a media_cd_rw\n");
-	} else if ((header[2] & 3) < 2 && cd_cd_r) {
-		cd_media_cd_r = 1;
-		info(udev, "profile 0x09 media_cd_r\n");
-	} else {
-		cd_media_cd_rom = 1;
-		info(udev, "profile 0x08 media_cd_rom\n");
-	}
-	return 0;
-}
-
-static int cd_profiles(struct udev *udev, int fd)
-{
-	struct scsi_cmd sc;
-	unsigned char features[65530];
-	unsigned int cur_profile = 0;
-	unsigned int len;
-	unsigned int i;
-	int err;
-
-	/* First query the current profile */
-	scsi_cmd_init(udev, &sc, features, sizeof(features));
-	scsi_cmd_set(udev, &sc, 0, 0x46);
-	scsi_cmd_set(udev, &sc, 8, 8);
-	scsi_cmd_set(udev, &sc, 9, 0);
-	err = scsi_cmd_run(udev, &sc, fd, features, 8);
-	if ((err != 0)) {
-		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
-		/* handle pre-MMC2 drives which do not support GET CONFIGURATION */
-		if (SK(err) == 0x5 && ASC(err) == 0x20) {
-			info(udev, "drive is pre-MMC2 and does not support 46h get configuration command\n");
-			info(udev, "trying to work around the problem\n");
-			return cd_profiles_old_mmc(udev, fd);
-		}
-		return -1;
-	}
-
-	cur_profile = features[6] << 8 | features[7];
-	if (cur_profile > 0) {
-		info(udev, "current profile 0x%02x\n", cur_profile);
-	} else {
-		info(udev, "no current profile, assuming no media\n");
-		return -1;
-	}
-
 	switch (cur_profile) {
 	case 0x03:
 	case 0x04:
@@ -528,7 +368,175 @@ static int cd_profiles(struct udev *udev, int fd)
 		info(udev, "profile 0x%02x <ignored>\n", cur_profile);
 		break;
 	}
+}
 
+static int feature_profiles(struct udev *udev, const unsigned char *profiles, size_t size)
+{
+	unsigned int i;
+
+	for (i = 0; i+4 <= size; i += 4) {
+		int profile;
+
+		profile = profiles[i] << 8 | profiles[i+1];
+		switch (profile) {
+		case 0x03:
+		case 0x04:
+		case 0x05:
+			info(udev, "profile 0x%02x mo\n", profile);
+			cd_mo = 1;
+			break;
+		case 0x08:
+			info(udev, "profile 0x%02x cd_rom\n", profile);
+			cd_cd_rom = 1;
+			break;
+		case 0x09:
+			info(udev, "profile 0x%02x cd_r\n", profile);
+			cd_cd_r = 1;
+			break;
+		case 0x0A:
+			info(udev, "profile 0x%02x cd_rw\n", profile);
+			cd_cd_rw = 1;
+			break;
+		case 0x10:
+			info(udev, "profile 0x%02x dvd_rom\n", profile);
+			cd_dvd_rom = 1;
+			break;
+		case 0x12:
+			info(udev, "profile 0x%02x dvd_ram\n", profile);
+			cd_dvd_ram = 1;
+			break;
+		case 0x13:
+		case 0x14:
+			info(udev, "profile 0x%02x dvd_rw\n", profile);
+			cd_dvd_rw = 1;
+			break;
+		case 0x1B:
+			info(udev, "profile 0x%02x dvd_plus_r\n", profile);
+			cd_dvd_plus_r = 1;
+			break;
+		case 0x1A:
+			info(udev, "profile 0x%02x dvd_plus_rw\n", profile);
+			cd_dvd_plus_rw = 1;
+			break;
+		case 0x2A:
+			info(udev, "profile 0x%02x dvd_plus_rw_dl\n", profile);
+			cd_dvd_plus_rw_dl = 1;
+			break;
+		case 0x2B:
+			info(udev, "profile 0x%02x dvd_plus_r_dl\n", profile);
+			cd_dvd_plus_r_dl = 1;
+			break;
+		case 0x40:
+			cd_bd = 1;
+			info(udev, "profile 0x%02x bd\n", profile);
+			break;
+		case 0x41:
+		case 0x42:
+			cd_bd_r = 1;
+			info(udev, "profile 0x%02x bd_r\n", profile);
+			break;
+		case 0x43:
+			cd_bd_re = 1;
+			info(udev, "profile 0x%02x bd_re\n", profile);
+			break;
+		case 0x50:
+			cd_hddvd = 1;
+			info(udev, "profile 0x%02x hddvd\n", profile);
+			break;
+		case 0x51:
+			cd_hddvd_r = 1;
+			info(udev, "profile 0x%02x hddvd_r\n", profile);
+			break;
+		case 0x52:
+			cd_hddvd_rw = 1;
+			info(udev, "profile 0x%02x hddvd_rw\n", profile);
+			break;
+		default:
+			info(udev, "profile 0x%02x <ignored>\n", profile);
+			break;
+		}
+	}
+	return 0;
+}
+
+/* returns 0 if media was detected */
+static int cd_profiles_old_mmc(struct udev *udev, int fd)
+{
+	struct scsi_cmd sc;
+	int err;
+
+	unsigned char header[32];
+
+	scsi_cmd_init(udev, &sc, header, sizeof(header));
+	scsi_cmd_set(udev, &sc, 0, 0x51);
+	scsi_cmd_set(udev, &sc, 8, sizeof(header));
+	scsi_cmd_set(udev, &sc, 9, 0);
+	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
+	if ((err != 0)) {
+		info_scsi_cmd_err(udev, "READ DISC INFORMATION", err);
+		if (cd_media == 1) {
+			info(udev, "no current profile, but disc is present; assuming CD-ROM\n");
+			cd_media_cd_rom = 1;
+			return 0;
+		} else {
+			info(udev, "no current profile, assuming no media\n");
+			return -1;
+		}
+	};
+
+	cd_media = 1;
+
+	if (header[2] & 16) {
+		cd_media_cd_rw = 1;
+		info(udev, "profile 0x0a media_cd_rw\n");
+	} else if ((header[2] & 3) < 2 && cd_cd_r) {
+		cd_media_cd_r = 1;
+		info(udev, "profile 0x09 media_cd_r\n");
+	} else {
+		cd_media_cd_rom = 1;
+		info(udev, "profile 0x08 media_cd_rom\n");
+	}
+	return 0;
+}
+
+/* returns 0 if media was detected */
+static int cd_profiles(struct udev *udev, int fd)
+{
+	struct scsi_cmd sc;
+	unsigned char features[65530];
+	unsigned int cur_profile = 0;
+	unsigned int len;
+	unsigned int i;
+	int err;
+	int ret;
+
+	ret = -1;
+
+	/* First query the current profile */
+	scsi_cmd_init(udev, &sc, features, sizeof(features));
+	scsi_cmd_set(udev, &sc, 0, 0x46);
+	scsi_cmd_set(udev, &sc, 8, 8);
+	scsi_cmd_set(udev, &sc, 9, 0);
+	err = scsi_cmd_run(udev, &sc, fd, features, 8);
+	if ((err != 0)) {
+		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
+		/* handle pre-MMC2 drives which do not support GET CONFIGURATION */
+		if (SK(err) == 0x5 && ASC(err) == 0x20) {
+			info(udev, "drive is pre-MMC2 and does not support 46h get configuration command\n");
+			info(udev, "trying to work around the problem\n");
+			ret = cd_profiles_old_mmc(udev, fd);
+		}
+		goto out;
+	}
+
+	cur_profile = features[6] << 8 | features[7];
+	if (cur_profile > 0) {
+		info(udev, "current profile 0x%02x\n", cur_profile);
+		feature_profile_media (udev, cur_profile);
+		ret = 0; /* we have media */
+	} else {
+		info(udev, "no current profile, assuming no media\n");
+	}
 
 	len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
 	info(udev, "GET CONFIGURATION: size of features buffer 0x%04x\n", len);
@@ -577,8 +585,8 @@ static int cd_profiles(struct udev *udev, int fd)
 			break;
 		}
 	}
-
-	return 0;
+out:
+	return ret;
 }
 
 static int cd_media_info(struct udev *udev, int fd)
@@ -905,8 +913,11 @@ int main(int argc, char *argv[])
 		goto print;
 
 	/* read drive and possibly current profile */
-	if (cd_profiles(udev, fd) < 0)
+	if (cd_profiles(udev, fd) != 0)
 		goto print;
+
+	/* at this point we are guaranteed to have media in the
+	 * drive - find out more about it */
 
 	/* get session/track info */
 	cd_media_toc(udev, fd);
