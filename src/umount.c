@@ -37,6 +37,7 @@
 typedef struct MountPoint {
         char *path;
         dev_t devnum;
+        bool skip_ro;
         LIST_FIELDS (struct MountPoint, mount_point);
 } MountPoint;
 
@@ -71,6 +72,8 @@ static int mount_points_list_get(MountPoint **head) {
         for (i = 1;; i++) {
                 int k;
                 MountPoint *m;
+                char *root;
+                bool skip_ro;
 
                 path = p = NULL;
 
@@ -78,7 +81,7 @@ static int mount_points_list_get(MountPoint **head) {
                                 "%*s "       /* (1) mount id */
                                 "%*s "       /* (2) parent id */
                                 "%*s "       /* (3) major:minor */
-                                "%*s "       /* (4) root */
+                                "%ms "       /* (4) root */
                                 "%ms "       /* (5) mount point */
                                 "%*s"        /* (6) mount options */
                                 "%*[^-]"     /* (7) optional fields */
@@ -87,7 +90,8 @@ static int mount_points_list_get(MountPoint **head) {
                                 "%*s"        /* (10) mount source */
                                 "%*s"        /* (11) mount options 2 */
                                 "%*[^\n]",   /* some rubbish at the end */
-                                &path)) != 1) {
+                                &root,
+                                &path)) != 2) {
                         if (k == EOF)
                                 break;
 
@@ -96,6 +100,13 @@ static int mount_points_list_get(MountPoint **head) {
                         free(path);
                         continue;
                 }
+
+                /* If we encounter a bind mount, don't try to remount
+                 * the source dir too early */
+                if (!streq(root, "/"))
+                        skip_ro = true;
+
+                free(root);
 
                 p = cunescape(path);
                 free(path);
@@ -117,6 +128,7 @@ static int mount_points_list_get(MountPoint **head) {
                 }
 
                 m->path = p;
+                m->skip_ro = skip_ro;
                 LIST_PREPEND(MountPoint, mount_point, *head, m);
         }
 
@@ -427,6 +439,11 @@ static int mount_points_list_remount_read_only(MountPoint **head, bool *changed)
         assert(head);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+
+                if (m->skip_ro) {
+                        n_failed++;
+                        continue;
+                }
 
                 /* Trying to remount read-only */
                 if (mount(NULL, m->path, NULL, MS_MGC_VAL|MS_REMOUNT|MS_RDONLY, NULL) == 0) {
