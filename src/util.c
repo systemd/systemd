@@ -3524,7 +3524,7 @@ int touch(const char *path) {
 
         assert(path);
 
-        if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666)) < 0)
+        if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644)) < 0)
                 return -errno;
 
         close_nointr_nofail(fd);
