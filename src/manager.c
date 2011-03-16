@@ -2070,7 +2070,9 @@ static int manager_process_signal_fd(Manager *m) {
                         return -errno;
                 }
 
-                get_process_name(sfsi.ssi_pid, &p);
+                if (sfsi.ssi_pid > 0)
+                        get_process_name(sfsi.ssi_pid, &p);
+
                 log_debug("Received SIG%s from PID %lu (%s)",
                           strna(signal_to_string(sfsi.ssi_signo)),
                           (unsigned long) sfsi.ssi_pid, strna(p));

@@ -354,7 +354,9 @@ static int write_message(Server *s, const char *buf, struct ucred *ucred) {
         /* Then, add process if set */
         if (read_process(&buf, &iovec[i]) > 0)
                 i++;
-        else if (ucred && get_process_name(ucred->pid, &process) >= 0)
+        else if (ucred &&
+                 ucred->pid > 0 &&
+                 get_process_name(ucred->pid, &process) >= 0)
                 IOVEC_SET_STRING(iovec[i++], process);
 
         /* Skip the stored PID if we have a better one */
