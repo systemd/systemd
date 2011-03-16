@@ -125,9 +125,9 @@ static int mount_all(const char *dest) {
 
         unsigned k;
         int r = 0;
+        char *where;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
-                char *where;
                 int t;
 
                 if (asprintf(&where, "%s/%s", dest, mount_table[k].where) < 0) {
@@ -164,6 +164,13 @@ static int mount_all(const char *dest) {
                                 r = -errno;
                 }
 
+                free(where);
+        }
+
+        /* Fix the timezone, if possible */
+        if (asprintf(&where, "%s/%s", dest, "/etc/localtime") >= 0) {
+                mount("/etc/localtime", where, "bind", MS_BIND, NULL);
+                mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
                 free(where);
         }
 
