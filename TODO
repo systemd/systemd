@@ -26,6 +26,8 @@ F15:
 
 * recreate private socket on SIGUSR2
 
+* serialize condition execution information
+
 Features:
 
 * optionally create watched directories in .path units

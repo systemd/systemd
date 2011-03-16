@@ -271,10 +271,14 @@ int ask_password_agent(
         FILE *f = NULL;
         char *socket_name = NULL;
         int socket_fd = -1, signal_fd = -1;
-        sigset_t mask;
+        sigset_t mask, oldmask;
         struct pollfd pollfd[_FD_MAX];
 
         assert(_passphrases);
+
+        assert_se(sigemptyset(&mask) == 0);
+        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
+        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
 
         mkdir_p("/dev/.run/systemd/ask-password", 0755);
 
@@ -293,10 +297,6 @@ int ask_password_agent(
         }
 
         fd = -1;
-
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         if ((signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0) {
                 log_error("signalfd(): %m");
@@ -492,6 +492,8 @@ finish:
 
         if (final[0])
                 unlink(final);
+
+        assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) == 0);
 
         return r;
 }
