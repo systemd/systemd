@@ -371,7 +371,6 @@ static int process_pty(int master, sigset_t *mask) {
         size_t in_buffer_full = 0, out_buffer_full = 0;
         struct epoll_event stdin_ev, stdout_ev, master_ev, signal_ev;
         bool stdin_readable = false, stdout_writable = false, master_readable = false, master_writable = false;
-        bool stdin_rhup = false, stdout_whup = false, master_rhup = false, master_whup = false;
         int ep = -1, signal_fd = -1, r;
 
         fd_nonblock(STDIN_FILENO, 1);
@@ -415,7 +414,7 @@ static int process_pty(int master, sigset_t *mask) {
                 goto finish;
         }
 
-        do {
+        for (;;) {
                 struct epoll_event ev[16];
                 ssize_t k;
                 int i, nfds;
@@ -435,30 +434,20 @@ static int process_pty(int master, sigset_t *mask) {
                 for (i = 0; i < nfds; i++) {
                         if (ev[i].data.fd == STDIN_FILENO) {
 
-                                if (!stdin_rhup && (ev[i].events & (EPOLLHUP|EPOLLIN)))
+                                if (ev[i].events & (EPOLLIN|EPOLLHUP))
                                         stdin_readable = true;
 
                         } else if (ev[i].data.fd == STDOUT_FILENO) {
 
-                                if (ev[i].events & EPOLLHUP) {
-                                        stdout_writable = false;
-                                        stdout_whup = true;
-                                }
-
-                                if (!stdout_whup && (ev[i].events & EPOLLOUT))
+                                if (ev[i].events & (EPOLLOUT|EPOLLHUP))
                                         stdout_writable = true;
 
                         } else if (ev[i].data.fd == master) {
 
-                                /* We don't connect EPOLLHUP to
-                                 * master_whup here, since EPOLLHUP
-                                 * can happen when noone has opened
-                                 * the other side */
-
-                                if (!master_rhup && (ev[i].events & (EPOLLHUP|EPOLLIN)))
+                                if (ev[i].events & (EPOLLIN|EPOLLHUP))
                                         master_readable = true;
 
-                                if (!master_whup && (ev[i].events & EPOLLOUT))
+                                if (ev[i].events & (EPOLLOUT|EPOLLHUP))
                                         master_writable = true;
 
                         } else if (ev[i].data.fd == signal_fd) {
@@ -482,7 +471,6 @@ static int process_pty(int master, sigset_t *mask) {
                                                 struct winsize ws;
 
                                                 /* The window size changed, let's forward that. */
-
                                                 if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
                                                         ioctl(master, TIOCSWINSZ, &ws);
                                         } else {
@@ -502,34 +490,23 @@ static int process_pty(int master, sigset_t *mask) {
 
                                 if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, BUFFER_SIZE - in_buffer_full)) < 0) {
 
-                                        if (errno == EAGAIN)
+                                        if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 stdin_readable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET || errno == EIO)
-                                                k = 0;
                                         else {
                                                 log_error("read(): %m");
                                                 goto finish;
                                         }
                                 } else
                                         in_buffer_full += (size_t) k;
-
-                                if (k == 0) {
-                                        stdin_rhup = true;
-                                        stdin_readable = false;
-                                        shutdown(STDIN_FILENO, SHUT_RD);
-                                }
                         }
 
                         if (master_writable && in_buffer_full > 0) {
 
                                 if ((k = write(master, in_buffer, in_buffer_full)) < 0) {
 
-                                        if (errno == EAGAIN)
+                                        if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 master_writable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
-                                                master_whup = true;
-                                                master_writable = false;
-                                        } else {
+                                        else {
                                                 log_error("write(): %m");
                                                 goto finish;
                                         }
@@ -545,33 +522,23 @@ static int process_pty(int master, sigset_t *mask) {
 
                                 if ((k = read(master, out_buffer + out_buffer_full, BUFFER_SIZE - out_buffer_full)) < 0) {
 
-                                        if (errno == EAGAIN)
+                                        if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 master_readable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET || errno == EIO)
-                                                k = 0;
                                         else {
                                                 log_error("read(): %m");
                                                 goto finish;
                                         }
                                 }  else
                                         out_buffer_full += (size_t) k;
-
-                                if (k == 0) {
-                                        master_rhup = true;
-                                        master_readable = false;
-                                }
                         }
 
                         if (stdout_writable && out_buffer_full > 0) {
 
                                 if ((k = write(STDOUT_FILENO, out_buffer, out_buffer_full)) < 0) {
 
-                                        if (errno == EAGAIN)
+                                        if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 stdout_writable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
-                                                stdout_whup = true;
-                                                stdout_writable = false;
-                                        } else {
+                                        else {
                                                 log_error("write(): %m");
                                                 goto finish;
                                         }
@@ -583,19 +550,7 @@ static int process_pty(int master, sigset_t *mask) {
                                 }
                         }
                 }
-
-                if (stdin_rhup && in_buffer_full <= 0 && !master_whup) {
-                        master_whup = true;
-                        master_writable = false;
-                }
-
-                if (master_rhup && out_buffer_full <= 0 && !stdout_whup) {
-                        stdout_whup = true;
-                        stdout_writable = false;
-                        shutdown(STDOUT_FILENO, SHUT_WR);
-                }
-
-        } while (!stdout_whup || !master_whup);
+        }
 
 finish:
         if (ep >= 0)
