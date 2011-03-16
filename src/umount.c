@@ -103,9 +103,7 @@ static int mount_points_list_get(MountPoint **head) {
 
                 /* If we encounter a bind mount, don't try to remount
                  * the source dir too early */
-                if (!streq(root, "/"))
-                        skip_ro = true;
-
+                skip_ro = !streq(root, "/");
                 free(root);
 
                 p = cunescape(path);
