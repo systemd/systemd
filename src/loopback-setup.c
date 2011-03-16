@@ -265,7 +265,7 @@ int loopback_setup(void) {
 
 finish:
         if (r < 0)
-                log_error("Failed to configure loopback device: %s", strerror(-r));
+                log_warning("Failed to configure loopback device: %s", strerror(-r));
 
         if (fd >= 0)
                 close_nointr_nofail(fd);
