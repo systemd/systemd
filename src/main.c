@@ -828,30 +828,28 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-        if (optind < argc) {
-                if (getpid() != 1) {
-                        /* Hmm, when we aren't run as init system
-                         * let's complain about excess arguments */
+        if (optind < argc && getpid() != 1) {
+                /* Hmm, when we aren't run as init system
+                 * let's complain about excess arguments */
 
-                        log_error("Excess arguments.");
-                        return -EINVAL;
+                log_error("Excess arguments.");
+                return -EINVAL;
+        }
 
-                } else if (detect_container(NULL) > 0) {
-                        char **a;
+        if (detect_container(NULL) > 0) {
+                char **a;
 
-                        /* All /proc/cmdline arguments the kernel
-                         * didn't understand it passed to us. We're
-                         * note really interested in that usually
-                         * since /proc/cmdline is more interesting and
-                         * complete. With one exception: if we are run
-                         * in a container /proc/cmdline is not
-                         * relevant for us, hence we rely on argv[]
-                         * instead. */
+                /* All /proc/cmdline arguments the kernel didn't
+                 * understand it passed to us. We're not really
+                 * interested in that usually since /proc/cmdline is
+                 * more interesting and complete. With one exception:
+                 * if we are run in a container /proc/cmdline is not
+                 * relevant for the container, hence we rely on argv[]
+                 * instead. */
 
-                        for (a = argv; a < argv + argc; a++)
-                                if ((r = parse_proc_cmdline_word(*a)) < 0)
-                                        return r;
-                }
+                for (a = argv; a < argv + argc; a++)
+                        if ((r = parse_proc_cmdline_word(*a)) < 0)
+                                return r;
         }
 
         return 0;
