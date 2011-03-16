@@ -848,7 +848,7 @@ static int parse_argv(int argc, char *argv[]) {
                          * relevant for us, hence we rely on argv[]
                          * instead. */
 
-                        for (a = argv + optind; a < argv + argc; a++)
+                        for (a = argv; a < argv + argc; a++)
                                 if ((r = parse_proc_cmdline_word(*a)) < 0)
                                         return r;
                 }
