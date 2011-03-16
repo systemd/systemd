@@ -227,7 +227,6 @@ static int parse_proc_cmdline_word(const char *word) {
         static const char * const rlmap[] = {
                 "emergency", SPECIAL_EMERGENCY_TARGET,
                 "-b",        SPECIAL_EMERGENCY_TARGET,
-                "b",         SPECIAL_EMERGENCY_TARGET,
                 "single",    SPECIAL_RESCUE_TARGET,
                 "-s",        SPECIAL_RESCUE_TARGET,
                 "s",         SPECIAL_RESCUE_TARGET,
