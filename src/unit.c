@@ -647,6 +647,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         condition_dump_list(u->meta.conditions, f, prefix);
 
+        if (dual_timestamp_is_set(&u->meta.condition_timestamp))
+                fprintf(f,
+                        "%s\tCondition Timestamp: %s\n"
+                        "%s\tCondition Result: %s\n",
+                        prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.condition_timestamp.realtime)),
+                        prefix, yes_no(u->meta.condition_result));
+
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 Unit *other;
 
@@ -2080,6 +2087,10 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
         dual_timestamp_serialize(f, "active-enter-timestamp", &u->meta.active_enter_timestamp);
         dual_timestamp_serialize(f, "active-exit-timestamp", &u->meta.active_exit_timestamp);
         dual_timestamp_serialize(f, "inactive-enter-timestamp", &u->meta.inactive_enter_timestamp);
+        dual_timestamp_serialize(f, "condition-timestamp", &u->meta.condition_timestamp);
+
+        if (dual_timestamp_is_set(&u->meta.condition_timestamp))
+                unit_serialize_item(u, f, "condition-result", yes_no(u->meta.condition_result));
 
         /* End marker */
         fputc('\n', f);
@@ -2169,6 +2180,16 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else if (streq(l, "inactive-enter-timestamp")) {
                         dual_timestamp_deserialize(v, &u->meta.inactive_enter_timestamp);
                         continue;
+                } else if (streq(l, "condition-timestamp")) {
+                        dual_timestamp_deserialize(v, &u->meta.condition_timestamp);
+                        continue;
+                } else if (streq(l, "condition-result")) {
+                        int b;
+
+                        if ((b = parse_boolean(v)) < 0)
+                                log_debug("Failed to parse condition result value %s", v);
+                        else
+                                u->meta.condition_result = b;
                 }
 
                 if ((r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds)) < 0)

@@ -22,25 +22,23 @@ F15:
 
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
 
-* capability_bounding_set_drop not used.
-
-* recreate private socket on SIGUSR2
-
-* serialize condition execution information
+* capability_bounding_set_drop not used
 
 * rework syslog.service being up logic in PID 1
 
 * rsyslog.service should hook itself into syslog.target?
 
-* syslog.target should be pulled in by multi-user.target
-
-* don't strip facility from kmsg log messages as soon as that is possible.
+* syslog.target should be pulled in by multi-user.target?
 
 * pull in .service from meta .targers AND vice versa too. i.e. syslog.target ←→ rsyslog.service, rpcbind similarly
 
 * drop Names= option?
 
 Features:
+
+* don't strip facility from kmsg log messages as soon as that is possible.
+
+* recreate private socket on SIGUSR2
 
 * optionally create watched directories in .path units
 
