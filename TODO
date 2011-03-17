@@ -21,6 +21,7 @@ F15:
 * bind mounts are ignored
 
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
+  (path: after installing inotify watches, recheck file again to fix race)
 
 * capability_bounding_set_drop not used
 
@@ -32,13 +33,24 @@ F15:
 
 * pull in .service from meta .targers AND vice versa too. i.e. syslog.target ←→ rsyslog.service, rpcbind similarly
 
-* drop Names= option?
+* drop Names= option? Symlinks only should be used. We don't want to need to read all service files.
 
 Features:
-
 * don't strip facility from kmsg log messages as soon as that is possible.
+  http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d90c8d9cde929cbc575098e825d7c29d9f45054
 
-* recreate private socket on SIGUSR2
+* recreate systemd'd D-Bus private socket file on SIGUSR2
+
+* be more specific what failed:
+    Unmounting file systems.
+    Not all file systems unmounted, 1 left.
+    Disabling swaps.
+    Detaching loop devices.
+    Detaching DM devices.
+    Cannot finalize remaining file systems and devices, trying to kill remaining processes.
+    Unmounting file systems.
+    Not all file systems unmounted, 1 left.
+    Cannot finalize remaining file systems and devices, giving up.
 
 * optionally create watched directories in .path units
 
@@ -59,10 +71,12 @@ Features:
 * detect LXC environment
 
 * invoke vhangup() before and after invoking getty
+  http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3c95c985fa91ecf6a0e29622bbdd13dcfc5ce9f1
 
 * support "auto" and "comment=systemd.automount" at the same time for an fstab entry
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
+  (belongs into a distro pattern though, not in an upstream package's service file)
 
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
@@ -106,13 +120,9 @@ Features:
 * implicitly import "defaults" settings file into all types
 
 * port over to LISTEN_FDS/LISTEN_PID:
-   - uuidd    DONE
-   - dbus     DONE
-   - rsyslog  DONE
-   - rpcbind (/var/run/rpcbind.sock!) DONE
-   - cups     DONE
-   - avahi-daemon (/var/run/avahi-daemon/socket) DONE
-   - ssh      CLASSIC
+   - uuidd    HAVEPATCH
+   - rpcbind (/var/run/rpcbind.sock!) HAVEPATCH
+   - cups     HAVEPATCH
    - postfix, saslauthd
    - apache/samba
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
@@ -135,7 +145,7 @@ Features:
 
 * add systemctl switch to dump transaction without executing it
 
-* suspend, resume
+* suspend, resume support?
 
 * readahead: btrfs/LVM SSD detection
 
@@ -153,7 +163,7 @@ External:
 
 * snd-seq should go, https://bugzilla.redhat.com/show_bug.cgi?id=676095
 
-* gnome-shell python script/glxinfo/is-accelerated wech
+* gnome-shell python script/glxinfo/is-accelerated must die
 
 * make cryptsetup lower --iter-time
 
@@ -161,6 +171,7 @@ External:
 
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
     http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match
+  (Rafael J. Wysocki's sysdev rework is on the way. After that CPUs can be exported a proper bus.)
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 
