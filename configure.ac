@@ -28,6 +28,9 @@ AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
 
 AC_CANONICAL_HOST
 AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
+AS_IF([test "x$host_cpu" = "xmips" || test "x$host_cpu" = "xmipsel" ||
+       test "x$host_cpu" = "xmips64" || test "x$host_cpu" = "xmips64el"],
+      [AC_DEFINE(ARCH_MIPS, [], [Whether on mips arch])])
 
 AM_SILENT_RULES([yes])
 

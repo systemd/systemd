@@ -36,6 +36,10 @@
 
 #include "macro.h"
 
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 #ifndef RLIMIT_RTTIME
 #define RLIMIT_RTTIME 15
 #endif
@@ -77,19 +81,42 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 }
 
 #ifdef __x86_64__
-#ifndef __NR_fanotify_init
-#define __NR_fanotify_init 300
-#endif
-#ifndef __NR_fanotify_mark
-#define __NR_fanotify_mark 301
-#endif
+#  ifndef __NR_fanotify_init
+#    define __NR_fanotify_init 300
+#  endif
+#  ifndef __NR_fanotify_mark
+#    define __NR_fanotify_mark 301
+#  endif
+#elif defined _MIPS_SIM
+#  if _MIPS_SIM == _MIPS_SIM_ABI32
+#    ifndef __NR_fanotify_init
+#      define __NR_fanotify_init 4336
+#    endif
+#    ifndef __NR_fanotify_mark
+#      define __NR_fanotify_mark 4337
+#    endif
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    ifndef __NR_fanotify_init
+#      define __NR_fanotify_init 6300
+#    endif
+#    ifndef __NR_fanotify_mark
+#      define __NR_fanotify_mark 6301
+#    endif
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    ifndef __NR_fanotify_init
+#      define __NR_fanotify_init 5295
+#    endif
+#    ifndef __NR_fanotify_mark
+#      define __NR_fanotify_mark 5296
+#    endif
+#  endif
 #else
-#ifndef __NR_fanotify_init
-#define __NR_fanotify_init 338
-#endif
-#ifndef __NR_fanotify_mark
-#define __NR_fanotify_mark 339
-#endif
+#  ifndef __NR_fanotify_init
+#    define __NR_fanotify_init 338
+#  endif
+#  ifndef __NR_fanotify_mark
+#    define __NR_fanotify_mark 339
+#  endif
 #endif
 
 static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) {
