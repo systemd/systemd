@@ -58,6 +58,7 @@
         "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"FsckPassNo\" type=\"i\" access=\"read\"/>\n" \
+        "  <property name=\"Sockets\" type=\"as\" access=\"read\"/>\n" \
         BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                              \
        " </interface>\n"
 
@@ -118,6 +119,7 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid               },
                 { "org.freedesktop.systemd1.Service", "BusName",                bus_property_append_string, "s", u->service.bus_name                   },
                 { "org.freedesktop.systemd1.Service", "StatusText",             bus_property_append_string, "s", u->service.status_text                },
+                { "org.freedesktop.systemd1.Service", "Sockets",                bus_unit_append_dependencies, "as", u->service.configured_sockets         },
 #ifdef HAVE_SYSV_COMPAT
                 { "org.freedesktop.systemd1.Service", "SysVRunLevels",          bus_property_append_string, "s", u->service.sysv_runlevels             },
                 { "org.freedesktop.systemd1.Service", "SysVStartPriority",      bus_property_append_int,    "i", &u->service.sysv_start_priority       },
