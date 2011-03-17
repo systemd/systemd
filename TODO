@@ -28,6 +28,18 @@ F15:
 
 * serialize condition execution information
 
+* rework syslog.service being up logic in PID 1
+
+* rsyslog.service should hook itself into syslog.target?
+
+* syslog.target should be pulled in by multi-user.target
+
+* don't strip facility from kmsg log messages as soon as that is possible.
+
+* pull in .service from meta .targers AND vice versa too. i.e. syslog.target ←→ rsyslog.service, rpcbind similarly
+
+* drop Names= option?
+
 Features:
 
 * optionally create watched directories in .path units
