@@ -4098,7 +4098,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                                 argv[1] = file_name_from_path(sysv);
                                 argv[2] =
                                         streq(verb, "enable") ? "on" :
-                                        streq(verb, "disable") ? "off" : "--level=3";
+                                        streq(verb, "disable") ? "off" : "--level=5";
 
                                 log_info("Executing %s %s %s", argv[0], argv[1], strempty(argv[2]));
 
