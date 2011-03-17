@@ -27,8 +27,7 @@
 #include <dirent.h>
 
 #include "set.h"
-
-#define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
+#include "def.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
 int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f);

@@ -35,13 +35,12 @@
 #include "special.h"
 #include "bus-errors.h"
 #include "exit-status.h"
-
-#define COMMENTS "#;\n"
-#define NEWLINES "\n\r"
+#include "def.h"
+#include "util.h"
 
 #ifdef HAVE_SYSV_COMPAT
 
-#define DEFAULT_SYSV_TIMEOUT_USEC (3*USEC_PER_MINUTE)
+#define DEFAULT_SYSV_TIMEOUT_USEC (5*USEC_PER_MINUTE)
 
 typedef enum RunlevelType {
         RUNLEVEL_UP,

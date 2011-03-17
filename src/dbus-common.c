@@ -30,6 +30,7 @@
 #include "log.h"
 #include "dbus-common.h"
 #include "util.h"
+#include "def.h"
 
 int bus_check_peercred(DBusConnection *c) {
         int fd;
@@ -57,8 +58,6 @@ int bus_check_peercred(DBusConnection *c) {
         return 1;
 }
 
-#define TIMEOUT_USEC (60*USEC_PER_SEC)
-
 static int sync_auth(DBusConnection *bus, DBusError *error) {
         usec_t begin, tstamp;
 
@@ -71,13 +70,13 @@ static int sync_auth(DBusConnection *bus, DBusError *error) {
         begin = tstamp = now(CLOCK_MONOTONIC);
         for (;;) {
 
-                if (tstamp > begin + TIMEOUT_USEC)
+                if (tstamp > begin + DEFAULT_TIMEOUT_USEC)
                         break;
 
                 if (dbus_connection_get_is_authenticated(bus))
                         break;
 
-                if (!dbus_connection_read_write_dispatch(bus, ((begin + TIMEOUT_USEC - tstamp) + USEC_PER_MSEC - 1) / USEC_PER_MSEC))
+                if (!dbus_connection_read_write_dispatch(bus, ((begin + DEFAULT_TIMEOUT_USEC - tstamp) + USEC_PER_MSEC - 1) / USEC_PER_MSEC))
                         break;
 
                 tstamp = now(CLOCK_MONOTONIC);

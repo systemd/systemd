@@ -31,6 +31,7 @@
 #include "util.h"
 #include "strv.h"
 #include "ask-password-api.h"
+#include "def.h"
 
 static const char *opt_type = NULL; /* LUKS1 or PLAIN */
 static char *opt_cipher = NULL;
@@ -308,7 +309,7 @@ int main(int argc, char *argv[]) {
                 if (opt_readonly)
                         flags |= CRYPT_ACTIVATE_READONLY;
 
-                until = now(CLOCK_MONOTONIC) + (opt_timeout > 0 ? opt_timeout : 60 * USEC_PER_SEC);
+                until = now(CLOCK_MONOTONIC) + (opt_timeout > 0 ? opt_timeout : DEFAULT_TIMEOUT_USEC);
 
                 opt_tries = opt_tries > 0 ? opt_tries : 3;
                 opt_key_size = (opt_key_size > 0 ? opt_key_size : 256);

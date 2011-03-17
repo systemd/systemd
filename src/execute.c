@@ -55,6 +55,7 @@
 #include "exit-status.h"
 #include "missing.h"
 #include "utmp-wtmp.h"
+#include "def.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620

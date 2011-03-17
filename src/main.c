@@ -51,6 +51,7 @@
 #include "label.h"
 #include "build.h"
 #include "strv.h"
+#include "def.h"
 
 static enum {
         ACTION_RUN,

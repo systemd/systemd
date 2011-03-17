@@ -501,6 +501,7 @@ EXTRA_DIST += \
 	${libsystemd_core_la_SOURCES:.c=.h} \
 	${libsystemd_daemon_la_SOURCES:.c=.h} \
 	src/macro.h \
+        src/def.h \
 	src/ioprio.h \
 	src/missing.h \
 	src/list.h \
