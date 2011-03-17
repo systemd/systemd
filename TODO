@@ -21,7 +21,7 @@ F15:
 * bind mounts are ignored
 
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
-  (path: after installing inotify watches, recheck file again to fix race)
+    (path: after installing inotify watches, recheck file again to fix race)
 
 * capability_bounding_set_drop not used
 
@@ -37,7 +37,7 @@ F15:
 
 Features:
 * don't strip facility from kmsg log messages as soon as that is possible.
-  http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d90c8d9cde929cbc575098e825d7c29d9f45054
+    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d90c8d9cde929cbc575098e825d7c29d9f45054
 
 * recreate systemd'd D-Bus private socket file on SIGUSR2
 
@@ -52,6 +52,10 @@ Features:
     Not all file systems unmounted, 1 left.
     Cannot finalize remaining file systems and devices, giving up.
 
+* check for compiled-in, but not active selinux, and don't print any warnings
+  about policy loading. Probably check for available selinux in /proc/filesystems,
+  and check for active selinux with getcon_raw() == "kernel"
+
 * optionally create watched directories in .path units
 
 * Support --test based on current system state
@@ -64,14 +68,16 @@ Features:
 
 * make sure timeouts are applied to Type=oneshot services.
 
-* maybe implement "systemctl mask" and "systemctl unmask", but not
+* Maybe implement "systemctl mask" and "systemctl unmask", but not
   document it? When doing that add switch to make this temporary by
   placing mask links in /dev.
+  Consider moving the actual fs operations into systemd behind a D-Bus
+  interface, to make namespaces/containers/remote connections work properly.
 
 * detect LXC environment
 
 * invoke vhangup() before and after invoking getty
-  http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3c95c985fa91ecf6a0e29622bbdd13dcfc5ce9f1
+    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3c95c985fa91ecf6a0e29622bbdd13dcfc5ce9f1
 
 * support "auto" and "comment=systemd.automount" at the same time for an fstab entry
 
@@ -108,14 +114,14 @@ Features:
   - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
 
 * add VT tracking:
-    - provide CK functionality
-    - start getty only when actual vt switch happens (same model as
-      socket on-demand activation). allocate the next free tty and
-      start a getty there. this way, pressing alt-f[1-12] will switch
-      through running X and getty sessions, and any unallocated
-      activated tty will start a new getty. the hardcoding of
-      getty[1-6] will entirely go away.
-    - http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
+  - provide CK functionality
+  - start getty only when actual vt switch happens (same model as
+    socket on-demand activation). allocate the next free tty and
+    start a getty there. this way, pressing alt-f[1-12] will switch
+    through running X and getty sessions, and any unallocated
+    activated tty will start a new getty. the hardcoding of
+    getty[1-6] will entirely go away.
+  - http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
 
 * implicitly import "defaults" settings file into all types
 
