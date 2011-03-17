@@ -1420,7 +1420,8 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 method =
-                        streq(args[0], "stop")                  ? "StopUnit" :
+                        streq(args[0], "stop") ||
+                        streq(args[0], "condstop")              ? "StopUnit" :
                         streq(args[0], "reload")                ? "ReloadUnit" :
                         streq(args[0], "restart")               ? "RestartUnit" :
 
@@ -5235,6 +5236,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "cancel",                MORE,  2, cancel_job        },
                 { "start",                 MORE,  2, start_unit        },
                 { "stop",                  MORE,  2, start_unit        },
+                { "condstop",              MORE,  2, start_unit        }, /* For compatibility with ALTLinux */
                 { "reload",                MORE,  2, start_unit        },
                 { "restart",               MORE,  2, start_unit        },
                 { "try-restart",           MORE,  2, start_unit        },
