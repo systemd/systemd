@@ -3991,7 +3991,7 @@ int detect_container(const char **id) {
                                 fclose(f);
 
                                 if (id)
-                                        *id = "ns";
+                                        *id = "pidns";
 
                                 return 1;
                         }

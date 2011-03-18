@@ -618,6 +618,7 @@
                                 <varname>microsoft</varname>,
                                 <varname>oracle</varname>,
                                 <varname>xen</varname>,
+                                <varname>pidns</varname>,
                                 <varname>openvz</varname> to test
                                 against a specific implementation. The
                                 test may be negated by prepending an
