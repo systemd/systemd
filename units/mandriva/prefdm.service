@@ -14,9 +14,6 @@ After=network.target acpid.service fs.service haldaemon.service
 Conflicts=plymouth-quit.service
 After=plymouth-quit.service
 
-# Hide SysV script
-Names=dm.service
-
 [Service]
 ExecStart=/etc/X11/prefdm
 Type=forking

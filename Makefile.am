@@ -1421,8 +1421,9 @@ if TARGET_MANDRIVA
 		rm -f halt-local.service && \
 		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f display-manager.service single.service && \
+		rm -f display-manager.service dm.service single.service && \
 		$(LN_S) prefdm.service display-manager.service && \
+		$(LN_S) prefdm.service dm.service && \
                 $(LN_S) rescue.service single.service )
 	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
 		rm -f display-manager.service && \
