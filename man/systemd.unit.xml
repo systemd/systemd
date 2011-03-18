@@ -139,7 +139,10 @@
                 with the <command>enable</command> command of the
                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 tool which reads information from the [Install]
-                section of unit files. (See below.)</para>
+                section of unit files. (See below.) A similar
+                functionality exists for <varname>Requires=</varname>
+                type dependencies as well, the directory suffix is
+                <filename>.requires/</filename> in this case.</para>
 
                 <para>Note that while systemd offers a flexible
                 dependency system between units it is recommended to
