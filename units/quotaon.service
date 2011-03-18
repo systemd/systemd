@@ -17,6 +17,3 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/sbin/quotaon -aug
 StandardOutput=syslog
-
-[Install]
-WantedBy=local-fs.target

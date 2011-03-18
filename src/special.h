@@ -62,6 +62,7 @@
 /* Magic early boot services */
 #define SPECIAL_FSCK_SERVICE "fsck@.service"
 #define SPECIAL_QUOTACHECK_SERVICE "quotacheck.service"
+#define SPECIAL_QUOTAON_SERVICE "quotaon.service"
 #define SPECIAL_REMOUNT_ROOTFS_SERVICE "remount-rootfs.service"
 
 /* Services systemd relies on */

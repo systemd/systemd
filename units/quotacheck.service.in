@@ -18,6 +18,3 @@ RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-quotacheck
 StandardOutput=syslog
 TimeoutSec=0
-
-[Install]
-WantedBy=local-fs.target

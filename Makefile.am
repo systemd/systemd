@@ -1327,10 +1327,6 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty4.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants && \
-		rm -f quotaon.service quotacheck.service && \
-		$(LN_S) $(systemunitdir)/quotacheck.service quotacheck.service && \
-		$(LN_S) $(systemunitdir)/quotaon.service quotaon.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )

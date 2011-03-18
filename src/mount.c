@@ -413,9 +413,22 @@ static int mount_add_default_dependencies(Mount *m) {
 
         if (m->meta.manager->running_as == MANAGER_SYSTEM &&
             !path_equal(m->where, "/")) {
+                MountParameters *p;
 
-                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, SPECIAL_QUOTACHECK_SERVICE, NULL, true)) < 0)
-                        return r;
+                if (m->from_fragment)
+                        p = &m->parameters_fragment;
+                else if (m->from_etc_fstab)
+                        p = &m->parameters_etc_fstab;
+                else
+                        p = NULL;
+
+                if (!p ||
+                    (!mount_test_option(p->options, "_netdev") &&
+                    !(p->fstype && fstype_is_network(p->fstype)) &&
+                    (mount_test_option(p->options, "usrquota") || mount_test_option(p->options, "grpquota"))))
+                        if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE, NULL, true)) < 0 ||
+                            (r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE, NULL, true)) < 0)
+                                return r;
 
                 if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
                         return r;
