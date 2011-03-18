@@ -61,12 +61,18 @@ static void get_cap_mask (struct udev_device *dev, const char* attr,
 	i = 0;
 	while ((word = strrchr(text, ' ')) != NULL) {
 		val = strtoul (word+1, NULL, 16);
-		bitmask[i] = val;
+		if (i < bitmask_size/sizeof(unsigned long))
+			bitmask[i] = val;
+		else
+			DBG("Ignoring %s block %lX which is larger than maximum size\n", attr, val);
 		*word = '\0';
 		++i;
 	}
 	val = strtoul (text, NULL, 16);
-	bitmask[i] = val;
+	if (i < bitmask_size/sizeof(unsigned long))
+		bitmask[i] = val;
+	else
+		DBG("Ignoring %s block %lX which is larger than maximum size\n", attr, val);
 
 	if (debug) {
 		/* printf pattern with the right unsigned long number of hex chars */
