@@ -13,9 +13,6 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=basic.target
 Before=shutdown.target
-m4_ifdef(`TARGET_MANDRIVA',
-`# Hide SysV script
-Names=single.service')
 
 [Service]
 Environment=HOME=/root
