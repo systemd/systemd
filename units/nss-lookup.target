@@ -12,5 +12,4 @@
 
 [Unit]
 Description=Name Lookups
-Wants=network.target
 After=network.target
