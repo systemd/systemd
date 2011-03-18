@@ -10,7 +10,6 @@
 [Unit]
 Description=Reboot
 DefaultDependencies=no
-Names=runlevel6.target
 Requires=reboot.service
 After=reboot.service
 AllowIsolate=yes

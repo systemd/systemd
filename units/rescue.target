@@ -11,7 +11,6 @@
 Description=Rescue Mode
 Requires=basic.target rescue.service
 After=basic.target rescue.service
-Names=runlevel1.target
 AllowIsolate=yes
 
 [Install]

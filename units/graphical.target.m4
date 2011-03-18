@@ -12,20 +12,6 @@ Description=Graphical Interface
 Requires=multi-user.target
 After=multi-user.target
 Conflicts=rescue.target
-m4_dnl
-m4_ifdef(`TARGET_FEDORA',
-# On Fedora Runlevel 5 is graphical login
-Names=runlevel5.target
-)m4_dnl
-m4_ifdef(`TARGET_SUSE',
-Names=runlevel5.target
-)m4_dnl
-m4_ifdef(`TARGET_ALTLINUX',
-Names=runlevel5.target
-)m4_dnl
-m4_ifdef(`TARGET_MANDRIVA',
-Names=runlevel5.target
-)m4_dnl
 AllowIsolate=yes
 
 [Install]
