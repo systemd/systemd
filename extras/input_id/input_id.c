@@ -148,6 +148,17 @@ static void test_key (const unsigned long* bitmask_ev,
 		found |= bitmask_key[i];
 		DBG("test_key: checking bit block %lu for any keys; found=%i\n", i*BITS_PER_LONG, found > 0);
 	}
+	/* If there are no keys in the lower block, check the higher block */
+	if (!found) {
+		for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
+			if (test_bit (i, bitmask_key)) {
+				DBG("test_key: Found key %x in high block\n", i);
+				found = 1;
+				break;
+			}
+		}
+	}
+
 	if (found > 0)
 		puts("ID_INPUT_KEY=1");
 
