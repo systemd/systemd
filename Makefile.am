@@ -205,6 +205,8 @@ dist_tmpfiles_DATA = \
 	tmpfiles.d/x11.conf
 
 dist_systemunit_DATA = \
+	units/graphical.target \
+	units/multi-user.target \
 	units/emergency.service \
 	units/emergency.target \
 	units/sysinit.target \
@@ -263,9 +265,7 @@ nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
         units/console-shell.service \
-	units/graphical.target \
 	units/remote-fs.target \
-	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
@@ -308,8 +308,6 @@ EXTRA_DIST = \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
         units/console-shell.service.m4 \
-	units/graphical.target.m4 \
-	units/multi-user.target.m4 \
 	units/remote-fs.target.m4 \
 	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \

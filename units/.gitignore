@@ -30,8 +30,6 @@ systemd-random-seed-save.service
 systemd-initctl.service
 systemd-logger.service
 syslog.target
-graphical.target
-multi-user.target
 getty@.service
 remote-fs.target
 systemd-update-utmp-runlevel.service
