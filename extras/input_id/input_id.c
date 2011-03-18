@@ -43,32 +43,32 @@
  * @param bitmask: Output array; must have max_size elements
  */
 static void get_cap_mask (struct udev_device *dev, const char* attr,
-	                  unsigned long *bitmask, size_t max_size)
+			  unsigned long *bitmask, size_t max_size)
 {
 	char text[4096];
-        int i;
+	int i;
 	char* word;
 	unsigned long val;
 
 	snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(dev, attr));
 
-        memset (bitmask, 0, max_size);
+	memset (bitmask, 0, max_size);
 	i = 0;
-        while ((word = strrchr(text, ' ')) != NULL) {
-                val = strtoul (word+1, NULL, 16);
-                bitmask[i] = val;
+	while ((word = strrchr(text, ' ')) != NULL) {
+		val = strtoul (word+1, NULL, 16);
+		bitmask[i] = val;
 		*word = '\0';
 		++i;
-        }
+	}
 	val = strtoul (text, NULL, 16);
 	bitmask[i] = val;
 }
 
 /* pointer devices */
 static void test_pointers (const unsigned long* bitmask_ev,
-                           const unsigned long* bitmask_abs, 
-                           const unsigned long* bitmask_key, 
-                           const unsigned long* bitmask_rel)
+			   const unsigned long* bitmask_abs, 
+			   const unsigned long* bitmask_key, 
+			   const unsigned long* bitmask_rel)
 {
 	int is_mouse = 0;
 	int is_touchpad = 0;
@@ -77,7 +77,7 @@ static void test_pointers (const unsigned long* bitmask_ev,
 		return;
 
 	if (test_bit (EV_ABS, bitmask_ev) &&
-            test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
+	    test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
 		if (test_bit (BTN_STYLUS, bitmask_key) || test_bit (BTN_TOOL_PEN, bitmask_key))
 			puts("ID_INPUT_TABLET=1");
 		else if (test_bit (BTN_TOOL_FINGER, bitmask_key) && !test_bit (BTN_TOOL_PEN, bitmask_key))
@@ -107,15 +107,15 @@ static void test_pointers (const unsigned long* bitmask_ev,
 
 /* key like devices */
 static void test_key (const unsigned long* bitmask_ev, 
-                      const unsigned long* bitmask_key)
+		      const unsigned long* bitmask_key)
 {
 	unsigned i;
 	unsigned long acc;
 	unsigned long mask;
 
 	/* do we have any KEY_* capability? */
-        if (!test_bit (EV_KEY, bitmask_ev))
-                return;
+	if (!test_bit (EV_KEY, bitmask_ev))
+		return;
 
 	acc = 0;
 	for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i)
@@ -139,7 +139,7 @@ int main (int argc, char** argv)
 	unsigned long bitmask_ev[NBITS(EV_MAX)];
 	unsigned long bitmask_abs[NBITS(ABS_MAX)];
 	unsigned long bitmask_key[NBITS(KEY_MAX)];
-        unsigned long bitmask_rel[NBITS(REL_MAX)];
+	unsigned long bitmask_rel[NBITS(REL_MAX)];
 
 	if (argc != 2) {
 		fprintf(stderr, "Usage: %s <device path (without /sys)>\n", argv[0]);
