@@ -78,7 +78,6 @@
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>sysinit.target</filename>,
-                <filename>@SPECIAL_SYSLOG_SERVICE@</filename>,
                 <filename>syslog.target</filename>,
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
@@ -543,27 +542,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>@SPECIAL_SYSLOG_SERVICE@</filename></term>
-                                <listitem>
-                                        <para>A special unit for the
-                                        syslog daemon. As soon as
-                                        this service is fully started
-                                        up systemd will connect to it
-                                        and use it for logging if it
-                                        has been configured for
-                                        that.</para>
-
-                                        <para>Units should generally
-                                        avoid depending on this unit
-                                        directly and instead refer to
-                                        the
-                                        <filename>syslog.target</filename>
-                                        unit instead, which pulls this
-                                        one in directly or indirectly
-                                        via socket-based activation.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>syslog.target</filename></term>
                                 <listitem>
                                         <para>systemd automatically
@@ -574,15 +552,6 @@
                                         referring to the
                                         <literal>$syslog</literal>
                                         facility.</para>
-
-                                        <para>Administrators should
-                                        ensure that this target pulls
-                                        in a service unit with the
-                                        name or alias of
-                                        <filename>@SPECIAL_SYSLOG_SERVICE@</filename>
-                                        (or a socket unit that
-                                        activates this
-                                        service).</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

@@ -1224,12 +1224,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                          * yet connected. */
                         bus_init(u->meta.manager, true);
 
-                if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
-                        /* The syslog daemon just might have become
-                         * available, hence try to connect to it, if
-                         * we aren't yet connected. */
-                        log_open();
-
                 if (u->meta.type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
                         /* Write audit record if we have just finished starting up */
@@ -1241,12 +1235,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         manager_send_unit_plymouth(u->meta.manager, u);
 
         } else {
-
-                if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
-                        /* The syslog daemon might just have
-                         * terminated, hence try to disconnect from
-                         * it. */
-                        log_close_syslog();
 
                 /* We don't care about D-Bus here, since we'll get an
                  * asynchronous notification for it anyway. */
@@ -1277,6 +1265,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
+
+        manager_recheck_syslog(u->meta.manager);
 }
 
 int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {

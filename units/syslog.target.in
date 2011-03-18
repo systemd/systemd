@@ -9,9 +9,3 @@
 
 [Unit]
 Description=Syslog
-
-# As soon as all syslog services have native unit files this explicit
-# dependency should be dropped, and replaced by alias symlinks in the
-# .wants/ directory, to either the .service or .socket unit of the
-# syslog service.
-After=@SPECIAL_SYSLOG_SERVICE@

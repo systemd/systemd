@@ -1102,7 +1102,6 @@ SED_PROCESS = \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
                 -e 's,@rootbindir\@,$(rootbindir),g' \
                 -e 's,@bindir\@,$(bindir),g' \
-		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \

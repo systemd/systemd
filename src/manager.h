@@ -285,6 +285,8 @@ void manager_check_finished(Manager *m);
 void manager_run_generators(Manager *m);
 void manager_undo_generators(Manager *m);
 
+void manager_recheck_syslog(Manager *m);
+
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);
 

@@ -2451,6 +2451,12 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (m->n_deserializing > 0)
                 return;
 
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
+        if (u->meta.type != UNIT_SERVICE)
+                return;
+
         if (!(p = unit_name_to_prefix_and_instance(u->meta.id))) {
                 log_error("Failed to allocate unit name for audit message: %s", strerror(ENOMEM));
                 return;
@@ -2963,6 +2969,47 @@ int manager_set_default_controllers(Manager *m, char **controllers) {
         m->default_controllers = l;
 
         return 0;
+}
+
+void manager_recheck_syslog(Manager *m) {
+        Unit *u;
+
+        assert(m);
+
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
+        if ((u = manager_get_unit(m, SPECIAL_SYSLOG_SOCKET))) {
+                SocketState state;
+
+                state = SOCKET(u)->state;
+
+                if (state != SOCKET_DEAD &&
+                    state != SOCKET_FAILED &&
+                    state != SOCKET_RUNNING) {
+
+                        /* Hmm, the socket is not set up, or is still
+                         * listening, let's better not try to use
+                         * it. Note that we have no problem if the
+                         * socket is completely down, since there
+                         * might be a foreign /dev/log socket around
+                         * and we want to make use of that.
+                         */
+
+                        log_close_syslog();
+                        return;
+                }
+        }
+
+        if ((u = manager_get_unit(m, SPECIAL_SYSLOG_TARGET)))
+                if (TARGET(u)->state != TARGET_ACTIVE) {
+                        log_close_syslog();
+                        return;
+                }
+
+        /* Hmm, OK, so the socket is either fully up, or fully down,
+         * and the target is up, then let's make use of the socket */
+        log_open();
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

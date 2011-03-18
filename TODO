@@ -29,6 +29,8 @@ F15:
 
 * pull in .service from meta .targers AND vice versa too. i.e. syslog.target ←→ rsyslog.service, rpcbind similarly
 
+* document default dependencies
+
 Features:
 
 * hide passwords on TAB

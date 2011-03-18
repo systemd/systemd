@@ -297,30 +297,15 @@ fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
 AC_DEFINE_UNQUOTED(DISTRIBUTION, ["${with_distro}"], [Target Distribution])
 
-# Default generic names
-SPECIAL_SYSLOG_SERVICE=syslog.service
-
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
+SYSTEM_SYSVRCND_PATH=/etc/rc.d
 
 M4_DISTRO_FLAG=
 
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                SYSTEM_SYSVRCND_PATH=/etc/rc.d
-
-                # A little background why we define this special unit
-                # names here in configure.ac: SysV services currently
-                # cannot have aliases. As long as syslog is started
-                # via a SysV init script we hence define this name to
-                # the actual SysV name here. Later on when SysV init
-                # scripts are not used anymore it is advisable to use
-                # the generic name instead and use symlinks in the
-                # unit directories to point to the right native unit
-                # file.
-
-                SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 M4_DISTRO_FLAG=-DTARGET_FEDORA=1
 		have_plymouth=true
@@ -333,61 +318,49 @@ case $with_distro in
                 ;;
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
-                SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian])
                 M4_DISTRO_FLAG=-DTARGET_DEBIAN=1
                 ;;
         ubuntu)
                 SYSTEM_SYSVRCND_PATH=/etc
-                SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_UBUNTU, [], [Target is Ubuntu])
                 M4_DISTRO_FLAG=-DTARGET_UBUNTU=1
                 ;;
         arch)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 SYSTEM_SYSVRCND_PATH=/etc
-                SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
                 M4_DISTRO_FLAG=-DTARGET_ARCH=1
                 ;;
         gentoo)
                 SYSTEM_SYSVINIT_PATH=
                 SYSTEM_SYSVRCND_PATH=
-                SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
                 M4_DISTRO_FLAG=-DTARGET_GENTOO=1
                 ;;
         slackware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                SYSTEM_SYSVRCND_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
                 M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
                 ;;
         frugalware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
-                SYSTEM_SYSVRCND_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
                 M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
                 ;;
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                SYSTEM_SYSVRCND_PATH=/etc/rc.d
-                SPECIAL_SYSLOG_SERVICE=syslogd.service
                 AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
                 M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
 		have_plymouth=true
                 ;;
         mandriva)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                SYSTEM_SYSVRCND_PATH=/etc/rc.d
-                SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_MANDRIVA, [], [Target is Mandriva])
                 M4_DISTRO_FLAG=-DTARGET_MANDRIVA=1
 		have_plymouth=true
                 ;;
         other)
-                AS_IF([test "x$with_syslog_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
                 ;;
         *)
                 AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=other to skip this check])
@@ -406,15 +379,8 @@ AC_ARG_WITH([sysvrcd-path],
         [SYSTEM_SYSVRCND_PATH="$withval"],
         [])
 
-AC_ARG_WITH([syslog-service],
-        [AS_HELP_STRING([--with-syslog-service=UNIT],
-                [Specify the name of the special syslog service @<:@default=based on distro@:>@])],
-        [SPECIAL_SYSLOG_SERVICE="$withval"],
-        [])
-
 AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
-AC_SUBST(SPECIAL_SYSLOG_SERVICE)
 AC_SUBST(M4_DISTRO_FLAG)
 
 if test "x${SYSTEM_SYSVINIT_PATH}" != "x" -a "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
@@ -445,8 +411,6 @@ AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
 AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
 
 AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
-
-AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
@@ -501,7 +465,6 @@ echo "
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
-        Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
         Gtk:                     ${have_gtk}
         libcryptsetup:           ${have_libcryptsetup}
         tcpwrap:                 ${have_tcpwrap}
