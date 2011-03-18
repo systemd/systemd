@@ -12,6 +12,9 @@ Description=Syslog Socket
 DefaultDependencies=no
 Before=sockets.target syslog.target
 
+# Pull in syslog.target to tell people that /dev/log is now accessible
+Wants=syslog.target
+
 [Socket]
 ListenDatagram=/dev/log
 SocketMode=0666

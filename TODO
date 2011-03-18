@@ -23,11 +23,7 @@ F15:
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
-* rsyslog.service should hook itself into syslog.target?
-
-* syslog.target should be pulled in by multi-user.target?
-
-* pull in .service from meta .targers AND vice versa too. i.e. syslog.target ←→ rsyslog.service, rpcbind similarly
+* NM should pull in network.target, ntpd should pull in rtc-set.target.
 
 * document default dependencies
 
