@@ -25,6 +25,8 @@ F15:
 
 * NM should pull in network.target, ntpd should pull in rtc-set.target.
 
+* fix sysv parser to add right wants dependencies
+
 * document default dependencies
 
 Features:

@@ -655,16 +655,21 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
-                                        else {
-                                                r = unit_add_dependency_by_name(u, UNIT_BEFORE, m, NULL, true);
-
-                                                if (s->sysv_enabled) {
-                                                        int k;
-
-                                                        if ((k = unit_add_dependency_by_name_inverse(u, UNIT_WANTS, m, NULL, true)) < 0)
-                                                                r = k;
-                                                }
-                                        }
+                                        else
+                                                /* NB: SysV targets
+                                                 * which are provided
+                                                 * by a service are
+                                                 * pulled in by the
+                                                 * services, as an
+                                                 * indication that the
+                                                 * generic service is
+                                                 * now available. This
+                                                 * is strictly
+                                                 * one-way. The
+                                                 * targets do NOT pull
+                                                 * in the SysV
+                                                 * services! */
+                                                r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, UNIT_WANTS, m, NULL, true);
 
                                         if (r < 0)
                                                 log_error("[%s:%u] Failed to add LSB Provides name %s, ignoring: %s", path, line, m, strerror(-r));
