@@ -36,23 +36,28 @@
 #define LONG(x) ((x)/BITS_PER_LONG)
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
 
+static int debug = 0;
+#define DBG(format, args...) { if (debug) fprintf(stderr, format, ##args); }
+
 /* 
  * Read a capability attribute and return bitmask.
  * @param dev udev_device
  * @param attr sysfs attribute name (e. g. "capabilities/key")
- * @param bitmask: Output array; must have max_size elements
+ * @param bitmask: Output array which has a sizeof of bitmask_size
  */
 static void get_cap_mask (struct udev_device *dev, const char* attr,
-			  unsigned long *bitmask, size_t max_size)
+			  unsigned long *bitmask, size_t bitmask_size)
 {
 	char text[4096];
-	int i;
+	unsigned i;
 	char* word;
 	unsigned long val;
 
 	snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(dev, attr));
 
-	memset (bitmask, 0, max_size);
+	DBG("%s raw kernel attribute: %s\n", attr, text);
+
+	memset (bitmask, 0, bitmask_size);
 	i = 0;
 	while ((word = strrchr(text, ' ')) != NULL) {
 		val = strtoul (word+1, NULL, 16);
@@ -62,6 +67,18 @@ static void get_cap_mask (struct udev_device *dev, const char* attr,
 	}
 	val = strtoul (text, NULL, 16);
 	bitmask[i] = val;
+
+	if (debug) {
+		/* printf pattern with the right unsigned long number of hex chars */
+		snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2*sizeof(unsigned long));
+		DBG("%s decoded bit map:\n", attr);
+		val = bitmask_size/sizeof (unsigned long);
+		/* skip over leading zeros */
+		while (bitmask[val-1] == 0 && val > 0)
+		    --val;
+		for (i = 0; i < val; ++i)
+			DBG(text, i * BITS_PER_LONG, bitmask[i]);
+	}
 }
 
 /* pointer devices */
@@ -110,17 +127,22 @@ static void test_key (const unsigned long* bitmask_ev,
 		      const unsigned long* bitmask_key)
 {
 	unsigned i;
-	unsigned long acc;
+	unsigned long found;
 	unsigned long mask;
 
 	/* do we have any KEY_* capability? */
-	if (!test_bit (EV_KEY, bitmask_ev))
+	if (!test_bit (EV_KEY, bitmask_ev)) {
+		DBG("test_key: no EV_KEY capability\n");
 		return;
+	}
 
-	acc = 0;
-	for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i)
-	    acc |= bitmask_key[i];
-	if (acc > 0)
+	/* only consider KEY_* here, not BTN_* */
+	found = 0;
+	for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
+		found |= bitmask_key[i];
+		DBG("test_key: checking bit block %lu for any keys; found=%i\n", i*BITS_PER_LONG, found > 0);
+	}
+	if (found > 0)
 		puts("ID_INPUT_KEY=1");
 
 	/* the first 32 bits are ESC, numbers, and Q to D; if we have all of
@@ -145,6 +167,9 @@ int main (int argc, char** argv)
 		fprintf(stderr, "Usage: %s <device path (without /sys)>\n", argv[0]);
 		exit(1);
 	}
+
+	if (getenv ("DEBUG"))
+		debug = 1;
 
 	/* get the device */
 	udev = udev_new();
