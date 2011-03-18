@@ -219,21 +219,6 @@
                 dependent on the type of unit:</para>
 
                 <variablelist>
-                        <varlistentry>
-                                <term><varname>Names=</varname></term>
-
-                                <listitem><para>Additional names for
-                                this unit. The names listed here must
-                                have the same suffix (i.e. type) as
-                                the unit file name. This option may be
-                                specified more than once, in which
-                                case all listed names are used. Note
-                                that this option is different from the
-                                <varname>Alias=</varname> option from
-                                the [Install] section mentioned
-                                below. See below for details.</para>
-                                </listitem>
-                        </varlistentry>
 
                         <varlistentry>
                                 <term><varname>Description=</varname></term>
@@ -659,6 +644,35 @@
                                 symbol and an exclamation mark the
                                 pipe symbol must be passed first, the
                                 exclamation second.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Names=</varname></term>
+
+                                <listitem><para>Additional names for
+                                this unit. The names listed here must
+                                have the same suffix (i.e. type) as
+                                the unit file name. This option may be
+                                specified more than once, in which
+                                case all listed names are used. Note
+                                that this option is different from the
+                                <varname>Alias=</varname> option from
+                                the [Install] section mentioned
+                                below. See below for details. Note
+                                that in almost all cases this option
+                                is not what you want. A symlink alias
+                                in the file system is generally
+                                preferable since it can be used as
+                                lookup key. If a unit with a symlinked
+                                alias name is not loaded and needs to
+                                be it is easily found via the
+                                symlink. However, if a unit with an
+                                alias name configured with this
+                                setting is not loaded it will not be
+                                discovered. This settings' only use is
+                                in conjunction with service
+                                instances.</para>
+                                </listitem>
                         </varlistentry>
                 </variablelist>
 
