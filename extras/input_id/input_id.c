@@ -22,11 +22,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <limits.h>
 #include <linux/limits.h>
 #include <linux/input.h>
 
 #include "libudev.h"
+#include "libudev-private.h"
 
 /* we must use this kernel-compatible implementation */
 #define BITS_PER_LONG (sizeof(unsigned long) * 8)
@@ -37,7 +39,18 @@
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
 
 static int debug = 0;
-#define DBG(format, args...) { if (debug) fprintf(stderr, format, ##args); }
+
+static void log_fn(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args)
+{
+	if (debug) {
+		fprintf(stderr, "%s: ", fn);
+		vfprintf(stderr, format, args);
+	} else {
+		vsyslog(priority, format, args);
+	}
+}
 
 /* 
  * Read a capability attribute and return bitmask.
@@ -55,7 +68,7 @@ static void get_cap_mask (struct udev_device *dev, const char* attr,
 
 	snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(dev, attr));
 
-	DBG("%s raw kernel attribute: %s\n", attr, text);
+	info(udev_device_get_udev(dev), "%s raw kernel attribute: %s\n", attr, text);
 
 	memset (bitmask, 0, bitmask_size);
 	i = 0;
@@ -64,7 +77,7 @@ static void get_cap_mask (struct udev_device *dev, const char* attr,
 		if (i < bitmask_size/sizeof(unsigned long))
 			bitmask[i] = val;
 		else
-			DBG("Ignoring %s block %lX which is larger than maximum size\n", attr, val);
+			info(udev_device_get_udev(dev), "Ignoring %s block %lX which is larger than maximum size\n", attr, val);
 		*word = '\0';
 		++i;
 	}
@@ -72,18 +85,18 @@ static void get_cap_mask (struct udev_device *dev, const char* attr,
 	if (i < bitmask_size/sizeof(unsigned long))
 		bitmask[i] = val;
 	else
-		DBG("Ignoring %s block %lX which is larger than maximum size\n", attr, val);
+		info(udev_device_get_udev(dev), "Ignoring %s block %lX which is larger than maximum size\n", attr, val);
 
 	if (debug) {
 		/* printf pattern with the right unsigned long number of hex chars */
 		snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2*sizeof(unsigned long));
-		DBG("%s decoded bit map:\n", attr);
+		info(udev_device_get_udev(dev), "%s decoded bit map:\n", attr);
 		val = bitmask_size/sizeof (unsigned long);
 		/* skip over leading zeros */
 		while (bitmask[val-1] == 0 && val > 0)
 		    --val;
 		for (i = 0; i < val; ++i)
-			DBG(text, i * BITS_PER_LONG, bitmask[i]);
+			info(udev_device_get_udev(dev), text, i * BITS_PER_LONG, bitmask[i]);
 	}
 }
 
@@ -129,7 +142,8 @@ static void test_pointers (const unsigned long* bitmask_ev,
 }
 
 /* key like devices */
-static void test_key (const unsigned long* bitmask_ev, 
+static void test_key (struct udev *udev,
+		      const unsigned long* bitmask_ev, 
 		      const unsigned long* bitmask_key)
 {
 	unsigned i;
@@ -138,7 +152,7 @@ static void test_key (const unsigned long* bitmask_ev,
 
 	/* do we have any KEY_* capability? */
 	if (!test_bit (EV_KEY, bitmask_ev)) {
-		DBG("test_key: no EV_KEY capability\n");
+		info(udev, "test_key: no EV_KEY capability\n");
 		return;
 	}
 
@@ -146,13 +160,13 @@ static void test_key (const unsigned long* bitmask_ev,
 	found = 0;
 	for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
 		found |= bitmask_key[i];
-		DBG("test_key: checking bit block %lu for any keys; found=%i\n", i*BITS_PER_LONG, found > 0);
+		info(udev, "test_key: checking bit block %lu for any keys; found=%i\n", i*BITS_PER_LONG, found > 0);
 	}
 	/* If there are no keys in the lower block, check the higher block */
 	if (!found) {
 		for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
 			if (test_bit (i, bitmask_key)) {
-				DBG("test_key: Found key %x in high block\n", i);
+				info(udev, "test_key: Found key %x in high block\n", i);
 				found = 1;
 				break;
 			}
@@ -169,10 +183,23 @@ static void test_key (const unsigned long* bitmask_ev,
 		puts("ID_INPUT_KEYBOARD=1");
 }
 
+static void help ()
+{
+	printf("Usage: input_id [options] <device path>\n"
+	       "  --debug         debug to stderr\n"
+	       "  --help          print this help text\n\n");
+}
+
 int main (int argc, char** argv)
 {
 	struct udev *udev;
 	struct udev_device *dev;
+
+	static const struct option options[] = {
+		{ "debug", no_argument, NULL, 'd' },
+		{ "help", no_argument, NULL, 'h' },
+		{}
+	};
 
 	char devpath[PATH_MAX];
 	unsigned long bitmask_ev[NBITS(EV_MAX)];
@@ -180,20 +207,42 @@ int main (int argc, char** argv)
 	unsigned long bitmask_key[NBITS(KEY_MAX)];
 	unsigned long bitmask_rel[NBITS(REL_MAX)];
 
-	if (argc != 2) {
-		fprintf(stderr, "Usage: %s <device path (without /sys)>\n", argv[0]);
-		exit(1);
-	}
-
-	if (getenv ("DEBUG"))
-		debug = 1;
-
-	/* get the device */
 	udev = udev_new();
 	if (udev == NULL)
 		return 1;
 
-	snprintf(devpath, sizeof(devpath), "%s/%s", udev_get_sys_path(udev), argv[1]);
+	udev_log_init("input_id");
+	udev_set_log_fn(udev, log_fn);
+
+	/* CLI argument parsing */
+	while (1) {
+		int option;
+
+		option = getopt_long(argc, argv, "dxh", options, NULL);
+		if (option == -1)
+			break;
+
+		switch (option) {
+		case 'd':
+			debug = 1;
+			if (udev_get_log_priority(udev) < LOG_INFO)
+				udev_set_log_priority(udev, LOG_INFO);
+			break;
+		case 'h':
+			help();
+			exit(0);
+		default:
+			exit(1);
+		}
+	}
+
+	if (argv[optind] == NULL) {
+		help();
+		exit(1);
+	}
+
+	/* get the device */
+	snprintf(devpath, sizeof(devpath), "%s/%s", udev_get_sys_path(udev), argv[optind]);
 	dev = udev_device_new_from_syspath(udev, devpath);
 	if (dev == NULL) {
 		fprintf(stderr, "unable to access '%s'\n", devpath);
@@ -220,7 +269,7 @@ int main (int argc, char** argv)
 
 	test_pointers(bitmask_ev, bitmask_abs, bitmask_key, bitmask_rel);
 
-	test_key(bitmask_ev, bitmask_key);
+	test_key(udev, bitmask_ev, bitmask_key);
 
 	return 0;
 }
