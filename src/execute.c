@@ -1249,6 +1249,15 @@ int exec_spawn(ExecCommand *command,
                                 }
                         }
 
+                        if (context->capability_bounding_set_drop)
+                                for (i = 0; i <= CAP_LAST_CAP; i++)
+                                        if (context->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) i)) {
+                                                if (prctl(PR_CAPBSET_DROP, i) < 0) {
+                                                        r = EXIT_CAPABILITIES;
+                                                        goto fail_child;
+                                                }
+                                        }
+
                         if (context->user)
                                 if (enforce_user(context, uid) < 0) {
                                         r = EXIT_USER;
@@ -1664,15 +1673,15 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         (c->secure_bits & SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
 
         if (c->capability_bounding_set_drop) {
-                fprintf(f, "%sCapabilityBoundingSetDrop:", prefix);
+                fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
                 for (i = 0; i <= CAP_LAST_CAP; i++)
-                        if (c->capability_bounding_set_drop & (1 << i)) {
+                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) i))) {
                                 char *t;
 
                                 if ((t = cap_to_name(i))) {
                                         fprintf(f, " %s", t);
-                                        free(t);
+                                        cap_free(t);
                                 }
                         }
 

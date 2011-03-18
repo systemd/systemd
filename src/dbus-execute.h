@@ -131,7 +131,7 @@
         { interface, "SyslogLevelPrefix",             bus_property_append_bool,   "b",     &(context).syslog_level_prefix          }, \
         { interface, "Capabilities",                  bus_execute_append_capabilities, "s",&(context)                              }, \
         { interface, "SecureBits",                    bus_property_append_int,    "i",     &(context).secure_bits                  }, \
-        { interface, "CapabilityBoundingSetDrop",     bus_property_append_uint64, "t",     &(context).capability_bounding_set_drop }, \
+        { interface, "CapabilityBoundingSet",         bus_execute_append_capability_bs, "t", &(context).capability_bounding_set_drop }, \
         { interface, "User",                          bus_property_append_string, "s",     (context).user                          }, \
         { interface, "Group",                         bus_property_append_string, "s",     (context).group                         }, \
         { interface, "SupplementaryGroups",           bus_property_append_strv,   "as",    (context).supplementary_groups          }, \
@@ -167,6 +167,7 @@ int bus_execute_append_cpu_sched_priority(Manager *m, DBusMessageIter *i, const 
 int bus_execute_append_affinity(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_timer_slack_nsec(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_capability_bs(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_rlimits(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_command(Manager *m, DBusMessageIter *u, const char *property, void *data);
 int bus_execute_append_kill_mode(Manager *m, DBusMessageIter *i, const char *property, void *data);

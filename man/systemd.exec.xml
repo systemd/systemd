@@ -597,16 +597,34 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>Capabilities=</varname></term>
-                                <listitem><para>Controls the
+                                <term><varname>CapabilityBoundingSet=</varname></term>
+
+                                <listitem><para>Controls which
+                                capabilities to include in the
+                                capability bounding set for the
+                                executed process. See
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                set for the executed process. Take a
-                                capability string as described in
-                                <citerefentry><refentrytitle>cap_from_text</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-                                Note that this capability set is
-                                usually influenced by the capabilities
-                                attached to the executed
-                                file.</para></listitem>
+                                for details. Takes a whitespace
+                                seperated list of capability names as
+                                read by
+                                <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                Capabilities listed will be included
+                                in the bounding set, all others are
+                                removed. If the list of capabilities
+                                is prefixed with ~ all but the listed
+                                capabilities will be included, the
+                                effect of this assignment
+                                inverted. Note that this option does
+                                not actually set or unset any
+                                capabilities in the effective,
+                                permitted or inherited capability
+                                sets. That's what
+                                <varname>Capabilities=</varname> is
+                                for. If this option is not used the
+                                capability bounding set is not
+                                modified on process execution, hence
+                                no limits on the capabilities of the
+                                process are enforced.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -625,16 +643,21 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>CapabilityBoundingSetDrop=</varname></term>
-
+                                <term><varname>Capabilities=</varname></term>
                                 <listitem><para>Controls the
-                                capability bounding set drop set for
-                                the executed process. See
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details. Takes a list of
-                                capability names as read by
-                                <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-                                </para></listitem>
+                                set for the executed process. Take a
+                                capability string describing the
+                                effective, permitted and inherited
+                                capability sets as documented in
+                                <citerefentry><refentrytitle>cap_from_text</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                Note that these capability sets are
+                                usually influenced by the capabilities
+                                attached to the executed file. Due to
+                                that
+                                <varname>CapabilityBoundingSet=</varname>
+                                is probably the much more useful
+                                setting.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

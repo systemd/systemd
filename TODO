@@ -23,23 +23,26 @@ F15:
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
-* capability_bounding_set_drop not used
-
-* rework syslog.service being up logic in PID 1
-
 * rsyslog.service should hook itself into syslog.target?
 
 * syslog.target should be pulled in by multi-user.target?
 
 * pull in .service from meta .targers AND vice versa too. i.e. syslog.target ←→ rsyslog.service, rpcbind similarly
 
-* drop Names= option? Symlinks only should be used. We don't want to need to read all service files.
-
 Features:
+
+* hide passwords on TAB
+
+* add switch to systemctl to show enabled but not running services. Or
+  another switch that shows service that have been running since
+  booting but aren't running anymore.
+
+* reuse mkdtemp namespace dirs in /tmp?
+
 * don't strip facility from kmsg log messages as soon as that is possible.
     http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d90c8d9cde929cbc575098e825d7c29d9f45054
 
-* recreate systemd'd D-Bus private socket file on SIGUSR2
+* recreate systemd's D-Bus private socket file on SIGUSR2
 
 * be more specific what failed:
     Unmounting file systems.

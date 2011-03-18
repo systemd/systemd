@@ -234,6 +234,24 @@ int bus_execute_append_timer_slack_nsec(Manager *m, DBusMessageIter *i, const ch
         return 0;
 }
 
+int bus_execute_append_capability_bs(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        ExecContext *c = data;
+        uint64_t normal, inverted;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(c);
+
+        /* We store this negated internally, to match the kernel, bu
+         * we expose it normalized. */
+
+        normal = *(uint64_t*) data;
+        inverted = ~normal;
+
+        return bus_property_append_uint64(m, i, property, &inverted);
+}
+
 int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         char *t = NULL;

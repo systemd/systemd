@@ -852,11 +852,23 @@ static int config_parse_bounding_set(
         char *w;
         size_t l;
         char *state;
+        bool invert = false;
+        uint64_t sum = 0;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (rvalue[0] == '~') {
+                invert = true;
+                rvalue++;
+        }
+
+        /* Note that we store this inverted internally, since the
+         * kernel wants it like this. But we actually expose it
+         * non-inverted everywhere to have a fully normalized
+         * interface. */
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t;
@@ -874,8 +886,13 @@ static int config_parse_bounding_set(
                         return 0;
                 }
 
-                c->capability_bounding_set_drop |= 1 << cap;
+                sum |= ((uint64_t) 1ULL) << (uint64_t) cap;
         }
+
+        if (invert)
+                c->capability_bounding_set_drop |= sum;
+        else
+                c->capability_bounding_set_drop |= ~sum;
 
         return 0;
 }
@@ -1772,7 +1789,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "SyslogLevelPrefix",      config_parse_bool,            &(context).syslog_level_prefix,                  section   }, \
                 { "Capabilities",           config_parse_capabilities,    &(context),                                      section   }, \
                 { "SecureBits",             config_parse_secure_bits,     &(context),                                      section   }, \
-                { "CapabilityBoundingSetDrop", config_parse_bounding_set, &(context),                                      section   }, \
+                { "CapabilityBoundingSet",  config_parse_bounding_set,    &(context),                                      section   }, \
                 { "TimerSlackNSec",         config_parse_timer_slack_nsec,&(context),                                      section   }, \
                 { "LimitCPU",               config_parse_limit,           &(context).rlimit[RLIMIT_CPU],                   section   }, \
                 { "LimitFSIZE",             config_parse_limit,           &(context).rlimit[RLIMIT_FSIZE],                 section   }, \
