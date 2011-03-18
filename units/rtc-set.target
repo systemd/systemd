@@ -7,5 +7,8 @@
 
 # See systemd.special(7) for details
 
+# This exists mostly for compatibility with SysV/LSB units, and
+# implementations lacking socket/bus activation.
+
 [Unit]
 Description=RTC Set
