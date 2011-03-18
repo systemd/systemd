@@ -259,7 +259,8 @@ dist_systemunit_DATA = \
 	units/systemd-tmpfiles-clean.timer \
 	units/quotaon.service \
 	units/systemd-ask-password-wall.path \
-	units/systemd-ask-password-console.path
+	units/systemd-ask-password-console.path \
+	units/syslog.target
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
@@ -286,7 +287,6 @@ nodist_systemunit_DATA = \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
-	units/syslog.target \
 	units/halt.service \
 	units/poweroff.service \
 	units/reboot.service \
@@ -330,7 +330,6 @@ EXTRA_DIST = \
 	units/systemd-ask-password-wall.service.in \
 	units/systemd-ask-password-console.service.in \
 	units/systemd-sysctl.service.in \
-	units/syslog.target.in \
 	units/halt.service.in \
 	units/poweroff.service.in \
 	units/reboot.service.in \
