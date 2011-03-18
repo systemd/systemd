@@ -180,7 +180,7 @@
                                 acquired. Service units with this
                                 option configured implicitly gain
                                 dependencies on the
-                                <filename>dbus.target</filename>
+                                <filename>dbus.socket</filename>
                                 unit.</para>
 
                                 <para>Behaviour of

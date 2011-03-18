@@ -1129,7 +1129,7 @@ static int service_load(Unit *u) {
                         s->notify_access = NOTIFY_MAIN;
 
                 if (s->type == SERVICE_DBUS || s->bus_name)
-                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_TARGET, NULL, true)) < 0)
+                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true)) < 0)
                                 return r;
 
                 if (s->meta.default_dependencies)

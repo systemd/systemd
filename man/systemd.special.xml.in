@@ -51,7 +51,6 @@
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
                 <filename>dbus.service</filename>,
-                <filename>dbus.target</filename>,
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
                 <filename>emergency.target</filename>,
@@ -143,28 +142,6 @@
                                         up systemd will connect to it
                                         and register its
                                         service.</para>
-
-                                        <para>Units should generally
-                                        avoid depending on this unit
-                                        directly and instead refer to
-                                        the
-                                        <filename>dbus.target</filename>
-                                        unit instead, which pulls this
-                                        one in directly or indirectly
-                                        via socket-based activation.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>dbus.target</filename></term>
-                                <listitem>
-                                        <para>Administrators should
-                                        ensure that this target pulls
-                                        in a service unit with the
-                                        name or alias of
-                                        <filename>dbus.service</filename>
-                                        (or a socket unit that
-                                        activates this
-                                        service).</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

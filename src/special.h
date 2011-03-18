@@ -30,17 +30,24 @@
  * system shutdown. */
 #define SPECIAL_SHUTDOWN_TARGET "shutdown.target"
 #define SPECIAL_UMOUNT_TARGET "umount.target"
+#define SPECIAL_HALT_TARGET "halt.target"
+#define SPECIAL_POWEROFF_TARGET "poweroff.target"
+#define SPECIAL_REBOOT_TARGET "reboot.target"
+#define SPECIAL_KEXEC_TARGET "kexec.target"
+#define SPECIAL_EXIT_TARGET "exit.target"
 
-#define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
+#define SPECIAL_RESCUE_TARGET "rescue.target"
+#define SPECIAL_EMERGENCY_TARGET "emergency.target"
 
-#define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
-#define SPECIAL_SIGPWR_TARGET "sigpwr.target"
-#define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
-
+#define SPECIAL_SYSINIT_TARGET "sysinit.target"
+#define SPECIAL_SOCKETS_TARGET "sockets.target"
 #define SPECIAL_LOCAL_FS_TARGET "local-fs.target"         /* LSB's $local_fs */
 #define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"       /* LSB's $remote_fs */
 #define SPECIAL_SWAP_TARGET "swap.target"
+#define SPECIAL_BASIC_TARGET "basic.target"
+
 #define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
+
 #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
 #define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog; Should pull in syslog.socket or syslog.service */
@@ -48,22 +55,18 @@
 #define SPECIAL_DISPLAY_MANAGER_SERVICE "display-manager.service"       /* Debian's $x-display-manager */
 #define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Debian's $mail-{transport|transfer-agent */
 #define SPECIAL_HTTP_DAEMON_TARGET "http-daemon.target"
-#define SPECIAL_DBUS_TARGET "dbus.target"
-#define SPECIAL_BASIC_TARGET "basic.target"
-#define SPECIAL_SOCKETS_TARGET "sockets.target"
-#define SPECIAL_SYSINIT_TARGET "sysinit.target"
+
 #define SPECIAL_FSCK_SERVICE "fsck@.service"
 #define SPECIAL_QUOTACHECK_SERVICE "quotacheck.service"
-#define SPECIAL_RESCUE_TARGET "rescue.target"
-#define SPECIAL_EXIT_TARGET "exit.target"
-#define SPECIAL_EMERGENCY_TARGET "emergency.target"
-#define SPECIAL_HALT_TARGET "halt.target"
-#define SPECIAL_POWEROFF_TARGET "poweroff.target"
-#define SPECIAL_REBOOT_TARGET "reboot.target"
-#define SPECIAL_KEXEC_TARGET "kexec.target"
+#define SPECIAL_REMOUNT_ROOTFS_SERVICE "remount-rootfs.service"
+
 #define SPECIAL_DBUS_SERVICE "dbus.service"
 #define SPECIAL_DBUS_SOCKET "dbus.socket"
-#define SPECIAL_REMOUNT_ROOTFS_SERVICE "remount-rootfs.service"
+#define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
+
+#define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
+#define SPECIAL_SIGPWR_TARGET "sigpwr.target"
+#define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
 
 #ifndef SPECIAL_SYSLOG_SERVICE
 #define SPECIAL_SYSLOG_SERVICE "syslog.service"

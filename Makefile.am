@@ -229,7 +229,6 @@ dist_systemunit_DATA = \
 	units/sigpwr.target \
 	units/sockets.target \
 	units/swap.target \
-	units/dbus.target \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket \
 	units/systemd-shutdownd.socket \
