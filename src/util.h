@@ -83,6 +83,9 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u);
 usec_t timeval_load(const struct timeval *tv);
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
+size_t page_size(void);
+#define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
+
 #define streq(a,b) (strcmp((a),(b)) == 0)
 #define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
 

@@ -119,9 +119,10 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 goto finish;
         }
 
-        pages = l / PAGE_SIZE;
+        pages = l / page_size();
 
         vec = alloca(pages);
+        memset(vec, 0, pages);
         if (mincore(start, l, vec) < 0) {
                 log_warning("mincore(%s) failed: %m", fn);
                 r = -errno;

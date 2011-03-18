@@ -27,8 +27,6 @@
 #include <sys/uio.h>
 #include <inttypes.h>
 
-#define PAGE_SIZE 4096
-
 #define _printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
 #define _sentinel_ __attribute__ ((sentinel))
 #define _noreturn_ __attribute__((noreturn))
@@ -51,12 +49,9 @@
 #define STRINGIFY(x) XSTRINGIFY(x)
 
 /* Rounds up */
-static inline size_t ALIGN(size_t l) {
-        return ((l + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
-}
-
-static inline size_t PAGE_ALIGN(size_t l) {
-        return ((l + PAGE_SIZE - 1) & ~(PAGE_SIZE -1));
+#define ALIGN(l) ALIGN_TO((l), sizeof(void*))
+static inline size_t ALIGN_TO(size_t l, size_t ali) {
+        return ((l + ali - 1) & ~(ali - 1));
 }
 
 #define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))

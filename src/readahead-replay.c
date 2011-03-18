@@ -94,7 +94,7 @@ static int unpack_file(FILE *pack) {
                 any = true;
 
                 if (fd >= 0)
-                        if (posix_fadvise(fd, b * PAGE_SIZE, (c - b) * PAGE_SIZE, POSIX_FADV_WILLNEED) < 0) {
+                        if (posix_fadvise(fd, b * page_size(), (c - b) * page_size(), POSIX_FADV_WILLNEED) < 0) {
                                 log_warning("posix_fadvise() failed: %m");
                                 goto finish;
                         }

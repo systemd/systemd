@@ -61,6 +61,20 @@
 #include "exit-status.h"
 #include "hashmap.h"
 
+size_t page_size(void) {
+        static __thread size_t pgsz = 0;
+        long r;
+
+        if (pgsz)
+                return pgsz;
+
+        assert_se((r = sysconf(_SC_PAGESIZE)) > 0);
+
+        pgsz = (size_t) r;
+
+        return pgsz;
+}
+
 bool streq_ptr(const char *a, const char *b) {
 
         /* Like streq(), but tries to make sense of NULL pointers */
