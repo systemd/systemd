@@ -138,7 +138,6 @@ AC_CONFIG_FILES([
 	udev/udev.pc
 	init/udev.service
 	init/udev-settle.service
-	init/udev-retry.service
 	libudev/libudev.pc
 	libudev/docs/Makefile
 	libudev/docs/version.xml
