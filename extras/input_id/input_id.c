@@ -61,14 +61,14 @@ static void log_fn(struct udev *udev, int priority,
 static void get_cap_mask (struct udev_device *dev, const char* attr,
 			  unsigned long *bitmask, size_t bitmask_size)
 {
+	struct udev *udev = udev_device_get_udev(dev);
 	char text[4096];
 	unsigned i;
 	char* word;
 	unsigned long val;
 
 	snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(dev, attr));
-
-	info(udev_device_get_udev(dev), "%s raw kernel attribute: %s\n", attr, text);
+	info(udev, "%s raw kernel attribute: %s\n", attr, text);
 
 	memset (bitmask, 0, bitmask_size);
 	i = 0;
@@ -77,33 +77,33 @@ static void get_cap_mask (struct udev_device *dev, const char* attr,
 		if (i < bitmask_size/sizeof(unsigned long))
 			bitmask[i] = val;
 		else
-			info(udev_device_get_udev(dev), "Ignoring %s block %lX which is larger than maximum size\n", attr, val);
+			info(udev, "ignoring %s block %lX which is larger than maximum size\n", attr, val);
 		*word = '\0';
 		++i;
 	}
 	val = strtoul (text, NULL, 16);
-	if (i < bitmask_size/sizeof(unsigned long))
+	if (i < bitmask_size / sizeof(unsigned long))
 		bitmask[i] = val;
 	else
-		info(udev_device_get_udev(dev), "Ignoring %s block %lX which is larger than maximum size\n", attr, val);
+		info(udev, "ignoring %s block %lX which is larger than maximum size\n", attr, val);
 
 	if (debug) {
 		/* printf pattern with the right unsigned long number of hex chars */
-		snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2*sizeof(unsigned long));
-		info(udev_device_get_udev(dev), "%s decoded bit map:\n", attr);
-		val = bitmask_size/sizeof (unsigned long);
+		snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2 * sizeof(unsigned long));
+		info(udev, "%s decoded bit map:\n", attr);
+		val = bitmask_size / sizeof (unsigned long);
 		/* skip over leading zeros */
 		while (bitmask[val-1] == 0 && val > 0)
-		    --val;
+			--val;
 		for (i = 0; i < val; ++i)
-			info(udev_device_get_udev(dev), text, i * BITS_PER_LONG, bitmask[i]);
+			info(udev, text, i * BITS_PER_LONG, bitmask[i]);
 	}
 }
 
 /* pointer devices */
 static void test_pointers (const unsigned long* bitmask_ev,
-			   const unsigned long* bitmask_abs, 
-			   const unsigned long* bitmask_key, 
+			   const unsigned long* bitmask_abs,
+			   const unsigned long* bitmask_key,
 			   const unsigned long* bitmask_rel)
 {
 	int is_mouse = 0;
@@ -183,7 +183,7 @@ static void test_key (struct udev *udev,
 		puts("ID_INPUT_KEYBOARD=1");
 }
 
-static void help ()
+static void help(void)
 {
 	printf("Usage: input_id [options] <device path>\n"
 	       "  --debug         debug to stderr\n"

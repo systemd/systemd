@@ -8,7 +8,7 @@ MYCFLAGS="-g -Wall \
 -Wnested-externs -Wpointer-arith \
 -Wpointer-arith -Wsign-compare -Wchar-subscripts \
 -Wstrict-prototypes -Wshadow \
--Wformat=2 -Wtype-limits"
+-Wformat-security -Wtype-limits"
 
 case "$CFLAGS" in
 	*-O[0-9]*)
