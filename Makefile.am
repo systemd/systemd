@@ -284,14 +284,6 @@ extras_path_id_path_id_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/path_id/path_id
 
 # ------------------------------------------------------------------------------
-# fstab_import - import /etc/fstab entry for block device
-# ------------------------------------------------------------------------------
-extras_fstab_import_fstab_import_SOURCES = extras/fstab_import/fstab_import.c
-extras_fstab_import_fstab_import_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/fstab_import/fstab_import
-dist_udevrules_DATA += extras/fstab_import/79-fstab_import.rules
-
-# ------------------------------------------------------------------------------
 # scsi_id - SCSI inquiry to get various serial numbers
 # ------------------------------------------------------------------------------
 extras_scsi_id_scsi_id_SOURCES =\
