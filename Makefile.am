@@ -125,8 +125,7 @@ sharepkgconfig_DATA = udev/udev.pc
 if WITH_SYSTEMD
 systemdsystemunit_DATA = \
 	init/udev.service \
-	init/udev-settle.service \
-	init/udev-retry.service
+	init/udev-settle.service
 
 systemd-install-hook:
 	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants
