@@ -33,6 +33,9 @@ Features:
 
 * hide passwords on TAB
 
+* get rid of random file name in generator directory?
+    /run/systemd/generator-IH1vFu
+
 * add switch to systemctl to show enabled but not running services. Or
   another switch that shows service that have been running since
   booting but aren't running anymore.
