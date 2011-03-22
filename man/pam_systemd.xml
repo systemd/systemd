@@ -284,7 +284,6 @@
                 <option>create-session=1</option>,
                 <option>kill-session=0</option>,
                 <option>kill-user=0</option>,
-                <option>keep-root=1</option>,
                 <option>reset-controllers=cpu</option>,
                 <option>kill-only-users=</option>,
                 <option>kill-exclude-users=root</option>.</para>
