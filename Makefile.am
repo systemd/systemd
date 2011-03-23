@@ -132,8 +132,8 @@ systemdsystemunit_DATA = \
 EXTRA_DIST += init/udev.socket
 
 systemd-install-hook:
-	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/socket.target.wants
-	ln -sf ../udev.socket $(DESTDIR)$(systemdsystemunitdir)/socket.target.wants/udev.socket
+	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/sockets.target.wants
+	ln -sf ../udev.socket $(DESTDIR)$(systemdsystemunitdir)/sockets.target.wants/udev.socket
 	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants
 	ln -sf ../udev.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev.service
 	ln -sf ../udev-trigger.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev-trigger.service
