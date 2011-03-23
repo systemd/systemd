@@ -1,5 +1,5 @@
   - bind control socket in systemd
 
-  - kill --failed
+  - remove deprecated trigger --type=failed logic
 
   - remove deprecated BUS=, SYSFS{}=, ID= keys
