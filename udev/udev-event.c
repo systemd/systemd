@@ -454,7 +454,7 @@ static void rename_netif_kernel_log(struct ifreq ifr)
 		return;
 	}
 
-	fprintf(f, "<6>udev[%u]: renamed network interface %s to %s\n",
+	fprintf(f, "<30>udev[%u]: renamed network interface %s to %s\n",
 		getpid(), ifr.ifr_name, ifr.ifr_newname);
 	fclose(f);
 }
