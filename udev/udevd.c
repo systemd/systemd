@@ -75,7 +75,7 @@ static struct udev_rules *rules;
 static struct udev_queue_export *udev_queue_export;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *monitor;
-static int worker_watch[2];
+static int worker_watch[2] = { -1, -1 };
 static pid_t settle_pid;
 static bool stop_exec_queue;
 static bool reload_config;
@@ -97,11 +97,11 @@ enum poll_fd {
 };
 
 static struct pollfd pfd[] = {
-	[FD_NETLINK] = { .events = POLLIN },
-	[FD_WORKER] =  { .events = POLLIN },
-	[FD_SIGNAL] =  { .events = POLLIN },
-	[FD_INOTIFY] = { .events = POLLIN },
-	[FD_CONTROL] = { .events = POLLIN },
+	[FD_NETLINK] = { .events = POLLIN, .fd = -1 },
+	[FD_WORKER] =  { .events = POLLIN, .fd = -1 },
+	[FD_SIGNAL] =  { .events = POLLIN, .fd = -1 },
+	[FD_INOTIFY] = { .events = POLLIN, .fd = -1 },
+	[FD_CONTROL] = { .events = POLLIN, .fd = -1 },
 };
 
 enum event_state {
