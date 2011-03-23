@@ -292,7 +292,7 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 	dbg(udev, "update symlink '%s' of '%s'\n", slink, udev_device_get_syspath(dev));
 
 	util_path_encode(&slink[strlen(udev_get_dev_path(udev))+1], name_enc, sizeof(name_enc));
-	util_strscpyl(dirname, sizeof(dirname), udev_get_dev_path(udev), "/.run/udev/links/", name_enc, NULL);
+	util_strscpyl(dirname, sizeof(dirname), udev_get_run_path(udev), "/links/", name_enc, NULL);
 	util_strscpyl(filename, sizeof(filename), dirname, "/", udev_device_get_id_filename(dev), NULL);
 
 	if (!add) {

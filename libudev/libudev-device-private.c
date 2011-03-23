@@ -31,7 +31,7 @@ static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
 	id = udev_device_get_id_filename(dev);
 	if (id == NULL)
 		return;
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/tags/", tag, "/", id, NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/tags/", tag, "/", id, NULL);
 
 	if (add) {
 		int fd;
@@ -115,7 +115,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 		return -1;
 
 	has_info = device_has_info(udev_device);
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/db3/", id, NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/data/", id, NULL);
 
 	/* do not store anything for otherwise empty devices */
 	if (!has_info &&
@@ -176,7 +176,7 @@ int udev_device_delete_db(struct udev_device *udev_device)
 	id = udev_device_get_id_filename(udev_device);
 	if (id == NULL)
 		return -1;
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/db3/", id, NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/data/", id, NULL);
 	unlink(filename);
 	return 0;
 }

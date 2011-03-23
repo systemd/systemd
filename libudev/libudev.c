@@ -43,6 +43,8 @@ struct udev {
 	char *sys_path;
 	char *dev_path;
 	char *rules_path;
+	char *run_config_path;
+	char *run_path;
 	struct udev_list_node properties_list;
 	int log_priority;
 };
@@ -96,6 +98,14 @@ void udev_set_userdata(struct udev *udev, void *userdata)
 	udev->userdata = userdata;
 }
 
+static char *set_value(char **s, const char *v)
+{
+	free(*s);
+	*s = strdup(v);
+	util_remove_trailing_chars(*s, '/');
+	return *s;
+}
+
 /**
  * udev_new:
  *
@@ -111,7 +121,7 @@ struct udev *udev_new(void)
 {
 	struct udev *udev;
 	const char *env;
-	char *config_file;
+	char *config_file = NULL;
 	FILE *f;
 
 	udev = calloc(1, sizeof(struct udev));
@@ -121,31 +131,21 @@ struct udev *udev_new(void)
 	udev->log_fn = log_stderr;
 	udev->log_priority = LOG_ERR;
 	udev_list_init(&udev->properties_list);
-	udev->dev_path = strdup("/dev");
-	udev->sys_path = strdup("/sys");
-	config_file = strdup(SYSCONFDIR "/udev/udev.conf");
-	if (udev->dev_path == NULL ||
-	    udev->sys_path == NULL ||
-	    config_file == NULL)
-		goto err;
 
-	/* settings by environment and config file */
-	env = getenv("SYSFS_PATH");
-	if (env != NULL) {
-		free(udev->sys_path);
-		udev->sys_path = strdup(env);
-		util_remove_trailing_chars(udev->sys_path, '/');
-		udev_add_property(udev, "SYSFS_PATH", udev->sys_path);
-	}
-
+	/* custom config file */
 	env = getenv("UDEV_CONFIG_FILE");
 	if (env != NULL) {
-		free(config_file);
-		config_file = strdup(env);
-		util_remove_trailing_chars(config_file, '/');
+		udev_add_property(udev, "UDEV_CONFIG_FILE", udev->dev_path);
+		if (set_value(&config_file, env) == NULL)
+			goto err;
 	}
+
+	/* default config file */
+	if (config_file == NULL)
+		config_file = strdup(SYSCONFDIR "/udev/udev.conf");
 	if (config_file == NULL)
 		goto err;
+
 	f = fopen(config_file, "re");
 	if (f != NULL) {
 		char line[UTIL_LINE_SIZE];
@@ -214,40 +214,57 @@ struct udev *udev_new(void)
 				continue;
 			}
 			if (strcmp(key, "udev_root") == 0) {
-				free(udev->dev_path);
-				udev->dev_path = strdup(val);
-				util_remove_trailing_chars(udev->dev_path, '/');
+				set_value(&udev->dev_path, val);
+				continue;
+			}
+			if (strcmp(key, "udev_run") == 0) {
+				set_value(&udev->run_config_path, val);
 				continue;
 			}
 			if (strcmp(key, "udev_rules") == 0) {
-				free(udev->rules_path);
-				udev->rules_path = strdup(val);
-				util_remove_trailing_chars(udev->rules_path, '/');
+				set_value(&udev->rules_path, val);
 				continue;
 			}
 		}
 		fclose(f);
 	}
 
-	env = getenv("UDEV_ROOT");
-	if (env != NULL) {
-		free(udev->dev_path);
-		udev->dev_path = strdup(env);
-		util_remove_trailing_chars(udev->dev_path, '/');
-		udev_add_property(udev, "UDEV_ROOT", udev->dev_path);
-	}
-
+	/* environment overwrites config */
 	env = getenv("UDEV_LOG");
 	if (env != NULL)
 		udev_set_log_priority(udev, util_log_priority(env));
 
-	if (udev->dev_path == NULL || udev->sys_path == NULL)
-		goto err;
+	env = getenv("UDEV_ROOT");
+	if (env != NULL) {
+		set_value(&udev->dev_path, env);
+		udev_add_property(udev, "UDEV_ROOT", udev->dev_path);
+	}
+
+	env = getenv("SYSFS_PATH");
+	if (env != NULL) {
+		set_value(&udev->sys_path, env);
+		udev_add_property(udev, "SYSFS_PATH", udev->sys_path);
+	}
+
+	/* set defaults */
+	if (udev->dev_path == NULL)
+		if (set_value(&udev->dev_path, "/dev") == NULL)
+			goto err;
+
+	if (udev->sys_path == NULL)
+		if (set_value(&udev->sys_path, "/sys") == NULL)
+			goto err;
+
+	if (udev->run_config_path == NULL)
+		if (set_value(&udev->run_config_path, "/run/udev") == NULL)
+			goto err;
+
 	dbg(udev, "context %p created\n", udev);
 	dbg(udev, "log_priority=%d\n", udev->log_priority);
 	dbg(udev, "config_file='%s'\n", config_file);
 	dbg(udev, "dev_path='%s'\n", udev->dev_path);
 	dbg(udev, "sys_path='%s'\n", udev->sys_path);
+	dbg(udev, "run_path='%s'\n", udev->run_config_path);
 	if (udev->rules_path != NULL)
 		dbg(udev, "rules_path='%s'\n", udev->rules_path);
 	free(config_file);
@@ -294,6 +311,8 @@ void udev_unref(struct udev *udev)
 	free(udev->dev_path);
 	free(udev->sys_path);
 	free(udev->rules_path);
+	free(udev->run_path);
+	free(udev->run_config_path);
 	dbg(udev, "context %p released\n", udev);
 	free(udev);
 }
@@ -385,6 +404,39 @@ const char *udev_get_dev_path(struct udev *udev)
 	if (udev == NULL)
 		return NULL;
 	return udev->dev_path;
+}
+
+const char *udev_get_run_config_path(struct udev *udev)
+{
+	return udev->run_config_path;
+}
+
+const char *udev_get_run_path(struct udev *udev)
+{
+	if (udev->run_path != NULL)
+		return udev->run_path;
+
+	/* check if configured path exists */
+	if (access(udev->run_config_path, F_OK) < 0) {
+		char filename[UTIL_PATH_SIZE];
+
+		/* fall back to /dev/.udev if that exists */
+		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev", NULL);
+		if (access(filename, F_OK) >= 0)
+			if (set_value(&udev->run_path, filename) != NULL)
+				return udev->run_path;
+	}
+
+	/* use default path */
+	set_value(&udev->run_path, udev->run_config_path);
+	if (udev->run_path == NULL)
+		return udev->run_config_path;
+	return udev->run_path;
+}
+
+const char *udev_set_run_path(struct udev *udev, const char *path)
+{
+	return set_value(&udev->run_path, path);
 }
 
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value)

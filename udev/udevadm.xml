@@ -111,6 +111,12 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--run</option></term>
+          <listitem>
+            <para>The udev runtime directory: <filename>/run/udev</filename>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>--attribute-walk</option></term>
           <listitem>
             <para>Print all sysfs properties of the specified device that can be used

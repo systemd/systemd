@@ -979,13 +979,15 @@ static int convert_db(struct udev *udev)
 	struct udev_list_entry *list_entry;
 
 	/* current database */
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/db3", NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/data", NULL);
 	if (access(filename, F_OK) >= 0)
 		return 0;
 
 	/* make sure we do not get here again */
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/db3/", NULL);
 	util_create_path(udev, filename);
+	udev_selinux_setfscreatecon(udev, udev_get_run_path(udev), S_IFDIR|0755);
+	mkdir(filename, 0755);
+	udev_selinux_resetfscreatecon(udev);
 
 	/* old database */
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db", NULL);
@@ -1044,8 +1046,7 @@ static int convert_db(struct udev *udev)
 
 			/* find old database with the encoded devpath name */
 			util_path_encode(udev_device_get_devpath(device), devpath, sizeof(devpath));
-			util_strscpyl(from, sizeof(from), udev_get_dev_path(udev),
-				      "/.udev/db/", devpath, NULL);
+			util_strscpyl(from, sizeof(from), udev_get_dev_path(udev), "/.udev/db/", devpath, NULL);
 			if (lstat(from, &stats) == 0) {
 				if (!have_db) {
 					udev_device_read_db(device, from);
@@ -1092,6 +1093,27 @@ int main(int argc, char *argv[])
 	udev_set_log_fn(udev, log_fn);
 	info(udev, "version %s\n", VERSION);
 	udev_selinux_init(udev);
+
+	/* make sure, that our runtime dir exists and is writable */
+	if (utimensat(AT_FDCWD, udev_get_run_config_path(udev), NULL, 0) < 0) {
+		/* try to create our own subdirectory, do not create parent directories */
+		udev_selinux_setfscreatecon(udev, udev_get_run_config_path(udev), S_IFDIR|0755);
+		mkdir(udev_get_run_config_path(udev), 0755);
+		udev_selinux_resetfscreatecon(udev);
+
+		if (utimensat(AT_FDCWD, udev_get_run_config_path(udev), NULL, 0) >= 0) {
+			/* directory seems writable now */
+			udev_set_run_path(udev, udev_get_run_config_path(udev));
+		} else {
+			/* fall back to /dev/.udev */
+			char filename[UTIL_PATH_SIZE];
+
+			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev", NULL);
+			if (udev_set_run_path(udev, filename) == NULL)
+				goto exit;
+		}
+	}
+	info(udev, "runtime dir '%s'\n", udev_get_run_path(udev));
 
 	for (;;) {
 		int option;
@@ -1252,7 +1274,7 @@ int main(int argc, char *argv[])
 				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 
 		/* watch dynamic rules directory */
-		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/rules.d", NULL);
+		util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/rules.d", NULL);
 		if (stat(filename, &statbuf) != 0) {
 			util_create_path(udev, filename);
 			udev_selinux_setfscreatecon(udev, filename, S_IFDIR|0755);

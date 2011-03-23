@@ -73,7 +73,7 @@
       <para>The udev rules are read from the files located in the
       default rules directory <filename>/lib/udev/rules.d/</filename>,
       the custom rules directory <filename>/etc/udev/rules.d/</filename>
-      and the temporary rules directory <filename>/var/run/udev/rules.d/</filename>.
+      and the temporary rules directory <filename>/run/udev/rules.d/</filename>.
       All rule files are sorted and processed in lexical order, regardless
       in which of these directories they live. Files in
       <filename>/etc/udev/rules.d/</filename> have precedence over files with

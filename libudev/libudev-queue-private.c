@@ -103,10 +103,10 @@ void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export)
 {
 	char filename[UTIL_PATH_SIZE];
 
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_queue_export->udev), "/.run/udev/queue.tmp", NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue_export->udev), "/queue.tmp", NULL);
 	unlink(filename);
 
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_queue_export->udev), "/.run/udev/queue.bin", NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue_export->udev), "/queue.bin", NULL);
 	unlink(filename);
 }
 
@@ -221,7 +221,7 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export)
 	}
 
 	/* create new queue file */
-	util_strscpyl(filename_tmp, sizeof(filename_tmp), udev_get_dev_path(udev_queue_export->udev), "/.run/udev/queue.tmp", NULL);
+	util_strscpyl(filename_tmp, sizeof(filename_tmp), udev_get_run_path(udev_queue_export->udev), "/queue.tmp", NULL);
 	new_queue_file = fopen(filename_tmp, "w+");
 	if (new_queue_file == NULL)
 		goto error;
@@ -255,7 +255,7 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export)
 		goto error;
 
 	/* rename the new file on top of the old one */
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_queue_export->udev), "/.run/udev/queue.bin", NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue_export->udev), "/queue.bin", NULL);
 	if (rename(filename_tmp, filename) != 0)
 		goto error;
 
@@ -401,7 +401,7 @@ static void update_failed(struct udev_queue_export *udev_queue_export,
 		return;
 
 	/* location of failed file */
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/failed/",
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/failed/",
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
 
 	switch (state) {

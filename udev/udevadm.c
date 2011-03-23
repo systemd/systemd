@@ -171,6 +171,8 @@ int main(int argc, char *argv[])
 	}
 	command = argv[optind];
 
+	info(udev, "runtime dir '%s'\n", udev_get_run_path(udev));
+
 	if (command != NULL)
 		for (i = 0; cmds[i].cmd != NULL; i++) {
 			if (strcmp(cmds[i].name, command) == 0) {

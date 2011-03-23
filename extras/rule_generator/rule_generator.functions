@@ -48,9 +48,10 @@ writeable() {
 
 # Create a lock file for the current rules file.
 lock_rules_file() {
-	[ -e /dev/.udev/ ] || return 0
+	RUNDIR=$(udevadm info --run)
+	[ -e "$RUNDIR" ] || return 0
 
-	RULES_LOCK="/dev/.udev/.lock-${RULES_FILE##*/}"
+	RULES_LOCK="$RUNDIR/.lock-${RULES_FILE##*/}"
 
 	retry=30
 	while ! mkdir $RULES_LOCK 2> /dev/null; do
@@ -71,7 +72,8 @@ unlock_rules_file() {
 # Choose the real rules file if it is writeable or a temporary file if not.
 # Both files should be checked later when looking for existing rules.
 choose_rules_file() {
-	local tmp_rules_file="/dev/.udev/tmp-rules--${RULES_FILE##*/}"
+	RUNDIR=$(udevadm info --run)
+	local tmp_rules_file="$RUNDIR/tmp-rules--${RULES_FILE##*/}"
 	[ -e "$RULES_FILE" -o -e "$tmp_rules_file" ] || PRINT_HEADER=1
 
 	if writeable ${RULES_FILE%/*}; then

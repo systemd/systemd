@@ -214,7 +214,7 @@ static FILE *open_queue_file(struct udev_queue *udev_queue, unsigned long long i
 	char filename[UTIL_PATH_SIZE];
 	FILE *queue_file;
 
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_queue->udev), "/.run/udev/queue.bin", NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue->udev), "/queue.bin", NULL);
 	queue_file = fopen(filename, "re");
 	if (queue_file == NULL)
 		return NULL;
@@ -484,7 +484,7 @@ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev
 	if (udev_queue == NULL)
 		return NULL;
 	udev_list_cleanup_entries(udev_queue->udev, &udev_queue->failed_list);
-	util_strscpyl(path, sizeof(path), udev_get_dev_path(udev_queue->udev), "/.run/udev/failed", NULL);
+	util_strscpyl(path, sizeof(path), udev_get_run_path(udev_queue->udev), "/failed", NULL);
 	dir = opendir(path);
 	if (dir == NULL)
 		return NULL;

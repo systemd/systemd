@@ -34,7 +34,6 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-#define TMPFILE			"/dev/.run/udev/collect"
 #define BUFSIZE			16
 #define UDEV_ALARM_TIMEOUT	180
 
@@ -338,6 +337,7 @@ static void everybody(void)
 
 int main(int argc, char **argv)
 {
+	struct udev *udev;
 	static const struct option options[] = {
 		{ "add", no_argument, NULL, 'a' },
 		{ "remove", no_argument, NULL, 'r' },
@@ -349,8 +349,15 @@ int main(int argc, char **argv)
 	char *checkpoint, *us;
 	int fd;
 	int i;
-	int ret = 0;
+	int ret = EXIT_SUCCESS;
 	int prune = 0;
+	char tmpdir[UTIL_PATH_SIZE];
+
+	udev = udev_new();
+	if (udev == NULL) {
+		ret = EXIT_FAILURE;
+		goto exit;
+	}
 
 	while (1) {
 		int option;
@@ -398,7 +405,8 @@ int main(int argc, char **argv)
 	if (debug)
 		fprintf(stderr, "Using checkpoint '%s'\n", checkpoint);
 
-	fd = prepare(TMPFILE, checkpoint);
+	util_strscpyl(tmpdir, sizeof(tmpdir), udev_get_run_path(udev), "/collect", NULL);
+	fd = prepare(tmpdir, checkpoint);
 	if (fd < 0) {
 		ret = 3;
 		goto out;
@@ -454,11 +462,12 @@ int main(int argc, char **argv)
 
 	lockf(fd, F_ULOCK, 0);
 	close(fd);
- out:
+out:
 	if (debug)
 		everybody();
 	if (ret >= 0)
 		printf("COLLECT_%s=%d\n", checkpoint, ret);
- exit:
+exit:
+	udev_unref(udev);
 	return ret;
 }

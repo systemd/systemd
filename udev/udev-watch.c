@@ -54,8 +54,8 @@ void udev_watch_restore(struct udev *udev)
 	if (inotify_fd < 0)
 		return;
 
-	util_strscpyl(oldname, sizeof(oldname), udev_get_dev_path(udev), "/.run/udev/watch.old", NULL);
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.run/udev/watch", NULL);
+	util_strscpyl(oldname, sizeof(oldname), udev_get_run_path(udev), "/watch.old", NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/watch", NULL);
 	if (rename(filename, oldname) == 0) {
 		DIR *dir;
 		struct dirent *ent;
@@ -118,7 +118,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 		return;
 	}
 
-	snprintf(filename, sizeof(filename), "%s/.run/udev/watch/%d", udev_get_dev_path(udev), wd);
+	snprintf(filename, sizeof(filename), "%s/watch/%d", udev_get_run_path(udev), wd);
 	util_create_path(udev, filename);
 	unlink(filename);
 	symlink(udev_device_get_id_filename(dev), filename);
@@ -141,7 +141,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
 	info(udev, "removing watch on '%s'\n", udev_device_get_devnode(dev));
 	inotify_rm_watch(inotify_fd, wd);
 
-	snprintf(filename, sizeof(filename), "%s/.run/udev/watch/%d", udev_get_dev_path(udev), wd);
+	snprintf(filename, sizeof(filename), "%s/watch/%d", udev_get_run_path(udev), wd);
 	unlink(filename);
 
 	udev_device_set_watch_handle(dev, -1);
@@ -158,7 +158,7 @@ struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
 	if (inotify_fd < 0 || wd < 0)
 		return NULL;
 
-	snprintf(filename, sizeof(filename), "%s/.run/udev/watch/%d", udev_get_dev_path(udev), wd);
+	snprintf(filename, sizeof(filename), "%s/watch/%d", udev_get_run_path(udev), wd);
 	s = majmin;
 	l = util_strpcpy(&s, sizeof(majmin), udev_get_sys_path(udev));
 	len = readlink(filename, s, l);

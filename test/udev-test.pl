@@ -1732,6 +1732,7 @@ make_udev_root();
 # create config file
 open CONF, ">$udev_conf" || die "unable to create config file: $udev_conf";
 print CONF "udev_root=\"$udev_root\"\n";
+print CONF "udev_run=\"$udev_root/.udev\"\n";
 print CONF "udev_rules=\"$PWD\"\n";
 print CONF "udev_log=\"err\"\n";
 close CONF;

@@ -218,6 +218,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		{ "attribute-walk", no_argument, NULL, 'a' },
 		{ "export-db", no_argument, NULL, 'e' },
 		{ "root", no_argument, NULL, 'r' },
+		{ "run", no_argument, NULL, 'R' },
 		{ "device-id-of-file", required_argument, NULL, 'd' },
 		{ "export", no_argument, NULL, 'x' },
 		{ "export-prefix", required_argument, NULL, 'P' },
@@ -247,7 +248,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		int option;
 		struct stat statbuf;
 
-		option = getopt_long(argc, argv, "aed:n:p:q:rxP:Vh", options, NULL);
+		option = getopt_long(argc, argv, "aed:n:p:q:rxP:RVh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -331,6 +332,9 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				action = ACTION_ROOT;
 			root = true;
 			break;
+		case 'R':
+			printf("%s\n", udev_get_run_path(udev));
+			goto exit;
 		case 'd':
 			action = ACTION_DEVICE_ID_FILE;
 			util_strscpy(name, sizeof(name), optarg);
