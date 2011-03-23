@@ -61,7 +61,7 @@ struct udev_ctrl {
 	socklen_t addrlen;
 };
 
-struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path)
+static struct udev_ctrl *udev_ctrl_new(struct udev *udev)
 {
 	struct udev_ctrl *uctrl;
 
@@ -70,6 +70,16 @@ struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socke
 		return NULL;
 	uctrl->refcount = 1;
 	uctrl->udev = udev;
+	return uctrl;
+}
+
+struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path)
+{
+	struct udev_ctrl *uctrl;
+
+	uctrl = udev_ctrl_new(udev);
+	if (uctrl == NULL)
+		return NULL;
 
 	uctrl->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (uctrl->sock < 0) {
@@ -84,6 +94,17 @@ struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socke
 	/* translate leading '@' to abstract namespace */
 	if (uctrl->saddr.sun_path[0] == '@')
 		uctrl->saddr.sun_path[0] = '\0';
+	return uctrl;
+}
+
+struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
+{
+	struct udev_ctrl *uctrl;
+
+	uctrl = udev_ctrl_new(udev);
+	if (uctrl == NULL)
+		return NULL;
+	uctrl->sock = fd;
 
 	return uctrl;
 }
@@ -91,16 +112,18 @@ struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socke
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
 {
 	int err;
-	const int feature_on = 1;
+	const int on = 1;
 
-	err= bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
-	if (err < 0) {
-		err(uctrl->udev, "bind failed: %m\n");
-		return err;
+	if (uctrl->addrlen > 0) {
+		err = bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
+		if (err < 0) {
+			err(uctrl->udev, "bind failed: %m\n");
+			return err;
+		}
 	}
 
 	/* enable receiving of the sender credentials */
-	setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
+	setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 	return 0;
 }
 

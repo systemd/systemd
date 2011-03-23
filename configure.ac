@@ -137,6 +137,7 @@ AC_CONFIG_FILES([
 	Makefile
 	udev/udev.pc
 	init/udev.service
+	init/udev-trigger.service
 	init/udev-settle.service
 	libudev/libudev.pc
 	libudev/docs/Makefile

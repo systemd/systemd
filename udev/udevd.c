@@ -1228,16 +1228,20 @@ int main(int argc, char *argv[])
 	if (write(STDERR_FILENO, 0, 0) < 0)
 		dup2(fd, STDERR_FILENO);
 
-	udev_ctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
+	/* udevadm control socket */
+	if (sd_listen_fds(true) == 1 && sd_is_socket(SD_LISTEN_FDS_START, AF_LOCAL, SOCK_DGRAM, -1))
+		udev_ctrl = udev_ctrl_new_from_fd(udev, SD_LISTEN_FDS_START);
+	else
+		udev_ctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
 	if (udev_ctrl == NULL) {
-		fprintf(stderr, "error initializing control socket");
-		err(udev, "error initializing udevd socket");
+		fprintf(stderr, "error initializing udev control socket");
+		err(udev, "error initializing udev control socket");
 		rc = 1;
 		goto exit;
 	}
 	if (udev_ctrl_enable_receiving(udev_ctrl) < 0) {
-		fprintf(stderr, "error binding control socket, seems udevd is already running\n");
-		err(udev, "error binding control socket, seems udevd is already running\n");
+		fprintf(stderr, "error binding udev control socket\n");
+		err(udev, "error binding udev control socket\n");
 		rc = 1;
 		goto exit;
 	}

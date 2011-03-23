@@ -1,9 +1,10 @@
 [Unit]
 Description=udev Kernel Device Manager
-DefaultDependencies=no
+Requires=udev.socket
+After=udev.socket
 Before=basic.target
+DefaultDependencies=no
 
 [Service]
 Type=notify
 ExecStart=@sbindir@/udevd
-ExecStartPost=@sbindir@/udevadm trigger --type=subsystems --action=add ; @sbindir@/udevadm trigger --type=devices --action=add

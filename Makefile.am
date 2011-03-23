@@ -124,14 +124,20 @@ sharepkgconfig_DATA = udev/udev.pc
 
 if WITH_SYSTEMD
 systemdsystemunit_DATA = \
+	init/udev.socket \
 	init/udev.service \
+	init/udev-trigger.service \
 	init/udev-settle.service
 
+EXTRA_DIST += init/udev.socket
+
 systemd-install-hook:
+	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/socket.target.wants
+	ln -sf ../udev.socket $(DESTDIR)$(systemdsystemunitdir)/socket.target.wants/udev.socket
 	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants
 	ln -sf ../udev.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev.service
+	ln -sf ../udev-trigger.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev-trigger.service
 	ln -sf ../udev-settle.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev-settle.service
-	ln -sf ../udev-retry.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev-retry.service
 
 INSTALL_DATA_HOOKS += systemd-install-hook
 endif

@@ -125,6 +125,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 /* libudev-ctrl.c - daemon runtime setup */
 struct udev_ctrl;
 struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
+struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd);
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl);
 void udev_ctrl_unref(struct udev_ctrl *uctrl);
