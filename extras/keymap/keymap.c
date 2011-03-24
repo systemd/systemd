@@ -141,8 +141,9 @@ static int dump_table(int fd) {
 		int keycode;
 
 		if ((keycode = evdev_get_keycode(fd, scancode, 1)) < 0) {
-			if (keycode != -2)
-				r = -1;
+			if (keycode == -2)
+				continue;
+			r = -1;
 			break;
 		}
 
