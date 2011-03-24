@@ -223,7 +223,7 @@ static int bus_manager_append_tainted(Manager *m, DBusMessageIter *i, const char
         assert(i);
         assert(property);
 
-        if (path_is_mount_point("/usr") > 0 || dir_is_empty("/usr") > 0)
+        if (dir_is_empty("/usr") > 0)
                 e = stpcpy(e, "usr-separate-fs");
 
         if (readlink_malloc("/etc/mtab", &p) < 0) {
