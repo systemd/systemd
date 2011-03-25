@@ -494,24 +494,24 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "F
 static int parse_config_file(void) {
 
         const ConfigItem items[] = {
-                { "LogLevel",              config_parse_level,        NULL,                     "Manager" },
-                { "LogTarget",             config_parse_target,       NULL,                     "Manager" },
-                { "LogColor",              config_parse_color,        NULL,                     "Manager" },
-                { "LogLocation",           config_parse_location,     NULL,                     "Manager" },
-                { "DumpCore",              config_parse_bool,         &arg_dump_core,           "Manager" },
-                { "CrashShell",            config_parse_bool,         &arg_crash_shell,         "Manager" },
-                { "ShowStatus",            config_parse_bool,         &arg_show_status,         "Manager" },
+                { "LogLevel",              config_parse_level,        0, NULL,                     "Manager" },
+                { "LogTarget",             config_parse_target,       0, NULL,                     "Manager" },
+                { "LogColor",              config_parse_color,        0, NULL,                     "Manager" },
+                { "LogLocation",           config_parse_location,     0, NULL,                     "Manager" },
+                { "DumpCore",              config_parse_bool,         0, &arg_dump_core,           "Manager" },
+                { "CrashShell",            config_parse_bool,         0, &arg_crash_shell,         "Manager" },
+                { "ShowStatus",            config_parse_bool,         0, &arg_show_status,         "Manager" },
 #ifdef HAVE_SYSV_COMPAT
-                { "SysVConsole",           config_parse_bool,         &arg_sysv_console,        "Manager" },
+                { "SysVConsole",           config_parse_bool,         0, &arg_sysv_console,        "Manager" },
 #endif
-                { "CrashChVT",             config_parse_int,          &arg_crash_chvt,          "Manager" },
-                { "CPUAffinity",           config_parse_cpu_affinity, NULL,                     "Manager" },
-                { "MountAuto",             config_parse_bool,         &arg_mount_auto,          "Manager" },
-                { "SwapAuto",              config_parse_bool,         &arg_swap_auto,           "Manager" },
-                { "DefaultControllers",    config_parse_strv,         &arg_default_controllers, "Manager" },
-                { "DefaultStandardOutput", config_parse_output,       &arg_default_std_output,  "Manager" },
-                { "DefaultStandardError",  config_parse_output,       &arg_default_std_error,   "Manager" },
-                { NULL, NULL, NULL, NULL }
+                { "CrashChVT",             config_parse_int,          0, &arg_crash_chvt,          "Manager" },
+                { "CPUAffinity",           config_parse_cpu_affinity, 0, NULL,                     "Manager" },
+                { "MountAuto",             config_parse_bool,         0, &arg_mount_auto,          "Manager" },
+                { "SwapAuto",              config_parse_bool,         0, &arg_swap_auto,           "Manager" },
+                { "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers, "Manager" },
+                { "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output,  "Manager" },
+                { "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error,   "Manager" },
+                { NULL, NULL, 0, NULL, NULL }
         };
 
         static const char * const sections[] = {
@@ -1074,7 +1074,7 @@ int main(int argc, char *argv[]) {
 
         /* If Plymouth is being run make sure we show the status, so
          * that there's something nice to see when people press Esc */
-        if (access("/dev/.run/initramfs/plymouth", F_OK) >= 0)
+        if (access("/run/initramfs/plymouth", F_OK) >= 0)
                 arg_show_status = true;
 
         if (arg_action == ACTION_HELP) {

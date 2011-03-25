@@ -104,7 +104,7 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
         /* If we are root, then let's not go via the bus */
         if (geteuid() == 0 && t == DBUS_BUS_SYSTEM) {
 
-                if (!(bus = dbus_connection_open_private("unix:path=/dev/.run/systemd/private", error))) {
+                if (!(bus = dbus_connection_open_private("unix:path=/run/systemd/private", error))) {
 #ifndef LEGACY
                         dbus_error_free(error);
 

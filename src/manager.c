@@ -66,7 +66,7 @@
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
 
 /* Where clients shall send notification messages to */
-#define NOTIFY_SOCKET_SYSTEM "/dev/.run/systemd/notify"
+#define NOTIFY_SOCKET_SYSTEM "/run/systemd/notify"
 #define NOTIFY_SOCKET_USER "@/org/freedesktop/systemd1/notify"
 
 static int manager_setup_notify(Manager *m) {
@@ -2592,7 +2592,7 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         assert(_f);
 
         if (m->running_as == MANAGER_SYSTEM)
-                asprintf(&path, "/dev/.run/systemd/dump-%lu-XXXXXX", (unsigned long) getpid());
+                asprintf(&path, "/run/systemd/dump-%lu-XXXXXX", (unsigned long) getpid());
         else
                 asprintf(&path, "/tmp/systemd-dump-%lu-XXXXXX", (unsigned long) getpid());
 
@@ -2895,7 +2895,7 @@ void manager_run_generators(Manager *m) {
 
         if (!m->generator_unit_path) {
                 char *p;
-                char system_path[] = "/dev/.run/systemd/generator-XXXXXX",
+                char system_path[] = "/run/systemd/generator-XXXXXX",
                         user_path[] = "/tmp/systemd-generator-XXXXXX";
 
                 if (!(p = mkdtemp(m->running_as == MANAGER_SYSTEM ? system_path : user_path))) {

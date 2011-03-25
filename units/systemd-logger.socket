@@ -13,4 +13,4 @@ DefaultDependencies=no
 Before=sockets.target
 
 [Socket]
-ListenStream=/dev/.run/systemd/logger
+ListenStream=/run/systemd/logger

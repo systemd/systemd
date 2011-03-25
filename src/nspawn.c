@@ -117,7 +117,7 @@ static int mount_all(const char *dest) {
                 { "sysfs",     "/sys",      "sysfs",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, true },
                 { "tmpfs",     "/dev",      "tmpfs",     "mode=755",  MS_NOSUID, true },
                 { "/dev/pts",  "/dev/pts",  "bind",      NULL,        MS_BIND, true },
-                { "tmpfs",     "/dev/.run", "tmpfs",     "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+                { "tmpfs",     "/run",      "tmpfs",     "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 #ifdef HAVE_SELINUX
                 { "selinux",   "/selinux",  "selinuxfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, false },
 #endif

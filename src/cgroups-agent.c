@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
          * this to avoid an activation loop when we start dbus when we
          * are called when the dbus service is shut down. */
 
-        if (!(bus = dbus_connection_open_private("unix:path=/dev/.run/systemd/private", &error))) {
+        if (!(bus = dbus_connection_open_private("unix:path=/run/systemd/private", &error))) {
 #ifndef LEGACY
                 dbus_error_free(&error);
 

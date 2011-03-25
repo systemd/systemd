@@ -40,7 +40,7 @@ struct CGroupBonding;
 #include "util.h"
 
 /* Abstract namespace! */
-#define LOGGER_SOCKET "/dev/.run/systemd/logger"
+#define LOGGER_SOCKET "/run/systemd/logger"
 
 typedef enum KillMode {
         KILL_CONTROL_GROUP = 0,

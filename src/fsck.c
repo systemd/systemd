@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
                 r = EXIT_SUCCESS;
 
         if (status.si_code == CLD_EXITED && (status.si_status & 1))
-                touch("/dev/.run/systemd/quotacheck");
+                touch("/run/systemd/quotacheck");
 
 finish:
         if (udev_device)

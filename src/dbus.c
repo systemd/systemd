@@ -955,8 +955,8 @@ static int bus_init_private(Manager *m) {
         if (getpid() != 1)
                 return 0;
 
-        unlink("/dev/.run/systemd/private");
-        if (!(m->private_bus = dbus_server_listen("unix:path=/dev/.run/systemd/private", &error))) {
+        unlink("/run/systemd/private");
+        if (!(m->private_bus = dbus_server_listen("unix:path=/run/systemd/private", &error))) {
                 log_error("Failed to create private D-Bus server: %s", error.message);
                 r = -EIO;
                 goto fail;

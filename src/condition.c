@@ -134,6 +134,14 @@ bool condition_test(Condition *c) {
         case CONDITION_PATH_EXISTS:
                 return (access(c->parameter, F_OK) >= 0) == !c->negate;
 
+        case CONDITION_PATH_IS_DIRECTORY: {
+                struct stat st;
+
+                if (lstat(c->parameter, &st) < 0)
+                        return !c->negate;
+                return S_ISDIR(st.st_mode) == !c->negate;
+        }
+
         case CONDITION_DIRECTORY_NOT_EMPTY: {
                 int k;
 

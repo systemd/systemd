@@ -13,4 +13,4 @@ DefaultDependencies=no
 Before=sockets.target
 
 [Socket]
-ListenDatagram=/dev/.run/systemd/shutdownd
+ListenDatagram=/run/systemd/shutdownd

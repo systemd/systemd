@@ -8,9 +8,11 @@
 [Unit]
 Description=Lock Directory
 Before=local-fs.target
+# skip mounting if the directory does not exist or is a symlink
+ConditionPathIsDirectory=/var/lock
 
 [Mount]
-What=tmpfs
+What=/run/lock
 Where=/var/lock
-Type=tmpfs
-Options=mode=775,gid=lock,nosuid,nodev,noexec
+Type=bind
+Options=bind

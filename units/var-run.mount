@@ -8,9 +8,11 @@
 [Unit]
 Description=Runtime Directory
 Before=local-fs.target
+# skip mounting if the directory does not exist or is a symlink
+ConditionPathIsDirectory=/var/run
 
 [Mount]
-What=/dev/.run
+What=/run
 Where=/var/run
 Type=bind
 Options=bind

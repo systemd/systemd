@@ -4023,11 +4023,11 @@ finish:
 static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo *i, const char *config_path) {
 
         const ConfigItem items[] = {
-                { "Alias",    config_parse_strv, &i->aliases,   "Install" },
-                { "WantedBy", config_parse_strv, &i->wanted_by, "Install" },
-                { "Also",     config_parse_also, NULL,          "Install" },
+                { "Alias",    config_parse_strv, 0, &i->aliases,   "Install" },
+                { "WantedBy", config_parse_strv, 0, &i->wanted_by, "Install" },
+                { "Also",     config_parse_also, 0, NULL,          "Install" },
 
-                { NULL, NULL, NULL, NULL }
+                { NULL, NULL, 0, NULL, NULL }
         };
 
         char **p;
@@ -5366,7 +5366,7 @@ static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
         zero(sockaddr);
         sockaddr.sa.sa_family = AF_UNIX;
         sockaddr.un.sun_path[0] = 0;
-        strncpy(sockaddr.un.sun_path, "/dev/.run/systemd/shutdownd", sizeof(sockaddr.un.sun_path));
+        strncpy(sockaddr.un.sun_path, "/run/systemd/shutdownd", sizeof(sockaddr.un.sun_path));
 
         zero(iovec);
         iovec.iov_base = (char*) &c;
@@ -5374,7 +5374,7 @@ static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
 
         zero(msghdr);
         msghdr.msg_name = &sockaddr;
-        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + sizeof("/dev/.run/systemd/shutdownd") - 1;
+        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/systemd/shutdownd") - 1;
 
         msghdr.msg_iov = &iovec;
         msghdr.msg_iovlen = 1;

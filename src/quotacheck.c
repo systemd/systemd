@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
                 if (arg_skip)
                         return 0;
 
-                if (access("/dev/.run/systemd/quotacheck", F_OK) < 0)
+                if (access("/run/systemd/quotacheck", F_OK) < 0)
                         return 0;
         }
 

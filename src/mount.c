@@ -844,6 +844,10 @@ static void mount_enter_mounting(Mount *m) {
 
         mkdir_p(m->where, m->directory_mode);
 
+        /* create the source directory for bind-mounts if needed */
+        if (m->parameters_fragment.fstype && strcmp(m->parameters_fragment.fstype, "bind") == 0)
+                mkdir_p(m->parameters_fragment.what, m->directory_mode);
+
         if (m->from_fragment)
                 r = exec_command_set(
                                 m->control_command,

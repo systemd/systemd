@@ -192,7 +192,7 @@ static int replay(const char *root) {
 
         log_debug("Replaying...");
 
-        if (access("/dev/.run/systemd/readahead/noreplay", F_OK) >= 0) {
+        if (access("/run/systemd/readahead/noreplay", F_OK) >= 0) {
                 log_debug("Got termination request");
                 goto done;
         }

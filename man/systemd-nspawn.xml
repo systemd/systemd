@@ -99,7 +99,7 @@
                 <para>Note that <command>systemd-nspawn</command> will
                 mount file systems private to the container to
                 <filename>/dev</filename>,
-                <filename>/dev/.run</filename> and similar. These will
+                <filename>/run</filename> and similar. These will
                 not be visible outside of the container, and their
                 contents will be lost when the container exits.</para>
 

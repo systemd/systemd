@@ -54,7 +54,7 @@ static const MountPoint mount_table[] = {
         { "devtmpfs", "/dev",                   "devtmpfs", "mode=755",          MS_NOSUID,                    true },
         { "tmpfs",    "/dev/shm",               "tmpfs",    "mode=1777",         MS_NOSUID|MS_NODEV,           true },
         { "devpts",   "/dev/pts",               "devpts",   "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, false },
-        { "tmpfs",    "/dev/.run",              "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "tmpfs",    "/run",                   "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "tmpfs",    "/sys/fs/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "cgroup",   "/sys/fs/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 };
@@ -253,8 +253,8 @@ int mount_setup(void) {
                 symlink_and_label(j, k);
 
         /* Create a few directories we always want around */
-        mkdir("/dev/.run/systemd", 0755);
-        mkdir("/dev/.run/systemd/ask-password", 0755);
+        mkdir("/run/systemd", 0755);
+        mkdir("/run/systemd/ask-password", 0755);
 
         return mount_cgroup_controllers();
 }
