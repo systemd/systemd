@@ -8,6 +8,7 @@ udev_get_userdata
 udev_set_userdata
 udev_get_sys_path
 udev_get_dev_path
+udev_get_run_path
 udev_list_entry_get_next
 udev_list_entry_get_by_name
 udev_list_entry_get_name

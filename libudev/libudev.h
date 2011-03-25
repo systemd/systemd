@@ -38,6 +38,7 @@ int udev_get_log_priority(struct udev *udev);
 void udev_set_log_priority(struct udev *udev, int priority);
 const char *udev_get_sys_path(struct udev *udev);
 const char *udev_get_dev_path(struct udev *udev);
+const char *udev_get_run_path(struct udev *udev);
 void *udev_get_userdata(struct udev *udev);
 void udev_set_userdata(struct udev *udev, void *userdata);
 

@@ -62,7 +62,6 @@ void udev_log(struct udev *udev,
 	      __attribute__((format(printf, 6, 7)));
 const char *udev_get_rules_path(struct udev *udev);
 const char *udev_get_run_config_path(struct udev *udev);
-const char *udev_get_run_path(struct udev *udev);
 const char *udev_set_run_path(struct udev *udev, const char *path);
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
