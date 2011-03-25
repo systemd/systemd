@@ -411,6 +411,14 @@ const char *udev_get_run_config_path(struct udev *udev)
 	return udev->run_config_path;
 }
 
+/**
+ * udev_get_run_path:
+ * @udev: udev library context
+ *
+ * Retrieve the udev runtime directory path. The default is "/run/udev".
+ *
+ * Returns: the runtime directory path
+ **/
 const char *udev_get_run_path(struct udev *udev)
 {
 	if (udev->run_path != NULL)
