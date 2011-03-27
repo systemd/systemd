@@ -18,7 +18,7 @@
   You should have received a copy of the GNU General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-
+#include <stdbool.h>
 #include <termios.h>
 #include <unistd.h>
 #include <sys/poll.h>
@@ -48,6 +48,7 @@ int ask_password_tty(
         int r, ttyfd = -1, notify = -1;
         struct pollfd pollfd[2];
         bool reset_tty = false;
+        bool silent_mode = false;
         enum {
                 POLL_TTY,
                 POLL_INOTIFY
@@ -156,7 +157,6 @@ int ask_password_tty(
                 if (c == '\n')
                         break;
                 else if (c == 21) {
-
                         while (p > 0) {
                                 p--;
 
@@ -165,7 +165,10 @@ int ask_password_tty(
                         }
 
                 } else if (c == '\b' || c == 127) {
-                        if (p > 0) {
+                        if (p == 0 && !silent_mode) {
+                                silent_mode = true;
+                                loop_write(ttyfd, "(no echo) ", 10, false);
+                        } else if (p > 0) {
                                 p--;
 
                                 if (ttyfd >= 0)
@@ -174,7 +177,7 @@ int ask_password_tty(
                 } else {
                         passphrase[p++] = c;
 
-                        if (ttyfd >= 0)
+                        if (!silent_mode && ttyfd >= 0)
                                 loop_write(ttyfd, "*", 1, false);
                 }
         }
