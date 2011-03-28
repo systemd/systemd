@@ -373,6 +373,7 @@ static int config_parse_level(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -390,6 +391,7 @@ static int config_parse_target(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -407,6 +409,7 @@ static int config_parse_color(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -424,6 +427,7 @@ static int config_parse_location(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -441,6 +445,7 @@ static int config_parse_cpu_affinity(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {

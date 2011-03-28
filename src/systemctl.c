@@ -3609,6 +3609,7 @@ static int config_parse_also(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
