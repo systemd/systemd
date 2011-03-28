@@ -156,7 +156,7 @@
                                         <para>The default unit systemd
                                         starts at bootup can be
                                         overriden with the
-                                        <varname>systemd.default=</varname>
+                                        <varname>systemd.unit=</varname>
                                         kernel command line option.</para>
                                 </listitem>
                         </varlistentry>
@@ -189,7 +189,7 @@
                                         console. This unit is supposed
                                         to be used with the kernel
                                         command line option
-                                        <varname>systemd.default=</varname>
+                                        <varname>systemd.unit=</varname>
                                         and has otherwise little use.
                                         </para>
                                 </listitem>
