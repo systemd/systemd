@@ -39,7 +39,6 @@ struct CGroupBonding;
 #include "list.h"
 #include "util.h"
 
-/* Abstract namespace! */
 #define LOGGER_SOCKET "/run/systemd/logger"
 
 typedef enum KillMode {

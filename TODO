@@ -29,6 +29,12 @@ F15:
 
 * remove KillMode=process-group
 
+* kernel patch wegen kmsg prio nach f15
+
+* LOG_DAEMON/LOG_USER für kmsg messages schreiben
+
+* fix /usr taint
+
 Features:
 
 * when key file cannot be found, read it from kbd in cryptsetup
