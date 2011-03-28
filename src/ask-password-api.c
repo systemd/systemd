@@ -36,6 +36,18 @@
 
 #include "ask-password-api.h"
 
+static void backspace_chars(int ttyfd, size_t p) {
+
+        if (ttyfd < 0)
+                return;
+
+        while (p > 0) {
+                p--;
+
+                loop_write(ttyfd, "\b \b", 3, false);
+        }
+}
+
 int ask_password_tty(
                 const char *message,
                 usec_t until,
@@ -156,24 +168,30 @@ int ask_password_tty(
 
                 if (c == '\n')
                         break;
-                else if (c == 21) {
-                        while (p > 0) {
-                                p--;
+                else if (c == 21) { /* C-u */
 
-                                if (ttyfd >= 0)
-                                        loop_write(ttyfd, "\b \b", 3, false);
-                        }
+                        if (!silent_mode)
+                                backspace_chars(ttyfd, p);
+                        p = 0;
 
                 } else if (c == '\b' || c == 127) {
-                        if (p == 0 && !silent_mode) {
-                                silent_mode = true;
-                                loop_write(ttyfd, "(no echo) ", 10, false);
-                        } else if (p > 0) {
-                                p--;
 
-                                if (ttyfd >= 0)
-                                        loop_write(ttyfd, "\b \b", 3, false);
-                        }
+                        if (p > 0) {
+
+                                if (!silent_mode)
+                                        backspace_chars(ttyfd, 1);
+
+                                p--;
+                        } else if (ttyfd >= 0)
+                                loop_write(ttyfd, "\a", 1, false);
+
+                } else if (c == '\t' && !silent_mode) {
+
+                        backspace_chars(ttyfd, p);
+                        silent_mode = true;
+
+                        if (ttyfd >= 0)
+                                loop_write(ttyfd, "(no echo) ", 10, false);
                 } else {
                         passphrase[p++] = c;
 
