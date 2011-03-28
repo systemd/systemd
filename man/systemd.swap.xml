@@ -68,13 +68,23 @@
                 specific configuration options are configured in the
                 [Swap] section.</para>
 
-                <para>Swap units must be named after the devices they
-                control. Example: the swap device
+                <para>Swap units must be named after the devices
+                (resp. files) they control. Example: the swap device
                 <filename>/dev/sda5</filename> must be configured in a
                 unit file <filename>dev-sda5.swap</filename>. For
                 details about the escaping logic used to convert a
                 file system path to a unit name see
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                <para>All swap units automatically get the appropriate
+                dependencies on the devices (resp. on the mount points
+                of the files) they are actived from.</para>
+
+                <para>Swap units with
+                <varname>DefaultDependencies=</varname> enabled
+                implicitly acquire a conflicting dependency to
+                <filename>umount.target</filename> so that they are
+                deactivated at shutdown.</para>
         </refsect1>
 
         <refsect1>
@@ -88,6 +98,13 @@
                 <para>If a swap device or file is configured in both
                 <filename>/etc/fstab</filename> and a unit file the
                 configuration in the latter takes precedence.</para>
+
+                <para>Unless the <option>noauto</option> option is set
+                for them all swap units configured in
+                <filename>/etc/fstab</filename> are also added as
+                requirements to <filename>swap.target</filename>, so
+                that they are waited for and activated during
+                boot.</para>
         </refsect1>
 
         <refsect1>
@@ -149,7 +166,7 @@
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
                                 logic. Defaults to
-                                60s.</para></listitem>
+                                3min.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

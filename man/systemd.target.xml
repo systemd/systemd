@@ -83,14 +83,15 @@
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 for details).</para>
 
-                <para>Unless
-                <varname>DefaultDependencies=</varname> is set to
-                <option>false</option>, target units will
-                implicitly complement all configured dependencies of type
-                <varname>Wants=</varname>,
+                <para>Unless <varname>DefaultDependencies=</varname>
+                is set to <option>false</option>, target units will
+                implicitly complement all configured dependencies of
+                type <varname>Wants=</varname>,
                 <varname>Requires=</varname>,
                 <varname>RequiresOverridable=</varname> with
-                dependencies of type <varname>After=</varname>.
+                dependencies of type <varname>After=</varname> if the
+                units in question also have
+                <varname>DefaultDependencies=true</varname>.
                 </para>
         </refsect1>
 
