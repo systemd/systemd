@@ -8,7 +8,7 @@
 ACTION!="add|change", GOTO="systemd_end"
 
 SUBSYSTEM=="tty", KERNEL=="tty[0-9]|tty1[0-2]", TAG+="systemd"
-SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*", TAG+="systemd"
+SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*", TAG+="systemd"
 
 SUBSYSTEM=="block", KERNEL!="ram*|loop*", TAG+="systemd"
 SUBSYSTEM=="block", KERNEL!="ram*|loop*", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
