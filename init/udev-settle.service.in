@@ -1,3 +1,11 @@
+# This barrier service is usually not enabled by default. If enabled,
+# it acts as a barrier for basic.target -- so all later services will
+# wait for udev completely finishing its coldplug run.
+#
+# It might be enabled just unconditionally, or pulled-in on-demand by
+# broken or non-hotplug-aware services that assume a fully populated
+# /dev at startup.
+
 [Unit]
 Description=udev Wait for Complete Device Initialization
 DefaultDependencies=no
@@ -8,3 +16,6 @@ Before=basic.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@sbindir@/udevadm settle
+
+[Install]
+WantedBy=basic.target

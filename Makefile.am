@@ -137,7 +137,6 @@ systemd-install-hook:
 	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants
 	ln -sf ../udev.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev.service
 	ln -sf ../udev-trigger.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev-trigger.service
-	ln -sf ../udev-settle.service $(DESTDIR)$(systemdsystemunitdir)/basic.target.wants/udev-settle.service
 
 INSTALL_DATA_HOOKS += systemd-install-hook
 endif
