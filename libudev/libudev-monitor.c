@@ -342,6 +342,7 @@ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
 	/* install filter */
+	memset(&filter, 0x00, sizeof(filter));
 	filter.len = i;
 	filter.filter = ins;
 	err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
