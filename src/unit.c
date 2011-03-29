@@ -2231,7 +2231,7 @@ int unit_coldplug(Unit *u) {
                         return r;
 
         if (u->meta.deserialized_job >= 0) {
-                if ((r = manager_add_job(u->meta.manager, u->meta.deserialized_job, u, JOB_FAIL, false, NULL, NULL)) < 0)
+                if ((r = manager_add_job(u->meta.manager, u->meta.deserialized_job, u, JOB_IGNORE_DEPENDENCIES, false, NULL, NULL)) < 0)
                         return r;
 
                 u->meta.deserialized_job = _JOB_TYPE_INVALID;
