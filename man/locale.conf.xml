@@ -128,7 +128,7 @@
                         <para><filename>/etc/locale.conf:</filename></para>
 
                         <programlisting>LANG=de_DE.UTF-8
-LC_MESSAGE=C</programlisting>
+LC_MESSAGES=C</programlisting>
                 </example>
 
         </refsect1>
