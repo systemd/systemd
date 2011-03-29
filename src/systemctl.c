@@ -387,7 +387,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         if (on_tty()) {
                 printf("%-25s %-6s %-*s %-*s %-*s", "UNIT", "LOAD",
                        active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
-                if (columns() >= 80+12 || arg_full)
+                if (columns() >= 80+12 || arg_full || !arg_no_pager)
                         printf(" %s\n", "DESCRIPTION");
                 else
                         printf("\n");
@@ -440,7 +440,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         if (u->job_id == 0)
                                 printf(" %-*s", job_len, "");
 
-                        if (arg_full)
+                        if (arg_full || !arg_no_pager)
                                 printf(" %s", u->description);
                         else
                                 printf(" %.*s", columns() - a - b - 1, u->description);
