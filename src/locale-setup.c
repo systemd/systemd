@@ -139,7 +139,19 @@ int locale_setup(void) {
 #elif defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
         if (r <= 0 &&
             (r = parse_env_file("/etc/default/locale", NEWLINE,
-                                "LANG", &variables[VARIABLE_LANG],
+                                "LANG",              &variables[VARIABLE_LANG],
+                                "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
+                                "LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
+                                "LC_TIME",           &variables[VARIABLE_LC_TIME],
+                                "LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
+                                "LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
+                                "LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
+                                "LC_PAPER",          &variables[VARIABLE_LC_PAPER],
+                                "LC_NAME",           &variables[VARIABLE_LC_NAME],
+                                "LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
+                                "LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
+                                "LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
+                                "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
                                 NULL)) < 0) {
 
                 if (r != -ENOENT)
