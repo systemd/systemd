@@ -61,6 +61,7 @@ int ask_password_tty(
         struct pollfd pollfd[2];
         bool reset_tty = false;
         bool silent_mode = false;
+        bool dirty = false;
         enum {
                 POLL_TTY,
                 POLL_INOTIFY
@@ -182,6 +183,17 @@ int ask_password_tty(
                                         backspace_chars(ttyfd, 1);
 
                                 p--;
+                        } else if (!dirty && !silent_mode) {
+
+                                silent_mode = true;
+
+                                /* There are two ways to enter silent
+                                 * mode. Either by pressing backspace
+                                 * as first key (and only as first key),
+                                 * or ... */
+                                if (ttyfd >= 0)
+                                        loop_write(ttyfd, "(no echo) ", 10, false);
+
                         } else if (ttyfd >= 0)
                                 loop_write(ttyfd, "\a", 1, false);
 
@@ -190,6 +202,8 @@ int ask_password_tty(
                         backspace_chars(ttyfd, p);
                         silent_mode = true;
 
+                        /* ... or by pressing TAB at any time. */
+
                         if (ttyfd >= 0)
                                 loop_write(ttyfd, "(no echo) ", 10, false);
                 } else {
@@ -197,6 +211,8 @@ int ask_password_tty(
 
                         if (!silent_mode && ttyfd >= 0)
                                 loop_write(ttyfd, "*", 1, false);
+
+                        dirty = true;
                 }
         }
 
