@@ -2,8 +2,6 @@ F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-* dep cycle basic → udev-retry → auditd → iptables → basic
-
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
 * NFS, networkmanager ordering issue (PENDING)

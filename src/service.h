@@ -138,6 +138,7 @@ struct Service {
 #ifdef HAVE_SYSV_COMPAT
         bool sysv_has_lsb:1;
         bool sysv_enabled:1;
+        int sysv_start_priority_from_rcnd;
         int sysv_start_priority;
 
         char *sysv_path;

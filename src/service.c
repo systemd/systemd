@@ -115,6 +115,7 @@ static void service_init(Unit *u) {
         s->timer_watch.type = WATCH_INVALID;
 #ifdef HAVE_SYSV_COMPAT
         s->sysv_start_priority = -1;
+        s->sysv_start_priority_from_rcnd = -1;
 #endif
         s->socket_fd = -1;
         s->guess_main_pid = true;
@@ -537,7 +538,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                  * data from the LSB header. */
                                 if (start_priority < 0 || start_priority > 99)
                                         log_warning("[%s:%u] Start priority out of range. Ignoring.", path, line);
-                                else if (s->sysv_start_priority < 0)
+                                else
                                         s->sysv_start_priority = start_priority;
 
                                 char_array_0(runlevels);
@@ -852,6 +853,12 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                 u->meta.description = d;
         }
+
+        /* The priority that has been set in /etc/rcN.d/ hierarchies
+         * takes precedence over what is stored as default in the LSB
+         * header */
+        if (s->sysv_start_priority_from_rcnd >= 0)
+                s->sysv_start_priority = s->sysv_start_priority_from_rcnd;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -3009,8 +3016,8 @@ static int service_enumerate(Manager *m) {
                                 if (de->d_name[0] == 'S')  {
 
                                         if (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT) {
-                                                SERVICE(service)->sysv_start_priority =
-                                                        MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
+                                                SERVICE(service)->sysv_start_priority_from_rcnd =
+                                                        MAX(a*10 + b, SERVICE(service)->sysv_start_priority_from_rcnd);
 
                                                 SERVICE(service)->sysv_enabled = true;
                                         }
