@@ -29,8 +29,6 @@ F15:
 
 * disable /dev/console status messages after plymouth went down
 
-* quotacheck pulled in too often
-
 Features:
 
 * when key file cannot be found, read it from kbd in cryptsetup
@@ -167,10 +165,6 @@ Features:
 * readahead: btrfs/LVM SSD detection
 
 * add separate man page for [Install] settings
-
-* only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
-
-* systemctl condrestart should return 0 if service isn't running
 
 * allow runtime changing of log level and target
 
