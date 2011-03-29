@@ -35,6 +35,8 @@ F15:
 
 * fix /usr taint
 
+* disable /dev/console status messages after plymouth went down
+
 Features:
 
 * when key file cannot be found, read it from kbd in cryptsetup
