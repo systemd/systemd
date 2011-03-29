@@ -1933,7 +1933,6 @@ DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
 
 static const char* const kill_mode_table[_KILL_MODE_MAX] = {
         [KILL_CONTROL_GROUP] = "control-group",
-        [KILL_PROCESS_GROUP] = "process-group",
         [KILL_PROCESS] = "process",
         [KILL_NONE] = "none"
 };

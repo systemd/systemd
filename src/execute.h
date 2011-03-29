@@ -43,7 +43,6 @@ struct CGroupBonding;
 
 typedef enum KillMode {
         KILL_CONTROL_GROUP = 0,
-        KILL_PROCESS_GROUP,
         KILL_PROCESS,
         KILL_NONE,
         _KILL_MODE_MAX,

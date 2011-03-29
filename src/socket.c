@@ -1040,9 +1040,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                 int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
                 if (s->control_pid > 0) {
-                        if (kill_and_sigcont(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                             -s->control_pid :
-                                             s->control_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(s->control_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
                         else
@@ -1837,7 +1835,7 @@ static int socket_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError
         }
 
         if (s->control_pid > 0)
-                if (kill(mode == KILL_PROCESS_GROUP ? -s->control_pid : s->control_pid, signo) < 0)
+                if (kill(s->control_pid, signo) < 0)
                         r = -errno;
 
         if (mode == KILL_CONTROL_GROUP) {

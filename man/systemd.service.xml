@@ -558,7 +558,6 @@
                                 processes of this service shall be
                                 killed. One of
                                 <option>control-group</option>,
-                                <option>process-group</option>,
                                 <option>process</option>,
                                 <option>none</option>.</para>
 
@@ -570,10 +569,6 @@
                                 stop command (as configured with
                                 <varname>ExecStop=</varname>) is
                                 executed. If set to
-                                <option>process-group</option> only
-                                the members of the process group of
-                                the main service process are
-                                killed. If set to
                                 <option>process</option> only the main
                                 process itself is killed. If set to
                                 <option>none</option> no process is

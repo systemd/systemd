@@ -747,9 +747,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                            state == MOUNT_REMOUNTING_SIGTERM) ? m->exec_context.kill_signal : SIGKILL;
 
                 if (m->control_pid > 0) {
-                        if (kill_and_sigcont(m->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                             -m->control_pid :
-                                             m->control_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(m->control_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill control process %li: %m", (long) m->control_pid);
                         else
@@ -1684,7 +1682,7 @@ static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError 
         }
 
         if (m->control_pid > 0)
-                if (kill(mode == KILL_PROCESS_GROUP ? -m->control_pid : m->control_pid, signo) < 0)
+                if (kill(m->control_pid, signo) < 0)
                         r = -errno;
 
         if (mode == KILL_CONTROL_GROUP) {

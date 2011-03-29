@@ -519,7 +519,6 @@
                                 processes of this socket unit shall be
                                 killed. One of
                                 <option>control-group</option>,
-                                <option>process-group</option>,
                                 <option>process</option>,
                                 <option>none</option>.</para>
 

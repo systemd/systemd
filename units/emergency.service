@@ -21,7 +21,7 @@ ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" or ^
 ExecStart=-/sbin/sulogin
 ExecStopPost=/bin/systemctl --fail default
 StandardInput=tty-force
-KillMode=process-group
+KillMode=process
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
 # terminates cleanly.

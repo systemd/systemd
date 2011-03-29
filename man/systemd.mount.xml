@@ -221,7 +221,6 @@
                                 processes of this mount shall be
                                 killed. One of
                                 <option>control-group</option>,
-                                <option>process-group</option>,
                                 <option>process</option>,
                                 <option>none</option>.</para>
 

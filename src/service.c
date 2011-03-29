@@ -828,7 +828,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->exec_context.std_output =
                 (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
                 ? EXEC_OUTPUT_TTY : s->meta.manager->default_std_output;
-        s->exec_context.kill_mode = KILL_PROCESS_GROUP;
+        s->exec_context.kill_mode = KILL_PROCESS;
 
         /* We use the long description only if
          * no short description is set. */
@@ -1838,19 +1838,14 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                 int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
                 if (s->main_pid > 0) {
-                        if (kill_and_sigcont(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                             -s->main_pid :
-                                             s->main_pid, sig) < 0 && errno != ESRCH)
-
+                        if (kill_and_sigcont(s->main_pid, sig) < 0 && errno != ESRCH)
                                 log_warning("Failed to kill main process %li: %m", (long) s->main_pid);
                         else
                                 wait_for_exit = true;
                 }
 
                 if (s->control_pid > 0) {
-                        if (kill_and_sigcont(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                             -s->control_pid :
-                                             s->control_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(s->control_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
                         else
@@ -3212,11 +3207,11 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
         }
 
         if (s->control_pid > 0)
-                if (kill(mode == KILL_PROCESS_GROUP ? -s->control_pid : s->control_pid, signo) < 0)
+                if (kill(s->control_pid, signo) < 0)
                         r = -errno;
 
         if (s->main_pid > 0)
-                if (kill(mode == KILL_PROCESS_GROUP ? -s->main_pid : s->main_pid, signo) < 0)
+                if (kill(s->main_pid, signo) < 0)
                         r = -errno;
 
         if (mode == KILL_CONTROL_GROUP) {

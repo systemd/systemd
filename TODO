@@ -12,8 +12,6 @@ F15:
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
-* drop SIGHUP handling from rsyslog.service upstream (PENDING)
-
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
 * save/restore tool for SysV as requested by FPC (PENDING)
@@ -27,8 +25,6 @@ F15:
 
 * document default dependencies
 
-* remove KillMode=process-group
-
 * kernel patch wegen kmsg prio nach f15
 
 * LOG_DAEMON/LOG_USER für kmsg messages schreiben
@@ -40,8 +36,6 @@ F15:
 Features:
 
 * when key file cannot be found, read it from kbd in cryptsetup
-
-* hide passwords on TAB
 
 * get rid of random file name in generator directory?
     /run/systemd/generator-IH1vFu

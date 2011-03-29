@@ -31,7 +31,7 @@ WorkingDirectory=/root
 ExecStart=-/sbin/sulogin
 ExecStopPost=-/bin/systemctl poweroff
 StandardInput=tty-force
-KillMode=process-group
+KillMode=process
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
 # terminates cleanly.

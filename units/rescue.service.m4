@@ -28,7 +28,7 @@ ExecStart=-/bin/bash -c "exec ${SINGLE}"',
 `ExecStart=-/sbin/sulogin'))
 ExecStopPost=-/bin/systemctl --fail default
 StandardInput=tty-force
-KillMode=process-group
+KillMode=process
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
 # terminates cleanly.

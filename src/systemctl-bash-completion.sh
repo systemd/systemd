@@ -60,7 +60,7 @@ _systemctl () {
                                 comps='all control main'
                         ;;
                         --kill-mode)
-                                comps='control-group process process-group'
+                                comps='control-group process'
                         ;;
                         --property|-p)
                                 comps=''

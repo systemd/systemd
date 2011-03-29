@@ -304,13 +304,11 @@
                                 <command>kill</command>, choose the
                                 mode how to kill the selected
                                 processes. Must be one of
-                                <option>control-group</option>,
-                                <option>process-group</option> or
+                                <option>control-group</option> or
                                 <option>process</option> to select
                                 whether to kill the entire control
-                                group, the process group or only the
-                                selected process itself. If omitted
-                                defaults to
+                                group or only the selected process
+                                itself. If omitted defaults to
                                 <option>control-group</option> if
                                 <option>--kill-who=all</option> is
                                 set, or <option>process</option>

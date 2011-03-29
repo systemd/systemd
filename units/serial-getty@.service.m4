@@ -36,7 +36,7 @@ ExecStart=-/sbin/agetty -s %I 115200,38400,9600
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I
-KillMode=process-group
+KillMode=process
 
 # Some login implementations ignore SIGTERM, so we send SIGHUP
 # instead, to ensure that login terminates cleanly.

@@ -36,7 +36,7 @@ ExecStart=-/sbin/agetty %I 38400
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I
-KillMode=process-group
+KillMode=process
 
 # Unset locale for the console getty since the console has problems
 # displaying some internationalized messages.
