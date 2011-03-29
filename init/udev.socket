@@ -1,5 +1,6 @@
 [Unit]
 Description=udev Kernel Device Manager Socket
+DefaultDependencies=no
 
 [Socket]
 ListenDatagram=@/org/kernel/udev/udevd
