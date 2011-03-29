@@ -278,6 +278,8 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
                 log_error("Failed to connect to audit log: %m");
 #endif
 
+        m->taint_usr = dir_is_empty("/usr") > 0;
+
         *_m = m;
         return 0;
 

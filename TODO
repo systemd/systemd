@@ -27,9 +27,9 @@ F15:
 
 * LOG_DAEMON/LOG_USER für kmsg messages schreiben
 
-* fix /usr taint
-
 * disable /dev/console status messages after plymouth went down
+
+* quotacheck pulled in too often
 
 Features:
 

@@ -211,6 +211,8 @@ struct Manager {
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
 
+        bool taint_usr:1;
+
         bool show_status;
         bool confirm_spawn;
 #ifdef HAVE_SYSV_COMPAT
