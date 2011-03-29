@@ -2180,6 +2180,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_debug("Failed to parse condition result value %s", v);
                         else
                                 u->meta.condition_result = b;
+
+                        continue;
                 }
 
                 if ((r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds)) < 0)
