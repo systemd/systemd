@@ -1211,7 +1211,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         retroactively_stop_dependencies(u);
         }
 
-        if (ns != os && ns == UNIT_FAILED) {
+        if (ns != os && ns == UNIT_FAILED && u->meta.manager->n_deserializing <= 0) {
                 log_notice("Unit %s entered failed state.", u->meta.id);
                 unit_trigger_on_failure(u);
         }
