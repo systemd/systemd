@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <unistd.h>
 
 #include "dbus.h"
 #include "log.h"
@@ -224,16 +225,17 @@ static int bus_manager_append_tainted(Manager *m, DBusMessageIter *i, const char
         assert(property);
 
         if (m->taint_usr)
-                e = stpcpy(e, "usr-separate-fs");
+                e = stpcpy(e, "usr-separate-fs ");
 
-        if (readlink_malloc("/etc/mtab", &p) < 0) {
-                if (e != buf)
-                        e = stpcpy(e, " ");
-                e = stpcpy(e, "etc-mtab-not-symlink");
-        } else
+        if (readlink_malloc("/etc/mtab", &p) < 0)
+                e = stpcpy(e, "etc-mtab-not-symlink ");
+        else
                 free(p);
 
-        t = buf;
+        if (access("/proc/cgroups", F_OK) < 0)
+                e = stpcpy(e, "cgroups-missing ");
+
+        t = strstrip(buf);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
                 return -ENOMEM;

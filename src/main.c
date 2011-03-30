@@ -985,10 +985,26 @@ static void test_usr(void) {
 
         /* Check that /usr is not a separate fs */
 
-        if (dir_is_empty("/usr") > 0)
-                log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
-                            "Some things will probably break (sometimes even silently) in mysterious ways. "
-                            "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
+        if (dir_is_empty("/usr") <= 0)
+                return;
+
+        log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
+                    "Some things will probably break (sometimes even silently) in mysterious ways. "
+                    "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
+}
+
+static void test_cgroups(void) {
+
+        if (access("/proc/cgroups", F_OK) >= 0)
+                return;
+
+        log_warning("CONFIG_CGROUPS was not set when your kernel was compiled. "
+                    "Systems without control groups are not supported. "
+                    "We will now sleep for 10s, and then continue boot-up. "
+                    "Expect breakage and please do not file bugs. "
+                    "Instead fix your kernel and enable CONFIG_CGROUPS." );
+
+        sleep(10);
 }
 
 int main(int argc, char *argv[]) {
@@ -1171,6 +1187,7 @@ int main(int argc, char *argv[]) {
 
                 test_mtab();
                 test_usr();
+                test_cgroups();
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {
