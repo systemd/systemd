@@ -1,0 +1,40 @@
+#!/usr/bin/python
+
+import dbus, sys
+
+def acquire_time_data():
+        bus = dbus.SystemBus()
+
+        manager = dbus.Interface(bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1'), 'org.freedesktop.systemd1.Manager')
+
+        units = manager.ListUnits()
+
+        l = []
+
+        for i in units:
+                properties = dbus.Interface(bus.get_object('org.freedesktop.systemd1', i[6]), 'org.freedesktop.DBus.Properties')
+
+                ixt = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveExitTimestamp'))
+                aet = int(properties.Get('org.freedesktop.systemd1.Unit', 'ActiveEnterTimestamp'))
+                axt = int(properties.Get('org.freedesktop.systemd1.Unit', 'ActiveExitTimestamp'))
+                iet = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveEnterTimestamp'))
+
+                l.append((str(i[0]), ixt, aet, axt, iet))
+
+        return l
+
+data = acquire_time_data()
+
+if len(sys.argv) <= 1 or sys.argv[1] == 'blame':
+
+        s = sorted(data, key = lambda i: i[2] - i[1], reverse = True)
+
+        for i in s:
+
+                if i[1] <= 0 or i[2] <= 0:
+                        continue
+
+                if i[2] <= i[1]:
+                        continue
+
+                sys.stdout.write("%lums\t %s\n" % ((i[2] - i[1]) / 1000, i[0]))
