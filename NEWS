@@ -12,7 +12,7 @@ If /run does not exist, or is not writable, udev will fall back using
 
 On systemd systems with initramfs and LVM used, packagers must
 make sure, that the systemd and initramfs versions match. The initramfs
-needs to create the /run/ mountpoint for udev to store the data, and
+needs to create the /run mountpoint for udev to store the data, and
 mount this tmpfs to /run in the rootfs, so the that the udev database
 is preserved for the udev version started in the rootfs.
 
@@ -22,9 +22,9 @@ itself, at startup, converts any old database version if necessary.
 The systemd services files have been reorganized. The udev control
 socket is bound by systemd and passed to the started udev daemon.
 The udev-settle.service is no longer active by default. Services which
-can not handle hotplug setups properly need to actively pull it in to
-act like a barrier for basic.target. Alternatively the settle service
-can be unconditionally 'systemctl'enabled to work-around such services.
+can not handle hotplug setups properly need to actively pull it in, to
+act like a barrier. Alternatively the settle service can be unconditionally
+'systemctl'enabled, and act like a barrier for basic.target.
 
 The fstab_import callout is no longer built or installed. Udev
 should not be used to mount, does not watch changes to fstab, and

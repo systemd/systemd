@@ -1,3 +1,77 @@
+Summary of changes from v166 to v167
+============================================
+
+Andrey Borzenkov (1):
+      udev-acl: add /dev/sgX nodes for CD-ROM
+
+David Zeuthen (1):
+      cdrom_id: Don't ignore profiles when there is no media available
+
+Harald Hoyer (2):
+      cdrom_id: cd_media_toc() extend toc size to 65536
+      udev-acl/70-acl.rules: tag ID_REMOTE_CONTROL with acl
+
+Kay Sievers (29):
+      version bump
+      Merge branch 'master' of git+ssh://master.kernel.org/pub/scm/linux/hotplug/udev
+      v4l_id: kill the v4l1 ioctl
+      v4l_id: remove left-over variable
+      update some comments
+      test-libudev: add short options
+      libudev: udev_device_get_sysattr_list_entry() update
+      libudev: resolve ifindex in udev_device_new_from_id_filename()
+      libudev: bump minor version
+      udev-acl: move sg rule to optical drive rule
+      move /dev/.udev/ to /dev/.run/udev/ and convert old udev database at udevd startup
+      NEWS: clarify /dev/.run/ requirements
+      input_id: silent gcc warnings
+      fstab_import: disable build
+      systemd: remove deprecated udev-retry.service
+      fstab_import: remove from configure
+      update sd-daemon.[ch]
+      udevd: use facility == LOG_DAEMON when writing to /dev/kmsg
+      udevd: initialize fds, for proper close() on exit
+      use /run/udev/ if possible and fall back to /dev/.udev/
+      rules: run ata_id only on SPC-3 or later optical drives
+      systemd: bind udev control socket in systemd and split udev.service
+      systemd: use sockets.target not socket.target
+      man: remove trigger --type=failed handling
+      libudev: export udev_get_run_path()
+      libudev: docs - add udev_get_run_path()
+      libudev: make valgrind happy
+      systemd: do not enable udev-settle.service by default
+      systemd: udev.socket - disable implicit dependencies
+
+Kei Tokunaga (1):
+      udevadm: enumerate - update prev pointer properly
+
+Lee, Chun-Yi (2):
+      Remap Acer WMI touchpad toggle key to F21 used by X
+      Remap MSI Laptop touchpad on/off key to F22 and F23
+
+Martin Pitt (12):
+      60-persistent-input.rules: Support multiple interfaces
+      Only build v4l_id if V4L1 header file is available
+      60-persistent-input.rules: Do not create duplicate links
+      Fix building with --disable-extras
+      Do not build extras with --disable-extras
+      v4l_id: Drop videodev.h check again
+      keymap: Fix Acer Aspire 5920G media key
+      input_id: Consistently use tabs for indentation
+      input_id: Add some debugging output
+      input_id: Avoid memory overflow with too long capability masks
+      input_id: Cover key devices which only have KEY_* > 255
+      input_id: Rewrite debug logging to use standard udev info()
+
+Seth Forshee (1):
+      keymap: continue reading keymap after invalid scancodes
+
+Thomas Egerer (3):
+      libudev: allow to get list of all available sysfs attrs for a device
+      libudev: use sysfs attr ilist interface for attribute walk
+      udevadm: info - make attribute array static and const
+
+
 Summary of changes from v165 to v166
 ============================================
 
