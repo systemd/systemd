@@ -29,6 +29,10 @@ F15:
 
 * disable /dev/console status messages after plymouth went down
 
+* plymouth pid file
+
+* selinux issue http://people.gnome.org/~cosimoc/selinux.jpg
+
 Features:
 
 * when key file cannot be found, read it from kbd in cryptsetup

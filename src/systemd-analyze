@@ -3,10 +3,8 @@
 import dbus, sys
 
 def acquire_time_data():
-        bus = dbus.SystemBus()
 
         manager = dbus.Interface(bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1'), 'org.freedesktop.systemd1.Manager')
-
         units = manager.ListUnits()
 
         l = []
@@ -23,19 +21,145 @@ def acquire_time_data():
 
         return l
 
+def acquire_start_time():
+        properties = dbus.Interface(bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1'), 'org.freedesktop.DBus.Properties')
+
+        startup_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'StartupTimestamp'))
+        finish_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'FinishTimestamp'))
+
+        assert startup_time <= finish_time
+
+        return startup_time, finish_time
+
+def draw_box(context, j, k, l, m, r = 0, g = 0, b = 0):
+        context.save()
+        context.set_source_rgb(r, g, b)
+        context.rectangle(j, k, l, m)
+        context.fill()
+        context.restore()
+
+def draw_text(context, x, y, text, size = 12, r = 0, g = 0, b = 0, center = True):
+        context.save()
+
+        context.set_source_rgb(r, g, b)
+        context.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        context.set_font_size(size)
+
+        if center:
+                x_bearing, y_bearing, width, height = context.text_extents(text)[:4]
+#                context.move_to(x - width / 2 - x_bearing, y - height / 2 - y_bearing)
+                context.move_to(x, y - height / 2 - y_bearing)
+        else:
+                context.move_to(x, y)
+        context.show_text(text)
+
+        context.restore()
+
+bus = dbus.SystemBus()
+
 if len(sys.argv) <= 1 or sys.argv[1] == 'blame':
 
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[2] - i[1], reverse = True)
 
-        for i in s:
+        for name, ixt, aet, axt, iet in s:
 
-                if i[1] <= 0 or i[2] <= 0:
+                if ixt <= 0 or aet <= 0:
                         continue
 
-                if i[2] <= i[1]:
+                if aet <= ixt:
                         continue
 
-                sys.stdout.write("%6lums %s\n" % ((i[2] - i[1]) / 1000, i[0]))
+                sys.stdout.write("%6lums %s\n" % ((aet - ixt) / 1000, name))
+
+elif sys.argv[1] == 'plot':
+        import cairo
+
+        start_time, finish_time = acquire_start_time()
+        data = acquire_time_data()
+        s = sorted(data, key = lambda i: i[1])
+
+        # 1000px = 10s, 1px = 10ms
+        border = 100
+        width = (finish_time - start_time)/10000 + border*2
+        height = 3000
+
+        bar_height = 20
+        bar_space = bar_height * 0.1
+
+        surface = cairo.SVGSurface(sys.stdout, width, height)
+        context = cairo.Context(surface)
+
+        draw_box(context, 0, 0, width, height, 1, 1, 1)
+
+        context.translate(border + 0.5, border + 0.5)
+
+        context.save()
+        context.set_line_width(1)
+        context.set_source_rgb(0.7, 0.7, 0.7)
+
+        for x in range(0, (finish_time - start_time)/10000, 100):
+                context.move_to(x, 0)
+                context.line_to(x, height-border*2)
+
+        context.move_to(0, 0)
+        context.line_to(width-border*2, 0)
+
+        context.move_to(0, height-border*2)
+        context.line_to(width-border*2, height-border*2)
+
+        context.stroke()
+        context.restore()
+
+        for x in range(0, (finish_time - start_time)/10000, 100):
+                draw_text(context, x, -5, "%lus" % (x/100), center = False)
+
+        y = 0
+
+        for name, ixt, aet, axt, iet in s:
+
+                drawn = False
+                left = -1
+
+                if ixt >= start_time and aet > ixt:
+
+                        # Activating
+                        a = ixt - start_time
+                        b = aet - ixt
+                        draw_box(context, a/10000, y, b/10000, bar_height, 1, 0, 0)
+                        drawn = True
+
+                        if left < 0:
+                                left = a
+
+                if aet >= start_time and axt > aet:
+
+                        # Active
+                        a = aet - start_time
+                        b = axt - aet
+                        draw_box(context, a/10000, y, b/10000, bar_height, .7, .5, .5)
+                        drawn = True
+
+                        if left < 0:
+                                left = a
+
+                if axt >= start_time and iet > axt:
+
+                        # Deactivating
+                        a = axt - start_time
+                        b = iet - axt
+                        draw_box(context, a/10000, y, b/10000, bar_height, .6, .4, .4)
+                        drawn = True
+
+                        if left < 0:
+                                left = a
+
+                if drawn:
+                        draw_text(context, left/10000 + 10, y + bar_height/2, name)
+
+                        y += bar_height + bar_space
+
+        surface.finish()
+
 else:
         sys.stderr.write("Unknown verb '%s'.\n" % sys.argv[1])
