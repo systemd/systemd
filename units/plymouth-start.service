@@ -19,6 +19,3 @@ ConditionPathExists=!/run/initramfs/plymouth
 ExecStart=/sbin/plymouthd --mode=boot
 ExecStartPost=-/bin/plymouth --show-splash
 Type=forking
-
-# Send SIGRTMIN+20 to systemd, i.e. enable status messages
-ExecStartPost=-/usr/bin/kill -54 1
