@@ -2328,7 +2328,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
 int manager_loop(Manager *m) {
         int r;
 
-        RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 1000);
+        RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 50000);
 
         assert(m);
         m->exit_code = MANAGER_RUNNING;

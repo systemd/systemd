@@ -23,10 +23,9 @@ def acquire_time_data():
 
         return l
 
-data = acquire_time_data()
-
 if len(sys.argv) <= 1 or sys.argv[1] == 'blame':
 
+        data = acquire_time_data()
         s = sorted(data, key = lambda i: i[2] - i[1], reverse = True)
 
         for i in s:
@@ -37,4 +36,6 @@ if len(sys.argv) <= 1 or sys.argv[1] == 'blame':
                 if i[2] <= i[1]:
                         continue
 
-                sys.stdout.write("%lums\t %s\n" % ((i[2] - i[1]) / 1000, i[0]))
+                sys.stdout.write("%6lums %s\n" % ((i[2] - i[1]) / 1000, i[0]))
+else:
+        sys.stderr.write("Unknown verb '%s'.\n" % sys.argv[1])
