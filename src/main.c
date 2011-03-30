@@ -1093,11 +1093,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* If Plymouth is being run make sure we show the status, so
-         * that there's something nice to see when people press Esc */
-        if (access("/run/initramfs/plymouth", F_OK) >= 0)
-                arg_show_status = true;
-
         if (arg_action == ACTION_HELP) {
                 retval = help();
                 goto finish;
@@ -1177,7 +1172,7 @@ int main(int argc, char *argv[]) {
         if (arg_running_as == MANAGER_SYSTEM && !serialization) {
                 locale_setup();
 
-                if (arg_show_status)
+                if (arg_show_status || plymouth_running())
                         status_welcome();
 
                 kmod_setup();

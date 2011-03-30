@@ -392,6 +392,8 @@ int kill_and_sigcont(pid_t pid, int sig);
 
 bool nulstr_contains(const char*nulstr, const char *needle);
 
+bool plymouth_running(void);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

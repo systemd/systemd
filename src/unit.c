@@ -2254,7 +2254,10 @@ void unit_status_printf(Unit *u, const char *format, ...) {
         if (u->meta.manager->running_as != MANAGER_SYSTEM)
                 return;
 
-        if (!u->meta.manager->show_status)
+        /* If Plymouth is running make sure we show the status, so
+         * that there's something nice to see when people press Esc */
+
+        if (!u->meta.manager->show_status && !plymouth_running())
                 return;
 
         if (!manager_is_booting_or_shutting_down(u->meta.manager))
