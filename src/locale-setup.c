@@ -65,7 +65,7 @@ static const char * const variable_names[_VARIABLE_MAX] = {
 
 int locale_setup(void) {
         char *variables[_VARIABLE_MAX];
-        int r, i;
+        int r = 0, i;
 
         zero(variables);
 
