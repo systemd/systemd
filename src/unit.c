@@ -1221,54 +1221,55 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         log_notice("Unit %s entered failed state.", u->meta.id);
                         unit_trigger_on_failure(u);
                 }
+        }
 
+        /* Some names are special */
+        if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
-                /* Some names are special */
-                if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+                if (unit_has_name(u, SPECIAL_DBUS_SERVICE))
+                        /* The bus just might have become available,
+                         * hence try to connect to it, if we aren't
+                         * yet connected. */
+                        bus_init(u->meta.manager, true);
 
-                        if (unit_has_name(u, SPECIAL_DBUS_SERVICE))
-                                /* The bus just might have become available,
-                                 * hence try to connect to it, if we aren't
-                                 * yet connected. */
-                                bus_init(u->meta.manager, true);
-
-                        if (u->meta.type == UNIT_SERVICE &&
-                            !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
-                                /* Write audit record if we have just finished starting up */
-                                manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, true);
-                                u->meta.in_audit = true;
-                        }
-
-                        if (!UNIT_IS_ACTIVE_OR_RELOADING(os))
-                                manager_send_unit_plymouth(u->meta.manager, u);
-
-                } else {
-
-                        /* We don't care about D-Bus here, since we'll get an
-                         * asynchronous notification for it anyway. */
-
-                        if (u->meta.type == UNIT_SERVICE &&
-                            UNIT_IS_INACTIVE_OR_FAILED(ns) &&
-                            !UNIT_IS_INACTIVE_OR_FAILED(os)) {
-
-                                /* Hmm, if there was no start record written
-                                 * write it now, so that we always have a nice
-                                 * pair */
-                                if (!u->meta.in_audit) {
-                                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
-
-                                        if (ns == UNIT_INACTIVE)
-                                                manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, true);
-                                } else
-                                        /* Write audit record if we have just finished shutting down */
-                                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
-
-                                u->meta.in_audit = false;
-                        }
+                if (u->meta.type == UNIT_SERVICE &&
+                    !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
+                    u->meta.manager->n_deserializing <= 0) {
+                        /* Write audit record if we have just finished starting up */
+                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, true);
+                        u->meta.in_audit = true;
                 }
 
-                manager_recheck_syslog(u->meta.manager);
+                if (!UNIT_IS_ACTIVE_OR_RELOADING(os))
+                        manager_send_unit_plymouth(u->meta.manager, u);
+
+        } else {
+
+                /* We don't care about D-Bus here, since we'll get an
+                 * asynchronous notification for it anyway. */
+
+                if (u->meta.type == UNIT_SERVICE &&
+                    UNIT_IS_INACTIVE_OR_FAILED(ns) &&
+                    !UNIT_IS_INACTIVE_OR_FAILED(os) &&
+                    u->meta.manager->n_deserializing <= 0) {
+
+                        /* Hmm, if there was no start record written
+                         * write it now, so that we always have a nice
+                         * pair */
+                        if (!u->meta.in_audit) {
+                                manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
+
+                                if (ns == UNIT_INACTIVE)
+                                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, true);
+                        } else
+                                /* Write audit record if we have just finished shutting down */
+                                manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
+
+                        u->meta.in_audit = false;
+                }
         }
+
+        manager_recheck_syslog(u->meta.manager);
 
         /* Maybe we finished startup and are now ready for being
          * stopped because unneeded? */
