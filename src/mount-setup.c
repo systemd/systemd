@@ -101,7 +101,7 @@ static int mount_one(const MountPoint *p) {
                 return r;
 
         if (r > 0)
-                return 0;
+                goto finish;
 
         /* The access mode here doesn't really matter too much, since
          * the mounted file system will take precedence anyway. */
@@ -122,6 +122,7 @@ static int mount_one(const MountPoint *p) {
                 return p->fatal ? -errno : 0;
         }
 
+finish:
         label_fix(p->where, false);
 
         return 0;
