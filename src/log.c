@@ -289,7 +289,7 @@ static int write_to_syslog(
         if (syslog_fd < 0)
                 return 0;
 
-        snprintf(header_priority, sizeof(header_priority), "<%i>", LOG_MAKEPRI(LOG_DAEMON, LOG_PRI(level)));
+        snprintf(header_priority, sizeof(header_priority), "<%i>", level);
         char_array_0(header_priority);
 
         t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
@@ -346,7 +346,7 @@ static int write_to_kmsg(
         if (kmsg_fd < 0)
                 return 0;
 
-        snprintf(header_priority, sizeof(header_priority), "<%i>", LOG_PRI(level));
+        snprintf(header_priority, sizeof(header_priority), "<%i>", level);
         char_array_0(header_priority);
 
         snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) getpid());
@@ -376,6 +376,10 @@ static int log_dispatch(
 
         if (log_target == LOG_TARGET_NULL)
                 return 0;
+
+        /* Patch in LOG_DAEMON facility if necessary */
+        if (LOG_FAC(level) == 0)
+                level = LOG_MAKEPRI(LOG_DAEMON, LOG_PRI(level));
 
         do {
                 char *e;

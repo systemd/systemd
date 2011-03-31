@@ -93,6 +93,42 @@ struct Stream {
         LIST_FIELDS(Stream, stream);
 };
 
+static void parse_priority(char **p, int *priority) {
+        int a = 0, b = 0, c = 0;
+        int k;
+
+        assert(p);
+        assert(*p);
+        assert(priority);
+
+        if ((*p)[0] != '<')
+                return;
+
+        if (!strchr(*p, '>'))
+                return;
+
+        if ((*p)[2] == '>') {
+                c = undecchar((*p)[1]);
+                k = 3;
+        } else if ((*p)[3] == '>') {
+                b = undecchar((*p)[1]);
+                c = undecchar((*p)[2]);
+                k = 4;
+        } else if ((*p)[4] == '>') {
+                a = undecchar((*p)[1]);
+                b = undecchar((*p)[2]);
+                c = undecchar((*p)[3]);
+                k = 5;
+        } else
+                return;
+
+        if (a < 0 || b < 0 || c < 0)
+                return;
+
+        *priority = a*100+b*10+c;
+        *p += k;
+}
+
 static int stream_log(Stream *s, char *p, usec_t ts) {
 
         char header_priority[16], header_time[64], header_pid[16];
@@ -103,6 +139,9 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
         assert(p);
 
         priority = s->priority;
+
+        if (s->prefix)
+                parse_priority(&p, &priority);
 
         if (s->prefix &&
             p[0] == '<' &&
@@ -118,6 +157,10 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
         if (*p == 0)
                 return 0;
 
+        /* Patch in LOG_USER facility if necessary */
+        if (LOG_FAC(priority) == 0)
+                priority = LOG_MAKEPRI(LOG_USER, LOG_PRI(priority));
+
         /*
          * The format glibc uses to talk to the syslog daemon is:
          *
@@ -130,8 +173,7 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
          *  We extend the latter to include the process name and pid.
          */
 
-        snprintf(header_priority, sizeof(header_priority), "<%i>",
-                 s->target == STREAM_SYSLOG ? priority : LOG_PRI(priority));
+        snprintf(header_priority, sizeof(header_priority), "<%i>", priority);
         char_array_0(header_priority);
 
         if (s->target == STREAM_SYSLOG) {

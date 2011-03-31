@@ -19,17 +19,9 @@ F15:
 
 * NM should pull in network.target, ntpd should pull in rtc-set.target.
 
-* kernel patch wegen kmsg prio nach f15
-
-* selinux issue http://people.gnome.org/~cosimoc/selinux.jpg
-
 * fix alsa mixer restore to not print error when no config is stored
 
-* ply should do mkdir before writing pid file
-
 * ConditionDirectoryNotEmpty= needs to be documented
-
-* add /etc/modules-load.d to rpm
 
 Features:
 
@@ -39,8 +31,6 @@ Features:
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
 * document default dependencies
-
-* LOG_DAEMON/LOG_USER für kmsg messages schreiben
 
 * Find a way to replace /var/run, /var/lock directories with
   symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
