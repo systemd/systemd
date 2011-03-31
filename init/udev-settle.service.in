@@ -1,15 +1,18 @@
-# This barrier service is usually not enabled by default. If enabled,
-# it acts as a barrier for basic.target -- so all later services will
+# This service is usually not enabled by default. If enabled, it
+# acts as a barrier for basic.target -- so all later services will
 # wait for udev completely finishing its coldplug run.
 #
-# It might be enabled just unconditionally, or pulled-in on-demand by
-# broken or non-hotplug-aware services that assume a fully populated
-# /dev at startup.
+# If needed, to work around broken or non-hotplug-aware services,
+# it might be enabled unconditionally, or pulled-in on-demand by
+# the services that assume a fully populated /dev at startup. It
+# should not be used or pulled-in ever on systems without such
+# legacy services running.
 
 [Unit]
 Description=udev Wait for Complete Device Initialization
 DefaultDependencies=no
-After=udev.service
+Requires=udev.service
+After=udev-trigger.service
 Before=basic.target
 
 [Service]
