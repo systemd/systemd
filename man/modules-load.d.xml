@@ -77,10 +77,10 @@
         <refsect1>
                 <title>Example</title>
                 <example>
-                        <title>/etc/modules-load.d/uinput.conf example:</title>
+                        <title>/etc/modules-load.d/virtio-net.conf example:</title>
 
-                        <programlisting># Load uinput.ko at boot
-uinput</programlisting>
+                        <programlisting># Load virtio-net.ko at boot
+virtio-net</programlisting>
                 </example>
         </refsect1>
 
