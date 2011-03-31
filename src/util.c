@@ -4211,7 +4211,7 @@ static const char *const sigchld_code_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
 
-static const char *const log_facility_table[LOG_NFACILITIES] = {
+static const char *const log_facility_unshifted_table[LOG_NFACILITIES] = {
         [LOG_FAC(LOG_KERN)] = "kern",
         [LOG_FAC(LOG_USER)] = "user",
         [LOG_FAC(LOG_MAIL)] = "mail",
@@ -4234,7 +4234,7 @@ static const char *const log_facility_table[LOG_NFACILITIES] = {
         [LOG_FAC(LOG_LOCAL7)] = "local7"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(log_facility, int);
+DEFINE_STRING_TABLE_LOOKUP(log_facility_unshifted, int);
 
 static const char *const log_level_table[] = {
         [LOG_EMERG] = "emerg",

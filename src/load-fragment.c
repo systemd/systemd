@@ -584,12 +584,12 @@ static int config_parse_facility(
         assert(rvalue);
         assert(data);
 
-        if ((x = log_facility_from_string(rvalue)) < 0) {
+        if ((x = log_facility_unshifted_from_string(rvalue)) < 0) {
                 log_error("[%s:%u] Failed to parse log facility, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        *o = LOG_MAKEPRI(x, LOG_PRI(*o));
+        *o = (x << 3) | LOG_PRI(*o);
 
         return 0;
 }
@@ -617,7 +617,7 @@ static int config_parse_level(
                 return 0;
         }
 
-        *o = LOG_MAKEPRI(LOG_FAC(*o), x);
+        *o = (*o & LOG_FACMASK) | x;
         return 0;
 }
 

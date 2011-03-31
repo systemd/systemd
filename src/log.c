@@ -378,8 +378,8 @@ static int log_dispatch(
                 return 0;
 
         /* Patch in LOG_DAEMON facility if necessary */
-        if (LOG_FAC(level) == 0)
-                level = LOG_MAKEPRI(LOG_DAEMON, LOG_PRI(level));
+        if ((level & LOG_FACMASK) == 0)
+                level = LOG_DAEMON | LOG_PRI(level);
 
         do {
                 char *e;

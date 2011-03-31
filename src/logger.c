@@ -143,23 +143,12 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
         if (s->prefix)
                 parse_priority(&p, &priority);
 
-        if (s->prefix &&
-            p[0] == '<' &&
-            p[1] >= '0' && p[1] <= '7' &&
-            p[2] == '>') {
-
-                /* Detected priority prefix */
-                priority = LOG_MAKEPRI(LOG_FAC(priority), (p[1] - '0'));
-
-                p += 3;
-        }
-
         if (*p == 0)
                 return 0;
 
         /* Patch in LOG_USER facility if necessary */
-        if (LOG_FAC(priority) == 0)
-                priority = LOG_MAKEPRI(LOG_USER, LOG_PRI(priority));
+        if ((priority & LOG_FACMASK) == 0)
+                priority = LOG_USER | LOG_PRI(priority);
 
         /*
          * The format glibc uses to talk to the syslog daemon is:

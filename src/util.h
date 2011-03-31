@@ -406,8 +406,8 @@ int ioprio_class_from_string(const char *s);
 const char *sigchld_code_to_string(int i);
 int sigchld_code_from_string(const char *s);
 
-const char *log_facility_to_string(int i);
-int log_facility_from_string(const char *s);
+const char *log_facility_unshifted_to_string(int i);
+int log_facility_unshifted_from_string(const char *s);
 
 const char *log_level_to_string(int i);
 int log_level_from_string(const char *s);

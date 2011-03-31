@@ -1650,7 +1650,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sSyslogFacility: %s\n"
                         "%sSyslogLevel: %s\n",
-                        prefix, log_facility_to_string(LOG_FAC(c->syslog_priority)),
+                        prefix, log_facility_unshifted_to_string(c->syslog_priority >> 3),
                         prefix, log_level_to_string(LOG_PRI(c->syslog_priority)));
 
         if (c->capabilities) {

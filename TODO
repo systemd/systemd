@@ -19,6 +19,8 @@ F15:
 
 * NM should pull in network.target, ntpd should pull in rtc-set.target.
 
+* bluetooth should be possible to disable
+
 * fix alsa mixer restore to not print error when no config is stored
 
 * ConditionDirectoryNotEmpty= needs to be documented
