@@ -13,9 +13,9 @@ After=systemd-vconsole-setup.service udev-settle.service
 Before=systemd-ask-password-plymouth.service
 
 # Dracut informs us with this flag file if plymouth is already running
-ConditionPathExists=!/run/initramfs/plymouth
+ConditionPathExists=!/run/plymouth/pid
 
 [Service]
-ExecStart=/sbin/plymouthd --mode=boot
+ExecStart=/sbin/plymouthd --mode=boot --pid-file=/run/plymouth/pid
 ExecStartPost=-/bin/plymouth --show-splash
 Type=forking

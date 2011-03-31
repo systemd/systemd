@@ -4189,7 +4189,7 @@ bool nulstr_contains(const char*nulstr, const char *needle) {
 }
 
 bool plymouth_running(void) {
-        return access("/run/initramfs/plymouth", F_OK) >= 0;
+        return access("/run/plymouth/pid", F_OK) >= 0;
 }
 
 static const char *const ioprio_class_table[] = {

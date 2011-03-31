@@ -33,6 +33,10 @@ F15:
 
 * selinux issue http://people.gnome.org/~cosimoc/selinux.jpg
 
+* do not print errors when random seed is not around
+
+* fix alsa mixer restore to not print error when no config is stored
+
 Features:
 
 * Find a way to replace /var/run, /var/lock directories with
