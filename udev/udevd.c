@@ -1118,7 +1118,7 @@ int main(int argc, char *argv[])
 	for (;;) {
 		int option;
 
-		option = getopt_long(argc, argv, "c:deDthV", options, NULL);
+		option = getopt_long(argc, argv, "c:deDtN:hV", options, NULL);
 		if (option == -1)
 			break;
 
