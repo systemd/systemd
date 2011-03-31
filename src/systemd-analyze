@@ -10,6 +10,9 @@ def acquire_time_data():
         l = []
 
         for i in units:
+                if i[5] != "":
+                        continue
+
                 properties = dbus.Interface(bus.get_object('org.freedesktop.systemd1', i[6]), 'org.freedesktop.DBus.Properties')
 
                 ixt = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveExitTimestamp'))
@@ -38,22 +41,36 @@ def draw_box(context, j, k, l, m, r = 0, g = 0, b = 0):
         context.fill()
         context.restore()
 
-def draw_text(context, x, y, text, size = 12, r = 0, g = 0, b = 0, center = True):
+def draw_text(context, x, y, text, size = 12, r = 0, g = 0, b = 0, vcenter = 0.5, hcenter = 0.5):
         context.save()
 
         context.set_source_rgb(r, g, b)
         context.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         context.set_font_size(size)
 
-        if center:
+        if vcenter or hcenter:
                 x_bearing, y_bearing, width, height = context.text_extents(text)[:4]
-#                context.move_to(x - width / 2 - x_bearing, y - height / 2 - y_bearing)
-                context.move_to(x, y - height / 2 - y_bearing)
-        else:
-                context.move_to(x, y)
+
+                if hcenter:
+                        x = x - width*hcenter - x_bearing
+
+                if vcenter:
+                        y = y - height*vcenter - y_bearing
+
+        context.move_to(x, y)
         context.show_text(text)
 
         context.restore()
+
+def help():
+        sys.stdout.write("""systemd-analyze blame
+systemd-analyze plot
+
+Process systemd profiling information
+
+  -h --help         Show this help
+""")
+
 
 bus = dbus.SystemBus()
 
@@ -79,13 +96,25 @@ elif sys.argv[1] == 'plot':
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[1])
 
-        # 1000px = 10s, 1px = 10ms
-        border = 100
-        width = (finish_time - start_time)/10000 + border*2
-        height = 3000
+        count = 0
 
+        for name, ixt, aet, axt, iet in s:
+
+                if (ixt >= start_time and ixt <= finish_time) or \
+                                (aet >= start_time and aet <= finish_time) or \
+                                (axt >= start_time and axt <= finish_time):
+                        count += 1
+
+        border = 100
         bar_height = 20
         bar_space = bar_height * 0.1
+
+        # 1000px = 10s, 1px = 10ms
+        width = (finish_time - start_time)/10000 + border*2
+        height = count * (bar_height + bar_space) + border * 2
+
+        if width < 1000:
+                width = 1000
 
         surface = cairo.SVGSurface(sys.stdout, width, height)
         context = cairo.Context(surface)
@@ -112,7 +141,7 @@ elif sys.argv[1] == 'plot':
         context.restore()
 
         for x in range(0, (finish_time - start_time)/10000, 100):
-                draw_text(context, x, -5, "%lus" % (x/100), center = False)
+                draw_text(context, x, -5, "%lus" % (x/100), vcenter = 0, hcenter = 0)
 
         y = 0
 
@@ -121,33 +150,36 @@ elif sys.argv[1] == 'plot':
                 drawn = False
                 left = -1
 
-                if ixt >= start_time and aet > ixt:
+                if ixt >= start_time and ixt <= finish_time:
 
                         # Activating
                         a = ixt - start_time
-                        b = aet - ixt
+                        b = min(filter(lambda x: x >= ixt, (aet, axt, iet, finish_time))) - ixt
+
                         draw_box(context, a/10000, y, b/10000, bar_height, 1, 0, 0)
                         drawn = True
 
                         if left < 0:
                                 left = a
 
-                if aet >= start_time and axt > aet:
+                if aet >= start_time and aet <= finish_time:
 
                         # Active
                         a = aet - start_time
-                        b = axt - aet
-                        draw_box(context, a/10000, y, b/10000, bar_height, .7, .5, .5)
+                        b = min(filter(lambda x: x >= aet, (axt, iet, finish_time))) - aet
+
+                        draw_box(context, a/10000, y, b/10000, bar_height, .8, .6, .6)
                         drawn = True
 
                         if left < 0:
                                 left = a
 
-                if axt >= start_time and iet > axt:
+                if axt >= start_time and axt <= finish_time:
 
                         # Deactivating
                         a = axt - start_time
-                        b = iet - axt
+                        b = min(filter(lambda x: x >= axt, (iet, finish_time))) - axt
+
                         draw_box(context, a/10000, y, b/10000, bar_height, .6, .4, .4)
                         drawn = True
 
@@ -155,11 +187,20 @@ elif sys.argv[1] == 'plot':
                                 left = a
 
                 if drawn:
-                        draw_text(context, left/10000 + 10, y + bar_height/2, name)
+                        x = left/10000
+
+                        if x < width/2-border:
+                                draw_text(context, x + 10, y + bar_height/2, name, hcenter = 0)
+                        else:
+                                draw_text(context, x - 10, y + bar_height/2, name, hcenter = 1)
 
                         y += bar_height + bar_space
 
-        surface.finish()
+        draw_text(context, 0, height-border*2, "Legend: Red = Activating; Pink = Active; Dark Pink = Deactivating", hcenter = 0, vcenter = -1)
 
+        surface.finish()
+elif sys.argv[1] in ("help", "--help", "-h"):
+        help()
 else:
         sys.stderr.write("Unknown verb '%s'.\n" % sys.argv[1])
+        sys.exit(1)
