@@ -114,6 +114,9 @@ bin_PROGRAMS = \
 	systemd-stdio-bridge \
         systemd-nspawn
 
+dist_bin_SCRIPTS = \
+        src/systemd-analyze
+
 if HAVE_GTK
 bin_PROGRAMS += \
 	systemadm \
