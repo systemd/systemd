@@ -29,7 +29,12 @@ F15:
 
 * ConditionDirectoryNotEmpty= needs to be documented
 
+* add /etc/modules-load.d to rpm
+
 Features:
+
+* tmpfiles should allow two identical lines
+  https://bugzilla.redhat.com/show_bug.cgi?id=690253
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 

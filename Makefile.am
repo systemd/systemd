@@ -1230,6 +1230,13 @@ CLEANFILES += \
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
+                $(DESTDIR)$(sysconfdir)/modules-load.d \
+                $(DESTDIR)$(tmpfilesdir) \
+                $(DESTDIR)$(sysconfdir)/sysctl.d \
+                $(DESTDIR)$(systemshutdowndir) \
+                $(DESTDIR)$(systemgeneratordir) \
+                $(DESTDIR)$(usergeneratordir)
+	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(userunitdir) \
 		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
