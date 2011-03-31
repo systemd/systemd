@@ -35,13 +35,17 @@ F15:
 
 Features:
 
+* Find a way to replace /var/run, /var/lock directories with
+  symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
+  We soon want to get rid of var-run.mount var-lock.mount units.
+
 * when key file cannot be found, read it from kbd in cryptsetup
 
 * get rid of random file name in generator directory?
     /run/systemd/generator-IH1vFu
 
 * fix SD_WARNING syslog stuff in src/sd-daemon.h to include the
-  facility
+  LOG_DAEMON(3) facility value. Never use the LOG_KERNEL(0) facility.
 
 * add switch to systemctl to show enabled but not running services. Or
   another switch that shows service that have been running since
@@ -49,12 +53,13 @@ Features:
 
 * reuse mkdtemp namespace dirs in /tmp?
 
-* don't strip facility from kmsg log messages as soon as that is possible.
+* don't strip facility from kmsg log messages as soon as that is possible:
     http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d90c8d9cde929cbc575098e825d7c29d9f45054
 
 * recreate systemd's D-Bus private socket file on SIGUSR2
 
 * be more specific what failed:
+    ...
     Unmounting file systems.
     Not all file systems unmounted, 1 left.
     Disabling swaps.
@@ -64,6 +69,7 @@ Features:
     Unmounting file systems.
     Not all file systems unmounted, 1 left.
     Cannot finalize remaining file systems and devices, giving up.
+    ...
 
 * check for compiled-in, but not active selinux, and don't print any warnings
   about policy loading. Probably check for available selinux in /proc/filesystems,
