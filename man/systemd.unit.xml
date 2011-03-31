@@ -561,6 +561,7 @@
 
                         <varlistentry>
                                 <term><varname>ConditionPathExists=</varname></term>
+                                <term><varname>ConditionPathIsDirectory=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
                                 <term><varname>ConditionVirtualization=</varname></term>
@@ -584,10 +585,15 @@
                                 is prefixed with an exclamation mark
                                 (!), the test is negated, and the unit
                                 only started if the path does not
-                                exist. <varname>ConditionDirectoryNotEmpty=</varname>
+                                exist. <varname>ConditionPathIsDirectory=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
-                                but verifies whether a certain path is
+                                but verifies whether a certain path
+                                exists and is a directory.
+                                <varname>ConditionDirectoryNotEmpty=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
                                 exists and is a non-empty
                                 directory. Similarly
                                 <varname>ConditionKernelCommandLine=</varname>
