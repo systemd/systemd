@@ -1066,6 +1066,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                                 wait_for_exit = true;
 
                         set_free(pid_set);
+                        pid_set = NULL;
                 }
         }
 
@@ -1695,6 +1696,7 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         case SOCKET_START_PRE:
                 log_warning("%s starting timed out. Terminating.", u->meta.id);
                 socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
+                break;
 
         case SOCKET_START_POST:
                 log_warning("%s starting timed out. Stopping.", u->meta.id);

@@ -646,7 +646,7 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                 char **i;
 
                 /* Final step, initialize any manually set supplementary groups */
-                ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
+                assert_se((ngroups_max = (int) sysconf(_SC_NGROUPS_MAX)) > 0);
 
                 if (!(gids = new(gid_t, ngroups_max)))
                         return -ENOMEM;

@@ -406,7 +406,7 @@ static int sysv_fix_order(Service *s) {
 
                 /* FIXME: Maybe we should compare the name here lexicographically? */
 
-                if (!(r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
+                if ((r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
                         return r;
         }
 
@@ -1024,7 +1024,7 @@ static int fsck_fix_order(Service *s) {
                 else
                         continue;
 
-                if (!(r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
+                if ((r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
                         return r;
         }
 
@@ -1882,6 +1882,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                                 wait_for_exit = true;
 
                         set_free(pid_set);
+                        pid_set = NULL;
                 }
         }
 

@@ -176,8 +176,8 @@ static dbus_bool_t bus_add_watch(DBusWatch *bus_watch, void *data) {
                 }
 
                 if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, w->fd, &ev) < 0) {
-                        free(w);
                         close_nointr_nofail(w->fd);
+                        free(w);
                         return FALSE;
                 }
 
@@ -236,7 +236,7 @@ static int bus_timeout_arm(Manager *m, Watch *w) {
 
         if (dbus_timeout_get_enabled(w->data.bus_timeout)) {
                 timespec_store(&its.it_value, dbus_timeout_get_interval(w->data.bus_timeout) * USEC_PER_MSEC);
-                its.it_interval = its.it_interval;
+                its.it_interval = its.it_value;
         }
 
         if (timerfd_settime(w->fd, 0, &its, NULL) < 0)
@@ -269,7 +269,7 @@ static dbus_bool_t bus_add_timeout(DBusTimeout *timeout, void *data) {
         if (!(w = new0(Watch, 1)))
                 return FALSE;
 
-        if (!(w->fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0)
+        if ((w->fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0)
                 goto fail;
 
         w->type = WATCH_DBUS_TIMEOUT;

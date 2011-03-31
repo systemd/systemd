@@ -785,6 +785,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                                 wait_for_exit = true;
 
                         set_free(pid_set);
+                        pid_set = NULL;
                 }
         }
 

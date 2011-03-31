@@ -455,14 +455,14 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                         goto oom;
         }
 
-        free(path);
-
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))
                         goto oom;
 
                 dbus_message_unref(reply);
         }
+
+        free(path);
 
         return DBUS_HANDLER_RESULT_HANDLED;
 

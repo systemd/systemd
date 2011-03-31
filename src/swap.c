@@ -687,6 +687,7 @@ static void swap_enter_signal(Swap *s, SwapState state, bool success) {
                                 wait_for_exit = true;
 
                         set_free(pid_set);
+                        pid_set = NULL;
                 }
         }
 

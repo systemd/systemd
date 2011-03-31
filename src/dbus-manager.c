@@ -1020,8 +1020,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!e)
                         goto oom;
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                if (!(reply = dbus_message_new_method_return(message))) {
+                        strv_free(e);
                         goto oom;
+                }
 
                 strv_free(m->environment);
                 m->environment = e;
@@ -1108,14 +1110,14 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
         }
 
-        free(path);
-
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))
                         goto oom;
 
                 dbus_message_unref(reply);
         }
+
+        free(path);
 
         return DBUS_HANDLER_RESULT_HANDLED;
 

@@ -78,8 +78,10 @@ char **strv_copy(char **l) {
         return r;
 
 fail:
-        for (k--, l--; k >= r; k--, l--)
+        for (k--; k >= r; k--)
                 free(*k);
+
+        free(r);
 
         return NULL;
 }
@@ -435,6 +437,8 @@ char **strv_env_merge(unsigned n_lists, ...) {
         return r;
 
 fail:
+        va_end(ap);
+
         for (k--; k >= r; k--)
                 free(*k);
 

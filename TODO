@@ -27,6 +27,8 @@ F15:
 
 * ply should do mkdir before writing pid file
 
+* ConditionDirectoryNotEmpty= needs to be documented
+
 Features:
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service

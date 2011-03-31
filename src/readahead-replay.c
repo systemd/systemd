@@ -122,7 +122,8 @@ static int replay(const char *root) {
         FILE *pack = NULL;
         char line[LINE_MAX];
         int r = 0;
-        char *pack_fn = NULL, c;
+        char *pack_fn = NULL;
+        int c;
         bool on_ssd, ready = false;
         int prio;
         int inotify_fd = -1;

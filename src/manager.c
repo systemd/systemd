@@ -2615,7 +2615,7 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         log_debug("Serializing state to %s", path);
         free(path);
 
-        if (!(f = fdopen(fd, "w+")) < 0)
+        if (!(f = fdopen(fd, "w+")))
                 return -errno;
 
         *_f = f;

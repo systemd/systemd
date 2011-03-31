@@ -30,7 +30,9 @@
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
 
-        c = new0(Condition, 1);
+        if (!(c = new0(Condition, 1)))
+                return NULL;
+
         c->type = type;
         c->trigger = trigger;
         c->negate = negate;

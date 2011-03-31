@@ -3582,7 +3582,6 @@ char *normalize_env_assignment(const char *s) {
         free(p);
 
         if (!value) {
-                free(p);
                 free(name);
                 return NULL;
         }

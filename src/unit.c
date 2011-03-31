@@ -2035,8 +2035,7 @@ char **unit_full_printf_strv(Unit *u, char **l) {
         return r;
 
 fail:
-        j--;
-        while (j >= r)
+        for (j--; j >= r; j--)
                 free(*j);
 
         free(r);

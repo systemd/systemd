@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
 
                 if ((pollfd[i].fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC)) < 0) {
                         log_error("timerfd_create(): %m");
-                        failed = false;
+                        failed = true;
                 }
         }
 
