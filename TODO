@@ -10,8 +10,6 @@ F15:
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
-* teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
-
 * save/restore tool for SysV as requested by FPC (PENDING)
 
 * bind mounts are ignored
@@ -21,23 +19,21 @@ F15:
 
 * NM should pull in network.target, ntpd should pull in rtc-set.target.
 
-* document default dependencies
-
 * kernel patch wegen kmsg prio nach f15
-
-* LOG_DAEMON/LOG_USER für kmsg messages schreiben
-
-* disable /dev/console status messages after plymouth went down
-
-* plymouth pid file
 
 * selinux issue http://people.gnome.org/~cosimoc/selinux.jpg
 
-* do not print errors when random seed is not around
-
 * fix alsa mixer restore to not print error when no config is stored
 
+* ply should do mkdir before writing pid file
+
 Features:
+
+* teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
+
+* document default dependencies
+
+* LOG_DAEMON/LOG_USER für kmsg messages schreiben
 
 * Find a way to replace /var/run, /var/lock directories with
   symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
@@ -118,7 +114,7 @@ Features:
 
 * Patch systemd-fsck to use -C and pass console fd to it
 
-* support remote/ssh systemctl/systemadm, and local privileged access
+* support remote/ssh systemctl/systemadm, and local privileged access → dbus patches need to be merged
 
 * configurable jitter for timer events
 

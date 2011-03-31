@@ -86,9 +86,11 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                if ((r = loop_read(seed_fd, buf, buf_size, false)) <= 0)
-                        log_error("Failed to read seed file: %s", r < 0 ? strerror(errno) : "EOF");
-                else {
+                if ((r = loop_read(seed_fd, buf, buf_size, false)) <= 0) {
+
+                        if (r != 0)
+                                log_error("Failed to read seed file: %m");
+                } else {
                         lseek(seed_fd, 0, SEEK_SET);
 
                         if ((r = loop_write(random_fd, buf, (size_t) r, false)) <= 0)
