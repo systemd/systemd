@@ -225,7 +225,6 @@ dist_udevrules_DATA += \
 	extras/rule_generator/75-cd-aliases-generator.rules \
 	extras/rule_generator/75-persistent-net-generator.rules
 
-if ENABLE_EXTRAS
 # ------------------------------------------------------------------------------
 # firmware - firmware loading
 # ------------------------------------------------------------------------------
@@ -313,8 +312,6 @@ extras_v4l_id_v4l_id_SOURCES = extras/v4l_id/v4l_id.c
 extras_v4l_id_v4l_id_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/v4l_id/v4l_id
 dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
-
-endif # ENABLE_EXTRAS
 
 # ------------------------------------------------------------------------------
 # qemu -- qemu/kvm guest tweaks
