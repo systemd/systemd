@@ -65,7 +65,7 @@
                 <orderedlist>
                         <listitem><para>If it does not exist yet, the
                         user runtime directory
-                        <filename>/var/run/user/$USER</filename> is
+                        <filename>/run/user/$USER</filename> is
                         created and its ownership changed to the user
                         that is logging in.</para></listitem>
 

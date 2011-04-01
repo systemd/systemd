@@ -91,7 +91,7 @@ public class MyStatusIcon : StatusIcon {
                 GLib.Object(icon_name : "dialog-password");
                 set_title("System Password Request");
 
-                directory = File.new_for_path("/var/run/systemd/ask-password/");
+                directory = File.new_for_path("/run/systemd/ask-password/");
                 file_monitor = directory.monitor_directory(0);
                 file_monitor.changed.connect(file_monitor_changed);
 

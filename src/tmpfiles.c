@@ -47,7 +47,7 @@
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
- * properly owned directories beneath /tmp, /var/tmp, /var/run and
+ * properly owned directories beneath /tmp, /var/tmp, /run and
  * /var/lock which are volatile and hence need to be recreated on
  * bootup. */
 

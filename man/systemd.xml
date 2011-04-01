@@ -1024,20 +1024,19 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><filename>/var/run/systemd/notify</filename></term>
+                                <term><filename>/run/systemd/notify</filename></term>
 
                                 <listitem><para>Daemon status
-                                notification socket. This is an AF_UNIX
-                                datagram socket in the Linux abstract
-                                namespace, and is used to implement
-                                the daemon notification logic as
-                                implemented by
+                                notification socket. This is an
+                                AF_UNIX datagram socket and is used to
+                                implement the daemon notification
+                                logic as implemented by
                                 <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
 
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>/var/run/systemd/logger</filename></term>
+                                <term><filename>/run/systemd/logger</filename></term>
 
                                 <listitem><para>Used internally by the
                                 <filename>systemd-logger.service</filename>
@@ -1045,32 +1044,30 @@
                                 of spawned processes to
                                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 or the kernel log buffer. This is an
-                                AF_UNIX stream socket in the Linux
-                                abstract namespace.</para></listitem>
+                                AF_UNIX stream
+                                socket.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>/var/run/systemd/shutdownd</filename></term>
+                                <term><filename>/run/systemd/shutdownd</filename></term>
 
                                 <listitem><para>Used internally by the
                                 <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 tool to implement delayed
                                 shutdowns. This is an AF_UNIX datagram
-                                socket in the Linux abstract
-                                namespace.</para></listitem>
+                                socket.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>/var/run/systemd/private</filename></term>
+                                <term><filename>/run/systemd/private</filename></term>
 
                                 <listitem><para>Used internally as
                                 communication channel between
                                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 and the systemd process. This is an
-                                AF_UNIX stream socket in the Linux
-                                abstract namespace. This interface is
-                                private to systemd and should not be
-                                used in external
+                                AF_UNIX stream socket. This interface
+                                is private to systemd and should not
+                                be used in external
                                 projects.</para></listitem>
                         </varlistentry>
 

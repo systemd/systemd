@@ -58,7 +58,7 @@
 		<filename>/etc/tmpfiles.d/</filename> to describe the
 		creation, cleaning and removal of volatile and
 		temporary files and directories which usually reside
-		in directories such as <filename>/var/run</filename>
+		in directories such as <filename>/run</filename>
 		or <filename>/tmp</filename>. Each configuration file
 		is named in the style of
 		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename>.</para>
@@ -72,7 +72,7 @@
 		fields:</para>
 
                 <programlisting>Type Path          Mode UID  GID  Age
-d    /var/run/user 0755 root root 10d</programlisting>
+d    /run/user 0755 root root 10d</programlisting>
 
                 <refsect2>
                         <title>Type</title>

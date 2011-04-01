@@ -239,11 +239,10 @@ static uint64_t get_session_id(int *mode) {
                 ssize_t r;
 
                 /* We do a bit of endianess swapping here, just to be
-                 * sure. /var should be machine specific anyway, and
-                 * /var/run even mounted from tmpfs, so this
-                 * byteswapping should really not be necessary. But
-                 * then again, you never know, so let's avoid any
-                 * risk. */
+                 * sure. /run should be machine specific anyway, and
+                 * even mounted from tmpfs, so this byteswapping
+                 * should really not be necessary. But then again, you
+                 * never know, so let's avoid any risk. */
 
                 if (loop_read(fd, &counter, sizeof(counter), false) != sizeof(counter))
                         counter = 1;
@@ -435,7 +434,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 goto finish;
         }
 
-        /* Create /var/run/$USER */
+        /* Create /run/user/$USER */
         free(buf);
         if (asprintf(&buf, RUNTIME_DIR "/user/%s", username) < 0) {
                 r = PAM_BUF_ERR;
