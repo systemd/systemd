@@ -25,6 +25,8 @@ F15:
 
 Features:
 
+* take BSD file lock on tty devices when using them?
+
 * tmpfiles should allow two identical lines
   https://bugzilla.redhat.com/show_bug.cgi?id=690253
 

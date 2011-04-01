@@ -207,6 +207,11 @@ dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
 	tmpfiles.d/x11.conf
 
+if HAVE_SYSV_COMPAT
+dist_tmpfiles_DATA += \
+        tmpfiles.d/legacy.conf
+endif
+
 dist_systemunit_DATA = \
 	units/graphical.target \
 	units/multi-user.target \
