@@ -565,6 +565,7 @@
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
                                 <term><varname>ConditionVirtualization=</varname></term>
+                                <term><varname>ConditionSecurity=</varname></term>
                                 <term><varname>ConditionNull=</varname></term>
 
                                 <listitem><para>Before starting a unit
@@ -628,6 +629,13 @@
                                 <varname>openvz</varname> to test
                                 against a specific implementation. The
                                 test may be negated by prepending an
+                                exclamation mark.
+                                <varname>ConditionSecurity=</varname>
+                                may be used to check whether the given security
+                                module is enabled on the system.
+                                Currently the only recognized value is
+                                <varname>SELinux</varname>.
+                                The test may be negated by prepending an
                                 exclamation mark. Finally,
                                 <varname>ConditionNull=</varname> may
                                 be used to add a constant condition
