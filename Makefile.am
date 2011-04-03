@@ -58,7 +58,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-DSYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH=\"$(rootbindir)/systemd-tty-ask-password-agent\" \
-        -DSYSTEMD_STDIO_BRIDGE_BINARY_PATH=\"$(bindir)/systemd-stdio-bridge\" \
+	-DSYSTEMD_STDIO_BRIDGE_BINARY_PATH=\"$(bindir)/systemd-stdio-bridge\" \
 	-DRUNTIME_DIR=\"/run\" \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-DSYSTEMD_CRYPTSETUP_PATH=\"$(rootlibexecdir)/systemd-cryptsetup\" \
@@ -112,10 +112,10 @@ rootbin_PROGRAMS = \
 bin_PROGRAMS = \
 	systemd-cgls \
 	systemd-stdio-bridge \
-        systemd-nspawn
+	systemd-nspawn
 
 dist_bin_SCRIPTS = \
-        src/systemd-analyze
+	src/systemd-analyze
 
 if HAVE_GTK
 bin_PROGRAMS += \
@@ -147,7 +147,7 @@ rootlibexec_PROGRAMS = \
 	systemd-sysctl
 
 systemgenerator_PROGRAMS = \
-        systemd-getty-generator
+	systemd-getty-generator
 
 if HAVE_LIBCRYPTSETUP
 rootlibexec_PROGRAMS += \
@@ -201,7 +201,7 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Path.xml
 
 dist_bashcompletion_DATA = \
-        src/systemctl-bash-completion.sh
+	src/systemctl-bash-completion.sh
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
@@ -209,7 +209,7 @@ dist_tmpfiles_DATA = \
 
 if HAVE_SYSV_COMPAT
 dist_tmpfiles_DATA += \
-        tmpfiles.d/legacy.conf
+	tmpfiles.d/legacy.conf
 endif
 
 dist_systemunit_DATA = \
@@ -253,7 +253,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-debug.mount \
 	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
-	units/var-lock.mount \
 	units/var-run.mount \
 	units/media.mount \
 	units/hwclock-load.service \
@@ -270,10 +269,16 @@ dist_systemunit_DATA = \
 	units/systemd-ask-password-console.path \
 	units/syslog.target
 
+if HAVE_SYSV_COMPAT
+dist_systemunit_DATA += \
+	units/var-lock.mount
+endif
+
+
 nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
-        units/console-shell.service \
+	units/console-shell.service \
 	units/remote-fs.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
@@ -315,7 +320,7 @@ nodist_userunit_DATA = \
 EXTRA_DIST = \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
-        units/console-shell.service.m4 \
+	units/console-shell.service.m4 \
 	units/remote-fs.target.m4 \
 	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \
@@ -505,7 +510,7 @@ EXTRA_DIST += \
 	${libsystemd_core_la_SOURCES:.c=.h} \
 	${libsystemd_daemon_la_SOURCES:.c=.h} \
 	src/macro.h \
-        src/def.h \
+	src/def.h \
 	src/ioprio.h \
 	src/missing.h \
 	src/list.h \
@@ -1105,8 +1110,8 @@ pam_systemd_la_LIBADD = \
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
-                -e 's,@rootbindir\@,$(rootbindir),g' \
-                -e 's,@bindir\@,$(bindir),g' \
+		-e 's,@rootbindir\@,$(rootbindir),g' \
+		-e 's,@bindir\@,$(bindir),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
@@ -1235,12 +1240,12 @@ CLEANFILES += \
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
-                $(DESTDIR)$(sysconfdir)/modules-load.d \
-                $(DESTDIR)$(tmpfilesdir) \
-                $(DESTDIR)$(sysconfdir)/sysctl.d \
-                $(DESTDIR)$(systemshutdowndir) \
-                $(DESTDIR)$(systemgeneratordir) \
-                $(DESTDIR)$(usergeneratordir)
+		$(DESTDIR)$(sysconfdir)/modules-load.d \
+		$(DESTDIR)$(tmpfilesdir) \
+		$(DESTDIR)$(sysconfdir)/sysctl.d \
+		$(DESTDIR)$(systemshutdowndir) \
+		$(DESTDIR)$(systemgeneratordir) \
+		$(DESTDIR)$(usergeneratordir)
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(userunitdir) \
@@ -1421,7 +1426,7 @@ if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service single.service && \
 		$(LN_S) prefdm.service display-manager.service && \
-                $(LN_S) rescue.service single.service )
+		$(LN_S) rescue.service single.service )
 	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
@@ -1439,7 +1444,7 @@ if TARGET_MANDRIVA
 		rm -f display-manager.service dm.service single.service && \
 		$(LN_S) prefdm.service display-manager.service && \
 		$(LN_S) prefdm.service dm.service && \
-                $(LN_S) rescue.service single.service )
+		$(LN_S) rescue.service single.service )
 	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
