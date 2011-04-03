@@ -24,6 +24,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
+
 #include "util.h"
 #include "condition.h"
 
@@ -128,6 +132,14 @@ static bool test_virtualization(const char *parameter) {
         return streq(parameter, id);
 }
 
+static bool test_security(const char *parameter) {
+#ifdef HAVE_SELINUX
+        if (!strcasecmp(parameter, "SELinux"))
+                return is_selinux_enabled() > 0;
+#endif
+        return false;
+}
+
 bool condition_test(Condition *c) {
         assert(c);
 
@@ -156,6 +168,9 @@ bool condition_test(Condition *c) {
 
         case CONDITION_VIRTUALIZATION:
                 return test_virtualization(c->parameter) == !c->negate;
+
+        case CONDITION_SECURITY:
+                return test_security(c->parameter) == !c->negate;
 
         case CONDITION_NULL:
                 return !c->negate;
@@ -220,6 +235,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
+        [CONDITION_SECURITY] = "ConditionSecurity",
         [CONDITION_NULL] = "ConditionNull"
 };
 
