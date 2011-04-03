@@ -134,7 +134,7 @@ static bool test_virtualization(const char *parameter) {
 
 static bool test_security(const char *parameter) {
 #ifdef HAVE_SELINUX
-        if (!strcasecmp(parameter, "SELinux"))
+        if (streq(parameter, "selinux"))
                 return is_selinux_enabled() > 0;
 #endif
         return false;
