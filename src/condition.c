@@ -199,7 +199,7 @@ void condition_dump(Condition *c, FILE *f, const char *prefix) {
                 prefix = "";
 
         fprintf(f,
-                "%s%s: %s%s%s\n",
+                "%s\t%s: %s%s%s\n",
                 prefix,
                 condition_type_to_string(c->type),
                 c->trigger ? "|" : "",
@@ -215,8 +215,11 @@ void condition_dump_list(Condition *first, FILE *f, const char *prefix) {
 }
 
 static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
-        [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_PATH_EXISTS] = "ConditionPathExists",
+        [CONDITION_PATH_IS_DIRECTORY] = "ConditionPathIsDirectory",
+        [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
+        [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
+        [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_NULL] = "ConditionNull"
 };
 
