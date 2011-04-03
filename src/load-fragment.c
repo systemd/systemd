@@ -1479,7 +1479,7 @@ static int config_parse_condition_path(
         return 0;
 }
 
-static int config_parse_condition_kernel(
+static int config_parse_condition_string(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1489,6 +1489,7 @@ static int config_parse_condition_kernel(
                 void *data,
                 void *userdata) {
 
+        ConditionType cond = ltype;
         Unit *u = data;
         bool trigger, negate;
         Condition *c;
@@ -1504,39 +1505,7 @@ static int config_parse_condition_kernel(
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
 
-        if (!(c = condition_new(CONDITION_KERNEL_COMMAND_LINE, rvalue, trigger, negate)))
-                return -ENOMEM;
-
-        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
-        return 0;
-}
-
-static int config_parse_condition_virt(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Unit *u = data;
-        bool trigger, negate;
-        Condition *c;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if ((trigger = rvalue[0] == '|'))
-                rvalue++;
-
-        if ((negate = rvalue[0] == '!'))
-                rvalue++;
-
-        if (!(c = condition_new(CONDITION_VIRTUALIZATION, rvalue, trigger, negate)))
+        if (!(c = condition_new(cond, rvalue, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1756,9 +1725,8 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_notify_access,    "ACCESS" },
                 { config_parse_ip_tos,           "TOS" },
                 { config_parse_condition_path,   "CONDITION" },
-                { config_parse_condition_kernel, "CONDITION" },
+                { config_parse_condition_string, "CONDITION" },
                 { config_parse_condition_null,   "CONDITION" },
-                { config_parse_condition_virt,   "CONDITION" },
         };
 
         assert(f);
@@ -1883,8 +1851,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ConditionPathExists",        config_parse_condition_path, CONDITION_PATH_EXISTS, u,                        "Unit"    },
                 { "ConditionPathIsDirectory",   config_parse_condition_path, CONDITION_PATH_IS_DIRECTORY, u,                  "Unit"    },
                 { "ConditionDirectoryNotEmpty", config_parse_condition_path, CONDITION_DIRECTORY_NOT_EMPTY, u,                "Unit"    },
-                { "ConditionKernelCommandLine", config_parse_condition_kernel, 0, u,                                          "Unit"    },
-                { "ConditionVirtualization",config_parse_condition_virt,  0, u,                                               "Unit"    },
+                { "ConditionKernelCommandLine", config_parse_condition_string, CONDITION_KERNEL_COMMAND_LINE, u,              "Unit"    },
+                { "ConditionVirtualization",    config_parse_condition_string, CONDITION_VIRTUALIZATION, u,                   "Unit"    },
                 { "ConditionNull",          config_parse_condition_null,  0, u,                                               "Unit"    },
 
                 { "PIDFile",                config_parse_path,            0, &u->service.pid_file,                            "Service" },
