@@ -30,6 +30,11 @@ Features:
 * tmpfiles should allow two identical lines
   https://bugzilla.redhat.com/show_bug.cgi?id=690253
 
+* tmpfiles should create leading directories for d,D,f,F?
+
+* avoid any flag files, or readahead files in /, we need to support r/o /
+  or / on tmpfs like Android setups.
+
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
 * document default dependencies
