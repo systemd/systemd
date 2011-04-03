@@ -394,6 +394,8 @@ bool nulstr_contains(const char*nulstr, const char *needle);
 
 bool plymouth_running(void);
 
+void parse_syslog_priority(char **p, int *priority);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

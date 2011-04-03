@@ -4191,6 +4191,42 @@ bool plymouth_running(void) {
         return access("/run/plymouth/pid", F_OK) >= 0;
 }
 
+void parse_syslog_priority(char **p, int *priority) {
+        int a = 0, b = 0, c = 0;
+        int k;
+
+        assert(p);
+        assert(*p);
+        assert(priority);
+
+        if ((*p)[0] != '<')
+                return;
+
+        if (!strchr(*p, '>'))
+                return;
+
+        if ((*p)[2] == '>') {
+                c = undecchar((*p)[1]);
+                k = 3;
+        } else if ((*p)[3] == '>') {
+                b = undecchar((*p)[1]);
+                c = undecchar((*p)[2]);
+                k = 4;
+        } else if ((*p)[4] == '>') {
+                a = undecchar((*p)[1]);
+                b = undecchar((*p)[2]);
+                c = undecchar((*p)[3]);
+                k = 5;
+        } else
+                return;
+
+        if (a < 0 || b < 0 || c < 0)
+                return;
+
+        *priority = a*100+b*10+c;
+        *p += k;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
