@@ -466,6 +466,7 @@ static int create_item(Item *i) {
         case CREATE_DIRECTORY:
 
                 u = umask(0);
+                mkdir_parents(i->path, 0755);
                 r = mkdir(i->path, i->mode);
                 umask(u);
 
