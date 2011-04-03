@@ -8,7 +8,7 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=/dev/initctl Compatibility Socket
+Description=/dev/initctl Compatibility Named Pipe
 DefaultDependencies=no
 Before=sockets.target
 
