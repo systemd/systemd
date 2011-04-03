@@ -25,6 +25,10 @@ F15:
 
 Features:
 
+* add bimft_misc client tools
+
+* in pam_systemd: don't rely on /proc/self/loginuid in a container
+
 * take BSD file lock on tty devices when using them?
 
 * tmpfiles should allow two identical lines
@@ -36,6 +40,9 @@ Features:
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
 * document default dependencies
+
+* support systemd.whitelist=/systemd.blacklist= on the kernel command
+  line.
 
 * Find a way to replace /var/run, /var/lock directories with
   symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
