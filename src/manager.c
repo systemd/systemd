@@ -127,7 +127,7 @@ static int manager_setup_notify(Manager *m) {
 }
 
 static int enable_special_signals(Manager *m) {
-        char fd;
+        int fd;
 
         assert(m);
 
