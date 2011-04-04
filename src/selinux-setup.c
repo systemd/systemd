@@ -43,9 +43,9 @@ int selinux_setup(char *const argv[]) {
                return 0;
 
        /* Before we load the policy we create a flag file to ensure
-        * that after the reexec we iterate through /dev to relabel
-        * things. */
-       touch("/dev/.systemd-relabel-devtmpfs");
+        * that after the reexec we iterate through /run and /dev to
+        * relabel things. */
+       touch("/dev/.systemd-relabel-run-dev");
 
        if (selinux_init_load_policy(&enforce) == 0) {
                log_debug("Successfully loaded SELinux policy, reexecuting.");
@@ -60,7 +60,7 @@ int selinux_setup(char *const argv[]) {
        } else {
                log_full(enforce > 0 ? LOG_ERR : LOG_WARNING, "Failed to load SELinux policy.");
 
-               unlink("/dev/.systemd-relabel-devtmpfs");
+               unlink("/dev/.systemd-relabel-run-dev");
 
                if (enforce > 0)
                        return -EIO;

@@ -243,8 +243,10 @@ int mount_setup(void) {
          * appropriate labels, after mounting. The other virtual API
          * file systems do not need. */
 
-        if (unlink("/dev/.systemd-relabel-devtmpfs") >= 0)
+        if (unlink("/dev/.systemd-relabel-run-dev") >= 0) {
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
+                nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
+        }
 
         /* Create a few default symlinks, which are normally created
          * bei udevd, but some scripts might need them before we start
