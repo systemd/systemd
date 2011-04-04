@@ -42,8 +42,8 @@ int main(int argc, char*argv[]) {
         if (streq(argv[1], "start")) {
                 int q = 0, r = 0;
 
-                if (unlink("/var/run/nologin") < 0 && errno != ENOENT) {
-                        log_error("Failed to remove /var/run/nologin file: %m");
+                if (unlink("/run/nologin") < 0 && errno != ENOENT) {
+                        log_error("Failed to remove /run/nologin file: %m");
                         r = -errno;
                 }
 
@@ -59,8 +59,8 @@ int main(int argc, char*argv[]) {
                 int r, q;
                 char *cgroup_user_tree = NULL;
 
-                if ((r = write_one_line_file("/var/run/nologin", "System is going down.")) < 0)
-                        log_error("Failed to create /var/run/nologin: %s", strerror(-r));
+                if ((r = write_one_line_file("/run/nologin", "System is going down.")) < 0)
+                        log_error("Failed to create /run/nologin: %s", strerror(-r));
 
                 if ((q = cg_get_user_path(&cgroup_user_tree)) < 0) {
                         log_error("Failed to determine use path: %s", strerror(-q));

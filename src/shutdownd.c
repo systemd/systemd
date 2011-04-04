@@ -318,10 +318,10 @@ int main(int argc, char *argv[]) {
                 if (pollfd[FD_NOLOGIN_TIMER].revents) {
                         int e;
 
-                        log_info("Creating /var/run/nologin, blocking further logins...");
+                        log_info("Creating /run/nologin, blocking further logins...");
 
-                        if ((e = write_one_line_file("/var/run/nologin", "System is going down.")) < 0)
-                                log_error("Failed to create /var/run/nologin: %s", strerror(-e));
+                        if ((e = write_one_line_file("/run/nologin", "System is going down.")) < 0)
+                                log_error("Failed to create /run/nologin: %s", strerror(-e));
                         else
                                 unlink_nologin = true;
 
@@ -346,7 +346,7 @@ finish:
                         close_nointr_nofail(pollfd[i].fd);
 
         if (unlink_nologin)
-                unlink("/var/run/nologin");
+                unlink("/run/nologin");
 
         if (exec_shutdown) {
                 char sw[3];

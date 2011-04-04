@@ -47,9 +47,8 @@
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
- * properly owned directories beneath /tmp, /var/tmp, /run and
- * /var/lock which are volatile and hence need to be recreated on
- * bootup. */
+ * properly owned directories beneath /tmp, /var/tmp, /run, which are
+ * volatile and hence need to be recreated on bootup. */
 
 enum {
         /* These ones take file names */
