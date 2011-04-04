@@ -25,6 +25,8 @@ F15:
 
 Features:
 
+* allow port = 0 in .socket units
+
 * rename systemd-logger to systemd-stdio-syslog-bridge
 
 * introduce /usr/lib/binfmt.d/, /usr/lib/tmpfiles.d/

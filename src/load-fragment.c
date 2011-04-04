@@ -30,6 +30,8 @@
 #include <sys/mount.h>
 #include <linux/fs.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include "unit.h"
 #include "strv.h"
@@ -965,7 +967,9 @@ static int config_parse_limit(
         assert(rvalue);
         assert(data);
 
-        if (safe_atollu(rvalue, &u) < 0) {
+        if (streq(rvalue, "infinity"))
+                u = (unsigned long long) RLIM_INFINITY;
+        else if (safe_atollu(rvalue, &u) < 0) {
                 log_error("[%s:%u] Failed to parse resource value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }

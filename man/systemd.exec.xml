@@ -558,7 +558,10 @@
                                 various resource limits for executed
                                 processes. See
                                 <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                for details.</para></listitem>
+                                for details. Use the string
+                                <varname>infinity</varname> to
+                                configure no limit on a specific
+                                resource.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
