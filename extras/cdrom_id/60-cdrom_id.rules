@@ -5,6 +5,9 @@ SUBSYSTEM!="block", GOTO="cdrom_end"
 KERNEL!="sr[0-9]*|xvd*", GOTO="cdrom_end"
 ENV{DEVTYPE}!="disk", GOTO="cdrom_end"
 
+# this is only a button press event
+ENV{DISK_EJECT_REQUEST}=="?*", GOTO="cdrom_end"
+
 KERNEL=="sr[0-9]*", ENV{ID_CDROM}="1"
 IMPORT{program}="cdrom_id --export $tempnode"
 
