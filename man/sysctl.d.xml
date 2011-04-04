@@ -19,10 +19,10 @@
   You should have received a copy of the GNU General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="modules-load.d">
+<refentry id="sysctl.d">
 
         <refentryinfo>
-                <title>modules-load.d</title>
+                <title>sysctl.d</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -36,51 +36,50 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>modules-load.d</refentrytitle>
+                <refentrytitle>sysctl.d</refentrytitle>
                 <manvolnum>5</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>modules-load.d</refname>
-                <refpurpose>Configure kernel modules to load at boot</refpurpose>
+                <refname>sysctl.d</refname>
+                <refpurpose>Configure kernel parameters at boot</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>/etc/modules-load.d/*.conf</filename></para>
+                <para><filename>/etc/sysctl.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
 		<para><command>systemd</command> uses
-		<filename>/etc/modules-load.d/</filename> to configure
-		kernel modules to load during boot in a static list.
-		Each configuration file is named in the style of
-		<filename>/etc/modules-load.d/&lt;program&gt;.conf</filename>. Note
-		that it is usually a better idea to use the automatic
-		module loading by PCI ID, by DMI ID or similar
-		triggers configured in the kernel modules themselves
-		instead of relying on static configuration like
-		this.</para>
+		<filename>/etc/sysctl.d/</filename> to configure
+		<citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+		kernel parameters to load during boot. Each
+		configuration file is named in the style of
+		<filename>/etc/sysctl.d/&lt;program&gt;.conf</filename>.</para>
         </refsect1>
 
         <refsect1>
 		<title>Configuration Format</title>
 
 		<para>The configuration files should simply contain a
-		list of kernel module names to load, separated by
+		list of variable assignments, separated by
 		newlines. Empty lines and lines whose first
 		non-whitespace character is # or ; are ignored.</para>
+
+                <para>Note that both / and . are accepted as
+                separators in sysctl variable names.</para>
 
         </refsect1>
 
         <refsect1>
                 <title>Example</title>
                 <example>
-                        <title>/etc/modules-load.d/virtio-net.conf example:</title>
+                        <title>/etc/sysctl.d/domain-name.conf example:</title>
 
-                        <programlisting># Load virtio-net.ko at boot
-virtio-net</programlisting>
+                        <programlisting># Set kernel YP domain name
+kernel.domainname=example.com</programlisting>
                 </example>
         </refsect1>
 
@@ -88,7 +87,8 @@ virtio-net</programlisting>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>modprobe</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sysctl.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
