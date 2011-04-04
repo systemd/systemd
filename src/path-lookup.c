@@ -102,7 +102,11 @@ static char** user_dirs(void) {
         if ((e = getenv("XDG_DATA_DIRS")))
                 data_dirs = strv_split(e, ":");
         else
-                data_dirs = strv_new("/usr/local/share", "/usr/share", NULL);
+                data_dirs = strv_new("/usr/local/share",
+                                     "/usr/local/lib",
+                                     "/usr/share",
+                                     "/usr/lib",
+                                     NULL);
 
         if (!data_dirs)
                 goto fail;
@@ -187,9 +191,11 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                                               SYSTEM_CONFIG_UNIT_PATH,
                                               "/etc/systemd/system",
                                               "/usr/local/share/systemd/system",
+                                              "/usr/local/lib/systemd/system",
                                               "/usr/share/systemd/system",
-                                              "/lib/systemd/system",
+                                              "/usr/lib/systemd/system",
                                               SYSTEM_DATA_UNIT_PATH,
+                                              "/lib/systemd/system",
                                               NULL)))
                                 return -ENOMEM;
         }
