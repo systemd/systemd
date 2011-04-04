@@ -25,6 +25,10 @@ F15:
 
 Features:
 
+* rename systemd-logger to systemd-stdio-syslog-bridge
+
+* introduce /usr/lib/binfmt.d/, /usr/lib/tmpfiles.d/
+
 * in pam_systemd: don't rely on /proc/self/loginuid in a container
 
 * take BSD file lock on tty devices when using them?
