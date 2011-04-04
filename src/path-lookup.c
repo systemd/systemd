@@ -194,8 +194,8 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                                               "/usr/local/lib/systemd/system",
                                               "/usr/share/systemd/system",
                                               "/usr/lib/systemd/system",
-                                              SYSTEM_DATA_UNIT_PATH,
                                               "/lib/systemd/system",
+                                              SYSTEM_DATA_UNIT_PATH,
                                               NULL)))
                                 return -ENOMEM;
         }
