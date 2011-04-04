@@ -513,7 +513,16 @@ int write_one_line_file(const char *fn, const char *line) {
         if (!endswith(line, "\n"))
                 fputc('\n', f);
 
-        r = 0;
+        fflush(f);
+
+        if (ferror(f)) {
+                if (errno != 0)
+                        r = -errno;
+                else
+                        r = -EIO;
+        } else
+                r = 0;
+
 finish:
         fclose(f);
         return r;

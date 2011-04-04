@@ -34,3 +34,4 @@ remote-fs.target
 systemd-update-utmp-runlevel.service
 systemd-update-utmp-shutdown.service
 test-env-replace
+systemd-binfmt.service

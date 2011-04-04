@@ -1,3 +1,4 @@
+systemd-binfmt
 systemd-getty-generator
 systemd-nspawn
 systemd-stdio-bridge

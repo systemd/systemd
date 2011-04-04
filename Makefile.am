@@ -144,7 +144,8 @@ rootlibexec_PROGRAMS = \
 	systemd-timestamp \
 	systemd-ac-power \
 	systemd-detect-virt \
-	systemd-sysctl
+	systemd-sysctl \
+        systemd-binfmt
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
@@ -300,6 +301,7 @@ nodist_systemunit_DATA = \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
+	units/systemd-binfmt.service \
 	units/halt.service \
 	units/poweroff.service \
 	units/reboot.service \
@@ -343,6 +345,7 @@ EXTRA_DIST = \
 	units/systemd-ask-password-wall.service.in \
 	units/systemd-ask-password-console.service.in \
 	units/systemd-sysctl.service.in \
+	units/systemd-binfmt.service.in \
 	units/halt.service.in \
 	units/poweroff.service.in \
 	units/reboot.service.in \
@@ -569,7 +572,8 @@ MANPAGES = \
 	man/vconsole.conf.5 \
 	man/locale.conf.5 \
 	man/os-release.5 \
-	man/modules-load.d.5
+	man/modules-load.d.5 \
+        man/binfmt.d.5
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -797,6 +801,15 @@ systemd_sysctl_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_sysctl_LDADD = \
+	libsystemd-basic.la
+
+systemd_binfmt_SOURCES = \
+	src/binfmt.c
+
+systemd_binfmt_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_binfmt_LDADD = \
 	libsystemd-basic.la
 
 systemd_fsck_SOURCES = \
@@ -1240,9 +1253,10 @@ CLEANFILES += \
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(sysconfdir)/modules-load.d \
 		$(DESTDIR)$(tmpfilesdir) \
+		$(DESTDIR)$(sysconfdir)/modules-load.d \
 		$(DESTDIR)$(sysconfdir)/sysctl.d \
+		$(DESTDIR)$(sysconfdir)/binfmt.d \
 		$(DESTDIR)$(systemshutdowndir) \
 		$(DESTDIR)$(systemgeneratordir) \
 		$(DESTDIR)$(usergeneratordir)
@@ -1364,6 +1378,7 @@ install-data-hook:
 			systemd-random-seed-load.service \
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
+			systemd-binfmt.service \
 			systemd-ask-password-console.path \
 			systemd-kmsg-syslogd.service \
 			cryptsetup.target && \
@@ -1377,6 +1392,7 @@ install-data-hook:
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
+		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \
 		$(LN_S) ../systemd-kmsg-syslogd.service && \
 		$(LN_S) ../cryptsetup.target cryptsetup.target )
