@@ -23,7 +23,18 @@ F15:
 
 * fix alsa mixer restore to not print error when no config is stored
 
+* don't trim empty cgroups
+  https://bugzilla.redhat.com/show_bug.cgi?id=678555
+
+* reload-or-try-restart man page uses word "fail"
+
 Features:
+
+* write blog stories about:
+  - chroot, nspawn and friends
+  - the blame game: systemd-analyze
+  - enabling dbus services
+  - status update
 
 * allow port = 0 in .socket units
 
@@ -42,6 +53,8 @@ Features:
   or / on tmpfs like Android setups.
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
+
+* get process transport into dbus for systemctl -P/-H
 
 * document default dependencies
 
@@ -167,7 +180,7 @@ Features:
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
    - distccd
 
-* fingerprint.target, wireless.target, gps.target
+* fingerprint.target, wireless.target, gps.target, netdevice.target
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
 
