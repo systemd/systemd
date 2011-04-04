@@ -30,7 +30,7 @@ bashcompletiondir=$(sysconfdir)/bash_completion.d
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
-userunitdir=$(pkgdatadir)/user
+userunitdir=$(pkglibdir)/user
 tmpfilesdir=$(sysconfdir)/tmpfiles.d
 usergeneratordir=$(pkglibexecdir)/user-generators
 
@@ -1130,7 +1130,9 @@ SED_PROCESS = \
 		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
 		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
+		-e 's,@pkglibdir\@,$(pkglibdir),g' \
 		-e 's,@systemunitdir\@,$(systemunitdir),g' \
+		-e 's,@userunitdir\@,$(userunitdir),g' \
 		-e 's,@PACKAGE_VERSION\@,$(PACKAGE_VERSION),g' \
 		-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
 		-e 's,@PACKAGE_URL\@,$(PACKAGE_URL),g' \
