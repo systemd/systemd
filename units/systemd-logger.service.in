@@ -8,7 +8,7 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Logging Daemon
+Description=Stream Logging Service
 DefaultDependencies=no
 After=syslog.socket
 
