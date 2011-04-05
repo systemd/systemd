@@ -26,8 +26,6 @@ F15:
 
 * reload-or-try-restart man page blurb uses word "fail"
 
-* explicitly block creation of mount units for API file systems
-
 Features:
 
 * write blog stories about:

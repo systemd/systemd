@@ -476,6 +476,11 @@ static int mount_verify(Mount *m) {
                 return -EINVAL;
         }
 
+        if (mount_point_is_api(m->where) || mount_point_ignore(m->where)) {
+                log_error("Cannot create mount unit for API file system %s. Refusing.", m->where);
+                return -EINVAL;
+        }
+
         if (m->meta.fragment_path && !m->parameters_fragment.what) {
                 log_error("%s's What setting is missing. Refusing.", m->meta.id);
                 return -EBADMSG;
@@ -1300,9 +1305,7 @@ static int mount_add_one(
 
         /* Ignore API mount points. They should never be referenced in
          * dependencies ever. */
-        if (mount_point_is_api(where))
-                return 0;
-        if (mount_point_ignore(where))
+        if (mount_point_is_api(where) || mount_point_ignore(where))
                 return 0;
 
         if (streq(fstype, "autofs"))
