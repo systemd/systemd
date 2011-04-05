@@ -21,12 +21,12 @@ F15:
 
 * fix alsa mixer restore to not print error when no config is stored
 
-* don't trim empty cgroups
-  https://bugzilla.redhat.com/show_bug.cgi?id=678555
-
 * disable most systemctl verbs in chroot()s
 
 Features:
+
+* don't trim empty cgroups
+  https://bugzilla.redhat.com/show_bug.cgi?id=678555
 
 * write blog stories about:
   - chroot, nspawn and friends
