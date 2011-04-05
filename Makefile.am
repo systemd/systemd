@@ -37,11 +37,10 @@ usergeneratordir=$(pkglibexecdir)/user-generators
 # And these are the special ones for /
 rootdir=@rootdir@
 rootbindir=$(rootdir)/bin
-rootsbindir=$(rootdir)/sbin
 rootlibexecdir=$(rootdir)/lib/systemd
+systemgeneratordir=$(rootlibexecdir)/system-generators
+systemshutdowndir=$(rootlibexecdir)/system-shutdown
 systemunitdir=$(rootdir)/lib/systemd/system
-systemgeneratordir=$(rootdir)/lib/systemd/system-generators
-systemshutdowndir=$(rootdir)/lib/systemd/system-shutdown
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
