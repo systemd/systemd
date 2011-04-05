@@ -17,6 +17,9 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
+# Override libexecdir
+libexecdir=$(exec_prefix)/lib
+
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
