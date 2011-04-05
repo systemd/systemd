@@ -5336,11 +5336,17 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 
         /* Require a bus connection for all operations but
          * enable/disable */
-        if (!streq(verbs[i].verb, "enable") &&
-            !streq(verbs[i].verb, "disable") &&
-            !bus) {
-                log_error("Failed to get D-Bus connection: %s", error->message);
-                return -EIO;
+        if (!streq(verbs[i].verb, "enable") && !streq(verbs[i].verb, "disable")) {
+
+                if (running_in_chroot() > 0) {
+                        log_info("Running in chroot, ignoring request.");
+                        return 0;
+                }
+
+                if (!bus) {
+                        log_error("Failed to get D-Bus connection: %s", error->message);
+                        return -EIO;
+                }
         }
 
         return verbs[i].dispatch(bus, argv + optind, left);
@@ -5649,6 +5655,12 @@ int main(int argc, char*argv[]) {
         if (arg_action == ACTION_RUNLEVEL) {
                 r = runlevel_main();
                 retval = r < 0 ? EXIT_FAILURE : r;
+                goto finish;
+        }
+
+        if (running_in_chroot() > 0 && arg_action != ACTION_SYSTEMCTL) {
+                log_info("Running in chroot, ignoring request.");
+                retval = 0;
                 goto finish;
         }
 
