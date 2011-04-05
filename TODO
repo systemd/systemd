@@ -24,7 +24,7 @@ F15:
 * don't trim empty cgroups
   https://bugzilla.redhat.com/show_bug.cgi?id=678555
 
-* reload-or-try-restart man page blurb uses word "fail"
+* disable most systemctl verbs in chroot()s
 
 Features:
 

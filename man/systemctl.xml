@@ -487,12 +487,13 @@
 
                                 <listitem><para>Reload one or more
                                 units if they support it. If not,
-                                restart them instead. If the units
-                                are not running yet the operation
-                                will fail. Note that for
-                                compatibility with SysV init scripts
+                                restart them instead. Do nothing if
+                                the units are not running. Note that
+                                for compatibility with SysV init
+                                scripts
                                 <command>force-reload</command> is
-                                equivalent to this command.</para></listitem>
+                                equivalent to this
+                                command.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>isolate [NAME]</command></term>
