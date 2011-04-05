@@ -568,6 +568,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/asus \
 	extras/keymap/keymaps/compaq-e_evo \
 	extras/keymap/keymaps/dell \
+	extras/keymap/keymaps/dell-latitude-xt2 \
 	extras/keymap/keymaps/everex-xt5000 \
 	extras/keymap/keymaps/fujitsu-amilo_pa_2548 \
 	extras/keymap/keymaps/fujitsu-amilo_pro_edition_v3505 \
