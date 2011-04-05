@@ -30,7 +30,7 @@ bashcompletiondir=$(sysconfdir)/bash_completion.d
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
-userunitdir=$(pkglibdir)/user
+userunitdir=$(pkglibexecdir)/user
 tmpfilesdir=$(sysconfdir)/tmpfiles.d
 usergeneratordir=$(pkglibexecdir)/user-generators
 
@@ -145,7 +145,7 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-        systemd-binfmt
+	systemd-binfmt
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
@@ -573,8 +573,8 @@ MANPAGES = \
 	man/locale.conf.5 \
 	man/os-release.5 \
 	man/modules-load.d.5 \
-        man/binfmt.d.5 \
-        man/sysctl.d.5
+	man/binfmt.d.5 \
+	man/sysctl.d.5
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -1130,7 +1130,7 @@ SED_PROCESS = \
 		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
 		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
-		-e 's,@pkglibdir\@,$(pkglibdir),g' \
+		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		-e 's,@systemunitdir\@,$(systemunitdir),g' \
 		-e 's,@userunitdir\@,$(userunitdir),g' \
 		-e 's,@PACKAGE_VERSION\@,$(PACKAGE_VERSION),g' \

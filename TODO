@@ -26,8 +26,6 @@ F15:
 
 * reload-or-try-restart man page uses word "fail"
 
-* Move units from lib64 to lib
-
 Features:
 
 * write blog stories about:
