@@ -26,6 +26,10 @@ Features:
 * don't trim empty cgroups
   https://bugzilla.redhat.com/show_bug.cgi?id=678555
 
+* serialize used job ids and max job id
+
+* expose monotonic timestamps on the bus and make systemd-analyze use it
+
 * write blog stories about:
   - chroot, nspawn and friends
   - the blame game: systemd-analyze
