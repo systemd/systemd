@@ -97,11 +97,14 @@ static int mount_one(const MountPoint *p) {
 
         assert(p);
 
+        /* Relabel first, just in case */
+        label_fix(p->where, true);
+
         if ((r = path_is_mount_point(p->where)) < 0)
                 return r;
 
         if (r > 0)
-                goto finish;
+                return 0;
 
         /* The access mode here doesn't really matter too much, since
          * the mounted file system will take precedence anyway. */
@@ -122,7 +125,7 @@ static int mount_one(const MountPoint *p) {
                 return p->fatal ? -errno : 0;
         }
 
-finish:
+        /* Relabel again, since we now mounted something fresh here */
         label_fix(p->where, false);
 
         return 0;
@@ -241,7 +244,7 @@ int mount_setup(void) {
 
         /* Nodes in devtmpfs need to be manually updated for the
          * appropriate labels, after mounting. The other virtual API
-         * file systems do not need. */
+         * file systems do not need that. */
 
         if (unlink("/dev/.systemd-relabel-run-dev") >= 0) {
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
