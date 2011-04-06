@@ -2840,8 +2840,20 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                 else
                         printf("Unit %s removed.\n", id);
 
-        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobNew") ||
-                   dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobNew")) {
+                uint32_t id;
+                const char *path;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_UINT32, &id,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
+                else
+                        printf("Job %u added.\n", id);
+
+
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 uint32_t id;
                 const char *path, *result;
 
@@ -2851,10 +2863,8 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                                            DBUS_TYPE_STRING, &result,
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse message: %s", bus_error_message(&error));
-                else if (streq(dbus_message_get_member(message), "JobNew"))
-                        printf("Job %u added.\n", id);
                 else
-                        printf("Job %u removed.\n", id);
+                        printf("Job %u removed (result=%s).\n", id, result);
 
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
