@@ -274,7 +274,6 @@ dist_systemunit_DATA += \
 	units/var-lock.mount
 endif
 
-
 nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
@@ -1320,13 +1319,11 @@ install-data-hook:
 			fsck-root.service \
 			remount-rootfs.service \
 			var-run.mount \
-			var-lock.mount \
 			media.mount && \
 		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
 		$(LN_S) ../fsck-root.service fsck-root.service && \
 		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
 		$(LN_S) ../var-run.mount var-run.mount && \
-		$(LN_S) ../var-lock.mount var-lock.mount && \
 		$(LN_S) ../media.mount media.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target sound.target && \
@@ -1472,6 +1469,12 @@ if TARGET_DEBIAN_OR_UBUNTU
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel5.target && \
 		$(LN_S) multi-user.target runlevel5.target )
+endif
+
+if HAVE_SYSV_COMPAT
+	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
+		rm -f var-lock.mount && \
+		$(LN_S) ../var-lock.mount var-lock.mount )
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
