@@ -313,7 +313,7 @@ bool job_is_runnable(Job *j) {
          * type. */
 
         /* First check if there is an override */
-        if (j->ignore_deps)
+        if (j->ignore_order)
                 return true;
 
         if (j->type == JOB_START ||
@@ -694,7 +694,8 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL] = "fail",
         [JOB_REPLACE] = "replace",
         [JOB_ISOLATE] = "isolate",
-        [JOB_IGNORE_DEPENDENCIES] = "ignore-dependencies"
+        [JOB_IGNORE_DEPENDENCIES] = "ignore-dependencies",
+        [JOB_IGNORE_REQUIREMENTS] = "ignore-requirements"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);

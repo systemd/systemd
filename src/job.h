@@ -64,10 +64,11 @@ enum JobState {
 };
 
 enum JobMode {
-        JOB_FAIL,
-        JOB_REPLACE,
-        JOB_ISOLATE,
-        JOB_IGNORE_DEPENDENCIES,
+        JOB_FAIL,                /* Fail if a conflicting job is already queued */
+        JOB_REPLACE,             /* Replace an existing conflicting job */
+        JOB_ISOLATE,             /* Start a unit, and stop all others */
+        JOB_IGNORE_DEPENDENCIES, /* Ignore both requirement and ordering dependencies */
+        JOB_IGNORE_REQUIREMENTS, /* Ignore requirement dependencies */
         _JOB_MODE_MAX,
         _JOB_MODE_INVALID = -1
 };
@@ -130,7 +131,7 @@ struct Job {
         bool override:1;
         bool in_dbus_queue:1;
         bool sent_dbus_new_signal:1;
-        bool ignore_deps:1;
+        bool ignore_order:1;
 };
 
 Job* job_new(Manager *m, JobType type, Unit *unit);

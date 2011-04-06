@@ -17,6 +17,7 @@ F15:
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
 * bind mounts are ignored
+  https://bugzilla.redhat.com/show_bug.cgi?id=682662
 
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
