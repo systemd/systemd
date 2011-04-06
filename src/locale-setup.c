@@ -69,7 +69,7 @@ int locale_setup(void) {
 
         zero(variables);
 
-        if (detect_virtualization(NULL) <= 0)
+        if (detect_container(NULL) <= 0)
                 if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
 #ifdef TARGET_FEDORA
                                         "LANG",                     &variables[VARIABLE_LANG],

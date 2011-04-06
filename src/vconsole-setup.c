@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
 
         utf8 = is_locale_utf8();
 
-        if (detect_virtualization(NULL) <= 0)
+        if (detect_container(NULL) <= 0)
                 if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
 #ifdef TARGET_FEDORA
                                         "SYSFONT", &vc_font,

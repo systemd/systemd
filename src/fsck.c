@@ -106,7 +106,7 @@ static int parse_proc_cmdline(void) {
         int r;
         size_t l;
 
-        if (detect_virtualization(NULL) > 0)
+        if (detect_container(NULL) > 0)
                 return 0;
 
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
