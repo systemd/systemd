@@ -1592,8 +1592,8 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
                                 goto fail;
                         }
 
-                        memcpy(t, rfds, rn_fds);
-                        memcpy(t+rn_fds, cfds, cn_fds);
+                        memcpy(t, rfds, rn_fds * sizeof(int));
+                        memcpy(t+rn_fds, cfds, cn_fds * sizeof(int));
                         free(rfds);
                         free(cfds);
 

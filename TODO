@@ -21,8 +21,6 @@ F15:
 
 * fix alsa mixer restore to not print error when no config is stored
 
-* disable most systemctl verbs in chroot()s
-
 Features:
 
 * don't trim empty cgroups

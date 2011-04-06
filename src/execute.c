@@ -981,7 +981,7 @@ int exec_spawn(ExecCommand *command,
 
                 /* This string must fit in 10 chars (i.e. the length
                  * of "/sbin/init") */
-                rename_process("sd:exec");
+                rename_process("sd.exec");
 
                 /* We reset exactly these signals, since they are the
                  * only ones we set to SIG_IGN in the main daemon. All
