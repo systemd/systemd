@@ -286,7 +286,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
                 "syslog",               SPECIAL_SYSLOG_TARGET,
-                "time",                 SPECIAL_RTC_SET_TARGET,
+                "time",                 SPECIAL_TIME_SYNC_TARGET,
 
                 /* common extensions */
                 "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,

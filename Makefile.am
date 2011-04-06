@@ -232,7 +232,7 @@ dist_systemunit_DATA = \
 	units/reboot.target \
 	units/rescue.target \
 	units/rpcbind.target \
-	units/rtc-set.target \
+	units/time-sync.target \
 	units/shutdown.target \
 	units/final.target \
 	units/umount.target \

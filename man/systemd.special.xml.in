@@ -68,7 +68,7 @@
                 <filename>remote-fs.target</filename>,
                 <filename>rescue.target</filename>,
                 <filename>rpcbind.target</filename>,
-                <filename>rtc-set.target</filename>,
+                <filename>time-sync.target</filename>,
                 <filename>runlevel2.target</filename>,
                 <filename>runlevel3.target</filename>,
                 <filename>runlevel4.target</filename>,
@@ -399,7 +399,7 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>rtc-set.target</filename></term>
+                                <term><filename>time-sync.target</filename></term>
                                 <listitem>
                                         <para>systemd automatically
                                         adds dependencies of type

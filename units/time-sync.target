@@ -11,4 +11,4 @@
 # implementations lacking socket/bus activation.
 
 [Unit]
-Description=RTC Set
+Description=System Time Synchronized

@@ -10,7 +10,7 @@ F15:
 * NM should pull in network.target (PENDING)
   https://bugzilla.redhat.com/show_bug.cgi?id=692008
 
-* ntpd should pull in rtc-set.target. (PENDING)
+* ntpd should pull in time-sync.target. (PENDING)
 
 * add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
 
