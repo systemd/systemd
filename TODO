@@ -33,6 +33,8 @@ Features:
 
 * serialize used job ids and max job id
 
+* show enablement status in systemctl status
+
 * expose monotonic timestamps on the bus and make systemd-analyze use it
 
 * write blog stories about:
@@ -74,9 +76,6 @@ Features:
 
 * get rid of random file name in generator directory?
     /run/systemd/generator-IH1vFu
-
-* fix SD_WARNING syslog stuff in src/sd-daemon.h to include the
-  LOG_DAEMON(3) facility value. Never use the LOG_KERNEL(0) facility.
 
 * add switch to systemctl to show enabled but not running services. Or
   another switch that shows service that have been running since
