@@ -822,7 +822,7 @@ static void static_dev_create_from_modules(struct udev *udev)
 			continue;
 
 		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/", devname, NULL);
-		util_create_path(udev, filename);
+		util_create_path_selinux(udev, filename);
 		udev_selinux_setfscreatecon(udev, filename, mode);
 		info(udev, "mknod '%s' %c%u:%u\n", filename, type, maj, min);
 		if (mknod(filename, mode, makedev(maj, min)) < 0 && errno == EEXIST)
@@ -833,7 +833,7 @@ static void static_dev_create_from_modules(struct udev *udev)
 	fclose(f);
 }
 
-static int copy_dir(struct udev *udev, DIR *dir_from, DIR *dir_to, int maxdepth)
+static int copy_dev_dir(struct udev *udev, DIR *dir_from, DIR *dir_to, int maxdepth)
 {
 	struct dirent *dent;
 
@@ -886,7 +886,7 @@ static int copy_dir(struct udev *udev, DIR *dir_from, DIR *dir_to, int maxdepth)
 				continue;
 			}
 
-			copy_dir(udev, dir2_from, dir2_to, maxdepth-1);
+			copy_dev_dir(udev, dir2_from, dir2_to, maxdepth-1);
 
 			closedir(dir2_to);
 			closedir(dir2_from);
@@ -930,7 +930,7 @@ static void static_dev_create_from_devices(struct udev *udev, DIR *dir)
 	dir_from = opendir(LIBEXECDIR "/devices");
 	if (dir_from == NULL)
 		return;
-	copy_dir(udev, dir_from, dir, 8);
+	copy_dev_dir(udev, dir_from, dir, 8);
 	closedir(dir_from);
 }
 
@@ -985,9 +985,7 @@ static int convert_db(struct udev *udev)
 
 	/* make sure we do not get here again */
 	util_create_path(udev, filename);
-	udev_selinux_setfscreatecon(udev, udev_get_run_path(udev), S_IFDIR|0755);
 	mkdir(filename, 0755);
-	udev_selinux_resetfscreatecon(udev);
 
 	/* old database */
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db", NULL);
@@ -1097,9 +1095,7 @@ int main(int argc, char *argv[])
 	/* make sure, that our runtime dir exists and is writable */
 	if (utimensat(AT_FDCWD, udev_get_run_config_path(udev), NULL, 0) < 0) {
 		/* try to create our own subdirectory, do not create parent directories */
-		udev_selinux_setfscreatecon(udev, udev_get_run_config_path(udev), S_IFDIR|0755);
 		mkdir(udev_get_run_config_path(udev), 0755);
-		udev_selinux_resetfscreatecon(udev);
 
 		if (utimensat(AT_FDCWD, udev_get_run_config_path(udev), NULL, 0) >= 0) {
 			/* directory seems writable now */
@@ -1111,8 +1107,12 @@ int main(int argc, char *argv[])
 			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev", NULL);
 			if (udev_set_run_path(udev, filename) == NULL)
 				goto exit;
+			mkdir(udev_get_run_path(udev), 0755);
 		}
 	}
+	/* relabel runtime dir only if it resides below /dev */
+	if (strncmp(udev_get_run_path(udev), udev_get_dev_path(udev), strlen(udev_get_dev_path(udev))) == 0)
+		udev_selinux_lsetfilecon(udev, udev_get_run_path(udev), 0755);
 	info(udev, "runtime dir '%s'\n", udev_get_run_path(udev));
 
 	for (;;) {
@@ -1281,9 +1281,7 @@ int main(int argc, char *argv[])
 		util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/rules.d", NULL);
 		if (stat(filename, &statbuf) != 0) {
 			util_create_path(udev, filename);
-			udev_selinux_setfscreatecon(udev, filename, S_IFDIR|0755);
 			mkdir(filename, 0755);
-			udev_selinux_resetfscreatecon(udev);
 		}
 		inotify_add_watch(pfd[FD_INOTIFY].fd, filename,
 				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);

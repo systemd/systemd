@@ -25,7 +25,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-int util_create_path(struct udev *udev, const char *path)
+static int create_path(struct udev *udev, const char *path, bool selinux)
 {
 	char p[UTIL_PATH_SIZE];
 	char *pos;
@@ -55,7 +55,8 @@ int util_create_path(struct udev *udev, const char *path)
 		return err;
 
 	dbg(udev, "mkdir '%s'\n", p);
-	udev_selinux_setfscreatecon(udev, p, S_IFDIR|0755);
+	if (selinux)
+		udev_selinux_setfscreatecon(udev, p, S_IFDIR|0755);
 	err = mkdir(p, 0755);
 	if (err != 0) {
 		err = -errno;
@@ -66,8 +67,19 @@ int util_create_path(struct udev *udev, const char *path)
 				err = -ENOTDIR;
 		}
 	}
-	udev_selinux_resetfscreatecon(udev);
+	if (selinux)
+		udev_selinux_resetfscreatecon(udev);
 	return err;
+}
+
+int util_create_path(struct udev *udev, const char *path)
+{
+	return create_path(udev, path, false);
+}
+
+int util_create_path_selinux(struct udev *udev, const char *path)
+{
+	return create_path(udev, path, true);
 }
 
 int util_delete_path(struct udev *udev, const char *path)

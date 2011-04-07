@@ -96,7 +96,7 @@ int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_
 	} else {
 		info(udev, "mknod '%s' %u:%u %#o\n", file, major(devnum), minor(devnum), mode);
 		do {
-			err = util_create_path(udev, file);
+			err = util_create_path_selinux(udev, file);
 			if (err != 0 && err != -ENOENT)
 				break;
 			udev_selinux_setfscreatecon(udev, file, mode);
@@ -184,7 +184,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 	} else {
 		info(udev, "creating symlink '%s' to '%s'\n", slink, target);
 		do {
-			err = util_create_path(udev, slink);
+			err = util_create_path_selinux(udev, slink);
 			if (err != 0 && err != -ENOENT)
 				break;
 			udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
@@ -201,7 +201,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 	util_strscpyl(slink_tmp, sizeof(slink_tmp), slink, TMP_FILE_EXT, NULL);
 	unlink(slink_tmp);
 	do {
-		err = util_create_path(udev, slink_tmp);
+		err = util_create_path_selinux(udev, slink_tmp);
 		if (err != 0 && err != -ENOENT)
 			break;
 		udev_selinux_setfscreatecon(udev, slink_tmp, S_IFLNK);
