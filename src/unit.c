@@ -814,6 +814,16 @@ int unit_load(Unit *u) {
                 if ((r = unit_add_default_dependencies(u)) < 0)
                         goto fail;
 
+        if (u->meta.on_failure_isolate &&
+            set_size(u->meta.dependencies[UNIT_ON_FAILURE]) > 1) {
+
+                log_error("More than one OnFailure= dependencies specified for %s but OnFailureIsolate= enabled. Refusing.",
+                          u->meta.id);
+
+                r = -EINVAL;
+                goto fail;
+        }
+
         assert((u->meta.load_state != UNIT_MERGED) == !u->meta.merged_into);
 
         unit_add_to_dbus_queue(unit_follow_merge(u));
