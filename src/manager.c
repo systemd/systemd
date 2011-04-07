@@ -2920,13 +2920,22 @@ void manager_run_generators(Manager *m) {
         }
 
         if (!m->generator_unit_path) {
-                char *p;
-                char system_path[] = "/run/systemd/generator-XXXXXX",
-                        user_path[] = "/tmp/systemd-generator-XXXXXX";
+                const char *p;
+                char user_path[] = "/tmp/systemd-generator-XXXXXX";
 
-                if (!(p = mkdtemp(m->running_as == MANAGER_SYSTEM ? system_path : user_path))) {
-                        log_error("Failed to generate generator directory: %m");
-                        goto finish;
+                if (m->running_as == MANAGER_SYSTEM) {
+                        p = "/run/systemd/generator";
+
+                        if (mkdir_p(p, 0755) < 0) {
+                                log_error("Failed to create generator directory: %m");
+                                goto finish;
+                        }
+
+                } else {
+                        if (!(p = mkdtemp(user_path))) {
+                                log_error("Failed to create generator directory: %m");
+                                goto finish;
+                        }
                 }
 
                 if (!(m->generator_unit_path = strdup(p))) {

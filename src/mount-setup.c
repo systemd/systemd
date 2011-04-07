@@ -242,21 +242,21 @@ int mount_setup(void) {
                 if ((r = mount_one(mount_table+i)) < 0)
                         return r;
 
-        /* Nodes in devtmpfs need to be manually updated for the
-         * appropriate labels, after mounting. The other virtual API
-         * file systems do not need that. */
-
+        /* Nodes in devtmpfs and /run need to be manually updated for
+         * the appropriate labels, after mounting. The other virtual
+         * API file systems like /sys and /proc do not need that, they
+         * use the same label for all their files. */
         if (unlink("/dev/.systemd-relabel-run-dev") >= 0) {
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
                 nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
         }
 
         /* Create a few default symlinks, which are normally created
-         * bei udevd, but some scripts might need them before we start
+         * by udevd, but some scripts might need them before we start
          * udevd. */
-
         NULSTR_FOREACH_PAIR(j, k, symlinks)
                 symlink_and_label(j, k);
+
 
         /* Create a few directories we always want around */
         mkdir("/run/systemd", 0755);

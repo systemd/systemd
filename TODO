@@ -2,9 +2,6 @@ F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-* isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
-   https://bugzilla.redhat.com/show_bug.cgi?id=688661
-
 * NFS, networkmanager ordering issue (PENDING)
 
 * NM should pull in network.target (PENDING)
@@ -24,14 +21,14 @@ F15:
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
+* active_enter timestamps borked?
+
 Features:
 
 * fix alsa mixer restore to not print error when no config is stored
 
 * don't trim empty cgroups
   https://bugzilla.redhat.com/show_bug.cgi?id=678555
-
-* serialize used job ids and max job id
 
 * show enablement status in systemctl status
 
@@ -73,9 +70,6 @@ Features:
   We soon want to get rid of var-run.mount var-lock.mount units.
 
 * when key file cannot be found, read it from kbd in cryptsetup
-
-* get rid of random file name in generator directory?
-    /run/systemd/generator-IH1vFu
 
 * add switch to systemctl to show enabled but not running services. Or
   another switch that shows service that have been running since
