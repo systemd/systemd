@@ -86,9 +86,13 @@
         "  <property name=\"SubState\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"FragmentPath\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InactiveExitTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"InactiveExitTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"ActiveEnterTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ActiveExitTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"ActiveExitTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"InactiveEnterTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"InactiveEnterTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"CanStart\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"CanStop\" type=\"b\" access=\"read\"/>\n"   \
@@ -103,6 +107,7 @@
         "  <property name=\"NeedDaemonReload\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"JobTimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"ConditionTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionResult\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"
 
@@ -134,10 +139,14 @@
         { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "SubState",             bus_unit_append_sub_state,      "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,     "s",    u->meta.fragment_path             }, \
-        { "org.freedesktop.systemd1.Unit", "InactiveExitTimestamp",bus_property_append_usec,       "t",    &u->meta.inactive_exit_timestamp.realtime  }, \
-        { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_usec,       "t",    &u->meta.active_enter_timestamp.realtime   }, \
-        { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_usec,       "t",    &u->meta.active_exit_timestamp.realtime    }, \
+        { "org.freedesktop.systemd1.Unit", "InactiveExitTimestamp",bus_property_append_usec,       "t",    &u->meta.inactive_exit_timestamp.realtime }, \
+        { "org.freedesktop.systemd1.Unit", "InactiveExitTimestampMonotonic",bus_property_append_usec, "t", &u->meta.inactive_exit_timestamp.monotonic }, \
+        { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_usec,       "t",    &u->meta.active_enter_timestamp.realtime }, \
+        { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestampMonotonic", bus_property_append_usec, "t", &u->meta.active_enter_timestamp.monotonic }, \
+        { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_usec,       "t",    &u->meta.active_exit_timestamp.realtime }, \
+        { "org.freedesktop.systemd1.Unit", "ActiveExitTimestampMonotonic",  bus_property_append_usec, "t", &u->meta.active_exit_timestamp.monotonic }, \
         { "org.freedesktop.systemd1.Unit", "InactiveEnterTimestamp",bus_property_append_usec,      "t",    &u->meta.inactive_enter_timestamp.realtime }, \
+        { "org.freedesktop.systemd1.Unit", "InactiveEnterTimestampMonotonic",bus_property_append_usec,"t", &u->meta.inactive_enter_timestamp.monotonic }, \
         { "org.freedesktop.systemd1.Unit", "CanStart",             bus_unit_append_can_start,      "b",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "CanStop",              bus_unit_append_can_stop,       "b",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,     "b",    u                                 }, \
@@ -154,6 +163,7 @@
         { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }, \
         { "org.freedesktop.systemd1.Unit", "JobTimeoutUSec",       bus_property_append_usec,       "t",    &u->meta.job_timeout              }, \
         { "org.freedesktop.systemd1.Unit", "ConditionTimestamp",   bus_property_append_usec,       "t",    &u->meta.condition_timestamp.realtime }, \
+        { "org.freedesktop.systemd1.Unit", "ConditionTimestampMonotonic", bus_property_append_usec,"t",    &u->meta.condition_timestamp.monotonic }, \
         { "org.freedesktop.systemd1.Unit", "ConditionResult",      bus_property_append_bool,       "b",    &u->meta.condition_result         }
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data);

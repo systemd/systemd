@@ -155,8 +155,11 @@
         "  <property name=\"Tainted\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InitRDTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"InitRDTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"StartupTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"FinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"LogLevel\" type=\"s\" access=\"readwrite\"/>\n"  \
         "  <property name=\"LogTarget\" type=\"s\" access=\"readwrite\"/>\n" \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
@@ -369,8 +372,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s",  &m->running_as     },
                 { "org.freedesktop.systemd1.Manager", "Tainted",       bus_manager_append_tainted,    "s",  m                  },
                 { "org.freedesktop.systemd1.Manager", "InitRDTimestamp", bus_property_append_uint64,  "t",  &m->initrd_timestamp.realtime },
+                { "org.freedesktop.systemd1.Manager", "InitRDTimestampMonotonic", bus_property_append_uint64, "t", &m->initrd_timestamp.monotonic },
                 { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
+                { "org.freedesktop.systemd1.Manager", "StartupTimestampMonotonic", bus_property_append_uint64, "t", &m->startup_timestamp.monotonic },
                 { "org.freedesktop.systemd1.Manager", "FinishTimestamp", bus_property_append_uint64,  "t",  &m->finish_timestamp.realtime },
+                { "org.freedesktop.systemd1.Manager", "FinishTimestampMonotonic", bus_property_append_uint64, "t",&m->finish_timestamp.monotonic },
                 { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  NULL,               bus_manager_set_log_level},
                 { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  NULL,               bus_manager_set_log_target},
                 { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  NULL               },

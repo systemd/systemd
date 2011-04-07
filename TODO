@@ -32,8 +32,6 @@ Features:
 
 * show enablement status in systemctl status
 
-* expose monotonic timestamps on the bus and make systemd-analyze use it
-
 * write blog stories about:
   - chroot, nspawn and friends
   - the blame game: systemd-analyze

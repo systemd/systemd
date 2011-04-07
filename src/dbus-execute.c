@@ -346,7 +346,9 @@ int bus_execute_append_command(Manager *m, DBusMessageIter *i, const char *prope
                 if (!dbus_message_iter_close_container(&sub2, &sub3) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_BOOLEAN, &c->ignore) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.start_timestamp.realtime) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.start_timestamp.monotonic) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.exit_timestamp.realtime) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.exit_timestamp.monotonic) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &pid) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &code) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &status))

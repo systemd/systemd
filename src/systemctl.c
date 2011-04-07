@@ -1735,7 +1735,7 @@ static void exec_status_info_free(ExecStatusInfo *i) {
 }
 
 static int exec_status_info_deserialize(DBusMessageIter *sub, ExecStatusInfo *i) {
-        uint64_t start_timestamp, exit_timestamp;
+        uint64_t start_timestamp, exit_timestamp, start_timestamp_monotonic, exit_timestamp_monotonic;
         DBusMessageIter sub2, sub3;
         const char*path;
         unsigned n;
@@ -1789,7 +1789,9 @@ static int exec_status_info_deserialize(DBusMessageIter *sub, ExecStatusInfo *i)
         if (!dbus_message_iter_next(&sub2) ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &ignore, true) < 0 ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &start_timestamp, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &start_timestamp_monotonic, true) < 0 ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &exit_timestamp, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &exit_timestamp_monotonic, true) < 0 ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, true) < 0 ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &code, true) < 0 ||
             bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &status, false) < 0)
@@ -2278,7 +2280,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                 /* Yes, heuristics! But we can change this check
                  * should it turn out to not be sufficient */
 
-                if (strstr(name, "Timestamp")) {
+                if (endswith(name, "Timestamp")) {
                         char timestamp[FORMAT_TIMESTAMP_MAX], *t;
 
                         if ((t = format_timestamp(timestamp, sizeof(timestamp), u)) || arg_all)

@@ -15,10 +15,10 @@ def acquire_time_data():
 
                 properties = dbus.Interface(bus.get_object('org.freedesktop.systemd1', i[6]), 'org.freedesktop.DBus.Properties')
 
-                ixt = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveExitTimestamp'))
-                aet = int(properties.Get('org.freedesktop.systemd1.Unit', 'ActiveEnterTimestamp'))
-                axt = int(properties.Get('org.freedesktop.systemd1.Unit', 'ActiveExitTimestamp'))
-                iet = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveEnterTimestamp'))
+                ixt = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveExitTimestampMonotonic'))
+                aet = int(properties.Get('org.freedesktop.systemd1.Unit', 'ActiveEnterTimestampMonotonic'))
+                axt = int(properties.Get('org.freedesktop.systemd1.Unit', 'ActiveExitTimestampMonotonic'))
+                iet = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveEnterTimestampMonotonic'))
 
                 l.append((str(i[0]), ixt, aet, axt, iet))
 
@@ -27,12 +27,14 @@ def acquire_time_data():
 def acquire_start_time():
         properties = dbus.Interface(bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1'), 'org.freedesktop.DBus.Properties')
 
-        startup_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'StartupTimestamp'))
-        finish_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'FinishTimestamp'))
+        initrd_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'InitRDTimestampMonotonic'))
+        startup_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'StartupTimestampMonotonic'))
+        finish_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'FinishTimestampMonotonic'))
 
+        assert initrd_time <= startup_time
         assert startup_time <= finish_time
 
-        return startup_time, finish_time
+        return initrd_time, startup_time, finish_time
 
 def draw_box(context, j, k, l, m, r = 0, g = 0, b = 0):
         context.save()
@@ -63,7 +65,8 @@ def draw_text(context, x, y, text, size = 12, r = 0, g = 0, b = 0, vcenter = 0.5
         context.restore()
 
 def help():
-        sys.stdout.write("""systemd-analyze blame
+        sys.stdout.write("""systemd-analyze time
+systemd-analyze blame
 systemd-analyze plot
 
 Process systemd profiling information
@@ -74,7 +77,24 @@ Process systemd profiling information
 
 bus = dbus.SystemBus()
 
-if len(sys.argv) <= 1 or sys.argv[1] == 'blame':
+if len(sys.argv) <= 1 or sys.argv[1] == 'time':
+
+        initrd_time, start_time, finish_time = acquire_start_time()
+
+        if initrd_time > 0:
+                print "Startup finished in %lums (kernel) + %lums (initrd) + %lums (userspace) = %lums" % ( \
+                        initrd_time/1000, \
+                        (start_time - initrd_time)/1000, \
+                        (finish_time - start_time)/1000, \
+                        finish_time/1000)
+        else:
+                print "Startup finished in %lums (kernel) + %lums (userspace) = %lums" % ( \
+                        startup_time/1000, \
+                        (finish_time - start_time)/1000, \
+                        finish_time/1000)
+
+
+elif sys.argv[1] == 'blame':
 
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[2] - i[1], reverse = True)
@@ -92,7 +112,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == 'blame':
 elif sys.argv[1] == 'plot':
         import cairo
 
-        start_time, finish_time = acquire_start_time()
+        initrd_time, start_time, finish_time = acquire_start_time()
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[1])
 
