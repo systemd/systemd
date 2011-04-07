@@ -2640,6 +2640,9 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        fprintf(f, "current-job-id=%i\n", m->current_job_id);
+        fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
+
         dual_timestamp_serialize(f, "initrd-timestamp", &m->initrd_timestamp);
         dual_timestamp_serialize(f, "startup-timestamp", &m->startup_timestamp);
         dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
@@ -2695,7 +2698,21 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 if (l[0] == 0)
                         break;
 
-                if (startswith(l, "initrd-timestamp="))
+                if (startswith(l, "current-job-id=")) {
+                        uint32_t id;
+
+                        if (safe_atou32(l+15, &id) < 0)
+                                log_debug("Failed to parse current job id value %s", l+15);
+                        else
+                                m->current_job_id = MAX(m->current_job_id, id);
+                } else if (startswith(l, "taint-usr=")) {
+                        int b;
+
+                        if ((b = parse_boolean(l+10)) < 0)
+                                log_debug("Failed to parse taint /usr flag %s", l+10);
+                        else
+                                m->taint_usr = m->taint_usr || b;
+                } else if (startswith(l, "initrd-timestamp="))
                         dual_timestamp_deserialize(l+17, &m->initrd_timestamp);
                 else if (startswith(l, "startup-timestamp="))
                         dual_timestamp_deserialize(l+18, &m->startup_timestamp);
