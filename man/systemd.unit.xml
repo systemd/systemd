@@ -445,6 +445,22 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>OnFailureIsolate=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option> the
+                                unit listed in
+                                <varname>OnFailure=</varname> will be
+                                enqueued in isolation mode, i.e. all
+                                units that are not its dependency will
+                                be stopped. If this is set only a
+                                single unit may be listed in
+                                <varname>OnFailure=</varname>. Defaults
+                                to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>StopWhenUnneeded=</varname></term>
 
                                 <listitem><para>Takes a boolean

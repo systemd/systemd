@@ -666,11 +666,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tStopWhenUnneeded: %s\n"
                         "%s\tRefuseManualStart: %s\n"
                         "%s\tRefuseManualStop: %s\n"
-                        "%s\tDefaultDependencies: %s\n",
+                        "%s\tDefaultDependencies: %s\n"
+                        "%s\rOnFailureIsolate: %s\n",
                         prefix, yes_no(u->meta.stop_when_unneeded),
                         prefix, yes_no(u->meta.refuse_manual_start),
                         prefix, yes_no(u->meta.refuse_manual_stop),
-                        prefix, yes_no(u->meta.default_dependencies));
+                        prefix, yes_no(u->meta.default_dependencies),
+                        prefix, yes_no(u->meta.on_failure_isolate));
 
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",
@@ -1096,8 +1098,17 @@ void unit_trigger_on_failure(Unit *u) {
 
         assert(u);
 
-        SET_FOREACH(other, u->meta.dependencies[UNIT_ON_FAILURE], i)
-                manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
+        if (set_size(u->meta.dependencies[UNIT_ON_FAILURE]) <= 0)
+                return;
+
+        log_info("Triggering OnFailure= dependencies of %s.", u->meta.id);
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_ON_FAILURE], i) {
+                int r;
+
+                if ((r = manager_add_job(u->meta.manager, JOB_START, other, u->meta.on_failure_isolate ? JOB_ISOLATE : JOB_REPLACE, true, NULL, NULL)) < 0)
+                        log_error("Failed to enqueue OnFailure= job: %s", strerror(-r));
+        }
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {

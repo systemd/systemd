@@ -563,8 +563,14 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
          * the unit itself. We don't tread JOB_CANCELED as failure in
          * this context. And JOB_FAILURE is already handled by the
          * unit itself. */
-        if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY)
+        if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY) {
+                log_notice("Job %s/%s failed with result '%s'.",
+                           u->meta.id,
+                           job_type_to_string(t),
+                           job_result_to_string(result));
+
                 unit_trigger_on_failure(u);
+        }
 
         /* Try to start the next jobs that can be started */
         SET_FOREACH(other, u->meta.dependencies[UNIT_AFTER], i)

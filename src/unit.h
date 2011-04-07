@@ -207,6 +207,9 @@ struct Meta {
         /* Allow isolation requests */
         bool allow_isolate;
 
+        /* Isolate OnFailure unit */
+        bool on_failure_isolate;
+
         /* Did the last condition check suceed? */
         bool condition_result;
 

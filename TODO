@@ -12,9 +12,11 @@ F15:
 
 * ntpd should pull in time-sync.target. (PENDING)
 
+* bluetooth should be possible to disable (PENDING)
+
 * add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
 
-* hook emergency.target into local-fs.target in some way as OnFailure with isolate
+* hook emergency.target into local-fs.target in some way as OnFailure with isolate, add warning log message
 
 * bind mounts are ignored
   https://bugzilla.redhat.com/show_bug.cgi?id=682662
@@ -22,11 +24,9 @@ F15:
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
-* bluetooth should be possible to disable
+Features:
 
 * fix alsa mixer restore to not print error when no config is stored
-
-Features:
 
 * don't trim empty cgroups
   https://bugzilla.redhat.com/show_bug.cgi?id=678555
@@ -49,7 +49,7 @@ Features:
 
 * introduce /usr/lib/binfmt.d/, /usr/lib/tmpfiles.d/
 
-* in pam_systemd: don't rely on /proc/self/loginuid in a container
+* in pam_systemd: don't rely on /proc/self/loginuid in a container (check if audit caps are there)
 
 * take BSD file lock on tty devices when using them?
 
