@@ -1273,7 +1273,8 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
         for (;;) {
                 /* Fourth step: Let's remove unneeded jobs that might
                  * be lurking. */
-                transaction_collect_garbage(m);
+                if (mode != JOB_ISOLATE)
+                        transaction_collect_garbage(m);
 
                 /* Fifth step: verify order makes sense and correct
                  * cycles if necessary and possible */
@@ -1303,7 +1304,8 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
 
                 /* Seventh step: an entry got dropped, let's garbage
                  * collect its dependencies. */
-                transaction_collect_garbage(m);
+                if (mode != JOB_ISOLATE)
+                        transaction_collect_garbage(m);
 
                 /* Let's see if the resulting transaction still has
                  * unmergeable entries ... */
