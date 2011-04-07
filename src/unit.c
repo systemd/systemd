@@ -2152,7 +2152,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 return 0;
 
         for (;;) {
-                char line[1024], *l, *v;
+                char line[LINE_MAX], *l, *v;
                 size_t k;
 
                 if (!fgets(line, sizeof(line), f)) {

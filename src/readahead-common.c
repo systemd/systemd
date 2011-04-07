@@ -209,7 +209,6 @@ finish:
         return m;
 }
 
-
 #define BUMP_REQUEST_NR (16*1024)
 
 int bump_request_nr(const char *p) {

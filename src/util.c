@@ -452,7 +452,7 @@ char **split_path_and_make_absolute(const char *p) {
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
         FILE *f;
-        char fn[132], line[256], *p;
+        char fn[PATH_MAX], line[LINE_MAX], *p;
         long unsigned ppid;
 
         assert(pid >= 0);
@@ -2063,7 +2063,7 @@ int chvt(int vt) {
 int read_one_char(FILE *f, char *ret, bool *need_nl) {
         struct termios old_termios, new_termios;
         char c;
-        char line[1024];
+        char line[LINE_MAX];
 
         assert(f);
         assert(ret);
@@ -2271,7 +2271,7 @@ int flush_fd(int fd) {
         pollfd.events = POLLIN;
 
         for (;;) {
-                char buf[1024];
+                char buf[LINE_MAX];
                 ssize_t l;
                 int r;
 
@@ -2897,7 +2897,7 @@ int getttyname_harder(int fd, char **r) {
 
 int get_ctty_devnr(dev_t *d) {
         int k;
-        char line[256], *p;
+        char line[LINE_MAX], *p;
         unsigned long ttynr;
         FILE *f;
 
@@ -2932,7 +2932,7 @@ int get_ctty_devnr(dev_t *d) {
 
 int get_ctty(char **r, dev_t *_devnr) {
         int k;
-        char fn[128], *s, *b, *p;
+        char fn[PATH_MAX], *s, *b, *p;
         dev_t devnr;
 
         assert(r);

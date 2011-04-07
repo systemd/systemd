@@ -134,7 +134,7 @@ static int mount_one(const MountPoint *p) {
 static int mount_cgroup_controllers(void) {
         int r;
         FILE *f;
-        char buf [256];
+        char buf[LINE_MAX];
 
         /* Mount all available cgroup controllers that are built into the kernel. */
 

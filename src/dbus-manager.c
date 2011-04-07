@@ -218,7 +218,7 @@ static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_exec_output, exec_outp
 
 static int bus_manager_append_tainted(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         const char *t;
-        char buf[64] = "", *e = buf, *p = NULL;
+        char buf[LINE_MAX] = "", *e = buf, *p = NULL;
 
         assert(m);
         assert(i);

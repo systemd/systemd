@@ -2681,7 +2681,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         m->n_deserializing ++;
 
         for (;;) {
-                char line[1024], *l;
+                char line[LINE_MAX], *l;
 
                 if (!fgets(line, sizeof(line), f)) {
                         if (feof(f))

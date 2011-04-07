@@ -238,11 +238,11 @@ void log_set_max_level(int level) {
 }
 
 static int write_to_console(
-        int level,
-        const char*file,
-        int line,
-        const char *func,
-        const char *buffer) {
+                int level,
+                const char*file,
+                int line,
+                const char *func,
+                const char *buffer) {
 
         char location[64];
         struct iovec iovec[5];
