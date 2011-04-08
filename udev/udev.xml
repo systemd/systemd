@@ -275,7 +275,7 @@
         </varlistentry>
       </variablelist>
 
-      <para>Most of the fields support a shell style pattern matching. The following
+      <para>Most of the fields support shell-style pattern matching. The following
       pattern characters are supported:</para>
       <variablelist>
         <varlistentry>
