@@ -83,7 +83,7 @@
       <para>Rule files must have the extension <filename>.rules</filename>; other
       extensions are ignored.</para>
 
-      <para>Every line in the rules file contains at least one key value pair.
+      <para>Every line in the rules file contains at least one key-value pair.
       There are two kind of keys, match and assignment keys.
       If all match keys are matching against its value, the rule gets applied and the
       assign keys get the specified value assigned.</para>
@@ -92,7 +92,7 @@
       pointing to the device node, or run a specified program as part of
       the event handling.</para>
 
-      <para>A rule consists of a list of one or more key value pairs separated by
+      <para>A rule consists of a list of one or more key-value pairs separated by
       a comma. Each key has a distinct operation, depending on the used operator. Valid
       operators are:</para>
       <variablelist>
