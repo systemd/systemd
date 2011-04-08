@@ -37,7 +37,7 @@
 
     <para>All device information udev processes is stored in the udev database and
     sent out to possible event subscribers. Access to all stored data and the event
-    sources are provided by the library libudev.</para>
+    sources is provided by the library libudev.</para>
   </refsect1>
 
   <refsect1><title>Configuration</title>
