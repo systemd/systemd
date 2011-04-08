@@ -281,7 +281,7 @@
         <varlistentry>
           <term><option>*</option></term>
           <listitem>
-            <para>Matches zero, or any number of characters.</para>
+            <para>Matches zero or more characters.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
