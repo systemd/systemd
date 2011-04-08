@@ -47,8 +47,8 @@ Requirements:
 
   - The system must have the following group names resolvable at udev startup:
       disk, cdrom, floppy, tape, audio, video, lp, tty, dialout, and kmem.
-    Especially in LDAP setups, it is required, that getgrnam() is able to resolve
-    these group names with only the rootfs mounted, and while no network is
+    Especially in LDAP setups, it is required that getgrnam() be able to resolve
+    these group names with only the rootfs mounted and while no network is
     available.
 
   - To build all 'udev extras', libacl, libglib2, libusb, usbutils, pciutils,
