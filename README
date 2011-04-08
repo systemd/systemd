@@ -51,9 +51,9 @@ Requirements:
     these group names with only the rootfs mounted and while no network is
     available.
 
-  - To build all 'udev extras', libacl, libglib2, libusb, usbutils, pciutils,
-    and gperf are needed. These dependencies can be disabled with the
-    --disable-extras configure option.
+  - The 'udev extras' has the following dependencies:
+      libacl, libglib2, libusb, usbutils, pciutils, and gperf.
+    These dependencies can be disabled with the --disable-extras configure option.
 
 Setup:
   - At bootup, the /dev directory should get the 'devtmpfs' filesystem
