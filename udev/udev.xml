@@ -258,10 +258,11 @@
         <varlistentry>
           <term><option>PROGRAM</option></term>
           <listitem>
-            <para>Execute a program. The key is true, if the program returns
+            <para>Execute a program to determine whether there
+            is a match; the key is true if the program returns
             successfully. The device properties are made available to the
-            executed program in the environment. The program's output printed to
-            stdout, is available in the RESULT key.</para>
+            executed program in the environment. The program's stdout
+            is available in the RESULT key.</para>
           </listitem>
         </varlistentry>
 
