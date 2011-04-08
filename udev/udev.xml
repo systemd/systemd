@@ -331,10 +331,10 @@
             devices claim the same name, the link always points to the device with
             the highest link_priority. If the current device goes away, the links are
             re-evaluated and the device with the next highest link_priority becomes the owner of
-            the link. If no link_priority is specified, the order of the devices, and
-            which one of them owns the link, is undefined. Claiming the same name for
-            a symlink, which is or might be used for a device node, may result in
-            unexpected behavior and is not supported.
+            the link. If no link_priority is specified, the order of the devices (and
+            which one of them owns the link) is undefined. Also, symlink names must
+            never conflict with the kernel's default device node names, as that would
+            result in unpredictable behavior.
             </para>
           </listitem>
         </varlistentry>
