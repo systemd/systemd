@@ -295,8 +295,8 @@
           <listitem>
             <para>Matches any single character specified within the brackets. For
             example, the pattern string 'tty[SR]' would match either 'ttyS' or 'ttyR'.
-            Ranges are also supported within this match with the '-' character.
-            For example, to match on the range of all digits, the pattern [0-9] would
+            Ranges are also supported via the '-' character.
+            For example, to match on the range of all digits, the pattern [0-9] could
             be used. If the first character following the '[' is a '!', any characters
             not enclosed are matched.</para>
           </listitem>
