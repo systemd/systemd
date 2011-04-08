@@ -386,9 +386,11 @@
             this or a dependent device. Long running tasks need to be immediately
             detached from the event process itself.</para>
             <para>If no absolute path is given, the program is expected to live in
-            <filename>/lib/udev</filename>, otherwise the absolute path must be
-            specified. Program name and arguments are separated by spaces. Single quotes
-            can be used to specify arguments with spaces.</para>
+            the directory provided at compile-time to configure via --libexecdir
+            (this is usually <filename>/lib/udev</filename>), otherwise the absolute
+            path must be specified. The program name and following arguments are
+            separated by spaces. Single quotes can be used to specify arguments with
+            spaces.</para>
           </listitem>
         </varlistentry>
 
