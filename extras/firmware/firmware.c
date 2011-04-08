@@ -159,11 +159,9 @@ int main(int argc, char **argv)
 			err = util_create_path(udev, misspath);
 			if (err != 0 && err != -ENOENT)
 				break;
-			udev_selinux_setfscreatecon(udev, misspath, S_IFLNK);
 			err = symlink(devpath, misspath);
 			if (err != 0)
 				err = -errno;
-			udev_selinux_resetfscreatecon(udev);
 		} while (err == -ENOENT);
 		rc = 2;
 		set_loading(udev, loadpath, "-1");
