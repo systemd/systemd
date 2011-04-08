@@ -68,7 +68,7 @@ Setup:
       /sbin/udevadm trigger --type=subsystems
       /sbin/udevadm trigger --type=devices
 
-  - Restarting the daemon does never apply any rules to existing devices.
+  - Restarting the daemon never applies any rules to existing devices.
 
   - New/changed rule files are picked up automatically; there is no daemon
     restart or signal needed.
