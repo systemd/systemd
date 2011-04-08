@@ -196,8 +196,8 @@
           <term><option>ATTR{<replaceable>filename</replaceable>}</option></term>
           <listitem>
             <para>Match sysfs attribute values of the event device. Trailing
-            whitespace in the attribute values is ignored, if the specified match
-            value does not contain trailing whitespace itself.
+            whitespace in the attribute values is ignored unless the specified match
+            value itself contains trailing whitespace.
             </para>
           </listitem>
         </varlistentry>
@@ -228,8 +228,8 @@
           <listitem>
             <para>Search the devpath upwards for a device with matching sysfs attribute values.
             If multiple <option>ATTRS</option> matches are specified, all of them
-            must match on the same device. Trailing whitespace in the attribute values is ignored,
-            if the specified match value does not contain trailing whitespace itself.</para>
+            must match on the same device. Trailing whitespace in the attribute values is ignored
+            unless the specified match value itself contains trailing whitespace.</para>
           </listitem>
         </varlistentry>
 
