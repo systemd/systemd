@@ -80,8 +80,8 @@
       the same name in <filename>/lib/udev/rules.d/</filename>; this can be
       used to ignore a default rules file if needed.</para>
 
-      <para>Rule files must end in <filename>.rules</filename>, other extensions
-      are ignored.</para>
+      <para>Rule files must have the extension <filename>.rules</filename>; other
+      extensions are ignored.</para>
 
       <para>Every line in the rules file contains at least one key value pair.
       There are two kind of keys, match and assignment keys.
@@ -508,7 +508,7 @@
               <varlistentry>
                 <term><option>watch</option></term>
                 <listitem>
-                  <para>Watch the device node with inotify, when closed after being opened for
+                  <para>Watch the device node with inotify; when closed after being opened for
                   writing, a change uevent is synthesised.</para>
                 </listitem>
               </varlistentry>
