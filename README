@@ -41,18 +41,18 @@ Requirements:
     unusable because the kernel may create too many processes in parallel
     so that the system runs out-of-memory.
 
-  - The proc filesystem must be mounted on /proc, the sysfs filesystem must
+  - The proc filesystem must be mounted on /proc, and the sysfs filesystem must
     be mounted at /sys. No other locations are supported by a standard
     udev installation.
 
   - The system must have the following group names resolvable at udev startup:
-      disk, cdrom, floppy, tape, audio, video, lp, tty, dialout, kmem.
+      disk, cdrom, floppy, tape, audio, video, lp, tty, dialout, and kmem.
     Especially in LDAP setups, it is required, that getgrnam() is able to resolve
     these group names with only the rootfs mounted, and while no network is
     available.
 
   - To build all 'udev extras', libacl, libglib2, libusb, usbutils, pciutils,
-    gperf are needed. These dependencies can be disabled with the
+    and gperf are needed. These dependencies can be disabled with the
     --disable-extras configure option.
 
 Setup:
