@@ -31,7 +31,7 @@ Requirements:
       CONFIG_TMPFS_POSIX_ACL=y (user ACLs for device nodes)
       CONFIG_BLK_DEV_BSG=y (SCSI devices)
 
-  - Udev will not work with the CONFIG_SYSFS_DEPRECATED* option.
+  - Udev does not work with the CONFIG_SYSFS_DEPRECATED* option.
 
   - Unix domain sockets (CONFIG_UNIX) as a loadable kernel module may work,
     but it is not supported.
@@ -57,8 +57,8 @@ Requirements:
 
 Setup:
   - At bootup, the /dev directory should get the 'devtmpfs' filesystem
-    mounted. Udev will manage permissions and ownership of the kernel-created
-    device nodes, and possibly create additional symlinks. If needed, udev also
+    mounted. Udev manages the permissions and ownership of the kernel-created
+    device nodes, and udev possibly creates additional symlinks. If needed, udev also
     works on an empty 'tmpfs' filesystem, but some static device nodes like
     /dev/null, /dev/console, /dev/kmsg are needed to be able to start udev itself.
 
@@ -80,7 +80,7 @@ Operation:
   - All kernel events are matched against a set of specified rules, which
     possibly hook into the event processing and load required kernel
     modules to setup devices. For all devices the kernel exports a major/minor
-    number; if needed, udev will create a device node with the default kernel
+    number; if needed, udev creates a device node with the default kernel
     name. If specified, udev applies permissions/ownership to the device
     node, creates additional symlinks pointing to the node, and executes
     programs to handle the device.
