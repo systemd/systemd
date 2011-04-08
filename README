@@ -10,7 +10,7 @@ The upstream udev project's set of default rules may require a most recent
 kernel release to work properly. This is currently version 2.6.31.
 
 Tools and rules shipped by udev are not public API and may change at any time.
-Never call any private tool in /lib/udev from any external application, it might
+Never call any private tool in /lib/udev from any external application; it might
 just go away in the next release. Access to udev information is only offered
 by udevadm and libudev. Tools and rules in /lib/udev, and the entire content of
 the /dev/.udev directory is private to udev and does change whenever needed.
@@ -70,7 +70,7 @@ Setup:
 
   - Restarting the daemon does never apply any rules to existing devices.
 
-  - New/changed rule files are picked up automatically, there is no daemon
+  - New/changed rule files are picked up automatically; there is no daemon
     restart or signal needed.
 
 Operation:
@@ -80,7 +80,7 @@ Operation:
   - All kernel events are matched against a set of specified rules, which
     possibly hook into the event processing and load required kernel
     modules to setup devices. For all devices the kernel exports a major/minor
-    number, if needed, udev will create a device node with the default kernel
+    number; if needed, udev will create a device node with the default kernel
     name. If specified, udev applies permissions/ownership to the device
     node, creates additional symlinks pointing to the node, and executes
     programs to handle the device.
