@@ -43,7 +43,7 @@
   <refsect1><title>Configuration</title>
     <para>udev configuration files are placed in <filename>/etc/udev/</filename>
     and <filename>/lib/udev/</filename>. All empty lines or lines beginning with
-    '#' will be ignored.</para>
+    '#' are ignored.</para>
 
     <refsect2><title>Configuration file</title>
       <para>udev expects its main configuration file at <filename>/etc/udev/udev.conf</filename>.
@@ -314,25 +314,25 @@
             and removes the node before udev even receives any event. Changing
             the node name from the kernel's default creates inconsistencies
             and is not supported. If the kernel and NAME specify different names,
-            an error will be logged. Udev is only expected to handle device node
+            an error is logged. Udev is only expected to handle device node
             permissions and to create additional symlinks, not to change
             kernel-provided device node names. Instead of renaming a device node,
             SYMLINK should be used. Symlink names must never conflict with
-            device node names, it will result in unpredictable behavior.</para>
+            device node names, it results in unpredictable behavior.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>SYMLINK</option></term>
           <listitem>
-            <para>The name of a symlink targeting the node. Every matching rule will add
+            <para>The name of a symlink targeting the node. Every matching rule adds
             this value to the list of symlinks to be created. Multiple symlinks may be
             specified by separating the names by the space character. In case multiple
-            devices claim the same name, the link will always point to the device with
-            the highest link_priority. If the current device goes away, the links will
-            be re-evaluated and the device with the next highest link_priority will own
+            devices claim the same name, the link always points to the device with
+            the highest link_priority. If the current device goes away, the links are
+            re-evaluated and the device with the next highest link_priority becomes the owner of
             the link. If no link_priority is specified, the order of the devices, and
-            which one of them will own the link, is undefined. Claiming the same name for
+            which one of them owns the link, is undefined. Claiming the same name for
             a symlink, which is or might be used for a device node, may result in
             unexpected behavior and is not supported.
             </para>
@@ -439,7 +439,7 @@
                 <term><option>cmdline</option></term>
                 <listitem>
                   <para>Import a single property from the kernel commandline. For simple flags
-                  the value of the property will be set to '1'.</para>
+                  the value of the property is set to '1'.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -453,7 +453,7 @@
                 </listitem>
               </varlistentry>
             </variablelist>
-            <para>If no option is given, udev will choose between <option>program</option>
+            <para>If no option is given, udev chooses between <option>program</option>
             and <option>file</option> based on the executable bit of the file
             permissions.</para>
           </listitem>
@@ -483,8 +483,8 @@
               <varlistentry>
                 <term><option>event_timeout=</option></term>
                 <listitem>
-                  <para>Number of seconds an event will wait for operations to finish before it
-                  will terminate itself.</para>
+                  <para>Number of seconds an event waits for operations to finish before
+                  giving up and terminating itself.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -509,7 +509,7 @@
                 <term><option>watch</option></term>
                 <listitem>
                   <para>Watch the device node with inotify, when closed after being opened for
-                  writing, a change uevent will be synthesised.</para>
+                  writing, a change uevent is synthesised.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
