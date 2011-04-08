@@ -74,10 +74,10 @@
       default rules directory <filename>/lib/udev/rules.d/</filename>,
       the custom rules directory <filename>/etc/udev/rules.d/</filename>
       and the temporary rules directory <filename>/run/udev/rules.d/</filename>.
-      All rule files are sorted and processed in lexical order, regardless
-      in which of these directories they live. Files in
-      <filename>/etc/udev/rules.d/</filename> have precedence over files with
-      the same name in <filename>/lib/udev/rules.d/</filename>. This can be
+      All rule files are collectively sorted and processed in lexical order,
+      regardless of the directories in which they live. However, files in
+      <filename>/etc/udev/rules.d/</filename> take precedence over files with
+      the same name in <filename>/lib/udev/rules.d/</filename>; this can be
       used to ignore a default rules file if needed.</para>
 
       <para>Rule files must end in <filename>.rules</filename>, other extensions
