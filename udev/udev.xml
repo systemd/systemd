@@ -397,7 +397,7 @@
         <varlistentry>
           <term><option>LABEL</option></term>
           <listitem>
-            <para>Named label where a GOTO can jump to.</para>
+            <para>A named label to which a GOTO may jump.</para>
           </listitem>
         </varlistentry>
 
