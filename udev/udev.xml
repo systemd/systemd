@@ -86,7 +86,7 @@
       <para>Every line in the rules file contains at least one key-value pair.
       There are two kind of keys: match and assignment.
       If all match keys are matching against its value, the rule gets applied and the
-      assign keys get the specified value assigned.</para>
+      assignment keys get the specified value assigned.</para>
 
       <para>A matching rule may rename a network interface, add symlinks
       pointing to the device node, or run a specified program as part of
