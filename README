@@ -3,7 +3,7 @@ udev - Linux userspace device management
 Integrating udev in the system has complex dependencies and may differ from
 distribution to distribution. A system may not be able to boot up or work
 reliably without a properly installed udev version. The upstream udev project
-does not recommend to replace a distro's udev installation with the upstream
+does not recommend replacing a distro's udev installation with the upstream
 version.
 
 The upstream udev project's set of default rules may require a most recent
