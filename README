@@ -74,8 +74,8 @@ Setup:
     restart or signal needed.
 
 Operation:
-  - Udev creates/removes device nodes in /dev, based on events the kernel
-    sends out on device creation/removal.
+  - Based on events the kernel sends out on device creation/removal, udev
+    creates/removes device nodes in the /dev directory.
 
   - All kernel events are matched against a set of specified rules, which
     possibly hook into the event processing and load required kernel
