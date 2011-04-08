@@ -308,17 +308,17 @@
         <varlistentry>
           <term><option>NAME</option></term>
           <listitem>
-            <para>The name, a network interface should be renamed to. Or as
-            a temporary workaround, the name a device node should be named.
-            Usually the kernel provides the defined node name, or even creates
+            <para>What a network interface should be named.</para>
+            <para>Also, as a temporary workaround, this is what a device node
+            should be named; usually the kernel provides the defined node name or creates
             and removes the node before udev even receives any event. Changing
             the node name from the kernel's default creates inconsistencies
             and is not supported. If the kernel and NAME specify different names,
-            an error is logged. Udev is only expected to handle device node
+            an error is logged. udev is only expected to handle device node
             permissions and to create additional symlinks, not to change
             kernel-provided device node names. Instead of renaming a device node,
-            SYMLINK should be used. Symlink names must never conflict with
-            device node names, it results in unpredictable behavior.</para>
+            SYMLINK should be used. However, symlink names must never conflict with
+            device node names, as that would result in unpredictable behavior.</para>
           </listitem>
         </varlistentry>
 
