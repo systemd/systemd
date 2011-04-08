@@ -188,7 +188,7 @@
         <varlistentry>
           <term><option>DRIVER</option></term>
           <listitem>
-            <para>Match the driver name of the event device. Only set for devices
+            <para>Match the driver name of the event device. Only set this key for devices
             which are bound to a driver at the time the event is generated.</para>
           </listitem>
         </varlistentry>
