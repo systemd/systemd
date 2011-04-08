@@ -572,7 +572,8 @@ MANPAGES = \
 	man/os-release.5 \
 	man/modules-load.d.5 \
 	man/binfmt.d.5 \
-	man/sysctl.d.5
+	man/sysctl.d.5 \
+        man/systemd-ask-password.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
