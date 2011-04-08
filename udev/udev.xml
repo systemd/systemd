@@ -84,7 +84,7 @@
       extensions are ignored.</para>
 
       <para>Every line in the rules file contains at least one key-value pair.
-      There are two kind of keys, match and assignment keys.
+      There are two kind of keys: match and assignment.
       If all match keys are matching against its value, the rule gets applied and the
       assign keys get the specified value assigned.</para>
 
