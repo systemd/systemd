@@ -81,7 +81,7 @@ _systemctl () {
              [FAILED_UNITS]='reset-failed'
           [STARTABLE_UNITS]='start restart reload-or-restart'
           [STOPPABLE_UNITS]='stop kill try-restart condrestart'
-         [ISOLATEBLE_UNITS]='isolate'
+         [ISOLATABLE_UNITS]='isolate'
          [RELOADABLE_UNITS]='reload reload-or-try-restart force-reload'
                      [JOBS]='cancel'
                 [SNAPSHOTS]='delete'
