@@ -92,8 +92,8 @@
       pointing to the device node, or run a specified program as part of
       the event handling.</para>
 
-      <para>A rule consists of a list of one or more key-value pairs separated by
-      a comma. Each key has a distinct operation, depending on the used operator. Valid
+      <para>A rule consists of a comma-separated list of one or more key-value pairs.
+      Each key has a distinct operation, depending on the used operator. Valid
       operators are:</para>
       <variablelist>
         <varlistentry>
