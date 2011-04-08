@@ -128,8 +128,7 @@
         <varlistentry>
           <term><option>:=</option></term>
           <listitem>
-            <para>Assign  a  value  to  a key finally; disallow any later changes,
-            which may be used to prevent changes by any later rules.</para>
+            <para>Assign  a  value  to  a key finally; disallow any later changes.</para>
           </listitem>
         </varlistentry>
       </variablelist>
