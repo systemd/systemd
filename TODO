@@ -21,8 +21,6 @@ F15:
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
-* active_enter timestamps borked?
-
 Features:
 
 * fix alsa mixer restore to not print error when no config is stored

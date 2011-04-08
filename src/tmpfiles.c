@@ -623,9 +623,39 @@ static void item_free(Item *i) {
         free(i);
 }
 
+static bool item_equal(Item *a, Item *b) {
+        assert(a);
+        assert(b);
+
+        if (!streq_ptr(a->path, b->path))
+                return false;
+
+        if (a->type != b->type)
+                return false;
+
+        if (a->uid_set != b->uid_set ||
+            (a->uid_set && a->uid != b->uid))
+            return false;
+
+        if (a->gid_set != b->gid_set ||
+            (a->gid_set && a->gid != b->gid))
+            return false;
+
+        if (a->mode_set != b->mode_set ||
+            (a->mode_set && a->mode != b->mode))
+            return false;
+
+        if (a->age_set != b->age_set ||
+            (a->age_set && a->age != b->age))
+            return false;
+
+        return true;
+}
+
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
-        Item *i;
+        Item *i, *existing;
         char *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
+        Hashmap *h;
         int r;
 
         assert(fname);
@@ -742,13 +772,19 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i->age_set = true;
         }
 
-        if ((r = hashmap_put(needs_glob(i->type) ? globs : items, i->path, i)) < 0) {
-                if (r == -EEXIST) {
-                        log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
-                        r = 0;
-                        goto finish;
-                }
+        h = needs_glob(i->type) ? globs : items;
 
+        if ((existing = hashmap_get(h, i->path))) {
+
+                /* Two identical items are fine */
+                if (!item_equal(existing, i))
+                        log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
+
+                r = 0;
+                goto finish;
+        }
+
+        if ((r = hashmap_put(h, i->path, i)) < 0) {
                 log_error("Failed to insert item %s: %s", i->path, strerror(-r));
                 goto finish;
         }
