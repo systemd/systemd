@@ -31,18 +31,18 @@
     <manvolnum>8</manvolnum></citerefentry>, receives device uevents directly from
     the kernel whenever a device is added or removed from the system, or it changes its
     state. When udev receives a device event, it matches its configured set of rules
-    against various device attributes to identify the device. Rules that match, may
-    provide additional device information to be stored in the udev database, or information
+    against various device attributes to identify the device. Rules that match may
+    provide additional device information to be stored in the udev database or
     to be used to create meaningful symlink names.</para>
 
-    <para>All device information udev processes, is stored in the udev database and
+    <para>All device information udev processes is stored in the udev database and
     sent out to possible event subscribers. Access to all stored data and the event
     sources are provided by the library libudev.</para>
   </refsect1>
 
   <refsect1><title>Configuration</title>
     <para>udev configuration files are placed in <filename>/etc/udev/</filename>
-    and <filename>/lib/udev/</filename>. All empty lines, or lines beginning with
+    and <filename>/lib/udev/</filename>. All empty lines or lines beginning with
     '#' will be ignored.</para>
 
     <refsect2><title>Configuration file</title>
@@ -113,7 +113,7 @@
         <varlistentry>
           <term><option>=</option></term>
           <listitem>
-            <para>Assign a value to a key. Keys that represent a list, are reset
+            <para>Assign a value to a key. Keys that represent a list are reset
             and only this single value is assigned.</para>
           </listitem>
         </varlistentry>
@@ -483,7 +483,7 @@
               <varlistentry>
                 <term><option>event_timeout=</option></term>
                 <listitem>
-                  <para>Number of seconds an event will wait for operations to finish, before it
+                  <para>Number of seconds an event will wait for operations to finish before it
                   will terminate itself.</para>
                 </listitem>
               </varlistentry>
@@ -499,10 +499,10 @@
                 <term><option>static_node=</option></term>
                 <listitem>
                   <para>Apply the permissions specified in this rule to a static device node with
-                  the specified name. Static device nodes might be provided by kernel modules,
+                  the specified name. Static device nodes might be provided by kernel modules
                   or copied from <filename>/lib/udev/devices</filename>. These nodes might not have
-                  a corresponding kernel device at the time udevd is started, and allow to trigger
-                  automatic kernel module on-demand loading.</para>
+                  a corresponding kernel device at the time udevd is started; they can trigger
+                  automatic kernel module loading.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -574,7 +574,7 @@
         <varlistentry>
           <term><option>$attr{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
           <listitem>
-            <para>The value of a sysfs attribute found at the device, where
+            <para>The value of a sysfs attribute found at the device where
             all keys of the rule have matched. If the matching device does not have
             such an attribute, and a previous KERNELS, SUBSYSTEMS, DRIVERS, or
             ATTRS test selected a parent device, use the attribute from that
