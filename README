@@ -79,7 +79,7 @@ Operation:
 
   - All kernel events are matched against a set of specified rules, which
     possibly hook into the event processing and load required kernel
-    modules to set up devices. For all devices the kernel exports a major/minor
+    modules to set up devices. For all devices, the kernel exports a major/minor
     number; if needed, udev creates a device node with the default kernel
     name. If specified, udev applies permissions/ownership to the device
     node, creates additional symlinks pointing to the node, and executes
@@ -90,7 +90,7 @@ Operation:
       http://www.kernel.org/pub/linux/utils/kernel/hotplug/libudev/
       http://www.kernel.org/pub/linux/utils/kernel/hotplug/gudev/
 
-For more details about udev and udev rules see the udev(7) man page.
+For more details about udev and udev rules, see the udev(7) man page.
 
 Please direct any comment/question to the linux-hotplug mailing list at:
   linux-hotplug@vger.kernel.org
