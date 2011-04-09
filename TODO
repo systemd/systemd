@@ -21,6 +21,8 @@ F15:
 
 * be nice to ingo
 
+* get writev() /dev/kmsg support into the F15 kernel
+
 Features:
 
 * fix alsa mixer restore to not print error when no config is stored
@@ -31,7 +33,6 @@ Features:
 * show enablement status in systemctl status
 
 * write blog stories about:
-  - chroot, nspawn and friends
   - the blame game: systemd-analyze
   - enabling dbus services
   - status update
@@ -46,11 +47,10 @@ Features:
 
 * take BSD file lock on tty devices when using them?
 
-* tmpfiles should allow two identical lines
-  https://bugzilla.redhat.com/show_bug.cgi?id=690253
-
 * avoid any flag files, or readahead files in /, we need to support r/o /
   or / on tmpfs like Android setups.
+
+* move readahead files into /var, look for them with .path units
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
@@ -63,7 +63,16 @@ Features:
 
 * Find a way to replace /var/run, /var/lock directories with
   symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
-  We soon want to get rid of var-run.mount var-lock.mount units.
+  We soon want to get rid of var-run.mount var-lock.mount units:
+
+  if mountpoint /run ; then
+        umount /var/run || :
+  else
+        mount --move /var/run /run || mount --bind /var/run /run
+  fi
+  mv /var/run /var/.run.save
+  ln -s /run /var/run
+  echo "R /var/.run.save" > /etc/tmpfiles.d/remove-run-save.conf
 
 * when key file cannot be found, read it from kbd in cryptsetup
 
@@ -72,9 +81,6 @@ Features:
   booting but aren't running anymore.
 
 * reuse mkdtemp namespace dirs in /tmp?
-
-* don't strip facility from kmsg log messages as soon as that is possible:
-    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d90c8d9cde929cbc575098e825d7c29d9f45054
 
 * recreate systemd's D-Bus private socket file on SIGUSR2
 
@@ -110,8 +116,6 @@ Features:
 * Maybe implement "systemctl mask" and "systemctl unmask", but not
   document it? When doing that add switch to make this temporary by
   placing mask links in /dev.
-  Consider moving the actual fs operations into systemd behind a D-Bus
-  interface, to make namespaces/containers/remote connections work properly.
 
 * detect LXC environment
 
@@ -126,15 +130,13 @@ Features:
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
 * need a way to apply mount options of api vfs from systemd unit files
-  (or some other modern source?) instead of fstab
+  (or some other modern source?) instead of fstab?
 
 * maybe introduce ExecRestartPre=
 
 * figure out what happened to bluez patch
 
 * Patch systemd-fsck to use -C and pass console fd to it
-
-* support remote/ssh systemctl/systemadm, and local privileged access → dbus patches need to be merged
 
 * configurable jitter for timer events
 
@@ -183,8 +185,6 @@ Features:
 * if a service fails too often, make the service enter failed mode, and the socket, too.
 
 * systemctl list-jobs - show dependencies
-
-* accountsservice is borked
 
 * auditd service files
 
