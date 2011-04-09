@@ -29,6 +29,8 @@
         " <interface name=\"org.freedesktop.systemd1.Path\">\n"         \
         "  <property name=\"Unit\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Paths\" type=\"a(ss)\" access=\"read\"/>\n" \
+        "  <property name=\"MakeDirectory\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -93,8 +95,10 @@ static int bus_path_append_unit(Manager *m, DBusMessageIter *i, const char *prop
 DBusHandlerResult bus_path_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Path", "Unit",  bus_path_append_unit,       "s",     u                      },
-                { "org.freedesktop.systemd1.Path", "Paths", bus_path_append_paths,      "a(ss)", u                      },
+                { "org.freedesktop.systemd1.Path", "Unit",          bus_path_append_unit,     "s",     u                        },
+                { "org.freedesktop.systemd1.Path", "Paths",         bus_path_append_paths,    "a(ss)", u                        },
+                { "org.freedesktop.systemd1.Path", "MakeDirectory", bus_property_append_bool, "b",     &u->path.make_directory  },
+                { "org.freedesktop.systemd1.Path", "DirectoryMode", bus_property_append_mode, "u",     &u->path.directory_mode  },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

@@ -1944,6 +1944,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PathChanged",            config_parse_path_spec,       0, &u->path,                                        "Path"    },
                 { "DirectoryNotEmpty",      config_parse_path_spec,       0, &u->path,                                        "Path"    },
                 { "Unit",                   config_parse_path_unit,       0, &u->path,                                        "Path"    },
+                { "MakeDirectory",          config_parse_bool,            0, &u->path.make_directory,                         "Path"    },
+                { "DirectoryMode",          config_parse_mode,            0, &u->path.directory_mode,                         "Path"    },
 
                 /* The [Install] section is ignored here. */
                 { "Alias",                  NULL,                         0, NULL,                                            "Install" },

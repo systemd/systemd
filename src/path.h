@@ -70,6 +70,9 @@ struct Path {
 
         bool failure;
         bool inotify_triggered;
+
+        bool make_directory;
+        mode_t directory_mode;
 };
 
 void path_unit_notify(Unit *u, UnitActiveState new_state);

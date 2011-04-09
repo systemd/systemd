@@ -260,7 +260,6 @@ int mount_setup(void) {
 
         /* Create a few directories we always want around */
         mkdir("/run/systemd", 0755);
-        mkdir("/run/systemd/ask-password", 0755);
 
         return mount_cgroup_controllers();
 }

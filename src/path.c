@@ -39,6 +39,15 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_FAILED] = UNIT_FAILED
 };
 
+static void path_init(Unit *u) {
+        Path *p = PATH(u);
+
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
+
+        p->directory_mode = 0755;
+}
+
 static void path_unwatch_one(Path *p, PathSpec *s) {
 
         if (s->inotify_fd < 0)
@@ -169,9 +178,13 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sPath State: %s\n"
-                "%sUnit: %s\n",
+                "%sUnit: %s\n"
+                "%sMakeDirectory: %s\n"
+                "%sDirectoryMode: %04o\n",
                 prefix, path_state_to_string(p->state),
-                prefix, p->unit->meta.id);
+                prefix, p->unit->meta.id,
+                prefix, yes_no(p->make_directory),
+                prefix, p->directory_mode);
 
         LIST_FOREACH(spec, s, p->specs)
                 fprintf(f,
@@ -408,6 +421,25 @@ fail:
         path_enter_dead(p, false);
 }
 
+static void path_mkdir(Path *p) {
+        PathSpec *s;
+
+        assert(p);
+
+        if (!p->make_directory)
+                return;
+
+        LIST_FOREACH(spec, s, p->specs) {
+                int r;
+
+                if (s->type == PATH_EXISTS)
+                        continue;
+
+                if ((r = mkdir_p(s->path, p->directory_mode)) < 0)
+                        log_warning("mkdir(%s) failed: %s", s->path, strerror(-r));
+        }
+}
+
 static int path_start(Unit *u) {
         Path *p = PATH(u);
 
@@ -416,6 +448,8 @@ static int path_start(Unit *u) {
 
         if (p->unit->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
+
+        path_mkdir(p);
 
         p->failure = false;
         path_enter_waiting(p, true, true, false);
@@ -639,6 +673,7 @@ DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
 const UnitVTable path_vtable = {
         .suffix = ".path",
 
+        .init = path_init,
         .done = path_done,
         .load = path_load,
 

@@ -168,6 +168,28 @@
                                 identical, except for the
                                 suffix.</para></listitem>
                         </varlistentry>
+                        <varlistentry>
+                                <term><varname>MakeDirectory=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true the directories to
+                                watch are created before
+                                watching. This option is ignored for
+                                <varname>PathExists=</varname>
+                                settings. Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>DirectoryMode=</varname></term>
+
+                                <listitem><para>If
+                                <varname>MakeDirectory=</varname> is
+                                enabled use the mode specified here to
+                                create the directories in
+                                question. Takes an access mode in
+                                octal notation. Defaults to
+                                <option>0755</option>.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 

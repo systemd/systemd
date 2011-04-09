@@ -13,13 +13,13 @@ F15:
 
 * add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
 
-* hook emergency.target into local-fs.target in some way as OnFailure with isolate, add warning log message
-
 * bind mounts are ignored
   https://bugzilla.redhat.com/show_bug.cgi?id=682662
 
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
+
+* be nice to ingo
 
 Features:
 
@@ -94,8 +94,6 @@ Features:
 * check for compiled-in, but not active selinux, and don't print any warnings
   about policy loading. Probably check for available selinux in /proc/filesystems,
   and check for active selinux with getcon_raw() == "kernel"
-
-* optionally create watched directories in .path units
 
 * Support --test based on current system state
 
