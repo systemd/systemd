@@ -103,6 +103,8 @@ Features:
 
 * consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
 
+* systemctl enable as D-Bus call
+
 * consider services with any kind of link in /etc/systemd/system enabled
 
 * show failure error string in "systemctl status"
