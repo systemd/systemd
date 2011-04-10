@@ -219,6 +219,22 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ListenNetlink=</varname></term>
+                                <listitem><para>Specifies a Netlink
+                                family to create a socket for to
+                                listen on. This expects a short string
+                                referring to the AF_NETLINK family
+                                name (such as <varname>audit</varname>
+                                or <varname>kobject-uevent</varname>)
+                                as argument, optionally suffixed by a
+                                whitespace followed by a multicast
+                                group integer. Behaviour otherwise is
+                                very similar to the
+                                <varname>ListenDatagram=</varname>
+                                directive above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>BindIPv6Only=</varname></term>
                                 <listitem><para>Takes a one of
                                 <option>default</option>,

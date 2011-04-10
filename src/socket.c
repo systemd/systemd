@@ -366,7 +366,10 @@ static int socket_load(Unit *u) {
         return socket_verify(s);
 }
 
-static const char* listen_lookup(int type) {
+static const char* listen_lookup(int family, int type) {
+
+        if (family == AF_NETLINK)
+                return "ListenNetlink";
 
         if (type == SOCK_STREAM)
                 return "ListenStream";
@@ -477,7 +480,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         else
                                 t = k;
 
-                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(p->address.type), t);
+                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type), t);
                         free(k);
                 } else
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
@@ -1447,7 +1450,10 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         if ((r = socket_address_print(&p->address, &t)) < 0)
                                 return r;
 
-                        unit_serialize_item_format(u, f, "socket", "%i %i %s", copy, p->address.type, t);
+                        if (socket_address_family(&p->address) == AF_NETLINK)
+                                unit_serialize_item_format(u, f, "netlink", "%i %s", copy, t);
+                        else
+                                unit_serialize_item_format(u, f, "socket", "%i %i %s", copy, p->address.type, t);
                         free(t);
                 } else {
                         assert(p->type == SOCKET_FIFO);
@@ -1533,6 +1539,25 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                         LIST_FOREACH(port, p, s->ports)
                                 if (socket_address_is(&p->address, value+skip, type))
+                                        break;
+
+                        if (p) {
+                                if (p->fd >= 0)
+                                        close_nointr_nofail(p->fd);
+                                p->fd = fdset_remove(fds, fd);
+                        }
+                }
+
+        } else if (streq(key, "netlink")) {
+                int fd, skip = 0;
+                SocketPort *p;
+
+                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                        log_debug("Failed to parse socket value %s", value);
+                else {
+
+                        LIST_FOREACH(port, p, s->ports)
+                                if (socket_address_is_netlink(&p->address, value+skip))
                                         break;
 
                         if (p) {

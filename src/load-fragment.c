@@ -220,6 +220,15 @@ static int config_parse_listen(
                 }
 
                 path_kill_slashes(p->path);
+        } else if (streq(lvalue, "ListenNetlink")) {
+                p->type = SOCKET_SOCKET;
+
+                if (socket_address_parse_netlink(&p->address, rvalue) < 0) {
+                        log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
+                        free(p);
+                        return 0;
+                }
+
         } else {
                 p->type = SOCKET_SOCKET;
 
@@ -1892,6 +1901,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ListenDatagram",         config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "ListenSequentialPacket", config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "ListenFIFO",             config_parse_listen,          0, &u->socket,                                      "Socket"  },
+                { "ListenNetlink",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "BindIPv6Only",           config_parse_socket_bind,     0, &u->socket,                                      "Socket"  },
                 { "Backlog",                config_parse_unsigned,        0, &u->socket.backlog,                              "Socket"  },
                 { "BindToDevice",           config_parse_bindtodevice,    0, &u->socket,                                      "Socket"  },

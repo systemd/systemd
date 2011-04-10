@@ -189,50 +189,102 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         return 0;
 }
 
+int socket_address_parse_netlink(SocketAddress *a, const char *s) {
+        int family;
+        unsigned group = 0;
+        char* sfamily = NULL;
+        assert(a);
+        assert(s);
+
+        zero(*a);
+        a->type = SOCK_RAW;
+
+        errno = 0;
+        if (sscanf(s, "%ms %u", &sfamily, &group) < 1)
+                return errno ? -errno : -EINVAL;
+
+        if ((family = netlink_family_from_string(sfamily)) < 0)
+                if (safe_atoi(sfamily, &family) < 0) {
+                        free(sfamily);
+                        return -EINVAL;
+                }
+
+        free(sfamily);
+
+        a->sockaddr.nl.nl_family = AF_NETLINK;
+        a->sockaddr.nl.nl_groups = group;
+
+        a->type = SOCK_RAW;
+        a->size = sizeof(struct sockaddr_nl);
+        a->protocol = family;
+
+        return 0;
+}
+
 int socket_address_verify(const SocketAddress *a) {
         assert(a);
 
         switch (socket_address_family(a)) {
-                case AF_INET:
-                        if (a->size != sizeof(struct sockaddr_in))
-                                return -EINVAL;
 
-                        if (a->sockaddr.in4.sin_port == 0)
-                                return -EINVAL;
+        case AF_INET:
+                if (a->size != sizeof(struct sockaddr_in))
+                        return -EINVAL;
 
-                        return 0;
+                if (a->sockaddr.in4.sin_port == 0)
+                        return -EINVAL;
 
-                case AF_INET6:
-                        if (a->size != sizeof(struct sockaddr_in6))
-                                return -EINVAL;
+                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM)
+                        return -EINVAL;
 
-                        if (a->sockaddr.in6.sin6_port == 0)
-                                return -EINVAL;
+                return 0;
 
-                        return 0;
+        case AF_INET6:
+                if (a->size != sizeof(struct sockaddr_in6))
+                        return -EINVAL;
 
-                case AF_UNIX:
-                        if (a->size < offsetof(struct sockaddr_un, sun_path))
-                                return -EINVAL;
+                if (a->sockaddr.in6.sin6_port == 0)
+                        return -EINVAL;
 
-                        if (a->size > offsetof(struct sockaddr_un, sun_path)) {
+                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM)
+                        return -EINVAL;
 
-                                if (a->sockaddr.un.sun_path[0] != 0) {
-                                        char *e;
+                return 0;
 
-                                        /* path */
-                                        if (!(e = memchr(a->sockaddr.un.sun_path, 0, sizeof(a->sockaddr.un.sun_path))))
-                                                return -EINVAL;
+        case AF_UNIX:
+                if (a->size < offsetof(struct sockaddr_un, sun_path))
+                        return -EINVAL;
 
-                                        if (a->size != offsetof(struct sockaddr_un, sun_path) + (e - a->sockaddr.un.sun_path) + 1)
-                                                return -EINVAL;
-                                }
+                if (a->size > offsetof(struct sockaddr_un, sun_path)) {
+
+                        if (a->sockaddr.un.sun_path[0] != 0) {
+                                char *e;
+
+                                /* path */
+                                if (!(e = memchr(a->sockaddr.un.sun_path, 0, sizeof(a->sockaddr.un.sun_path))))
+                                        return -EINVAL;
+
+                                if (a->size != offsetof(struct sockaddr_un, sun_path) + (e - a->sockaddr.un.sun_path) + 1)
+                                        return -EINVAL;
                         }
+                }
 
-                        return 0;
+                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM && a->type == SOCK_SEQPACKET)
+                        return -EINVAL;
 
-                default:
-                        return -EAFNOSUPPORT;
+                return 0;
+
+        case AF_NETLINK:
+
+                if (a->size != sizeof(struct sockaddr_nl))
+                        return -EINVAL;
+
+                if (a->type != SOCK_RAW && a->type != SOCK_DGRAM)
+                        return -EINVAL;
+
+                return 0;
+
+        default:
+                return -EAFNOSUPPORT;
         }
 }
 
@@ -245,74 +297,89 @@ int socket_address_print(const SocketAddress *a, char **p) {
                 return r;
 
         switch (socket_address_family(a)) {
-                case AF_INET: {
-                        char *ret;
 
-                        if (!(ret = new(char, INET_ADDRSTRLEN+1+5+1)))
+        case AF_INET: {
+                char *ret;
+
+                if (!(ret = new(char, INET_ADDRSTRLEN+1+5+1)))
+                        return -ENOMEM;
+
+                if (!inet_ntop(AF_INET, &a->sockaddr.in4.sin_addr, ret, INET_ADDRSTRLEN)) {
+                        free(ret);
+                        return -errno;
+                }
+
+                sprintf(strchr(ret, 0), ":%u", ntohs(a->sockaddr.in4.sin_port));
+                *p = ret;
+                return 0;
+        }
+
+        case AF_INET6: {
+                char *ret;
+
+                if (!(ret = new(char, 1+INET6_ADDRSTRLEN+2+5+1)))
+                        return -ENOMEM;
+
+                ret[0] = '[';
+                if (!inet_ntop(AF_INET6, &a->sockaddr.in6.sin6_addr, ret+1, INET6_ADDRSTRLEN)) {
+                        free(ret);
+                        return -errno;
+                }
+
+                sprintf(strchr(ret, 0), "]:%u", ntohs(a->sockaddr.in6.sin6_port));
+                *p = ret;
+                return 0;
+        }
+
+        case AF_UNIX: {
+                char *ret;
+
+                if (a->size <= offsetof(struct sockaddr_un, sun_path)) {
+
+                        if (!(ret = strdup("<unnamed>")))
                                 return -ENOMEM;
 
-                        if (!inet_ntop(AF_INET, &a->sockaddr.in4.sin_addr, ret, INET_ADDRSTRLEN)) {
-                                free(ret);
-                                return -errno;
-                        }
+                } else if (a->sockaddr.un.sun_path[0] == 0) {
+                        /* abstract */
 
-                        sprintf(strchr(ret, 0), ":%u", ntohs(a->sockaddr.in4.sin_port));
-                        *p = ret;
-                        return 0;
-                }
+                        /* FIXME: We assume we can print the
+                         * socket path here and that it hasn't
+                         * more than one NUL byte. That is
+                         * actually an invalid assumption */
 
-                case AF_INET6: {
-                        char *ret;
-
-                        if (!(ret = new(char, 1+INET6_ADDRSTRLEN+2+5+1)))
+                        if (!(ret = new(char, sizeof(a->sockaddr.un.sun_path)+1)))
                                 return -ENOMEM;
 
-                        ret[0] = '[';
-                        if (!inet_ntop(AF_INET6, &a->sockaddr.in6.sin6_addr, ret+1, INET6_ADDRSTRLEN)) {
-                                free(ret);
-                                return -errno;
-                        }
+                        ret[0] = '@';
+                        memcpy(ret+1, a->sockaddr.un.sun_path+1, sizeof(a->sockaddr.un.sun_path)-1);
+                        ret[sizeof(a->sockaddr.un.sun_path)] = 0;
 
-                        sprintf(strchr(ret, 0), "]:%u", ntohs(a->sockaddr.in6.sin6_port));
-                        *p = ret;
-                        return 0;
+                } else {
+
+                        if (!(ret = strdup(a->sockaddr.un.sun_path)))
+                                return -ENOMEM;
                 }
 
-                case AF_UNIX: {
-                        char *ret;
+                *p = ret;
+                return 0;
+        }
 
-                        if (a->size <= offsetof(struct sockaddr_un, sun_path)) {
+        case AF_NETLINK: {
+                const char *sfamily;
 
-                                if (!(ret = strdup("<unamed>")))
-                                        return -ENOMEM;
+                if ((sfamily = netlink_family_to_string(a->protocol)))
+                        r = asprintf(p, "%s %u", sfamily, a->sockaddr.nl.nl_groups);
+                else
+                        r = asprintf(p, "%i %u", a->protocol, a->sockaddr.nl.nl_groups);
 
-                        } else if (a->sockaddr.un.sun_path[0] == 0) {
-                                /* abstract */
+                if (r < 0)
+                        return -ENOMEM;
 
-                                /* FIXME: We assume we can print the
-                                 * socket path here and that it hasn't
-                                 * more than one NUL byte. That is
-                                 * actually an invalid assumption */
+                return 0;
+        }
 
-                                if (!(ret = new(char, sizeof(a->sockaddr.un.sun_path)+1)))
-                                        return -ENOMEM;
-
-                                ret[0] = '@';
-                                memcpy(ret+1, a->sockaddr.un.sun_path+1, sizeof(a->sockaddr.un.sun_path)-1);
-                                ret[sizeof(a->sockaddr.un.sun_path)] = 0;
-
-                        } else {
-
-                                if (!(ret = strdup(a->sockaddr.un.sun_path)))
-                                        return -ENOMEM;
-                        }
-
-                        *p = ret;
-                        return 0;
-                }
-
-                default:
-                        return -EINVAL;
+        default:
+                return -EINVAL;
         }
 }
 
@@ -341,7 +408,7 @@ int socket_address_listen(
         if (r < 0)
                 return r;
 
-        fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+        fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK | SOCK_CLOEXEC, a->protocol);
         r = fd < 0 ? -errno : 0;
 
         label_socket_clear();
@@ -356,14 +423,16 @@ int socket_address_listen(
                         goto fail;
         }
 
-        if (bind_to_device)
-                if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device)+1) < 0)
-                        goto fail;
+        if (socket_address_family(a) == AF_INET || socket_address_family(a) == AF_INET6) {
+                if (bind_to_device)
+                        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device)+1) < 0)
+                                goto fail;
 
-        if (free_bind) {
-                one = 1;
-                if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &one, sizeof(one)) < 0)
-                        log_warning("IP_FREEBIND failed: %m");
+                if (free_bind) {
+                        one = 1;
+                        if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &one, sizeof(one)) < 0)
+                                log_warning("IP_FREEBIND failed: %m");
+                }
         }
 
         one = 1;
@@ -397,7 +466,7 @@ int socket_address_listen(
         if (r < 0)
                 goto fail;
 
-        if (a->type == SOCK_STREAM)
+        if (socket_address_can_accept(a))
                 if (listen(fd, backlog) < 0)
                         goto fail;
 
@@ -471,6 +540,16 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
 
                 break;
 
+        case AF_NETLINK:
+
+                if (a->protocol != b->protocol)
+                        return false;
+
+                if (a->sockaddr.nl.nl_groups != b->sockaddr.nl.nl_groups)
+                        return false;
+
+                break;
+
         default:
                 /* Cannot compare, so we assume the addresses are different */
                 return false;
@@ -489,6 +568,18 @@ bool socket_address_is(const SocketAddress *a, const char *s, int type) {
                 return false;
 
         b.type = type;
+
+        return socket_address_equal(a, &b);
+}
+
+bool socket_address_is_netlink(const SocketAddress *a, const char *s) {
+        struct SocketAddress b;
+
+        assert(a);
+        assert(s);
+
+        if (socket_address_parse_netlink(&b, s) < 0)
+                return false;
 
         return socket_address_equal(a, &b);
 }
@@ -522,6 +613,28 @@ bool socket_ipv6_is_supported(void) {
 
         return enabled;
 }
+
+static const char* const netlink_family_table[] = {
+        [NETLINK_ROUTE] = "route",
+        [NETLINK_FIREWALL] = "firewall",
+        [NETLINK_INET_DIAG] = "inet-diag",
+        [NETLINK_NFLOG] = "nflog",
+        [NETLINK_XFRM] = "xfrm",
+        [NETLINK_SELINUX] = "selinux",
+        [NETLINK_ISCSI] = "iscsi",
+        [NETLINK_AUDIT] = "audit",
+        [NETLINK_FIB_LOOKUP] = "fib-lookup",
+        [NETLINK_CONNECTOR] = "connector",
+        [NETLINK_NETFILTER] = "netfilter",
+        [NETLINK_IP6_FW] = "ip6-fw",
+        [NETLINK_DNRTMSG] = "dnrtmsg",
+        [NETLINK_KOBJECT_UEVENT] = "kobject-uevent",
+        [NETLINK_GENERIC] = "generic",
+        [NETLINK_SCSITRANSPORT] = "scsitransport",
+        [NETLINK_ECRYPTFS] = "ecryptfs"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(netlink_family, int);
 
 static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
         [SOCKET_ADDRESS_DEFAULT] = "default",
