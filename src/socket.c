@@ -1363,15 +1363,19 @@ static int socket_start(Unit *u) {
 
         /* Cannot run this without the service being around */
         if (s->service) {
-                if (s->service->meta.load_state != UNIT_LOADED)
+                if (s->service->meta.load_state != UNIT_LOADED) {
+                        log_error("Socket service %s not loaded, refusing.", s->service->meta.id);
                         return -ENOENT;
+                }
 
                 /* If the service is already active we cannot start the
                  * socket */
                 if (s->service->state != SERVICE_DEAD &&
                     s->service->state != SERVICE_FAILED &&
-                    s->service->state != SERVICE_AUTO_RESTART)
+                    s->service->state != SERVICE_AUTO_RESTART) {
+                        log_error("Socket service %s already active, refusing.", s->service->meta.id);
                         return -EBUSY;
+                }
 
 #ifdef HAVE_SYSV_COMPAT
                 if (s->service->sysv_path) {
