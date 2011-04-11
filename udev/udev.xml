@@ -614,7 +614,7 @@
             <para>The string returned by the external program requested with PROGRAM.
             A single part of the string, separated by a space character, may be selected
             by specifying the part number as an attribute: <option>%c{N}</option>.
-            If the number is followed by the '+' char, this part plus all remaining parts
+            If the number is followed by the '+' character, this part plus all remaining parts
             of the result string are substituted: <option>%c{N+}</option></para>
           </listitem>
         </varlistentry>
