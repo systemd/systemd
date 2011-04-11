@@ -637,7 +637,7 @@
         <varlistentry>
           <term><option>$links</option></term>
           <listitem>
-            <para>The current list of symlinks, separated by a space character. The value is
+            <para>A space-separated list of the current symlinks. The value is
             only set if an earlier rule assigned a value, or during a remove events.</para>
           </listitem>
         </varlistentry>
