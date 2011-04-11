@@ -638,7 +638,7 @@
           <term><option>$links</option></term>
           <listitem>
             <para>A space-separated list of the current symlinks. The value is
-            only set if an earlier rule assigned a value, or during a remove events.</para>
+            only set during a remove event or if an earlier rule assigned a value.</para>
           </listitem>
         </varlistentry>
 
