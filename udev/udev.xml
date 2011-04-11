@@ -659,7 +659,7 @@
         <varlistentry>
           <term><option>$tempnode</option>, <option>%N</option></term>
           <listitem>
-            <para>The name of a created temporary device node to provide access to
+            <para>The name of a temporary device node created to provide access to
             the device from a external program before the real node is created.</para>
           </listitem>
         </varlistentry>
