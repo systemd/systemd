@@ -465,9 +465,9 @@
         <varlistentry>
           <term><option>WAIT_FOR</option></term>
           <listitem>
-            <para>Wait for a file to become available or until a 10
-            seconds timeout expires. The path is relative to the sysfs device,
-            i. e. if no path is specified this waits for an attribute to appear.</para>
+            <para>Wait for a file to become available or until a timeout of
+            10 seconds expires. The path is relative to the sysfs device;
+            if no path is specified, this waits for an attribute to appear.</para>
           </listitem>
         </varlistentry>
 
