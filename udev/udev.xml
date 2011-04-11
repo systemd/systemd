@@ -580,8 +580,8 @@
             <para>The value of a sysfs attribute found at the device where
             all keys of the rule have matched. If the matching device does not have
             such an attribute, and a previous KERNELS, SUBSYSTEMS, DRIVERS, or
-            ATTRS test selected a parent device, use the attribute from that
-            parent device.
+            ATTRS test selected a parent device, then the attribute from that
+            parent device is used.
             If the attribute is a symlink, the last element of the symlink target is
             returned as the value.</para>
           </listitem>
