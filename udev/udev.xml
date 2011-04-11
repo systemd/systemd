@@ -441,7 +441,7 @@
               <varlistentry>
                 <term><option>cmdline</option></term>
                 <listitem>
-                  <para>Import a single property from the kernel commandline. For simple flags
+                  <para>Import a single property from the kernel command line. For simple flags
                   the value of the property is set to '1'.</para>
                 </listitem>
               </varlistentry>
