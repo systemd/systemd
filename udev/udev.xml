@@ -426,8 +426,8 @@
               <varlistentry>
                 <term><option>file</option></term>
                 <listitem>
-                  <para>Import a text file specified as the assigned value, which must be in
-                  environment key format.</para>
+                  <para>Import a text file specified as the assigned value, the content
+                  of which must be in environment key format.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
