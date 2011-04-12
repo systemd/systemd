@@ -50,6 +50,7 @@
 #include <linux/kd.h>
 #include <dlfcn.h>
 #include <sys/wait.h>
+#include <sys/capability.h>
 
 #include "macro.h"
 #include "util.h"
@@ -4234,6 +4235,23 @@ void parse_syslog_priority(char **p, int *priority) {
 
         *priority = a*100+b*10+c;
         *p += k;
+}
+
+int have_effective_cap(int value) {
+        cap_t cap;
+        cap_flag_value_t fv;
+        int r;
+
+        if (!(cap = cap_get_proc()))
+                return -errno;
+
+        if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
+                r = -errno;
+        else
+                r = fv == CAP_SET;
+
+        cap_free(cap);
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

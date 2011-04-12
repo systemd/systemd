@@ -396,6 +396,8 @@ bool plymouth_running(void);
 
 void parse_syslog_priority(char **p, int *priority);
 
+int have_effective_cap(int value);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
