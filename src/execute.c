@@ -1106,7 +1106,8 @@ int exec_spawn(ExecCommand *command,
                                 snprintf(t, sizeof(t), "%i", adj);
                                 char_array_0(t);
 
-                                if (write_one_line_file("/proc/self/oom_adj", t) < 0) {
+                                if (write_one_line_file("/proc/self/oom_adj", t) < 0
+                                    && errno != EACCES) {
                                         r = EXIT_OOM_ADJUST;
                                         goto fail_child;
                                 }

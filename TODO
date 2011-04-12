@@ -23,6 +23,8 @@ F15:
 
 * get writev() /dev/kmsg support into the F15 kernel
 
+* fix sd_is_socket() invocation in dbus
+
 Features:
 
 * fix alsa mixer restore to not print error when no config is stored
