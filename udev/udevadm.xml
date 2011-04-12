@@ -297,6 +297,12 @@
       <para>Modify the internal state of the running udev daemon.</para>
       <variablelist>
         <varlistentry>
+          <term><option>--exit</option></term>
+          <listitem>
+            <para>Signal and wait for udevd to exit.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>--log-priority=<replaceable>value</replaceable></option></term>
           <listitem>
             <para>Set the internal log level of udevd. Valid values are the numerical
@@ -337,6 +343,12 @@
           <listitem>
             <para>Set the maximum number of events, udevd will handle at the
             same time.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--timeout=</option><replaceable>seconds</replaceable></term>
+          <listitem>
+            <para>The maximum number seonds to wait for a reply from udevd.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

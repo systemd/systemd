@@ -44,8 +44,6 @@ static void sig_handler(int signum)
 	switch (signum) {
 		case SIGALRM:
 			is_timeout = 1;
-		case SIGUSR1:
-			;
 	}
 }
 
@@ -78,9 +76,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = 0;
 	sigaction(SIGALRM, &act, NULL);
-	sigaction(SIGUSR1, &act, NULL);
 	sigemptyset(&mask);
-	sigaddset(&mask, SIGUSR1);
 	sigaddset(&mask, SIGALRM);
 	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
@@ -168,15 +164,12 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 
 		uctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
 		if (uctrl != NULL) {
-			sigset_t oldmask;
-
-			sigemptyset(&mask);
-			sigaddset(&mask, SIGUSR1);
-			sigaddset(&mask, SIGALRM);
-			sigprocmask(SIG_BLOCK, &mask, &oldmask);
-			if (udev_ctrl_send_settle(uctrl) > 0)
-				sigsuspend(&oldmask);
-			sigprocmask(SIG_SETMASK, &oldmask, NULL);
+			if (udev_ctrl_send_ping(uctrl, timeout) < 0) {
+				info(udev, "no connection to daemon\n");
+				udev_ctrl_unref(uctrl);
+				rc = 0;
+				goto out;
+			}
 			udev_ctrl_unref(uctrl);
 		}
 	}
@@ -223,7 +216,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 				       udev_list_entry_get_value(list_entry));
 		}
 	}
-
+out:
 	udev_queue_unref(udev_queue);
 	return rc;
 }

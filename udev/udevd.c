@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2011 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2004 Chris Friesen <chris_friesen@sympatico.ca>
  * Copyright (C) 2009 Canonical Ltd.
  * Copyright (C) 2009 Scott James Remnant <scott@netsplit.com>
@@ -36,7 +36,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/signalfd.h>
-#include <sys/select.h>
+#include <sys/epoll.h>
 #include <sys/poll.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -76,33 +76,19 @@ static struct udev_queue_export *udev_queue_export;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *monitor;
 static int worker_watch[2] = { -1, -1 };
-static pid_t settle_pid;
+static int fd_signal = -1;
+static int fd_ep = -1;
+static int fd_inotify = -1;
 static bool stop_exec_queue;
 static bool reload_config;
 static int children;
 static int children_max;
 static int exec_delay;
 static sigset_t orig_sigmask;
-static struct udev_list_node event_list;
-static struct udev_list_node worker_list;
+static UDEV_LIST(event_list);
+static UDEV_LIST(worker_list);
 static bool udev_exit;
 static volatile sig_atomic_t worker_exit;
-
-enum poll_fd {
-	FD_CONTROL,
-	FD_NETLINK,
-	FD_INOTIFY,
-	FD_SIGNAL,
-	FD_WORKER,
-};
-
-static struct pollfd pfd[] = {
-	[FD_NETLINK] = { .events = POLLIN, .fd = -1 },
-	[FD_WORKER] =  { .events = POLLIN, .fd = -1 },
-	[FD_SIGNAL] =  { .events = POLLIN, .fd = -1 },
-	[FD_INOTIFY] = { .events = POLLIN, .fd = -1 },
-	[FD_CONTROL] = { .events = POLLIN, .fd = -1 },
-};
 
 enum event_state {
 	EVENT_UNDEF,
@@ -134,6 +120,8 @@ static struct event *node_to_event(struct udev_list_node *node)
 	event -= offsetof(struct event, node);
 	return (struct event *)event;
 }
+
+static void event_queue_cleanup(struct udev *udev, enum event_state type);
 
 enum worker_state {
 	WORKER_UNDEF,
@@ -167,17 +155,18 @@ static struct worker *node_to_worker(struct udev_list_node *node)
 	return (struct worker *)worker;
 }
 
-static void event_queue_delete(struct event *event)
+static void event_queue_delete(struct event *event, bool export)
 {
 	udev_list_node_remove(&event->node);
 
-	/* mark as failed, if "add" event returns non-zero */
-	if (event->exitcode != 0 && strcmp(udev_device_get_action(event->dev), "remove") != 0)
-		udev_queue_export_device_failed(udev_queue_export, event->dev);
-	else
-		udev_queue_export_device_finished(udev_queue_export, event->dev);
-
-	info(event->udev, "seq %llu done with %i\n", udev_device_get_seqnum(event->dev), event->exitcode);
+	if (export) {
+		/* mark as failed, if "add" event returns non-zero */
+		if (event->exitcode != 0 && strcmp(udev_device_get_action(event->dev), "remove") != 0)
+			udev_queue_export_device_failed(udev_queue_export, event->dev);
+		else
+			udev_queue_export_device_finished(udev_queue_export, event->dev);
+		info(event->udev, "seq %llu done with %i\n", udev_device_get_seqnum(event->dev), event->exitcode);
+	}
 	udev_device_unref(event->dev);
 	free(event);
 }
@@ -200,28 +189,44 @@ static struct worker *worker_ref(struct worker *worker)
 	return worker;
 }
 
+static void worker_cleanup(struct worker *worker)
+{
+	udev_list_node_remove(&worker->node);
+	udev_monitor_unref(worker->monitor);
+	children--;
+	free(worker);
+}
+
 static void worker_unref(struct worker *worker)
 {
 	worker->refcount--;
 	if (worker->refcount > 0)
 		return;
-
-	udev_list_node_remove(&worker->node);
-	udev_monitor_unref(worker->monitor);
-	children--;
 	info(worker->udev, "worker [%u] cleaned up\n", worker->pid);
-	free(worker);
+	worker_cleanup(worker);
+}
+
+static void worker_list_cleanup(struct udev *udev)
+{
+	struct udev_list_node *loop, *tmp;
+
+	udev_list_node_foreach_safe(loop, tmp, &worker_list) {
+		struct worker *worker = node_to_worker(loop);
+
+		worker_cleanup(worker);
+	}
 }
 
 static void worker_new(struct event *event)
 {
+	struct udev *udev = event->udev;
 	struct worker *worker;
 	struct udev_monitor *worker_monitor;
 	pid_t pid;
 	struct sigaction act;
 
 	/* listen for new events */
-	worker_monitor = udev_monitor_new_from_netlink(event->udev, NULL);
+	worker_monitor = udev_monitor_new_from_netlink(udev, NULL);
 	if (worker_monitor == NULL)
 		return;
 	/* allow the main daemon netlink address to send devices to the worker */
@@ -235,7 +240,7 @@ static void worker_new(struct event *event)
 	}
 	/* worker + event reference */
 	worker->refcount = 2;
-	worker->udev = event->udev;
+	worker->udev = udev;
 
 	pid = fork();
 	switch (pid) {
@@ -247,10 +252,18 @@ static void worker_new(struct event *event)
 			.events = POLLIN,
 		};
 
+		/* move initial device from queue */
+		dev = event->dev;
+		event->dev = NULL;
+
+		free(worker);
+		worker_list_cleanup(udev);
+		event_queue_cleanup(udev, EVENT_UNDEF);
 		udev_queue_export_unref(udev_queue_export);
 		udev_monitor_unref(monitor);
 		udev_ctrl_unref(udev_ctrl);
-		close(pfd[FD_SIGNAL].fd);
+		close(fd_signal);
+		close(fd_ep);
 		close(worker_watch[READ_END]);
 		udev_log_close();
 		udev_log_init("udevd-work");
@@ -274,16 +287,13 @@ static void worker_new(struct event *event)
 		/* request TERM signal if parent exits */
 		prctl(PR_SET_PDEATHSIG, SIGTERM);
 
-		/* initial device */
-		dev = event->dev;
-
 		do {
 			struct udev_event *udev_event;
 			struct worker_message msg = {};
 			int err;
 			int failed = 0;
 
-			info(event->udev, "seq %llu running\n", udev_device_get_seqnum(dev));
+			info(udev, "seq %llu running\n", udev_device_get_seqnum(dev));
 			udev_event = udev_event_new(dev);
 			if (udev_event == NULL)
 				_exit(3);
@@ -308,7 +318,7 @@ static void worker_new(struct event *event)
 
 			/* apply/restore inotify watch */
 			if (err == 0 && udev_event->inotify_watch) {
-				udev_watch_begin(udev_event->udev, dev);
+				udev_watch_begin(udev, dev);
 				udev_device_update_db(dev);
 			}
 
@@ -323,7 +333,7 @@ static void worker_new(struct event *event)
 			msg.pid = getpid();
 			send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
 
-			info(event->udev, "seq %llu processed with %i\n", udev_device_get_seqnum(dev), err);
+			info(udev, "seq %llu processed with %i\n", udev_device_get_seqnum(dev), err);
 			udev_event_unref(udev_event);
 			udev_device_unref(dev);
 			dev = NULL;
@@ -344,15 +354,19 @@ static void worker_new(struct event *event)
 			}
 		} while (dev != NULL);
 
+		close(fd_inotify);
+		close(worker_watch[WRITE_END]);
+		udev_rules_unref(rules);
 		udev_monitor_unref(worker_monitor);
+		udev_unref(udev);
 		udev_log_close();
-		exit(0);
+		exit(EXIT_SUCCESS);
 	}
 	case -1:
 		udev_monitor_unref(worker_monitor);
 		event->state = EVENT_QUEUED;
 		free(worker);
-		err(event->udev, "fork of child failed: %m\n");
+		err(udev, "fork of child failed: %m\n");
 		break;
 	default:
 		/* close monitor, but keep address around */
@@ -364,7 +378,7 @@ static void worker_new(struct event *event)
 		event->state = EVENT_RUNNING;
 		udev_list_node_append(&worker->node, &worker_list);
 		children++;
-		info(event->udev, "seq %llu forked new worker [%u]\n", udev_device_get_seqnum(event->dev), pid);
+		info(udev, "seq %llu forked new worker [%u]\n", udev_device_get_seqnum(event->dev), pid);
 		break;
 	}
 }
@@ -535,7 +549,7 @@ static bool is_devpath_busy(struct event *event)
 	return false;
 }
 
-static void events_start(struct udev *udev)
+static void event_queue_start(struct udev *udev)
 {
 	struct udev_list_node *loop;
 
@@ -555,14 +569,28 @@ static void events_start(struct udev *udev)
 	}
 }
 
-static void worker_returned(void)
+static void event_queue_cleanup(struct udev *udev, enum event_state match_type)
+{
+	struct udev_list_node *loop, *tmp;
+
+	udev_list_node_foreach_safe(loop, tmp, &event_list) {
+		struct event *event = node_to_event(loop);
+
+		if (match_type != EVENT_UNDEF && match_type != event->state)
+			continue;
+
+		event_queue_delete(event, false);
+	}
+}
+
+static void worker_returned(int fd_worker)
 {
 	for (;;) {
 		struct worker_message msg;
 		ssize_t size;
 		struct udev_list_node *loop;
 
-		size = recv(pfd[FD_WORKER].fd, &msg, sizeof(struct worker_message), MSG_DONTWAIT);
+		size = recv(fd_worker, &msg, sizeof(struct worker_message), MSG_DONTWAIT);
 		if (size != sizeof(struct worker_message))
 			break;
 
@@ -575,7 +603,7 @@ static void worker_returned(void)
 
 			/* worker returned */
 			worker->event->exitcode = msg.exitcode;
-			event_queue_delete(worker->event);
+			event_queue_delete(worker->event, true);
 			worker->event = NULL;
 			if (worker->state != WORKER_KILLED)
 				worker->state = WORKER_IDLE;
@@ -586,16 +614,21 @@ static void worker_returned(void)
 }
 
 /* receive the udevd message from userspace */
-static void handle_ctrl_msg(struct udev_ctrl *uctrl)
+static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
 {
 	struct udev *udev = udev_ctrl_get_udev(uctrl);
-	struct udev_ctrl_msg *ctrl_msg;
+	struct udev_ctrl_connection *ctrl_conn;
+	struct udev_ctrl_msg *ctrl_msg = NULL;
 	const char *str;
 	int i;
 
-	ctrl_msg = udev_ctrl_receive_msg(uctrl);
+	ctrl_conn = udev_ctrl_get_connection(uctrl);
+	if (ctrl_conn == NULL)
+		goto out;
+
+	ctrl_msg = udev_ctrl_receive_msg(ctrl_conn);
 	if (ctrl_msg == NULL)
-		return;
+		goto out;
 
 	i = udev_ctrl_get_set_log_level(ctrl_msg);
 	if (i >= 0) {
@@ -652,13 +685,18 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 		children_max = i;
 	}
 
-	settle_pid = udev_ctrl_get_settle(ctrl_msg);
-	if (settle_pid > 0) {
-		info(udev, "udevd message (SETTLE) received\n");
-		kill(settle_pid, SIGUSR1);
-		settle_pid = 0;
+	if (udev_ctrl_get_ping(ctrl_msg) > 0)
+		info(udev, "udevd message (SYNC) received\n");
+
+	if (udev_ctrl_get_exit(ctrl_msg) > 0) {
+		info(udev, "udevd message (EXIT) received\n");
+		udev_exit = true;
+		/* keep reference to block the client until we exit */
+		udev_ctrl_connection_ref(ctrl_conn);
 	}
+out:
 	udev_ctrl_msg_unref(ctrl_msg);
+	return udev_ctrl_connection_unref(ctrl_conn);
 }
 
 /* read inotify messages */
@@ -668,7 +706,7 @@ static int handle_inotify(struct udev *udev)
 	char *buf;
 	struct inotify_event *ev;
 
-	if ((ioctl(pfd[FD_INOTIFY].fd, FIONREAD, &nbytes) < 0) || (nbytes <= 0))
+	if ((ioctl(fd_inotify, FIONREAD, &nbytes) < 0) || (nbytes <= 0))
 		return 0;
 
 	buf = malloc(nbytes);
@@ -677,7 +715,7 @@ static int handle_inotify(struct udev *udev)
 		return -1;
 	}
 
-	nbytes = read(pfd[FD_INOTIFY].fd, buf, nbytes);
+	nbytes = read(fd_inotify, buf, nbytes);
 
 	for (pos = 0; pos < nbytes; pos += sizeof(struct inotify_event) + ev->len) {
 		struct udev_device *dev;
@@ -751,7 +789,7 @@ static void handle_signal(struct udev *udev, int signo)
 					if (worker->event != NULL) {
 						err(udev, "worker [%u] failed while handling '%s'\n", pid, worker->event->devpath);
 						worker->event->exitcode = -32;
-						event_queue_delete(worker->event);
+						event_queue_delete(worker->event, true);
 						/* drop reference from running event */
 						worker_unref(worker);
 					}
@@ -1081,6 +1119,11 @@ int main(int argc, char *argv[])
 		{ "version", no_argument, NULL, 'V' },
 		{}
 	};
+	int fd_ctrl = -1;
+	int fd_netlink = -1;
+	int fd_worker = -1;
+	struct epoll_event ep_ctrl, ep_inotify, ep_signal, ep_netlink, ep_worker;
+	struct udev_ctrl_connection *ctrl_conn = NULL;
 	int rc = 1;
 
 	udev = udev_new();
@@ -1229,7 +1272,7 @@ int main(int argc, char *argv[])
 		dup2(fd, STDERR_FILENO);
 
 	/* udevadm control socket */
-	if (sd_listen_fds(true) == 1 && sd_is_socket(SD_LISTEN_FDS_START, AF_LOCAL, SOCK_DGRAM, -1))
+	if (sd_listen_fds(true) == 1 && sd_is_socket(SD_LISTEN_FDS_START, AF_LOCAL, SOCK_SEQPACKET, -1))
 		udev_ctrl = udev_ctrl_new_from_fd(udev, SD_LISTEN_FDS_START);
 	else
 		udev_ctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
@@ -1245,7 +1288,7 @@ int main(int argc, char *argv[])
 		rc = 1;
 		goto exit;
 	}
-	pfd[FD_CONTROL].fd = udev_ctrl_get_fd(udev_ctrl);
+	fd_ctrl = udev_ctrl_get_fd(udev_ctrl);
 
 	monitor = udev_monitor_new_from_netlink(udev, "kernel");
 	if (monitor == NULL || udev_monitor_enable_receiving(monitor) < 0) {
@@ -1255,81 +1298,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 	udev_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
-	pfd[FD_NETLINK].fd = udev_monitor_get_fd(monitor);
-
-	pfd[FD_INOTIFY].fd = udev_watch_init(udev);
-	if (pfd[FD_INOTIFY].fd < 0) {
-		fprintf(stderr, "error initializing inotify\n");
-		err(udev, "error initializing inotify\n");
-		rc = 4;
-		goto exit;
-	}
-
-	if (udev_get_rules_path(udev) != NULL) {
-		inotify_add_watch(pfd[FD_INOTIFY].fd, udev_get_rules_path(udev),
-				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-	} else {
-		char filename[UTIL_PATH_SIZE];
-		struct stat statbuf;
-
-		inotify_add_watch(pfd[FD_INOTIFY].fd, LIBEXECDIR "/rules.d",
-				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-		inotify_add_watch(pfd[FD_INOTIFY].fd, SYSCONFDIR "/udev/rules.d",
-				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-
-		/* watch dynamic rules directory */
-		util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/rules.d", NULL);
-		if (stat(filename, &statbuf) != 0) {
-			util_create_path(udev, filename);
-			mkdir(filename, 0755);
-		}
-		inotify_add_watch(pfd[FD_INOTIFY].fd, filename,
-				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-	}
-	udev_watch_restore(udev);
-
-	/* block and listen to all signals on signalfd */
-	sigfillset(&mask);
-	sigprocmask(SIG_SETMASK, &mask, &orig_sigmask);
-	pfd[FD_SIGNAL].fd = signalfd(-1, &mask, 0);
-	if (pfd[FD_SIGNAL].fd < 0) {
-		fprintf(stderr, "error getting signalfd\n");
-		err(udev, "error getting signalfd\n");
-		rc = 5;
-		goto exit;
-	}
-
-	/* unnamed socket from workers to the main daemon */
-	if (socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, worker_watch) < 0) {
-		fprintf(stderr, "error getting socketpair\n");
-		err(udev, "error getting socketpair\n");
-		rc = 6;
-		goto exit;
-	}
-	pfd[FD_WORKER].fd = worker_watch[READ_END];
-
-	rules = udev_rules_new(udev, resolve_names);
-	if (rules == NULL) {
-		err(udev, "error reading rules\n");
-		goto exit;
-	}
-
-	udev_queue_export = udev_queue_export_new(udev);
-	if (udev_queue_export == NULL) {
-		err(udev, "error creating queue file\n");
-		goto exit;
-	}
-
-	/* if needed, convert old database from earlier udev version */
-	convert_db(udev);
-
-	if (!debug) {
-		dup2(fd, STDIN_FILENO);
-		dup2(fd, STDOUT_FILENO);
-		dup2(fd, STDERR_FILENO);
-	}
-	if (fd > STDERR_FILENO)
-		close(fd);
+	fd_netlink = udev_monitor_get_fd(monitor);
 
 	if (daemonize) {
 		pid_t pid;
@@ -1349,6 +1318,109 @@ int main(int argc, char *argv[])
 	} else {
 		sd_notify(1, "READY=1");
 	}
+
+	fd_inotify = udev_watch_init(udev);
+	if (fd_inotify < 0) {
+		fprintf(stderr, "error initializing inotify\n");
+		err(udev, "error initializing inotify\n");
+		rc = 4;
+		goto exit;
+	}
+
+	if (udev_get_rules_path(udev) != NULL) {
+		inotify_add_watch(fd_inotify, udev_get_rules_path(udev),
+				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+	} else {
+		char filename[UTIL_PATH_SIZE];
+		struct stat statbuf;
+
+		inotify_add_watch(fd_inotify, LIBEXECDIR "/rules.d",
+				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+		inotify_add_watch(fd_inotify, SYSCONFDIR "/udev/rules.d",
+				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+
+		/* watch dynamic rules directory */
+		util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/rules.d", NULL);
+		if (stat(filename, &statbuf) != 0) {
+			util_create_path(udev, filename);
+			mkdir(filename, 0755);
+		}
+		inotify_add_watch(fd_inotify, filename,
+				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+	}
+	udev_watch_restore(udev);
+
+	/* block and listen to all signals on signalfd */
+	sigfillset(&mask);
+	sigprocmask(SIG_SETMASK, &mask, &orig_sigmask);
+	fd_signal = signalfd(-1, &mask, SFD_CLOEXEC);
+	if (fd_signal < 0) {
+		fprintf(stderr, "error getting signalfd\n");
+		err(udev, "error getting signalfd\n");
+		rc = 5;
+		goto exit;
+	}
+
+	/* unnamed socket from workers to the main daemon */
+	if (socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, worker_watch) < 0) {
+		fprintf(stderr, "error getting socketpair\n");
+		err(udev, "error getting socketpair\n");
+		rc = 6;
+		goto exit;
+	}
+	fd_worker = worker_watch[READ_END];
+
+	rules = udev_rules_new(udev, resolve_names);
+	if (rules == NULL) {
+		err(udev, "error reading rules\n");
+		goto exit;
+	}
+
+	udev_queue_export = udev_queue_export_new(udev);
+	if (udev_queue_export == NULL) {
+		err(udev, "error creating queue file\n");
+		goto exit;
+	}
+
+	memset(&ep_ctrl, 0, sizeof(struct epoll_event));
+	ep_ctrl.events = EPOLLIN;
+	ep_ctrl.data.fd = fd_ctrl;
+	memset(&ep_inotify, 0, sizeof(struct epoll_event));
+	ep_inotify.events = EPOLLIN;
+	ep_inotify.data.fd = fd_inotify;
+	memset(&ep_signal, 0, sizeof(struct epoll_event));
+	ep_signal.events = EPOLLIN;
+	ep_signal.data.fd = fd_signal;
+	memset(&ep_netlink, 0, sizeof(struct epoll_event));
+	ep_netlink.events = EPOLLIN;
+	ep_netlink.data.fd = fd_netlink;
+	memset(&ep_worker, 0, sizeof(struct epoll_event));
+	ep_worker.events = EPOLLIN;
+	ep_worker.data.fd = fd_worker;
+	fd_ep = epoll_create1(EPOLL_CLOEXEC);
+	if (fd_ep < 0) {
+		err(udev, "error creating epoll fd: %m\n");
+		goto exit;
+	}
+	if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_ctrl, &ep_ctrl) < 0 ||
+	    epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_inotify, &ep_inotify) < 0 ||
+	    epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
+	    epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_netlink, &ep_netlink) < 0 ||
+	    epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_worker, &ep_worker) < 0) {
+		err(udev, "fail to add fds to epoll: %m\n");
+		goto exit;
+	}
+
+	/* if needed, convert old database from earlier udev version */
+	convert_db(udev);
+
+	if (!debug) {
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
+	}
+	if (fd > STDERR_FILENO)
+		close(fd);
 
 	/* set scheduling priority for the main daemon process */
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
@@ -1393,30 +1465,79 @@ int main(int argc, char *argv[])
 	udev_list_init(&event_list);
 	udev_list_init(&worker_list);
 
-	while (!udev_exit) {
+	for (;;) {
+		struct epoll_event ev[8];
 		int fdcount;
 		int timeout;
+		bool is_worker, is_signal, is_inotify, is_netlink, is_ctrl;
+		int i;
 
-		/* set timeout to kill idle workers */
-		if (udev_list_is_empty(&event_list) && children > 2)
+		if (udev_exit) {
+			/* close sources of new events and discard buffered events */
+			if (fd_ctrl >= 0) {
+				epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_ctrl, NULL);
+				fd_ctrl = -1;
+			}
+			if (monitor != NULL) {
+				epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_netlink, NULL);
+				udev_monitor_unref(monitor);
+				monitor = NULL;
+			}
+			if (fd_inotify >= 0) {
+				epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_inotify, NULL);
+				close(fd_inotify);
+				fd_inotify = -1;
+			}
+
+			/* discard queued events and kill workers */
+			event_queue_cleanup(udev, EVENT_QUEUED);
+			worker_kill(udev, 0);
+
+			/* exit after all has cleaned up */
+			if (udev_list_is_empty(&event_list) && udev_list_is_empty(&worker_list))
+				break;
+
+			/* timeout at exit for workers to finish */
+			timeout = 60 * 1000;
+		} else if (udev_list_is_empty(&event_list) && children > 2) {
+			/* set timeout to kill idle workers */
 			timeout = 3 * 1000;
-		else
+		} else {
 			timeout = -1;
-		/* wait for events */
-		fdcount = poll(pfd, ARRAY_SIZE(pfd), timeout);
+		}
+		fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), timeout);
 		if (fdcount < 0)
 			continue;
 
-		/* timeout - kill idle workers */
-		if (fdcount == 0)
+		if (fdcount == 0) {
+			if (udev_exit) {
+				info(udev, "timeout, giving up waiting for workers to finish\n");
+				break;
+			}
+
+			/* timeout - kill idle workers */
 			worker_kill(udev, 2);
+		}
+
+		is_worker = is_signal = is_inotify = is_netlink = is_ctrl = false;
+		for (i = 0; i < fdcount; i++) {
+			if (ev[i].data.fd == fd_worker && ev[i].events & EPOLLIN)
+				is_worker = true;
+			else if (ev[i].data.fd == fd_netlink && ev[i].events & EPOLLIN)
+				is_netlink = true;
+			else if (ev[i].data.fd == fd_signal && ev[i].events & EPOLLIN)
+				is_signal = true;
+			else if (ev[i].data.fd == fd_inotify && ev[i].events & EPOLLIN)
+				is_inotify = true;
+			else if (ev[i].data.fd == fd_ctrl && ev[i].events & EPOLLIN)
+				is_ctrl = true;
+		}
 
 		/* event has finished */
-		if (pfd[FD_WORKER].revents & POLLIN)
-			worker_returned();
+		if (is_worker)
+			worker_returned(fd_worker);
 
-		/* get kernel uevent */
-		if (pfd[FD_NETLINK].revents & POLLIN) {
+		if (is_netlink) {
 			struct udev_device *dev;
 
 			dev = udev_monitor_receive_device(monitor);
@@ -1426,32 +1547,37 @@ int main(int argc, char *argv[])
 		}
 
 		/* start new events */
-		if (!udev_list_is_empty(&event_list) && !stop_exec_queue)
-			events_start(udev);
+		if (!udev_list_is_empty(&event_list) && !udev_exit && !stop_exec_queue)
+			event_queue_start(udev);
 
-		/* get signal */
-		if (pfd[FD_SIGNAL].revents & POLLIN) {
+		if (is_signal) {
 			struct signalfd_siginfo fdsi;
 			ssize_t size;
 
-			size = read(pfd[FD_SIGNAL].fd, &fdsi, sizeof(struct signalfd_siginfo));
+			size = read(fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
 			if (size == sizeof(struct signalfd_siginfo))
 				handle_signal(udev, fdsi.ssi_signo);
 		}
 
+		/* we are shutting down, the events below are not handled anymore */
+		if (udev_exit)
+			continue;
+
 		/* device node and rules directory inotify watch */
-		if (pfd[FD_INOTIFY].revents & POLLIN)
+		if (is_inotify)
 			handle_inotify(udev);
 
 		/*
-		 * get control message
-		 *
 		 * This needs to be after the inotify handling, to make sure,
-		 * that the settle signal is send back after the possibly generated
+		 * that the ping is send back after the possibly generated
 		 * "change" events by the inotify device node watch.
+		 *
+		 * A single time we may receive a client connection which we need to
+		 * keep open to block the client. It will be closed right before we
+		 * exit.
 		 */
-		if (pfd[FD_CONTROL].revents & POLLIN)
-			handle_ctrl_msg(udev_ctrl);
+		if (is_ctrl)
+			ctrl_conn = handle_ctrl_msg(udev_ctrl);
 
 		/* rules changed, set by inotify or a HUP signal */
 		if (reload_config) {
@@ -1470,16 +1596,21 @@ int main(int argc, char *argv[])
 	udev_queue_export_cleanup(udev_queue_export);
 	rc = 0;
 exit:
-	udev_queue_export_unref(udev_queue_export);
+	if (fd_ep >= 0)
+		close(fd_ep);
+	worker_list_cleanup(udev);
+	event_queue_cleanup(udev, EVENT_UNDEF);
 	udev_rules_unref(rules);
-	udev_ctrl_unref(udev_ctrl);
-	if (pfd[FD_SIGNAL].fd >= 0)
-		close(pfd[FD_SIGNAL].fd);
+	if (fd_signal >= 0)
+		close(fd_signal);
 	if (worker_watch[READ_END] >= 0)
 		close(worker_watch[READ_END]);
 	if (worker_watch[WRITE_END] >= 0)
 		close(worker_watch[WRITE_END]);
 	udev_monitor_unref(monitor);
+	udev_queue_export_unref(udev_queue_export);
+	udev_ctrl_connection_unref(ctrl_conn);
+	udev_ctrl_unref(udev_ctrl);
 	udev_selinux_exit(udev);
 	udev_unref(udev);
 	udev_log_close();

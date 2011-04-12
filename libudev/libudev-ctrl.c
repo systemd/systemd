@@ -16,6 +16,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -33,7 +34,8 @@ enum udev_ctrl_msg_type {
 	UDEV_CTRL_RELOAD_RULES,
 	UDEV_CTRL_SET_ENV,
 	UDEV_CTRL_SET_CHILDREN_MAX,
-	UDEV_CTRL_SETTLE,
+	UDEV_CTRL_PING,
+	UDEV_CTRL_EXIT,
 };
 
 struct udev_ctrl_msg_wire {
@@ -48,9 +50,8 @@ struct udev_ctrl_msg_wire {
 
 struct udev_ctrl_msg {
 	int refcount;
-	struct udev_ctrl *uctrl;
+	struct udev_ctrl_connection *conn;
 	struct udev_ctrl_msg_wire ctrl_msg_wire;
-	pid_t pid;
 };
 
 struct udev_ctrl {
@@ -59,6 +60,13 @@ struct udev_ctrl {
 	int sock;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
+	bool connected;
+};
+
+struct udev_ctrl_connection {
+	int refcount;
+	struct udev_ctrl *uctrl;
+	int sock;
 };
 
 static struct udev_ctrl *udev_ctrl_new(struct udev *udev)
@@ -81,7 +89,7 @@ struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socke
 	if (uctrl == NULL)
 		return NULL;
 
-	uctrl->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
 	if (uctrl->sock < 0) {
 		err(udev, "error getting socket: %m\n");
 		udev_ctrl_unref(uctrl);
@@ -112,18 +120,21 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
 {
 	int err;
-	const int on = 1;
 
 	if (uctrl->addrlen > 0) {
 		err = bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
 		if (err < 0) {
+			err = -errno;
 			err(uctrl->udev, "bind failed: %m\n");
 			return err;
 		}
+		err = listen(uctrl->sock, 0);
+		if (err < 0) {
+			err = -errno;
+			err(uctrl->udev, "listen failed: %m\n");
+			return err;
+		}
 	}
-
-	/* enable receiving of the sender credentials */
-	setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 	return 0;
 }
 
@@ -140,16 +151,17 @@ struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl)
 	return uctrl;
 }
 
-void udev_ctrl_unref(struct udev_ctrl *uctrl)
+struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl)
 {
 	if (uctrl == NULL)
-		return;
+		return NULL;
 	uctrl->refcount--;
 	if (uctrl->refcount > 0)
-		return;
+		return uctrl;
 	if (uctrl->sock >= 0)
 		close(uctrl->sock);
 	free(uctrl);
+	return NULL;
 }
 
 int udev_ctrl_get_fd(struct udev_ctrl *uctrl)
@@ -159,10 +171,55 @@ int udev_ctrl_get_fd(struct udev_ctrl *uctrl)
 	return uctrl->sock;
 }
 
-static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf)
+struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
+{
+	struct udev_ctrl_connection *conn;
+	const int on = 1;
+
+	conn = calloc(1, sizeof(struct udev_ctrl_connection));
+	if (conn == NULL)
+		return NULL;
+	conn->refcount = 1;
+	conn->uctrl = uctrl;
+
+	conn->sock = accept4(uctrl->sock, NULL, NULL, SOCK_CLOEXEC);
+	if (conn->sock < 0) {
+		free(conn);
+		return NULL;
+	}
+
+	/* enable receiving of the sender credentials */
+	setsockopt(conn->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+	udev_ctrl_ref(uctrl);
+	return conn;
+}
+
+struct udev_ctrl_connection *udev_ctrl_connection_ref(struct udev_ctrl_connection *conn)
+{
+	if (conn == NULL)
+		return NULL;
+	conn->refcount++;
+	return conn;
+}
+
+struct udev_ctrl_connection *udev_ctrl_connection_unref(struct udev_ctrl_connection *conn)
+{
+	if (conn == NULL)
+		return NULL;
+	conn->refcount--;
+	if (conn->refcount > 0)
+		return conn;
+	if (conn->sock >= 0)
+		close(conn->sock);
+	udev_ctrl_unref(conn->uctrl);
+	free(conn);
+	return NULL;
+}
+
+static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf, int timeout)
 {
 	struct udev_ctrl_msg_wire ctrl_msg_wire;
-	int err;
+	int err = 0;
 
 	memset(&ctrl_msg_wire, 0x00, sizeof(struct udev_ctrl_msg_wire));
 	strcpy(ctrl_msg_wire.version, "udev-" VERSION);
@@ -174,51 +231,89 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
 	else
 		ctrl_msg_wire.intval = intval;
 
-	err = sendto(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0,
-		     (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
-	if (err == -1) {
-		err(uctrl->udev, "error sending message: %m\n");
+	if (!uctrl->connected) {
+		if (connect(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen) < 0) {
+			err = -errno;
+			goto out;
+		}
+		uctrl->connected = true;
 	}
+	if (send(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0) < 0) {
+		err = -errno;
+		goto out;
+	}
+
+	/* wait for peer message handling or disconnect */
+	for (;;) {
+		struct pollfd pfd[1];
+		int r;
+
+		pfd[0].fd = uctrl->sock;
+		pfd[0].events = POLLIN;
+		r = poll(pfd, 1, timeout * 1000);
+		if (r  < 0) {
+			if (errno == EINTR)
+				continue;
+			err = -errno;
+			break;
+		}
+
+		if (r > 0 && pfd[0].revents & POLLERR) {
+			err = -EIO;
+			break;
+		}
+
+		if (r == 0)
+			err = -ETIMEDOUT;
+		break;
+	}
+out:
 	return err;
 }
 
-int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority)
+int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, int timeout)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, priority, NULL);
+	return ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, priority, NULL, timeout);
 }
 
-int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl)
+int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, int timeout)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, 0, NULL);
+	return ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, 0, NULL, timeout);
 }
 
-int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl)
+int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, int timeout)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL);
+	return ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL, timeout);
 }
 
-int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl)
+int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl, int timeout)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_RELOAD_RULES, 0, NULL);
+	return ctrl_send(uctrl, UDEV_CTRL_RELOAD_RULES, 0, NULL, timeout);
 }
 
-int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key)
+int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, int timeout)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key);
+	return ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key, timeout);
 }
 
-int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count)
+int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, int timeout)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, count, NULL);
+	return ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, count, NULL, timeout);
 }
 
-int udev_ctrl_send_settle(struct udev_ctrl *uctrl)
+int udev_ctrl_send_ping(struct udev_ctrl *uctrl, int timeout)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_SETTLE, 0, NULL);
+	return ctrl_send(uctrl, UDEV_CTRL_PING, 0, NULL, timeout);
 }
 
-struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
+int udev_ctrl_send_exit(struct udev_ctrl *uctrl, int timeout)
 {
+	return ctrl_send(uctrl, UDEV_CTRL_EXIT, 0, NULL, timeout);
+}
+
+struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
+{
+	struct udev *udev = conn->uctrl->udev;
 	struct udev_ctrl_msg *uctrl_msg;
 	ssize_t size;
 	struct msghdr smsg;
@@ -231,7 +326,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 	if (uctrl_msg == NULL)
 		return NULL;
 	uctrl_msg->refcount = 1;
-	uctrl_msg->uctrl = uctrl;
+	uctrl_msg->conn = conn;
 
 	iov.iov_base = &uctrl_msg->ctrl_msg_wire;
 	iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
@@ -242,32 +337,31 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 	smsg.msg_control = cred_msg;
 	smsg.msg_controllen = sizeof(cred_msg);
 
-	size = recvmsg(uctrl->sock, &smsg, 0);
+	size = recvmsg(conn->sock, &smsg, 0);
 	if (size <  0) {
-		err(uctrl->udev, "unable to receive user udevd message: %m\n");
+		err(udev, "unable to receive user udevd message: %m\n");
 		goto err;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);
 	cred = (struct ucred *) CMSG_DATA(cmsg);
 
 	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-		err(uctrl->udev, "no sender credentials received, message ignored\n");
+		err(udev, "no sender credentials received, message ignored\n");
 		goto err;
 	}
 
 	if (cred->uid != 0) {
-		err(uctrl->udev, "sender uid=%i, message ignored\n", cred->uid);
+		err(udev, "sender uid=%i, message ignored\n", cred->uid);
 		goto err;
 	}
-
-	uctrl_msg->pid = cred->pid;
 
 	if (uctrl_msg->ctrl_msg_wire.magic != UDEV_CTRL_MAGIC) {
-		err(uctrl->udev, "message magic 0x%08x doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
+		err(udev, "message magic 0x%08x doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
 		goto err;
 	}
 
-	dbg(uctrl->udev, "created ctrl_msg %p (%i)\n", uctrl_msg, uctrl_msg->ctrl_msg_wire.type);
+	dbg(udev, "created ctrl_msg %p (%i)\n", uctrl_msg, uctrl_msg->ctrl_msg_wire.type);
+	udev_ctrl_connection_ref(conn);
 	return uctrl_msg;
 err:
 	udev_ctrl_msg_unref(uctrl_msg);
@@ -282,15 +376,17 @@ struct udev_ctrl_msg *udev_ctrl_msg_ref(struct udev_ctrl_msg *ctrl_msg)
 	return ctrl_msg;
 }
 
-void udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg)
+struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg)
 {
 	if (ctrl_msg == NULL)
-		return;
+		return NULL;
 	ctrl_msg->refcount--;
 	if (ctrl_msg->refcount > 0)
-		return;
-	dbg(ctrl_msg->uctrl->udev, "release ctrl_msg %p\n", ctrl_msg);
+		return ctrl_msg;
+	dbg(ctrl_msg->conn->uctrl->udev, "release ctrl_msg %p\n", ctrl_msg);
+	udev_ctrl_connection_unref(ctrl_msg->conn);
 	free(ctrl_msg);
+	return NULL;
 }
 
 int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg)
@@ -335,9 +431,16 @@ int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg)
 	return -1;
 }
 
-pid_t udev_ctrl_get_settle(struct udev_ctrl_msg *ctrl_msg)
+int udev_ctrl_get_ping(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SETTLE)
-		return ctrl_msg->pid;
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_PING)
+		return 1;
+	return -1;
+}
+
+int udev_ctrl_get_exit(struct udev_ctrl_msg *ctrl_msg)
+{
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_EXIT)
+		return 1;
 	return -1;
 }

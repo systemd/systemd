@@ -1,4 +1,6 @@
-  - bind control socket in systemd
+  - use inotify() in settle
+
+  - do not write age/configured in initramfs
 
   - remove deprecated trigger --type=failed logic
 
