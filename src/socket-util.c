@@ -268,7 +268,7 @@ int socket_address_verify(const SocketAddress *a) {
                         }
                 }
 
-                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM && a->type == SOCK_SEQPACKET)
+                if (a->type != SOCK_STREAM && a->type != SOCK_DGRAM && a->type != SOCK_SEQPACKET)
                         return -EINVAL;
 
                 return 0;
