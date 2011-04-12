@@ -774,8 +774,10 @@ static int socket_open_fds(Socket *s) {
                                         return r;
 
                                 if (s->service && s->service->exec_command[SERVICE_EXEC_START])
-                                        if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0)
-                                                return r;
+                                        if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0) {
+                                                if (r != -EPERM)
+                                                        return r;
+                                        }
 
                                 know_label = true;
                         }
