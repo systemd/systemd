@@ -43,7 +43,7 @@ static bool set_loading(struct udev *udev, char *loadpath, const char *state)
 static bool copy_firmware(struct udev *udev, const char *source, const char *target, size_t size)
 {
 	char *buf;
-	FILE *fsource, *ftarget;
+	FILE *fsource = NULL, *ftarget = NULL;
 	bool ret = false;
 
 	buf = malloc(size);
@@ -112,8 +112,6 @@ int main(int argc, char **argv)
 			break;
 		case 'h':
 			printf("Usage: firmware --firmware=<fwfile> --devpath=<path> [--help]\n\n");
-		default:
-			rc = 1;
 			goto exit;
 		}
 	}

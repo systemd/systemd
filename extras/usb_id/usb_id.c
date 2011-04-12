@@ -503,8 +503,6 @@ int main(int argc, char **argv)
 			       "  --num-info  use numerical values\n"
 			       "  --export    print values as environment keys\n"
 			       "  --help      print this help text\n\n");
-		default:
-			retval = 1;
 			goto exit;
 		}
 	}

@@ -133,7 +133,6 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			       "  --subsystem-match=<subsystem[/devtype]> filter events by subsystem\n"
 			       "  --tag-match=<tag>                       filter events by tag\n"
 			       "  --help\n\n");
-		default:
 			goto out;
 		}
 	}

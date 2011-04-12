@@ -134,7 +134,7 @@ int util_unlink_secure(struct udev *udev, const char *filename)
 uid_t util_lookup_user(struct udev *udev, const char *user)
 {
 	char *endptr;
-	int buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+	size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
 	char buf[buflen];
 	struct passwd pwbuf;
 	struct passwd *pw;
@@ -159,7 +159,7 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 gid_t util_lookup_group(struct udev *udev, const char *group)
 {
 	char *endptr;
-	int buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
+	size_t buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
 	char *buf;
 	struct group grbuf;
 	struct group *gr;

@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
 	for (;;) {
 		int option;
 
-		option = getopt_long(argc, argv, "m:p:M:qh", options, NULL);
+		option = getopt_long(argc, argv, "m:p:M:h", options, NULL);
 		if (option == -1)
 			break;
 
@@ -277,8 +277,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			usage(NULL);
-		default:
-			exit(1);
 		}
 	}
 

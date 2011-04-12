@@ -388,8 +388,6 @@ int main(int argc, char **argv)
 			printf("Usage: path_id [--debug] [--help] <devpath>\n"
 			       "  --debug    print debug information\n"
 			       "  --help      print this help text\n\n");
-		default:
-			rc = 1;
 			goto exit;
 		}
 	}

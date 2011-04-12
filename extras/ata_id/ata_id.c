@@ -486,8 +486,6 @@ int main(int argc, char *argv[])
 			printf("Usage: ata_id [--export] [--help] <device>\n"
 			       "  --export    print values as environment keys\n"
 			       "  --help      print this help text\n\n");
-		default:
-			rc = 1;
 			goto exit;
 		}
 	}

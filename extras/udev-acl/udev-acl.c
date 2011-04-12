@@ -364,7 +364,6 @@ int main (int argc, char* argv[])
 			break;
 		case 'h':
 			printf("Usage: udev-acl --action=ACTION [--device=DEVICEFILE] [--user=UID]\n\n");
-		default:
 			goto out;
 		}
 	}
