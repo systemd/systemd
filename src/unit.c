@@ -1876,6 +1876,9 @@ int unit_add_default_cgroups(Unit *u) {
         /* Adds in the default cgroups, if they weren't specified
          * otherwise. */
 
+        if (!u->meta.manager->cgroup_hierarchy)
+                return 0;
+
         if ((r = unit_add_one_default_cgroup(u, NULL)) < 0)
                 return r;
 
