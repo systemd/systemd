@@ -65,7 +65,11 @@ static void mount_init(Unit *u) {
         m->directory_mode = 0755;
 
         exec_context_init(&m->exec_context);
-        m->exec_context.std_output = EXEC_OUTPUT_KMSG;
+
+        /* The stdio/kmsg bridge socket is on /, in order to avoid a
+         * dep loop, don't use kmsg logging for -.mount */
+        if (!unit_has_name(u, "-.mount"))
+                m->exec_context.std_output = EXEC_OUTPUT_KMSG;
 
         /* We need to make sure that /bin/mount is always called in
          * the same process group as us, so that the autofs kernel
