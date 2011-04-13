@@ -327,16 +327,15 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 		return NULL;
 	uctrl_msg->refcount = 1;
 	uctrl_msg->conn = conn;
+	udev_ctrl_connection_ref(conn);
 
 	iov.iov_base = &uctrl_msg->ctrl_msg_wire;
 	iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
-
 	memset(&smsg, 0x00, sizeof(struct msghdr));
 	smsg.msg_iov = &iov;
 	smsg.msg_iovlen = 1;
 	smsg.msg_control = cred_msg;
 	smsg.msg_controllen = sizeof(cred_msg);
-
 	size = recvmsg(conn->sock, &smsg, 0);
 	if (size <  0) {
 		err(udev, "unable to receive user udevd message: %m\n");
@@ -361,7 +360,6 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 	}
 
 	dbg(udev, "created ctrl_msg %p (%i)\n", uctrl_msg, uctrl_msg->ctrl_msg_wire.type);
-	udev_ctrl_connection_ref(conn);
 	return uctrl_msg;
 err:
 	udev_ctrl_msg_unref(uctrl_msg);
