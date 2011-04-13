@@ -481,7 +481,13 @@ int ask_password_agent(
                 if (passphrase[0] == '+') {
                         char **l;
 
-                        if (!(l = strv_parse_nulstr(passphrase+1, n-1))) {
+                        if (n == 1)
+                                l = strv_new("", NULL);
+                        else
+                                l = strv_parse_nulstr(passphrase+1, n-1);
+                                /* An empty message refers to the empty password */
+
+                        if (!l) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
