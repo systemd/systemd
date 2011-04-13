@@ -29,13 +29,12 @@
 #include <getopt.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/inotify.h>
+#include <sys/poll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "udev.h"
-
-#define DEFAULT_TIMEOUT			180
-#define LOOP_PER_SECOND			20
 
 static volatile sig_atomic_t is_timeout;
 
@@ -62,7 +61,8 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	unsigned long long end = 0;
 	int quiet = 0;
 	const char *exists = NULL;
-	int timeout = DEFAULT_TIMEOUT;
+	int timeout = 180;
+	struct pollfd pfd[1];
 	struct sigaction act;
 	sigset_t mask;
 	struct udev_queue *udev_queue = NULL;
@@ -174,9 +174,21 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 
+	pfd[0].events = POLLIN;
+	pfd[0].fd = inotify_init1(IN_CLOEXEC);
+	if (pfd[0].fd < 0) {
+		err(udev, "inotify_init failed: %m\n");
+	} else {
+		if (inotify_add_watch(pfd[0].fd, udev_get_run_path(udev), IN_CLOSE_WRITE) < 0) {
+			err(udev, "watching '%s' failed\n", udev_get_run_path(udev));
+			close(pfd[0].fd);
+			pfd[0].fd = -1;
+		}
+	}
+
 	for (;;) {
 		struct stat statbuf;
-		const struct timespec duration = { 0 , 1000 * 1000 * 1000 / LOOP_PER_SECOND };
+		const struct timespec duration = { 1 , 0 };
 
 		if (exists != NULL && stat(exists, &statbuf) == 0) {
 			rc = 0;
@@ -200,7 +212,16 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		if (is_timeout)
 			break;
 
-		nanosleep(&duration, NULL);
+		if (pfd[0].fd >= 0) {
+			/* wake up once every second, or whenever the queue file gets gets closed */
+			if (poll(pfd, 1, 1000) > 0 && pfd[0].revents & POLLIN) {
+				char buf[sizeof(struct inotify_event) + PATH_MAX];
+
+				read(pfd[0].fd, buf, sizeof(buf));
+			}
+		} else {
+			nanosleep(&duration, NULL);
+		}
 	}
 
 	/* if we reached the timeout, print the list of remaining events */
@@ -217,6 +238,8 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 out:
+	if (pfd[0].fd >= 0)
+		close(pfd[0].fd);
 	udev_queue_unref(udev_queue);
 	return rc;
 }
