@@ -19,7 +19,7 @@ WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth quit
 ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" or ^D to activate default mode.'
 ExecStart=-/sbin/sulogin
-ExecStopPost=/bin/systemctl --fail default
+ExecStopPost=/bin/systemctl --fail --no-block default
 StandardInput=tty-force
 KillMode=process
 
