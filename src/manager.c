@@ -1167,13 +1167,13 @@ static void transaction_minimize_impact(Manager *m) {
                                         continue;
 
                                 if (stops_running_service)
-                                        log_info("%s/%s would stop a running service.", j->unit->meta.id, job_type_to_string(j->type));
+                                        log_debug("%s/%s would stop a running service.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 if (changes_existing_job)
-                                        log_info("%s/%s would change existing job.", j->unit->meta.id, job_type_to_string(j->type));
+                                        log_debug("%s/%s would change existing job.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 /* Ok, let's get rid of this */
-                                log_info("Deleting %s/%s to minimize impact.", j->unit->meta.id, job_type_to_string(j->type));
+                                log_debug("Deleting %s/%s to minimize impact.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 transaction_delete_job(m, j, true);
                                 again = true;
