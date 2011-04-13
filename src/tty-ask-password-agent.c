@@ -291,6 +291,13 @@ static int parse_password(const char *filename, char **wall) {
                 }
         }
 
+        if (pid > 0 &&
+            kill(pid, 0) < 0 &&
+            errno == ESRCH) {
+                r = 0;
+                goto finish;
+        }
+
         if (arg_action == ACTION_LIST)
                 printf("'%s' (PID %u)\n", message, pid);
         else if (arg_action == ACTION_WALL) {
