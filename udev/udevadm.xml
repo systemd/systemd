@@ -150,6 +150,12 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--cleanup-db</option></term>
+          <listitem>
+            <para>Cleanup the udev database.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>--version</option></term>
           <listitem>
             <para>Print version.</para>

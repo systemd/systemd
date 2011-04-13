@@ -109,6 +109,8 @@ int udev_device_set_watch_handle(struct udev_device *udev_device, int handle);
 int udev_device_get_ifindex(struct udev_device *udev_device);
 int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex);
 void udev_device_set_info_loaded(struct udev_device *device);
+bool udev_device_get_db_persist(struct udev_device *udev_device);
+void udev_device_set_db_persist(struct udev_device *udev_device);
 
 /* libudev-device-private.c */
 int udev_device_update_db(struct udev_device *udev_device);

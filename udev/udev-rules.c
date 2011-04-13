@@ -150,6 +150,7 @@ enum token_type {
 
 	TK_A_STRING_ESCAPE_NONE,
 	TK_A_STRING_ESCAPE_REPLACE,
+	TK_A_DB_PERSIST,
 	TK_A_INOTIFY_WATCH,		/* int */
 	TK_A_DEVLINK_PRIO,		/* int */
 	TK_A_OWNER,			/* val */
@@ -284,6 +285,7 @@ static const char *token_str(enum token_type type)
 
 		[TK_A_STRING_ESCAPE_NONE] =	"A STRING_ESCAPE_NONE",
 		[TK_A_STRING_ESCAPE_REPLACE] =	"A STRING_ESCAPE_REPLACE",
+		[TK_A_DB_PERSIST] =		"A DB_PERSIST",
 		[TK_A_INOTIFY_WATCH] = 		"A INOTIFY_WATCH",
 		[TK_A_DEVLINK_PRIO] =		"A DEVLINK_PRIO",
 		[TK_A_OWNER] =			"A OWNER",
@@ -370,6 +372,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		break;
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
+	case TK_A_DB_PERSIST:
 		dbg(rules->udev, "%s\n", token_str(type));
 		break;
 	case TK_M_TEST:
@@ -1045,6 +1048,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		break;
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
+	case TK_A_DB_PERSIST:
 		break;
 	case TK_A_RUN:
 		token->key.value_off = add_string(rule_tmp->rules, value);
@@ -1572,6 +1576,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				rule_add_key(&rule_tmp, TK_A_DEVLINK_PRIO, op, NULL, &prio);
 				dbg(rules->udev, "link priority=%i\n", prio);
 			}
+
 			pos = strstr(value, "event_timeout=");
 			if (pos != NULL) {
 				int tout = atoi(&pos[strlen("event_timeout=")]);
@@ -1579,6 +1584,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				rule_add_key(&rule_tmp, TK_A_EVENT_TIMEOUT, op, NULL, &tout);
 				dbg(rules->udev, "event timeout=%i\n", tout);
 			}
+
 			pos = strstr(value, "string_escape=");
 			if (pos != NULL) {
 				pos = &pos[strlen("string_escape=")];
@@ -1587,6 +1593,11 @@ static int add_rule(struct udev_rules *rules, char *line,
 				else if (strncmp(pos, "replace", strlen("replace")) == 0)
 					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_REPLACE, op, NULL, NULL);
 			}
+
+			pos = strstr(value, "db_persist=");
+			if (pos != NULL)
+				rule_add_key(&rule_tmp, TK_A_DB_PERSIST, op, NULL, NULL);
+
 			pos = strstr(value, "nowatch");
 			if (pos != NULL) {
 				const int off = 0;
@@ -1602,11 +1613,13 @@ static int add_rule(struct udev_rules *rules, char *line,
 					dbg(rules->udev, "inotify watch of device requested\n");
 				}
 			}
+
 			pos = strstr(value, "static_node=");
 			if (pos != NULL) {
 				rule_add_key(&rule_tmp, TK_A_STATIC_NODE, op, &pos[strlen("static_node=")], NULL);
 				rule_tmp.rule.rule.has_static_node = true;
 			}
+
 			continue;
 		}
 		err(rules->udev, "unknown key '%s' in %s:%u\n", key, filename, lineno);
@@ -2332,6 +2345,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				const char *key = &rules->buf[cur->key.value_off];
 				const char *value;
 
+				/* implicitely mark database as persistent across initramfs transition */
+				udev_device_set_db_persist(event->dev);
+
 				value = udev_device_get_property_value(event->dev_db, key);
 				if (value != NULL) {
 					struct udev_list_entry *entry;
@@ -2406,6 +2422,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			break;
 		case TK_A_STRING_ESCAPE_REPLACE:
 			esc = ESCAPE_REPLACE;
+			break;
+		case TK_A_DB_PERSIST:
+			udev_device_set_db_persist(event->dev);
 			break;
 		case TK_A_INOTIFY_WATCH:
 			if (event->inotify_watch_final)

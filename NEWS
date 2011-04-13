@@ -2,6 +2,12 @@ udev 168
 ========
 Bugfixes.
 
+warning if /run is not writable.
+
+udevadm control --exit
+
+udevadm info --cleanup-db
+
 udev 167
 ========
 Bugfixes.

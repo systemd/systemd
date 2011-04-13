@@ -134,6 +134,13 @@ int udev_device_update_db(struct udev_device *udev_device)
 		return -1;
 	}
 
+	/*
+	 * set 'sticky' bit to indicate that we should not clean the
+	 * database when we transition from initramfs to the real root
+	 */
+	if (udev_device_get_db_persist(udev_device))
+		fchmod(fileno(f), 01644);
+
 	if (has_info) {
 		size_t devlen = strlen(udev_get_dev_path(udev))+1;
 		struct udev_list_entry *list_entry;

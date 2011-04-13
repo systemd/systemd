@@ -1,5 +1,3 @@
-  - do not write age/configured in initramfs
-
   - remove deprecated trigger --type=failed logic
 
   - remove deprecated BUS=, SYSFS{}=, ID= keys

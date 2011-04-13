@@ -200,6 +200,81 @@ static int export_devices(struct udev *udev)
 	return 0;
 }
 
+static void cleanup_dir(DIR *dir, mode_t mask, int depth)
+{
+	struct dirent *dent;
+
+	if (depth <= 0)
+		return;
+
+	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+		struct stat stats;
+
+		if (dent->d_name[0] == '.')
+			continue;
+		if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) != 0)
+			continue;
+		if ((stats.st_mode & mask) != 0)
+			continue;
+		if (S_ISDIR(stats.st_mode)) {
+			DIR *dir2;
+
+			dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
+			if (dir2 != NULL) {
+				cleanup_dir(dir2, mask, depth-1);
+				closedir(dir2);
+			}
+			unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
+		} else {
+			unlinkat(dirfd(dir), dent->d_name, 0);
+		}
+	}
+}
+
+static void cleanup_db(struct udev *udev)
+{
+	char filename[UTIL_PATH_SIZE];
+	DIR *dir;
+
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/queue.bin", NULL);
+	unlink(filename);
+
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/data", NULL);
+	dir = opendir(filename);
+	if (dir != NULL) {
+		cleanup_dir(dir, S_ISVTX, 1);
+		closedir(dir);
+	}
+
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/links", NULL);
+	dir = opendir(filename);
+	if (dir != NULL) {
+		cleanup_dir(dir, 0, 2);
+		closedir(dir);
+	}
+
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/tags", NULL);
+	dir = opendir(filename);
+	if (dir != NULL) {
+		cleanup_dir(dir, 0, 2);
+		closedir(dir);
+	}
+
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/watch", NULL);
+	dir = opendir(filename);
+	if (dir != NULL) {
+		cleanup_dir(dir, 0, 1);
+		closedir(dir);
+	}
+
+	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/firmware-missing", NULL);
+	dir = opendir(filename);
+	if (dir != NULL) {
+		cleanup_dir(dir, 0, 1);
+		closedir(dir);
+	}
+}
+
 int udevadm_info(struct udev *udev, int argc, char *argv[])
 {
 	struct udev_device *device = NULL;
@@ -216,6 +291,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		{ "path", required_argument, NULL, 'p' },
 		{ "query", required_argument, NULL, 'q' },
 		{ "attribute-walk", no_argument, NULL, 'a' },
+		{ "cleanup-db", no_argument, NULL, 'c' },
 		{ "export-db", no_argument, NULL, 'e' },
 		{ "root", no_argument, NULL, 'r' },
 		{ "run", no_argument, NULL, 'R' },
@@ -248,7 +324,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		int option;
 		struct stat statbuf;
 
-		option = getopt_long(argc, argv, "aed:n:p:q:rxP:RVh", options, NULL);
+		option = getopt_long(argc, argv, "aced:n:p:q:rxP:RVh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -345,6 +421,9 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		case 'e':
 			export_devices(udev);
 			goto exit;
+		case 'c':
+			cleanup_db(udev);
+			goto exit;
 		case 'x':
 			export = true;
 			break;
@@ -371,6 +450,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			       "  --export                   export key/value pairs\n"
 			       "  --export-prefix            export the key name with a prefix\n"
 			       "  --export-db                export the content of the udev database\n"
+			       "  --cleanup-db               cleanup the udev database\n"
 			       "  --help\n\n");
 			goto exit;
 		default:

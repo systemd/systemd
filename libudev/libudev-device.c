@@ -89,6 +89,7 @@ struct udev_device {
 	bool uevent_loaded;
 	bool is_initialized;
 	bool sysattr_list_read;
+	bool db_persist;
 };
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
@@ -1773,4 +1774,14 @@ int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
 	snprintf(num, sizeof(num), "%u", ifindex);
 	udev_device_add_property(udev_device, "IFINDEX", num);
 	return 0;
+}
+
+bool udev_device_get_db_persist(struct udev_device *udev_device)
+{
+	return udev_device->db_persist;
+}
+
+void udev_device_set_db_persist(struct udev_device *udev_device)
+{
+	udev_device->db_persist = true;
 }
