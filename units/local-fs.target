@@ -9,5 +9,5 @@
 
 [Unit]
 Description=Local File Systems
-OnFailure=emergency.service
+OnFailure=emergency.target
 OnFailureIsolate=yes
