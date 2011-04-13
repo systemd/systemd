@@ -8,7 +8,7 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Stream Logging Socket
+Description=Stdio Syslog Bridge Socket
 DefaultDependencies=no
 Before=sockets.target
 
