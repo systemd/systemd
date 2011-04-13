@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 truncate_nl(packet+1);
-                length = strlen(packet+1) + 1;
+                length = 1 + strlen(packet+1) + 1;
         } else if (streq(argv[1], "0")) {
                 packet[0] = '-';
                 length = 1;
