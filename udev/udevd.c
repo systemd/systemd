@@ -1153,6 +1153,8 @@ int main(int argc, char *argv[])
 			if (udev_set_run_path(udev, filename) == NULL)
 				goto exit;
 			mkdir(udev_get_run_path(udev), 0755);
+			err(udev, "error: runtime directory '%s' not writable, for now falling back to '%s'",
+			    udev_get_run_config_path(udev), udev_get_run_path(udev));
 		}
 	}
 	/* relabel runtime dir only if it resides below /dev */
