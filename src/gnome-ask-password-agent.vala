@@ -165,7 +165,7 @@ public class MyStatusIcon : StatusIcon {
                         if (not_after_as_string.scanf("%llu", out not_after) != 1)
                                 return false;
 
-                        if (not_after < now)
+                        if (not_after > 0 && not_after < now)
                                 return false;
 
                         socket = key_file.get_string("Ask", "Socket");

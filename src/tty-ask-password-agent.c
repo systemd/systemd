@@ -261,7 +261,6 @@ static int parse_password(const char *filename, char **wall) {
 
         FILE *f;
         int r;
-        usec_t n;
 
         assert(filename);
 
@@ -279,16 +278,17 @@ static int parse_password(const char *filename, char **wall) {
                 goto finish;
         }
 
-        if (!socket_name || not_after <= 0) {
+        if (!socket_name) {
                 log_error("Invalid password file %s", filename);
                 r = -EBADMSG;
                 goto finish;
         }
 
-        n = now(CLOCK_MONOTONIC);
-        if (n > not_after) {
-                r = 0;
-                goto finish;
+        if (not_after > 0) {
+                if (now(CLOCK_MONOTONIC) > not_after) {
+                        r = 0;
+                        goto finish;
+                }
         }
 
         if (arg_action == ACTION_LIST)
