@@ -1594,7 +1594,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_REPLACE, op, NULL, NULL);
 			}
 
-			pos = strstr(value, "db_persist=");
+			pos = strstr(value, "db_persist");
 			if (pos != NULL)
 				rule_add_key(&rule_tmp, TK_A_DB_PERSIST, op, NULL, NULL);
 
