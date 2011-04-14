@@ -199,6 +199,7 @@ static int get_file_options(struct udev *udev,
 	 */
 	buffer = malloc(MAX_BUFFER_LEN);
 	if (!buffer) {
+		fclose(fd);
 		err(udev, "can't allocate memory\n");
 		return -1;
 	}

@@ -141,13 +141,13 @@ static int sg_err_category_new(struct udev *udev,
 		}
 		return SG_ERR_CAT_SENSE;
 	}
-	if (!host_status) {
+	if (host_status) {
 		if ((host_status == DID_NO_CONNECT) ||
 		    (host_status == DID_BUS_BUSY) ||
 		    (host_status == DID_TIME_OUT))
 			return SG_ERR_CAT_TIMEOUT;
 	}
-	if (!driver_status) {
+	if (driver_status) {
 		if (driver_status == DRIVER_TIMEOUT)
 			return SG_ERR_CAT_TIMEOUT;
 	}
@@ -322,8 +322,10 @@ static int scsi_inquiry(struct udev *udev,
 		{ INQUIRY_CMD, evpd, page, 0, buflen, 0 };
 	unsigned char sense[SENSE_BUFF_LEN];
 	void *io_buf;
-	int retval;
+	struct sg_io_v4 io_v4;
+	struct sg_io_hdr io_hdr;
 	int retry = 3; /* rather random */
+	int retval;
 
 	if (buflen > SCSI_INQ_BUFF_LEN) {
 		info(udev, "buflen %d too long\n", buflen);
@@ -334,8 +336,6 @@ resend:
 	dbg(udev, "%s evpd %d, page 0x%x\n", dev_scsi->kernel, evpd, page);
 
 	if (dev_scsi->use_sg == 4) {
-		struct sg_io_v4 io_v4;
-
 		memset(&io_v4, 0, sizeof(struct sg_io_v4));
 		io_v4.guard = 'Q';
 		io_v4.protocol = BSG_PROTOCOL_SCSI;
@@ -348,8 +348,6 @@ resend:
 		io_v4.din_xferp = (uintptr_t)buf;
 		io_buf = (void *)&io_v4;
 	} else {
-		struct sg_io_hdr io_hdr;
-
 		memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
 		io_hdr.interface_id = 'S';
 		io_hdr.cmd_len = sizeof(inq_cmd);

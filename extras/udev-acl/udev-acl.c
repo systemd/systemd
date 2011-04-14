@@ -258,11 +258,6 @@ static int consolekit_called(const char *ck_action, uid_t *uid, uid_t *uid2, con
 			u = u2;
 		}
 		break;
-	case ACTION_NONE:
-		break;
-	default:
-		g_assert_not_reached();
-		break;
 	}
 
 	*remove_session_id = old_session;

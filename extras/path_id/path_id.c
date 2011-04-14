@@ -137,15 +137,13 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
 
 	/* find iscsi session */
 	transportdev = parent;
-	while (1) {
+	for (;;) {
 		transportdev = udev_device_get_parent(transportdev);
 		if (transportdev == NULL)
 			return NULL;
 		if (strncmp(udev_device_get_sysname(transportdev), "session", 7) == 0)
 			break;
 	}
-	if (transportdev == NULL)
-		return NULL;
 
 	/* find iscsi session device */
 	sessiondev = udev_device_new_from_subsystem_sysname(udev, "iscsi_session", udev_device_get_sysname(transportdev));

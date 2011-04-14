@@ -8,6 +8,9 @@ udevadm control --exit
 
 udevadm info --cleanup-db
 
+systemd netlink socket activation
+requires systemd 25
+
 udev 167
 ========
 Bugfixes.

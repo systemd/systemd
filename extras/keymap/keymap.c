@@ -192,8 +192,7 @@ static int merge_table(int fd, const char *filename) {
 	f = fopen(filename, "r");
 	if (!f) {
 		perror(filename);
-		r = -1;
-		goto fail;
+		return -1;
 	}
 
 	while (!feof(f)) {
@@ -243,6 +242,7 @@ static int merge_table(int fd, const char *filename) {
 				scancode, new_keycode, old_keycode);
 	}
 fail:
+	fclose(f);
 	return r;
 }
 
