@@ -1,5 +1,5 @@
 [Unit]
-Description=udev Kernel Device Manager Socket
+Description=udev Kernel Device Manager Sockets
 DefaultDependencies=no
 
 [Socket]
