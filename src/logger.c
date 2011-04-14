@@ -37,10 +37,11 @@
 #include "list.h"
 #include "sd-daemon.h"
 #include "tcpwrap.h"
+#include "def.h"
 
 #define STREAMS_MAX 4096
 #define SERVER_FD_MAX 16
-#define TIMEOUT ((int) (5*60*MSEC_PER_SEC))
+#define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))
 
 typedef struct Stream Stream;
 
@@ -661,7 +662,7 @@ int main(int argc, char *argv[]) {
 
                 if ((k = epoll_wait(server.epoll_fd,
                                     &event, 1,
-                                    server.n_streams <= 0 ? TIMEOUT : -1)) < 0) {
+                                    server.n_streams <= 0 ? TIMEOUT_MSEC : -1)) < 0) {
 
                         if (errno == EINTR)
                                 continue;

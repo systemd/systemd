@@ -42,9 +42,10 @@
 #include "special.h"
 #include "sd-daemon.h"
 #include "dbus-common.h"
+#include "def.h"
 
 #define SERVER_FD_MAX 16
-#define TIMEOUT ((int) (10*MSEC_PER_SEC))
+#define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))
 
 typedef struct Fifo Fifo;
 
@@ -388,7 +389,7 @@ int main(int argc, char *argv[]) {
 
                 if ((k = epoll_wait(server.epoll_fd,
                                     &event, 1,
-                                    TIMEOUT)) < 0) {
+                                    TIMEOUT_MSEC)) < 0) {
 
                         if (errno == EINTR)
                                 continue;
