@@ -8,4 +8,5 @@ DefaultDependencies=no
 [Service]
 Type=notify
 OOMScoreAdjust=-1000
+Restart=on-failure
 ExecStart=@sbindir@/udevd

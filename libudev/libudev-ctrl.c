@@ -60,6 +60,7 @@ struct udev_ctrl {
 	int sock;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
+	bool bound;
 	bool connected;
 };
 
@@ -81,7 +82,7 @@ static struct udev_ctrl *udev_ctrl_new(struct udev *udev)
 	return uctrl;
 }
 
-struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path)
+struct udev_ctrl *udev_ctrl_new_from_socket_fd(struct udev *udev, const char *socket_path, int fd)
 {
 	struct udev_ctrl *uctrl;
 
@@ -89,11 +90,16 @@ struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socke
 	if (uctrl == NULL)
 		return NULL;
 
-	uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
-	if (uctrl->sock < 0) {
-		err(udev, "error getting socket: %m\n");
-		udev_ctrl_unref(uctrl);
-		return NULL;
+	if (fd < 0) {
+		uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+		if (uctrl->sock < 0) {
+			err(udev, "error getting socket: %m\n");
+			udev_ctrl_unref(uctrl);
+			return NULL;
+		}
+	} else {
+		uctrl->bound = true;
+		uctrl->sock = fd;
 	}
 
 	uctrl->saddr.sun_family = AF_LOCAL;
@@ -105,35 +111,31 @@ struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socke
 	return uctrl;
 }
 
-struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
+struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path)
 {
-	struct udev_ctrl *uctrl;
-
-	uctrl = udev_ctrl_new(udev);
-	if (uctrl == NULL)
-		return NULL;
-	uctrl->sock = fd;
-
-	return uctrl;
+	return udev_ctrl_new_from_socket_fd(udev, socket_path, -1);
 }
 
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
 {
 	int err;
 
-	if (uctrl->addrlen > 0) {
+	if (!uctrl->bound) {
 		err = bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
 		if (err < 0) {
 			err = -errno;
 			err(uctrl->udev, "bind failed: %m\n");
 			return err;
 		}
+
 		err = listen(uctrl->sock, 0);
 		if (err < 0) {
 			err = -errno;
 			err(uctrl->udev, "listen failed: %m\n");
 			return err;
 		}
+
+		uctrl->bound = true;
 	}
 	return 0;
 }

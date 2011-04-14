@@ -4,3 +4,4 @@ DefaultDependencies=no
 
 [Socket]
 ListenSequentialPacket=@/org/kernel/udev/udevd
+ListenNetlink=kobject-uevent 1

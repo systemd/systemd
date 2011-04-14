@@ -50,6 +50,7 @@ struct udev_monitor {
 	socklen_t addrlen;
 	struct udev_list_node filter_subsystem_list;
 	struct udev_list_node filter_tag_list;
+	bool bound;
 };
 
 enum udev_monitor_netlink_group {
@@ -155,6 +156,50 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	return udev_monitor;
 }
 
+struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd)
+{
+	struct udev_monitor *udev_monitor;
+	unsigned int group;
+
+	if (udev == NULL)
+		return NULL;
+
+	if (name == NULL)
+		group = UDEV_MONITOR_NONE;
+	else if (strcmp(name, "udev") == 0)
+		group = UDEV_MONITOR_UDEV;
+	else if (strcmp(name, "kernel") == 0)
+		group = UDEV_MONITOR_KERNEL;
+	else
+		return NULL;
+
+	udev_monitor = udev_monitor_new(udev);
+	if (udev_monitor == NULL)
+		return NULL;
+
+	if (fd < 0) {
+		udev_monitor->sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC, NETLINK_KOBJECT_UEVENT);
+		if (udev_monitor->sock == -1) {
+			err(udev, "error getting socket: %m\n");
+			free(udev_monitor);
+			return NULL;
+		}
+	} else {
+		udev_monitor->bound = true;
+		udev_monitor->sock = fd;
+	}
+
+	udev_monitor->snl.nl_family = AF_NETLINK;
+	udev_monitor->snl.nl_groups = group;
+
+	/* default destination for sending */
+	udev_monitor->snl_destination.nl_family = AF_NETLINK;
+	udev_monitor->snl_destination.nl_groups = UDEV_MONITOR_UDEV;
+
+	dbg(udev, "monitor %p created with NETLINK_KOBJECT_UEVENT (%u)\n", udev_monitor, group);
+	return udev_monitor;
+}
+
 /**
  * udev_monitor_new_from_netlink:
  * @udev: udev library context
@@ -182,41 +227,7 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
  **/
 struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name)
 {
-	struct udev_monitor *udev_monitor;
-	unsigned int group;
-
-	if (udev == NULL)
-		return NULL;
-
-	if (name == NULL)
-		group = UDEV_MONITOR_NONE;
-	else if (strcmp(name, "udev") == 0)
-		group = UDEV_MONITOR_UDEV;
-	else if (strcmp(name, "kernel") == 0)
-		group = UDEV_MONITOR_KERNEL;
-	else
-		return NULL;
-
-	udev_monitor = udev_monitor_new(udev);
-	if (udev_monitor == NULL)
-		return NULL;
-
-	udev_monitor->sock = socket(PF_NETLINK, SOCK_DGRAM|SOCK_CLOEXEC, NETLINK_KOBJECT_UEVENT);
-	if (udev_monitor->sock == -1) {
-		err(udev, "error getting socket: %m\n");
-		free(udev_monitor);
-		return NULL;
-	}
-
-	udev_monitor->snl.nl_family = AF_NETLINK;
-	udev_monitor->snl.nl_groups = group;
-
-	/* default destination for sending */
-	udev_monitor->snl_destination.nl_family = AF_NETLINK;
-	udev_monitor->snl_destination.nl_groups = UDEV_MONITOR_UDEV;
-
-	dbg(udev, "monitor %p created with NETLINK_KOBJECT_UEVENT (%u)\n", udev_monitor, group);
-	return udev_monitor;
+	return udev_monitor_new_from_netlink_fd(udev, name, -1);
 }
 
 static inline void bpf_stmt(struct sock_filter *inss, unsigned int *i,
@@ -364,16 +375,24 @@ int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct 
  */
 int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 {
-	int err;
+	int err = 0;
 	const int on = 1;
 
 	if (udev_monitor->sun.sun_family != 0) {
-		err = bind(udev_monitor->sock,
-			   (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
+		if (!udev_monitor->bound) {
+			err = bind(udev_monitor->sock,
+				   (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
+			if (err == 0)
+				udev_monitor->bound = true;
+		}
 	} else if (udev_monitor->snl.nl_family != 0) {
 		udev_monitor_filter_update(udev_monitor);
-		err = bind(udev_monitor->sock,
-			   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
+		if (!udev_monitor->bound) {
+			err = bind(udev_monitor->sock,
+				   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
+			if (err == 0)
+				udev_monitor->bound = true;
+		}
 		if (err == 0) {
 			struct sockaddr_nl snl;
 			socklen_t addrlen;

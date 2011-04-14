@@ -122,11 +122,12 @@ int udev_monitor_disconnect(struct udev_monitor *udev_monitor);
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender);
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 			     struct udev_monitor *destination, struct udev_device *udev_device);
+struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd);
 
 /* libudev-ctrl.c - daemon runtime setup */
 struct udev_ctrl;
 struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
-struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd);
+struct udev_ctrl *udev_ctrl_new_from_socket_fd(struct udev *udev, const char *socket_path, int fd);
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl);
