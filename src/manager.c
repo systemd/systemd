@@ -1187,12 +1187,26 @@ static void transaction_minimize_impact(Manager *m) {
         } while (again);
 }
 
-static int transaction_apply(Manager *m) {
+static int transaction_apply(Manager *m, JobMode mode) {
         Iterator i;
         Job *j;
         int r;
 
         /* Moves the transaction jobs to the set of active jobs */
+
+        if (mode == JOB_ISOLATE) {
+
+                /* When isolating first kill all installed jobs which
+                 * aren't part of the new transaction */
+                HASHMAP_FOREACH(j, m->jobs, i) {
+                        assert(j->installed);
+
+                        if (hashmap_get(m->transaction_jobs, j->unit))
+                                continue;
+
+                        job_finish_and_invalidate(j, JOB_CANCELED);
+                }
+        }
 
         HASHMAP_FOREACH(j, m->transaction_jobs, i) {
                 /* Assume merged */
@@ -1322,7 +1336,7 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
                 }
 
         /* Tenth step: apply changes */
-        if ((r = transaction_apply(m)) < 0) {
+        if ((r = transaction_apply(m, mode)) < 0) {
                 log_warning("Failed to apply transaction: %s", strerror(-r));
                 goto rollback;
         }
