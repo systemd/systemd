@@ -2345,9 +2345,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				const char *key = &rules->buf[cur->key.value_off];
 				const char *value;
 
-				/* implicitely mark database as persistent across initramfs transition */
-				udev_device_set_db_persist(event->dev);
-
 				value = udev_device_get_property_value(event->dev_db, key);
 				if (value != NULL) {
 					struct udev_list_entry *entry;
