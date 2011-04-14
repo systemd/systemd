@@ -40,11 +40,12 @@
 #include "util.h"
 #include "strv.h"
 #include "ask-password-api.h"
+#include "def.h"
 
 static const char *arg_icon = NULL;
 static const char *arg_message = NULL;
 static bool arg_use_tty = true;
-static usec_t arg_timeout = 60 * USEC_PER_SEC;
+static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_accept_cached = false;
 static bool arg_multiple = false;
 
