@@ -12,3 +12,8 @@
 
 [Unit]
 Description=Syslog
+
+# Avoid that we conflict with shutdown.target, so that we can stay
+# until the very end and do not cancel shutdown.target if we should
+# hapen to be activated very late.
+DefaultDependencies=no
