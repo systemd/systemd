@@ -90,6 +90,8 @@ static void swap_unset_proc_swaps(Swap *s) {
         s->timer_watch.type = WATCH_INVALID;
 
         s->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
+
+        s->meta.ignore_on_isolate = true;
 }
 
 static void swap_unwatch_control_pid(Swap *s) {
@@ -1339,7 +1341,6 @@ const UnitVTable swap_vtable = {
 
         .no_alias = true,
         .no_instances = true,
-        .no_isolate = true,
         .show_status = true,
 
         .init = swap_init,

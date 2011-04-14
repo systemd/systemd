@@ -80,6 +80,8 @@ static void mount_init(Unit *u) {
         m->timer_watch.type = WATCH_INVALID;
 
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
+
+        m->meta.ignore_on_isolate = true;
 }
 
 static void mount_unwatch_control_pid(Mount *m) {
@@ -1763,7 +1765,6 @@ const UnitVTable mount_vtable = {
 
         .no_alias = true,
         .no_instances = true,
-        .no_isolate = true,
         .show_status = true,
 
         .init = mount_init,

@@ -58,6 +58,8 @@ static void automount_init(Unit *u) {
         a->pipe_watch.type = WATCH_INVALID;
 
         a->directory_mode = 0755;
+
+        a->meta.ignore_on_isolate = true;
 }
 
 static void repeat_unmout(const char *path) {

@@ -70,6 +70,8 @@ static void device_init(Unit *u) {
          * happen for the other units since their operations time out
          * anyway. */
         d->meta.job_timeout = DEFAULT_TIMEOUT_USEC;
+
+        d->meta.ignore_on_isolate = true;
 }
 
 static void device_done(Unit *u) {
@@ -583,7 +585,6 @@ const UnitVTable device_vtable = {
 
         .no_instances = true,
         .no_snapshots = true,
-        .no_isolate = true,
 
         .init = device_init,
 

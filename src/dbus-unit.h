@@ -93,15 +93,18 @@
         "  <property name=\"ActiveExitTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"InactiveEnterTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"InactiveEnterTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"CanStart\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"CanStop\" type=\"b\" access=\"read\"/>\n"   \
+        "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"CanIsolate\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>\n"    \
         "  <property name=\"StopWhenUnneeded\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RefuseManualStart\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RefuseManualStop\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"AllowIsolate\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultDependencies\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"OnFailureIsolate\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"IgnoreOnIsolate\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroup\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NeedDaemonReload\" type=\"b\" access=\"read\"/>\n" \
@@ -158,6 +161,7 @@
         { "org.freedesktop.systemd1.Unit", "AllowIsolate",         bus_property_append_bool,       "b",    &u->meta.allow_isolate            }, \
         { "org.freedesktop.systemd1.Unit", "DefaultDependencies",  bus_property_append_bool,       "b",    &u->meta.default_dependencies     }, \
         { "org.freedesktop.systemd1.Unit", "OnFailureIsolate",     bus_property_append_bool,       "b",    &u->meta.on_failure_isolate       }, \
+        { "org.freedesktop.systemd1.Unit", "IgnoreOnIsolate",      bus_property_append_bool,       "b",    &u->meta.ignore_on_isolate        }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "ControlGroup",         bus_unit_append_cgroups,        "as",   u                                 }, \
         { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }, \

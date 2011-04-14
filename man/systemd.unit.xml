@@ -461,6 +461,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>IgnoreOnIsolate=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                this unit will not be stopped when
+                                isolating another unit. Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>StopWhenUnneeded=</varname></term>
 
                                 <listitem><para>Takes a boolean

@@ -1619,7 +1619,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                 if (u->meta.id != k)
                         continue;
 
-                if (UNIT_VTABLE(u)->no_isolate)
+                if (u->meta.ignore_on_isolate)
                         continue;
 
                 /* No need to stop inactive jobs */
