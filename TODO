@@ -22,10 +22,18 @@ F15:
 * be nice to ingo
 
 * get writev() /dev/kmsg support into the F15 kernel
+    https://lkml.org/lkml/2011/4/6/473
+  patched merged into -mm
 
 * fix sd_is_socket() invocation in dbus
 
 Features:
+
+* make sure multiple sockets in a .socket file appear in the order they are listed
+  currently we get:
+    [Socket]
+    ListenSequentialPacket=@/org/kernel/udev/udevd    --> 4
+    ListenNetlink=kobject-uevent 1                    --> 3
 
 * fix alsa mixer restore to not print error when no config is stored
 
@@ -65,16 +73,16 @@ Features:
 
 * Find a way to replace /var/run, /var/lock directories with
   symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
+  (lua code to create symlinks right away for new installations is in filesytem.rpm now)
   We soon want to get rid of var-run.mount var-lock.mount units:
-
-  if mountpoint /run ; then
-        umount /var/run || :
-  else
-        mount --move /var/run /run || mount --bind /var/run /run
-  fi
-  mv /var/run /var/.run.save
-  ln -s /run /var/run
-  echo "R /var/.run.save" > /etc/tmpfiles.d/remove-run-save.conf
+    if mountpoint /run ; then
+          umount /var/run || :
+    else
+          mount --move /var/run /run || mount --bind /var/run /run
+    fi
+    mv /var/run /var/.run.save
+    ln -s /run /var/run
+    echo "R /var/.run.save" > /etc/tmpfiles.d/remove-run-save.conf
 
 * when key file cannot be found, read it from kbd in cryptsetup
 
