@@ -1102,7 +1102,6 @@ static int convert_db(struct udev *udev)
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
-	int fd;
 	FILE *f;
 	sigset_t mask;
 	int daemonize = false;
@@ -1261,15 +1260,22 @@ int main(int argc, char *argv[])
 	static_dev_create_from_modules(udev);
 
 	/* before opening new files, make sure std{in,out,err} fds are in a sane state */
-	fd = open("/dev/null", O_RDWR);
-	if (fd < 0) {
-		fprintf(stderr, "cannot open /dev/null\n");
-		err(udev, "cannot open /dev/null\n");
+	if (daemonize) {
+		int fd;
+
+		fd = open("/dev/null", O_RDWR);
+		if (fd >= 0) {
+			if (write(STDOUT_FILENO, 0, 0) < 0)
+				dup2(fd, STDOUT_FILENO);
+			if (write(STDERR_FILENO, 0, 0) < 0)
+				dup2(fd, STDERR_FILENO);
+			if (fd > STDERR_FILENO)
+				close(fd);
+		} else {
+			fprintf(stderr, "cannot open /dev/null\n");
+			err(udev, "cannot open /dev/null\n");
+		}
 	}
-	if (write(STDOUT_FILENO, 0, 0) < 0)
-		dup2(fd, STDOUT_FILENO);
-	if (write(STDERR_FILENO, 0, 0) < 0)
-		dup2(fd, STDERR_FILENO);
 
 	/* udevadm control socket */
 	if (sd_listen_fds(true) == 1 && sd_is_socket(SD_LISTEN_FDS_START, AF_LOCAL, SOCK_SEQPACKET, -1))
@@ -1302,6 +1308,7 @@ int main(int argc, char *argv[])
 
 	if (daemonize) {
 		pid_t pid;
+		int fd;
 
 		pid = fork();
 		switch (pid) {
@@ -1315,8 +1322,44 @@ int main(int argc, char *argv[])
 			rc = 0;
 			goto exit;
 		}
+
+		setsid();
+
+		fd = open("/proc/self/oom_score_adj", O_RDWR);
+		if (fd < 0) {
+			/* Fallback to old interface */
+			fd = open("/proc/self/oom_adj", O_RDWR);
+			if (fd < 0) {
+				err(udev, "error disabling OOM: %m\n");
+			} else {
+				/* OOM_DISABLE == -17 */
+				write(fd, "-17", 3);
+				close(fd);
+			}
+		} else {
+			write(fd, "-1000", 5);
+			close(fd);
+		}
 	} else {
 		sd_notify(1, "READY=1");
+	}
+
+	f = fopen("/dev/kmsg", "w");
+	if (f != NULL) {
+		fprintf(f, "<30>udev[%u]: starting version " VERSION "\n", getpid());
+		fclose(f);
+	}
+
+	if (!debug) {
+		int fd;
+
+		fd = open("/dev/null", O_RDWR);
+		if (fd >= 0) {
+			dup2(fd, STDIN_FILENO);
+			dup2(fd, STDOUT_FILENO);
+			dup2(fd, STDERR_FILENO);
+			close(fd);
+		}
 	}
 
 	fd_inotify = udev_watch_init(udev);
@@ -1413,38 +1456,6 @@ int main(int argc, char *argv[])
 
 	/* if needed, convert old database from earlier udev version */
 	convert_db(udev);
-
-	if (!debug) {
-		dup2(fd, STDIN_FILENO);
-		dup2(fd, STDOUT_FILENO);
-		dup2(fd, STDERR_FILENO);
-	}
-	if (fd > STDERR_FILENO)
-		close(fd);
-
-	setsid();
-
-	f = fopen("/dev/kmsg", "w");
-	if (f != NULL) {
-		fprintf(f, "<30>udev[%u]: starting version " VERSION "\n", getpid());
-		fclose(f);
-	}
-
-	fd = open("/proc/self/oom_score_adj", O_RDWR);
-	if (fd < 0) {
-		/* Fallback to old interface */
-		fd = open("/proc/self/oom_adj", O_RDWR);
-		if (fd < 0) {
-			err(udev, "error disabling OOM: %m\n");
-		} else {
-			/* OOM_DISABLE == -17 */
-			write(fd, "-17", 3);
-			close(fd);
-		}
-	} else {
-		write(fd, "-1000", 5);
-		close(fd);
-	}
 
 	if (children_max <= 0) {
 		int memsize = mem_size_mb();
