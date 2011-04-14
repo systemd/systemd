@@ -47,9 +47,6 @@
 #include "udev.h"
 #include "sd-daemon.h"
 
-#define UDEVD_PRIORITY			-4
-#define UDEV_PRIORITY			-2
-
 static bool debug;
 
 static void log_fn(struct udev *udev, int priority,
@@ -267,7 +264,6 @@ static void worker_new(struct event *event)
 		close(worker_watch[READ_END]);
 		udev_log_close();
 		udev_log_init("udevd-work");
-		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
 
 		/* set signal handlers */
 		memset(&act, 0x00, sizeof(act));
@@ -1425,9 +1421,6 @@ int main(int argc, char *argv[])
 	}
 	if (fd > STDERR_FILENO)
 		close(fd);
-
-	/* set scheduling priority for the main daemon process */
-	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
 
 	setsid();
 
