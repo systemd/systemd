@@ -91,7 +91,7 @@ struct udev_ctrl *udev_ctrl_new_from_socket_fd(struct udev *udev, const char *so
 		return NULL;
 
 	if (fd < 0) {
-		uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+		uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
 		if (uctrl->sock < 0) {
 			err(udev, "error getting socket: %m\n");
 			udev_ctrl_unref(uctrl);

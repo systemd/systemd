@@ -145,7 +145,7 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 		util_strscpy(&udev_monitor->sun.sun_path[1], sizeof(udev_monitor->sun.sun_path)-1, socket_path);
 		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path)+1;
 	}
-	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
 	if (udev_monitor->sock == -1) {
 		err(udev, "error getting socket: %m\n");
 		free(udev_monitor);
