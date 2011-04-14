@@ -115,6 +115,7 @@ static int create_disk(
                 "\n[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
+                "TimeoutSec=0\n" /* the binary handles timeouts anyway */
                 "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
                 name, u, strempty(password), strempty(options),
