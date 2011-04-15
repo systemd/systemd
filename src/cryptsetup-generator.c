@@ -33,6 +33,11 @@ static bool has_option(const char *haystack, const char *needle) {
         const char *f = haystack;
         size_t l;
 
+        assert(needle);
+
+        if (!haystack)
+                return false;
+
         l = strlen(needle);
 
         while ((f = strstr(f, needle))) {
@@ -121,12 +126,12 @@ static int create_disk(
                 name, u, strempty(password), strempty(options),
                 name);
 
-        if (options && has_option(options, "tmp"))
+        if (has_option(options, "tmp"))
                 fprintf(f,
                         "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'\n",
                         name);
 
-        if (options && has_option(options, "swap"))
+        if (has_option(options, "swap"))
                 fprintf(f,
                         "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
                         name);
@@ -144,7 +149,7 @@ static int create_disk(
                 goto fail;
         }
 
-        if (!options || !has_option(options, "noauto")) {
+        if (!has_option(options, "noauto")) {
 
                 if (asprintf(&to, "%s/%s.wants/%s", arg_dest, d, n) < 0) {
                         r = -ENOMEM;
@@ -162,7 +167,7 @@ static int create_disk(
                 free(to);
                 to = NULL;
 
-                if (!options || !has_option(options, "nofail")) {
+                if (!has_option(options, "nofail")) {
 
                         if (asprintf(&to, "%s/cryptsetup.target.wants/%s", arg_dest, n) < 0) {
                                 r = -ENOMEM;
