@@ -8,7 +8,7 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Delayed Shutdown Daemon
+Description=Delayed Shutdown Service
 DefaultDependencies=no
 
 [Service]
