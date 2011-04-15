@@ -4248,6 +4248,59 @@ int have_effective_cap(int value) {
         return r;
 }
 
+char* strshorten(char *s, size_t l) {
+        assert(s);
+
+        if (l < strlen(s))
+                s[l] = 0;
+
+        return s;
+}
+
+static bool hostname_valid_char(char c) {
+        return
+                (c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9') ||
+                c == '-' ||
+                c == '_' ||
+                c == '.';
+}
+
+bool hostname_is_valid(const char *s) {
+        const char *p;
+
+        if (isempty(s))
+                return false;
+
+        for (p = s; *p; p++)
+                if (!hostname_valid_char(*p))
+                        return false;
+
+        if (p-s > HOST_NAME_MAX)
+                return false;
+
+        return true;
+}
+
+char* hostname_cleanup(char *s) {
+        char *p, *d;
+
+        for (p = s, d = s; *p; p++)
+                if ((*p >= 'a' && *p <= 'z') ||
+                    (*p >= 'A' && *p <= 'Z') ||
+                    (*p >= '0' && *p <= '9') ||
+                    *p == '-' ||
+                    *p == '_' ||
+                    *p == '.')
+                        *(d++) = *p;
+
+        *d = 0;
+
+        strshorten(s, HOST_NAME_MAX);
+        return s;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

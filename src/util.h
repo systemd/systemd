@@ -117,6 +117,10 @@ static inline bool is_path_absolute(const char *p) {
         return *p == '/';
 }
 
+static inline bool isempty(const char *p) {
+        return !p || !p[0];
+}
+
 bool endswith(const char *s, const char *postfix);
 bool startswith(const char *s, const char *prefix);
 bool startswith_no_case(const char *s, const char *prefix);
@@ -397,6 +401,11 @@ bool plymouth_running(void);
 void parse_syslog_priority(char **p, int *priority);
 
 int have_effective_cap(int value);
+
+bool hostname_is_valid(const char *s);
+char* hostname_cleanup(char *s);
+
+char* strshorten(char *s, size_t l);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
