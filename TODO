@@ -1,3 +1,6 @@
+  - get rid of select()
+  - use signalfd instead of ppoll()
+
   - remove deprecated trigger --type=failed logic
 
   - remove deprecated BUS=, SYSFS{}=, ID= keys

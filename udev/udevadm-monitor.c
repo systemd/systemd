@@ -27,18 +27,18 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <sys/select.h>
+#include <sys/epoll.h>
 #include <linux/types.h>
 #include <linux/netlink.h>
 
 #include "udev.h"
 
-static int udev_exit;
+static bool udev_exit;
 
 static void sig_handler(int signum)
 {
 	if (signum == SIGINT || signum == SIGTERM)
-		udev_exit = 1;
+		udev_exit = true;
 }
 
 static void print_device(struct udev_device *device, const char *source, int prop)
@@ -69,14 +69,16 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	struct sigaction act;
 	sigset_t mask;
 	int option;
-	int prop = 0;
-	int print_kernel = 0;
-	int print_udev = 0;
+	bool prop = false;
+	bool print_kernel = false;
+	bool print_udev = false;
 	struct udev_list_node subsystem_match_list;
 	struct udev_list_node tag_match_list;
 	struct udev_monitor *udev_monitor = NULL;
 	struct udev_monitor *kernel_monitor = NULL;
-	fd_set readfds;
+	int fd_ep = -1;
+	int fd_kernel = -1, fd_udev = -1;
+	struct epoll_event ep_kernel, ep_udev;
 	int rc = 0;
 
 	static const struct option options[] = {
@@ -92,6 +94,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	udev_list_init(&subsystem_match_list);
 	udev_list_init(&tag_match_list);
+
 	for (;;) {
 		option = getopt_long(argc, argv, "pekus:t:h", options, NULL);
 		if (option == -1)
@@ -100,13 +103,13 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		switch (option) {
 		case 'p':
 		case 'e':
-			prop = 1;
+			prop = true;
 			break;
 		case 'k':
-			print_kernel = 1;
+			print_kernel = true;
 			break;
 		case 'u':
-			print_udev = 1;
+			print_udev = true;
 			break;
 		case 's':
 			{
@@ -138,8 +141,8 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	}
 
 	if (!print_kernel && !print_udev) {
-		print_kernel = 1;
-		print_udev =1;
+		print_kernel = true;
+		print_udev = true;
 	}
 
 	/* set signal handlers */
@@ -154,6 +157,12 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	sigaddset(&mask, SIGTERM);
 	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
+	fd_ep = epoll_create1(EPOLL_CLOEXEC);
+	if (fd_ep < 0) {
+		err(udev, "error creating epoll fd: %m\n");
+		goto out;
+	}
+
 	printf("monitor will print the received events for:\n");
 	if (print_udev) {
 		struct udev_list_entry *entry;
@@ -165,6 +174,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			goto out;
 		}
 		udev_monitor_set_receive_buffer_size(udev_monitor, 128*1024*1024);
+		fd_udev = udev_monitor_get_fd(udev_monitor);
 
 		udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
 			const char *subsys = udev_list_entry_get_name(entry);
@@ -186,8 +196,18 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			rc = 2;
 			goto out;
 		}
+
+		memset(&ep_udev, 0, sizeof(struct epoll_event));
+		ep_udev.events = EPOLLIN;
+		ep_udev.data.fd = fd_udev;
+		if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) < 0) {
+			err(udev, "fail to add fd to epoll: %m\n");
+			goto out;
+		}
+
 		printf("UDEV - the event which udev sends out after rule processing\n");
 	}
+
 	if (print_kernel) {
 		struct udev_list_entry *entry;
 
@@ -198,6 +218,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			goto out;
 		}
 		udev_monitor_set_receive_buffer_size(kernel_monitor, 128*1024*1024);
+		fd_kernel = udev_monitor_get_fd(kernel_monitor);
 
 		udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
 			const char *subsys = udev_list_entry_get_name(entry);
@@ -211,49 +232,56 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			rc = 4;
 			goto out;
 		}
+
+		memset(&ep_kernel, 0, sizeof(struct epoll_event));
+		ep_kernel.events = EPOLLIN;
+		ep_kernel.data.fd = fd_kernel;
+		if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_kernel, &ep_kernel) < 0) {
+			err(udev, "fail to add fd to epoll: %m\n");
+			goto out;
+		}
+
 		printf("KERNEL - the kernel uevent\n");
 	}
 	printf("\n");
 
 	while (!udev_exit) {
 		int fdcount;
+		struct epoll_event ev[4];
+		int i;
 
-		FD_ZERO(&readfds);
-		if (kernel_monitor != NULL)
-			FD_SET(udev_monitor_get_fd(kernel_monitor), &readfds);
-		if (udev_monitor != NULL)
-			FD_SET(udev_monitor_get_fd(udev_monitor), &readfds);
-
-		fdcount = select(MAX(udev_monitor_get_fd(kernel_monitor), udev_monitor_get_fd(udev_monitor))+1,
-				 &readfds, NULL, NULL, NULL);
+		fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), -1);
 		if (fdcount < 0) {
 			if (errno != EINTR)
 				fprintf(stderr, "error receiving uevent message: %m\n");
 			continue;
 		}
 
-		if ((kernel_monitor != NULL) && FD_ISSET(udev_monitor_get_fd(kernel_monitor), &readfds)) {
-			struct udev_device *device;
+		for (i = 0; i < fdcount; i++) {
+			if (ev[i].data.fd == fd_kernel && ev[i].events & EPOLLIN) {
+				struct udev_device *device;
 
-			device = udev_monitor_receive_device(kernel_monitor);
-			if (device == NULL)
-				continue;
-			print_device(device, "KERNEL", prop);
-			udev_device_unref(device);
-		}
+				device = udev_monitor_receive_device(kernel_monitor);
+				if (device == NULL)
+					continue;
+				print_device(device, "KERNEL", prop);
+				udev_device_unref(device);
+			}
 
-		if ((udev_monitor != NULL) && FD_ISSET(udev_monitor_get_fd(udev_monitor), &readfds)) {
-			struct udev_device *device;
+			if (ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN) {
+				struct udev_device *device;
 
-			device = udev_monitor_receive_device(udev_monitor);
-			if (device == NULL)
-				continue;
-			print_device(device, "UDEV", prop);
-			udev_device_unref(device);
+				device = udev_monitor_receive_device(udev_monitor);
+				if (device == NULL)
+					continue;
+				print_device(device, "UDEV", prop);
+				udev_device_unref(device);
+			}
 		}
 	}
-
 out:
+	if (fd_ep >= 0)
+		close(fd_ep);
 	udev_monitor_unref(udev_monitor);
 	udev_monitor_unref(kernel_monitor);
 	udev_list_cleanup_entries(udev, &subsystem_match_list);
