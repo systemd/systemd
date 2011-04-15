@@ -21,6 +21,7 @@
 
 #include "dbus-unit.h"
 #include "dbus-snapshot.h"
+#include "dbus-common.h"
 
 #define BUS_SNAPSHOT_INTERFACE                                          \
         " <interface name=\"org.freedesktop.systemd1.Snapshot\">\n"     \
@@ -45,6 +46,7 @@
 const char bus_snapshot_interface[] _introspect_("Snapshot") = BUS_SNAPSHOT_INTERFACE;
 
 DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
+
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Snapshot", "Cleanup", bus_property_append_bool, "b", &u->snapshot.cleanup },
@@ -64,7 +66,7 @@ DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusM
                         goto oom;
 
         } else
-                return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
+                return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
 
         if (reply) {
                 if (!dbus_connection_send(c, reply, NULL))

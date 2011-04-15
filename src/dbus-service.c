@@ -24,6 +24,7 @@
 #include "dbus-unit.h"
 #include "dbus-execute.h"
 #include "dbus-service.h"
+#include "dbus-common.h"
 
 #ifdef HAVE_SYSV_COMPAT
 #define BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                            \
@@ -129,5 +130,5 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

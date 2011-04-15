@@ -25,6 +25,7 @@
 #include "dbus-unit.h"
 #include "dbus-swap.h"
 #include "dbus-execute.h"
+#include "dbus-common.h"
 
 #define BUS_SWAP_INTERFACE                                              \
         " <interface name=\"org.freedesktop.systemd1.Swap\">\n"         \
@@ -60,11 +61,10 @@ const char bus_swap_invalidating_properties[] =
         "ExecDeactivate\0"
         "ControlPID\0";
 
-static int bus_swap_append_priority(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_swap_append_priority(DBusMessageIter *i, const char *property, void *data) {
         Swap *s = data;
         dbus_int32_t j;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(s);
@@ -96,5 +96,5 @@ DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessa
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

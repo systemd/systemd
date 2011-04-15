@@ -24,6 +24,7 @@
 #include "dbus-unit.h"
 #include "dbus-path.h"
 #include "dbus-execute.h"
+#include "dbus-common.h"
 
 #define BUS_PATH_INTERFACE                                              \
         " <interface name=\"org.freedesktop.systemd1.Path\">\n"         \
@@ -49,12 +50,11 @@
 
 const char bus_path_interface[] _introspect_("Path") = BUS_PATH_INTERFACE;
 
-static int bus_path_append_paths(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_path_append_paths(DBusMessageIter *i, const char *property, void *data) {
         Path *p = data;
         DBusMessageIter sub, sub2;
         PathSpec *k;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(p);
@@ -78,11 +78,10 @@ static int bus_path_append_paths(Manager *m, DBusMessageIter *i, const char *pro
         return 0;
 }
 
-static int bus_path_append_unit(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_path_append_unit(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *t;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -102,5 +101,5 @@ DBusHandlerResult bus_path_message_handler(Unit *u, DBusConnection *c, DBusMessa
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

@@ -24,6 +24,7 @@
 #include "dbus-unit.h"
 #include "dbus-socket.h"
 #include "dbus-execute.h"
+#include "dbus-common.h"
 
 #define BUS_SOCKET_INTERFACE                                            \
         " <interface name=\"org.freedesktop.systemd1.Socket\">\n"       \
@@ -113,5 +114,5 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

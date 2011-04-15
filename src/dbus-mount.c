@@ -24,6 +24,7 @@
 #include "dbus-unit.h"
 #include "dbus-mount.h"
 #include "dbus-execute.h"
+#include "dbus-common.h"
 
 #define BUS_MOUNT_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Mount\">\n"        \
@@ -65,11 +66,10 @@ const char bus_mount_invalidating_properties[] =
         "ExecRemount\0"
         "ControlPID\0";
 
-static int bus_mount_append_what(Manager *n, DBusMessageIter *i, const char *property, void *data) {
+static int bus_mount_append_what(DBusMessageIter *i, const char *property, void *data) {
         Mount *m = data;
         const char *d;
 
-        assert(n);
         assert(i);
         assert(property);
         assert(m);
@@ -89,11 +89,10 @@ static int bus_mount_append_what(Manager *n, DBusMessageIter *i, const char *pro
         return 0;
 }
 
-static int bus_mount_append_options(Manager *n, DBusMessageIter *i, const char *property, void *data) {
+static int bus_mount_append_options(DBusMessageIter *i, const char *property, void *data) {
         Mount *m = data;
         const char *d;
 
-        assert(n);
         assert(i);
         assert(property);
         assert(m);
@@ -113,11 +112,10 @@ static int bus_mount_append_options(Manager *n, DBusMessageIter *i, const char *
         return 0;
 }
 
-static int bus_mount_append_type(Manager *n, DBusMessageIter *i, const char *property, void *data) {
+static int bus_mount_append_type(DBusMessageIter *i, const char *property, void *data) {
         Mount *m = data;
         const char *d;
 
-        assert(n);
         assert(i);
         assert(property);
         assert(m);
@@ -138,6 +136,7 @@ static int bus_mount_append_type(Manager *n, DBusMessageIter *i, const char *pro
 }
 
 DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
+
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Mount", "Where",         bus_property_append_string, "s", u->mount.where           },
@@ -154,5 +153,5 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMess
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

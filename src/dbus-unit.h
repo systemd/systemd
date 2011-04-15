@@ -170,21 +170,21 @@
         { "org.freedesktop.systemd1.Unit", "ConditionTimestampMonotonic", bus_property_append_usec,"t",    &u->meta.condition_timestamp.monotonic }, \
         { "org.freedesktop.systemd1.Unit", "ConditionResult",      bus_property_append_bool,       "b",    &u->meta.condition_result         }
 
-int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_following(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_load_state(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_sub_state(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_can_stop(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_can_isolate(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_default_cgroup(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_need_daemon_reload(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_names(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_following(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_dependencies(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_description(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_load_state(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_active_state(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_sub_state(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_can_start(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_can_stop(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_can_reload(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_can_isolate(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_job(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_default_cgroup(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data);
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);

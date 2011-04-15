@@ -28,6 +28,7 @@
 #include "strv.h"
 #include "bus-errors.h"
 #include "build.h"
+#include "dbus-common.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
@@ -219,13 +220,14 @@ const char bus_manager_interface[] _introspect_("Manager") = BUS_MANAGER_INTERFA
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_exec_output, exec_output, ExecOutput);
 
-static int bus_manager_append_tainted(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_manager_append_tainted(DBusMessageIter *i, const char *property, void *data) {
         const char *t;
+        Manager *m = data;
         char buf[LINE_MAX] = "", *e = buf, *p = NULL;
 
-        assert(m);
         assert(i);
         assert(property);
+        assert(m);
 
         if (m->taint_usr)
                 e = stpcpy(e, "usr-separate-fs ");
@@ -246,10 +248,9 @@ static int bus_manager_append_tainted(Manager *m, DBusMessageIter *i, const char
         return 0;
 }
 
-static int bus_manager_append_log_target(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_manager_append_log_target(DBusMessageIter *i, const char *property, void *data) {
         const char *t;
 
-        assert(m);
         assert(i);
         assert(property);
 
@@ -261,10 +262,9 @@ static int bus_manager_append_log_target(Manager *m, DBusMessageIter *i, const c
         return 0;
 }
 
-static int bus_manager_set_log_target(Manager *m, DBusMessageIter *i, const char *property) {
+static int bus_manager_set_log_target(DBusMessageIter *i, const char *property) {
         const char *t;
 
-        assert(m);
         assert(i);
         assert(property);
 
@@ -273,10 +273,9 @@ static int bus_manager_set_log_target(Manager *m, DBusMessageIter *i, const char
         return log_set_target_from_string(t);
 }
 
-static int bus_manager_append_log_level(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_manager_append_log_level(DBusMessageIter *i, const char *property, void *data) {
         const char *t;
 
-        assert(m);
         assert(i);
         assert(property);
 
@@ -288,10 +287,9 @@ static int bus_manager_append_log_level(Manager *m, DBusMessageIter *i, const ch
         return 0;
 }
 
-static int bus_manager_set_log_level(Manager *m, DBusMessageIter *i, const char *property) {
+static int bus_manager_set_log_level(DBusMessageIter *i, const char *property) {
         const char *t;
 
-        assert(m);
         assert(i);
         assert(property);
 
@@ -300,12 +298,13 @@ static int bus_manager_set_log_level(Manager *m, DBusMessageIter *i, const char 
         return log_set_max_level_from_string(t);
 }
 
-static int bus_manager_append_n_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_manager_append_n_names(DBusMessageIter *i, const char *property, void *data) {
+        Manager *m = data;
         uint32_t u;
 
-        assert(m);
         assert(i);
         assert(property);
+        assert(m);
 
         u = hashmap_size(m->units);
 
@@ -315,12 +314,13 @@ static int bus_manager_append_n_names(Manager *m, DBusMessageIter *i, const char
         return 0;
 }
 
-static int bus_manager_append_n_jobs(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_manager_append_n_jobs(DBusMessageIter *i, const char *property, void *data) {
+        Manager *m = data;
         uint32_t u;
 
-        assert(m);
         assert(i);
         assert(property);
+        assert(m);
 
         u = hashmap_size(m->jobs);
 
@@ -330,12 +330,13 @@ static int bus_manager_append_n_jobs(Manager *m, DBusMessageIter *i, const char 
         return 0;
 }
 
-static int bus_manager_append_progress(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+static int bus_manager_append_progress(DBusMessageIter *i, const char *property, void *data) {
         double d;
+        Manager *m = data;
 
-        assert(m);
         assert(i);
         assert(property);
+        assert(m);
 
         if (dual_timestamp_is_set(&m->finish_timestamp))
                 d = 1.0;
@@ -377,13 +378,13 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "StartupTimestampMonotonic", bus_property_append_uint64, "t", &m->startup_timestamp.monotonic },
                 { "org.freedesktop.systemd1.Manager", "FinishTimestamp", bus_property_append_uint64,  "t",  &m->finish_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "FinishTimestampMonotonic", bus_property_append_uint64, "t",&m->finish_timestamp.monotonic },
-                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  NULL,               bus_manager_set_log_level},
-                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  NULL,               bus_manager_set_log_target},
-                { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  m, bus_manager_set_log_level },
+                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  m, bus_manager_set_log_target },
+                { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  m                  },
                 { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "NInstalledJobs",bus_property_append_uint32,    "u",  &m->n_installed_jobs },
                 { "org.freedesktop.systemd1.Manager", "NFailedJobs",   bus_property_append_uint32,    "u",  &m->n_failed_jobs  },
-                { "org.freedesktop.systemd1.Manager", "Progress",      bus_manager_append_progress,   "d",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "Progress",      bus_manager_append_progress,   "d",  m                  },
                 { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
                 { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
                 { "org.freedesktop.systemd1.Manager", "ShowStatus",    bus_property_append_bool,      "b",  &m->show_status    },
@@ -425,11 +426,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     &error,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (!(u = manager_get_unit(m, name))) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -452,11 +453,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     &error,
                                     DBUS_TYPE_UINT32, &pid,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (!(u = cgroup_unit_by_pid(m, (pid_t) pid))) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "No unit for PID %lu is loaded.", (unsigned long) pid);
-                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -479,10 +480,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     &error,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if ((r = manager_load_unit(m, name, NULL, &error, &u)) < 0)
-                        return bus_send_error_reply(m, connection, message, &error, r);
+                        return bus_send_error_reply(connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -529,21 +530,21 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_STRING, &smode,
                                     DBUS_TYPE_INT32, &signo,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if ((mode = kill_mode_from_string(smode)) < 0 ||
                     (who = kill_who_from_string(swho)) < 0 ||
                     signo <= 0 ||
                     signo >= _NSIG)
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (!(u = manager_get_unit(m, name))) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
                 if ((r = unit_kill(u, who, mode, signo, &error)) < 0)
-                        return bus_send_error_reply(m, connection, message, &error, r);
+                        return bus_send_error_reply(connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -557,11 +558,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     &error,
                                     DBUS_TYPE_UINT32, &id,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (!(j = manager_get_job(m, id))) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
-                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -599,11 +600,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     &error,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (!(u = manager_get_unit(m, name))) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
                 unit_reset_failed(u);
@@ -765,7 +766,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if ((r = set_put(s, client)) < 0) {
                         free(client);
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                        return bus_send_error_reply(connection, message, NULL, r);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -776,7 +777,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (!(client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) message_get_sender_with_fallback(message)))) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
-                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
                 free(client);
@@ -823,13 +824,13 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_BOOLEAN, &cleanup,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (name && name[0] == 0)
                         name = NULL;
 
                 if ((r = snapshot_create(m, name, cleanup, &error, &s)) < 0)
-                        return bus_send_error_reply(m, connection, message, &error, r);
+                        return bus_send_error_reply(connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -930,7 +931,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (m->running_as == MANAGER_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
-                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -942,7 +943,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (m->running_as != MANAGER_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
-                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -954,7 +955,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (m->running_as != MANAGER_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
-                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -966,7 +967,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (m->running_as != MANAGER_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Halting is only supported for system managers.");
-                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -978,7 +979,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (m->running_as != MANAGER_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "kexec is only supported for system managers.");
-                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
                 if (!(reply = dbus_message_new_method_return(message)))
@@ -993,7 +994,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         if (r == -ENOMEM)
                                 goto oom;
 
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                        return bus_send_error_reply(connection, message, NULL, r);
                 }
 
                 e = strv_env_merge(2, m->environment, l);
@@ -1017,7 +1018,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         if (r == -ENOMEM)
                                 goto oom;
 
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                        return bus_send_error_reply(connection, message, NULL, r);
                 }
 
                 e = strv_env_delete(m->environment, 1, l);
@@ -1035,7 +1036,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 m->environment = e;
 
         } else
-                return bus_default_message_handler(m, connection, message, NULL, INTERFACES_LIST, properties);
+                return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, properties);
 
         if (job_type != _JOB_TYPE_INVALID) {
                 const char *name, *smode, *old_name = NULL;
@@ -1061,24 +1062,24 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                         DBUS_TYPE_INVALID);
 
                 if (!b)
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (old_name)
                         if (!(u = manager_get_unit(m, old_name)) ||
                             !u->meta.job ||
                             u->meta.job->type != JOB_START) {
                                 dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
-                                return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                                return bus_send_error_reply(connection, message, &error, -ENOENT);
                         }
 
 
                 if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
                         dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
                 }
 
                 if ((r = manager_load_unit(m, name, NULL, &error, &u)) < 0)
-                        return bus_send_error_reply(m, connection, message, &error, r);
+                        return bus_send_error_reply(connection, message, &error, r);
 
                 if (reload_if_possible && unit_can_reload(u)) {
                         if (job_type == JOB_RESTART)
@@ -1092,11 +1093,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                     ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
                      (u->meta.refuse_manual_start || u->meta.refuse_manual_stop))) {
                         dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
-                        return bus_send_error_reply(m, connection, message, &error, -EPERM);
+                        return bus_send_error_reply(connection, message, &error, -EPERM);
                 }
 
                 if ((r = manager_add_job(m, job_type, u, mode, true, &error, &j)) < 0)
-                        return bus_send_error_reply(m, connection, message, &error, r);
+                        return bus_send_error_reply(connection, message, &error, r);
 
                 if (!(j->bus_client = strdup(message_get_sender_with_fallback(message))))
                         goto oom;

@@ -21,6 +21,7 @@
 
 #include "dbus-unit.h"
 #include "dbus-device.h"
+#include "dbus-common.h"
 
 #define BUS_DEVICE_INTERFACE                                            \
         " <interface name=\"org.freedesktop.systemd1.Device\">\n"       \
@@ -53,5 +54,5 @@ DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

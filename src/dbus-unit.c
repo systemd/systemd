@@ -25,6 +25,7 @@
 #include "log.h"
 #include "dbus-unit.h"
 #include "bus-errors.h"
+#include "dbus-common.h"
 
 const char bus_unit_interface[] _introspect_("Unit") = BUS_UNIT_INTERFACE;
 
@@ -39,7 +40,7 @@ const char bus_unit_interface[] _introspect_("Unit") = BUS_UNIT_INTERFACE;
         "Job\0"                                 \
         "NeedDaemonReload\0"
 
-int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_names(DBusMessageIter *i, const char *property, void *data) {
         char *t;
         Iterator j;
         DBusMessageIter sub;
@@ -58,11 +59,10 @@ int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, 
         return 0;
 }
 
-int bus_unit_append_following(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_following(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data, *f;
         const char *d;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -76,7 +76,7 @@ int bus_unit_append_following(Manager *m, DBusMessageIter *i, const char *proper
         return 0;
 }
 
-int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_dependencies(DBusMessageIter *i, const char *property, void *data) {
         Unit *u;
         Iterator j;
         DBusMessageIter sub;
@@ -95,11 +95,10 @@ int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *pro
         return 0;
 }
 
-int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_description(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *d;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -114,11 +113,10 @@ int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *prop
 
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_unit_append_load_state, unit_load_state, UnitLoadState);
 
-int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_active_state(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *state;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -131,11 +129,10 @@ int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const char *pro
         return 0;
 }
 
-int bus_unit_append_sub_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_sub_state(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *state;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -148,11 +145,10 @@ int bus_unit_append_sub_state(Manager *m, DBusMessageIter *i, const char *proper
         return 0;
 }
 
-int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_can_start(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -166,11 +162,10 @@ int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *proper
         return 0;
 }
 
-int bus_unit_append_can_stop(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_can_stop(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -187,11 +182,10 @@ int bus_unit_append_can_stop(Manager *m, DBusMessageIter *i, const char *propert
         return 0;
 }
 
-int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_can_reload(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -204,11 +198,10 @@ int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *prope
         return 0;
 }
 
-int bus_unit_append_can_isolate(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_can_isolate(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -222,12 +215,11 @@ int bus_unit_append_can_isolate(Manager *m, DBusMessageIter *i, const char *prop
         return 0;
 }
 
-int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_job(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         DBusMessageIter sub;
         char *p;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -270,13 +262,12 @@ int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, vo
         return 0;
 }
 
-int bus_unit_append_default_cgroup(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         char *t;
         CGroupBonding *cgb;
         bool success;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -295,7 +286,7 @@ int bus_unit_append_default_cgroup(Manager *m, DBusMessageIter *i, const char *p
         return success ? 0 : -ENOMEM;
 }
 
-int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         CGroupBonding *cgb;
         DBusMessageIter sub;
@@ -323,11 +314,10 @@ int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property
         return 0;
 }
 
-int bus_unit_append_need_daemon_reload(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
 
-        assert(m);
         assert(i);
         assert(property);
         assert(u);
@@ -380,16 +370,16 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     DBUS_TYPE_STRING, &smode,
                                     DBUS_TYPE_INT32, &signo,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if ((mode = kill_mode_from_string(smode)) < 0 ||
                     (who = kill_who_from_string(swho)) < 0 ||
                     signo <= 0 ||
                     signo >= _NSIG)
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if ((r = unit_kill(u, who, mode, signo, &error)) < 0)
-                        return bus_send_error_reply(m, connection, message, &error, r);
+                        return bus_send_error_reply(connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -417,7 +407,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                     ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
                      (u->meta.refuse_manual_start || u->meta.refuse_manual_stop))) {
                         dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
-                        return bus_send_error_reply(m, connection, message, &error, -EPERM);
+                        return bus_send_error_reply(connection, message, &error, -EPERM);
                 }
 
                 if (!dbus_message_get_args(
@@ -425,7 +415,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     &error,
                                     DBUS_TYPE_STRING, &smode,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (reload_if_possible && unit_can_reload(u)) {
                         if (job_type == JOB_RESTART)
@@ -436,11 +426,11 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
 
                 if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
                         dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
-                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
                 }
 
                 if ((r = manager_add_job(m, job_type, u, mode, true, &error, &j)) < 0)
-                        return bus_send_error_reply(m, connection, message, &error, r);
+                        return bus_send_error_reply(connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -571,10 +561,10 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
 
                         dbus_error_init(&e);
                         dbus_set_error_const(&e, DBUS_ERROR_UNKNOWN_OBJECT, "Unknown unit");
-                        return bus_send_error_reply(m, connection, message, &e, r);
+                        return bus_send_error_reply(connection, message, &e, r);
                 }
 
-                return bus_send_error_reply(m, connection, message, NULL, r);
+                return bus_send_error_reply(connection, message, NULL, r);
         }
 
         return bus_unit_message_dispatch(u, connection, message);

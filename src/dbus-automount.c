@@ -21,6 +21,7 @@
 
 #include "dbus-unit.h"
 #include "dbus-automount.h"
+#include "dbus-common.h"
 
 #define BUS_AUTOMOUNT_INTERFACE                                      \
         " <interface name=\"org.freedesktop.systemd1.Automount\">\n" \
@@ -52,5 +53,5 @@ DBusHandlerResult bus_automount_message_handler(Unit *u, DBusConnection *c, DBus
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }
