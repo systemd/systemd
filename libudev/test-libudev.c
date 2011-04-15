@@ -18,9 +18,11 @@
 #include <getopt.h>
 #include <syslog.h>
 #include <fcntl.h>
-#include <sys/select.h>
+#include <sys/epoll.h>
 
 #include "libudev.h"
+
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 static void log_fn(struct udev *udev,
 		   int priority, const char *file, int line, const char *fn,
@@ -220,55 +222,81 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate)
 static int test_monitor(struct udev *udev)
 {
 	struct udev_monitor *udev_monitor;
-	fd_set readfds;
-	int fd;
+	int fd_ep;
+	int fd_udev = -1;
+	struct epoll_event ep_udev, ep_stdin;
+
+	fd_ep = epoll_create1(EPOLL_CLOEXEC);
+	if (fd_ep < 0) {
+		printf("error creating epoll fd: %m\n");
+		goto out;
+	}
 
 	udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
 	if (udev_monitor == NULL) {
 		printf("no socket\n");
-		return -1;
+		goto out;
 	}
+	fd_udev = udev_monitor_get_fd(udev_monitor);
+
 	if (udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "block", NULL) < 0 ||
 	    udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "tty", NULL) < 0 ||
 	    udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "usb", "usb_device") < 0) {
 		printf("filter failed\n");
-		return -1;
+		goto out;
 	}
+
 	if (udev_monitor_enable_receiving(udev_monitor) < 0) {
 		printf("bind failed\n");
-		return -1;
+		goto out;
 	}
 
-	fd = udev_monitor_get_fd(udev_monitor);
-	FD_ZERO(&readfds);
+	memset(&ep_udev, 0, sizeof(struct epoll_event));
+	ep_udev.events = EPOLLIN;
+	ep_udev.data.fd = fd_udev;
+	if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) < 0) {
+		printf("fail to add fd to epoll: %m\n");
+		goto out;
+	}
+
+	memset(&ep_stdin, 0, sizeof(struct epoll_event));
+	ep_stdin.events = EPOLLIN;
+	ep_stdin.data.fd = STDIN_FILENO;
+	if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, STDIN_FILENO, &ep_stdin) < 0) {
+		printf("fail to add fd to epoll: %m\n");
+		goto out;
+	}
 
 	for (;;) {
-		struct udev_device *device;
 		int fdcount;
-
-		FD_SET(STDIN_FILENO, &readfds);
-		FD_SET(fd, &readfds);
+		struct epoll_event ev[4];
+		struct udev_device *device;
+		int i;
 
 		printf("waiting for events from udev, press ENTER to exit\n");
-		fdcount = select(fd+1, &readfds, NULL, NULL, NULL);
-		printf("select fd count: %i\n", fdcount);
+		fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), -1);
+		printf("epoll fd count: %i\n", fdcount);
 
-		if (FD_ISSET(fd, &readfds)) {
-			device = udev_monitor_receive_device(udev_monitor);
-			if (device == NULL) {
-				printf("no device from socket\n");
-				continue;
+		for (i = 0; i < fdcount; i++) {
+			if (ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN) {
+				device = udev_monitor_receive_device(udev_monitor);
+				if (device == NULL) {
+					printf("no device from socket\n");
+					continue;
+				}
+				print_device(device);
+				udev_device_unref(device);
 			}
-			print_device(device);
-			udev_device_unref(device);
-		}
 
-		if (FD_ISSET(STDIN_FILENO, &readfds)) {
-			printf("exiting loop\n");
-			break;
+			if (ev[i].data.fd == STDIN_FILENO && ev[i].events & EPOLLIN) {
+				printf("exiting loop\n");
+				goto out;
+			}
 		}
 	}
-
+out:
+	if (fd_ep >= 0)
+		close(fd_ep);
 	udev_monitor_unref(udev_monitor);
 	return 0;
 }
