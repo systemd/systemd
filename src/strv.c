@@ -528,6 +528,9 @@ char **strv_env_delete(char **x, unsigned n_lists, ...) {
 char **strv_env_set(char **x, const char *p) {
 
         char **k, **r;
+        char* m[2] = { (char*) p, NULL };
+
+        /* Overrides the env var setting of p, returns a new copy */
 
         if (!(r = new(char*, strv_length(x)+2)))
                 return NULL;
@@ -536,7 +539,7 @@ char **strv_env_set(char **x, const char *p) {
         if (env_append(r, &k, x) < 0)
                 goto fail;
 
-        if (!(*(k++) = strdup(p)))
+        if (env_append(r, &k, m) < 0)
                 goto fail;
 
         *k = NULL;
