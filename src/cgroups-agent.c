@@ -43,7 +43,6 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-
         /* We send this event to the private D-Bus socket and then the
          * system instance will forward this to the system bus. We do
          * this to avoid an activation loop when we start dbus when we
@@ -93,7 +92,6 @@ finish:
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
         }
-
 
         if (m)
                 dbus_message_unref(m);

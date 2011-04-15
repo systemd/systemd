@@ -86,7 +86,6 @@ int main(int argc, char *argv[]) {
         if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
                 const char *tty;
 
-                truncate_nl(active);
                 if ((tty = strrchr(active, ' ')))
                         tty ++;
                 else

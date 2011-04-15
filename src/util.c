@@ -550,6 +550,8 @@ int read_one_line_file(const char *fn, char **line) {
                 goto finish;
         }
 
+        truncate_nl(c);
+
         *line = c;
         r = 0;
 
@@ -797,7 +799,6 @@ int get_process_name(pid_t pid, char **name) {
         if (r < 0)
                 return r;
 
-        truncate_nl(*name);
         return 0;
 }
 
@@ -3199,8 +3200,7 @@ void status_welcome(void) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/system-release: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                }
         }
 
         if (!ansi_color && pretty_name) {
@@ -3221,8 +3221,7 @@ void status_welcome(void) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/SuSE-release: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                }
         }
 
         if (!ansi_color)
@@ -3235,8 +3234,7 @@ void status_welcome(void) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/gentoo-release: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                }
         }
 
         if (!ansi_color)
@@ -3249,8 +3247,7 @@ void status_welcome(void) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/altlinux-release: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                }
         }
 
         if (!ansi_color)
@@ -3267,7 +3264,6 @@ void status_welcome(void) {
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/debian_version: %s", strerror(-r));
                 } else {
-                        truncate_nl(version);
                         pretty_name = strappend("Debian ", version);
                         free(version);
 
@@ -3826,8 +3822,6 @@ const char *default_term_for_tty(const char *tty) {
          * TERM */
         if (streq(tty, "console"))
                 if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
-                        truncate_nl(active);
-
                         /* If multiple log outputs are configured the
                          * last one is what /dev/console points to */
                         if ((tty = strrchr(active, ' ')))
