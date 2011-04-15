@@ -70,9 +70,10 @@ char **strv_copy(char **l) {
         if (!(r = new(char*, strv_length(l)+1)))
                 return NULL;
 
-        for (k = r; *l; k++, l++)
-                if (!(*k = strdup(*l)))
-                        goto fail;
+        if (l)
+                for (k = r; *l; k++, l++)
+                        if (!(*k = strdup(*l)))
+                                goto fail;
 
         *k = NULL;
         return r;
