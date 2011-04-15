@@ -456,11 +456,11 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         char fn[PATH_MAX], line[LINE_MAX], *p;
         long unsigned ppid;
 
-        assert(pid >= 0);
+        assert(pid > 0);
         assert(_ppid);
 
         assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
-        fn[sizeof(fn)-1] = 0;
+        char_array_0(fn);
 
         if (!(f = fopen(fn, "r")))
                 return -errno;
