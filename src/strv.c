@@ -358,7 +358,10 @@ char **strv_remove(char **l, const char *s) {
         if (!l)
                 return NULL;
 
-        /* Drops every occurrence of s in the string list */
+        assert(s);
+
+        /* Drops every occurrence of s in the string list, edits
+         * in-place. */
 
         for (f = t = l; *f; f++) {
 
@@ -387,7 +390,12 @@ static int env_append(char **r, char ***k, char **a) {
 
         for (; *a; a++) {
                 char **j;
-                size_t n = strcspn(*a, "=") + 1;
+                size_t n;
+
+                n = strcspn(*a, "=");
+
+                if ((*a)[n] == '=')
+                        n++;
 
                 for (j = r; j < *k; j++)
                         if (strncmp(*j, *a, n) == 0)
