@@ -715,7 +715,7 @@ static int fifo_address_create(
         r = mkfifo(path, socket_mode);
         umask(old_mask);
 
-        if (r < 0) {
+        if (r < 0 && errno != EEXIST) {
                 r = -errno;
                 goto fail;
         }
