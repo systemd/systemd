@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -134,7 +134,13 @@ static const char* fallback_icon_name(void) {
 
         /* We only list the really obvious cases here. The DMI data is
            unreliable enough, so let's not do any additional guesswork
-           on top of that. */
+           on top of that.
+
+           See the SMBIOS Specification 2.7.1 section 7.4.1 for
+           details about the values listed here:
+
+           http://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.7.1.pdf
+         */
 
         switch (t) {
 
@@ -150,6 +156,7 @@ static const char* fallback_icon_name(void) {
                 return "computer-laptop";
 
         case 0x11:
+        case 0x1C:
                 return "computer-server";
         }
 
