@@ -182,10 +182,10 @@
                 <title>Example</title>
 
                 <programlisting>NAME=Fedora
-VERSION=15 (Rawhide)
+VERSION="15 (Rawhide)"
 ID=fedora
 VERSION_ID=15
-PRETTY_NAME=Fedora 15 (Rawhide)
+PRETTY_NAME="Fedora 15 (Rawhide)"
 ANSI_COLOR=0;34</programlisting>
         </refsect1>
 
@@ -193,7 +193,10 @@ ANSI_COLOR=0;34</programlisting>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

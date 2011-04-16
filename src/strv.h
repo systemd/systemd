@@ -59,6 +59,7 @@ char **strv_env_merge(unsigned n_lists, ...);
 char **strv_env_delete(char **x, unsigned n_lists, ...);
 
 char **strv_env_set(char **x, const char *p);
+char **strv_env_unset(char **l, const char *p);
 
 char *strv_env_get_with_length(char **l, const char *name, size_t k);
 char *strv_env_get(char **x, const char *n);

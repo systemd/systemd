@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>hostname</refname>
-                <refpurpose>local host name configuration file</refpurpose>
+                <refpurpose>Local host name configuration file</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -62,10 +62,10 @@
                 newline-terminated host name string. The
                 host name may be a free-form string up to 64 characters
                 in length, however it is recommended that it consists
-                only of 7bit ASCII characters and no spaces or dots,
-                and limit itself to the format allowed for DNS domain
+                only of 7bit ASCII lower-case characters and no spaces or dots,
+                and limits itself to the format allowed for DNS domain
                 name labels, even though this is not a
-                requirement.</para>
+                strict requirement.</para>
 
                 <para>Depending on the operating system other
                 configuration files might be checked for configuration
@@ -85,7 +85,10 @@
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

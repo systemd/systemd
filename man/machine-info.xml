@@ -1,0 +1,147 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="machine-info">
+        <refentryinfo>
+                <title>machine-info</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>machine-info</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>machine-info</refname>
+                <refpurpose>Local machine information file</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/machine-info</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>The <filename>/etc/machine-info</filename> file
+                contains machine meta data.</para>
+
+                <para>The basic file format of
+                <filename>machine-info</filename> is a
+                newline-separated list of environment-like
+                shell-compatible variable assignments. It is possible
+                to source the configuration from shell scripts,
+                however, beyond mere variable assignments no shell
+                features are supported, allowing applications to read
+                the file without implementing a shell compatible
+                execution engine.</para>
+
+                <para><filename>/etc/machine-info</filename> contains
+                meta data about the machine that is set by the user or
+                administrator.</para>
+
+                <para>Depending on the operating system other
+                configuration files might be checked for machine
+                information as well, however only as fallback.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following machine meta data parameters may
+                be set using
+                <filename>/etc/machine-info</filename>:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>PRETTY_HOSTNAME=</varname></term>
+
+                                <listitem><para>A pretty
+                                human-readable UTF8 machine identifier
+                                string. This should contain a name
+                                like <literal>Lennart's
+                                Laptop</literal> which is useful to
+                                present to the user and does not
+                                suffer by the syntax limitations of
+                                internet domain names. If possible the
+                                internet host name as configured in
+                                <filename>/etc/hostname</filename>
+                                should be kept similar to this
+                                one. Example: if this value is
+                                <literal>Lennart's Computer</literal>
+                                an Internet host name of
+                                <literal>lennarts-computer</literal>
+                                might be a good choice. If this
+                                parameter is not set an application
+                                should fall back to the Internet host
+                                name for presentation
+                                purposes.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ICON_NAME=</varname></term>
+
+                                <listitem><para>An icon identifying
+                                this machine according to the <ulink
+                                url="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">XDG
+                                Icon Naming Specification</ulink>. If
+                                this parameter is not set an
+                                application should fall back to
+                                <literal>computer</literal> or a
+                                similar icon name.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+
+                <programlisting>PRETTY_NAME="Lennart's Computer"
+ICON_NAME=computer-laptop</programlisting>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

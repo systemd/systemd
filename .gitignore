@@ -1,3 +1,4 @@
+systemd-hostnamed
 systemd-binfmt
 systemd-getty-generator
 systemd-nspawn

@@ -496,6 +496,64 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         return 0;
 }
 
+int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
+        int r;
+        FILE *f;
+        char fn[PATH_MAX], line[LINE_MAX], *p;
+
+        assert(pid > 0);
+        assert(st);
+
+        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
+        char_array_0(fn);
+
+        if (!(f = fopen(fn, "r")))
+                return -errno;
+
+        if (!(fgets(line, sizeof(line), f))) {
+                r = -errno;
+                fclose(f);
+                return r;
+        }
+
+        fclose(f);
+
+        /* Let's skip the pid and comm fields. The latter is enclosed
+         * in () but does not escape any () in its value, so let's
+         * skip over it manually */
+
+        if (!(p = strrchr(line, ')')))
+                return -EIO;
+
+        p++;
+
+        if (sscanf(p, " "
+                   "%*c "  /* state */
+                   "%*d "  /* ppid */
+                   "%*d "  /* pgrp */
+                   "%*d "  /* session */
+                   "%*d "  /* tty_nr */
+                   "%*d "  /* tpgid */
+                   "%*u "  /* flags */
+                   "%*u "  /* minflt */
+                   "%*u "  /* cminflt */
+                   "%*u "  /* majflt */
+                   "%*u "  /* cmajflt */
+                   "%*u "  /* utime */
+                   "%*u "  /* stime */
+                   "%*d "  /* cutime */
+                   "%*d "  /* cstime */
+                   "%*d "  /* priority */
+                   "%*d "  /* nice */
+                   "%*d "  /* num_threads */
+                   "%*d "  /* itrealvalue */
+                   "%llu "  /* starttime */,
+                   st) != 1)
+                return -EIO;
+
+        return 0;
+}
+
 int write_one_line_file(const char *fn, const char *line) {
         FILE *f;
         int r;
@@ -772,6 +830,29 @@ finish:
                 fclose(f);
 
         strv_free(m);
+
+        return r;
+}
+
+int write_env_file(const char *fname, char **l) {
+
+        char **i;
+        FILE *f;
+        int r;
+
+        f = fopen(fname, "we");
+        if (!f)
+                return -errno;
+
+        STRV_FOREACH(i, l) {
+                fputs(*i, f);
+                fputc('\n', f);
+        }
+
+        fflush(f);
+
+        r = ferror(f) ? -errno : 0;
+        fclose(f);
 
         return r;
 }

@@ -1,3 +1,4 @@
+systemd-hostnamed.service
 console-shell.service
 systemd-sysctl.service
 systemd-ask-password-console.service

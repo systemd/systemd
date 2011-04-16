@@ -76,7 +76,7 @@
                 with a globally unique ID in the network, that does
                 not change even if the local network configuration
                 changes. Due to this and its greater length it is
-                a more useful replacement than the
+                a more useful replacement for the
                 <citerefentry><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call POSIX specifies.</para>
         </refsect1>
@@ -97,7 +97,9 @@
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

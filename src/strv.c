@@ -525,6 +525,32 @@ char **strv_env_delete(char **x, unsigned n_lists, ...) {
         return r;
 }
 
+char **strv_env_unset(char **l, const char *p) {
+
+        char **f, **t;
+
+        if (!l)
+                return NULL;
+
+        assert(p);
+
+        /* Drops every occurrence of the env var setting p in the
+         * string list. edits in-place. */
+
+        for (f = t = l; *f; f++) {
+
+                if (env_match(*f, p)) {
+                        free(*f);
+                        continue;
+                }
+
+                *(t++) = *f;
+        }
+
+        *t = NULL;
+        return l;
+}
+
 char **strv_env_set(char **x, const char *p) {
 
         char **k, **r;
