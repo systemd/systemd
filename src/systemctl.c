@@ -4152,6 +4152,15 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                 return -ENOENT;
         }
 
+        /* Consider unit files stored in /lib and /usr always enabled
+         * if they have no [Install] data. */
+        if (streq(verb, "is-enabled") &&
+            strv_isempty(i->aliases) &&
+            strv_isempty(i->wanted_by) &&
+            (path_startswith(filename, "/lib") ||
+             path_startswith(filename, "/usr")))
+                return 1;
+
         i->path = filename;
 
         if ((r = config_parse(filename, f, NULL, items, true, i)) < 0) {

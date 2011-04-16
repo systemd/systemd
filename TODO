@@ -7,8 +7,6 @@ F15:
 * NM should pull in network.target (PENDING)
   https://bugzilla.redhat.com/show_bug.cgi?id=692008
 
-* ntpd should pull in time-sync.target. (PENDING)
-
 * bluetooth should be possible to disable (PENDING)
 
 * add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
@@ -19,15 +17,24 @@ F15:
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
-* be nice to ingo
-
 * get writev() /dev/kmsg support into the F15 kernel
     https://lkml.org/lkml/2011/4/6/473
   patched merged into -mm
 
 * fix sd_is_socket() invocation in dbus
 
+* fix default timeout values mentioned in man page
+
+* New CK release, with sysinit.target dropping and TTY loop
+
+* New Avahi package, enable it by default
+
+* don't trim empty cgroups
+  https://bugzilla.redhat.com/show_bug.cgi?id=678555
+
 Features:
+
+* use pivot_root on shutdown so that we can unmount the root directory.
 
 * make sure multiple sockets in a .socket file appear in the order they are listed
   currently we get:
@@ -37,23 +44,18 @@ Features:
 
 * fix alsa mixer restore to not print error when no config is stored
 
-* don't trim empty cgroups
-  https://bugzilla.redhat.com/show_bug.cgi?id=678555
-
 * show enablement status in systemctl status
 
 * write blog stories about:
-  - the blame game: systemd-analyze
   - enabling dbus services
   - status update
+  - you are a distro: why switch?
 
 * allow port = 0 in .socket units
 
 * rename systemd-logger to systemd-stdio-syslog-bridge
 
 * introduce /usr/lib/binfmt.d/, /usr/lib/tmpfiles.d/
-
-* in pam_systemd: don't rely on /proc/self/loginuid in a container (check if audit caps are there)
 
 * take BSD file lock on tty devices when using them?
 
@@ -113,8 +115,6 @@ Features:
 
 * Support --test based on current system state
 
-* consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
-
 * systemctl enable as D-Bus call
 
 * consider services with any kind of link in /etc/systemd/system enabled
@@ -150,8 +150,9 @@ Features:
 
 * configurable jitter for timer events
 
-* Support ProcessNeededForShutdown=true to allow stuff like mdmon
-  to be killed very late after the rootfs is read only (?)
+* Support ProcessNeededForShutdown=true to allow stuff like mdmon to
+  be killed very late after the rootfs is read only? If implement pass
+  this to shutdown binary via command line argument.
 
 * Integrate "mdadm --wait-clean". Maybe just let SIGTERM to mdmon trigger the
   needed action
