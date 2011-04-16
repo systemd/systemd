@@ -198,7 +198,7 @@ static int config_parse_listen(
                 void *data,
                 void *userdata) {
 
-        SocketPort *p;
+        SocketPort *p, *tail;
         Socket *s;
 
         assert(filename);
@@ -255,7 +255,12 @@ static int config_parse_listen(
         }
 
         p->fd = -1;
-        LIST_PREPEND(SocketPort, port, s->ports, p);
+
+        if (s->ports) {
+                LIST_FIND_TAIL(SocketPort, port, s->ports, tail);
+                LIST_INSERT_AFTER(SocketPort, port, s->ports, tail, p);
+        } else
+                LIST_PREPEND(SocketPort, port, s->ports, p);
 
         return 0;
 }

@@ -36,12 +36,6 @@ Features:
 
 * use pivot_root on shutdown so that we can unmount the root directory.
 
-* make sure multiple sockets in a .socket file appear in the order they are listed
-  currently we get:
-    [Socket]
-    ListenSequentialPacket=@/org/kernel/udev/udevd    --> 4
-    ListenNetlink=kobject-uevent 1                    --> 3
-
 * fix alsa mixer restore to not print error when no config is stored
 
 * show enablement status in systemctl status
