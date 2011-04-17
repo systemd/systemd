@@ -266,9 +266,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 					continue;
 				print_device(device, "KERNEL", prop);
 				udev_device_unref(device);
-			}
-
-			if (ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN) {
+			} else if (ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN) {
 				struct udev_device *device;
 
 				device = udev_monitor_receive_device(udev_monitor);

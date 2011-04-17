@@ -286,9 +286,7 @@ static int test_monitor(struct udev *udev)
 				}
 				print_device(device);
 				udev_device_unref(device);
-			}
-
-			if (ev[i].data.fd == STDIN_FILENO && ev[i].events & EPOLLIN) {
+			} else if (ev[i].data.fd == STDIN_FILENO && ev[i].events & EPOLLIN) {
 				printf("exiting loop\n");
 				goto out;
 			}
