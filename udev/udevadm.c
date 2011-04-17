@@ -25,7 +25,7 @@
 
 #include "udev.h"
 
-static int debug;
+static bool debug;
 
 static void log_fn(struct udev *udev, int priority,
 		   const char *file, int line, const char *fn,
@@ -101,7 +101,7 @@ static const struct command cmds[] = {
 		.name = "test",
 		.cmd = udevadm_test,
 		.help = "simulation run",
-		.debug = 1,
+		.debug = true,
 	},
 	{
 		.name = "version",
@@ -117,7 +117,7 @@ static const struct command cmds[] = {
 static int run_command(struct udev *udev, const struct command *cmd, int argc, char *argv[])
 {
 	if (cmd->debug) {
-		debug = 1;
+		debug = true;
 		if (udev_get_log_priority(udev) < LOG_INFO)
 			udev_set_log_priority(udev, LOG_INFO);
 	}
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 
 		switch (option) {
 		case 'd':
-			debug = 1;
+			debug = true;
 			if (udev_get_log_priority(udev) < LOG_INFO)
 				udev_set_log_priority(udev, LOG_INFO);
 			break;
