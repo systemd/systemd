@@ -85,7 +85,6 @@ static sigset_t orig_sigmask;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
 static bool udev_exit;
-static volatile sig_atomic_t worker_exit;
 
 enum event_state {
 	EVENT_UNDEF,
@@ -168,18 +167,6 @@ static void event_queue_delete(struct event *event, bool export)
 	free(event);
 }
 
-static void event_sig_handler(int signum)
-{
-	switch (signum) {
-	case SIGALRM:
-		_exit(1);
-		break;
-	case SIGTERM:
-		worker_exit = true;
-		break;
-	}
-}
-
 static struct worker *worker_ref(struct worker *worker)
 {
 	worker->refcount++;
@@ -220,7 +207,6 @@ static void worker_new(struct event *event)
 	struct worker *worker;
 	struct udev_monitor *worker_monitor;
 	pid_t pid;
-	struct sigaction act;
 
 	/* listen for new events */
 	worker_monitor = udev_monitor_new_from_netlink(udev, NULL);
@@ -242,12 +228,11 @@ static void worker_new(struct event *event)
 	pid = fork();
 	switch (pid) {
 	case 0: {
-		sigset_t sigmask;
-		struct udev_device *dev;
-		struct pollfd pmon = {
-			.fd = udev_monitor_get_fd(worker_monitor),
-			.events = POLLIN,
-		};
+		struct udev_device *dev = NULL;
+		int fd_monitor;
+		struct epoll_event ep_signal, ep_monitor;
+		sigset_t mask;
+		int rc = EXIT_SUCCESS;
 
 		/* move initial device from queue */
 		dev = event->dev;
@@ -265,25 +250,41 @@ static void worker_new(struct event *event)
 		udev_log_close();
 		udev_log_init("udevd-work");
 
-		/* set signal handlers */
-		memset(&act, 0x00, sizeof(act));
-		act.sa_handler = event_sig_handler;
-		sigemptyset (&act.sa_mask);
-		act.sa_flags = 0;
-		sigaction(SIGTERM, &act, NULL);
-		sigaction(SIGALRM, &act, NULL);
+		sigfillset(&mask);
+		fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+		if (fd_signal < 0) {
+			err(udev, "error creating signalfd %m\n");
+			rc = 2;
+			goto out;
+		}
 
-		/* unblock SIGALRM */
-		sigfillset(&sigmask);
-		sigdelset(&sigmask, SIGALRM);
-		sigprocmask(SIG_SETMASK, &sigmask, NULL);
-		/* SIGTERM is unblocked in ppoll() */
-		sigdelset(&sigmask, SIGTERM);
+		fd_ep = epoll_create1(EPOLL_CLOEXEC);
+		if (fd_ep < 0) {
+			err(udev, "error creating epoll fd: %m\n");
+			rc = 3;
+			goto out;
+		}
+
+		memset(&ep_signal, 0, sizeof(struct epoll_event));
+		ep_signal.events = EPOLLIN;
+		ep_signal.data.fd = fd_signal;
+
+		fd_monitor = udev_monitor_get_fd(worker_monitor);
+		memset(&ep_monitor, 0, sizeof(struct epoll_event));
+		ep_monitor.events = EPOLLIN;
+		ep_monitor.data.fd = fd_monitor;
+
+		if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
+		    epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0) {
+			err(udev, "fail to add fds to epoll: %m\n");
+			rc = 4;
+			goto out;
+		}
 
 		/* request TERM signal if parent exits */
 		prctl(PR_SET_PDEATHSIG, SIGTERM);
 
-		do {
+		for (;;) {
 			struct udev_event *udev_event;
 			struct worker_message msg = {};
 			int err;
@@ -291,8 +292,10 @@ static void worker_new(struct event *event)
 
 			info(udev, "seq %llu running\n", udev_device_get_seqnum(dev));
 			udev_event = udev_event_new(dev);
-			if (udev_event == NULL)
-				_exit(3);
+			if (udev_event == NULL) {
+				rc = 5;
+				goto out;
+			}
 
 			/* set timeout to prevent hanging processes */
 			alarm(UDEV_EVENT_TIMEOUT);
@@ -334,29 +337,50 @@ static void worker_new(struct event *event)
 			udev_device_unref(dev);
 			dev = NULL;
 
-			/* wait for more device messages or signal from udevd */
-			while (!worker_exit) {
+			/* wait for more device messages from main udevd, or term signal */
+			while (dev == NULL) {
+				struct epoll_event ev[4];
 				int fdcount;
+				int i;
 
-				fdcount = ppoll(&pmon, 1, NULL, &sigmask);
+				fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), -1);
 				if (fdcount < 0)
 					continue;
 
-				if (pmon.revents & POLLIN) {
-					dev = udev_monitor_receive_device(worker_monitor);
-					if (dev != NULL)
-						break;
+				for (i = 0; i < fdcount; i++) {
+					if (ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN) {
+						dev = udev_monitor_receive_device(worker_monitor);
+					} else if (ev[i].data.fd == fd_signal && ev[i].events & EPOLLIN) {
+						struct signalfd_siginfo fdsi;
+						ssize_t size;
+
+						size = read(fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
+						if (size != sizeof(struct signalfd_siginfo))
+							continue;
+						switch (fdsi.ssi_signo) {
+						case SIGTERM:
+							goto out;
+						case SIGALRM:
+							rc = EXIT_FAILURE;
+							goto out;
+						}
+					}
 				}
 			}
-		} while (dev != NULL);
-
+		}
+out:
+		udev_device_unref(dev);
+		if (fd_signal >= 0)
+			close(fd_signal);
+		if (fd_ep >= 0)
+			close(fd_ep);
 		close(fd_inotify);
 		close(worker_watch[WRITE_END]);
 		udev_rules_unref(rules);
 		udev_monitor_unref(worker_monitor);
 		udev_unref(udev);
 		udev_log_close();
-		exit(EXIT_SUCCESS);
+		exit(rc);
 	}
 	case -1:
 		udev_monitor_unref(worker_monitor);
@@ -1455,18 +1479,18 @@ int main(int argc, char *argv[])
 	/* block and listen to all signals on signalfd */
 	sigfillset(&mask);
 	sigprocmask(SIG_SETMASK, &mask, &orig_sigmask);
-	fd_signal = signalfd(-1, &mask, SFD_CLOEXEC);
+	fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
 	if (fd_signal < 0) {
-		fprintf(stderr, "error getting signalfd\n");
-		err(udev, "error getting signalfd\n");
+		fprintf(stderr, "error creating signalfd\n");
+		err(udev, "error creating signalfd\n");
 		rc = 5;
 		goto exit;
 	}
 
 	/* unnamed socket from workers to the main daemon */
 	if (socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, worker_watch) < 0) {
-		fprintf(stderr, "error getting socketpair\n");
-		err(udev, "error getting socketpair\n");
+		fprintf(stderr, "error creating socketpair\n");
+		err(udev, "error creating socketpair\n");
 		rc = 6;
 		goto exit;
 	}
