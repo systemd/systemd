@@ -19,6 +19,8 @@
 #include <ctype.h>
 #include <pwd.h>
 #include <grp.h>
+#include <sys/prctl.h>
+#include <sys/epoll.h>
 #include <sys/wait.h>
 #include <sys/param.h>
 
@@ -259,6 +261,169 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
 	return 0;
 }
 
+static int run_program_exec(struct udev *udev, int fd_stdout, int fd_stderr,
+			    char *const argv[], char **envp, const sigset_t *sigmask)
+{
+	int err;
+	int fd;
+
+	/* discard child output or connect to pipe */
+	fd = open("/dev/null", O_RDWR);
+	if (fd >= 0) {
+		dup2(fd, STDIN_FILENO);
+		if (fd_stdout < 0)
+			dup2(fd, STDOUT_FILENO);
+		if (fd_stderr < 0)
+			dup2(fd, STDERR_FILENO);
+		close(fd);
+	} else {
+		err(udev, "open /dev/null failed: %m\n");
+	}
+
+	/* connect pipes to std{out,err} */
+	if (fd_stdout >= 0) {
+		dup2(fd_stdout, STDOUT_FILENO);
+			close(fd_stdout);
+	}
+	if (fd_stderr >= 0) {
+		dup2(fd_stderr, STDERR_FILENO);
+		close(fd_stderr);
+	}
+
+	/* terminate child in case parent goes away */
+	prctl(PR_SET_PDEATHSIG, SIGTERM);
+
+	/* restore original udev sigmask before exec */
+	if (sigmask)
+		sigprocmask(SIG_SETMASK, sigmask, NULL);
+
+	execve(argv[0], argv, envp);
+
+	/* exec failed */
+	err = -errno;
+	if (err == -ENOENT || err == -ENOTDIR) {
+		/* may be on a filesystem which is not mounted right now */
+		info(udev, "program '%s' not found\n", argv[0]);
+	} else {
+		/* other problems */
+		err(udev, "exec of program '%s' failed\n", argv[0]);
+	}
+	return err;
+}
+
+static int run_program_read(struct udev *udev, int fd_stdout, int fd_stderr,
+			    char *const argv[], char *result, size_t ressize, size_t *reslen)
+{
+	size_t respos = 0;
+	int fd_ep = -1;
+	struct epoll_event ep_outpipe;
+	struct epoll_event ep_errpipe;
+	int err = 0;
+
+	/* read from child if requested */
+	if (fd_stdout < 0 && fd_stderr < 0)
+		return 0;
+
+	fd_ep = epoll_create1(EPOLL_CLOEXEC);
+	if (fd_ep < 0) {
+		err = -errno;
+		err(udev, "error creating epoll fd: %m\n");
+		goto out;
+	}
+
+	if (fd_stdout >= 0) {
+		memset(&ep_outpipe, 0, sizeof(struct epoll_event));
+		ep_outpipe.events = EPOLLIN;
+		ep_outpipe.data.ptr = &fd_stdout;
+		if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stdout, &ep_outpipe) < 0) {
+			err(udev, "fail to add fd to epoll: %m\n");
+			goto out;
+		}
+	}
+
+	if (fd_stderr >= 0) {
+		memset(&ep_errpipe, 0, sizeof(struct epoll_event));
+		ep_errpipe.events = EPOLLIN;
+		ep_errpipe.data.ptr = &fd_stderr;
+		if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stderr, &ep_errpipe) < 0) {
+			err(udev, "fail to add fd to epoll: %m\n");
+			goto out;
+		}
+	}
+
+	/* read child output */
+	while (fd_stdout >= 0 || fd_stderr >= 0) {
+		int fdcount;
+		struct epoll_event ev[4];
+		int i;
+
+		fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), -1);
+		if (fdcount < 0) {
+			if (errno == EINTR)
+				continue;
+			err(udev, "failed to poll: %m\n");
+			err = -errno;
+			goto out;
+		}
+
+		for (i = 0; i < fdcount; i++) {
+			int *fd = (int *)ev[i].data.ptr;
+
+			if (ev[i].events & EPOLLIN) {
+				ssize_t count;
+				char buf[4096];
+
+				count = read(*fd, buf, sizeof(buf)-1);
+				if (count <= 0)
+					continue;
+				buf[count] = '\0';
+
+				/* store stdout result */
+				if (result != NULL && *fd == fd_stdout) {
+					if (respos + count < ressize) {
+						memcpy(&result[respos], buf, count);
+						respos += count;
+					} else {
+						err(udev, "ressize %zd too short\n", ressize);
+						err = -ENOBUFS;
+					}
+				}
+
+				/* log debug output only if we watch stderr */
+				if (fd_stderr >= 0) {
+					char *pos;
+					char *line;
+
+					pos = buf;
+					while ((line = strsep(&pos, "\n"))) {
+						if (pos != NULL || line[0] != '\0')
+							info(udev, "'%s'(%s) '%s'\n", argv[0], *fd == fd_stdout ? "out" : "err" , line);
+					}
+				}
+			} else if (ev[i].events & EPOLLHUP) {
+				if (epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL) < 0) {
+					err = -errno;
+					err(udev, "failed to remove fd from epoll: %m\n");
+					goto out;
+				}
+				*fd = -1;
+			}
+		}
+	}
+
+	/* return the child's stdout string */
+	if (result != NULL) {
+		result[respos] = '\0';
+		dbg(udev, "result='%s'\n", result);
+		if (reslen != NULL)
+			*reslen = respos;
+	}
+out:
+	if (fd_ep >= 0)
+		close(fd_ep);
+	return err;
+}
+
 int util_run_program(struct udev *udev, const char *command, char **envp,
 		     char *result, size_t ressize, size_t *reslen,
 		     const sigset_t *sigmask)
@@ -270,7 +435,6 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 	char arg[UTIL_PATH_SIZE];
 	char program[UTIL_PATH_SIZE];
 	char *argv[((sizeof(arg) + 1) / 2) + 1];
-	int devnull;
 	int i;
 	int err = 0;
 
@@ -305,17 +469,19 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 		argv[1] = NULL;
 	}
 
-	/* prepare pipes from child to parent */
+	/* pipes from child to parent */
 	if (result != NULL || udev_get_log_priority(udev) >= LOG_INFO) {
-		if (pipe(outpipe) != 0) {
+		if (pipe2(outpipe, O_NONBLOCK) != 0) {
+			err = -errno;
 			err(udev, "pipe failed: %m\n");
-			return -1;
+			goto out;
 		}
 	}
 	if (udev_get_log_priority(udev) >= LOG_INFO) {
-		if (pipe(errpipe) != 0) {
+		if (pipe2(errpipe, O_NONBLOCK) != 0) {
+			err = -errno;
 			err(udev, "pipe failed: %m\n");
-			return -1;
+			goto out;
 		}
 	}
 
@@ -328,145 +494,36 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 	pid = fork();
 	switch(pid) {
 	case 0:
-		/* child closes parent ends of pipes */
-		if (outpipe[READ_END] > 0)
+		/* child closes parent's ends of pipes */
+		if (outpipe[READ_END] >= 0) {
 			close(outpipe[READ_END]);
-		if (errpipe[READ_END] > 0)
+			outpipe[READ_END] = -1;
+		}
+		if (errpipe[READ_END] >= 0) {
 			close(errpipe[READ_END]);
-
-		/* discard child output or connect to pipe */
-		devnull = open("/dev/null", O_RDWR);
-		if (devnull > 0) {
-			dup2(devnull, STDIN_FILENO);
-			if (outpipe[WRITE_END] < 0)
-				dup2(devnull, STDOUT_FILENO);
-			if (errpipe[WRITE_END] < 0)
-				dup2(devnull, STDERR_FILENO);
-			close(devnull);
-		} else
-			err(udev, "open /dev/null failed: %m\n");
-		if (outpipe[WRITE_END] > 0) {
-			dup2(outpipe[WRITE_END], STDOUT_FILENO);
-			close(outpipe[WRITE_END]);
-		}
-		if (errpipe[WRITE_END] > 0) {
-			dup2(errpipe[WRITE_END], STDERR_FILENO);
-			close(errpipe[WRITE_END]);
+			errpipe[READ_END] = -1;
 		}
 
-		if (sigmask)
-			sigprocmask(SIG_SETMASK, sigmask, NULL);
+		err = run_program_exec(udev, outpipe[WRITE_END], errpipe[WRITE_END], argv, envp, sigmask);
 
-		execve(argv[0], argv, envp);
-		if (errno == ENOENT || errno == ENOTDIR) {
-			/* may be on a filesystem which is not mounted right now */
-			info(udev, "program '%s' not found\n", argv[0]);
-		} else {
-			/* other problems */
-			err(udev, "exec of program '%s' failed\n", argv[0]);
-		}
 		_exit(1);
 	case -1:
 		err(udev, "fork of '%s' failed: %m\n", argv[0]);
-		return -1;
+		err = -1;
+		goto out;
 	default:
-		/* read from child if requested */
-		if (outpipe[READ_END] > 0 || errpipe[READ_END] > 0) {
-			ssize_t count;
-			size_t respos = 0;
-
-			/* parent closes child ends of pipes */
-			if (outpipe[WRITE_END] > 0)
-				close(outpipe[WRITE_END]);
-			if (errpipe[WRITE_END] > 0)
-				close(errpipe[WRITE_END]);
-
-			/* read child output */
-			while (outpipe[READ_END] > 0 || errpipe[READ_END] > 0) {
-				int fdcount;
-				fd_set readfds;
-
-				FD_ZERO(&readfds);
-				if (outpipe[READ_END] > 0)
-					FD_SET(outpipe[READ_END], &readfds);
-				if (errpipe[READ_END] > 0)
-					FD_SET(errpipe[READ_END], &readfds);
-				fdcount = select(MAX(outpipe[READ_END], errpipe[READ_END])+1, &readfds, NULL, NULL, NULL);
-				if (fdcount < 0) {
-					if (errno == EINTR)
-						continue;
-					err = -1;
-					break;
-				}
-
-				/* get stdout */
-				if (outpipe[READ_END] > 0 && FD_ISSET(outpipe[READ_END], &readfds)) {
-					char inbuf[1024];
-					char *pos;
-					char *line;
-
-					count = read(outpipe[READ_END], inbuf, sizeof(inbuf)-1);
-					if (count <= 0) {
-						close(outpipe[READ_END]);
-						outpipe[READ_END] = -1;
-						if (count < 0) {
-							err(udev, "stdin read failed: %m\n");
-							err = -1;
-						}
-						continue;
-					}
-					inbuf[count] = '\0';
-
-					/* store result for rule processing */
-					if (result) {
-						if (respos + count < ressize) {
-							memcpy(&result[respos], inbuf, count);
-							respos += count;
-						} else {
-							err(udev, "ressize %ld too short\n", (long)ressize);
-							err = -1;
-						}
-					}
-					pos = inbuf;
-					while ((line = strsep(&pos, "\n")))
-						if (pos || line[0] != '\0')
-							info(udev, "'%s' (stdout) '%s'\n", argv[0], line);
-				}
-
-				/* get stderr */
-				if (errpipe[READ_END] > 0 && FD_ISSET(errpipe[READ_END], &readfds)) {
-					char errbuf[1024];
-					char *pos;
-					char *line;
-
-					count = read(errpipe[READ_END], errbuf, sizeof(errbuf)-1);
-					if (count <= 0) {
-						close(errpipe[READ_END]);
-						errpipe[READ_END] = -1;
-						if (count < 0)
-							err(udev, "stderr read failed: %m\n");
-						continue;
-					}
-					errbuf[count] = '\0';
-					pos = errbuf;
-					while ((line = strsep(&pos, "\n")))
-						if (pos || line[0] != '\0')
-							info(udev, "'%s' (stderr) '%s'\n", argv[0], line);
-				}
-			}
-			if (outpipe[READ_END] > 0)
-				close(outpipe[READ_END]);
-			if (errpipe[READ_END] > 0)
-				close(errpipe[READ_END]);
-
-			/* return the child's stdout string */
-			if (result) {
-				result[respos] = '\0';
-				dbg(udev, "result='%s'\n", result);
-				if (reslen)
-					*reslen = respos;
-			}
+		/* parent closed child's ends of pipes */
+		if (outpipe[WRITE_END] >= 0) {
+			close(outpipe[WRITE_END]);
+			outpipe[WRITE_END] = -1;
 		}
+		if (errpipe[WRITE_END] >= 0) {
+			close(errpipe[WRITE_END]);
+			errpipe[WRITE_END] = -1;
+		}
+
+		err = run_program_read(udev, outpipe[READ_END], errpipe[READ_END], argv, result, ressize, reslen);
+
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status)) {
 			info(udev, "'%s' returned with exitcode %i\n", command, WEXITSTATUS(status));
@@ -477,5 +534,15 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 			err = -1;
 		}
 	}
+
+out:
+	if (outpipe[READ_END] >= 0)
+		close(outpipe[READ_END]);
+	if (outpipe[WRITE_END] >= 0)
+		close(outpipe[WRITE_END]);
+	if (errpipe[READ_END] >= 0)
+		close(errpipe[READ_END]);
+	if (errpipe[WRITE_END] >= 0)
+		close(errpipe[WRITE_END]);
 	return err;
 }
