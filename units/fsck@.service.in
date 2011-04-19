@@ -10,7 +10,7 @@ Description=File System Check on %f
 DefaultDependencies=no
 BindTo=%i.device
 After=systemd-readahead-collect.service systemd-readahead-replay.service %i.device
-Before=basic.target shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot
