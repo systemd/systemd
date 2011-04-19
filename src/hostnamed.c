@@ -192,6 +192,7 @@ static int write_data_static_hostname(void) {
 }
 
 static int write_data_other(void) {
+
         static const char * const name[_PROP_MAX] = {
                 [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
                 [PROP_ICON_NAME] = "ICON_NAME"
@@ -476,10 +477,12 @@ static DBusHandlerResult hostname_message_handler(
                         data[PROP_HOSTNAME] = h;
 
                         r = write_data_hostname();
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error("Failed to set host name: %s", strerror(-r));
                                 return bus_send_error_reply(connection, message, NULL, r);
+                        }
 
-                        log_info("Changed host name to '%s'", data[PROP_HOSTNAME]);
+                        log_info("Changed host name to '%s'", strempty(data[PROP_HOSTNAME]));
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/hostname1",
@@ -528,10 +531,12 @@ static DBusHandlerResult hostname_message_handler(
                         }
 
                         r = write_data_static_hostname();
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error("Failed to write static host name: %s", strerror(-r));
                                 return bus_send_error_reply(connection, message, NULL, r);
+                        }
 
-                        log_info("Changed static host name to '%s'", data[PROP_HOSTNAME]);
+                        log_info("Changed static host name to '%s'", strempty(data[PROP_HOSTNAME]));
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/hostname1",
@@ -582,10 +587,12 @@ static DBusHandlerResult hostname_message_handler(
                         }
 
                         r = write_data_other();
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error("Failed to write machine info: %s", strerror(-r));
                                 return bus_send_error_reply(connection, message, NULL, r);
+                        }
 
-                        log_info("Changed %s to '%s'", k == PROP_PRETTY_HOSTNAME ? "pretty host name" : "icon name", data[k]);
+                        log_info("Changed %s to '%s'", k == PROP_PRETTY_HOSTNAME ? "pretty host name" : "icon name", strempty(data[k]));
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/hostname1",
@@ -673,6 +680,7 @@ int main(int argc, char *argv[]) {
 
         if (dbus_bus_request_name(bus, "org.freedesktop.hostname1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error) < 0) {
                 log_error("Failed to register name on bus: %s", error.message);
+                r = -EEXIST;
                 goto finish;
         }
 
