@@ -9,11 +9,6 @@ F15:
 
 * bluetooth should be possible to disable (PENDING)
 
-* add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
-
-* bind mounts are ignored
-  https://bugzilla.redhat.com/show_bug.cgi?id=682662
-
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
@@ -22,8 +17,6 @@ F15:
   patched merged into -mm
 
 * fix sd_is_socket() invocation in dbus
-
-* fix default timeout values mentioned in man page
 
 * New CK release, with sysinit.target dropping and TTY loop
 
@@ -34,7 +27,7 @@ F15:
 
 * drop cap bounding set in logger, hostnamed, readahead, ...
 
-* timeout value is incorrectly parsed in /etc/fstab
+* make anaconda write timeout=0 for encrypted devices
 
 Features:
 
@@ -54,7 +47,7 @@ Features:
   - the new configuration files
   - you are a distro: why switch?
 
-* maybe add tiny dbus services similar to hostnamed for locale?
+* maybe add tiny dbus services similar to hostnamed for locale and wallclock/timezone?
 
 * allow port = 0 in .socket units
 
@@ -136,8 +129,6 @@ Features:
 
 * invoke vhangup() before and after invoking getty
     http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3c95c985fa91ecf6a0e29622bbdd13dcfc5ce9f1
-
-* support "auto" and "comment=systemd.automount" at the same time for an fstab entry
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
   (belongs into a distro pattern though, not in an upstream package's service file)
