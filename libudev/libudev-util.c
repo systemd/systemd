@@ -557,7 +557,7 @@ uint64_t util_string_bloom64(const char *str)
 
 #define USEC_PER_SEC  1000000ULL
 #define NSEC_PER_USEC 1000ULL
-unsigned long long usec_monotonic(void)
+unsigned long long now_usec(void)
 {
 	struct timespec ts;
 

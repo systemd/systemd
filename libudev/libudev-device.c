@@ -69,7 +69,6 @@ struct udev_device {
 	struct udev_list_node tags_list;
 	unsigned long long int seqnum;
 	unsigned long long int usec_initialized;
-	int event_timeout;
 	int timeout;
 	int devlink_priority;
 	int refcount;
@@ -376,7 +375,7 @@ struct udev_device *udev_device_new(struct udev *udev)
 	udev_list_init(&udev_device->sysattr_value_list);
 	udev_list_init(&udev_device->sysattr_list);
 	udev_list_init(&udev_device->tags_list);
-	udev_device->event_timeout = -1;
+	udev_device->timeout = -1;
 	udev_device->watch_handle = -1;
 	/* copy global properties */
 	udev_list_entry_foreach(list_entry, udev_get_properties_list_entry(udev))
@@ -1164,7 +1163,7 @@ unsigned long long int udev_device_get_usec_since_initialized(struct udev_device
 		udev_device_read_db(udev_device, NULL);
 	if (udev_device->usec_initialized == 0)
 		return 0;
-	now = usec_monotonic();
+	now = now_usec();
 	if (now == 0)
 		return 0;
 	return now - udev_device->usec_initialized;
@@ -1690,22 +1689,10 @@ int udev_device_get_timeout(struct udev_device *udev_device)
 
 int udev_device_set_timeout(struct udev_device *udev_device, int timeout)
 {
-	udev_device->timeout = timeout;
-	return 0;
-}
-int udev_device_get_event_timeout(struct udev_device *udev_device)
-{
-	if (!udev_device->info_loaded)
-		udev_device_read_db(udev_device, NULL);
-	return udev_device->event_timeout;
-}
-
-int udev_device_set_event_timeout(struct udev_device *udev_device, int event_timeout)
-{
 	char num[32];
 
-	udev_device->event_timeout = event_timeout;
-	snprintf(num, sizeof(num), "%u", event_timeout);
+	udev_device->timeout = timeout;
+	snprintf(num, sizeof(num), "%u", timeout);
 	udev_device_add_property(udev_device, "TIMEOUT", num);
 	return 0;
 }

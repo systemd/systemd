@@ -26,7 +26,12 @@
 #include <time.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
+#include <sys/prctl.h>
+#include <sys/poll.h>
+#include <sys/epoll.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
+#include <sys/signalfd.h>
 #include <linux/sockios.h>
 
 #include "udev.h"
@@ -42,6 +47,9 @@ struct udev_event *udev_event_new(struct udev_device *dev)
 	event->dev = dev;
 	event->udev = udev_device_get_udev(dev);
 	udev_list_init(&event->run_list);
+	event->fd_signal = -1;
+	event->birth_usec = now_usec();
+	event->timeout_usec = UDEV_EVENT_TIMEOUT_SEC * 1000 * 1000;
 	dbg(event->udev, "allocated event %p\n", event);
 	return event;
 }
@@ -439,6 +447,374 @@ out:
 	return l;
 }
 
+static int spawn_exec(struct udev_event *event,
+		      const char *cmd, char *const argv[], char **envp, const sigset_t *sigmask,
+		      int fd_stdout, int fd_stderr)
+{
+	struct udev *udev = event->udev;
+	int err;
+	int fd;
+
+	/* discard child output or connect to pipe */
+	fd = open("/dev/null", O_RDWR);
+	if (fd >= 0) {
+		dup2(fd, STDIN_FILENO);
+		if (fd_stdout < 0)
+			dup2(fd, STDOUT_FILENO);
+		if (fd_stderr < 0)
+			dup2(fd, STDERR_FILENO);
+		close(fd);
+	} else {
+		err(udev, "open /dev/null failed: %m\n");
+	}
+
+	/* connect pipes to std{out,err} */
+	if (fd_stdout >= 0) {
+		dup2(fd_stdout, STDOUT_FILENO);
+			close(fd_stdout);
+	}
+	if (fd_stderr >= 0) {
+		dup2(fd_stderr, STDERR_FILENO);
+		close(fd_stderr);
+	}
+
+	/* terminate child in case parent goes away */
+	prctl(PR_SET_PDEATHSIG, SIGTERM);
+
+	/* restore original udev sigmask before exec */
+	if (sigmask)
+		sigprocmask(SIG_SETMASK, sigmask, NULL);
+
+	execve(argv[0], argv, envp);
+
+	/* exec failed */
+	err = -errno;
+	err(udev, "exec of program '%s' failed\n", cmd);
+	return err;
+}
+
+static int spawn_read(struct udev_event *event,
+		      const char *cmd,
+		      int fd_stdout, int fd_stderr,
+		      char *result, size_t ressize)
+{
+	struct udev *udev = event->udev;
+	size_t respos = 0;
+	int fd_ep = -1;
+	struct epoll_event ep_outpipe, ep_errpipe;
+	int err = 0;
+
+	/* read from child if requested */
+	if (fd_stdout < 0 && fd_stderr < 0)
+		return 0;
+
+	fd_ep = epoll_create1(EPOLL_CLOEXEC);
+	if (fd_ep < 0) {
+		err = -errno;
+		err(udev, "error creating epoll fd: %m\n");
+		goto out;
+	}
+
+	if (fd_stdout >= 0) {
+		memset(&ep_outpipe, 0, sizeof(struct epoll_event));
+		ep_outpipe.events = EPOLLIN;
+		ep_outpipe.data.ptr = &fd_stdout;
+		if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stdout, &ep_outpipe) < 0) {
+			err(udev, "fail to add fd to epoll: %m\n");
+			goto out;
+		}
+	}
+
+	if (fd_stderr >= 0) {
+		memset(&ep_errpipe, 0, sizeof(struct epoll_event));
+		ep_errpipe.events = EPOLLIN;
+		ep_errpipe.data.ptr = &fd_stderr;
+		if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stderr, &ep_errpipe) < 0) {
+			err(udev, "fail to add fd to epoll: %m\n");
+			goto out;
+		}
+	}
+
+	/* read child output */
+	while (fd_stdout >= 0 || fd_stderr >= 0) {
+		int timeout;
+		int fdcount;
+		struct epoll_event ev[4];
+		int i;
+
+		if (event->timeout_usec > 0) {
+			unsigned long long age_usec;
+
+			age_usec = now_usec() - event->birth_usec;
+			if (age_usec >= event->timeout_usec) {
+				err = -ETIMEDOUT;
+				err(udev, "timeout '%s'\n", cmd);
+				goto out;
+			}
+			timeout = ((event->timeout_usec - age_usec) / 1000) + 1000;
+		} else {
+			timeout = -1;
+		}
+
+		fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), timeout);
+		if (fdcount < 0) {
+			if (errno == EINTR)
+				continue;
+			err = -errno;
+			err(udev, "failed to poll: %m\n");
+			goto out;
+		}
+		if (fdcount == 0) {
+			err  = -ETIMEDOUT;
+			err(udev, "timeout '%s'\n", cmd);
+			goto out;
+		}
+
+		for (i = 0; i < fdcount; i++) {
+			int *fd = (int *)ev[i].data.ptr;
+
+			if (ev[i].events & EPOLLIN) {
+				ssize_t count;
+				char buf[4096];
+
+				count = read(*fd, buf, sizeof(buf)-1);
+				if (count <= 0)
+					continue;
+				buf[count] = '\0';
+
+				/* store stdout result */
+				if (result != NULL && *fd == fd_stdout) {
+					if (respos + count < ressize) {
+						memcpy(&result[respos], buf, count);
+						respos += count;
+					} else {
+						err(udev, "'%s' ressize %zd too short\n", cmd, ressize);
+						err = -ENOBUFS;
+					}
+				}
+
+				/* log debug output only if we watch stderr */
+				if (fd_stderr >= 0) {
+					char *pos;
+					char *line;
+
+					pos = buf;
+					while ((line = strsep(&pos, "\n"))) {
+						if (pos != NULL || line[0] != '\0')
+							info(udev, "'%s'(%s) '%s'\n", cmd, *fd == fd_stdout ? "out" : "err" , line);
+					}
+				}
+			} else if (ev[i].events & EPOLLHUP) {
+				if (epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL) < 0) {
+					err = -errno;
+					err(udev, "failed to remove fd from epoll: %m\n");
+					goto out;
+				}
+				*fd = -1;
+			}
+		}
+	}
+
+	/* return the child's stdout string */
+	if (result != NULL) {
+		result[respos] = '\0';
+		dbg(udev, "result='%s'\n", result);
+	}
+out:
+	if (fd_ep >= 0)
+		close(fd_ep);
+	return err;
+}
+
+static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
+{
+	struct udev *udev = event->udev;
+	struct pollfd pfd[1];
+	int err = 0;
+
+	pfd[0].events = POLLIN;
+	pfd[0].fd = event->fd_signal;
+
+	while (pid > 0) {
+		int timeout;
+		int fdcount;
+
+		if (event->timeout_usec > 0) {
+			unsigned long long age_usec;
+
+			age_usec = now_usec() - event->birth_usec;
+			if (age_usec >= event->timeout_usec)
+				timeout = 1000;
+			else
+				timeout = ((event->timeout_usec - age_usec) / 1000) + 1000;
+		} else {
+			timeout = -1;
+		}
+
+		fdcount = poll(pfd, 1, timeout);
+		if (fdcount < 0) {
+			if (errno == EINTR)
+				continue;
+			err = -errno;
+			err(udev, "failed to poll: %m\n");
+			goto out;
+		}
+		if (fdcount == 0) {
+			err(udev, "timeout: killing '%s'[%u]\n", cmd, pid);
+			kill(pid, SIGKILL);
+		}
+
+		if (pfd[0].revents & POLLIN) {
+			struct signalfd_siginfo fdsi;
+			int status;
+			ssize_t size;
+
+			size = read(event->fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
+			if (size != sizeof(struct signalfd_siginfo))
+				continue;
+
+			switch (fdsi.ssi_signo) {
+			case SIGTERM:
+				event->sigterm = true;
+				break;
+			case SIGCHLD:
+				if (waitpid(pid, &status, WNOHANG) < 0)
+					break;
+				if (WIFEXITED(status)) {
+					info(udev, "'%s'[%u] returned with exitcode %i\n", cmd, pid, WEXITSTATUS(status));
+					if (WEXITSTATUS(status) != 0)
+						err = -1;
+				} else {
+					err(udev, "'%s'[%u] unexpected exit with status 0x%04x\n", cmd, pid, status);
+					err = -1;
+				}
+				pid = 0;
+				break;
+			}
+		}
+	}
+out:
+	return err;
+}
+
+int udev_event_spawn(struct udev_event *event,
+		     const char *cmd, char **envp, const sigset_t *sigmask,
+		     char *result, size_t ressize)
+{
+	struct udev *udev = event->udev;
+	int outpipe[2] = {-1, -1};
+	int errpipe[2] = {-1, -1};
+	pid_t pid;
+	char arg[UTIL_PATH_SIZE];
+	char program[UTIL_PATH_SIZE];
+	char *argv[((sizeof(arg) + 1) / 2) + 1];
+	int i;
+	int err = 0;
+
+	/* build argv from command */
+	util_strscpy(arg, sizeof(arg), cmd);
+	i = 0;
+	if (strchr(arg, ' ') != NULL) {
+		char *pos = arg;
+
+		while (pos != NULL && pos[0] != '\0') {
+			if (pos[0] == '\'') {
+				/* do not separate quotes */
+				pos++;
+				argv[i] = strsep(&pos, "\'");
+				if (pos != NULL)
+					while (pos[0] == ' ')
+						pos++;
+			} else {
+				argv[i] = strsep(&pos, " ");
+				if (pos != NULL)
+					while (pos[0] == ' ')
+						pos++;
+			}
+			dbg(udev, "arg[%i] '%s'\n", i, argv[i]);
+			i++;
+		}
+		argv[i] = NULL;
+	} else {
+		argv[0] = arg;
+		argv[1] = NULL;
+	}
+
+	/* pipes from child to parent */
+	if (result != NULL || udev_get_log_priority(udev) >= LOG_INFO) {
+		if (pipe2(outpipe, O_NONBLOCK) != 0) {
+			err = -errno;
+			err(udev, "pipe failed: %m\n");
+			goto out;
+		}
+	}
+	if (udev_get_log_priority(udev) >= LOG_INFO) {
+		if (pipe2(errpipe, O_NONBLOCK) != 0) {
+			err = -errno;
+			err(udev, "pipe failed: %m\n");
+			goto out;
+		}
+	}
+
+	/* allow programs in /lib/udev/ to be called without the path */
+	if (argv[0][0] != '/') {
+		util_strscpyl(program, sizeof(program), LIBEXECDIR "/", argv[0], NULL);
+		argv[0] = program;
+	}
+
+	pid = fork();
+	switch(pid) {
+	case 0:
+		/* child closes parent's ends of pipes */
+		if (outpipe[READ_END] >= 0) {
+			close(outpipe[READ_END]);
+			outpipe[READ_END] = -1;
+		}
+		if (errpipe[READ_END] >= 0) {
+			close(errpipe[READ_END]);
+			errpipe[READ_END] = -1;
+		}
+
+		info(udev, "starting '%s'\n", cmd);
+
+		err = spawn_exec(event, cmd, argv, envp, sigmask,
+				 outpipe[WRITE_END], errpipe[WRITE_END]);
+
+		_exit(2 );
+	case -1:
+		err(udev, "fork of '%s' failed: %m\n", cmd);
+		err = -1;
+		goto out;
+	default:
+		/* parent closed child's ends of pipes */
+		if (outpipe[WRITE_END] >= 0) {
+			close(outpipe[WRITE_END]);
+			outpipe[WRITE_END] = -1;
+		}
+		if (errpipe[WRITE_END] >= 0) {
+			close(errpipe[WRITE_END]);
+			errpipe[WRITE_END] = -1;
+		}
+
+		err = spawn_read(event, cmd,
+				 outpipe[READ_END], errpipe[READ_END],
+				 result, ressize);
+
+		err = spawn_wait(event, cmd, pid);
+	}
+
+out:
+	if (outpipe[READ_END] >= 0)
+		close(outpipe[READ_END]);
+	if (outpipe[WRITE_END] >= 0)
+		close(outpipe[WRITE_END]);
+	if (errpipe[READ_END] >= 0)
+		close(errpipe[READ_END]);
+	if (errpipe[WRITE_END] >= 0)
+		close(errpipe[WRITE_END]);
+	return err;
+}
+
 static void rename_netif_kernel_log(struct ifreq ifr)
 {
 	int klog;
@@ -530,7 +906,7 @@ out:
 	return err;
 }
 
-int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
+int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigmask)
 {
 	struct udev_device *dev = event->dev;
 	int err = 0;
@@ -546,7 +922,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		if (major(udev_device_get_devnum(dev)) != 0)
 			udev_watch_end(event->udev, dev);
 
-		udev_rules_apply_to_event(rules, event);
+		udev_rules_apply_to_event(rules, event, sigmask);
 
 		if (major(udev_device_get_devnum(dev)) != 0)
 			err = udev_node_remove(dev);
@@ -561,7 +937,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 				udev_watch_end(event->udev, event->dev_db);
 		}
 
-		udev_rules_apply_to_event(rules, event);
+		udev_rules_apply_to_event(rules, event, sigmask);
 
 		/* rename a new network interface, if needed */
 		if (udev_device_get_ifindex(dev) > 0 && strcmp(udev_device_get_action(dev), "add") == 0 &&
@@ -647,7 +1023,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		if (event->dev_db != NULL && udev_device_get_usec_initialized(event->dev_db) > 0)
 			udev_device_set_usec_initialized(event->dev, udev_device_get_usec_initialized(event->dev_db));
 		else
-			udev_device_set_usec_initialized(event->dev, usec_monotonic());
+			udev_device_set_usec_initialized(event->dev, now_usec());
 
 		/* (re)write database file */
 		udev_device_update_db(dev);
@@ -682,13 +1058,14 @@ int udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
 			char program[UTIL_PATH_SIZE];
 			char **envp;
 
-			udev_event_apply_format(event, cmd, program, sizeof(program));
-			envp = udev_device_get_properties_envp(event->dev);
 			if (event->exec_delay > 0) {
 				info(event->udev, "delay execution of '%s'\n", program);
 				sleep(event->exec_delay);
 			}
-			if (util_run_program(event->udev, program, envp, NULL, 0, NULL, sigmask) != 0) {
+
+			udev_event_apply_format(event, cmd, program, sizeof(program));
+			envp = udev_device_get_properties_envp(event->dev);
+			if (udev_event_spawn(event, program, envp, sigmask, NULL, 0) < 0) {
 				if (udev_list_entry_get_flags(list_entry))
 					err = -1;
 			}

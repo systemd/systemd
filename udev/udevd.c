@@ -81,7 +81,7 @@ static bool reload_config;
 static int children;
 static int children_max;
 static int exec_delay;
-static sigset_t orig_sigmask;
+static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
 static bool udev_exit;
@@ -286,9 +286,9 @@ static void worker_new(struct event *event)
 
 		for (;;) {
 			struct udev_event *udev_event;
-			struct worker_message msg = {};
-			int err;
+			struct worker_message msg;
 			int failed = 0;
+			int err;
 
 			info(udev, "seq %llu running\n", udev_device_get_seqnum(dev));
 			udev_event = udev_event_new(dev);
@@ -297,23 +297,17 @@ static void worker_new(struct event *event)
 				goto out;
 			}
 
-			/* set timeout to prevent hanging processes */
-			alarm(UDEV_EVENT_TIMEOUT);
+			/* needed for SIGCHLD/SIGTERM in spawn() */
+			udev_event->fd_signal = fd_signal;
 
 			if (exec_delay > 0)
 				udev_event->exec_delay = exec_delay;
 
 			/* apply rules, create node, symlinks */
-			err = udev_event_execute_rules(udev_event, rules);
-
-			/* rules may change/disable the timeout */
-			if (udev_device_get_event_timeout(dev) >= 0)
-				alarm(udev_device_get_event_timeout(dev));
+			err = udev_event_execute_rules(udev_event, rules, &sigmask_orig);
 
 			if (err == 0)
-				failed = udev_event_execute_run(udev_event, &orig_sigmask);
-
-			alarm(0);
+				failed = udev_event_execute_run(udev_event, &sigmask_orig);
 
 			/* apply/restore inotify watch */
 			if (err == 0 && udev_event->inotify_watch) {
@@ -325,6 +319,7 @@ static void worker_new(struct event *event)
 			udev_monitor_send_device(worker_monitor, NULL, dev);
 
 			/* send udevd the result of the event execution */
+			memset(&msg, 0, sizeof(struct worker_message));
 			if (err != 0)
 				msg.exitcode = err;
 			else if (failed != 0)
@@ -333,9 +328,16 @@ static void worker_new(struct event *event)
 			send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
 
 			info(udev, "seq %llu processed with %i\n", udev_device_get_seqnum(dev), err);
-			udev_event_unref(udev_event);
+
 			udev_device_unref(dev);
 			dev = NULL;
+
+			if (udev_event->sigterm) {
+				udev_event_unref(udev_event);
+				goto out;
+			}
+
+			udev_event_unref(udev_event);
 
 			/* wait for more device messages from main udevd, or term signal */
 			while (dev == NULL) {
@@ -344,8 +346,13 @@ static void worker_new(struct event *event)
 				int i;
 
 				fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), -1);
-				if (fdcount < 0)
-					continue;
+				if (fdcount < 0) {
+					if (errno == EINTR)
+						continue;
+					err = -errno;
+					err(udev, "failed to poll: %m\n");
+					goto out;
+				}
 
 				for (i = 0; i < fdcount; i++) {
 					if (ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN) {
@@ -1478,7 +1485,7 @@ int main(int argc, char *argv[])
 
 	/* block and listen to all signals on signalfd */
 	sigfillset(&mask);
-	sigprocmask(SIG_SETMASK, &mask, &orig_sigmask);
+	sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
 	fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
 	if (fd_signal < 0) {
 		fprintf(stderr, "error creating signalfd\n");

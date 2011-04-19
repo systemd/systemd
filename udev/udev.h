@@ -26,8 +26,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-#define DEFAULT_FAKE_PARTITIONS_COUNT		15
-#define UDEV_EVENT_TIMEOUT			180
+#define UDEV_EVENT_TIMEOUT_SEC			120
 
 #define UDEV_CTRL_SOCK_PATH			"@/org/kernel/udev/udevd"
 
@@ -44,6 +43,10 @@ struct udev_event {
 	gid_t gid;
 	struct udev_list_node run_list;
 	int exec_delay;
+	unsigned long long birth_usec;
+	unsigned long long timeout_usec;
+	int fd_signal;
+	bool sigterm;
 	bool inotify_watch;
 	bool inotify_watch_final;
 	bool group_final;
@@ -64,17 +67,20 @@ struct udev_watch {
 struct udev_rules;
 struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
 void udev_rules_unref(struct udev_rules *rules);
-int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event);
+int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event, const sigset_t *sigmask);
 void udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 /* udev-event.c */
 struct udev_event *udev_event_new(struct udev_device *dev);
 void udev_event_unref(struct udev_event *event);
-int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules);
-int udev_event_execute_run(struct udev_event *event, const sigset_t *sigset);
 size_t udev_event_apply_format(struct udev_event *event, const char *src, char *dest, size_t size);
 int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
 				   char *result, size_t maxsize, int read_value);
+int udev_event_spawn(struct udev_event *event,
+		     const char *cmd, char **envp, const sigset_t *sigmask,
+		     char *result, size_t ressize);
+int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
+int udev_event_execute_run(struct udev_event *event, const sigset_t *sigset);
 
 /* udev-watch.c */
 int udev_watch_init(struct udev *udev);

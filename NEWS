@@ -12,6 +12,8 @@ systemd netlink socket activation
 stop socket or mask on rpm update
 requires systemd 25
 
+hard event timeout now. hanging programs will be killed
+
 udev 167
 ========
 Bugfixes.

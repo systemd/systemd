@@ -23,36 +23,24 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <errno.h>
-#include <signal.h>
 #include <unistd.h>
 #include <syslog.h>
 #include <grp.h>
+#include <sys/signalfd.h>
 
 #include "udev.h"
-
-static void sig_handler(int signum)
-{
-	switch (signum) {
-		case SIGALRM:
-			_exit(1);
-		case SIGINT:
-		case SIGTERM:
-			_exit(20 + signum);
-	}
-}
 
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
-	struct udev_event *event;
-	struct udev_device *dev;
-	struct udev_rules *rules;
+	struct udev_event *event = NULL;
+	struct udev_device *dev = NULL;
+	struct udev_rules *rules = NULL;
 	char syspath[UTIL_PATH_SIZE];
 	const char *devpath;
 	const char *action;
 	const char *subsystem;
-	struct sigaction act;
-	sigset_t mask;
+	sigset_t mask, sigmask_orig;
 	int err = -EINVAL;
 
 	udev = udev_new();
@@ -61,22 +49,7 @@ int main(int argc, char *argv[])
 	info(udev, "version %s\n", VERSION);
 	udev_selinux_init(udev);
 
-	/* set signal handlers */
-	memset(&act, 0x00, sizeof(act));
-	act.sa_handler = sig_handler;
-	sigemptyset (&act.sa_mask);
-	act.sa_flags = 0;
-	sigaction(SIGALRM, &act, NULL);
-	sigaction(SIGINT, &act, NULL);
-	sigaction(SIGTERM, &act, NULL);
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGALRM);
-	sigaddset(&mask, SIGINT);
-	sigaddset(&mask, SIGTERM);
-	sigprocmask(SIG_UNBLOCK, &mask, NULL);
-
-	/* trigger timeout to prevent hanging processes */
-	alarm(UDEV_EVENT_TIMEOUT);
+	sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
 	action = getenv("ACTION");
 	devpath = getenv("DEVPATH");
@@ -84,7 +57,7 @@ int main(int argc, char *argv[])
 
 	if (action == NULL || subsystem == NULL || devpath == NULL) {
 		err(udev, "action, subsystem or devpath missing\n");
-		goto exit;
+		goto out;
 	}
 
 	rules = udev_rules_new(udev, 1);
@@ -93,7 +66,7 @@ int main(int argc, char *argv[])
 	dev = udev_device_new_from_syspath(udev, syspath);
 	if (dev == NULL) {
 		info(udev, "unknown device '%s'\n", devpath);
-		goto fail;
+		goto out;
 	}
 
 	/* skip reading of db, but read kernel parameters */
@@ -102,20 +75,24 @@ int main(int argc, char *argv[])
 
 	udev_device_set_action(dev, action);
 	event = udev_event_new(dev);
-	err = udev_event_execute_rules(event, rules);
 
-	/* rules may change/disable the timeout */
-	if (udev_device_get_event_timeout(dev) >= 0)
-		alarm(udev_device_get_event_timeout(dev));
+	sigfillset(&mask);
+	sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
+	event->fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+	if (event->fd_signal < 0) {
+		fprintf(stderr, "error creating signalfd\n");
+		goto out;
+	}
 
+	err = udev_event_execute_rules(event, rules, &sigmask_orig);
 	if (err == 0)
 		udev_event_execute_run(event, NULL);
-
+out:
+	if (event != NULL && event->fd_signal >= 0)
+		close(event->fd_signal);
 	udev_event_unref(event);
 	udev_device_unref(dev);
-fail:
 	udev_rules_unref(rules);
-exit:
 	udev_selinux_exit(udev);
 	udev_unref(udev);
 	if (err != 0)
