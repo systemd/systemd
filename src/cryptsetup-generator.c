@@ -67,9 +67,13 @@ static int create_disk(
         char *p = NULL, *n = NULL, *d = NULL, *u = NULL, *from = NULL, *to = NULL, *e = NULL;
         int r;
         FILE *f = NULL;
+        bool noauto, nofail;
 
         assert(name);
         assert(device);
+
+        noauto = has_option(options, "noauto");
+        nofail = has_option(options, "nofail");
 
         if (!(n = unit_name_build_escape("cryptsetup", name, ".service"))) {
                 r = -ENOMEM;
@@ -104,11 +108,16 @@ static int create_disk(
         fprintf(f,
                 "[Unit]\n"
                 "Description=Cryptography Setup for %%I\n"
+                "Conflicts=umount.target\n"
                 "DefaultDependencies=no\n"
                 "BindTo=%s dev-mapper-%%i.device\n"
                 "After=systemd-readahead-collect.service systemd-readahead-replay.service %s\n"
-                "Before=shutdown.target cryptsetup.target\n",
+                "Before=umount.target\n",
                 d, d);
+
+        if (!nofail)
+                fprintf(f,
+                        "Before=cryptsetup.target\n");
 
         if (password && (streq(password, "/dev/urandom") ||
                          streq(password, "/dev/random") ||
@@ -149,7 +158,7 @@ static int create_disk(
                 goto fail;
         }
 
-        if (!has_option(options, "noauto")) {
+        if (!noauto) {
 
                 if (asprintf(&to, "%s/%s.wants/%s", arg_dest, d, n) < 0) {
                         r = -ENOMEM;
@@ -167,20 +176,22 @@ static int create_disk(
                 free(to);
                 to = NULL;
 
-                if (!has_option(options, "nofail")) {
+                if (!nofail)
+                        asprintf(&to, "%s/cryptsetup.target.requires/%s", arg_dest, n);
+                else
+                        asprintf(&to, "%s/cryptsetup.target.wants/%s", arg_dest, n);
 
-                        if (asprintf(&to, "%s/cryptsetup.target.wants/%s", arg_dest, n) < 0) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
+                if (!to) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
-                        mkdir_parents(to, 0755);
+                mkdir_parents(to, 0755);
 
-                        if (symlink(from, to) < 0) {
-                                log_error("Failed to create symlink '%s' to '%s': %m", from, to);
-                                r = -errno;
-                                goto fail;
-                        }
+                if (symlink(from, to) < 0) {
+                        log_error("Failed to create symlink '%s' to '%s': %m", from, to);
+                        r = -errno;
+                        goto fail;
                 }
         }
 
