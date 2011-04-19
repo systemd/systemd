@@ -286,6 +286,7 @@ if test "z$with_distro" = "z"; then
                 test -f "/etc/frugalware-release" && with_distro="frugalware"
                 test -f "/etc/altlinux-release" && with_distro="altlinux"
                 test -f "/etc/mandriva-release" && with_distro="mandriva"
+                test -f "/etc/meego-release" && with_distro="meego"
                 if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
                         with_distro="ubuntu"
                 fi
@@ -360,6 +361,12 @@ case $with_distro in
                 M4_DISTRO_FLAG=-DTARGET_MANDRIVA=1
 		have_plymouth=true
                 ;;
+        meego)
+                SYSTEM_SYSVINIT_PATH=
+                SYSTEM_SYSVRCND_PATH=
+                AC_DEFINE(TARGET_MEEGO, [], [Target is MeeGo])
+                M4_DISTRO_FLAG=-DTARGET_MEEGO=1
+		;;
         other)
                 ;;
         *)
@@ -409,6 +416,7 @@ AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
 AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
 AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
+AM_CONDITIONAL(TARGET_MEEGO, test x"$with_distro" = xmeego)
 
 AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
 AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")

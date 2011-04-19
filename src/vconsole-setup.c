@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
 
         if (detect_container(NULL) <= 0)
                 if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
-#ifdef TARGET_FEDORA
+#if defined(TARGET_FEDORA) || defined(TARGET_MEEGO)
                                         "SYSFONT", &vc_font,
                                         "KEYTABLE", &vc_keymap,
 #endif
@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
         }
 
         if (r <= 0) {
-#ifdef TARGET_FEDORA
+#if defined(TARGET_FEDORA) || defined(TARGET_MEEGO)
                 if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
                                         "SYSFONT", &vc_font,
                                         "SYSFONTACM", &vc_font_map,

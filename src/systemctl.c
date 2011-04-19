@@ -4081,7 +4081,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
         }
 
         if (!f) {
-#if (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)) && defined (HAVE_SYSV_COMPAT)
+#if (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)) || defined(TARGET_MEEGO) && defined (HAVE_SYSV_COMPAT)
 
                 if (endswith(i->name, ".service")) {
                         char *sysv;

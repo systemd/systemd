@@ -3394,7 +3394,18 @@ void status_welcome(void) {
                         free(s);
                 }
         }
+#elif defined(TARGET_MEEGO)
 
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/meego-release", &pretty_name)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/meego-release: %s", strerror(-r));
+                }
+        }
+
+       if (!ansi_color)
+               const_color = "1;35"; /* Bright Magenta for MeeGo */
 #endif
 
         if (!pretty_name && !const_pretty)
