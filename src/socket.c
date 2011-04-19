@@ -1612,7 +1612,7 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         log_debug("Incoming traffic on %s", u->meta.id);
 
         if (events != EPOLLIN) {
-                log_error("Got invalid poll event on socket.");
+                log_error("%s: Got invalid poll event (0x%x) on socket.", u->meta.id, events);
                 goto fail;
         }
 
