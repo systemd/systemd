@@ -2937,7 +2937,7 @@ void manager_run_generators(Manager *m) {
                 const char *p;
                 char user_path[] = "/tmp/systemd-generator-XXXXXX";
 
-                if (m->running_as == MANAGER_SYSTEM) {
+                if (m->running_as == MANAGER_SYSTEM && getpid() == 1) {
                         p = "/run/systemd/generator";
 
                         if (mkdir_p(p, 0755) < 0) {
