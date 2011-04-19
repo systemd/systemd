@@ -460,17 +460,19 @@ static int mount_add_default_dependencies(Mount *m) {
         return 0;
 }
 
-static void mount_fix_timeouts(Mount *m) {
+static int mount_fix_timeouts(Mount *m) {
         MountParameters *p;
         const char *timeout = NULL;
         Unit *other;
         Iterator i;
         usec_t u;
+        char *t;
+        int r;
 
         assert(m);
 
         if (!(p = get_mount_parameters_configured(m)))
-                return;
+                return 0;
 
         /* Allow configuration how long we wait for a device that
          * backs a mount point to show up. This is useful to support
@@ -482,11 +484,18 @@ static void mount_fix_timeouts(Mount *m) {
         else if ((timeout = mount_test_option(p->options, "x-systemd-device-timeout")))
                 timeout += 25;
         else
-                return;
+                return 0;
 
-        if (parse_usec(timeout, &u) < 0) {
+        t = strndup(timeout, strcspn(timeout, ",;" WHITESPACE));
+        if (!t)
+                return -ENOMEM;
+
+        r = parse_usec(t, &u);
+        free(t);
+
+        if (r < 0) {
                 log_warning("Failed to parse timeout for %s, ignoring: %s", m->where, timeout);
-                return;
+                return r;
         }
 
         SET_FOREACH(other, m->meta.dependencies[UNIT_AFTER], i) {
@@ -495,6 +504,8 @@ static void mount_fix_timeouts(Mount *m) {
 
                 other->meta.job_timeout = u;
         }
+
+        return 0;
 }
 
 static int mount_verify(Mount *m) {
