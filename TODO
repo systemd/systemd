@@ -32,7 +32,15 @@ F15:
 * don't trim empty cgroups
   https://bugzilla.redhat.com/show_bug.cgi?id=678555
 
+* drop cap bounding set in logger, hostnamed, readahead, ...
+
+* timeout value is incorrectly parsed in /etc/fstab
+
 Features:
+
+* Add ListenSpecial to .socket units for /proc/kmsg and similar friends?
+
+* avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
 * use pivot_root on shutdown so that we can unmount the root directory.
 
@@ -43,7 +51,10 @@ Features:
 * write blog stories about:
   - enabling dbus services
   - status update
+  - the new configuration files
   - you are a distro: why switch?
+
+* maybe add tiny dbus services similar to hostnamed for locale?
 
 * allow port = 0 in .socket units
 
