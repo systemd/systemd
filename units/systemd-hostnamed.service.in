@@ -14,3 +14,4 @@ Description=Hostname Service
 ExecStart=@rootlibexecdir@/systemd-hostnamed
 Type=dbus
 BusName=org.freedesktop.hostname1
+CapabilityBoundingSet=CAP_SYS_ADMIN
