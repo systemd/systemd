@@ -125,7 +125,18 @@ static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) 
 
 static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t mask,
                                 int dfd, const char *pathname) {
+#if defined _MIPS_SIM && _MIPS_SIM == _MIPS_SIM_ABI32
+        union {
+                uint64_t _64;
+                uint32_t _32[2];
+        } _mask;
+        _mask._64 = mask;
+
+        return syscall(__NR_fanotify_mark, fanotify_fd, flags,
+                       _mask._32[0], _mask._32[1], dfd, pathname);
+#else
         return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
+#endif
 }
 
 #ifndef BTRFS_IOCTL_MAGIC
