@@ -26,8 +26,6 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-#define UDEV_EVENT_TIMEOUT_SEC			120
-
 #define UDEV_CTRL_SOCK_PATH			"@/org/kernel/udev/udevd"
 
 struct udev_event {

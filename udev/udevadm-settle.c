@@ -36,16 +36,6 @@
 
 #include "udev.h"
 
-static volatile sig_atomic_t is_timeout;
-
-static void sig_handler(int signum)
-{
-	switch (signum) {
-		case SIGALRM:
-			is_timeout = 1;
-	}
-}
-
 int udevadm_settle(struct udev *udev, int argc, char *argv[])
 {
 	static const struct option options[] = {
@@ -57,28 +47,17 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
+	unsigned long long start_usec = now_usec();
 	unsigned long long start = 0;
 	unsigned long long end = 0;
 	int quiet = 0;
 	const char *exists = NULL;
-	int timeout = 180;
+	unsigned int timeout = 180;
 	struct pollfd pfd[1];
-	struct sigaction act;
-	sigset_t mask;
 	struct udev_queue *udev_queue = NULL;
-	int rc = 1;
+	int rc = EXIT_FAILURE;
 
 	dbg(udev, "version %s\n", VERSION);
-
-	/* set signal handlers */
-	memset(&act, 0x00, sizeof(act));
-	act.sa_handler = sig_handler;
-	sigemptyset (&act.sa_mask);
-	act.sa_flags = 0;
-	sigaction(SIGALRM, &act, NULL);
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGALRM);
-	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
 	for (;;) {
 		int option;
@@ -121,11 +100,6 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 
-	if (timeout > 0)
-		alarm(timeout);
-	else
-		is_timeout = 1;
-
 	udev_queue = udev_queue_new(udev);
 	if (udev_queue == NULL)
 		exit(2);
@@ -167,7 +141,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 			if (udev_ctrl_send_ping(uctrl, timeout) < 0) {
 				info(udev, "no connection to daemon\n");
 				udev_ctrl_unref(uctrl);
-				rc = 0;
+				rc = EXIT_SUCCESS;
 				goto out;
 			}
 			udev_ctrl_unref(uctrl);
@@ -188,29 +162,25 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 
 	for (;;) {
 		struct stat statbuf;
-		const struct timespec duration = { 1 , 0 };
 
 		if (exists != NULL && stat(exists, &statbuf) == 0) {
-			rc = 0;
+			rc = EXIT_SUCCESS;
 			break;
 		}
 
 		if (start > 0) {
 			/* if asked for, wait for a specific sequence of events */
 			if (udev_queue_get_seqnum_sequence_is_finished(udev_queue, start, end) == 1) {
-				rc = 0;
+				rc = EXIT_SUCCESS;
 				break;
 			}
 		} else {
 			/* exit if queue is empty */
 			if (udev_queue_get_queue_is_empty(udev_queue)) {
-				rc = 0;
+				rc = EXIT_SUCCESS;
 				break;
 			}
 		}
-
-		if (is_timeout)
-			break;
 
 		if (pfd[0].fd >= 0) {
 			/* wake up once every second, or whenever the queue file gets gets closed */
@@ -220,21 +190,27 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 				read(pfd[0].fd, buf, sizeof(buf));
 			}
 		} else {
-			nanosleep(&duration, NULL);
+			sleep(1);
 		}
-	}
 
-	/* if we reached the timeout, print the list of remaining events */
-	if (is_timeout) {
-		struct udev_list_entry *list_entry;
+		if (timeout > 0) {
+			unsigned long long age_usec;
 
-		if (!quiet && udev_queue_get_queued_list_entry(udev_queue) != NULL) {
-			info(udev, "timeout waiting for udev queue\n");
-			printf("\nudevadm settle - timeout of %i seconds reached, the event queue contains:\n", timeout);
-			udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
-				printf("  %s (%s)\n",
-				       udev_list_entry_get_name(list_entry),
-				       udev_list_entry_get_value(list_entry));
+			age_usec = now_usec() - start_usec;
+			if (age_usec / (1000 * 1000) >= timeout) {
+				struct udev_list_entry *list_entry;
+
+				if (!quiet && udev_queue_get_queued_list_entry(udev_queue) != NULL) {
+					info(udev, "timeout waiting for udev queue\n");
+					printf("\nudevadm settle - timeout of %i seconds reached, the event queue contains:\n", timeout);
+					udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
+						printf("  %s (%s)\n",
+						udev_list_entry_get_name(list_entry),
+						udev_list_entry_get_value(list_entry));
+				}
+
+				break;
+			}
 		}
 	}
 out:

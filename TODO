@@ -1,5 +1,3 @@
-  - kill alarm()
-
   - empty rules files and link to /dev/null are ok
 
   - rename netif with ifindex not devname
