@@ -165,11 +165,11 @@
                         </varlistentry>
                 </variablelist>
 
-                <para>If you interpreting this file from code or a
-                shell script, use the ID and VERSION_ID fields. When
-                looking for an OS identification string for
-                presentation to the user use the PRETTY_STRING
-                field.</para>
+                <para>If you are reading this file from code or a
+                shell script to determine the OS or a specific version
+                of it, use the ID and VERSION_ID fields. When looking
+                for an OS identification string for presentation to
+                the user use the PRETTY_NAME field.</para>
 
                 <para>Note that operating system vendors may choose
                 not to provide version information, for example to

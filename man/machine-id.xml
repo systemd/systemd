@@ -64,7 +64,7 @@
                 random source during system installation and stays
                 constant for all subsequent boots. Optionally, for
                 stateless systems it is generated during runtime at
-                boot.</para>
+                boot if it is found to be empty.</para>
 
                 <para>The machine ID does not change based on user
                 configuration, or when hardware is replaced.</para>
