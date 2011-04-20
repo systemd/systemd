@@ -58,6 +58,7 @@ typedef enum SocketExecCommand {
 typedef enum SocketType {
         SOCKET_SOCKET,
         SOCKET_FIFO,
+        SOCKET_SPECIAL,
         _SOCKET_FIFO_MAX,
         _SOCKET_FIFO_INVALID = -1
 } SocketType;

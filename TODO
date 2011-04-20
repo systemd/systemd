@@ -2,15 +2,19 @@ F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
+* Fix assert http://lists.freedesktop.org/archives/systemd-devel/2011-April/001910.html
+
+* 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
+    (path: after installing inotify watches, recheck file again to fix race)
+
+F15 External:
+
 * NFS, networkmanager ordering issue (PENDING)
 
 * NM should pull in network.target (PENDING)
   https://bugzilla.redhat.com/show_bug.cgi?id=692008
 
 * bluetooth should be possible to disable (PENDING)
-
-* 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
-    (path: after installing inotify watches, recheck file again to fix race)
 
 * get writev() /dev/kmsg support into the F15 kernel
     https://lkml.org/lkml/2011/4/6/473
@@ -24,8 +28,6 @@ F15:
 
 * make anaconda write timeout=0 for encrypted devices
 
-* Fix assert http://lists.freedesktop.org/archives/systemd-devel/2011-April/001910.html
-
 Features:
 
 * maybe lower default timeout to 2min?
@@ -33,8 +35,6 @@ Features:
 * GC unreferenced jobs (such as .device jobs)
 
 * support wildcard expansion in ListeStream= and friends
-
-* Add ListenSpecial to .socket units for /proc/kmsg and similar friends?
 
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 

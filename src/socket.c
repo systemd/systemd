@@ -249,7 +249,7 @@ static bool socket_needs_mount(Socket *s, const char *prefix) {
                         if (socket_address_needs_mount(&p->address, prefix))
                                 return true;
                 } else {
-                        assert(p->type == SOCKET_FIFO);
+                        assert(p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL);
                         if (path_startswith(p->path, prefix))
                                 return true;
                 }
@@ -482,7 +482,9 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
                         fprintf(f, "%s%s: %s\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type), t);
                         free(k);
-                } else
+                } else if (p->type == SOCKET_SPECIAL)
+                        fprintf(f, "%sListenSpecial: %s\n", prefix, p->path);
+                else
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
         }
 
@@ -687,7 +689,6 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
                         log_warning("F_SETPIPE_SZ: %m");
 }
 
-
 static int fifo_address_create(
                 const char *path,
                 mode_t directory_mode,
@@ -753,6 +754,42 @@ fail:
         return r;
 }
 
+static int special_address_create(
+                const char *path,
+                int *_fd) {
+
+        int fd = -1, r = 0;
+        struct stat st;
+
+        assert(path);
+        assert(_fd);
+
+        if ((fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if (fstat(fd, &st) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        /* Check whether this is a /proc, /sys or /dev file or char device */
+        if (!S_ISREG(st.st_mode) && !S_ISCHR(st.st_mode)) {
+                r = -EEXIST;
+                goto fail;
+        }
+
+        *_fd = fd;
+        return 0;
+
+fail:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        return r;
+}
+
 static int socket_open_fds(Socket *s) {
         SocketPort *p;
         int r;
@@ -795,6 +832,13 @@ static int socket_open_fds(Socket *s) {
                                 goto rollback;
 
                         socket_apply_socket_options(s, p->fd);
+
+                } else  if (p->type == SOCKET_SPECIAL) {
+
+                        if ((r = special_address_create(
+                                             p->path,
+                                             &p->fd)) < 0)
+                                goto rollback;
 
                 } else  if (p->type == SOCKET_FIFO) {
 
@@ -1461,7 +1505,9 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         else
                                 unit_serialize_item_format(u, f, "socket", "%i %i %s", copy, p->address.type, t);
                         free(t);
-                } else {
+                } else if (p->type == SOCKET_SPECIAL)
+                        unit_serialize_item_format(u, f, "special", "%i %s", copy, p->path);
+                else {
                         assert(p->type == SOCKET_FIFO);
                         unit_serialize_item_format(u, f, "fifo", "%i %s", copy, p->path);
                 }
@@ -1525,7 +1571,28 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 else {
 
                         LIST_FOREACH(port, p, s->ports)
-                                if (streq(p->path, value+skip))
+                                if (p->type == SOCKET_FIFO &&
+                                    streq_ptr(p->path, value+skip))
+                                        break;
+
+                        if (p) {
+                                if (p->fd >= 0)
+                                        close_nointr_nofail(p->fd);
+                                p->fd = fdset_remove(fds, fd);
+                        }
+                }
+
+        } else if (streq(key, "special")) {
+                int fd, skip = 0;
+                SocketPort *p;
+
+                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                        log_debug("Failed to parse special value %s", value);
+                else {
+
+                        LIST_FOREACH(port, p, s->ports)
+                                if (p->type == SOCKET_SPECIAL &&
+                                    streq_ptr(p->path, value+skip))
                                         break;
 
                         if (p) {

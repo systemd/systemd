@@ -219,6 +219,21 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ListenSpecial=</varname></term>
+                                <listitem><para>Specifies a special
+                                file in the file system to listen
+                                on. This expects an absolute file
+                                system path as argument. Behaviour
+                                otherwise is very similar to the
+                                <varname>ListenFIFO=</varname>
+                                directive above. Use this to open
+                                character device nodes as well as
+                                special files in
+                                <filename>/proc</filename> and
+                                <filename>/sys</filename>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>ListenNetlink=</varname></term>
                                 <listitem><para>Specifies a Netlink
                                 family to create a socket for to
