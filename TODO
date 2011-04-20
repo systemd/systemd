@@ -1,5 +1,3 @@
-  - empty rules files and link to /dev/null are ok
-
   - kill tabs?
 
   - remove deprecated trigger --type=failed logic

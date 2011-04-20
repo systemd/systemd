@@ -1760,7 +1760,6 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 {
 	struct udev_rules *rules;
-	struct stat statbuf;
 	struct udev_list_node file_list;
 	struct udev_list_entry *file_loop, *file_tmp;
 	struct token end_token;
@@ -1877,11 +1876,21 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	udev_list_entry_foreach_safe(file_loop, file_tmp, udev_list_get_entry(&file_list)) {
 		const char *filename = udev_list_entry_get_name(file_loop);
 		unsigned int filename_off = udev_list_entry_get_flags(file_loop);
+		struct stat st;
 
-		if (stat(filename, &statbuf) == 0 && statbuf.st_size > 0)
-			parse_file(rules, filename, filename_off);
-		else
-			err(udev, "can not read '%s'\n", filename);
+		if (stat(filename, &st) != 0) {
+			err(udev, "can not find '%s': %m\n", filename);
+			continue;
+		}
+		if (S_ISREG(st.st_mode) && st.st_size <= 0) {
+			info(udev, "ignore empty '%s'\n", filename);
+			continue;
+		}
+		if (S_ISCHR(st.st_mode)) {
+			info(udev, "ignore masked '%s'\n", filename);
+			continue;
+		}
+		parse_file(rules, filename, filename_off);
 		udev_list_entry_delete(file_loop);
 	}
 
