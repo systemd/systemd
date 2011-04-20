@@ -17,3 +17,4 @@ After=syslog.socket
 ExecStart=@rootlibexecdir@/systemd-logger
 NotifyAccess=all
 StandardOutput=null
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID

@@ -25,11 +25,17 @@ F15:
 * don't trim empty cgroups
   https://bugzilla.redhat.com/show_bug.cgi?id=678555
 
-* drop cap bounding set in logger, hostnamed, readahead, ...
-
 * make anaconda write timeout=0 for encrypted devices
 
+* Fix assert http://lists.freedesktop.org/archives/systemd-devel/2011-April/001910.html
+
 Features:
+
+* maybe lower default timeout to 2min?
+
+* GC unreferenced jobs (such as .device jobs)
+
+* support wildcard expansion in ListeStream= and friends
 
 * Add ListenSpecial to .socket units for /proc/kmsg and similar friends?
 
@@ -204,6 +210,8 @@ Features:
 * add separate man page for [Install] settings
 
 * allow runtime changing of log level and target
+
+* drop cap bounding set in readahead and other services
 
 External:
 
