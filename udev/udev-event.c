@@ -868,7 +868,7 @@ static int rename_netif(struct udev_event *event)
 		goto out;
 
 	/* free our own name, another process may wait for us */
-	util_strscpyl(ifr.ifr_newname, IFNAMSIZ, udev_device_get_sysname(dev), "-", event->name, NULL);
+	snprintf(ifr.ifr_newname, IFNAMSIZ, "rename%u", udev_device_get_ifindex(dev));
 	err = ioctl(sk, SIOCSIFNAME, &ifr);
 	if (err < 0) {
 		err = -errno;

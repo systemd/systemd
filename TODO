@@ -1,7 +1,5 @@
   - empty rules files and link to /dev/null are ok
 
-  - rename netif with ifindex not devname
-
   - kill tabs?
 
   - remove deprecated trigger --type=failed logic
