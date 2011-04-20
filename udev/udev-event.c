@@ -684,6 +684,9 @@ static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
 					info(udev, "'%s'[%u] returned with exitcode %i\n", cmd, pid, WEXITSTATUS(status));
 					if (WEXITSTATUS(status) != 0)
 						err = -1;
+				} else if (WIFSIGNALED(status)) {
+					err(udev, "'%s'[%u] terminated by signal %i\n", cmd, pid, WTERMSIG(status));
+					err = -1;
 				} else {
 					err(udev, "'%s'[%u] unexpected exit with status 0x%04x\n", cmd, pid, status);
 					err = -1;
