@@ -223,6 +223,7 @@ struct Manager {
 
         ExecOutput default_std_output, default_std_error;
 
+        int n_serializing;
         int n_deserializing;
 
         unsigned n_installed_jobs;

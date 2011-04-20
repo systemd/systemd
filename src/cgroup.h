@@ -53,8 +53,8 @@ struct CGroupBonding {
 int cgroup_bonding_realize(CGroupBonding *b);
 int cgroup_bonding_realize_list(CGroupBonding *first);
 
-void cgroup_bonding_free(CGroupBonding *b);
-void cgroup_bonding_free_list(CGroupBonding *first);
+void cgroup_bonding_free(CGroupBonding *b, bool remove_or_trim);
+void cgroup_bonding_free_list(CGroupBonding *first, bool remove_or_trim);
 
 int cgroup_bonding_install(CGroupBonding *b, pid_t pid);
 int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid);

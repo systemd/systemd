@@ -368,7 +368,7 @@ void unit_free(Unit *u) {
                 u->meta.manager->n_in_gc_queue--;
         }
 
-        cgroup_bonding_free_list(u->meta.cgroup_bondings);
+        cgroup_bonding_free_list(u->meta.cgroup_bondings, u->meta.manager->n_serializing <= 0);
 
         free(u->meta.description);
         free(u->meta.fragment_path);

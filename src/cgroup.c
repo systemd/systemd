@@ -63,7 +63,7 @@ int cgroup_bonding_realize_list(CGroupBonding *first) {
         return 0;
 }
 
-void cgroup_bonding_free(CGroupBonding *b) {
+void cgroup_bonding_free(CGroupBonding *b, bool remove_or_trim) {
         assert(b);
 
         if (b->unit) {
@@ -82,7 +82,7 @@ void cgroup_bonding_free(CGroupBonding *b) {
                 }
         }
 
-        if (b->realized && b->ours) {
+        if (b->realized && b->ours && remove_or_trim) {
 
                 if (cgroup_bonding_is_empty(b) > 0)
                         cg_delete(b->controller, b->path);
@@ -95,11 +95,11 @@ void cgroup_bonding_free(CGroupBonding *b) {
         free(b);
 }
 
-void cgroup_bonding_free_list(CGroupBonding *first) {
+void cgroup_bonding_free_list(CGroupBonding *first, bool remove_or_trim) {
         CGroupBonding *b, *n;
 
         LIST_FOREACH_SAFE(by_unit, b, n, first)
-                cgroup_bonding_free(b);
+                cgroup_bonding_free(b, remove_or_trim);
 }
 
 void cgroup_bonding_trim(CGroupBonding *b, bool delete_root) {

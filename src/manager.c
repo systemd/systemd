@@ -2654,6 +2654,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        m->n_serializing ++;
+
         fprintf(f, "current-job-id=%i\n", m->current_job_id);
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
 
@@ -2674,9 +2676,14 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
                 fputs(u->meta.id, f);
                 fputc('\n', f);
 
-                if ((r = unit_serialize(u, f, fds)) < 0)
+                if ((r = unit_serialize(u, f, fds)) < 0) {
+                        m->n_serializing --;
                         return r;
+                }
         }
+
+        assert(m->n_serializing > 0);
+        m->n_serializing --;
 
         if (ferror(f))
                 return -EIO;
@@ -2781,15 +2788,21 @@ int manager_reload(Manager *m) {
         if ((r = manager_open_serialization(m, &f)) < 0)
                 return r;
 
+        m->n_serializing ++;
+
         if (!(fds = fdset_new())) {
+                m->n_serializing --;
                 r = -ENOMEM;
                 goto finish;
         }
 
-        if ((r = manager_serialize(m, f, fds)) < 0)
+        if ((r = manager_serialize(m, f, fds)) < 0) {
+                m->n_serializing --;
                 goto finish;
+        }
 
         if (fseeko(f, 0, SEEK_SET) < 0) {
+                m->n_serializing --;
                 r = -errno;
                 goto finish;
         }
@@ -2797,6 +2810,9 @@ int manager_reload(Manager *m) {
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
         manager_undo_generators(m);
+
+        assert(m->n_serializing > 0);
+        m->n_serializing --;
 
         /* Find new unit paths */
         lookup_paths_free(&m->lookup_paths);
