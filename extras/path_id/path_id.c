@@ -75,6 +75,21 @@ static int path_prepend(char **path, const char *fmt, ...)
 	return 0;
 }
 
+/*
+** Linux only supports 32 bit luns.
+** See drivers/scsi/scsi_scan.c::scsilun_to_int() for more details.
+*/
+static int format_lun_number(struct udev_device *dev, char **path)
+{
+	unsigned long lun = strtoul(udev_device_get_sysnum(dev), NULL, 10);
+
+	/* address method 0, peripheral device addressing with bus id of zero */
+	if (lun < 256)
+		return path_prepend(path, "lun-%d", lun);
+	/* handle all other lun addressing methods by using a variant of the original lun format */
+	return path_prepend(path, "lun-0x%04x%04x00000000", (lun & 0xffff), (lun >> 16) & 0xffff);
+}
+
 static struct udev_device *skip_subsystem(struct udev_device *dev, const char *subsys)
 {
 	struct udev_device *parent = dev;
@@ -97,7 +112,7 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
 	struct udev_device *targetdev;
 	struct udev_device *fcdev = NULL;
 	const char *port;
-	unsigned int lun;
+	char *lun = NULL;;
 
 	targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
 	if (targetdev == NULL)
@@ -112,8 +127,10 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
 		goto out;
 	}
 
-	lun = strtoul(udev_device_get_sysnum(parent), NULL, 10);
-	path_prepend(path, "fc-%s:0x%04x%04x00000000", port, lun & 0xffff, (lun >> 16) & 0xffff);
+	format_lun_number(parent, &lun);
+	path_prepend(path, "fc-%s-%s", port, lun);
+	if (lun)
+		free(lun);
 out:
 	udev_device_unref(fcdev);
 	return parent;
@@ -121,7 +138,39 @@ out:
 
 static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **path)
 {
-	return NULL;
+	struct udev *udev  = udev_device_get_udev(parent);
+	struct udev_device *targetdev;
+	struct udev_device *target_parent;
+	struct udev_device *sasdev;
+	const char *sas_address;
+	char *lun = NULL;
+
+	targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
+	if (targetdev == NULL)
+		return NULL;
+
+	target_parent = udev_device_get_parent(targetdev);
+	if (target_parent == NULL)
+		return NULL;
+
+	sasdev = udev_device_new_from_subsystem_sysname(udev, "sas_device", 
+				udev_device_get_sysname(target_parent));
+	if (sasdev == NULL)
+		return NULL;
+
+	sas_address = udev_device_get_sysattr_value(sasdev, "sas_address");
+	if (sas_address == NULL) {
+		parent = NULL;
+		goto out;
+	}
+
+	format_lun_number(parent, &lun);
+	path_prepend(path, "sas-%s-%s", sas_address, lun);
+	if (lun)
+		free(lun);
+out:
+	udev_device_unref(sasdev);
+	return parent;
 }
 
 static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **path)
@@ -134,6 +183,7 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
 	struct udev_device *conndev = NULL;
 	const char *addr;
 	const char *port;
+	char *lun = NULL;
 
 	/* find iscsi session */
 	transportdev = parent;
@@ -172,7 +222,10 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
 		goto out;
 	}
 
-	path_prepend(path, "ip-%s:%s-iscsi-%s-lun-%s", addr, port, target, udev_device_get_sysnum(parent));
+	format_lun_number(parent, &lun);
+	path_prepend(path, "ip-%s:%s-iscsi-%s-%s", addr, port, target, lun);
+	if (lun)
+		free(lun);
 out:
 	udev_device_unref(sessiondev);
 	udev_device_unref(conndev);
