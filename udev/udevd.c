@@ -247,8 +247,6 @@ static void worker_new(struct event *event)
 		close(fd_signal);
 		close(fd_ep);
 		close(worker_watch[READ_END]);
-		udev_log_close();
-		udev_log_init("udevd-work");
 
 		sigfillset(&mask);
 		fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
@@ -1061,7 +1059,7 @@ static int convert_db(struct udev *udev)
 
 	f = fopen("/dev/kmsg", "w");
 	if (f != NULL) {
-		fprintf(f, "<30>udev[%u]: converting old udev database\n", getpid());
+		fprintf(f, "<30>udevd[%u]: converting old udev database\n", getpid());
 		fclose(f);
 	}
 
@@ -1436,7 +1434,7 @@ int main(int argc, char *argv[])
 
 	f = fopen("/dev/kmsg", "w");
 	if (f != NULL) {
-		fprintf(f, "<30>udev[%u]: starting version " VERSION "\n", getpid());
+		fprintf(f, "<30>udevd[%u]: starting version " VERSION "\n", getpid());
 		fclose(f);
 	}
 
