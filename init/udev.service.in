@@ -1,6 +1,6 @@
 [Unit]
 Description=udev Kernel Device Manager
-Requires=udev.socket
+Wants=udev.socket
 After=udev.socket
 Before=basic.target
 DefaultDependencies=no
