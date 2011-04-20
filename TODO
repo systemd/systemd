@@ -22,9 +22,6 @@ F15:
 
 * New Avahi package, enable it by default
 
-* don't trim empty cgroups
-  https://bugzilla.redhat.com/show_bug.cgi?id=678555
-
 * make anaconda write timeout=0 for encrypted devices
 
 * Fix assert http://lists.freedesktop.org/archives/systemd-devel/2011-April/001910.html

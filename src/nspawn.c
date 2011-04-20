@@ -374,6 +374,7 @@ static int is_os_tree(const char *path) {
 #define BUFFER_SIZE 1024
 
 static int process_pty(int master, sigset_t *mask) {
+
         char in_buffer[BUFFER_SIZE], out_buffer[BUFFER_SIZE];
         size_t in_buffer_full = 0, out_buffer_full = 0;
         struct epoll_event stdin_ev, stdout_ev, master_ev, signal_ev;
@@ -464,11 +465,13 @@ static int process_pty(int master, sigset_t *mask) {
                                 if ((n = read(signal_fd, &sfsi, sizeof(sfsi))) != sizeof(sfsi)) {
 
                                         if (n >= 0) {
+                                                log_error("Failed to read from signalfd: invalid block size");
                                                 r = -EIO;
                                                 goto finish;
                                         }
 
                                         if (errno != EINTR && errno != EAGAIN) {
+                                                log_error("Failed to read from signalfd: %m");
                                                 r = -errno;
                                                 goto finish;
                                         }
@@ -481,7 +484,7 @@ static int process_pty(int master, sigset_t *mask) {
                                                 if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
                                                         ioctl(master, TIOCSWINSZ, &ws);
                                         } else {
-                                                r = -EINTR;
+                                                r = 0;
                                                 goto finish;
                                         }
                                 }
@@ -501,6 +504,7 @@ static int process_pty(int master, sigset_t *mask) {
                                                 stdin_readable = false;
                                         else {
                                                 log_error("read(): %m");
+                                                r = -errno;
                                                 goto finish;
                                         }
                                 } else
@@ -515,6 +519,7 @@ static int process_pty(int master, sigset_t *mask) {
                                                 master_writable = false;
                                         else {
                                                 log_error("write(): %m");
+                                                r = -errno;
                                                 goto finish;
                                         }
 
@@ -533,6 +538,7 @@ static int process_pty(int master, sigset_t *mask) {
                                                 master_readable = false;
                                         else {
                                                 log_error("read(): %m");
+                                                r = -errno;
                                                 goto finish;
                                         }
                                 }  else
@@ -547,6 +553,7 @@ static int process_pty(int master, sigset_t *mask) {
                                                 stdout_writable = false;
                                         else {
                                                 log_error("write(): %m");
+                                                r = -errno;
                                                 goto finish;
                                         }
 
