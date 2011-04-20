@@ -64,9 +64,7 @@ static const MountPoint mount_table[] = {
 
 static const char * const ignore_paths[] = {
         "/selinux",
-        "/proc/bus/usb",
-        "/var/lib/nfs/rpc_pipefs",
-        "/proc/fs/nfsd"
+        "/proc/bus/usb"
 };
 
 bool mount_point_is_api(const char *path) {
