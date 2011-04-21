@@ -30,6 +30,8 @@ F15 External:
 
 Features:
 
+* Maybe merge nss-myhostname into systemd?
+
 * maybe lower default timeout to 2min?
 
 * GC unreferenced jobs (such as .device jobs)
