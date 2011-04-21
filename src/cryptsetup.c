@@ -447,7 +447,7 @@ int main(int argc, char *argv[]) {
                                  argv[3]);
 
                         if (key_file)
-                                k = crypt_activate_by_keyfile(cd, argv[2], CRYPT_ANY_SLOT, key_file, 0, flags);
+                                k = crypt_activate_by_keyfile(cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_key_size, flags);
                         else {
                                 char **p;
 
