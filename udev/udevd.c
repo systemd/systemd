@@ -812,7 +812,16 @@ static void handle_signal(struct udev *udev, int signo)
 
 				info(udev, "worker [%u] exit\n", pid);
 				if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-					err(udev, "worker [%u] unexpectedly returned with status 0x%04x\n", pid, status);
+					if (WEXITSTATUS(status))
+						err(udev, "worker [%u] unexpectedly returned with status %d\n", pid, WEXITSTATUS(status));
+					else if (WIFSIGNALED(status))
+					  err(udev, "worker [%u] killed by signal %d (%s)\n", pid, 
+					      WTERMSIG(status), strsignal(WTERMSIG(status)));
+					else if (WIFSTOPPED(status))
+						err(udev, "worker [%u] unexpectedly stopped\n", pid);
+					else if (WIFCONTINUED(status))
+						err(udev, "worker [%u] continued\n", pid);
+
 					if (worker->event != NULL) {
 						err(udev, "worker [%u] failed while handling '%s'\n", pid, worker->event->devpath);
 						worker->event->exitcode = -32;
