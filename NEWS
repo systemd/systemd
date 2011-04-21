@@ -2,11 +2,12 @@ udev 168
 ========
 Bugfixes.
 
-warning if /run is not writable.
+warning if /run is not writable
 
 udevadm control --exit
 
 udevadm info --cleanup-db
+if used, OPTIONS+="db_persist" needed for LVM
 
 systemd netlink socket activation
 stop socket or mask on rpm update

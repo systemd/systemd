@@ -660,7 +660,7 @@ static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
 			goto out;
 		}
 		if (fdcount == 0) {
-			err(udev, "timeout: killing '%s'[%u]\n", cmd, pid);
+			err(udev, "timeout: killing '%s' [%u]\n", cmd, pid);
 			kill(pid, SIGKILL);
 		}
 
@@ -681,14 +681,20 @@ static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
 				if (waitpid(pid, &status, WNOHANG) < 0)
 					break;
 				if (WIFEXITED(status)) {
-					info(udev, "'%s'[%u] returned with exitcode %i\n", cmd, pid, WEXITSTATUS(status));
+					info(udev, "'%s' [%u] exit with return code %i\n", cmd, pid, WEXITSTATUS(status));
 					if (WEXITSTATUS(status) != 0)
 						err = -1;
 				} else if (WIFSIGNALED(status)) {
-					err(udev, "'%s'[%u] terminated by signal %i\n", cmd, pid, WTERMSIG(status));
+					err(udev, "'%s' [%u] terminated by signal %i (%s)\n", cmd, pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+					err = -1;
+				} else if (WIFSTOPPED(status)) {
+					err(udev, "'%s' [%u] stopped\n", cmd, pid);
+					err = -1;
+				} else if (WIFCONTINUED(status)) {
+					err(udev, "'%s' [%u] continued\n", cmd, pid);
 					err = -1;
 				} else {
-					err(udev, "'%s'[%u] unexpected exit with status 0x%04x\n", cmd, pid, status);
+					err(udev, "'%s' [%u] exit with status 0x%04x\n", cmd, pid, status);
 					err = -1;
 				}
 				pid = 0;

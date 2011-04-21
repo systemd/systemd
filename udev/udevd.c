@@ -809,24 +809,29 @@ static void handle_signal(struct udev *udev, int signo)
 
 				if (worker->pid != pid)
 					continue;
-
 				info(udev, "worker [%u] exit\n", pid);
-				if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-					if (WEXITSTATUS(status))
-						err(udev, "worker [%u] unexpectedly returned with status %d\n", pid, WEXITSTATUS(status));
-					else if (WIFSIGNALED(status))
-					  err(udev, "worker [%u] killed by signal %d (%s)\n", pid, 
-					      WTERMSIG(status), strsignal(WTERMSIG(status)));
-					else if (WIFSTOPPED(status))
-						err(udev, "worker [%u] unexpectedly stopped\n", pid);
-					else if (WIFCONTINUED(status))
-						err(udev, "worker [%u] continued\n", pid);
 
+				if (WIFEXITED(status)) {
+					if (WEXITSTATUS(status) != 0)
+						err(udev, "worker [%u] exit with return code %i\n", pid, WEXITSTATUS(status));
+				} else if (WIFSIGNALED(status)) {
+					err(udev, "worker [%u] terminated by signal %i (%s)\n",
+					    pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+				} else if (WIFSTOPPED(status)) {
+					err(udev, "worker [%u] stopped\n", pid);
+				} else if (WIFCONTINUED(status)) {
+					err(udev, "worker [%u] continued\n", pid);
+				} else {
+					err(udev, "worker [%u] exit with status 0x%04x\n", pid, status);
+				}
+
+				if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 					if (worker->event != NULL) {
-						err(udev, "worker [%u] failed while handling '%s'\n", pid, worker->event->devpath);
+						err(udev, "worker [%u] failed while handling '%s'\n",
+						    pid, worker->event->devpath);
 						worker->event->exitcode = -32;
 						event_queue_delete(worker->event, true);
-						/* drop reference from running event */
+						/* drop reference taken for state 'running' */
 						worker_unref(worker);
 					}
 				}
