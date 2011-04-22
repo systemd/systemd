@@ -1,3 +1,84 @@
+Summary of changes from v167 to v168
+============================================
+
+David Zeuthen (1):
+      Run ata_id on non-removable USB devices
+
+Harald Hoyer (1):
+      udevd: clarify worker exit status
+
+Kay Sievers (35):
+      version bump
+      systemd: let settle depend on trigger, do not block basic with trigger
+      selinux: do not label files in runtime dir
+      selinux: firmware - do not label files in runtime dir
+      udevadm: control - add --exit
+      trivial cleanups
+      udevd: log warning if /run is not writable
+      libudev: ctrl - fix refcounting in connection handling
+      udevadm: settle - watch queue file
+      libudev: bump revision
+      udevadm: info --cleanup-db
+      udevd: do not nice processes
+      "db_persist=" -> "db_persist"
+      udevd: move OOM disable into --daemon option
+      systemd: add OOMScoreAdjust=-1000
+      require explicit "db_persist" to exclude device info from --db-cleanup
+      udevd: get netlink socket from systemd
+      fix more warnings
+      libudev: ctrl, monitor - use SOCK_NONBLOCK
+      systemd: socket -> sockets
+      udevadm: monitor - use epoll
+      libudev: test - use epoll
+      udevadm:  test - use printf() instead of info() for non-debug output
+      use 'else if' in epoll event array loop
+      libudev: run_program() - select() -> epoll
+      udevd: ppoll() -> epoll + signalfd
+      Merge branch 'docs/README' of git://github.com/mfwitten/udev
+      timeout handling without alarm()
+      udevadm: settle - kill alarm()
+      udevd: netif rename - use ifindex for temporary name
+      udevd: always use udevd[] log prefix
+      udevd: rules files - accept empty or /dev/null links
+      udevd: log signal number when spawned processes fail
+      systemd: Reqires= -> Wants=udev.socket
+      udevd, udev-event: sync waitpid() error handling
+
+Lee, Chun-Yi (1):
+      Add rule for Acer Aspire One ZG8 to use acer-aspire_5720 keymap
+
+Leonid Antonenkov (1):
+      rule-generator: net - ignore Hyper-V virtual interfaces
+
+Martin Pitt (3):
+      Revert "Do not build extras with --disable-extras"
+      Avoid spinning up CD on pressing eject button
+      keymap: Another ID for Logitech Wave keyboard
+
+Michael Reed (1):
+      path_id: rework SAS device handling
+
+Michael Witten (12):
+      Docs: README: `to replace' -> `replacing'
+      Docs: README: `,' -> `;'
+      Docs: README: Clean up a sentence
+      Docs: README: Use present tense
+      Docs: README: Add missing `and'
+      Docs: README: Remove commas and use subjective mood
+      Docs: README: Clean up `udev extras' requirements
+      Docs: README: Clarify configuration of existing devices
+      Docs: README: `does never apply' -> `never applies'
+      Docs: README: Flip sentence structure to improve wording
+      Docs: README: `set up' is the verb; `setup' is a noun
+      Docs: README: Add a comma to offset the modifier
+
+Seth Forshee (1):
+      keymap: Support Dell Latitude XT2 tablet-mode navigation keys
+
+Thomas Egerer (1):
+      udevd: add 'N:' to optstring in getopt_long
+
+
 Summary of changes from v166 to v167
 ============================================
 

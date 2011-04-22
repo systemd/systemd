@@ -2,18 +2,34 @@ udev 168
 ========
 Bugfixes.
 
-warning if /run is not writable
+Udev logs a warning now if /run is not writable at udevd
+startup. It will still fall back to /dev/.udev, but this is
+now considered a bug.
 
-udevadm control --exit
+The running udev daemon can now cleanly shut down with:
+  udevadm control --exit
 
-udevadm info --cleanup-db
-if used, OPTIONS+="db_persist" needed for LVM
+Udev in initramfs should clean the state of the udev database
+with: udevadm info --cleanup-db which will remove all state left
+behind from events/rules in initramfs. If initramfs uses
+--cleanup-db and device-mapper/LVM, the rules in initramfs need
+to add OPTIONS+="db_persist" for all dm devices. This will
+prevent removal of the udev database for these devices.
 
-systemd netlink socket activation
-stop socket or mask on rpm update
-requires systemd 25
+Spawned programs by PROGRAM/IMPORT/RUN now have a hard timeout of
+120 seconds per process. If that timeout is reached the spawned
+process will be killed. The event timeout can be overwritten with
+udev rules.
 
-hard event timeout now. hanging programs will be killed
+If systemd is used, udev gets now activated by netlink data.
+Systemd will bind the netlink socket which will buffer all data.
+If needed, such setup allows a seemless update of the udev daemon,
+where no event can be lost during a udevd update/restart.
+Packages need to make sure to: systemctl stop udev.socket udev.service
+or 'mask' udev.service during the upgrade to prevent any unwanted
+auto-spawning of udevd.
+This version of udev conflicts with systemd version below 25. The
+unchanged service files will not wirk correctly.
 
 udev 167
 ========
