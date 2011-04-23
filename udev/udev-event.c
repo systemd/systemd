@@ -1075,7 +1075,7 @@ int udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
 			udev_event_apply_format(event, cmd, program, sizeof(program));
 			envp = udev_device_get_properties_envp(event->dev);
 			if (udev_event_spawn(event, program, envp, sigmask, NULL, 0) < 0) {
-				if (udev_list_entry_get_flags(list_entry))
+				if (udev_list_entry_get_num(list_entry))
 					err = -1;
 			}
 		}

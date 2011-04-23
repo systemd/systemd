@@ -86,7 +86,7 @@ static bool device_has_info(struct udev_device *udev_device)
 	if (udev_device_get_devlink_priority(udev_device) != 0)
 		return true;
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
-		if (udev_list_entry_get_flags(list_entry))
+		if (udev_list_entry_get_num(list_entry))
 			return true;
 	if (udev_device_get_tags_list_entry(udev_device) != NULL)
 		return true;
@@ -157,7 +157,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 		if (udev_device_get_usec_initialized(udev_device) > 0)
 			fprintf(f, "I:%llu\n", udev_device_get_usec_initialized(udev_device));
 		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
-			if (!udev_list_entry_get_flags(list_entry))
+			if (!udev_list_entry_get_num(list_entry))
 				continue;
 			fprintf(f, "E:%s=%s\n",
 				udev_list_entry_get_name(list_entry),

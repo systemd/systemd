@@ -454,7 +454,7 @@ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev
 			break;
 
 		if (len > 0) {
-			udev_list_entry_add(udev_queue->udev, &udev_queue->queue_list, syspath, seqnum_str, 0, 0);
+			udev_list_entry_add(udev_queue->udev, &udev_queue->queue_list, syspath, seqnum_str, 0);
 		} else {
 			udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_queue->queue_list)) {
 				if (strcmp(seqnum_str, udev_list_entry_get_value(list_entry)) == 0) {
@@ -508,7 +508,7 @@ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev
 		util_strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
 		if (stat(filename, &statbuf) != 0)
 			continue;
-		udev_list_entry_add(udev_queue->udev, &udev_queue->failed_list, syspath, NULL, 0, 0);
+		udev_list_entry_add(udev_queue->udev, &udev_queue->failed_list, syspath, NULL, 0);
 	}
 	closedir(dir);
 	return udev_list_get_entry(&udev_queue->failed_list);

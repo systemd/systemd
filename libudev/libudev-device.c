@@ -103,7 +103,7 @@ struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device
 			udev_list_entry_delete(list_entry);
 		return NULL;
 	}
-	return udev_list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, 1, 0);
+	return udev_list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, UDEV_LIST_UNIQUE);
 }
 
 static struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property)
@@ -289,7 +289,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
 			break;
 		case 'E':
 			entry = udev_device_add_property_from_string(udev_device, val);
-			udev_list_entry_set_flags(entry, 1);
+			udev_list_entry_set_num(entry, true);
 			break;
 		case 'G':
 			udev_device_add_tag(udev_device, val);
@@ -1216,7 +1216,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 	util_strscpyl(path, sizeof(path), udev_device_get_syspath(udev_device), "/", sysattr, NULL);
 	if (lstat(path, &statbuf) != 0) {
 		dbg(udev_device->udev, "no attribute '%s', keep negative entry\n", path);
-		udev_list_entry_add(udev_device->udev, &udev_device->sysattr_value_list, sysattr, NULL, 0, 0);
+		udev_list_entry_add(udev_device->udev, &udev_device->sysattr_value_list, sysattr, NULL, 0);
 		goto out;
 	}
 
@@ -1240,7 +1240,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 		if (pos != NULL) {
 			pos = &pos[1];
 			dbg(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, pos);
-			list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_value_list, sysattr, pos, 0, 0);
+			list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_value_list, sysattr, pos, 0);
 			val = udev_list_entry_get_value(list_entry);
 		}
 
@@ -1272,7 +1272,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 	value[size] = '\0';
 	util_remove_trailing_chars(value, '\n');
 	dbg(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
-	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_value_list, sysattr, value, 0, 0);
+	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_value_list, sysattr, value, 0);
 	val = udev_list_entry_get_value(list_entry);
 out:
 	return val;
@@ -1311,7 +1311,7 @@ static int udev_device_sysattr_list_read(struct udev_device *udev_device)
 			continue;
 
 		udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list,
-				    dent->d_name, NULL, 0, 0);
+				    dent->d_name, NULL, 0);
 		num++;
 	}
 
@@ -1419,11 +1419,11 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 	struct udev_list_entry *list_entry;
 
 	udev_device->devlinks_uptodate = false;
-	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->devlinks_list, devlink, NULL, 1, 0);
+	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->devlinks_list, devlink, NULL, UDEV_LIST_UNIQUE);
 	if (list_entry == NULL)
 		return -ENOMEM;
 	if (unique)
-		udev_list_entry_set_flags(list_entry, 1);
+		udev_list_entry_set_num(list_entry, true);
 	return 0;
 }
 
@@ -1491,7 +1491,7 @@ int udev_device_add_tag(struct udev_device *udev_device, const char *tag)
 	if (strchr(tag, ':') != NULL || strchr(tag, ' ') != NULL)
 		return -EINVAL;
 	udev_device->tags_uptodate = false;
-	if (udev_list_entry_add(udev_device->udev, &udev_device->tags_list, tag, NULL, 1, 0) != NULL)
+	if (udev_list_entry_add(udev_device->udev, &udev_device->tags_list, tag, NULL, UDEV_LIST_UNIQUE) != NULL)
 		return 0;
 	return -ENOMEM;
 }

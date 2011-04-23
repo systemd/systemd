@@ -157,6 +157,11 @@ const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
 
 /* libudev-list.c */
+enum udev_list_flags {
+	UDEV_LIST_NONE =        0,
+	UDEV_LIST_UNIQUE =      1,
+	UDEV_LIST_SORT =        1 << 1,
+};
 struct udev_list_node {
 	struct udev_list_node *next, *prev;
 };
@@ -174,16 +179,15 @@ void udev_list_node_remove(struct udev_list_node *entry);
 	     node != list; \
 	     node = tmp, tmp = (tmp)->next)
 struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
-						   const char *name, const char *value,
-						   int unique, int sort);
+						   const char *name, const char *value, unsigned int flags);
 void udev_list_entry_delete(struct udev_list_entry *entry);
 void udev_list_entry_remove(struct udev_list_entry *entry);
 void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry);
 void udev_list_entry_append(struct udev_list_entry *new, struct udev_list_node *list);
 void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *name_list);
 struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
-unsigned int udev_list_entry_get_flags(struct udev_list_entry *list_entry);
-void udev_list_entry_set_flags(struct udev_list_entry *list_entry, unsigned int flags);
+int udev_list_entry_get_num(struct udev_list_entry *list_entry);
+void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
 	for (entry = first, tmp = udev_list_entry_get_next(entry); \
 	     entry != NULL; \

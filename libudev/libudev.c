@@ -458,7 +458,7 @@ struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, co
 			udev_list_entry_delete(list_entry);
 		return NULL;
 	}
-	return udev_list_entry_add(udev, &udev->properties_list, key, value, 1, 0);
+	return udev_list_entry_add(udev, &udev->properties_list, key, value, UDEV_LIST_UNIQUE);
 }
 
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev)

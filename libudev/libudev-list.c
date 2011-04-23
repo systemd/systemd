@@ -38,10 +38,10 @@ struct udev_list_entry {
 	struct udev_list_node *list;
 	char *name;
 	char *value;
-	unsigned int flags;
+	int num;
 };
 
-/* list head point to itself if empty */
+/* the list's head points to itself if empty */
 void udev_list_init(struct udev_list_node *list)
 {
 	list->next = list;
@@ -114,12 +114,12 @@ void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list
 
 struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
 					    const char *name, const char *value,
-					    int unique, int sort)
+					    unsigned int flags)
 {
 	struct udev_list_entry *entry_loop = NULL;
 	struct udev_list_entry *entry_new;
 
-	if (unique)
+	if (flags & UDEV_LIST_UNIQUE) {
 		udev_list_entry_foreach(entry_loop, udev_list_get_entry(list)) {
 			if (strcmp(entry_loop->name, name) == 0) {
 				dbg(udev, "'%s' is already in the list\n", name);
@@ -136,12 +136,14 @@ struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_
 				return entry_loop;
 			}
 		}
+	}
 
-	if (sort)
+	if (flags & UDEV_LIST_SORT) {
 		udev_list_entry_foreach(entry_loop, udev_list_get_entry(list)) {
 			if (strcmp(entry_loop->name, name) > 0)
 				break;
 		}
+	}
 
 	entry_new = malloc(sizeof(struct udev_list_entry));
 	if (entry_new == NULL)
@@ -153,6 +155,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_
 		free(entry_new);
 		return NULL;
 	}
+
 	if (value != NULL) {
 		entry_new->value = strdup(value);
 		if (entry_new->value == NULL) {
@@ -161,10 +164,12 @@ struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_
 			return NULL;
 		}
 	}
+
 	if (entry_loop != NULL)
 		udev_list_entry_insert_before(entry_new, entry_loop);
 	else
 		udev_list_entry_append(entry_new, list);
+
 	dbg(udev, "'%s=%s' added\n", entry_new->name, entry_new->value);
 	return entry_new;
 }
@@ -258,16 +263,16 @@ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry)
 	return list_entry->value;
 }
 
-unsigned int udev_list_entry_get_flags(struct udev_list_entry *list_entry)
+int udev_list_entry_get_num(struct udev_list_entry *list_entry)
 {
 	if (list_entry == NULL)
 		return -EINVAL;
-	return list_entry->flags;
+	return list_entry->num;
 }
 
-void udev_list_entry_set_flags(struct udev_list_entry *list_entry, unsigned int flags)
+void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num)
 {
 	if (list_entry == NULL)
 		return;
-	list_entry->flags = flags;
+	list_entry->num = num;
 }

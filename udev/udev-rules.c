@@ -731,7 +731,7 @@ static int import_property_from_string(struct udev_device *dev, char *line)
 		entry = udev_device_add_property(dev, key, val);
 		/* store in db, skip private keys */
 		if (key[0] != '.')
-			udev_list_entry_set_flags(entry, 1);
+			udev_list_entry_set_num(entry, true);
 	}
 	return 0;
 }
@@ -800,7 +800,7 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
 			entry = udev_device_add_property(dev, key, val);
 			/* store in db, skip private keys */
 			if (key[0] != '.')
-				udev_list_entry_set_flags(entry, 1);
+				udev_list_entry_set_num(entry, true);
 		}
 	}
 	return 0;
@@ -1750,7 +1750,7 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 		 * identical basenames from different directories overwrite each other
 		 * entries are sorted after basename
 		 */
-		udev_list_entry_add(udev, file_list, dent->d_name, filename, 1, 1);
+		udev_list_entry_add(udev, file_list, dent->d_name, filename, UDEV_LIST_UNIQUE|UDEV_LIST_SORT);
 	}
 
 	closedir(dir);
@@ -1829,13 +1829,13 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		filename_off = add_string(rules, filename);
 		/* the offset in the rule is limited to unsigned short */
 		if (filename_off < USHRT_MAX)
-			udev_list_entry_set_flags(file_loop, filename_off);
+			udev_list_entry_set_num(file_loop, filename_off);
 	}
 
 	/* parse all rules files */
 	udev_list_entry_foreach(file_loop, udev_list_get_entry(&file_list)) {
 		const char *filename = udev_list_entry_get_value(file_loop);
-		unsigned int filename_off = udev_list_entry_get_flags(file_loop);
+		unsigned int filename_off = udev_list_entry_get_num(file_loop);
 		struct stat st;
 
 		if (stat(filename, &st) != 0) {
@@ -2326,7 +2326,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					struct udev_list_entry *entry;
 
 					entry = udev_device_add_property(event->dev, key, value);
-					udev_list_entry_set_flags(entry, 1);
+					udev_list_entry_set_num(entry, true);
 				} else {
 					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
@@ -2354,7 +2354,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 							if (pos[0] == '\0' || isspace(pos[0])) {
 								/* we import simple flags as 'FLAG=1' */
 								entry = udev_device_add_property(event->dev, key, "1");
-								udev_list_entry_set_flags(entry, 1);
+								udev_list_entry_set_num(entry, true);
 								imported = true;
 							} else if (pos[0] == '=') {
 								const char *value;
@@ -2365,7 +2365,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 									pos++;
 								pos[0] = '\0';
 								entry = udev_device_add_property(event->dev, key, value);
-								udev_list_entry_set_flags(entry, 1);
+								udev_list_entry_set_num(entry, true);
 								imported = true;
 							}
 						}
@@ -2510,7 +2510,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					entry = udev_device_add_property(event->dev, name, temp_value);
 					/* store in db, skip private keys */
 					if (name[0] != '.')
-						udev_list_entry_set_flags(entry, 1);
+						udev_list_entry_set_num(entry, true);
 				} else {
 					udev_device_add_property(event->dev, name, NULL);
 				}
@@ -2629,9 +2629,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				     &rules->buf[rule->rule.filename_off],
 				     rule->rule.filename_line);
 				list_entry = udev_list_entry_add(event->udev, &event->run_list,
-								 &rules->buf[cur->key.value_off], NULL, 1, 0);
+								 &rules->buf[cur->key.value_off], NULL, UDEV_LIST_UNIQUE);
 				if (cur->key.fail_on_error)
-					udev_list_entry_set_flags(list_entry, 1);
+					udev_list_entry_set_num(list_entry, true);
 				break;
 			}
 		case TK_A_GOTO:

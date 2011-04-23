@@ -122,11 +122,11 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 					devtype[0] = '\0';
 					devtype++;
 				}
-				udev_list_entry_add(udev, &subsystem_match_list, subsys, devtype, 0, 0);
+				udev_list_entry_add(udev, &subsystem_match_list, subsys, devtype, 0);
 				break;
 			}
 		case 't':
-			udev_list_entry_add(udev, &tag_match_list, optarg, NULL, 0, 0);
+			udev_list_entry_add(udev, &tag_match_list, optarg, NULL, 0);
 			break;
 		case 'h':
 			printf("Usage: udevadm monitor [--property] [--kernel] [--udev] [--help]\n"

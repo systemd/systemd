@@ -830,7 +830,7 @@ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_mo
 	if (subsystem == NULL)
 		return -EINVAL;
 	if (udev_list_entry_add(udev_monitor->udev,
-				&udev_monitor->filter_subsystem_list, subsystem, devtype, 0, 0) == NULL)
+				&udev_monitor->filter_subsystem_list, subsystem, devtype, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -854,7 +854,7 @@ int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor, const c
 	if (tag == NULL)
 		return -EINVAL;
 	if (udev_list_entry_add(udev_monitor->udev,
-				&udev_monitor->filter_tag_list, tag, NULL, 0, 0) == NULL)
+				&udev_monitor->filter_tag_list, tag, NULL, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
