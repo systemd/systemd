@@ -86,7 +86,7 @@
                 <para>The locale settings configured in
                 <filename>/etc/locale.conf</filename> are system-wide
                 and are inherited by every service or user, unless
-                overriden or unset by individual programs or
+                overridden or unset by individual programs or
                 individual users.</para>
 
                 <para>Depending on the operating system other
@@ -123,7 +123,7 @@
                 <title>Example</title>
 
                 <example>
-                        <title>German locale with english messages</title>
+                        <title>German locale with English messages</title>
 
                         <para><filename>/etc/locale.conf:</filename></para>
 

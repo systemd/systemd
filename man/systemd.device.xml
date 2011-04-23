@@ -135,7 +135,7 @@
                                 device disappears from the udev
                                 tree. This option is useful to support
                                 devices that initially show up in an
-                                unitialized state in the tree, and for
+                                uninitialized state in the tree, and for
                                 which a changed event is generated the
                                 moment they are fully set
                                 up.</para></listitem>

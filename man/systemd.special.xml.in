@@ -155,7 +155,7 @@
                                         <filename>graphical.target</filename>.</para>
                                         <para>The default unit systemd
                                         starts at bootup can be
-                                        overriden with the
+                                        overridden with the
                                         <varname>systemd.unit=</varname>
                                         kernel command line option.</para>
                                 </listitem>
@@ -276,7 +276,7 @@
                                         all SysV init script service
                                         units with an LSB header
                                         referring to the
-                                        <literal>$mail-transfer-argent</literal>
+                                        <literal>$mail-transfer-agent</literal>
                                         or
                                         <literal>$mail-transport-agent</literal>
                                         facilities, for compatibility
@@ -415,7 +415,7 @@
                                 <term><filename>runlevel2.target</filename></term>
                                 <listitem>
                                         <para>This is a target that is
-                                        called whever the SysV
+                                        called whenever the SysV
                                         compatibility code asks for
                                         runlevel 2. It is a good idea
                                         to make this an alias for
@@ -427,7 +427,7 @@
                                 <term><filename>runlevel3.target</filename></term>
                                 <listitem>
                                         <para>This is a target that is
-                                        called whever the SysV
+                                        called whenever the SysV
                                         compatibility code asks for
                                         runlevel 3. It is a good idea
                                         to make this an alias for
@@ -441,7 +441,7 @@
                                 <term><filename>runlevel4.target</filename></term>
                                 <listitem>
                                         <para>This is a target that is
-                                        called whever the SysV
+                                        called whenever the SysV
                                         compatibility code asks for
                                         runlevel 4. It is a good idea
                                         to make this an alias for
@@ -455,7 +455,7 @@
                                 <term><filename>runlevel5.target</filename></term>
                                 <listitem>
                                         <para>This is a target that is
-                                        called whever the SysV
+                                        called whenever the SysV
                                         compatibility code asks for
                                         runlevel 5. It is a good idea
                                         to make this an alias for

@@ -124,7 +124,7 @@
                 and <option>--remove</option> in one invocation. For
                 example, during boot the following command line is
                 executed to ensure that all temporary and volatile
-                directores are removed and created according to the
+                directories are removed and created according to the
                 configuration file:</para>
 
                 <programlisting>systemctl-tmpfiles --remove --create</programlisting>

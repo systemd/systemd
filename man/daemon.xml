@@ -397,7 +397,7 @@
                         url="http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
                         Linux Standard Base Core
                         Specification</ulink>. This method of
-                        activation is supported ubiquitiously on Linux
+                        activation is supported ubiquitously on Linux
                         init systems, both old-style and new-style
                         systems. Among other issues SysV init scripts
                         have the disadvantage of involving shell
@@ -795,7 +795,7 @@ AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir" -a "x$with_sy
                         machines, and optionally allows their
                         installation even on machines lacking
                         systemd. (Modification of this snippet for the
-                        user unit directory is left as excercise to the
+                        user unit directory is left as an excercise for the
                         reader.)</para>
 
                         <para>Additionally, to ensure that
