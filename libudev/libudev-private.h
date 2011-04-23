@@ -201,7 +201,7 @@ ssize_t udev_queue_skip_devpath(FILE *queue_file);
 
 /* libudev-queue-private.c */
 struct udev_queue_export *udev_queue_export_new(struct udev *udev);
-void udev_queue_export_unref(struct udev_queue_export *udev_queue_export);
+struct udev_queue_export *udev_queue_export_unref(struct udev_queue_export *udev_queue_export);
 void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export);
 int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);

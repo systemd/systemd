@@ -90,13 +90,14 @@ struct udev_queue_export *udev_queue_export_new(struct udev *udev)
 	return udev_queue_export;
 }
 
-void udev_queue_export_unref(struct udev_queue_export *udev_queue_export)
+struct udev_queue_export *udev_queue_export_unref(struct udev_queue_export *udev_queue_export)
 {
 	if (udev_queue_export == NULL)
-		return;
+		return NULL;
 	if (udev_queue_export->queue_file != NULL)
 		fclose(udev_queue_export->queue_file);
 	free(udev_queue_export);
+	return NULL;
 }
 
 void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export)
