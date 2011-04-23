@@ -257,6 +257,7 @@ int mount_setup(void) {
 
         /* Create a few directories we always want around */
         mkdir("/run/systemd", 0755);
+        mkdir("/run/systemd/system", 0755);
 
         return mount_cgroup_controllers();
 }
