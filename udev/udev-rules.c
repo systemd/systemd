@@ -1719,6 +1719,7 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
 static int add_matching_files(struct udev *udev, struct udev_list_node *file_list, const char *dirname, const char *suffix)
 {
 	DIR *dir;
+	struct dirent *dent;
 	char filename[UTIL_PATH_SIZE];
 
 	dbg(udev, "open directory '%s'\n", dirname);
@@ -1728,13 +1729,7 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 		return -1;
 	}
 
-	for (;;) {
-		struct dirent *dent;
-
-		dent = readdir(dir);
-		if (dent == NULL || dent->d_name[0] == '\0')
-			break;
-
+	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 		if (dent->d_name[0] == '.')
 			continue;
 
@@ -1750,7 +1745,12 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 		}
 		util_strscpyl(filename, sizeof(filename), dirname, "/", dent->d_name, NULL);
 		dbg(udev, "put file '%s' into list\n", filename);
-		udev_list_entry_add(udev, file_list, filename, NULL, 1, 1);
+		/*
+		 * the basename is the key, the filename the value
+		 * identical basenames from different directories overwrite each other
+		 * entries are sorted after basename
+		 */
+		udev_list_entry_add(udev, file_list, dent->d_name, filename, 1, 1);
 	}
 
 	closedir(dir);
@@ -1761,7 +1761,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 {
 	struct udev_rules *rules;
 	struct udev_list_node file_list;
-	struct udev_list_entry *file_loop, *file_tmp;
+	struct udev_list_entry *file_loop;
 	struct token end_token;
 
 	rules = calloc(1, sizeof(struct udev_rules));
@@ -1804,66 +1804,26 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));
 	rules->trie_nodes_cur = 1;
 
-	if (udev_get_rules_path(udev) != NULL) {
-		/* custom rules location for testing */
-		add_matching_files(udev, &file_list, udev_get_rules_path(udev), ".rules");
-	} else {
-		char filename[PATH_MAX];
-		struct udev_list_node sort_list;
-		struct udev_list_entry *sort_loop, *sort_tmp;
+	if (udev_get_rules_path(udev) == NULL) {
+		char filename[UTIL_PATH_SIZE];
 
-		/* read user/custom rules */
+		/* /lib/udev -- default/package rules */
+		add_matching_files(udev, &file_list, LIBEXECDIR "/rules.d", ".rules");
+
+		/* /etc/udev -- system-specific/user/admin rules */
 		add_matching_files(udev, &file_list, SYSCONFDIR "/udev/rules.d", ".rules");
 
-		/* read dynamic/temporary rules */
+		/* /run/udev -- throw-away/temporary rules */
 		util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/rules.d", NULL);
-		udev_list_init(&sort_list);
-		add_matching_files(udev, &sort_list, filename, ".rules");
-
-		/* read default rules */
-		add_matching_files(udev, &sort_list, LIBEXECDIR "/rules.d", ".rules");
-
-		/* sort all rules files by basename into list of files */
-		udev_list_entry_foreach_safe(sort_loop, sort_tmp, udev_list_get_entry(&sort_list)) {
-			const char *sort_name = udev_list_entry_get_name(sort_loop);
-			const char *sort_base = strrchr(sort_name, '/');
-
-			if (sort_base == NULL)
-				continue;
-			/* sort entry into existing list */
-			udev_list_entry_foreach_safe(file_loop, file_tmp, udev_list_get_entry(&file_list)) {
-				const char *file_name = udev_list_entry_get_name(file_loop);
-				const char *file_base = strrchr(file_name, '/');
-
-				if (file_base == NULL)
-					continue;
-				if (strcmp(file_base, sort_base) == 0) {
-					info(udev, "rule file basename '%s' already added, ignoring '%s'\n",
-					     file_name, sort_name);
-					udev_list_entry_delete(sort_loop);
-					sort_loop = NULL;
-					break;
-				}
-				if (strcmp(file_base, sort_base) > 0) {
-					/* found later file, insert before */
-					udev_list_entry_remove(sort_loop);
-					udev_list_entry_insert_before(sort_loop, file_loop);
-					sort_loop = NULL;
-					break;
-				}
-			}
-			/* current file already handled */
-			if (sort_loop == NULL)
-				continue;
-			/* no later file, append to end of list */
-			udev_list_entry_remove(sort_loop);
-			udev_list_entry_append(sort_loop, &file_list);
-		}
+		add_matching_files(udev, &file_list, filename, ".rules");
+	} else {
+		/* custom rules files location for testing */
+		add_matching_files(udev, &file_list, udev_get_rules_path(udev), ".rules");
 	}
 
 	/* add all filenames to the string buffer */
 	udev_list_entry_foreach(file_loop, udev_list_get_entry(&file_list)) {
-		const char *filename = udev_list_entry_get_name(file_loop);
+		const char *filename = udev_list_entry_get_value(file_loop);
 		unsigned int filename_off;
 
 		filename_off = add_string(rules, filename);
@@ -1872,9 +1832,9 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 			udev_list_entry_set_flags(file_loop, filename_off);
 	}
 
-	/* parse list of files */
-	udev_list_entry_foreach_safe(file_loop, file_tmp, udev_list_get_entry(&file_list)) {
-		const char *filename = udev_list_entry_get_name(file_loop);
+	/* parse all rules files */
+	udev_list_entry_foreach(file_loop, udev_list_get_entry(&file_list)) {
+		const char *filename = udev_list_entry_get_value(file_loop);
 		unsigned int filename_off = udev_list_entry_get_flags(file_loop);
 		struct stat st;
 
@@ -1891,8 +1851,8 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 			continue;
 		}
 		parse_file(rules, filename, filename_off);
-		udev_list_entry_delete(file_loop);
 	}
+	udev_list_cleanup_entries(udev, &file_list);
 
 	memset(&end_token, 0x00, sizeof(struct token));
 	end_token.type = TK_END;
