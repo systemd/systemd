@@ -46,14 +46,16 @@
         </refnamediv>
 
         <refsynopsisdiv>
+                <para><filename>/usr/lib/modules-load.d/*.conf</filename></para>
                 <para><filename>/etc/modules-load.d/*.conf</filename></para>
+                <para><filename>/run/modules-load.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
 		<para><command>systemd</command> uses
-		<filename>/etc/modules-load.d/</filename> to configure
+		files from the above directories to configure
 		kernel modules to load during boot in a static list.
 		Each configuration file is named in the style of
 		<filename>/etc/modules-load.d/&lt;program&gt;.conf</filename>. Note
@@ -72,6 +74,19 @@
 		newlines. Empty lines and lines whose first
 		non-whitespace character is # or ; are ignored.</para>
 
+                <para>Files in <filename>/etc/</filename> overwrite
+                files with the same name in <filename>/usr/lib/</filename>.
+                Files in <filename>/run</filename> overwrite files with
+                the same name in <filename>/etc/</filename> and
+                <filename>/usr/lib/</filename>. Packages should install their
+                configuration files in <filename>/usr/lib/</filename>, files
+                in <filename>/etc/</filename> are reserved for the local
+                administration, which possibly decides to overwrite the
+                configurations installed from packages. All files are sorted
+                by filename in alphabetical order, regardless in which of the
+                directories they reside, to ensure that a specific
+                configuration file takes precedence over another file with
+                an alphabetically later name.</para>
         </refsect1>
 
         <refsect1>

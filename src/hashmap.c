@@ -592,3 +592,21 @@ Hashmap *hashmap_copy(Hashmap *h) {
 
         return copy;
 }
+
+char **hashmap_get_strv(Hashmap *h) {
+        char **sv;
+        Iterator it;
+        char *path;
+        int n;
+
+        sv = malloc((h->n_entries+1) * sizeof(char *));
+        if (sv == NULL)
+                return NULL;
+
+        n = 0;
+        HASHMAP_FOREACH(path, h, it)
+                sv[n++] = path;
+        sv[n] = NULL;
+
+        return sv;
+}

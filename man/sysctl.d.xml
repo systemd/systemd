@@ -46,7 +46,9 @@
         </refnamediv>
 
         <refsynopsisdiv>
+                <para><filename>/usr/lib/sysctl.d/*.conf</filename></para>
                 <para><filename>/etc/sysctl.d/*.conf</filename></para>
+                <para><filename>/run/sysctl.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -71,6 +73,19 @@
                 <para>Note that both / and . are accepted as
                 separators in sysctl variable names.</para>
 
+                <para>Files in <filename>/etc/</filename> overwrite
+                files with the same name in <filename>/usr/lib/</filename>.
+                Files in <filename>/run</filename> overwrite files with
+                the same name in <filename>/etc/</filename> and
+                <filename>/usr/lib/</filename>. Packages should install their
+                configuration files in <filename>/usr/lib/</filename>, files
+                in <filename>/etc/</filename> are reserved for the local
+                administration, which possibly decides to overwrite the
+                configurations installed from packages. All files are sorted
+                by filename in alphabetical order, regardless in which of the
+                directories they reside, to ensure that a specific
+                configuration file takes precedence over another file with
+                an alphabetically later name.</para>
         </refsect1>
 
         <refsect1>

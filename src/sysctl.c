@@ -27,6 +27,7 @@
 #include <limits.h>
 
 #include "log.h"
+#include "strv.h"
 #include "util.h"
 
 #define PROC_SYS_PREFIX "/proc/sys/"
@@ -77,6 +78,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                 return -errno;
         }
 
+        log_debug("apply: %s\n", path);
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *value;
                 int k;
@@ -119,57 +121,6 @@ finish:
         return r;
 }
 
-static int scandir_filter(const struct dirent *d) {
-        assert(d);
-
-        if (ignore_file(d->d_name))
-                return 0;
-
-        if (d->d_type != DT_REG &&
-            d->d_type != DT_LNK &&
-            d->d_type != DT_UNKNOWN)
-                return 0;
-
-        return endswith(d->d_name, ".conf");
-}
-
-static int apply_tree(const char *path) {
-        struct dirent **de = NULL;
-        int n, i, r = 0;
-
-        if ((n = scandir(path, &de, scandir_filter, alphasort)) < 0) {
-
-                if (errno == ENOENT)
-                        return 0;
-
-                log_error("Failed to enumerate %s files: %m", path);
-                return -errno;
-        }
-
-        for (i = 0; i < n; i++) {
-                char *fn;
-                int k;
-
-                k = asprintf(&fn, "%s/%s", path, de[i]->d_name);
-                free(de[i]);
-
-                if (k < 0) {
-                        log_error("Failed to allocate file name.");
-
-                        if (r == 0)
-                                r = -ENOMEM;
-                        continue;
-                }
-
-                if ((k = apply_file(fn, true)) < 0 && r == 0)
-                        r = k;
-        }
-
-        free(de);
-
-        return r;
-}
-
 int main(int argc, char *argv[]) {
         int r = 0;
 
@@ -185,12 +136,25 @@ int main(int argc, char *argv[]) {
         if (argc > 1)
                 r = apply_file(argv[1], false);
         else {
-                int k;
+                char **files, **f;
 
                 r = apply_file("/etc/sysctl.conf", true);
 
-                if ((k = apply_tree("/etc/sysctl.d")) < 0 && r == 0)
-                        r = k;
+                files = conf_files_list(".conf",
+                                        "/run/sysctl.d",
+                                        "/etc/sysctl.d",
+                                        "/usr/lib/sysctl.d",
+                                        NULL);
+
+                STRV_FOREACH(f, files) {
+                        int k;
+
+                        k = apply_file(*f, true);
+                        if (k < 0 && r == 0)
+                                r = k;
+                }
+
+                strv_free(files);
         }
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

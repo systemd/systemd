@@ -1287,8 +1287,11 @@ install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(tmpfilesdir) \
 		$(DESTDIR)$(sysconfdir)/modules-load.d \
+		$(DESTDIR)$(prefix)/lib/modules-load.d \
 		$(DESTDIR)$(sysconfdir)/sysctl.d \
+		$(DESTDIR)$(prefix)/lib/sysctl.d \
 		$(DESTDIR)$(sysconfdir)/binfmt.d \
+		$(DESTDIR)$(prefix)/lib/binfmt.d \
 		$(DESTDIR)$(systemshutdowndir) \
 		$(DESTDIR)$(systemgeneratordir) \
 		$(DESTDIR)$(usergeneratordir)

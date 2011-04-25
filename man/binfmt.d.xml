@@ -46,20 +46,20 @@
         </refnamediv>
 
         <refsynopsisdiv>
+                <para><filename>/usr/lib/binfmt.d/*.conf</filename></para>
                 <para><filename>/etc/binfmt.d/*.conf</filename></para>
+                <para><filename>/run/binfmt.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
 		<para><command>systemd</command> uses
-		<filename>/etc/binfmt.d/</filename> to configure
+		files from the above directories to configure
 		additional binary formats to register during boot in
 		the kernel.  Each configuration file is named in the
 		style of
-		<filename>/etc/binfmt.d/&lt;program&gt;.conf</filename>.</para>
-
-
+		<filename>&lt;program&gt;.conf</filename>.</para>
         </refsect1>
 
         <refsect1>
@@ -75,11 +75,19 @@
                 ignored. Note that this means you may not use ; and #
                 as delimiter in binary format rules.</para>
 
-                <para>Configuration files are loaded in alphabetical
-                order. To ensure that a specific rule takes precedence
-                over another place it in a file with an alphabetically
-                later name.</para>
-
+                <para>Files in <filename>/etc/</filename> overwrite
+                files with the same name in <filename>/usr/lib/</filename>.
+                Files in <filename>/run</filename> overwrite files with
+                the same name in <filename>/etc/</filename> and
+                <filename>/usr/lib/</filename>. Packages should install their
+                configuration files in <filename>/usr/lib/</filename>, files
+                in <filename>/etc/</filename> are reserved for the local
+                administration, which possibly decides to overwrite the
+                configurations installed from packages. All files are sorted
+                by filename in alphabetical order, regardless in which of the
+                directories they reside, to ensure that a specific
+                configuration file takes precedence over another file with
+                an alphabetically later name.</para>
         </refsect1>
 
         <refsect1>

@@ -4528,3 +4528,97 @@ static const char *const signal_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(signal, int);
+
+static int file_is_conf(const struct dirent *d, const char *suffix) {
+        assert(d);
+
+        if (ignore_file(d->d_name))
+                return 0;
+
+        if (d->d_type != DT_REG &&
+            d->d_type != DT_LNK &&
+            d->d_type != DT_UNKNOWN)
+                return 0;
+
+        return endswith(d->d_name, suffix);
+}
+
+static int files_add(Hashmap *h, const char *path, const char *suffix) {
+        DIR *dir;
+        struct dirent *de;
+        int r = 0;
+
+        dir = opendir(path);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        for (de = readdir(dir); de; de = readdir(dir)) {
+                char *f;
+                const char *base;
+
+                if (!file_is_conf(de, suffix))
+                        continue;
+
+                if (asprintf(&f, "%s/%s", path, de->d_name) < 0) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                log_debug("found: %s\n", f);
+                base = f + strlen(path) + 1;
+                if (hashmap_put(h, base, f) <= 0)
+                        free(f);
+        }
+
+finish:
+        closedir(dir);
+        return r;
+}
+
+static int base_cmp(const void *a, const void *b) {
+        const char *s1, *s2;
+
+        s1 = *(char * const *)a;
+        s2 = *(char * const *)b;
+        return strcmp(file_name_from_path(s1), file_name_from_path(s2));
+}
+
+char **conf_files_list(const char *suffix, const char *dir, ...) {
+        Hashmap *fh;
+        char **files = NULL;
+        va_list ap;
+        int e = 0;
+
+        fh = hashmap_new(string_hash_func, string_compare_func);
+        if (!fh) {
+                e = ENOMEM;
+                goto finish;
+        }
+
+        va_start(ap, dir);
+        while (dir) {
+                if (files_add(fh, dir, suffix) < 0) {
+                        log_error("Failed to search for files.");
+                        e = EINVAL;
+                        goto finish;
+                }
+                dir = va_arg(ap, const char *);
+        }
+        va_end(ap);
+
+        files = hashmap_get_strv(fh);
+        if (files == NULL) {
+                log_error("Failed to compose list of files.");
+                e = ENOMEM;
+                goto finish;
+        }
+
+        qsort(files, hashmap_size(fh), sizeof(char *), base_cmp);
+finish:
+        hashmap_free(fh);
+        errno = e;
+        return files;
+}

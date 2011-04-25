@@ -31,30 +31,11 @@
 #include "util.h"
 #include "strv.h"
 
-/* This reads all module names listed in /etc/modules-load.d/?*.conf and
- * loads them into the kernel. This follows roughly Debian's way to
- * handle modules, but uses a directory of fragments instead of a
- * single /etc/modules file. */
-
-static int scandir_filter(const struct dirent *d) {
-        assert(d);
-
-        if (ignore_file(d->d_name))
-                return 0;
-
-        if (d->d_type != DT_REG &&
-            d->d_type != DT_LNK &&
-            d->d_type != DT_UNKNOWN)
-                return 0;
-
-        return endswith(d->d_name, ".conf");
-}
-
 int main(int argc, char *argv[]) {
-        struct dirent **de = NULL;
-        int r = EXIT_FAILURE, n, i;
+        int r = EXIT_FAILURE;
         char **arguments = NULL;
         unsigned n_arguments = 0, n_allocated = 0;
+        char **files, **fn;
 
         if (argc > 1) {
                 log_error("This program takes no argument.");
@@ -72,48 +53,33 @@ int main(int argc, char *argv[]) {
 
         n_arguments = n_allocated = 3;
 
-        if ((n = scandir("/etc/modules-load.d/", &de, scandir_filter, alphasort)) < 0) {
-
-                if (errno == ENOENT)
-                        r = EXIT_SUCCESS;
-                else
-                        log_error("Failed to enumerate /etc/modules-load.d/ files: %m");
-
+        files = conf_files_list(".conf",
+                                "/run/modules-load.d",
+                                "/etc/modules-load.d",
+                                "/usr/lib/modules-load.d",
+                                NULL);
+        if (files == NULL) {
+                log_error("Failed to enumerate modules-load.d files: %m");
                 goto finish;
         }
 
         r = EXIT_SUCCESS;
 
-        for (i = 0; i < n; i++) {
-                int k;
-                char *fn;
+        STRV_FOREACH(fn, files) {
                 FILE *f;
 
-                k = asprintf(&fn, "/etc/modules-load.d/%s", de[i]->d_name);
-                free(de[i]);
-
-                if (k < 0) {
-                        log_error("Failed to allocate file name.");
-                        r = EXIT_FAILURE;
-                        continue;
-                }
-
-                f = fopen(fn, "re");
-
+                f = fopen(*fn, "re");
                 if (!f) {
-                        if (errno == ENOENT) {
-                                free(fn);
+                        if (errno == ENOENT)
                                 continue;
-                        }
 
-                        log_error("Failed to open %s: %m", fn);
+                        log_error("Failed to open %s: %m", *fn);
                         free(fn);
                         r = EXIT_FAILURE;
                         continue;
                 }
 
-                free(fn);
-
+                log_debug("apply: %s\n", *fn);
                 for (;;) {
                         char line[LINE_MAX], *l, *t;
 
@@ -157,8 +123,7 @@ int main(int argc, char *argv[]) {
                 fclose(f);
         }
 
-        free(de);
-
+        strv_free(files);
 finish:
 
         if (n_arguments > 3) {
