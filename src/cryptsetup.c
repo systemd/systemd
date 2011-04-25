@@ -225,6 +225,7 @@ int main(int argc, char *argv[]) {
         char **passwords = NULL, *truncated_cipher = NULL;
         const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
         char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
+        unsigned keyfile_size = 0;
 
         if (argc <= 1) {
                 help();
@@ -433,6 +434,10 @@ int main(int argc, char *argv[]) {
                                                  &params);
 
                                 pass_volume_key = streq(hash, "plain");
+
+                               /* for CRYPT_PLAIN limit reads
+                                * from keyfile to key length */
+                                keyfile_size = opt_key_size / 8;
                         }
 
                         if (k < 0) {
@@ -447,7 +452,7 @@ int main(int argc, char *argv[]) {
                                  argv[3]);
 
                         if (key_file)
-                                k = crypt_activate_by_keyfile(cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_key_size, flags);
+                                k = crypt_activate_by_keyfile(cd, argv[2], CRYPT_ANY_SLOT, key_file, keyfile_size, flags);
                         else {
                                 char **p;
 
