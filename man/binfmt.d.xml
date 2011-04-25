@@ -57,9 +57,7 @@
 		<para><command>systemd</command> uses
 		files from the above directories to configure
 		additional binary formats to register during boot in
-		the kernel.  Each configuration file is named in the
-		style of
-		<filename>&lt;program&gt;.conf</filename>.</para>
+		the kernel.</para>
         </refsect1>
 
         <refsect1>
@@ -75,7 +73,9 @@
                 ignored. Note that this means you may not use ; and #
                 as delimiter in binary format rules.</para>
 
-                <para>Files in <filename>/etc/</filename> overwrite
+                <para>Each configuration file is named in the style of
+                <filename>&lt;program&gt;.conf</filename>.
+                Files in <filename>/etc/</filename> overwrite
                 files with the same name in <filename>/usr/lib/</filename>.
                 Files in <filename>/run</filename> overwrite files with
                 the same name in <filename>/etc/</filename> and

@@ -804,20 +804,6 @@ finish:
         return r;
 }
 
-static int scandir_filter(const struct dirent *d) {
-        assert(d);
-
-        if (ignore_file(d->d_name))
-                return 0;
-
-        if (d->d_type != DT_REG &&
-            d->d_type != DT_LNK &&
-            d->d_type != DT_UNKNOWN)
-                return 0;
-
-        return endswith(d->d_name, ".conf");
-}
-
 static int help(void) {
 
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
@@ -912,6 +898,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 return -errno;
         }
 
+        log_debug("apply: %s\n", fn);
         for (;;) {
                 char line[LINE_MAX], *l;
                 int k;
@@ -974,40 +961,23 @@ int main(int argc, char *argv[]) {
                                 r = EXIT_FAILURE;
 
         } else {
-                int n, j;
-                struct dirent **de = NULL;
+                char **files, **f;
 
-                if ((n = scandir("/etc/tmpfiles.d/", &de, scandir_filter, alphasort)) < 0) {
+                files = conf_files_list(".conf",
+                                        "/run/tmpfiles.d",
+                                        "/etc/tmpfiles.d",
+                                        "/usr/lib/tmpfiles.d",
+                                        NULL);
 
-                        if (errno != ENOENT) {
-                                log_error("Failed to enumerate /etc/tmpfiles.d/ files: %m");
+                STRV_FOREACH(f, files) {
+                        if (read_config_file(*f, true) < 0)
                                 r = EXIT_FAILURE;
-                        }
-
-                        goto finish;
                 }
 
-                for (j = 0; j < n; j++) {
-                        int k;
-                        char *fn;
-
-                        k = asprintf(&fn, "/etc/tmpfiles.d/%s", de[j]->d_name);
-                        free(de[j]);
-
-                        if (k < 0) {
-                                log_error("Failed to allocate file name.");
-                                r = EXIT_FAILURE;
-                                continue;
-                        }
-
-                        if (read_config_file(fn, true) < 0)
-                                r = EXIT_FAILURE;
-
-                        free(fn);
-                }
-
-                free(de);
+                strv_free(files);
         }
+
+
 
         HASHMAP_FOREACH(i, globs, iterator)
                 if (process_item(i) < 0)

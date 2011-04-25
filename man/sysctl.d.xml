@@ -54,12 +54,10 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd</command> uses
-		<filename>/etc/sysctl.d/</filename> to configure
+		<para><command>systemd</command> uses configuration files
+		from the above directories to configure
 		<citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		kernel parameters to load during boot. Each
-		configuration file is named in the style of
-		<filename>/etc/sysctl.d/&lt;program&gt;.conf</filename>.</para>
+		kernel parameters to load during boot.</para>
         </refsect1>
 
         <refsect1>
@@ -73,7 +71,9 @@
                 <para>Note that both / and . are accepted as
                 separators in sysctl variable names.</para>
 
-                <para>Files in <filename>/etc/</filename> overwrite
+                <para>Each configuration file is named in the style of
+                <filename>&lt;program&gt;.conf</filename>.
+                Files in <filename>/etc/</filename> overwrite
                 files with the same name in <filename>/usr/lib/</filename>.
                 Files in <filename>/run</filename> overwrite files with
                 the same name in <filename>/etc/</filename> and

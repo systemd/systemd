@@ -74,7 +74,9 @@
 		newlines. Empty lines and lines whose first
 		non-whitespace character is # or ; are ignored.</para>
 
-                <para>Files in <filename>/etc/</filename> overwrite
+                <para>Each configuration file is named in the style of
+                <filename>&lt;program&gt;.conf</filename>.
+                Files in <filename>/etc/</filename> overwrite
                 files with the same name in <filename>/usr/lib/</filename>.
                 Files in <filename>/run</filename> overwrite files with
                 the same name in <filename>/etc/</filename> and

@@ -47,25 +47,40 @@
         </refnamediv>
 
         <refsynopsisdiv>
+                <para><filename>/usr/lib/tmpfiles.d/*.conf</filename></para>
                 <para><filename>/etc/tmpfiles.d/*.conf</filename></para>
+                <para><filename>/run/tmpfiles.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
 		<para><command>systemd-tmpfiles</command> uses the
-		configuration files in
-		<filename>/etc/tmpfiles.d/</filename> to describe the
+		configuration files from the above directories to describe the
 		creation, cleaning and removal of volatile and
 		temporary files and directories which usually reside
 		in directories such as <filename>/run</filename>
-		or <filename>/tmp</filename>. Each configuration file
-		is named in the style of
-		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename>.</para>
+		or <filename>/tmp</filename>.</para>
         </refsect1>
 
         <refsect1>
 		<title>Configuration Format</title>
+
+                <para>Each configuration file is named in the style of
+                <filename>&lt;program&gt;.conf</filename>.
+                Files in <filename>/etc/</filename> overwrite
+                files with the same name in <filename>/usr/lib/</filename>.
+                Files in <filename>/run</filename> overwrite files with
+                the same name in <filename>/etc/</filename> and
+                <filename>/usr/lib/</filename>. Packages should install their
+                configuration files in <filename>/usr/lib/</filename>, files
+                in <filename>/etc/</filename> are reserved for the local
+                administration, which possibly decides to overwrite the
+                configurations installed from packages. All files are sorted
+                by filename in alphabetical order, regardless in which of the
+                directories they reside, to ensure that a specific
+                configuration file takes precedence over another file with
+                an alphabetically later name.</para>
 
 		<para>The configuration format is one line per path
 		containing action, mode, ownership and age
@@ -181,10 +196,12 @@ d    /run/user 0755 root root 10d</programlisting>
                                 <term><varname>us</varname></term></varlistentry>
                         </variablelist>
 
-                        <para>If multiple integers and units are specified the time values are summed up.</para>
+                        <para>If multiple integers and units are specified the time
+                        values are summed up.</para>
 
-                        <para>The age field only applies to lines starting with d, D and x. If omitted or set to - no automatic clean-up is done.</para>
-
+                        <para>The age field only applies to lines starting with
+                        d, D and x. If omitted or set to - no automatic clean-up
+                        is done.</para>
                 </refsect2>
 
         </refsect1>
