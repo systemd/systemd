@@ -67,11 +67,11 @@ void strv_free(char **l) {
 char **strv_copy(char **l) {
         char **r, **k;
 
-        if (!(r = new(char*, strv_length(l)+1)))
+        if (!(k = r = new(char*, strv_length(l)+1)))
                 return NULL;
 
         if (l)
-                for (k = r; *l; k++, l++)
+                for (; *l; k++, l++)
                         if (!(*k = strdup(*l)))
                                 goto fail;
 
