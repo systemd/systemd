@@ -242,6 +242,13 @@ if test "x$enable_libcryptsetup" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
 
+have_binfmt=no
+AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
+if test "x$enable_binfmt" != "xno"; then
+	have_binfmt=yes
+fi
+AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -481,6 +488,7 @@ echo "
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         SELinux:                 ${have_selinux}
+        binfmt:                  ${have_binfmt}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}

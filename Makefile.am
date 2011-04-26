@@ -151,8 +151,12 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-	systemd-binfmt \
         systemd-hostnamed
+
+if ENABLE_BINFMT
+rootlibexec_PROGRAMS += \
+	systemd-binfmt
+endif
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
@@ -257,8 +261,6 @@ dist_systemunit_DATA = \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.automount \
 	units/dev-mqueue.mount \
-	units/proc-sys-fs-binfmt_misc.automount \
-	units/proc-sys-fs-binfmt_misc.mount \
 	units/sys-kernel-debug.automount \
 	units/sys-kernel-debug.mount \
 	units/sys-kernel-security.automount \
@@ -282,6 +284,12 @@ dist_systemunit_DATA = \
 if HAVE_SYSV_COMPAT
 dist_systemunit_DATA += \
 	units/var-lock.mount
+endif
+
+if ENABLE_BINFMT
+dist_systemunit_DATA += \
+	units/proc-sys-fs-binfmt_misc.automount \
+	units/proc-sys-fs-binfmt_misc.mount
 endif
 
 nodist_systemunit_DATA = \
@@ -310,7 +318,6 @@ nodist_systemunit_DATA = \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
-	units/systemd-binfmt.service \
 	units/halt.service \
 	units/poweroff.service \
 	units/reboot.service \
@@ -319,6 +326,11 @@ nodist_systemunit_DATA = \
 	units/fsck-root.service \
 	units/quotacheck.service \
 	units/rescue.service
+
+if ENABLE_BINFMT
+nodist_systemunit_DATA += \
+	units/systemd-binfmt.service
+endif
 
 dist_userunit_DATA = \
 	units/user/default.target \
@@ -355,7 +367,6 @@ EXTRA_DIST = \
 	units/systemd-ask-password-wall.service.in \
 	units/systemd-ask-password-console.service.in \
 	units/systemd-sysctl.service.in \
-	units/systemd-binfmt.service.in \
 	units/halt.service.in \
 	units/poweroff.service.in \
 	units/reboot.service.in \
@@ -367,6 +378,11 @@ EXTRA_DIST = \
 	systemd.pc.in \
 	introspect.awk \
 	src/org.freedesktop.systemd1.policy.in
+
+if ENABLE_BINFMT
+EXTRA_DIST += \
+	units/systemd-binfmt.service.in
+endif
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
@@ -588,9 +604,13 @@ MANPAGES = \
 	man/os-release.5 \
         man/machine-info.5 \
 	man/modules-load.d.5 \
-	man/binfmt.d.5 \
 	man/sysctl.d.5 \
         man/systemd-ask-password.1
+
+if ENABLE_BINFMT
+MANPAGES += \
+	man/binfmt.d.5
+endif
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -1291,11 +1311,14 @@ install-data-hook:
 		$(DESTDIR)$(sysconfdir)/modules-load.d \
 		$(DESTDIR)$(prefix)/lib/sysctl.d \
 		$(DESTDIR)$(sysconfdir)/sysctl.d \
-		$(DESTDIR)$(prefix)/lib/binfmt.d \
-		$(DESTDIR)$(sysconfdir)/binfmt.d \
 		$(DESTDIR)$(systemshutdowndir) \
 		$(DESTDIR)$(systemgeneratordir) \
 		$(DESTDIR)$(usergeneratordir)
+if ENABLE_BINFMT
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(prefix)/lib/binfmt.d \
+		$(DESTDIR)$(sysconfdir)/binfmt.d
+endif
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(userunitdir) \
@@ -1405,7 +1428,6 @@ install-data-hook:
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \
-			proc-sys-fs-binfmt_misc.automount \
 			sys-kernel-debug.automount \
 			sys-kernel-security.automount \
 			systemd-vconsole-setup.service \
@@ -1413,13 +1435,11 @@ install-data-hook:
 			systemd-random-seed-load.service \
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
-			systemd-binfmt.service \
 			systemd-ask-password-console.path \
 			systemd-kmsg-syslogd.service \
 			cryptsetup.target && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
-		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
 		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
 		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \
@@ -1427,10 +1447,16 @@ install-data-hook:
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
-		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \
 		$(LN_S) ../systemd-kmsg-syslogd.service && \
 		$(LN_S) ../cryptsetup.target cryptsetup.target )
+if ENABLE_BINFMT
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f systemd-binfmt.service \
+			proc-sys-fs-binfmt_misc.automount && \
+		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
+		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount )
+endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
 		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )
