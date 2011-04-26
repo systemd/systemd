@@ -524,9 +524,9 @@ libexec_PROGRAMS += extras/mobile-action-modeswitch/mobile-action-modeswitch
 # mtd_probe - autoloads FTL module for mtd devices
 # ------------------------------------------------------------------------------
 extras_mtd_probe_mtd_probe_SOURCES =  \
-							extras/mtd_probe/mtd_probe.c \
-							extras/mtd_probe/mtd_probe.h \
-							extras/mtd_probe/probe_smartmedia.c
+	extras/mtd_probe/mtd_probe.c \
+	extras/mtd_probe/mtd_probe.h \
+	extras/mtd_probe/probe_smartmedia.c
 
 extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
 

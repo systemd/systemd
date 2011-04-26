@@ -2,9 +2,9 @@
  * hid2hci : switch the radio on devices that support
  *           it from HID to HCI and back
  *
- * Copyright (C) 2003-2009  Marcel Holtmann <marcel@holtmann.org>
+ * Copyright (C) 2003-2010  Marcel Holtmann <marcel@holtmann.org>
  * Copyright (C) 2008-2009  Mario Limonciello <mario_limonciello@dell.com>
- * Copyright (C) 2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2009-2011 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,6 @@
 #include <usb.h>
 
 #include "libudev.h"
-#include "libudev-private.h"
 
 enum mode {
 	HCI = 0,
@@ -152,9 +151,8 @@ static int usb_switch_dell(struct usb_dev_handle *dev, enum mode mode)
 }
 
 /*
- * The braindead libusb needs to scan and open all devices, just to
- * to find the device we already have. This needs to be fixed in libusb
- * or it will be ripped out and we carry our own code.
+ * libusb needs to scan and open all devices, just to to find the
+ * device we already have. This should be fixed in libusb.
  */
 static struct usb_device *usb_device_open_from_udev(struct udev_device *usb_dev)
 {
@@ -233,7 +231,7 @@ int main(int argc, char *argv[])
 	} method = METHOD_UNDEF;
 	struct udev *udev;
 	struct udev_device *udev_dev = NULL;
-	char syspath[UTIL_PATH_SIZE];
+	char syspath[PATH_MAX];
 	int (*usb_switch)(struct usb_dev_handle *dev, enum mode mode) = NULL;
 	enum mode mode = HCI;
 	const char *devpath = NULL;
@@ -289,7 +287,7 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		goto exit;
 
-	util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
+	snprintf(syspath, sizeof(syspath), "%s/%s", udev_get_sys_path(udev), devpath);
 	udev_dev = udev_device_new_from_syspath(udev, syspath);
 	if (udev_dev == NULL) {
 		fprintf(stderr, "error: could not find '%s'\n", devpath);
