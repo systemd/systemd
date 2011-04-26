@@ -1679,7 +1679,12 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         log_debug("Incoming traffic on %s", u->meta.id);
 
         if (events != EPOLLIN) {
-                log_error("%s: Got invalid poll event (0x%x) on socket.", u->meta.id, events);
+
+                if (events & EPOLLHUP)
+                        log_error("%s: Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.", u->meta.id);
+                else
+                        log_error("%s: Got unexpected poll event (0x%x) on socket.", u->meta.id, events);
+
                 goto fail;
         }
 
