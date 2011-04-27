@@ -4157,8 +4157,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
         if (streq(verb, "is-enabled") &&
             strv_isempty(i->aliases) &&
             strv_isempty(i->wanted_by) &&
-            (path_startswith(filename, "/lib") ||
-             path_startswith(filename, "/usr")))
+            !path_startswith(filename, "/etc"))
                 return 1;
 
         i->path = filename;
