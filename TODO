@@ -42,8 +42,6 @@ Features:
 
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
-* use pivot_root on shutdown so that we can unmount the root directory.
-
 * fix alsa mixer restore to not print error when no config is stored
 
 * show enablement status in systemctl status
@@ -128,9 +126,10 @@ Features:
 
 * make sure timeouts are applied to Type=oneshot services.
 
-* Maybe implement "systemctl mask" and "systemctl unmask", but not
-  document it? When doing that add switch to make this temporary by
-  placing mask links in /dev.
+* Implement:
+    systemctl mask <unit>
+    systemctl unmask <unit>
+  Also support --temp to make this temporary by placing mask links in /run.
 
 * detect LXC environment
 
@@ -157,13 +156,14 @@ Features:
   be killed very late after the rootfs is read only? If implement pass
   this to shutdown binary via command line argument.
 
-* Integrate "mdadm --wait-clean". Maybe just let SIGTERM to mdmon trigger the
-  needed action
+* use pivot_root on shutdown so that we can unmount the root directory.
+   - copy binaries to, and pivot_root() to the "shutdown tmpfs"
+   - solve "mdadm --wait-clean" problem that way
 
 * dot output for --test showing the 'initial transaction'
 
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
-  - check timerfd() patch: http://lkml.org/lkml/2010/11/23/290
+  - timerfd() with TFD_TIMER_CANCELON_SET support: https://lkml.org/lkml/2011/4/27/383
 
 * systemd --user
   - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
