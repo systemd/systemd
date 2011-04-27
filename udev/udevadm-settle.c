@@ -52,7 +52,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	unsigned long long end = 0;
 	int quiet = 0;
 	const char *exists = NULL;
-	unsigned int timeout = 180;
+	unsigned int timeout = 120;
 	struct pollfd pfd[1];
 	struct udev_queue *udev_queue = NULL;
 	int rc = EXIT_FAILURE;

@@ -17,6 +17,7 @@ Before=basic.target
 
 [Service]
 Type=oneshot
+TimeoutSec=180
 RemainAfterExit=yes
 ExecStart=@sbindir@/udevadm settle
 
