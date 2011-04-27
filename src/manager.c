@@ -2841,7 +2841,7 @@ int manager_reload(Manager *m) {
                 r = q;
 
         assert(m->n_deserializing > 0);
-        m->n_deserializing ++;
+        m->n_deserializing--;
 
 finish:
         if (f)

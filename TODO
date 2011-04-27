@@ -51,8 +51,8 @@ Features:
 * write blog stories about:
   - enabling dbus services
   - status update
-  - the new configuration files
   - you are a distro: why switch?
+  - /etc/sysconfig and /etc/default
 
 * maybe add tiny dbus services similar to hostnamed for locale and wallclock/timezone?
 
