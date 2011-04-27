@@ -118,8 +118,10 @@ int unit_add_name(Unit *u, const char *text) {
         if ((r = unit_name_to_instance(s, &i)) < 0)
                 goto fail;
 
-        if (i && unit_vtable[t]->no_instances)
+        if (i && unit_vtable[t]->no_instances) {
+                r = -EINVAL;
                 goto fail;
+        }
 
         /* Ensure that this unit is either instanced or not instanced,
          * but not both. */

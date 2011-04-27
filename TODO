@@ -2,8 +2,6 @@ F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-* Fix assert http://lists.freedesktop.org/archives/systemd-devel/2011-April/001910.html
-
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
@@ -37,8 +35,6 @@ Features:
 * Maybe merge nss-myhostname into systemd?
 
 * ensure we strip empty directories from search path
-
-* maybe lower default timeout to 2min?
 
 * GC unreferenced jobs (such as .device jobs)
 
