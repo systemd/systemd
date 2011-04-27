@@ -166,7 +166,7 @@
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
                                 logic. Defaults to
-                                3min.</para></listitem>
+                                90s.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

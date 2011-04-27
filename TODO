@@ -30,6 +30,10 @@ F15 External:
 
 Features:
 
+* introduce dbus calls for enabling/disabling a service
+
+* support notifications for services being enabled/disabled
+
 * Maybe merge nss-myhostname into systemd?
 
 * ensure we strip empty directories from search path
@@ -38,7 +42,9 @@ Features:
 
 * GC unreferenced jobs (such as .device jobs)
 
-* support wildcard expansion in ListeStream= and friends
+* support wildcard expansion in ListenStream= and friends
+
+* support wildcard expansion in EnvironmentFile= and friends
 
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
