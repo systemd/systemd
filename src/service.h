@@ -132,6 +132,7 @@ struct Service {
         bool reload_failure:1;
 
         bool main_pid_known:1;
+        bool main_pid_alien:1;
         bool bus_name_good:1;
         bool forbid_restart:1;
         bool got_socket_fd:1;

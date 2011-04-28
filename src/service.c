@@ -160,12 +160,16 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         if (pid == getpid())
                 return -EINVAL;
 
-        if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid())
+        s->main_pid = pid;
+        s->main_pid_known = true;
+
+        if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid()) {
                 log_warning("%s: Supervising process %lu which is not our child. We'll most likely not notice when it exits.",
                             s->meta.id, (unsigned long) pid);
 
-        s->main_pid = pid;
-        s->main_pid_known = true;
+                s->main_pid_alien = true;
+        } else
+                s->main_pid_alien = false;
 
         exec_status_start(&s->main_exec_status, pid);
 
@@ -1189,8 +1193,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->main_pid > 0)
                 fprintf(f,
-                        "%sMain PID: %lu\n",
-                        prefix, (unsigned long) s->main_pid);
+                        "%sMain PID: %lu\n"
+                        "%sMain PID Known: %s\n"
+                        "%sMain PID Alien: %s\n",
+                        prefix, (unsigned long) s->main_pid,
+                        prefix, yes_no(s->main_pid_known),
+                        prefix, yes_no(s->main_pid_alien));
 
         if (s->pid_file)
                 fprintf(f,
@@ -1256,8 +1264,11 @@ static int service_load_pid_file(Service *s) {
 
         assert(s);
 
+        if (s->main_pid_known)
+                return 0;
+
         if (!s->pid_file)
-                return -ENOENT;
+                return 0;
 
         if ((r = read_one_line_file(s->pid_file, &k)) < 0)
                 return r;
@@ -1738,8 +1749,18 @@ static int main_pid_good(Service *s) {
 
         /* If we know the pid file, then lets just check if it is
          * still valid */
-        if (s->main_pid_known)
+        if (s->main_pid_known) {
+
+                /* If it's an alien child let's check if it is still
+                 * alive ... */
+                if (s->main_pid_alien)
+                        return kill(s->main_pid, 0) >= 0 || errno != ESRCH;
+
+                /* .. otherwise assume we'll get a SIGCHLD for it,
+                 * which we really should wait for to collect exit
+                 * status and code */
                 return s->main_pid > 0;
+        }
 
         /* We don't know the pid */
         return -EAGAIN;
@@ -1848,12 +1869,11 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                         if (kill_and_sigcont(s->main_pid, sig) < 0 && errno != ESRCH)
                                 log_warning("Failed to kill main process %li: %m", (long) s->main_pid);
                         else
-                                wait_for_exit = true;
+                                wait_for_exit = !s->main_pid_alien;
                 }
 
                 if (s->control_pid > 0) {
                         if (kill_and_sigcont(s->control_pid, sig) < 0 && errno != ESRCH)
-
                                 log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
                         else
                                 wait_for_exit = true;
@@ -2277,6 +2297,7 @@ static int service_start(Unit *u) {
 
         s->failure = false;
         s->main_pid_known = false;
+        s->main_pid_alien = false;
         s->forbid_restart = false;
 
         service_enter_start_pre(s);
@@ -2688,16 +2709,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_START_POST:
-                                if (success && s->pid_file && !s->main_pid_known) {
-                                        int r;
-
-                                        /* Hmm, let's see if we can
-                                         * load the pid now after the
-                                         * start-post scripts got
-                                         * executed. */
-
-                                        if ((r = service_load_pid_file(s)) < 0)
-                                                log_warning("%s: failed to load PID file %s: %s", s->meta.id, s->pid_file, strerror(-r));
+                                if (success) {
+                                        service_load_pid_file(s);
+                                        service_search_main_pid(s);
                                 }
 
                                 s->reload_failure = !success;
@@ -2848,6 +2862,7 @@ static void service_cgroup_notify_event(Unit *u) {
 
         case SERVICE_STOP_SIGTERM:
         case SERVICE_STOP_SIGKILL:
+
                 if (main_pid_good(s) <= 0 && !control_pid_good(s))
                         service_enter_stop_post(s, true);
 
