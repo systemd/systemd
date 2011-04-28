@@ -4606,15 +4606,15 @@ static int base_cmp(const void *a, const void *b) {
         return strcmp(file_name_from_path(s1), file_name_from_path(s2));
 }
 
-char **conf_files_list(const char *suffix, const char *dir, ...) {
+int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
         Hashmap *fh;
         char **files = NULL;
         va_list ap;
-        int e = 0;
+        int r = 0;
 
         fh = hashmap_new(string_hash_func, string_compare_func);
         if (!fh) {
-                e = ENOMEM;
+                r = -ENOMEM;
                 goto finish;
         }
 
@@ -4622,7 +4622,7 @@ char **conf_files_list(const char *suffix, const char *dir, ...) {
         while (dir) {
                 if (files_add(fh, dir, suffix) < 0) {
                         log_error("Failed to search for files.");
-                        e = EINVAL;
+                        r = -EINVAL;
                         goto finish;
                 }
                 dir = va_arg(ap, const char *);
@@ -4632,13 +4632,13 @@ char **conf_files_list(const char *suffix, const char *dir, ...) {
         files = hashmap_get_strv(fh);
         if (files == NULL) {
                 log_error("Failed to compose list of files.");
-                e = ENOMEM;
+                r = -ENOMEM;
                 goto finish;
         }
 
         qsort(files, hashmap_size(fh), sizeof(char *), base_cmp);
 finish:
         hashmap_free(fh);
-        errno = e;
-        return files;
+        *strv = files;
+        return r;
 }

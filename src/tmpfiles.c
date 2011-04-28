@@ -963,11 +963,16 @@ int main(int argc, char *argv[]) {
         } else {
                 char **files, **f;
 
-                files = conf_files_list(".conf",
-                                        "/run/tmpfiles.d",
-                                        "/etc/tmpfiles.d",
-                                        "/usr/lib/tmpfiles.d",
-                                        NULL);
+                r = conf_files_list(&files, ".conf",
+                                    "/run/tmpfiles.d",
+                                    "/etc/tmpfiles.d",
+                                    "/usr/lib/tmpfiles.d",
+                                    NULL);
+                if (r < 0) {
+                        r = EXIT_FAILURE;
+                        log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
+                        goto finish;
+                }
 
                 STRV_FOREACH(f, files) {
                         if (read_config_file(*f, true) < 0)

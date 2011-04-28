@@ -1322,7 +1322,7 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
          * set to pass over to the newly executed systemd. They won't
          * be used there however, except that they are closed at the
          * very end of deserialization, those making it possible for
-         * clients to synchronously wait for systemd to reexec buy
+         * clients to synchronously wait for systemd to reexec by
          * simply waiting for disconnection */
 
         SET_FOREACH(c, m->bus_connections_for_dispatch, i) {

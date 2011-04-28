@@ -138,13 +138,17 @@ int main(int argc, char *argv[]) {
         else {
                 char **files, **f;
 
-                r = apply_file("/etc/sysctl.conf", true);
+                apply_file("/etc/sysctl.conf", true);
 
-                files = conf_files_list(".conf",
-                                        "/run/sysctl.d",
-                                        "/etc/sysctl.d",
-                                        "/usr/lib/sysctl.d",
-                                        NULL);
+                r = conf_files_list(&files, ".conf",
+                                    "/run/sysctl.d",
+                                    "/etc/sysctl.d",
+                                    "/usr/lib/sysctl.d",
+                                    NULL);
+                if (r < 0) {
+                        log_error("Failed to enumerate sysctl.d files: %s", strerror(-r));
+                        goto finish;
+                }
 
                 STRV_FOREACH(f, files) {
                         int k;
@@ -156,6 +160,6 @@ int main(int argc, char *argv[]) {
 
                 strv_free(files);
         }
-
+finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

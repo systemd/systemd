@@ -63,7 +63,7 @@ Features:
 
 * maybe add tiny dbus services similar to hostnamed for locale and wallclock/timezone?
 
-* allow port = 0 in .socket units
+* allow port=0 in .socket units
 
 * rename systemd-logger to systemd-stdio-syslog-bridge
 
@@ -122,6 +122,8 @@ Features:
 * check for compiled-in, but not active selinux, and don't print any warnings
   about policy loading. Probably check for available selinux in /proc/filesystems,
   and check for active selinux with getcon_raw() == "kernel"
+
+* move /selinux to /sys/fs/selinux
 
 * Support --test based on current system state
 
@@ -231,7 +233,7 @@ External:
 
 * make cryptsetup lower --iter-time
 
-* patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
+* patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup?
 
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
     http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match

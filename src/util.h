@@ -442,5 +442,5 @@ int signal_from_string(const char *s);
 
 int signal_from_string_try_harder(const char *s);
 
-char **conf_files_list(const char *suffix, const char *dir, ...);
+int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
 #endif

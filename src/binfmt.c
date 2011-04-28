@@ -135,11 +135,16 @@ int main(int argc, char *argv[]) {
                 /* Flush out all rules */
                 write_one_line_file("/proc/sys/fs/binfmt_misc/status", "-1");
 
-                files = conf_files_list(".conf",
-                                        "/run/binfmt.d",
-                                        "/etc/binfmt.d",
-                                        "/usr/lib/binfmt.d",
-                                        NULL);
+                r = conf_files_list(&files, ".conf",
+                                    "/run/binfmt.d",
+                                    "/etc/binfmt.d",
+                                    "/usr/lib/binfmt.d",
+                                    NULL);
+
+                if (r < 0) {
+                        log_error("Failed to enumerate binfmt.d files: %s", strerror(-r));
+                        goto finish;
+                }
 
                 STRV_FOREACH(f, files) {
                         int k;
@@ -151,5 +156,6 @@ int main(int argc, char *argv[]) {
 
                 strv_free(files);
         }
+finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
