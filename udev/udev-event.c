@@ -489,7 +489,7 @@ static int spawn_exec(struct udev_event *event,
 
 	/* exec failed */
 	err = -errno;
-	err(udev, "exec of program '%s' failed\n", cmd);
+	err(udev, "failed to execute '%s' '%s': %m\n", argv[0], cmd);
 	return err;
 }
 
