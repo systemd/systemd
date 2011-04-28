@@ -3323,6 +3323,13 @@ static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
+                if (streq(method, "Reexecute") && dbus_error_has_name(&error, DBUS_ERROR_NO_REPLY)) {
+                        /* On reexecution, we expect a disconnect, not
+                         * a reply */
+                        r = 0;
+                        goto finish;
+                }
+
                 log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;

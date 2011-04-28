@@ -2688,6 +2688,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         if (ferror(f))
                 return -EIO;
 
+        r = bus_fdset_add_all(m, fds);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 

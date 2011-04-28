@@ -598,7 +598,12 @@ static void request_name_pending_cb(DBusPendingCall *pending, void *userdata) {
 
 static int request_name(Manager *m) {
         const char *name = "org.freedesktop.systemd1";
-        uint32_t flags = 0;
+        /* Allow replacing of our name, to ease implementation of
+         * reexecution, where we keep the old connection open until
+         * after the new connection is set up and the name installed
+         * to allow clients to synchronously wait for reexecution to
+         * finish */
+        uint32_t flags = DBUS_NAME_FLAG_ALLOW_REPLACEMENT|DBUS_NAME_FLAG_REPLACE_EXISTING;
         DBusMessage *message = NULL;
         DBusPendingCall *pending = NULL;
 
@@ -1304,4 +1309,43 @@ bool bus_connection_has_subscriber(Manager *m, DBusConnection *c) {
         assert(c);
 
         return !set_isempty(BUS_CONNECTION_SUBSCRIBED(m, c));
+}
+
+int bus_fdset_add_all(Manager *m, FDSet *fds) {
+        Iterator i;
+        DBusConnection *c;
+
+        assert(m);
+        assert(fds);
+
+        /* When we are about to reexecute we add all D-Bus fds to the
+         * set to pass over to the newly executed systemd. They won't
+         * be used there however, except that they are closed at the
+         * very end of deserialization, those making it possible for
+         * clients to synchronously wait for systemd to reexec buy
+         * simply waiting for disconnection */
+
+        SET_FOREACH(c, m->bus_connections_for_dispatch, i) {
+                int fd;
+
+                if (dbus_connection_get_unix_fd(c, &fd)) {
+                        fd = fdset_put_dup(fds, fd);
+
+                        if (fd < 0)
+                                return fd;
+                }
+        }
+
+        SET_FOREACH(c, m->bus_connections, i) {
+                int fd;
+
+                if (dbus_connection_get_unix_fd(c, &fd)) {
+                        fd = fdset_put_dup(fds, fd);
+
+                        if (fd < 0)
+                                return fd;
+                }
+        }
+
+        return 0;
 }

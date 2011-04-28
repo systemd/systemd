@@ -43,6 +43,8 @@ int bus_parse_strv(DBusMessage *m, char ***_l);
 bool bus_has_subscriber(Manager *m);
 bool bus_connection_has_subscriber(Manager *m, DBusConnection *c);
 
+int bus_fdset_add_all(Manager *m, FDSet *fds);
+
 #define BUS_CONNECTION_SUBSCRIBED(m, c) dbus_connection_get_data((c), (m)->subscribed_data_slot)
 #define BUS_PENDING_CALL_NAME(m, p) dbus_pending_call_get_data((p), (m)->name_data_slot)
 

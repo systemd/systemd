@@ -922,8 +922,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reexecute")) {
 
-                if (!(reply = dbus_message_new_method_return(message)))
-                        goto oom;
+                /* We don't send a reply back here, the client should
+                 * just wait for us disconnecting. */
 
                 m->exit_code = MANAGER_REEXECUTE;
 

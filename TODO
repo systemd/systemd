@@ -5,6 +5,9 @@ F15:
 * 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
     (path: after installing inotify watches, recheck file again to fix race)
 
+* move systemadm man page to systemd-gtk
+  https://bugzilla.redhat.com/show_bug.cgi?id=699394
+
 F15 External:
 
 * NFS, networkmanager ordering issue (PENDING)
@@ -27,6 +30,10 @@ F15 External:
 * make anaconda write timeout=0 for encrypted devices
 
 Features:
+
+* drop /.readahead on bigger upgrades with yum
+
+* add inode stat() check to readahead
 
 * plymouth.enable=0
 
@@ -59,8 +66,6 @@ Features:
 * allow port = 0 in .socket units
 
 * rename systemd-logger to systemd-stdio-syslog-bridge
-
-* introduce /usr/lib/binfmt.d/, /usr/lib/tmpfiles.d/
 
 * take BSD file lock on tty devices when using them?
 
