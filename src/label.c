@@ -90,14 +90,14 @@ int label_fix(const char *path, bool ignore_enoent) {
                         /* If the FS doesn't support labels, then exit without warning */
                         if (r < 0 && errno == ENOTSUP)
                                 return 0;
-
-                        /* Ignore ENOENT in some cases */
-                        if (r < 0 && ignore_enoent && errno == ENOENT)
-                                return 0;
                 }
         }
 
         if (r < 0) {
+                /* Ignore ENOENT in some cases */
+                if (ignore_enoent && errno == ENOENT)
+                        return 0;
+
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
                          "Unable to fix label of %s: %m", path);
                 r = security_getenforce() == 1 ? -errno : 0;

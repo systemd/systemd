@@ -28,6 +28,8 @@ F15 External:
 
 Features:
 
+* plymouth.enable=0
+
 * introduce dbus calls for enabling/disabling a service
 
 * support notifications for services being enabled/disabled
