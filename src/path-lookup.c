@@ -205,6 +205,7 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                         return -ENOMEM;
 
         strv_uniq(p->unit_path);
+        strv_path_remove_empty(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
 
@@ -258,6 +259,9 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
 
                 strv_uniq(p->sysvinit_path);
                 strv_uniq(p->sysvrcnd_path);
+
+                strv_path_remove_empty(p->sysvinit_path);
+                strv_path_remove_empty(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
 

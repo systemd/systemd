@@ -1209,6 +1209,26 @@ char **strv_path_canonicalize(char **l) {
         return l;
 }
 
+char **strv_path_remove_empty(char **l) {
+        char **f, **t;
+
+        if (!l)
+                return NULL;
+
+        for (f = t = l; *f; f++) {
+
+                if (dir_is_empty(*f) > 0) {
+                        free(*f);
+                        continue;
+                }
+
+                *(t++) = *f;
+        }
+
+        *t = NULL;
+        return l;
+}
+
 int reset_all_signal_handlers(void) {
         int sig;
 

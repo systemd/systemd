@@ -34,8 +34,6 @@ Features:
 
 * Maybe merge nss-myhostname into systemd?
 
-* ensure we strip empty directories from search path
-
 * GC unreferenced jobs (such as .device jobs)
 
 * support wildcard expansion in ListenStream= and friends
