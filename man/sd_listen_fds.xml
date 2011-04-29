@@ -151,7 +151,7 @@
                 recommended that applications consuming these APIs
                 copy the implementation into their source tree. For
                 more details about the reference implementation see
-                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
 
                 <para>If -DDISABLE_SYSTEMD is set during compilation
                 this function will always return 0 and otherwise
