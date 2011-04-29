@@ -180,19 +180,6 @@ AC_ARG_ENABLE([edd],
 AM_CONDITIONAL([ENABLE_EDD], [test "x$enable_edd" = xyes])
 
 # ------------------------------------------------------------------------------
-# Bluetooth HID devices with special magic to switch the device
-# ------------------------------------------------------------------------------
-AC_ARG_ENABLE([hid2hci],
-	AS_HELP_STRING([--enable-hid2hci], [enable bluetooth hid to hci switch]),
-	[], [enable_hid2hci=no])
-if test "x$enable_hid2hci" = xyes; then
-	PKG_CHECK_MODULES(LIBUSB, libusb >= 0.1.12)
-	AC_SUBST(LIBUSB_CFLAGS)
-	AC_SUBST(LIBUSB_LIBS)
-fi
-AM_CONDITIONAL([ENABLE_HID2HCI], [test "x$enable_hid2hci" = xyes])
-
-# ------------------------------------------------------------------------------
 # mobile-action-modeswitch - switch Mobile Action cables into serial mode
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([ACTION_MODESWITCH],
@@ -255,7 +242,6 @@ AC_MSG_RESULT([
 	keymap:			${enable_keymap}
 	floppy:			${enable_floppy}
 	edd:			${enable_edd}
-	hid2hci:		${enable_hid2hci}
 	action_modeswitch:	${enable_action_modeswitch}
 
 	usb.ids:		${USB_DATABASE}

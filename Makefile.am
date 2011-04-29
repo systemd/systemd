@@ -613,17 +613,6 @@ libexec_PROGRAMS += extras/edd_id/edd_id
 dist_udevrules_DATA += extras/edd_id/61-persistent-storage-edd.rules
 endif
 
-if ENABLE_HID2HCI
-# ------------------------------------------------------------------------------
-# Bluetooth HID devices with special magic to switch the device
-# ------------------------------------------------------------------------------
-extras_hid2hci_hid2hci_SOURCES = extras/hid2hci/hid2hci.c
-extras_hid2hci_hid2hci_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
-extras_hid2hci_hid2hci_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
-dist_udevrules_DATA += extras/hid2hci/70-hid2hci.rules
-libexec_PROGRAMS += extras/hid2hci/hid2hci
-endif
-
 if ENABLE_ACTION_MODESWITCH
 # ------------------------------------------------------------------------------
 # mobile-action-modeswitch - switch Mobile Action cables into serial mode

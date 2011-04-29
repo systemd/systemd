@@ -41,8 +41,6 @@ All options:
       Enable legacy floppy support.
   --enable-edd
       Enable disk edd support.
-  --enable-hid2hci
-      Enable bluetooth hid to hci switch.
   --enable-action_modeswitch
       Enable action modeswitch support.
 
