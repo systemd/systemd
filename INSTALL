@@ -27,9 +27,24 @@ All options:
   --with-selinux
       Link against SELinux libraries to set the expected context
       for created files.
-  --disable-extras
-      Disable the build of all extras which have larger external
-      dependencies like glib, libacl, libusb, ...
+  --disable-rule_generator
+      Disable persistent network, cdrom naming support.
+  --disable-hwdb
+      Disable hardware database support
+  --disable-udev_acl
+      Disable local user acl permissions support.
+  --disable-gudev
+      Disable Gobject libudev support.
+  --disable-keymap
+      Disable keymap fixup support.
+  --enable-floppy
+      Enable legacy floppy support.
+  --enable-edd
+      Enable disk edd support.
+  --enable-hid2hci
+      Enable bluetooth hid to hci switch.
+  --enable-action_modeswitch
+      Enable action modeswitch support.
 
 The options used in a RPM spec file usually look like:
   %configure \
@@ -47,13 +62,12 @@ other location will break other packages, who rightfully expect
 the /lib/udev/ directory, to install their rule helper and udev
 rule files.
 
-It is recommended to use the /lib/udev/devices/ directory to place
+It is possible to use the /lib/udev/devices/ directory to place
 device nodes, directories and symlinks, which are copied to /dev/
 at every bootup. That way, nodes for devices which can not be
 detected automatically, or are activated on-demand by opening the
 pre-existing device node, will be available.
 
-Default udev rules and persistent device naming rules are required
+Default udev rules and persistent device naming rules may be required
 by other software that depends on the data udev collects from the
-devices, and should therefore be installed by default with every udev
-installation.
+devices.

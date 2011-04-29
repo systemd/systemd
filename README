@@ -51,9 +51,9 @@ Requirements:
     these group names with only the rootfs mounted and while no network is
     available.
 
-  - The 'udev extras' has the following dependencies:
+  - Some udev extras have external dependencies like:
       libacl, libglib2, libusb, usbutils, pciutils, and gperf.
-    These dependencies can be disabled with the --disable-extras configure option.
+    All these extras can be disabled with configure options.
 
 Setup:
   - At bootup, the /dev directory should get the 'devtmpfs' filesystem
@@ -90,7 +90,8 @@ Operation:
       http://www.kernel.org/pub/linux/utils/kernel/hotplug/libudev/
       http://www.kernel.org/pub/linux/utils/kernel/hotplug/gudev/
 
-For more details about udev and udev rules, see the udev(7) man page.
+For more details about udev and udev rules, see the udev man pages:
+      http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev/
 
 Please direct any comment/question to the linux-hotplug mailing list at:
   linux-hotplug@vger.kernel.org

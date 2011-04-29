@@ -25,11 +25,12 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)
 
 CLEANFILES =
-
+BUILT_SOURCES =
 INSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 DISTCHECK_HOOKS =
+dist_libexec_SCRIPTS =
 
 # ------------------------------------------------------------------------------
 # libudev
@@ -212,20 +213,6 @@ udev_test_udev_SOURCES = \
 udev_test_udev_LDADD = libudev/libudev-private.la
 
 # ------------------------------------------------------------------------------
-# rule_generator - persistent network and optical device rule generator
-# ------------------------------------------------------------------------------
-dist_libexec_SCRIPTS = \
-	extras/rule_generator/write_cd_rules \
-	extras/rule_generator/write_net_rules
-
-udevhomedir = $(libexecdir)
-dist_udevhome_DATA = extras/rule_generator/rule_generator.functions
-
-dist_udevrules_DATA += \
-	extras/rule_generator/75-cd-aliases-generator.rules \
-	extras/rule_generator/75-persistent-net-generator.rules
-
-# ------------------------------------------------------------------------------
 # firmware - firmware loading
 # ------------------------------------------------------------------------------
 extras_firmware_firmware_SOURCES = extras/firmware/firmware.c
@@ -255,22 +242,6 @@ dist_udevrules_DATA += extras/cdrom_id/60-cdrom_id.rules
 extras_collect_collect_SOURCES = extras/collect/collect.c
 extras_collect_collect_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/collect/collect
-
-# ------------------------------------------------------------------------------
-# edd_id - BIOS EDD block device match
-# ------------------------------------------------------------------------------
-extras_edd_id_edd_id_SOURCES = extras/edd_id/edd_id.c
-extras_edd_id_edd_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/edd_id/edd_id
-dist_udevrules_DATA += extras/edd_id/61-persistent-storage-edd.rules
-
-# ------------------------------------------------------------------------------
-# create_floppy_devices - historical floppy kernel device nodes (/dev/fd0h1440, ...)
-# ------------------------------------------------------------------------------
-extras_floppy_create_floppy_devices_SOURCES = extras/floppy/create_floppy_devices.c
-extras_floppy_create_floppy_devices_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/floppy/create_floppy_devices
-dist_udevrules_DATA += extras/floppy/60-floppy.rules
 
 # ------------------------------------------------------------------------------
 # input_id - import input device class
@@ -314,19 +285,74 @@ libexec_PROGRAMS += extras/v4l_id/v4l_id
 dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
 
 # ------------------------------------------------------------------------------
+# mtd_probe - autoloads FTL module for mtd devices
+# ------------------------------------------------------------------------------
+extras_mtd_probe_mtd_probe_SOURCES =  \
+	extras/mtd_probe/mtd_probe.c \
+	extras/mtd_probe/mtd_probe.h \
+	extras/mtd_probe/probe_smartmedia.c
+extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
+dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
+libexec_PROGRAMS += extras/mtd_probe/mtd_probe
+
+# ------------------------------------------------------------------------------
 # qemu -- qemu/kvm guest tweaks
 # ------------------------------------------------------------------------------
 dist_udevrules_DATA += extras/qemu/42-qemu-usb.rules
 
-if ENABLE_EXTRAS
+if ENABLE_RULE_GENERATOR
 # ------------------------------------------------------------------------------
-# conditional extras (need glib, libusb, libacl, ...)
+# rule_generator - persistent network and optical device rule generator
 # ------------------------------------------------------------------------------
+dist_libexec_SCRIPTS += \
+	extras/rule_generator/write_cd_rules \
+	extras/rule_generator/write_net_rules
+
+udevhomedir = $(libexecdir)
+dist_udevhome_DATA = extras/rule_generator/rule_generator.functions
+
+dist_udevrules_DATA += \
+	extras/rule_generator/75-cd-aliases-generator.rules \
+	extras/rule_generator/75-persistent-net-generator.rules
+endif
+
+if ENABLE_HWDB
+# ------------------------------------------------------------------------------
+# usb/pci-db - read vendor/device string database
+# ------------------------------------------------------------------------------
+extras_usb_db_usb_db_SOURCES = extras/usb-db/usb-db.c
+extras_usb_db_usb_db_CPPFLAGS = $(AM_CPPFLAGS) -DUSB_DATABASE=\"$(USB_DATABASE)\" -DBUILD_FOR_USB
+extras_usb_db_usb_db_LDADD = libudev/libudev-private.la
+libexec_PROGRAMS += extras/usb-db/usb-db
 dist_udevrules_DATA += \
 	rules/rules.d/75-net-description.rules \
 	rules/rules.d/75-tty-description.rules \
 	rules/rules.d/78-sound-card.rules
 
+extras_usb_db_pci_db_SOURCES = extras/usb-db/usb-db.c
+extras_usb_db_pci_db_CPPFLAGS = $(AM_CPPFLAGS) -DPCI_DATABASE=\"$(PCI_DATABASE)\" -DBUILD_FOR_PCI
+extras_usb_db_pci_db_LDADD = libudev/libudev-private.la
+libexec_PROGRAMS += extras/usb-db/pci-db
+endif
+
+if ENABLE_UDEV_ACL
+# ------------------------------------------------------------------------------
+# udev_acl - apply ACLs for users with local forground sessions
+# ------------------------------------------------------------------------------
+extras_udev_acl_udev_acl_SOURCES = extras/udev-acl/udev-acl.c
+extras_udev_acl_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
+extras_udev_acl_udev_acl_LDADD = libudev/libudev-private.la -lacl $(GLIB_LIBS)
+dist_udevrules_DATA += extras/udev-acl/70-acl.rules
+libexec_PROGRAMS += extras/udev-acl/udev-acl
+
+udevacl-install-hook:
+	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d
+	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d/udev-acl.ck
+
+INSTALL_EXEC_HOOKS += udevacl-install-hook
+endif
+
+if ENABLE_GUDEV
 # ------------------------------------------------------------------------------
 # GUdev - libudev gobject interface
 # ------------------------------------------------------------------------------
@@ -367,7 +393,7 @@ dist_extras_gudev_libgudev_1_0_la_SOURCES = \
 	extras/gudev/gudevmarshal.c \
 	extras/gudev/gudevenumtypes.h \
 	extras/gudev/gudevenumtypes.c
-BUILT_SOURCES = $(dist_extras_gudev_libgudev_1_0_la_SOURCES)
+BUILT_SOURCES += $(dist_extras_gudev_libgudev_1_0_la_SOURCES)
 
 extras_gudev_libgudev_1_0_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -407,7 +433,6 @@ extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gud
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
-if ENABLE_INTROSPECTION
 extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
 	$(AM_V_GEN)PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
 	LD_LIBRARY_PATH=$(top_builddir)/extras/gudev:$$LD_LIBRARY_PATH \
@@ -445,7 +470,6 @@ typelibsdir = $(GIRTYPELIBDIR)
 typelibs_DATA = extras/gudev/GUdev-1.0.typelib
 
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
-endif # ENABLE_INTROSPECTION
 
 # move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
 libgudev-install-move-hook:
@@ -462,79 +486,9 @@ libgudev-uninstall-move-hook:
 
 INSTALL_EXEC_HOOKS += libgudev-install-move-hook
 UNINSTALL_EXEC_HOOKS += libgudev-uninstall-move-hook
+endif
 
-# ------------------------------------------------------------------------------
-# Bluetooth HID devices with special magic to switch the device
-# ------------------------------------------------------------------------------
-extras_hid2hci_hid2hci_SOURCES = extras/hid2hci/hid2hci.c
-extras_hid2hci_hid2hci_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
-extras_hid2hci_hid2hci_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
-dist_udevrules_DATA += extras/hid2hci/70-hid2hci.rules
-libexec_PROGRAMS += extras/hid2hci/hid2hci
-
-# ------------------------------------------------------------------------------
-# udev_acl - apply ACLs for users with local forground sessions
-# ------------------------------------------------------------------------------
-extras_udev_acl_udev_acl_SOURCES = extras/udev-acl/udev-acl.c
-extras_udev_acl_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
-extras_udev_acl_udev_acl_LDADD = libudev/libudev-private.la -lacl $(GLIB_LIBS)
-dist_udevrules_DATA += extras/udev-acl/70-acl.rules
-libexec_PROGRAMS += extras/udev-acl/udev-acl
-
-udevacl-install-hook:
-	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d
-	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d/udev-acl.ck
-
-INSTALL_EXEC_HOOKS += udevacl-install-hook
-
-# ------------------------------------------------------------------------------
-# usb-db - read USB vendor/device string database
-# ------------------------------------------------------------------------------
-extras_usb_db_usb_db_SOURCES = extras/usb-db/usb-db.c
-extras_usb_db_usb_db_CPPFLAGS = $(AM_CPPFLAGS) -DUSB_DATABASE=\"$(USB_DATABASE)\" -DBUILD_FOR_USB
-extras_usb_db_usb_db_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/usb-db/usb-db
-
-# ------------------------------------------------------------------------------
-# pci-db - read PCI vendor/device string database
-# ------------------------------------------------------------------------------
-extras_usb_db_pci_db_SOURCES = extras/usb-db/usb-db.c
-extras_usb_db_pci_db_CPPFLAGS = $(AM_CPPFLAGS) -DPCI_DATABASE=\"$(PCI_DATABASE)\" -DBUILD_FOR_PCI
-extras_usb_db_pci_db_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/usb-db/pci-db
-
-# ------------------------------------------------------------------------------
-# mobile-action-modeswitch - switch Mobile Action cables into serial mode
-# ------------------------------------------------------------------------------
-extras_mobile_action_modeswitch_mobile_action_modeswitch_SOURCES =\
-	extras/mobile-action-modeswitch/mobile-action-modeswitch.c \
-	extras/mobile-action-modeswitch/utils.c \
-	extras/mobile-action-modeswitch/utils.h \
-	extras/mobile-action-modeswitch/ma8280p_us.c \
-	extras/mobile-action-modeswitch/ma8280p_us.h
-extras_mobile_action_modeswitch_mobile_action_modeswitch_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
-extras_mobile_action_modeswitch_mobile_action_modeswitch_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
-
-dist_udevrules_DATA += \
-	extras/mobile-action-modeswitch/61-mobile-action.rules
-
-libexec_PROGRAMS += extras/mobile-action-modeswitch/mobile-action-modeswitch
-
-# ------------------------------------------------------------------------------
-# mtd_probe - autoloads FTL module for mtd devices
-# ------------------------------------------------------------------------------
-extras_mtd_probe_mtd_probe_SOURCES =  \
-	extras/mtd_probe/mtd_probe.c \
-	extras/mtd_probe/mtd_probe.h \
-	extras/mtd_probe/probe_smartmedia.c
-
-extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
-
-dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
-
-libexec_PROGRAMS += extras/mtd_probe/mtd_probe
- 
-
+if ENABLE_KEYMAP
 # ------------------------------------------------------------------------------
 # keymap - map custom hardware's multimedia keys
 # ------------------------------------------------------------------------------
@@ -552,7 +506,6 @@ libexec_PROGRAMS += extras/keymap/keymap
 dist_libexec_SCRIPTS += extras/keymap/findkeyboards
 dist_libexec_SCRIPTS += extras/keymap/keyboard-force-release.sh
 dist_doc_DATA = extras/keymap/README.keymap.txt
-
 CLEANFILES += \
 	extras/keymap/keys.txt \
 	extras/keymap/keys-from-name.gperf
@@ -638,8 +591,55 @@ extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
 keymaps-distcheck-hook: extras/keymap/keys.txt
 	$(top_srcdir)/extras/keymap/check-keymaps.sh $(top_srcdir) $^
 DISTCHECK_HOOKS += keymaps-distcheck-hook
+endif
 
-endif # ENABLE_EXTRAS
+if ENABLE_FLOPPY
+# ------------------------------------------------------------------------------
+# create_floppy_devices - historical floppy kernel device nodes (/dev/fd0h1440, ...)
+# ------------------------------------------------------------------------------
+extras_floppy_create_floppy_devices_SOURCES = extras/floppy/create_floppy_devices.c
+extras_floppy_create_floppy_devices_LDADD = libudev/libudev-private.la
+libexec_PROGRAMS += extras/floppy/create_floppy_devices
+dist_udevrules_DATA += extras/floppy/60-floppy.rules
+endif
+
+if ENABLE_EDD
+# ------------------------------------------------------------------------------
+# edd_id - create /dev/disk/by-id/edd-* links for BIOS EDD data
+# ------------------------------------------------------------------------------
+extras_edd_id_edd_id_SOURCES = extras/edd_id/edd_id.c
+extras_edd_id_edd_id_LDADD = libudev/libudev-private.la
+libexec_PROGRAMS += extras/edd_id/edd_id
+dist_udevrules_DATA += extras/edd_id/61-persistent-storage-edd.rules
+endif
+
+if ENABLE_HID2HCI
+# ------------------------------------------------------------------------------
+# Bluetooth HID devices with special magic to switch the device
+# ------------------------------------------------------------------------------
+extras_hid2hci_hid2hci_SOURCES = extras/hid2hci/hid2hci.c
+extras_hid2hci_hid2hci_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
+extras_hid2hci_hid2hci_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
+dist_udevrules_DATA += extras/hid2hci/70-hid2hci.rules
+libexec_PROGRAMS += extras/hid2hci/hid2hci
+endif
+
+if ENABLE_ACTION_MODESWITCH
+# ------------------------------------------------------------------------------
+# mobile-action-modeswitch - switch Mobile Action cables into serial mode
+# ------------------------------------------------------------------------------
+extras_mobile_action_modeswitch_mobile_action_modeswitch_SOURCES =\
+	extras/mobile-action-modeswitch/mobile-action-modeswitch.c \
+	extras/mobile-action-modeswitch/utils.c \
+	extras/mobile-action-modeswitch/utils.h \
+	extras/mobile-action-modeswitch/ma8280p_us.c \
+	extras/mobile-action-modeswitch/ma8280p_us.h
+extras_mobile_action_modeswitch_mobile_action_modeswitch_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
+extras_mobile_action_modeswitch_mobile_action_modeswitch_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
+dist_udevrules_DATA += \
+	extras/mobile-action-modeswitch/61-mobile-action.rules
+libexec_PROGRAMS += extras/mobile-action-modeswitch/mobile-action-modeswitch
+endif
 
 # ------------------------------------------------------------------------------
 # install, uninstall, clean hooks

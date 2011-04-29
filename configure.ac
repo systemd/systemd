@@ -54,8 +54,7 @@ AC_ARG_WITH(firmware-path,
 	[], [with_firmware_path="/lib/firmware/updates:/lib/firmware"])
 OLD_IFS=$IFS
 IFS=:
-for i in $with_firmware_path
-do
+for i in $with_firmware_path; do
 	if test "x${FIRMWARE_PATH}" = "x"; then
 		FIRMWARE_PATH="\\\"${i}/\\\""
 	else
@@ -69,38 +68,34 @@ AC_ARG_WITH([systemdsystemunitdir],
 	AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
 	[], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
 if test "x$with_systemdsystemunitdir" != xno; then
-    AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
+	AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
 fi
 AM_CONDITIONAL(WITH_SYSTEMD, [test -n "$with_systemdsystemunitdir" -a "x$with_systemdsystemunitdir" != xno ])
 
-AC_ARG_ENABLE([extras],
-	AS_HELP_STRING([--disable-extras], [disable extras with external dependencies]),
-	[], [enable_extras=yes])
-if test "x$enable_extras" = xyes; then
-	AC_PATH_PROG([GPERF], [gperf])
-	if test -z "$GPERF"; then
-		AC_MSG_ERROR([gperf is needed])
-	fi
+# ------------------------------------------------------------------------------
+# rule_generator - persistent network and optical device rule generator
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([hwdb],
+	AS_HELP_STRING([--disable-rule_generator], [disable persistent network, cdrom support]),
+	[], [enable_rule_generator=yes])
+AM_CONDITIONAL([ENABLE_RULE_GENERATOR], [test "x$enable_rule_genarator" = xyes])
 
-	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
-	AC_SUBST([GLIB_CFLAGS])
-	AC_SUBST([GLIB_LIBS])
-
-	AC_CHECK_LIB([acl], [acl_init], [:], AC_MSG_ERROR([libacl not found]))
-	AC_CHECK_HEADER([acl/libacl.h], [:], AC_MSG_ERROR([libacl header not found]))
-
-	PKG_CHECK_MODULES(LIBUSB, libusb >= 0.1.12)
-	AC_SUBST(LIBUSB_CFLAGS)
-	AC_SUBST(LIBUSB_LIBS)
-
-	PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
-	AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
-
+# ------------------------------------------------------------------------------
+# usb/pci-db - read vendor/device string database
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([hwdb],
+	AS_HELP_STRING([--disable-hwdb], [disable hardware database support]),
+	[], [enable_hwdb=yes])
+if test "x$enable_hwdb" = xyes; then
 	if test "x$cross_compiling" = "xno" ; then
 		AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
 		AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
 		AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
 	fi
+
+	PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
+	AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
+
 	AC_ARG_WITH(pci-ids-path,
 		[AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
 		[PCI_DATABASE=${withval}],
@@ -112,25 +107,103 @@ if test "x$enable_extras" = xyes; then
 	AC_MSG_CHECKING([for PCI database location])
 	AC_MSG_RESULT([$PCI_DATABASE])
 	AC_SUBST(PCI_DATABASE)
-
-	AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
-	AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
 fi
-AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
+AM_CONDITIONAL([ENABLE_HWDB], [test "x$enable_hwdb" = xyes])
 
-AC_ARG_ENABLE([introspection],
-	AS_HELP_STRING([--disable-introspection], [disable GObject introspection]),
-	[], [enable_introspection=yes])
-if test "x$enable_introspection" = xyes; then
+# ------------------------------------------------------------------------------
+# udev_acl - apply ACLs for users with local forground sessions
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([udev_acl],
+	AS_HELP_STRING([--disable-udev_acl], [disable local user acl permissions support]),
+	[], [enable_udev_acl=yes])
+if test "x$enable_udev_acl" = xyes; then
+	AC_CHECK_LIB([acl], [acl_init], [:], AC_MSG_ERROR([libacl not found]))
+	AC_CHECK_HEADER([acl/libacl.h], [:], AC_MSG_ERROR([libacl header not found]))
+
+	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
+	AC_SUBST([GLIB_CFLAGS])
+	AC_SUBST([GLIB_LIBS])
+fi
+AM_CONDITIONAL([ENABLE_UDEV_ACL], [test "x$enable_udev_acl" = xyes])
+
+# ------------------------------------------------------------------------------
+# GUdev - libudev gobject interface
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([gudev],
+	AS_HELP_STRING([--disable-gudev], [disable Gobject libudev support]),
+	[], [enable_gudev=yes])
+if test "x$enable_gudev" = xyes; then
+	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
+	AC_SUBST([GLIB_CFLAGS])
+	AC_SUBST([GLIB_LIBS])
+
 	PKG_CHECK_MODULES([INTROSPECTION], [gobject-introspection-1.0 >= 0.6.2])
-	AC_DEFINE([ENABLE_INTROSPECTION], [1], [enable GObject introspection support])
 	AC_SUBST([G_IR_SCANNER], [$($PKG_CONFIG --variable=g_ir_scanner gobject-introspection-1.0)])
 	AC_SUBST([G_IR_COMPILER], [$($PKG_CONFIG --variable=g_ir_compiler gobject-introspection-1.0)])
 	AC_SUBST([G_IR_GENERATE], [$($PKG_CONFIG --variable=g_ir_generate gobject-introspection-1.0)])
 	AC_SUBST([GIRDIR], [$($PKG_CONFIG --define-variable=datadir=${datadir} --variable=girdir gobject-introspection-1.0)])
 	AC_SUBST([GIRTYPELIBDIR], [$($PKG_CONFIG --define-variable=libdir=${libdir} --variable=typelibdir gobject-introspection-1.0)])
 fi
-AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = xyes])
+AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = xyes])
+
+# ------------------------------------------------------------------------------
+# keymap - map custom hardware's multimedia keys
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([keymap],
+	AS_HELP_STRING([--disable-keymap], [disable keymap fixup support]),
+	[], [enable_keymap=yes])
+if test "x$enable_keymap" = xyes; then
+	AC_PATH_PROG([GPERF], [gperf])
+	if test -z "$GPERF"; then
+		AC_MSG_ERROR([gperf is needed])
+	fi
+
+	AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
+	AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
+fi
+AM_CONDITIONAL([ENABLE_KEYMAP], [test "x$enable_keymap" = xyes])
+
+# ------------------------------------------------------------------------------
+# create_floppy_devices - historical floppy kernel device nodes (/dev/fd0h1440, ...)
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([floppy],
+	AS_HELP_STRING([--enable-floppy], [enable legacy floppy support]),
+	[], [enable_floppy=no])
+AM_CONDITIONAL([ENABLE_FLOPPY], [test "x$enable_floppy" = xyes])
+
+# ------------------------------------------------------------------------------
+# edd_id - create /dev/disk/by-id/edd-* links for BIOS EDD data
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([edd],
+	AS_HELP_STRING([--enable-edd], [enable disk edd support]),
+	[], [enable_edd=no])
+AM_CONDITIONAL([ENABLE_EDD], [test "x$enable_edd" = xyes])
+
+# ------------------------------------------------------------------------------
+# Bluetooth HID devices with special magic to switch the device
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([hid2hci],
+	AS_HELP_STRING([--enable-hid2hci], [enable bluetooth hid to hci switch]),
+	[], [enable_hid2hci=no])
+if test "x$enable_hid2hci" = xyes; then
+	PKG_CHECK_MODULES(LIBUSB, libusb >= 0.1.12)
+	AC_SUBST(LIBUSB_CFLAGS)
+	AC_SUBST(LIBUSB_LIBS)
+fi
+AM_CONDITIONAL([ENABLE_HID2HCI], [test "x$enable_hid2hci" = xyes])
+
+# ------------------------------------------------------------------------------
+# mobile-action-modeswitch - switch Mobile Action cables into serial mode
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([ACTION_MODESWITCH],
+	AS_HELP_STRING([--enable-action_modeswitch], [enable action modeswitch support]),
+	[], [enable_action_modeswitch=no])
+if test "x$enable_action_modeswitch" = xyes; then
+	PKG_CHECK_MODULES(LIBUSB, libusb >= 0.1.12)
+	AC_SUBST(LIBUSB_CFLAGS)
+	AC_SUBST(LIBUSB_LIBS)
+fi
+AM_CONDITIONAL([ENABLE_ACTION_MODESWITCH], [test "x$enable_action_modeswitch" = xyes])
 
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
@@ -175,8 +248,15 @@ AC_MSG_RESULT([
 	cflags:			${CFLAGS}
 	ldflags:		${LDFLAGS}
 
-	extras:			${enable_extras}
-	gintrospection:		${enable_introspection}
+	rule_generator:		${enable_rule_generator}
+	hwdb:			${enable_hwdb}
+	udev_acl:		${enable_udev_acl}
+	gudev:			${enable_gudev}
+	keymap:			${enable_keymap}
+	floppy:			${enable_floppy}
+	edd:			${enable_edd}
+	hid2hci:		${enable_hid2hci}
+	action_modeswitch:	${enable_action_modeswitch}
 
 	usb.ids:		${USB_DATABASE}
 	pci.ids:		${PCI_DATABASE}
