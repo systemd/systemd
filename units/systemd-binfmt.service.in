@@ -11,7 +11,10 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service proc-sys-fs-binfmt_misc.automount
 Before=sysinit.target shutdown.target
-ConditionDirectoryNotEmpty=/etc/binfmt.d
+ConditionDirectoryNotEmpty=|/usr/lib/binfmt.d
+ConditionDirectoryNotEmpty=|/usr/local/lib/binfmt.d
+ConditionDirectoryNotEmpty=|/etc/binfmt.d
+ConditionDirectoryNotEmpty=|/run/binfmt.d
 
 [Service]
 Type=oneshot

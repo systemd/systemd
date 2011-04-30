@@ -11,7 +11,10 @@ DefaultDependencies=no
 Wants=local-fs.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
 Before=sysinit.target shutdown.target
-ConditionPathExists=/etc/tmpfiles.d
+ConditionDirectoryNotEmpty=|/usr/lib/tmpfiles.d
+ConditionDirectoryNotEmpty=|/usr/local/lib/tmpfiles.d
+ConditionDirectoryNotEmpty=|/etc/tmpfiles.d
+ConditionDirectoryNotEmpty=|/run/tmpfiles.d
 
 [Service]
 Type=oneshot

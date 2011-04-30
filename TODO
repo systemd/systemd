@@ -35,10 +35,9 @@ Features:
 
 * add inode stat() check to readahead to suppress preloading changed files
 
-* include /usr/local/lib/tmpfiles.d in tmpfiles tool as search path
-  (and prefix/lib, in case it isn't one of the listed ones)
-
 * POSIX mqueue support in .socket units
+
+* allow list of pathes in config_parse_condition_path()
 
 * introduce dbus calls for enabling/disabling a service
 

@@ -12,7 +12,11 @@ Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=sysinit.target shutdown.target
 ConditionPathExists=|/etc/sysctl.conf
+ConditionDirectoryNotEmpty=|/lib/sysctl.d
+ConditionDirectoryNotEmpty=|/usr/lib/sysctl.d
+ConditionDirectoryNotEmpty=|/usr/local/lib/sysctl.d
 ConditionDirectoryNotEmpty=|/etc/sysctl.d
+ConditionDirectoryNotEmpty=|/run/sysctl.d
 
 [Service]
 Type=oneshot
