@@ -10,6 +10,7 @@ Description=Show Plymouth Reboot Screen
 After=getty@tty1.service prefdm.service plymouth-start.service
 Before=reboot.service
 DefaultDependencies=no
+ConditionKernelCommandLine=!plymouth.enable=0
 
 [Service]
 ExecStart=/sbin/plymouthd --mode=shutdown

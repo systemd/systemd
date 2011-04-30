@@ -33,9 +33,7 @@ Features:
 
 * drop /.readahead on bigger upgrades with yum
 
-* add inode stat() check to readahead
-
-* plymouth.enable=0
+* add inode stat() check to readahead to suppress preloading changed files
 
 * include /usr/local/lib/tmpfiles.d in tmpfiles tool as search path
   (and prefix/lib, in case it isn't one of the listed ones)
