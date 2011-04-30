@@ -56,7 +56,9 @@ int main(int argc, char *argv[]) {
         if (conf_files_list(&files, ".conf",
                             "/run/modules-load.d",
                             "/etc/modules-load.d",
+                            "/usr/local/lib/modules-load.d",
                             "/usr/lib/modules-load.d",
+                            "/lib/modules-load.d",
                             NULL) < 0) {
                 log_error("Failed to enumerate modules-load.d files: %s", strerror(-r));
                 goto finish;

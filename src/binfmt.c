@@ -138,6 +138,7 @@ int main(int argc, char *argv[]) {
                 r = conf_files_list(&files, ".conf",
                                     "/run/binfmt.d",
                                     "/etc/binfmt.d",
+                                    "/usr/local/lib/binfmt.d",
                                     "/usr/lib/binfmt.d",
                                     NULL);
 

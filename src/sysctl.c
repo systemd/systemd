@@ -143,7 +143,9 @@ int main(int argc, char *argv[]) {
                 r = conf_files_list(&files, ".conf",
                                     "/run/sysctl.d",
                                     "/etc/sysctl.d",
+                                    "/usr/local/sysctl.d",
                                     "/usr/lib/sysctl.d",
+                                    "/lib/sysctl.d",
                                     NULL);
                 if (r < 0) {
                         log_error("Failed to enumerate sysctl.d files: %s", strerror(-r));

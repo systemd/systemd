@@ -4576,16 +4576,24 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
         }
 
         for (de = readdir(dir); de; de = readdir(dir)) {
-                char *f;
+                char *p, *f;
                 const char *base;
 
                 if (!file_is_conf(de, suffix))
                         continue;
 
-                if (asprintf(&f, "%s/%s", path, de->d_name) < 0) {
+                if (asprintf(&p, "%s/%s", path, de->d_name) < 0) {
                         r = -ENOMEM;
                         goto finish;
                 }
+
+                f = canonicalize_file_name(p);
+                if (!f) {
+                        log_error("Failed to canonicalize file name '%s': %m", p);
+                        free(p);
+                        continue;
+                }
+                free(p);
 
                 log_debug("found: %s\n", f);
                 base = f + strlen(path) + 1;
@@ -4607,10 +4615,28 @@ static int base_cmp(const void *a, const void *b) {
 }
 
 int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
-        Hashmap *fh;
+        Hashmap *fh = NULL;
+        char **dirs = NULL;
         char **files = NULL;
+        char **p;
         va_list ap;
         int r = 0;
+
+        va_start(ap, dir);
+        dirs = strv_new_ap(dir, ap);
+        va_end(ap);
+        if (!dirs) {
+                r = -ENOMEM;
+                goto finish;
+        }
+        if (!strv_path_canonicalize(dirs)) {
+                r = -ENOMEM;
+                goto finish;
+        }
+        if (!strv_uniq(dirs)) {
+                r = -ENOMEM;
+                goto finish;
+        }
 
         fh = hashmap_new(string_hash_func, string_compare_func);
         if (!fh) {
@@ -4618,16 +4644,13 @@ int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
                 goto finish;
         }
 
-        va_start(ap, dir);
-        while (dir) {
-                if (files_add(fh, dir, suffix) < 0) {
+        STRV_FOREACH(p, dirs) {
+                if (files_add(fh, *p, suffix) < 0) {
                         log_error("Failed to search for files.");
                         r = -EINVAL;
                         goto finish;
                 }
-                dir = va_arg(ap, const char *);
         }
-        va_end(ap);
 
         files = hashmap_get_strv(fh);
         if (files == NULL) {
@@ -4638,6 +4661,7 @@ int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
 
         qsort(files, hashmap_size(fh), sizeof(char *), base_cmp);
 finish:
+        strv_free(dirs);
         hashmap_free(fh);
         *strv = files;
         return r;

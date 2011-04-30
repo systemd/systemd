@@ -966,6 +966,7 @@ int main(int argc, char *argv[]) {
                 r = conf_files_list(&files, ".conf",
                                     "/run/tmpfiles.d",
                                     "/etc/tmpfiles.d",
+                                    "/usr/local/lib/tmpfiles.d",
                                     "/usr/lib/tmpfiles.d",
                                     NULL);
                 if (r < 0) {
