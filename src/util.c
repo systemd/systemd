@@ -4011,7 +4011,7 @@ int detect_vm(const char **id) {
                 : "0" (eax)
         );
 
-        hypervisor = !!(ecx & ecx & 0x80000000U);
+        hypervisor = !!(ecx & 0x80000000U);
 
         if (hypervisor) {
 

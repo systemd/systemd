@@ -37,6 +37,11 @@ Features:
 
 * plymouth.enable=0
 
+* include /usr/local/lib/tmpfiles.d in tmpfiles tool as search path
+  (and prefix/lib, in case it isn't one of the listed ones)
+
+* POSIX mqueue support in .socket units
+
 * introduce dbus calls for enabling/disabling a service
 
 * support notifications for services being enabled/disabled
