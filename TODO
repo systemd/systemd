@@ -31,6 +31,10 @@ F15 External:
 
 Features:
 
+* make use of TIOCVHANGUP
+
+* move /selinux to /sys/fs/selinux
+
 * unset cgroup agents on shutdown
 
 * Add ConditionPathExists= checks to binfmt automount units, to avoid
