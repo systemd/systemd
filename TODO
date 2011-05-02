@@ -31,6 +31,11 @@ F15 External:
 
 Features:
 
+* unset cgroup agents on shutdown
+
+* Add ConditionPathExists= checks to binfmt automount units, to avoid
+  installing the automount point if the directory does not exist.
+
 * drop /.readahead on bigger upgrades with yum
 
 * add inode stat() check to readahead to suppress preloading changed files
@@ -62,6 +67,7 @@ Features:
   - status update
   - you are a distro: why switch?
   - /etc/sysconfig and /etc/default
+  - how to write socket activated services
 
 * maybe add tiny dbus services similar to hostnamed for locale and wallclock/timezone?
 

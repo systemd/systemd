@@ -9,6 +9,7 @@
 Description=Debug File System Automount Point
 DefaultDependencies=no
 Before=sysinit.target
+ConditionPathExists=/sys/kernel/debug
 
 [Automount]
 Where=/sys/kernel/debug
