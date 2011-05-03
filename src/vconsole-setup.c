@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
         else
                 vc = "/dev/tty0";
 
-        if ((fd = open(vc, O_RDWR|O_CLOEXEC)) < 0) {
+        if ((fd = open_terminal(vc, O_RDWR|O_CLOEXEC)) < 0) {
                 log_error("Failed to open %s: %m", vc);
                 goto finish;
         }
