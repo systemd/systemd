@@ -2,12 +2,6 @@ F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-* 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
-    (path: after installing inotify watches, recheck file again to fix race)
-
-* move systemadm man page to systemd-gtk
-  https://bugzilla.redhat.com/show_bug.cgi?id=699394
-
 F15 External:
 
 * NFS, networkmanager ordering issue (PENDING)
@@ -20,12 +14,6 @@ F15 External:
 * get writev() /dev/kmsg support into the F15 kernel
     https://lkml.org/lkml/2011/4/6/473
   patched merged into -mm
-
-* fix sd_is_socket() invocation in dbus
-
-* New CK release, with sysinit.target dropping and TTY loop
-
-* New Avahi package, enable it by default
 
 * make anaconda write timeout=0 for encrypted devices
 
