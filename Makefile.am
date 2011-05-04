@@ -1347,6 +1347,7 @@ endif
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/user \
+		$(DESTDIR)$(dbussessionservicedir) \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f user && \
