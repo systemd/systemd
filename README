@@ -7,7 +7,7 @@ does not recommend replacing a distro's udev installation with the upstream
 version.
 
 The upstream udev project's set of default rules may require a most recent
-kernel release to work properly. This is currently version 2.6.31.
+kernel release to work properly. This is currently version 2.6.32.
 
 Tools and rules shipped by udev are not public API and may change at any time.
 Never call any private tool in /lib/udev from any external application; it might
@@ -16,8 +16,13 @@ by udevadm and libudev. Tools and rules in /lib/udev and the entire contents of
 the /dev/.udev directory are private to udev and do change whenever needed.
 
 Requirements:
-  - Version 2.6.27 of the Linux kernel with sysfs, procfs, signalfd, inotify,
-    unix domain sockets, networking and hotplug enabled:
+  - Version 2.6.32 of the Linux kernel with sysfs, procfs, signalfd, inotify,
+    unix domain sockets, networking and hotplug enabled
+
+  - ARM needs kernel version 2.6.36 or this patch:
+      http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=21d93e2e29722d7832f61cc56d73fb
+
+  - These options are needed:
       CONFIG_HOTPLUG=y
       CONFIG_UEVENT_HELPER_PATH=""
       CONFIG_NET=y
@@ -25,9 +30,11 @@ Requirements:
       CONFIG_SYSFS=y
       CONFIG_SYSFS_DEPRECATED*=n
       CONFIG_PROC_FS=y
-      CONFIG_TMPFS=y
       CONFIG_INOTIFY_USER=y
       CONFIG_SIGNALFD=y
+
+  - These options might be needed:
+      CONFIG_TMPFS=y
       CONFIG_TMPFS_POSIX_ACL=y (user ACLs for device nodes)
       CONFIG_BLK_DEV_BSG=y (SCSI devices)
 
@@ -45,7 +52,7 @@ Requirements:
     be mounted at /sys. No other locations are supported by a standard
     udev installation.
 
-  - The system must have the following group names resolvable at udev startup:
+  - The default rule sset requires the following group names resolvable at udev startup:
       disk, cdrom, floppy, tape, audio, video, lp, tty, dialout, and kmem.
     Especially in LDAP setups, it is required that getgrnam() be able to resolve
     these group names with only the rootfs mounted and while no network is
