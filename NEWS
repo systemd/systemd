@@ -2,6 +2,10 @@ udev 169
 ========
 Bugfixes.
 
+We require at least Linux kernel 2.6.32 now. Some platforms might
+require a later kernel that supports accept4(), or need to backport
+the accept4() syscall wiring.
+
 The hid2hci tool move to the bluez package and was removed.
 
 Many of the extras can be -enabled/--disabled during configure

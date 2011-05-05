@@ -19,8 +19,8 @@ Requirements:
   - Version 2.6.32 of the Linux kernel with sysfs, procfs, signalfd, inotify,
     unix domain sockets, networking and hotplug enabled
 
-  - ARM needs kernel version 2.6.36 or this patch:
-      http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=21d93e2e29722d7832f61cc56d73fb
+  - Some architectures might need a later kernel, that supports accept4(),
+    or need to backport the accept4() syscall wiring in the kernel.
 
   - These options are needed:
       CONFIG_HOTPLUG=y
