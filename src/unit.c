@@ -667,13 +667,15 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tRefuseManualStop: %s\n"
                         "%s\tDefaultDependencies: %s\n"
                         "%s\tOnFailureIsolate: %s\n"
-                        "%s\tIgnoreOnIsolate: %s\n",
+                        "%s\tIgnoreOnIsolate: %s\n"
+                        "%s\tIgnoreOnSnapshot: %s\n",
                         prefix, yes_no(u->meta.stop_when_unneeded),
                         prefix, yes_no(u->meta.refuse_manual_start),
                         prefix, yes_no(u->meta.refuse_manual_stop),
                         prefix, yes_no(u->meta.default_dependencies),
                         prefix, yes_no(u->meta.on_failure_isolate),
-                        prefix, yes_no(u->meta.ignore_on_isolate));
+                        prefix, yes_no(u->meta.ignore_on_isolate),
+                        prefix, yes_no(u->meta.ignore_on_snapshot));
 
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",

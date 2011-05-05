@@ -471,6 +471,18 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>IgnoreOnSnapshot=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If <option>true</option>
+                                this unit will not be included in
+                                snapshots. Defaults to
+                                <option>false</option> for device and
+                                snapshot units, <option>true</option>
+                                for the others.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>StopWhenUnneeded=</varname></term>
 
                                 <listitem><para>Takes a boolean

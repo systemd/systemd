@@ -32,6 +32,16 @@ static const UnitActiveState state_translation_table[_SNAPSHOT_STATE_MAX] = {
         [SNAPSHOT_ACTIVE] = UNIT_ACTIVE
 };
 
+static void snapshot_init(Unit *u) {
+        Snapshot *s = SNAPSHOT(u);
+
+        assert(s);
+        assert(s->meta.load_state == UNIT_STUB);
+
+        s->meta.ignore_on_isolate = true;
+        s->meta.ignore_on_snapshot = true;
+}
+
 static void snapshot_set_state(Snapshot *s, SnapshotState state) {
         SnapshotState old_state;
         assert(s);
@@ -228,7 +238,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Sn
 
         HASHMAP_FOREACH_KEY(other, k, m->units, i) {
 
-                if (UNIT_VTABLE(other)->no_snapshots)
+                if (other->meta.ignore_on_snapshot)
                         continue;
 
                 if (k != other->meta.id)
@@ -275,8 +285,9 @@ const UnitVTable snapshot_vtable = {
 
         .no_alias = true,
         .no_instances = true,
-        .no_snapshots = true,
         .no_gc = true,
+
+        .init = snapshot_init,
 
         .load = snapshot_load,
         .coldplug = snapshot_coldplug,

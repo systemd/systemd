@@ -1878,6 +1878,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "DefaultDependencies",    config_parse_bool,            0, &u->meta.default_dependencies,                   "Unit"    },
                 { "OnFailureIsolate",       config_parse_bool,            0, &u->meta.on_failure_isolate,                     "Unit"    },
                 { "IgnoreOnIsolate",        config_parse_bool,            0, &u->meta.ignore_on_isolate,                      "Unit"    },
+                { "IgnoreOnSnapshot",       config_parse_bool,            0, &u->meta.ignore_on_snapshot,                     "Unit"    },
                 { "JobTimeoutSec",          config_parse_usec,            0, &u->meta.job_timeout,                            "Unit"    },
                 { "ConditionPathExists",        config_parse_condition_path, CONDITION_PATH_EXISTS, u,                        "Unit"    },
                 { "ConditionPathIsDirectory",   config_parse_condition_path, CONDITION_PATH_IS_DIRECTORY, u,                  "Unit"    },

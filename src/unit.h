@@ -213,6 +213,9 @@ struct Meta {
         /* Ignore this unit when isolating */
         bool ignore_on_isolate;
 
+        /* Ignore this unit when snapshotting */
+        bool ignore_on_snapshot;
+
         /* Did the last condition check suceed? */
         bool condition_result;
 
@@ -363,9 +366,6 @@ struct UnitVTable {
 
         /* Instances make no sense for this type */
         bool no_instances:1;
-
-        /* Exclude this type from snapshots */
-        bool no_snapshots:1;
 
         /* Exclude from automatic gc */
         bool no_gc:1;
