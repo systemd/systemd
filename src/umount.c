@@ -552,6 +552,8 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
 
 int umount_all(bool *changed) {
         int r;
+        bool umount_changed;
+
         LIST_HEAD(MountPoint, mp_list_head);
 
         LIST_HEAD_INIT(MountPoint, mp_list_head);
@@ -560,7 +562,13 @@ int umount_all(bool *changed) {
         if (r < 0)
                 goto end;
 
-        r = mount_points_list_umount(&mp_list_head, changed);
+        /* retry umount, until nothing can be umounted anymore */
+        do {
+                umount_changed = false;
+                r = mount_points_list_umount(&mp_list_head, &umount_changed);
+                if (umount_changed)
+                        *changed = true;
+        } while(umount_changed);
         if (r <= 0)
                 goto end;
 
