@@ -65,7 +65,7 @@ static const struct {
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_FRUGALWARE)
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_FRUGALWARE) || defined(TARGET_ANGSTROM)
         /* Debian style rcS.d */
         { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
@@ -246,7 +246,7 @@ static char *sysv_translate_name(const char *name) {
         if (!(r = new(char, strlen(name) + sizeof(".service"))))
                 return NULL;
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
         if (endswith(name, ".sh"))
                 /* Drop Debian-style .sh suffix */
                 strcpy(stpcpy(r, name) - 3, ".service");
@@ -297,7 +297,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
                 "null",                 NULL,
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
                 "mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
 #endif
 
@@ -887,7 +887,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
         /* For SysV services we strip the boot.*, rc.* and *.sh
          * prefixes/suffixes. */
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
         if (endswith(name, ".sh.service"))
                 return -ENOENT;
 #endif
@@ -914,7 +914,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
                 r = service_load_sysv_path(s, path);
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
                         /* Try Debian style *.sh source'able init scripts */
                         strcat(path, ".sh");
