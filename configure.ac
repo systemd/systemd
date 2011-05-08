@@ -356,6 +356,7 @@ case $with_distro in
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
                 M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
+                have_plymouth=true
                 ;;
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
