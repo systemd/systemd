@@ -24,8 +24,10 @@ AC_INIT([nss-myhostname],[0.2],[mzzlubfganzr (at) 0pointer (dot) de])
 AC_CONFIG_SRCDIR([nss-myhostname.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR(m4)
+AC_USE_SYSTEM_EXTENSIONS
+AC_SYS_LARGEFILE
 
-AM_INIT_AUTOMAKE([foreign 1.9 -Wall])
+AM_INIT_AUTOMAKE([foreign 1.9 -Wall -Wno-portability silent-rules tar-pax subdir-objects dist-bzip2])
 
 AC_SUBST(PACKAGE_URL, [http://0pointer.de/lennart/projects/nss-myhostname/])
 
@@ -34,8 +36,8 @@ ac_default_prefix="/"
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CC_C99
-AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_CPP
+
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
@@ -50,7 +52,8 @@ done
 
 # libtool stuff
 AC_DISABLE_STATIC
-AC_PROG_LIBTOOL
+LT_PREREQ(2.2)
+LT_INIT
 
 # Checks for header files.
 AC_HEADER_STDC

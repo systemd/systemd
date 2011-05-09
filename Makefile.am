@@ -23,6 +23,8 @@ lib_LTLIBRARIES = libnss_myhostname.la
 EXTRA_DIST=bootstrap.sh README LICENSE
 SUBDIRS=doc
 
+AM_CPPFLAGS = -include $(top_builddir)/config.h
+
 MAINTAINERCLEANFILES=README
 noinst_DATA = README
 
@@ -39,8 +41,16 @@ homepage: all dist
 
 .PHONY: homepage
 
-libnss_myhostname_la_SOURCES = nss-myhostname.c
-libnss_myhostname_la_LDFLAGS = -avoid-version -module -export-dynamic -shrext .so.2
+libnss_myhostname_la_SOURCES = \
+	nss-myhostname.c \
+	netlink.c \
+	netlink.h
+
+libnss_myhostname_la_LDFLAGS = \
+	-avoid-version \
+	-module \
+	-export-dynamic \
+	-shrext .so.2
 
 install-exec-hook:
 	rm -f $(DESTDIR)$(libdir)/libnss_myhostname.la

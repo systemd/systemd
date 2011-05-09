@@ -1,28 +1,24 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
-    This file is part of nss-myhostname.
+  This file is part of nss-myhostname.
 
-    Copyright 2008 Lennart Poettering
+  Copyright 2008-2011 Lennart Poettering
 
-    nss-myhostname is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public License
-    as published by the Free Software Foundation, either version 2.1
-    of the License, or (at your option) any later version.
+  nss-myhostname is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public License
+  as published by the Free Software Foundation; either version 2.1 of
+  the License, or (at your option) any later version.
 
-    nss-myhostname is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
+  nss-myhostname is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public
-    License along with nss-myhostname. If not, If not, see
-    <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Lesser General Public
+  License along with nss-myhostname; If not, see
+  <http://www.gnu.org/licenses/>.
 ***/
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 
 #include <limits.h>
 #include <nss.h>
@@ -30,10 +26,13 @@
 #include <netdb.h>
 #include <errno.h>
 #include <string.h>
-#include <stdio.h>
 #include <assert.h>
 #include <unistd.h>
 #include <net/if.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+
+#include "netlink.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
  * 127.0.0.1 that it can be translated back to the local hostname. For
@@ -51,13 +50,59 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 struct gaih_addrtuple **pat,
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop,
+                int32_t *ttlp);
+
+enum nss_status _nss_myhostname_gethostbyname3_r(
+                const char *name,
+                int af,
+                struct hostent *host,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop,
+                int32_t *ttlp,
+                char **canonp);
+
+enum nss_status _nss_myhostname_gethostbyname2_r(
+                const char *name,
+                int af,
+                struct hostent *host,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop);
+
+enum nss_status _nss_myhostname_gethostbyname_r(
+                const char *name,
+                struct hostent *host,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop);
+
+enum nss_status _nss_myhostname_gethostbyaddr2_r(
+                const void* addr, socklen_t len,
+                int af,
+                struct hostent *host,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop,
+                int32_t *ttlp);
+
+enum nss_status _nss_myhostname_gethostbyaddr_r(
+                const void* addr, socklen_t len,
+                int af,
+                struct hostent *host,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop);
+
+enum nss_status _nss_myhostname_gethostbyname4_r(
+                const char *name,
+                struct gaih_addrtuple **pat,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
-        unsigned ifi;
+        unsigned lo_ifi;
         char hn[HOST_NAME_MAX+1];
         size_t l, idx, ms;
         char *r_name;
-        struct gaih_addrtuple *r_tuple1, *r_tuple2;
+        struct gaih_addrtuple *r_tuple, *r_tuple_prev = NULL;
+        struct address *addresses = NULL, *a;
+        unsigned n_addresses = 0, n;
 
         memset(hn, 0, sizeof(hn));
         if (gethostname(hn, sizeof(hn)-1) < 0) {
@@ -72,14 +117,18 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 return NSS_STATUS_NOTFOUND;
         }
 
+        /* If this fails, n_addresses is 0. Which is fine */
+        netlink_acquire_addresses(&addresses, &n_addresses);
+
         /* If this call fails we fill in 0 as scope. Which is fine */
-        ifi = if_nametoindex(LOOPBACK_INTERFACE);
+        lo_ifi = if_nametoindex(LOOPBACK_INTERFACE);
 
         l = strlen(hn);
-        ms = ALIGN(l+1)+ALIGN(sizeof(struct gaih_addrtuple))*2;
+        ms = ALIGN(l+1)+ALIGN(sizeof(struct gaih_addrtuple))*(n_addresses > 0 ? n_addresses : 2);
         if (buflen < ms) {
                 *errnop = ENOMEM;
                 *h_errnop = NO_RECOVERY;
+                free(addresses);
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -88,31 +137,52 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         memcpy(r_name, hn, l+1);
         idx = ALIGN(l+1);
 
-        /* Second, fill in IPv4 tuple */
-        r_tuple1 = (struct gaih_addrtuple*) (buffer + idx);
-        r_tuple1->next = NULL;
-        r_tuple1->name = r_name;
-        r_tuple1->family = AF_INET;
-        *(uint32_t*) r_tuple1->addr = LOCALADDRESS_IPV4;
-        r_tuple1->scopeid = (uint32_t) ifi;
-        idx += ALIGN(sizeof(struct gaih_addrtuple));
+        if (n_addresses <= 0) {
+                /* Second, fill in IPv6 tuple */
+                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
+                r_tuple->next = r_tuple_prev;
+                r_tuple->name = r_name;
+                r_tuple->family = AF_INET6;
+                memcpy(r_tuple->addr, LOCALADDRESS_IPV6, 16);
+                r_tuple->scopeid = (uint32_t) lo_ifi;
 
-        /* Third, fill in IPv6 tuple */
-        r_tuple2 = (struct gaih_addrtuple*) (buffer + idx);
-        r_tuple2->next = r_tuple1;
-        r_tuple2->name = r_name;
-        r_tuple2->family = AF_INET6;
-        memcpy(r_tuple2->addr, LOCALADDRESS_IPV6, 16);
-        r_tuple2->scopeid = (uint32_t) ifi;
-        idx += ALIGN(sizeof(struct gaih_addrtuple));
+                idx += ALIGN(sizeof(struct gaih_addrtuple));
+                r_tuple_prev = r_tuple;
+
+                /* Third, fill in IPv4 tuple */
+                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
+                r_tuple->next = r_tuple_prev;
+                r_tuple->name = r_name;
+                r_tuple->family = AF_INET;
+                *(uint32_t*) r_tuple->addr = LOCALADDRESS_IPV4;
+                r_tuple->scopeid = (uint32_t) lo_ifi;
+
+                idx += ALIGN(sizeof(struct gaih_addrtuple));
+                r_tuple_prev = r_tuple;
+        }
+
+        /* Fourth, fill actual addresses in, but in backwards order */
+        for (a = addresses + n_addresses - 1, n = 0; n < n_addresses; n++, a--) {
+                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
+                r_tuple->next = r_tuple_prev;
+                r_tuple->name = r_name;
+                r_tuple->family = a->family;
+                r_tuple->scopeid = a->ifindex;
+                memcpy(r_tuple->addr, a->address, 16);
+
+                idx += ALIGN(sizeof(struct gaih_addrtuple));
+                r_tuple_prev = r_tuple;
+        }
 
         /* Verify the size matches */
         assert(idx == ms);
 
-        *pat = r_tuple2;
+        *pat = r_tuple_prev;
 
         if (ttlp)
                 *ttlp = 0;
+
+        free(addresses);
 
         return NSS_STATUS_SUCCESS;
 }
@@ -129,14 +199,27 @@ static enum nss_status fill_in_hostent(
         size_t l, idx, ms;
         char *r_addr, *r_name, *r_aliases, *r_addr_list;
         size_t alen;
+        struct address *addresses = NULL, *a;
+        unsigned n_addresses = 0, n, c;
 
-        alen = af == AF_INET ? 4 : 16;
+        alen = PROTO_ADDRESS_SIZE(af);
+
+        netlink_acquire_addresses(&addresses, &n_addresses);
+
+        for (a = addresses, n = 0, c = 0; n < n_addresses; a++, n++)
+                if (af == a->family)
+                        c++;
 
         l = strlen(hn);
-        ms = ALIGN(l+1)+sizeof(char*)+ALIGN(alen)+sizeof(char*)*2;
+        ms = ALIGN(l+1)+
+                sizeof(char*)+
+                (c > 0 ? c : 1)*ALIGN(alen)+
+                (c > 0 ? c+1 : 2)*sizeof(char*);
+
         if (buflen < ms) {
                 *errnop = ENOMEM;
                 *h_errnop = NO_RECOVERY;
+                free(addresses);
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -145,24 +228,57 @@ static enum nss_status fill_in_hostent(
         memcpy(r_name, hn, l+1);
         idx = ALIGN(l+1);
 
-        /* Second, create aliases array */
+        /* Second, create (empty) aliases array */
         r_aliases = buffer + idx;
         *(char**) r_aliases = NULL;
         idx += sizeof(char*);
 
-        /* Third, add address */
+        /* Third, add addresses */
         r_addr = buffer + idx;
-        if (af == AF_INET)
-                *(uint32_t*) r_addr = LOCALADDRESS_IPV4;
-        else
-                memcpy(r_addr, LOCALADDRESS_IPV6, 16);
-        idx += ALIGN(alen);
+        if (c > 0) {
+                unsigned i = 0;
+
+                for (a = addresses, n = 0; n < n_addresses; a++, n++) {
+                        if (af != a->family)
+                                continue;
+
+                        memcpy(r_addr + i*ALIGN(alen), a->address, alen);
+                        i++;
+                }
+
+                assert(i == c);
+                idx += c*ALIGN(alen);
+        } else {
+                if (af == AF_INET)
+                        *(uint32_t*) r_addr = LOCALADDRESS_IPV4;
+                else
+                        memcpy(r_addr, LOCALADDRESS_IPV6, 16);
+
+                idx += ALIGN(alen);
+        }
 
         /* Fourth, add address pointer array */
         r_addr_list = buffer + idx;
-        ((char**) r_addr_list)[0] = r_addr;
-        ((char**) r_addr_list)[1] = NULL;
-        idx += sizeof(char*)*2;
+        if (c > 0) {
+                unsigned i = 0;
+
+                for (a = addresses, n = 0; n < n_addresses; a++, n++) {
+                        if (af != a->family)
+                                continue;
+
+                        ((char**) r_addr_list)[i] = (r_addr + i*ALIGN(alen));
+                        i++;
+                }
+
+                assert(i == c);
+                ((char**) r_addr_list)[c] = NULL;
+                idx += (c+1)*sizeof(char*);
+
+        } else {
+                ((char**) r_addr_list)[0] = r_addr;
+                ((char**) r_addr_list)[1] = NULL;
+                idx += 2*sizeof(char*);
+        }
 
         /* Verify the size matches */
         assert(idx == ms);
@@ -178,6 +294,8 @@ static enum nss_status fill_in_hostent(
 
         if (canonp)
                 *canonp = r_name;
+
+        free(addresses);
 
         return NSS_STATUS_SUCCESS;
 }
@@ -235,7 +353,7 @@ enum nss_status _nss_myhostname_gethostbyname2_r(
                         NULL);
 }
 
-enum nss_status _nss_myhostname_gethostbyname_r (
+enum nss_status _nss_myhostname_gethostbyname_r(
                 const char *name,
                 struct hostent *host,
                 char *buffer, size_t buflen,
@@ -260,35 +378,60 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 int32_t *ttlp) {
 
         char hn[HOST_NAME_MAX+1];
+        struct address *addresses = NULL, *a;
+        unsigned n_addresses = 0, n;
+
+        if (len != PROTO_ADDRESS_SIZE(af)) {
+                *errnop = EINVAL;
+                *h_errnop = NO_RECOVERY;
+                return NSS_STATUS_UNAVAIL;
+        }
 
         if (af == AF_INET) {
-                if (len != 4 ||
-                    (*(uint32_t*) addr) != LOCALADDRESS_IPV4)
-                        goto not_found;
+
+                if ((*(uint32_t*) addr) == LOCALADDRESS_IPV4)
+                        goto found;
 
         } else if (af == AF_INET6) {
-                if (len != 16 ||
-                    memcmp(addr, LOCALADDRESS_IPV6, 16) != 0)
-                        goto not_found;
+
+                if (memcmp(addr, LOCALADDRESS_IPV6, 16) == 0)
+                        goto found;
+
         } else {
                 *errnop = EAFNOSUPPORT;
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;
         }
 
+        netlink_acquire_addresses(&addresses, &n_addresses);
+
+        for (a = addresses, n = 0; n < n_addresses; n++, a++) {
+                if (af != a->family)
+                        continue;
+
+                if (memcmp(addr, a->address, PROTO_ADDRESS_SIZE(af)) == 0)
+                        goto found;
+        }
+
+        *errnop = ENOENT;
+        *h_errnop = HOST_NOT_FOUND;
+
+        free(addresses);
+        return NSS_STATUS_NOTFOUND;
+
+found:
+        free(addresses);
+
         memset(hn, 0, sizeof(hn));
         if (gethostname(hn, sizeof(hn)-1) < 0) {
                 *errnop = errno;
                 *h_errnop = NO_RECOVERY;
+
                 return NSS_STATUS_UNAVAIL;
         }
 
         return fill_in_hostent(hn, af, host, buffer, buflen, errnop, h_errnop, ttlp, NULL);
 
-not_found:
-        *errnop = ENOENT;
-        *h_errnop = HOST_NOT_FOUND;
-        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_myhostname_gethostbyaddr_r(
