@@ -20,7 +20,7 @@
 # <http://www.gnu.org/licenses/>.
 
 AC_PREREQ(2.62)
-AC_INIT([nss-myhostname],[0.2],[mzzlubfganzr (at) 0pointer (dot) de])
+AC_INIT([nss-myhostname],[0.3],[mzzlubfganzr (at) 0pointer (dot) de])
 AC_CONFIG_SRCDIR([nss-myhostname.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR(m4)

@@ -10,7 +10,7 @@
 <body>
 <h1><a name="top">nss-myhostname @PACKAGE_VERSION@</a></h1>
 
-<p><i>Copyright 2005-2008 Lennart Poettering &lt;@PACKAGE_BUGREPORT@&gt;</i></p>
+<p><i>Copyright 2005-2011 Lennart Poettering &lt;@PACKAGE_BUGREPORT@&gt;</i></p>
 
 <ul class="toc">
     <li><a href="#license">License</a></li>
@@ -38,6 +38,13 @@ Lesser General Public License for more details.</p>
 
 <h2><a name="news">News</a></h2>
 
+<div class="news-date">Mon May 9 2011: </div>
+
+<p class="news-text"><a href="@PACKAGE_URL@nss-myhostname-0.3.tar.gz">Version
+0.3</a> released. Changes include: Always return locally configured IP
+addresses first, use 127.0.0.2/::1 only as fallback if no addresses
+are configured.</p>
+
 <div class="news-date">Mon Oct 27 2008: </div>
 
 <p class="news-text"><a
@@ -55,16 +62,18 @@ released. Initial release.</p>
 <p><tt>nss-myhostname</tt> is a plugin for the GNU Name Service Switch
 (NSS) functionality of the GNU C Library (<tt>glibc</tt>) providing
 host name resolution for the locally configured system hostname as
-returned by <tt>gethostname(2)</tt>. A lot of software relies on that the
-local host name is resolvable via DNS to an IPv4 or IPv6 address. When
-using dynamic hostnames this is usually achieved by
-patching <tt>/etc/hosts</tt> which however is suboptimal since it
-requires a writable <tt>/etc</tt> file system and is fragile because
-the file might also be edited by the
-administrator. <tt>nss-myhostname</tt> simply returns the IPv4
+returned by <tt>gethostname(2)</tt>. Various software relies on an
+always resolvable local host name. When using dynamic hostnames this
+is usually achieved by patching <tt>/etc/hosts</tt> at the same time
+as changing the host name. This however is not ideal since it requires
+a writable <tt>/etc</tt> file system and is fragile because the file
+might be edited by the administrator at the same
+time. <tt>nss-myhostname</tt> simply returns all locally configure
+public IP addresses, or -- if none are configured -- the IPv4
 address <tt>127.0.0.2</tt> (wich is on the local loopback) and the
 IPv6 address <tt>::1</tt> (which is the local host) for whatever
-system hostname is configured locally. Patching <tt>/etc/hostname</tt> is thus no longer necessary.</p>
+system hostname is configured locally. Patching <tt>/etc/hosts</tt>
+is thus no longer necessary.</p>
 
 <h2><a name="status">Current Status</a></h2>
 
@@ -123,11 +132,10 @@ precedence.</p>
 
 <p><tt>nss-myhostname</tt> uses NSS interfaces that are specific to modern <tt>glibc</tt>'s.</p>
 
-<p><tt>nss-myhostname</tt> was developed and tested on Fedora 10
-from October 2008, it should work on most other Linux
-distributions since it uses GNU autoconf and
-GNU libtool for source code configuration and shared library
-management.</p>
+<p><tt>nss-myhostname</tt> was developed and tested on Fedora 15 from
+May 2011, it should work on most other Linux distributions since it
+uses GNU autoconf and GNU libtool for source code configuration and
+shared library management.</p>
 
 <h2><a name="installation">Installation</a></h2>
 
@@ -152,7 +160,7 @@ compilation and <tt>make install</tt> (as root) for installation of
 <pre>git clone git://git.0pointer.de/nss-myhostname</pre>
 
 <hr/>
-<address class="grey">Lennart Poettering &lt;@PACKAGE_BUGREPORT@&gt;, October 2008</address>
+<address class="grey">Lennart Poettering &lt;@PACKAGE_BUGREPORT@&gt;, May 2011</address>
 
 </body>
 </html>
