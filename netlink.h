@@ -34,7 +34,10 @@ struct address {
         int ifindex;
 };
 
-int netlink_acquire_addresses(struct address **_list, unsigned *_n_list);
+#define _public_ __attribute__ ((visibility("default")))
+#define _hidden_ __attribute__ ((visibility("hidden")))
+
+int netlink_acquire_addresses(struct address **_list, unsigned *_n_list) _hidden_;
 
 static inline size_t PROTO_ADDRESS_SIZE(int proto) {
         assert(proto == AF_INET || proto == AF_INET6);

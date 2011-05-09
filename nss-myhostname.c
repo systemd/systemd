@@ -50,7 +50,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 struct gaih_addrtuple **pat,
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop,
-                int32_t *ttlp);
+                int32_t *ttlp) _public_;
 
 enum nss_status _nss_myhostname_gethostbyname3_r(
                 const char *name,
@@ -59,20 +59,20 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop,
                 int32_t *ttlp,
-                char **canonp);
+                char **canonp) _public_;
 
 enum nss_status _nss_myhostname_gethostbyname2_r(
                 const char *name,
                 int af,
                 struct hostent *host,
                 char *buffer, size_t buflen,
-                int *errnop, int *h_errnop);
+                int *errnop, int *h_errnop) _public_;
 
 enum nss_status _nss_myhostname_gethostbyname_r(
                 const char *name,
                 struct hostent *host,
                 char *buffer, size_t buflen,
-                int *errnop, int *h_errnop);
+                int *errnop, int *h_errnop) _public_;
 
 enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 const void* addr, socklen_t len,
@@ -80,14 +80,14 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 struct hostent *host,
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop,
-                int32_t *ttlp);
+                int32_t *ttlp) _public_;
 
 enum nss_status _nss_myhostname_gethostbyaddr_r(
                 const void* addr, socklen_t len,
                 int af,
                 struct hostent *host,
                 char *buffer, size_t buflen,
-                int *errnop, int *h_errnop);
+                int *errnop, int *h_errnop) _public_;
 
 enum nss_status _nss_myhostname_gethostbyname4_r(
                 const char *name,
