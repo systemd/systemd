@@ -123,8 +123,6 @@ Features:
   about policy loading. Probably check for available selinux in /proc/filesystems,
   and check for active selinux with getcon_raw() == "kernel"
 
-* move /selinux to /sys/fs/selinux
-
 * Support --test based on current system state
 
 * systemctl enable as D-Bus call
@@ -141,9 +139,6 @@ Features:
   Also support --temp to make this temporary by placing mask links in /run.
 
 * detect LXC environment
-
-* invoke vhangup() before and after invoking getty
-    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3c95c985fa91ecf6a0e29622bbdd13dcfc5ce9f1
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
   (belongs into a distro pattern though, not in an upstream package's service file)
