@@ -48,8 +48,16 @@ int main(int argc, char*argv[]) {
                 }
 
                 if (unlink("/etc/nologin") < 0 && errno != ENOENT) {
-                        log_error("Failed to remove /etc/nologin file: %m");
-                        q = -errno;
+
+                        /* If the file doesn't exist and /etc simply
+                         * was read-only (in which case unlink()
+                         * returns EROFS even if the file doesn't
+                         * exist), don't complain */
+
+                        if (errno != EROFS || access("/etc/nologin", F_OK) >= 0) {
+                                log_error("Failed to remove /etc/nologin file: %m");
+                                q = -errno;
+                        }
                 }
 
                 if (r < 0 || q < 0)
