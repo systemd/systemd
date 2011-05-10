@@ -136,14 +136,22 @@ if test "x$enable_gudev" = xyes; then
 	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
 	AC_SUBST([GLIB_CFLAGS])
 	AC_SUBST([GLIB_LIBS])
+fi
 
+AC_ARG_ENABLE([introspection],
+       AS_HELP_STRING([--disable-introspection], [disable GObject introspection]),
+       [], [enable_introspection=yes])
+if test "x$enable_introspection" = xyes; then
 	PKG_CHECK_MODULES([INTROSPECTION], [gobject-introspection-1.0 >= 0.6.2])
+	AC_DEFINE([ENABLE_INTROSPECTION], [1], [enable GObject introspection support])
 	AC_SUBST([G_IR_SCANNER], [$($PKG_CONFIG --variable=g_ir_scanner gobject-introspection-1.0)])
 	AC_SUBST([G_IR_COMPILER], [$($PKG_CONFIG --variable=g_ir_compiler gobject-introspection-1.0)])
 	AC_SUBST([G_IR_GENERATE], [$($PKG_CONFIG --variable=g_ir_generate gobject-introspection-1.0)])
 	AC_SUBST([GIRDIR], [$($PKG_CONFIG --define-variable=datadir=${datadir} --variable=girdir gobject-introspection-1.0)])
 	AC_SUBST([GIRTYPELIBDIR], [$($PKG_CONFIG --define-variable=libdir=${libdir} --variable=typelibdir gobject-introspection-1.0)])
 fi
+AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = xyes])
+
 AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = xyes])
 
 # ------------------------------------------------------------------------------
@@ -235,6 +243,7 @@ AC_MSG_RESULT([
 	cflags:			${CFLAGS}
 	ldflags:		${LDFLAGS}
 
+	gintrospection:         ${enable_introspection}
 	rule_generator:		${enable_rule_generator}
 	hwdb:			${enable_hwdb}
 	udev_acl:		${enable_udev_acl}
