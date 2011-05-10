@@ -35,6 +35,8 @@ All options:
       Disable local user acl permissions support.
   --disable-gudev
       Disable Gobject libudev support.
+  --disable-introspection
+      Disable Gobject introspection support.
   --disable-keymap
       Disable keymap fixup support.
   --enable-floppy

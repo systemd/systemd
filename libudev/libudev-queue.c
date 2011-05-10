@@ -343,7 +343,7 @@ out:
  * @start: first event sequence number
  * @end: last event sequence number
  *
- * Returns: if any of the sequence numbers in the given range is currently active.
+ * Returns: a flag indicating if any of the sequence numbers in the given range is currently active.
  **/
 int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 					       unsigned long long int start, unsigned long long int end)
@@ -405,7 +405,7 @@ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
  * @udev_queue: udev queue context
  * @seqnum: sequence number
  *
- * Returns: a flag indicating if the given sequence number is handled.
+ * Returns: a flag indicating if the given sequence number is currently active.
  **/
 int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum)
 {

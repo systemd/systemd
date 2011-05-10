@@ -243,11 +243,11 @@ AC_MSG_RESULT([
 	cflags:			${CFLAGS}
 	ldflags:		${LDFLAGS}
 
-	gintrospection:         ${enable_introspection}
 	rule_generator:		${enable_rule_generator}
 	hwdb:			${enable_hwdb}
 	udev_acl:		${enable_udev_acl}
 	gudev:			${enable_gudev}
+	gintrospection:		${enable_introspection}
 	keymap:			${enable_keymap}
 	floppy:			${enable_floppy}
 	edd:			${enable_edd}

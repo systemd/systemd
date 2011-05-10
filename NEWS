@@ -8,7 +8,7 @@ the accept4() syscall wiring.
 
 The hid2hci tool move to the bluez package and was removed.
 
-Many of the extras can be -enabled/--disabled during configure
+Many of the extras can be --enabled/--disabled during configure
 now. The --disable-extras option was removed. To check the
 current options, the usual './configure --help' prints them.
 
