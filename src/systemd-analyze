@@ -110,7 +110,7 @@ elif sys.argv[1] == 'blame':
                 sys.stdout.write("%6lums %s\n" % ((aet - ixt) / 1000, name))
 
 elif sys.argv[1] == 'plot':
-        import cairo
+        import cairo, os
 
         initrd_time, start_time, finish_time = acquire_start_time()
         data = acquire_time_data()
@@ -159,6 +159,9 @@ elif sys.argv[1] == 'plot':
 
         context.stroke()
         context.restore()
+
+        banner = "Running on %s (%s %s) %s" % (os.uname()[1], os.uname()[2], os.uname()[3], os.uname()[4])
+        draw_text(context, 0, -15, banner, hcenter = 0, vcenter = 1)
 
         for x in range(0, (finish_time - start_time)/10000, 100):
                 draw_text(context, x, -5, "%lus" % (x/100), vcenter = 0, hcenter = 0)
