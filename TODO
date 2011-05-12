@@ -19,6 +19,9 @@ F15 External:
 
 Features:
 
+* Make it possible to set the keymap independently from the font on
+  the kernel cmdline. Right now setting one resets also the other.
+
 * make use of TIOCVHANGUP
 
 * move /selinux to /sys/fs/selinux

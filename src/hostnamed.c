@@ -568,7 +568,13 @@ static DBusHandlerResult hostname_message_handler(
 
                 if (!streq_ptr(name, data[k])) {
 
-                        r = verify_polkit(connection, message, "org.freedesktop.hostname1.set-machine-info", interactive, &error);
+                        /* Since the pretty hostname should always be
+                         * changed at the same time as the static one,
+                         * use the same policy action for both... */
+
+                        r = verify_polkit(connection, message, k == PROP_PRETTY_HOSTNAME ?
+                                          "org.freedesktop.hostname1.set-static-hostname" :
+                                          "org.freedesktop.hostname1.set-machine-info", interactive, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 

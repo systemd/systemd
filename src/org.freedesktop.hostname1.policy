@@ -28,7 +28,7 @@
 
         <action id="org.freedesktop.hostname1.set-static-hostname">
                 <description>Set static host name</description>
-                <message>Authentication is required to set the statically configured local host name.</message>
+                <message>Authentication is required to set the statically configured local host name, as well as the pretty host name.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
