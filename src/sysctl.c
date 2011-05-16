@@ -138,7 +138,6 @@ int main(int argc, char *argv[]) {
         else {
                 char **files, **f;
 
-                apply_file("/etc/sysctl.conf", true);
 
                 r = conf_files_list(&files, ".conf",
                                     "/run/sysctl.d",
@@ -159,6 +158,8 @@ int main(int argc, char *argv[]) {
                         if (k < 0 && r == 0)
                                 r = k;
                 }
+
+                apply_file("/etc/sysctl.conf", true);
 
                 strv_free(files);
         }
