@@ -104,9 +104,10 @@ void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export)
 {
 	char filename[UTIL_PATH_SIZE];
 
+	if (udev_queue_export == NULL)
+		return;
 	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue_export->udev), "/queue.tmp", NULL);
 	unlink(filename);
-
 	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue_export->udev), "/queue.bin", NULL);
 	unlink(filename);
 }
