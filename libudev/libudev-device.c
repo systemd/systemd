@@ -51,6 +51,7 @@ struct udev_device {
 	char *sysname;
 	const char *sysnum;
 	char *devnode;
+	mode_t devnode_mode;
 	char *subsystem;
 	char *devtype;
 	char *driver;
@@ -199,6 +200,8 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
 		udev_device_set_timeout(udev_device, strtoull(&property[8], NULL, 10));
 	} else if (strncmp(property, "IFINDEX=", 8) == 0) {
 		udev_device_set_ifindex(udev_device, strtoull(&property[8], NULL, 10));
+	} else if (strncmp(property, "DEVMODE=", 8) == 0) {
+		udev_device_set_devnode_mode(udev_device, strtoul(&property[8], NULL, 8));
 	} else {
 		udev_device_add_property_from_string(udev_device, property);
 	}
@@ -343,6 +346,8 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 			udev_device_set_ifindex(udev_device, strtoull(&line[8], NULL, 10));
 		else if (strncmp(line, "DEVNAME=", 8) == 0)
 			udev_device_set_knodename(udev_device, &line[8]);
+		else if (strncmp(line, "DEVMODE=", 8) == 0)
+			udev_device->devnode_mode = strtoul(&line[8], NULL, 8);
 
 		udev_device_add_property_from_string(udev_device, line);
 	}
@@ -930,6 +935,13 @@ const char *udev_device_get_devnode(struct udev_device *udev_device)
 	return udev_device->devnode;
 }
 
+mode_t udev_device_get_devnode_mode(struct udev_device *udev_device)
+{
+	if (!udev_device->info_loaded)
+		udev_device_read_uevent_file(udev_device);
+	return udev_device->devnode_mode;
+}
+
 /**
  * udev_device_get_subsystem:
  * @udev_device: udev device
@@ -1411,6 +1423,16 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 	if (udev_device->devnode == NULL)
 		return -ENOMEM;
 	udev_device_add_property(udev_device, "DEVNAME", udev_device->devnode);
+	return 0;
+}
+
+int udev_device_set_devnode_mode(struct udev_device *udev_device, mode_t mode)
+{
+	char num[32];
+
+	udev_device->devnode_mode = mode;
+	snprintf(num, sizeof(num), "%#o", mode);
+	udev_device_add_property(udev_device, "DEVMODE", num);
 	return 0;
 }
 

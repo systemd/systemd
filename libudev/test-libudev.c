@@ -221,7 +221,7 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate)
 
 static int test_monitor(struct udev *udev)
 {
-	struct udev_monitor *udev_monitor;
+	struct udev_monitor *udev_monitor = NULL;
 	int fd_ep;
 	int fd_udev = -1;
 	struct epoll_event ep_udev, ep_stdin;

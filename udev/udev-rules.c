@@ -2443,19 +2443,22 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			}
 		case TK_A_MODE:
 			{
-				char mode[UTIL_NAME_SIZE];
+				char mode_str[UTIL_NAME_SIZE];
+				mode_t mode;
 				char *endptr;
 
 				if (event->mode_final)
 					break;
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], mode_str, sizeof(mode_str));
+				mode = strtol(mode_str, &endptr, 8);
+				if (endptr[0] != '\0') {
+					err(event->udev, "ignoring invalid mode '%s'\n", mode_str);
+					break;
+				}
 				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->mode_final = true;
-				udev_event_apply_format(event, &rules->buf[cur->key.value_off], mode, sizeof(mode));
-				event->mode = strtol(mode, &endptr, 8);
-				if (endptr[0] != '\0') {
-					err(event->udev, "invalide mode '%s' set default mode 0600\n", mode);
-					event->mode = 0600;
-				}
+				event->mode_set = true;
+				event->mode = mode;
 				info(event->udev, "MODE %#o %s:%u\n",
 				     event->mode,
 				     &rules->buf[rule->rule.filename_off],
@@ -2489,6 +2492,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				break;
 			if (cur->key.op == OP_ASSIGN_FINAL)
 				event->mode_final = true;
+			event->mode_set = true;
 			event->mode = cur->key.mode;
 			info(event->udev, "MODE %#o %s:%u\n",
 			     event->mode,

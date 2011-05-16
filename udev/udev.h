@@ -49,6 +49,7 @@ struct udev_event {
 	bool inotify_watch_final;
 	bool group_final;
 	bool owner_final;
+	bool mode_set;
 	bool mode_final;
 	bool name_final;
 	bool devlink_final;

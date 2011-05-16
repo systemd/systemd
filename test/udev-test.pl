@@ -1487,7 +1487,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "sda",
-		exp_perms	=> "0:0:0600",
+		exp_perms	=> "0:0:0440",
 		exp_rem_error	=> "yes",
 		rules		=> <<EOF
 KERNEL=="sda", MODE="440"

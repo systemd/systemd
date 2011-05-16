@@ -1,5 +1,3 @@
- - support kernel-supplied DEVMODE=
-
  - /run/udev/control socket
 
  - read settle_timout from udev.conf
