@@ -825,13 +825,11 @@ int main(int argc, char *argv[])
 {
 	struct udev *udev;
 	static const struct option options[] = {
-		{ "export", no_argument, NULL, 'x' },
 		{ "debug", no_argument, NULL, 'd' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 	const char *node = NULL;
-	int export = 0;
 	int fd = -1;
 	int cnt;
 	int rc = 0;
@@ -846,7 +844,7 @@ int main(int argc, char *argv[])
 	while (1) {
 		int option;
 
-		option = getopt_long(argc, argv, "dxh", options, NULL);
+		option = getopt_long(argc, argv, "dh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -856,12 +854,8 @@ int main(int argc, char *argv[])
 			if (udev_get_log_priority(udev) < LOG_INFO)
 				udev_set_log_priority(udev, LOG_INFO);
 			break;
-		case 'x':
-			export = 1;
-			break;
 		case 'h':
 			printf("Usage: cdrom_id [options] <device>\n"
-			       "  --export        export key/value pairs\n"
 			       "  --debug         debug to stderr\n"
 			       "  --help          print this help text\n\n");
 			goto exit;
