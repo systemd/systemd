@@ -365,9 +365,6 @@ static void worker_new(struct event *event)
 						switch (fdsi.ssi_signo) {
 						case SIGTERM:
 							goto out;
-						case SIGALRM:
-							rc = EXIT_FAILURE;
-							goto out;
 						}
 					}
 				}
