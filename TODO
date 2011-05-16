@@ -1,15 +1,19 @@
-  - read settle_timout from udev.conf
+ - support kernel-supplied DEVMODE=
 
-  - db_persist -> lvm.git
+ - /run/udev/control socket
 
-  - rules_generator:
-    - no longer rename netif in kernel namespace
-    - do not create rules on-the-fly, require explicit
-      configuration
-    - drop persistent optical names
+ - read settle_timout from udev.conf
 
-  - kill tabs?
+ - db_persist -> lvm.git?
 
-  - remove deprecated trigger --type=failed logic
+ - rules_generator:
+   - no longer rename netif in kernel namespace
+   - do not create rules on-the-fly, require explicit
+     configuration
+   - drop persistent optical names
 
-  - remove deprecated BUS=, SYSFS{}=, ID= keys
+ - kill tabs?
+
+ - remove deprecated trigger --type=failed logic
+
+ - remove deprecated BUS=, SYSFS{}=, ID= keys
