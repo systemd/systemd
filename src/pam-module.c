@@ -505,7 +505,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 goto finish;
         }
 
-        pam_syslog(handle, LOG_INFO, "Moving new user session for %s into control group %s.", username, buf);
+        pam_syslog(handle, LOG_DEBUG, "Moving new user session for %s into control group %s.", username, buf);
 
         if ((r = create_user_group(handle, SYSTEMD_CGROUP_CONTROLLER, buf, pw, true, true)) != PAM_SUCCESS)
                 goto finish;
@@ -676,13 +676,13 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 }
 
                 if (kill_session && check_user_lists(handle, pw->pw_uid, kill_only_users, kill_exclude_users))  {
-                        pam_syslog(handle, LOG_INFO, "Killing remaining processes of user session %s of %s.", id, username);
+                        pam_syslog(handle, LOG_DEBUG, "Killing remaining processes of user session %s of %s.", id, username);
 
                         /* Kill processes in session cgroup, and delete it */
                         if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, session_path, true)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to kill session cgroup: %s", strerror(-r));
                 } else {
-                        pam_syslog(handle, LOG_INFO, "Moving remaining processes of user session %s of %s into control group %s.", id, username, nosession_path);
+                        pam_syslog(handle, LOG_DEBUG, "Moving remaining processes of user session %s of %s into control group %s.", id, username, nosession_path);
 
                         /* Migrate processes from session to user
                          * cgroup. First, try to create the user group
