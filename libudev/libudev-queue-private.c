@@ -164,7 +164,7 @@ static struct queue_devpaths *build_index(struct udev_queue_export *udev_queue_e
 	devpaths->devpaths_size = range + 1;
 
 	/* read all records and populate the table */
-	while(1) {
+	for (;;) {
 		if (udev_queue_read_seqnum(udev_queue_export->queue_file, &seqnum) < 0)
 			break;
 		n = seqnum - udev_queue_export->seqnum_max;
@@ -303,8 +303,10 @@ static int write_queue_record(struct udev_queue_export *udev_queue_export,
 	len = (devpath_len < USHRT_MAX) ? devpath_len : USHRT_MAX;
 	if (fwrite(&len, sizeof(unsigned short), 1, udev_queue_export->queue_file) != 1)
 		goto write_error;
-	if (fwrite(devpath, 1, len, udev_queue_export->queue_file) != len)
-		goto write_error;
+	if (len > 0) {
+		if (fwrite(devpath, 1, len, udev_queue_export->queue_file) != len)
+			goto write_error;
+	}
 
 	/* *must* flush output; caller may fork */
 	if (fflush(udev_queue_export->queue_file) != 0)
@@ -342,6 +344,7 @@ static int update_queue(struct udev_queue_export *udev_queue_export,
 	int bytes;
 	int err;
 
+	/* FINISHED records have a zero length devpath */
 	if (state == DEVICE_QUEUED) {
 		devpath = udev_device_get_devpath(udev_device);
 		devpath_len = strlen(devpath);
@@ -353,12 +356,9 @@ static int update_queue(struct udev_queue_export *udev_queue_export,
 			return -1;
 	}
 
-	/* when the queue file grows too large, garbage-collect and rebuild it */
-	bytes = ftell(udev_queue_export->queue_file) + queue_record_size(devpath_len);
-
 	/* if we're removing the last event from the queue, that's the best time to rebuild it */
-	if (state != DEVICE_QUEUED && udev_queue_export->queued_count == 1 && bytes > 2048) {
-		/* because we don't need to read the old queue file */
+	if (state != DEVICE_QUEUED && udev_queue_export->queued_count == 1) {
+		/* we don't need to read the old queue file */
 		fclose(udev_queue_export->queue_file);
 		udev_queue_export->queue_file = NULL;
 		rebuild_queue_file(udev_queue_export);
@@ -366,6 +366,7 @@ static int update_queue(struct udev_queue_export *udev_queue_export,
 	}
 
 	/* try to rebuild the queue files before they grow larger than one page. */
+	bytes = ftell(udev_queue_export->queue_file) + queue_record_size(devpath_len);
 	if ((udev_queue_export->waste_bytes > bytes / 2) && bytes > 4096)
 		rebuild_queue_file(udev_queue_export);
 

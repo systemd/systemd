@@ -153,7 +153,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	if (pfd[0].fd < 0) {
 		err(udev, "inotify_init failed: %m\n");
 	} else {
-		if (inotify_add_watch(pfd[0].fd, udev_get_run_path(udev), IN_CLOSE_WRITE) < 0) {
+		if (inotify_add_watch(pfd[0].fd, udev_get_run_path(udev), IN_MOVED_TO) < 0) {
 			err(udev, "watching '%s' failed\n", udev_get_run_path(udev));
 			close(pfd[0].fd);
 			pfd[0].fd = -1;
