@@ -41,7 +41,6 @@ typedef struct _GUdevEnumeratorPrivate GUdevEnumeratorPrivate;
 
 /**
  * GUdevEnumerator:
- * @parent: Parent instance.
  *
  * The #GUdevEnumerator struct is opaque and should not be accessed directly.
  *

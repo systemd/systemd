@@ -19,6 +19,8 @@ g_udev_client_get_type
 G_UDEV_CLIENT_CLASS
 G_UDEV_IS_CLIENT_CLASS
 G_UDEV_CLIENT_GET_CLASS
+<SUBSECTION Private>
+GUdevClientPrivate
 </SECTION>
 
 <SECTION>
@@ -65,6 +67,8 @@ g_udev_device_get_type
 G_UDEV_DEVICE_CLASS
 G_UDEV_IS_DEVICE_CLASS
 G_UDEV_DEVICE_GET_CLASS
+<SUBSECTION Private>
+GUdevDevicePrivate
 </SECTION>
 
 <SECTION>
@@ -91,4 +95,19 @@ g_udev_enumerator_get_type
 G_UDEV_ENUMERATOR_CLASS
 G_UDEV_IS_ENUMERATOR_CLASS
 G_UDEV_ENUMERATOR_GET_CLASS
+<SUBSECTION Private>
+GUdevEnumeratorPrivate
+</SECTION>
+
+<SECTION>
+<FILE>gudevmarshal</FILE>
+<SUBSECTION Private>
+g_udev_marshal_VOID__STRING_OBJECT
+</SECTION>
+
+<SECTION>
+<FILE>gudevenumtypes</FILE>
+<SUBSECTION Private>
+G_TYPE_UDEV_DEVICE_TYPE
+g_udev_device_type_get_type
 </SECTION>

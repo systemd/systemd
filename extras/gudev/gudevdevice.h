@@ -41,7 +41,6 @@ typedef struct _GUdevDevicePrivate GUdevDevicePrivate;
 
 /**
  * GUdevDevice:
- * @parent: Parent instance.
  *
  * The #GUdevDevice struct is opaque and should not be accessed directly.
  */

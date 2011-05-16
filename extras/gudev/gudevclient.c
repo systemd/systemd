@@ -460,6 +460,8 @@ g_udev_client_query_by_device_file (GUdevClient  *client,
  * @sysfs_path: A sysfs path.
  *
  * Looks up a device for a sysfs path.
+ *
+ * Returns: (transfer full): A #GUdevDevice object or %NULL if the device was not found. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_client_query_by_sysfs_path (GUdevClient  *client,

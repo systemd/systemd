@@ -41,7 +41,6 @@ typedef struct _GUdevClientPrivate GUdevClientPrivate;
 
 /**
  * GUdevClient:
- * @parent: Parent instance.
  *
  * The #GUdevClient struct is opaque and should not be accessed directly.
  */
