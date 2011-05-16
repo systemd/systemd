@@ -1408,6 +1408,13 @@ int main(int argc, char *argv[])
 
 	udev_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
 
+	/* create queue file before signalling 'ready', to make sure we block 'settle' */
+	udev_queue_export = udev_queue_export_new(udev);
+	if (udev_queue_export == NULL) {
+		err(udev, "error creating queue file\n");
+		goto exit;
+	}
+
 	if (daemonize) {
 		pid_t pid;
 		int fd;
@@ -1421,8 +1428,8 @@ int main(int argc, char *argv[])
 			rc = 4;
 			goto exit;
 		default:
-			rc = 0;
-			goto exit;
+			rc = EXIT_SUCCESS;
+			goto exit_keep_queue;
 		}
 
 		setsid();
@@ -1518,12 +1525,6 @@ int main(int argc, char *argv[])
 	rules = udev_rules_new(udev, resolve_names);
 	if (rules == NULL) {
 		err(udev, "error reading rules\n");
-		goto exit;
-	}
-
-	udev_queue_export = udev_queue_export_new(udev);
-	if (udev_queue_export == NULL) {
-		err(udev, "error creating queue file\n");
 		goto exit;
 	}
 
@@ -1708,9 +1709,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	udev_queue_export_cleanup(udev_queue_export);
-	rc = 0;
+	rc = EXIT_SUCCESS;
 exit:
+	udev_queue_export_cleanup(udev_queue_export);
+exit_keep_queue:
 	if (fd_ep >= 0)
 		close(fd_ep);
 	worker_list_cleanup(udev);
