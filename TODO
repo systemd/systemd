@@ -24,7 +24,16 @@ Features:
 
 * add dbus call to convert snapshot ino target
 
-* make use of TIOCVHANGUP
+* move nss-myhostname into systemd
+
+* figure out a standard place to configure timezone name, inform myllynen@redhat.com
+
+* add dbus call to convert snapshot into target
+
+* make use of TIOCVHANGUP to revoke access to tty before we spawn a getty on it
+
+* release VT before we spawn a getty on it to entirely clear scrollback buffer
+  https://bugzilla.redhat.com/show_bug.cgi?id=701704
 
 * move /selinux to /sys/fs/selinux
 
@@ -32,14 +41,9 @@ Features:
 
 * add prefix match to sysctl, tmpfiles, ...
 
-* Add ConditionPathExists= checks to binfmt automount units, to avoid
-  installing the automount point if the directory does not exist.
-
 * drop /.readahead on bigger upgrades with yum
 
 * add inode stat() check to readahead to suppress preloading changed files
-
-* POSIX mqueue support in .socket units
 
 * allow list of pathes in config_parse_condition_path()
 

@@ -41,6 +41,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <limits.h>
+
+#if defined(__linux__)
+#include <mqueue.h>
+#endif
 
 #include "sd-daemon.h"
 
@@ -323,6 +328,43 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
         }
 
         return 1;
+}
+
+int sd_is_mq(int fd, const char *path) {
+#if !defined(__linux__)
+        return 0;
+#else
+        struct mq_attr attr;
+
+        if (fd < 0)
+                return -EINVAL;
+
+        if (mq_getattr(fd, &attr) < 0)
+                return -errno;
+
+        if (path) {
+                char fpath[PATH_MAX];
+                struct stat a, b;
+
+                if (path[0] != '/')
+                        return -EINVAL;
+
+                if (fstat(fd, &a) < 0)
+                        return -errno;
+
+                strncpy(stpcpy(fpath, "/dev/mqueue"), path, sizeof(fpath) - 12);
+                fpath[sizeof(fpath)-1] = 0;
+
+                if (stat(fpath, &b) < 0)
+                        return -errno;
+
+                if (a.st_dev != b.st_dev ||
+                    a.st_ino != b.st_ino)
+                        return 0;
+        }
+
+        return 1;
+#endif
 }
 
 int sd_notify(int unset_environment, const char *state) {

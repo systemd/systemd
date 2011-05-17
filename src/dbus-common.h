@@ -125,6 +125,7 @@ int bus_property_append_uint32(DBusMessageIter *i, const char *property, void *d
 int bus_property_append_uint64(DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_size(DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_ul(DBusMessageIter *i, const char *property, void *data);
+int bus_property_append_long(DBusMessageIter *i, const char *property, void *data);
 
 #define bus_property_append_int bus_property_append_int32
 #define bus_property_append_pid bus_property_append_uint32

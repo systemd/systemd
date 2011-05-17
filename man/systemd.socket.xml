@@ -250,6 +250,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ListenMessageQueue=</varname></term>
+                                <listitem><para>Specifies a POSIX
+                                message queue name to listen on. This
+                                expects a valid message queue name
+                                (i.e. beginning with /). Behaviour
+                                otherwise is very similar to the
+                                <varname>ListenFIFO=</varname>
+                                directive above. On Linux message
+                                queue descriptors are actually file
+                                descriptors and can be inherited
+                                between processes.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>BindIPv6Only=</varname></term>
                                 <listitem><para>Takes a one of
                                 <option>default</option>,
@@ -459,6 +473,19 @@
                                 of FIFOs configured in this socket
                                 unit.  See
                                 <citerefentry><refentrytitle>fcntl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>MessageQueueMaxMessages=</varname>,
+                                <varname>MessageQueueMessageSize=</varname></term>
+                                <listitem><para>These two settings
+                                take integer values and control the
+                                mq_maxmsg resp. mq_msgsize field when
+                                creating the message queue. Note that
+                                either none or both of these variables
+                                need to be set. See
+                                <citerefentry><refentrytitle>mq_setattr</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 for details.</para></listitem>
                         </varlistentry>
 

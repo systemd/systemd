@@ -247,6 +247,32 @@ int config_parse_int(
         return 0;
 }
 
+int config_parse_long(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        long *i = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((r = safe_atoli(rvalue, i)) < 0) {
+                log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
+                return r;
+        }
+
+        return 0;
+}
+
 int config_parse_uint64(
                 const char *filename,
                 unsigned line,

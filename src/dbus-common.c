@@ -568,6 +568,21 @@ int bus_property_append_ul(DBusMessageIter *i, const char *property, void *data)
         return 0;
 }
 
+int bus_property_append_long(DBusMessageIter *i, const char *property, void *data) {
+        uint64_t u;
+
+        assert(i);
+        assert(property);
+        assert(data);
+
+        u = (int64_t) *(long*) data;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT64, &u))
+                return -ENOMEM;
+
+        return 0;
+}
+
 const char *bus_errno_to_dbus(int error) {
 
         switch(error) {

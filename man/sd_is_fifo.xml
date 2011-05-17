@@ -47,6 +47,7 @@
                 <refname>sd_is_socket</refname>
                 <refname>sd_is_socket_inet</refname>
                 <refname>sd_is_socket_unix</refname>
+                <refname>sd_is_mq</refname>
                 <refpurpose>Check the type of a file descriptor</refpurpose>
         </refnamediv>
 
@@ -84,6 +85,12 @@
                                 <paramdef>int <parameter>listening</parameter></paramdef>
                                 <paramdef>const char* <parameter>path</parameter></paramdef>
                                 <paramdef>size_t <parameter>length</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_is_mq</function></funcdef>
+                                <paramdef>int <parameter>fd</parameter></paramdef>
+                                <paramdef>const char *<parameter>path</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>
@@ -136,6 +143,13 @@
                 address, including the initial 0 byte and set
                 <parameter>path</parameter> to the initial 0 byte of
                 the socket address.</para>
+
+                <para><function>sd_is_mq()</function> may be called to
+                check whether the specified file descriptor refers to
+                a POSIX message queue. If the
+                <parameter>path</parameter> parameter is not NULL, it
+                is checked whether the message queue is bound to the
+                specified name.</para>
         </refsect1>
 
         <refsect1>

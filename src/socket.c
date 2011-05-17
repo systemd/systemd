@@ -27,6 +27,7 @@
 #include <sys/epoll.h>
 #include <signal.h>
 #include <arpa/inet.h>
+#include <mqueue.h>
 
 #include "unit.h"
 #include "socket.h"
@@ -248,8 +249,7 @@ static bool socket_needs_mount(Socket *s, const char *prefix) {
                 if (p->type == SOCKET_SOCKET) {
                         if (socket_address_needs_mount(&p->address, prefix))
                                 return true;
-                } else {
-                        assert(p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL);
+                } else if (p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL) {
                         if (path_startswith(p->path, prefix))
                                 return true;
                 }
@@ -468,6 +468,16 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sMark: %i\n",
                         prefix, s->mark);
 
+        if (s->mq_maxmsg > 0)
+                fprintf(f,
+                        "%sMessageQueueMaxMessages: %li\n",
+                        prefix, s->mq_maxmsg);
+
+        if (s->mq_msgsize > 0)
+                fprintf(f,
+                        "%sMessageQueueMessageSize: %li\n",
+                        prefix, s->mq_msgsize);
+
         LIST_FOREACH(port, p, s->ports) {
 
                 if (p->type == SOCKET_SOCKET) {
@@ -484,6 +494,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         free(k);
                 } else if (p->type == SOCKET_SPECIAL)
                         fprintf(f, "%sListenSpecial: %s\n", prefix, p->path);
+                else if (p->type == SOCKET_MQUEUE)
+                        fprintf(f, "%sListenMessageQueue: %s\n", prefix, p->path);
                 else
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
         }
@@ -790,6 +802,66 @@ fail:
         return r;
 }
 
+static int mq_address_create(
+                const char *path,
+                mode_t mq_mode,
+                long maxmsg,
+                long msgsize,
+                int *_fd) {
+
+        int fd = -1, r = 0;
+        struct stat st;
+        mode_t old_mask;
+        struct mq_attr _attr, *attr = NULL;
+
+        assert(path);
+        assert(_fd);
+
+        if (maxmsg > 0 && msgsize > 0) {
+                zero(_attr);
+                _attr.mq_flags = O_NONBLOCK;
+                _attr.mq_maxmsg = maxmsg;
+                _attr.mq_msgsize = msgsize;
+                attr = &_attr;
+        }
+
+        /* Enforce the right access mode for the mq */
+        old_mask = umask(~ mq_mode);
+
+        /* Include the original umask in our mask */
+        umask(~mq_mode | old_mask);
+
+        fd = mq_open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_CREAT, mq_mode, attr);
+        umask(old_mask);
+
+        if (fd < 0 && errno != EEXIST) {
+                r = -errno;
+                goto fail;
+        }
+
+        if (fstat(fd, &st) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if ((st.st_mode & 0777) != (mq_mode & ~old_mask) ||
+            st.st_uid != getuid() ||
+            st.st_gid != getgid()) {
+
+                r = -EEXIST;
+                goto fail;
+        }
+
+        *_fd = fd;
+        return 0;
+
+fail:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        return r;
+}
+
 static int socket_open_fds(Socket *s) {
         SocketPort *p;
         int r;
@@ -850,7 +922,15 @@ static int socket_open_fds(Socket *s) {
                                 goto rollback;
 
                         socket_apply_fifo_options(s, p->fd);
+                } else if (p->type == SOCKET_MQUEUE) {
 
+                        if ((r = mq_address_create(
+                                             p->path,
+                                             s->socket_mode,
+                                             s->mq_maxmsg,
+                                             s->mq_msgsize,
+                                             &p->fd)) < 0)
+                                goto rollback;
                 } else
                         assert_not_reached("Unknown port type");
         }

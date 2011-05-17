@@ -231,6 +231,17 @@ static int config_parse_listen(
 
                 path_kill_slashes(p->path);
 
+        } else if (streq(lvalue, "ListenMessageQueue")) {
+
+                p->type = SOCKET_MQUEUE;
+
+                if (!(p->path = strdup(rvalue))) {
+                        free(p);
+                        return -ENOMEM;
+                }
+
+                path_kill_slashes(p->path);
+
         } else if (streq(lvalue, "ListenNetlink")) {
                 p->type = SOCKET_SOCKET;
 
@@ -1921,6 +1932,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ListenFIFO",             config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "ListenNetlink",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "ListenSpecial",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
+                { "ListenMessageQueue",     config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "BindIPv6Only",           config_parse_socket_bind,     0, &u->socket,                                      "Socket"  },
                 { "Backlog",                config_parse_unsigned,        0, &u->socket.backlog,                              "Socket"  },
                 { "BindToDevice",           config_parse_bindtodevice,    0, &u->socket,                                      "Socket"  },
@@ -1943,6 +1955,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PipeSize",               config_parse_size,            0, &u->socket.pipe_size,                            "Socket"  },
                 { "FreeBind",               config_parse_bool,            0, &u->socket.free_bind,                            "Socket"  },
                 { "TCPCongestion",          config_parse_string,          0, &u->socket.tcp_congestion,                       "Socket"  },
+                { "MessageQueueMaxMessages", config_parse_long,           0, &u->socket.mq_maxmsg,                            "Socket"  },
+                { "MessageQueueMessageSize", config_parse_long,           0, &u->socket.mq_msgsize,                           "Socket"  },
                 { "Service",                config_parse_socket_service,  0, &u->socket,                                      "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 

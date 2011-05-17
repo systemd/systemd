@@ -111,6 +111,8 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { "org.freedesktop.systemd1.Socket", "MaxConnections", bus_property_append_unsigned,     "u", &u->socket.max_connections },
                 { "org.freedesktop.systemd1.Socket", "NConnections",   bus_property_append_unsigned,     "u", &u->socket.n_connections   },
                 { "org.freedesktop.systemd1.Socket", "NAccepted",      bus_property_append_unsigned,     "u", &u->socket.n_accepted      },
+                { "org.freedesktop.systemd1.Socket", "MessageQueueMaxMessages", bus_property_append_long,"t", &u->socket.mq_maxmsg       },
+                { "org.freedesktop.systemd1.Socket", "MessageQueueMessageSize", bus_property_append_long,"t", &u->socket.mq_msgsize      },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

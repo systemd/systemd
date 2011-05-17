@@ -59,6 +59,7 @@ typedef enum SocketType {
         SOCKET_SOCKET,
         SOCKET_FIFO,
         SOCKET_SPECIAL,
+        SOCKET_MQUEUE,
         _SOCKET_FIFO_MAX,
         _SOCKET_FIFO_INVALID = -1
 } SocketType;
@@ -124,6 +125,8 @@ struct Socket {
         size_t pipe_size;
         char *bind_to_device;
         char *tcp_congestion;
+        long mq_maxmsg;
+        long mq_msgsize;
 };
 
 /* Called from the service code when collecting fds */
