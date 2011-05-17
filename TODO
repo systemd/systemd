@@ -28,6 +28,8 @@ Features:
 
 * unset cgroup agents on shutdown
 
+* add prefix match to sysctl, tmpfiles, ...
+
 * Add ConditionPathExists= checks to binfmt automount units, to avoid
   installing the automount point if the directory does not exist.
 
