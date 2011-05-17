@@ -2261,7 +2261,7 @@ int ask(char *ret, const char *replies, const char *text, ...) {
         }
 }
 
-int reset_terminal(int fd) {
+int reset_terminal_fd(int fd) {
         struct termios termios;
         int r = 0;
         long arg;
@@ -2319,6 +2319,19 @@ int reset_terminal(int fd) {
 finish:
         /* Just in case, flush all crap out */
         tcflush(fd, TCIOFLUSH);
+
+        return r;
+}
+
+int reset_terminal(const char *name) {
+        int fd, r;
+
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        r = reset_terminal_fd(fd);
+        close_nointr_nofail(fd);
 
         return r;
 }
@@ -2443,8 +2456,8 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                 /* We pass here O_NOCTTY only so that we can check the return
                  * value TIOCSCTTY and have a reliable way to figure out if we
                  * successfully became the controlling process of the tty */
-                if ((fd = open_terminal(name, O_RDWR|O_NOCTTY)) < 0)
-                        return -errno;
+                if ((fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
+                        return fd;
 
                 /* First, try to get the tty */
                 r = ioctl(fd, TIOCSCTTY, force);
@@ -2511,7 +2524,7 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
         if (notify >= 0)
                 close_nointr_nofail(notify);
 
-        if ((r = reset_terminal(fd)) < 0)
+        if ((r = reset_terminal_fd(fd)) < 0)
                 log_warning("Failed to reset terminal: %s", strerror(-r));
 
         return fd;
@@ -4411,6 +4424,123 @@ char* hostname_cleanup(char *s) {
 
         strshorten(s, HOST_NAME_MAX);
         return s;
+}
+
+int terminal_vhangup_fd(int fd) {
+        if (ioctl(fd, TIOCVHANGUP) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int terminal_vhangup(const char *name) {
+        int fd, r;
+
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        r = terminal_vhangup_fd(fd);
+        close_nointr_nofail(fd);
+
+        return r;
+}
+
+int vt_disallocate(const char *name) {
+        int fd, r;
+        unsigned u;
+        int temporary_vt, temporary_fd;
+        char tpath[64];
+        struct vt_stat vt_stat;
+
+        /* Deallocate the VT if possible. If not possible
+         * (i.e. because it is the active one), at least clear it
+         * entirely (including the scrollback buffer) */
+
+        if (!tty_is_vc(name))
+                return -EIO;
+
+        if (!startswith(name, "/dev/tty"))
+                return -EINVAL;
+
+        r = safe_atou(name+8, &u);
+        if (r < 0)
+                return r;
+
+        if (u <= 0)
+                return -EIO;
+
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        r = ioctl(fd, VT_DISALLOCATE, u);
+        if (r >= 0) {
+                close_nointr_nofail(fd);
+                return 0;
+        }
+
+        if (errno != EBUSY) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        if (ioctl(fd, VT_GETSTATE, &vt_stat) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        if (u != vt_stat.v_active) {
+                close_nointr_nofail(fd);
+                return -EBUSY;
+        }
+
+        if (ioctl(fd, VT_OPENQRY, &temporary_vt) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        if (temporary_vt <= 0) {
+                close_nointr_nofail(fd);
+                return -EIO;
+        }
+
+        /* Switch to temporary VT */
+        snprintf(tpath, sizeof(tpath), "/dev/tty%i", temporary_vt);
+        char_array_0(tpath);
+        temporary_fd = open_terminal(tpath, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        ioctl(fd, VT_ACTIVATE, temporary_vt);
+        if (temporary_fd >= 0)
+                close_nointr_nofail(temporary_fd);
+
+        /* Reopen /dev/tty0 */
+        close_nointr_nofail(fd);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                r = -errno;
+        else {
+                /* Disallocate the real VT */
+                if (ioctl(fd, VT_DISALLOCATE, u) < 0)
+                        r = -errno;
+                else
+                        r = 0;
+        }
+
+        /* Recreate original VT */
+        temporary_fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+
+        if (temporary_fd >= 0) {
+                loop_write(temporary_fd, "\033[H\033[2J", 7, false); /* clear screen explicitly */
+                close_nointr_nofail(temporary_fd);
+        }
+
+        /* Switch back to original VT */
+        if (fd >= 0) {
+                ioctl(fd, VT_ACTIVATE, vt_stat.v_active);
+                close_nointr_nofail(fd);
+        }
+
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

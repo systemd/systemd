@@ -36,6 +36,10 @@ ExecStart=-/sbin/agetty %I 38400
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
 KillMode=process
 
 # Unset locale for the console getty since the console has problems

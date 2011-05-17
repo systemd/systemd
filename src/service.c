@@ -2571,7 +2571,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (s->main_pid == pid) {
 
                 s->main_pid = 0;
-                exec_status_exit(&s->main_exec_status, pid, code, status, s->exec_context.utmp_id);
+                exec_status_exit(&s->main_exec_status, &s->exec_context, pid, code, status);
 
                 /* If this is not a forking service than the main
                  * process got started and hence we copy the exit
@@ -2650,7 +2650,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->control_pid = 0;
 
                 if (s->control_command) {
-                        exec_status_exit(&s->control_command->exec_status, pid, code, status, s->exec_context.utmp_id);
+                        exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
                         if (s->control_command->ignore)
                                 success = true;

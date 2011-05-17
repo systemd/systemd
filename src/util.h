@@ -315,7 +315,9 @@ int chvt(int vt);
 int read_one_char(FILE *f, char *ret, bool *need_nl);
 int ask(char *ret, const char *replies, const char *text, ...);
 
-int reset_terminal(int fd);
+int reset_terminal_fd(int fd);
+int reset_terminal(const char *name);
+
 int open_terminal(const char *name, int mode);
 int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocstty_eperm);
 int release_terminal(void);
@@ -410,6 +412,11 @@ bool hostname_is_valid(const char *s);
 char* hostname_cleanup(char *s);
 
 char* strshorten(char *s, size_t l);
+
+int terminal_vhangup_fd(int fd);
+int terminal_vhangup(const char *name);
+
+int vt_disallocate(const char *name);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

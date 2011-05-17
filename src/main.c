@@ -203,7 +203,7 @@ static int console_setup(bool do_reset) {
                 return -tty_fd;
         }
 
-        if ((r = reset_terminal(tty_fd)) < 0)
+        if ((r = reset_terminal_fd(tty_fd)) < 0)
                 log_error("Failed to reset /dev/console: %s", strerror(-r));
 
         close_nointr_nofail(tty_fd);

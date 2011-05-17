@@ -76,6 +76,10 @@
 #define AUDIT_SERVICE_STOP 1131 /* Service (daemon) stop */
 #endif
 
+#ifndef TIOCVHANGUP
+#define TIOCVHANGUP 0x5437
+#endif
+
 static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
 }

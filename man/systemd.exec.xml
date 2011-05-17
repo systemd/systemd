@@ -422,6 +422,36 @@
                                 <filename>/dev/console</filename>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><varname>TTYReset=</varname></term>
+                                <listitem><para>Reset the terminal
+                                device specified with
+                                <varname>TTYPath=</varname> before and
+                                after execution. Defaults to
+                                <literal>no</literal>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>TTYVHangup=</varname></term>
+                                <listitem><para>Disconnect all clients
+                                which have opened the terminal device
+                                specified with
+                                <varname>TTYPath=</varname>
+                                before and after execution. Defaults
+                                to
+                                <literal>no</literal>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>TTYVTDisallocate=</varname></term>
+                                <listitem><para>If the the terminal
+                                device specified with
+                                <varname>TTYPath=</varname> is a
+                                virtual console terminal try to
+                                deallocate the TTY before and after
+                                execution. This ensures that the
+                                screen and scrollback buffer is
+                                cleared. Defaults to
+                                <literal>no</literal>.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><varname>SyslogIdentifier=</varname></term>
                                 <listitem><para>Sets the process name
                                 to prefix log lines sent to syslog or

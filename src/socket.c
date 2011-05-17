@@ -1808,7 +1808,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         success = is_clean_exit(code, status);
 
         if (s->control_command) {
-                exec_status_exit(&s->control_command->exec_status, pid, code, status, s->exec_context.utmp_id);
+                exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
                 if (s->control_command->ignore)
                         success = true;

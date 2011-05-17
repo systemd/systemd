@@ -36,6 +36,9 @@ ExecStart=-/sbin/agetty -s %I 115200,38400,9600
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
 KillMode=process
 
 # Some login implementations ignore SIGTERM, so we send SIGHUP

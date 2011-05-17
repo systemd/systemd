@@ -22,18 +22,13 @@ Features:
 * Make it possible to set the keymap independently from the font on
   the kernel cmdline. Right now setting one resets also the other.
 
-* add dbus call to convert snapshot ino target
+* add dbus call to convert snapshot into target
 
 * move nss-myhostname into systemd
 
 * figure out a standard place to configure timezone name, inform myllynen@redhat.com
 
 * add dbus call to convert snapshot into target
-
-* make use of TIOCVHANGUP to revoke access to tty before we spawn a getty on it
-
-* release VT before we spawn a getty on it to entirely clear scrollback buffer
-  https://bugzilla.redhat.com/show_bug.cgi?id=701704
 
 * move /selinux to /sys/fs/selinux
 
@@ -45,13 +40,11 @@ Features:
 
 * add inode stat() check to readahead to suppress preloading changed files
 
-* allow list of pathes in config_parse_condition_path()
+* allow list of paths in config_parse_condition_path()
 
 * introduce dbus calls for enabling/disabling a service
 
 * support notifications for services being enabled/disabled
-
-* Maybe merge nss-myhostname into systemd?
 
 * GC unreferenced jobs (such as .device jobs)
 
@@ -68,7 +61,6 @@ Features:
 * write blog stories about:
   - enabling dbus services
   - status update
-  - you are a distro: why switch?
   - /etc/sysconfig and /etc/default
   - how to write socket activated services
 

@@ -123,6 +123,10 @@ struct ExecContext {
 
         char *tty_path;
 
+        bool tty_reset;
+        bool tty_vhangup;
+        bool tty_vt_disallocate;
+
         /* Since resolving these names might might involve socket
          * connections and we don't want to deadlock ourselves these
          * names are resolved on execution only and in the child
@@ -198,11 +202,12 @@ int exec_command_set(ExecCommand *c, const char *path, ...);
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
+void exec_context_tty_reset(const ExecContext *context);
 
 int exec_context_load_environment(const ExecContext *c, char ***l);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
-void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status, const char *utmp_id);
+void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
 
 const char* exec_output_to_string(ExecOutput i);

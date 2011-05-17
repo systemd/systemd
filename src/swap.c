@@ -940,7 +940,7 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         s->failure = s->failure || !success;
 
         if (s->control_command) {
-                exec_status_exit(&s->control_command->exec_status, pid, code, status, s->exec_context.utmp_id);
+                exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
                 s->control_command = NULL;
                 s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
         }
