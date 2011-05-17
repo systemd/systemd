@@ -1,9 +1,5 @@
  - /run/udev/control socket
 
- - read settle_timout from udev.conf
-
- - db_persist -> lvm.git?
-
  - rules_generator:
    - no longer rename netif in kernel namespace
    - do not create rules on-the-fly, require explicit
