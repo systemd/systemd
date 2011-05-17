@@ -69,7 +69,7 @@ static void socket_init(Unit *u) {
         s->backlog = SOMAXCONN;
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->directory_mode = 0755;
-        s->socket_mode = 0777;
+        s->socket_mode = 0666;
 
         s->max_connections = 64;
 
