@@ -183,8 +183,15 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 
 		if (pfd[0].fd >= 0) {
-			/* wake up once every second, or whenever the queue file gets gets closed */
-			if (poll(pfd, 1, 1000) > 0 && pfd[0].revents & POLLIN) {
+			int delay;
+
+			/* wake up after delay, or immediately after the queue is rebuilt */
+
+			if (exists != NULL || start > 0)
+				delay = 100;
+			else
+				delay = 1000;
+			if (poll(pfd, 1, delay) > 0 && pfd[0].revents & POLLIN) {
 				char buf[sizeof(struct inotify_event) + PATH_MAX];
 
 				read(pfd[0].fd, buf, sizeof(buf));
