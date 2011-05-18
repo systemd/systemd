@@ -1,3 +1,79 @@
+Summary of changes from v168 to v169
+============================================
+
+Kay Sievers (26):
+      simplify rules file overwrite logic
+      libudev: list - use bit flags for 'sort' and 'unique'
+      libudev: queue - _unref() should return the object
+      remove dead fstab_import files
+      hid2hci: prepare move to bluez package
+      set event timeout to 60 sec and settle timeout to 120
+      udevd: improve error message in case exec() fails
+      configure: allow to enable/disable extras individually
+      delete hid2hci which moved to the bluez tree
+      update TODO/NEWS
+      bump requirement to Linux kernel 2.6.32 and ARM 2.6.36
+      libudev: ctrl - log accept4() errors
+      update NEWS
+      update INSTALL, NEWS, configure comment, queue doc
+      update TODO
+      udevd: create queue file before daemonizing to reliably block 'settle'
+      udevd: remove left-over SIGALRM
+      gudev: silent gtk-doc warnings
+      cdrom_id: remove unused --export switch to silent gcc
+      libudev: queue - always rebuild queue file when nothing is queued anymore
+      libudev: device - use DEVMODE from kernel as the default mode
+      update TODO
+      Merge branch 'docs/udev.xml' of git://github.com/mfwitten/udev
+      udate TODO, NEWS, INSTALL
+      build: use --gc-sections, -fvisibility=hidden
+      udevadm: settle: wake up more often if --seq-start= or --exit-if-exists= is used
+
+Koen Kooi (1):
+      configure: reintroduce introspection flags to fix crosscompilation
+
+Michael Witten (36):
+      Docs: udev.xml: Offset daemon name with commas
+      Docs: udev.xml: Remove commas (and unnecessary repetition)
+      Docs: udev.xml: `are' -> `is'; the subject is `Access'
+      Docs: udev.xml: Use present tense
+      Docs: udev.xml: Clarification through proper wording
+      Docs: udev.xml: `,' -> `;'
+      Docs: udev.xml: `key value' -> `key-value'
+      Docs: udev.xml: `,' -> `:'
+      Docs: udev.xml: Use `assignment' consistently
+      Docs: udev.xml: `comma-separated' is a better description
+      Docs: udev.xml: Remove unnecessary repitition
+      Docs: udev.xml: Add a few more words for context
+      Docs: udev.xml: Use `unless' for clarity
+      Docs: udev.xml: Clarify PROGRAM key
+      Docs: udev.xml: `a shell style' -> `shell-style'
+      Docs: udev.xml: Clean `*' description
+      Docs: udev.xml: Clean character range description
+      Docs: udev.xml: Clean up description of NAME assignment key
+      Docs: udev.xml: Clean up description of SYMLINK assignment key
+      Docs: udev.xml: Clean up description of ENV assignment key
+      Docs: udev.xml: Clean up description of RUN assignment key
+      Docs: udev.xml: Clean up description of LABEL assignment key
+      Docs: udev.xml: Add missing `.'
+      Docs: udev.xml: `which' -> `content of which'
+      Docs: udev.xml: `commandline' -> `command line'
+      Docs: udev.xml: Clean up WAIT_FOR description
+      Docs: udev.xml: `a' -> `the'
+      Docs: udev.xml: Clean up introduction to substitutions.
+      Docs: udev.xml: Use normal sentence structure
+      Docs: udev.xml: Actually make a separate paragraph
+      Docs: udev.xml: Add comma
+      Docs: udev.xml: `char' -> `character'
+      Docs: udev.xml: `comma-separated' is a better description
+      Docs: udev.xml: Clarify through a change in word ordering
+      Docs: udev.xml: Improved word order
+      Docs: udev.xml: Fix dangling modifier
+
+Nix (1):
+      libudev: queue - accept NULL passed into udev_queue_export_cleanup()
+
+
 Summary of changes from v167 to v168
 ============================================
 

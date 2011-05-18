@@ -185,12 +185,11 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		if (pfd[0].fd >= 0) {
 			int delay;
 
-			/* wake up after delay, or immediately after the queue is rebuilt */
-
 			if (exists != NULL || start > 0)
 				delay = 100;
 			else
 				delay = 1000;
+			/* wake up after delay, or immediately after the queue is rebuilt */
 			if (poll(pfd, 1, delay) > 0 && pfd[0].revents & POLLIN) {
 				char buf[sizeof(struct inotify_event) + PATH_MAX];
 
