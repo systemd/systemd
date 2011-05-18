@@ -3,14 +3,15 @@ udev 169
 Bugfixes.
 
 We require at least Linux kernel 2.6.32 now. Some platforms might
-require a later kernel that supports accept4(), or need to backport
-the accept4() syscall wiring.
+require a later kernel that supports accept4() and similar, or
+need to backport the trivial syscall wiring to the older kernels.
 
-The hid2hci tool move to the bluez package and was removed.
+The hid2hci tool moved to the bluez package and was removed.
 
-Many of the extras can be --enabled/--disabled during configure
-now. The --disable-extras option was removed. To check the
-current options, the usual './configure --help' prints them.
+Many of the extras can be --enable/--disabled at ./configure
+time. The --disable-extras option was removed. Some extras have
+been disabled by default. The current options and their defaults
+can be checked with './configure --help'.
 
 udev 168
 ========

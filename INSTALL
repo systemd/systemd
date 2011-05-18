@@ -23,7 +23,7 @@ All options:
   --disable-logging
       Disable all logging and compile-out all log strings. This
       is not recommended, as it makes it almost impossible to debug
-      udev in the running system.
+      udev on the running system.
   --with-selinux
       Link against SELinux libraries to set the expected context
       for created files.

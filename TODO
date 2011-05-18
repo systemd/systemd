@@ -1,4 +1,8 @@
+ - delete mobile-action-modeswitch
+   (moved to usb_modeswitch)
+
  - /run/udev/control socket
+   (add ConditionVirtualization=!pidns)
 
  - rules_generator:
    - no longer rename netif in kernel namespace
