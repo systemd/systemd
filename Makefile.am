@@ -17,7 +17,13 @@ AM_CPPFLAGS = \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DLIBEXECDIR=\""$(libexecdir)"\"
 
+AM_CFLAGS = \
+	-fvisibility=hidden \
+	-ffunction-sections \
+	-fdata-sections
+
 AM_LDFLAGS = \
+	-Wl,--gc-sections \
 	-Wl,--as-needed
 
 DISTCHECK_CONFIGURE_FLAGS = \
@@ -53,6 +59,9 @@ libudev_libudev_la_SOURCES =\
 	libudev/libudev-enumerate.c \
 	libudev/libudev-monitor.c \
 	libudev/libudev-queue.c
+
+libudev_libudev_la_CFLAGS = \
+	-fvisibility=default
 
 libudev_libudev_la_LDFLAGS = \
 	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE) \
@@ -404,7 +413,11 @@ extras_gudev_libgudev_1_0_la_CPPFLAGS = \
 	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT \
 	-D_GUDEV_COMPILATION \
 	-DG_LOG_DOMAIN=\"GUdev\"
-extras_gudev_libgudev_1_0_la_CFLAGS = $(GLIB_CFLAGS)
+
+extras_gudev_libgudev_1_0_la_CFLAGS = \
+	-fvisibility=default \
+	$(GLIB_CFLAGS)
+
 extras_gudev_libgudev_1_0_la_LIBADD = libudev/libudev.la $(GLIB_LIBS)
 
 extras_gudev_libgudev_1_0_la_LDFLAGS = \
@@ -434,20 +447,20 @@ extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gud
 	    $@.tmp && mv $@.tmp $@
 
 if ENABLE_INTROSPECTION
-extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
-	$(AM_V_GEN)PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
-	LD_LIBRARY_PATH=$(top_builddir)/extras/gudev:$$LD_LIBRARY_PATH \
-	$(G_IR_SCANNER) -v \
+extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER)
+	$(AM_V_GEN)$(G_IR_SCANNER) -v \
+		--warn-all \
 		--namespace GUdev \
 		--nsversion=1.0 \
 		--include=GObject-2.0 \
 		--library=gudev-1.0 \
-		--library-path=extras/gudev \
+		--library-path=$(top_builddir)/libudev \
+		--library-path=$(top_builddir)/extras/gudev \
 		--output $@ \
 		--pkg=glib-2.0 \
 		--pkg=gobject-2.0 \
-		-I$(top_builddir)/extras \
 		-I$(top_srcdir)/extras \
+		-I$(top_builddir)/extras \
 		-D_GUDEV_COMPILATION \
 		-D_GUDEV_WORK_AROUND_DEV_T_BUG \
 		$(top_srcdir)/extras/gudev/gudev.h \
