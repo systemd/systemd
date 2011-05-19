@@ -1,3 +1,9 @@
+udev 170
+========
+Fix bug in control message handling, which can lead to a failing
+udevadm control --exit. Thanks to Jürg Billeter for help tracking
+it down.
+
 udev 169
 ========
 Bugfixes.

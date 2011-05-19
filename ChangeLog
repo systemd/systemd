@@ -1,3 +1,13 @@
+Summary of changes from v169 to v170
+============================================
+
+Kay Sievers (1):
+      libudev: ctrl - properly wait for incoming message after connect
+
+Michal Soltys (1):
+      configure.ac: fixes for rule_generator and modeswitch
+
+
 Summary of changes from v168 to v169
 ============================================
 
