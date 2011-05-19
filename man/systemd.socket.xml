@@ -515,6 +515,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>Broadcast=</varname></term>
+                                <listitem><para>Takes a boolean
+                                value. This controls the SO_BROADCAST
+                                option, which allows boradcast
+                                datagrams to be sent from this
+                                socket. Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>TCPCongestion=</varname></term>
                                 <listitem><para>Takes a string
                                 value. Controls the TCP congestion

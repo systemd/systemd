@@ -405,6 +405,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sKeepAlive: %s\n"
                 "%sFreeBind: %s\n"
                 "%sTransparent: %s\n"
+                "%sBroadcast: %s\n"
                 "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
@@ -414,6 +415,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->keep_alive),
                 prefix, yes_no(s->free_bind),
                 prefix, yes_no(s->transparent),
+                prefix, yes_no(s->broadcast),
                 prefix, strna(s->tcp_congestion));
 
         if (s->control_pid > 0)
@@ -647,6 +649,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int b = s->keep_alive;
                 if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &b, sizeof(b)) < 0)
                         log_warning("SO_KEEPALIVE failed: %m");
+        }
+
+        if (s->broadcast) {
+                int one = 1;
+                if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) < 0)
+                        log_warning("SO_BROADCAST failed: %m");
         }
 
         if (s->priority >= 0)

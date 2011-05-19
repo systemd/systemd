@@ -19,6 +19,8 @@ F15 External:
 
 Features:
 
+* drop -lrt req for sd-daemon.[ch]
+
 * Make it possible to set the keymap independently from the font on
   the kernel cmdline. Right now setting one resets also the other.
 
