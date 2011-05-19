@@ -176,6 +176,8 @@ int udev_ctrl_get_fd(struct udev_ctrl *uctrl)
 struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
 {
 	struct udev_ctrl_connection *conn;
+	struct ucred ucred;
+	socklen_t slen;
 	const int on = 1;
 
 	conn = calloc(1, sizeof(struct udev_ctrl_connection));
@@ -188,14 +190,29 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
 	if (conn->sock < 0) {
 		if (errno != EINTR)
 			err(uctrl->udev, "unable to receive ctrl connection: %m\n");
-		free(conn);
-		return NULL;
+		goto err;
 	}
 
-	/* enable receiving of the sender credentials */
+	/* check peer credential of connection */
+	slen = sizeof(ucred);
+	if (getsockopt(conn->sock, SOL_SOCKET, SO_PEERCRED, &ucred, &slen) < 0) {
+		err(uctrl->udev, "unable to receive credentials of ctrl connection: %m\n");
+		goto err;
+	}
+	if (ucred.uid > 0) {
+		err(uctrl->udev, "sender uid=%i, message ignored\n", ucred.uid);
+		goto err;
+	}
+
+	/* enable receiving of the sender credentials in the messages */
 	setsockopt(conn->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 	udev_ctrl_ref(uctrl);
 	return conn;
+err:
+	if (conn->sock >= 0)
+		close(conn->sock);
+	free(conn);
+	return NULL;
 }
 
 struct udev_ctrl_connection *udev_ctrl_connection_ref(struct udev_ctrl_connection *conn)
@@ -333,6 +350,32 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 	uctrl_msg->conn = conn;
 	udev_ctrl_connection_ref(conn);
 
+	/* wait for the incoming message */
+	for(;;) {
+		struct pollfd pfd[1];
+		int r;
+
+		pfd[0].fd = conn->sock;
+		pfd[0].events = POLLIN;
+
+		r = poll(pfd, 1, 10000);
+		if (r  < 0) {
+			if (errno == EINTR)
+				continue;
+			goto err;
+		} else if (r == 0) {
+			err(udev, "timeout waiting for ctrl message\n");
+			goto err;
+		} else {
+			if (!(pfd[0].revents & POLLIN)) {
+				err(udev, "ctrl connection error: %m\n");
+				goto err;
+			}
+		}
+
+		break;
+	}
+
 	iov.iov_base = &uctrl_msg->ctrl_msg_wire;
 	iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
 	memset(&smsg, 0x00, sizeof(struct msghdr));
@@ -342,7 +385,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 	smsg.msg_controllen = sizeof(cred_msg);
 	size = recvmsg(conn->sock, &smsg, 0);
 	if (size <  0) {
-		err(udev, "unable to receive user udevd message: %m\n");
+		err(udev, "unable to receive ctrl message: %m\n");
 		goto err;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);
