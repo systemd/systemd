@@ -2141,7 +2141,7 @@ bool fstype_is_network(const char *fstype) {
 int chvt(int vt) {
         int fd, r = 0;
 
-        if ((fd = open("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
+        if ((fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
                 return -errno;
 
         if (vt < 0) {
