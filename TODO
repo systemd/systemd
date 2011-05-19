@@ -19,6 +19,10 @@ F15 External:
 
 Features:
 
+* verify that the AF_UNIX sockets of a service in the fs still exist
+  when we start a service in order to avoid confusion when a user
+  assumes starting a service is enough to make it accessible
+
 * drop -lrt req for sd-daemon.[ch]
 
 * Make it possible to set the keymap independently from the font on
