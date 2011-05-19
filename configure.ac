@@ -75,10 +75,10 @@ AM_CONDITIONAL(WITH_SYSTEMD, [test -n "$with_systemdsystemunitdir" -a "x$with_sy
 # ------------------------------------------------------------------------------
 # rule_generator - persistent network and optical device rule generator
 # ------------------------------------------------------------------------------
-AC_ARG_ENABLE([hwdb],
+AC_ARG_ENABLE([rule_generator],
 	AS_HELP_STRING([--disable-rule_generator], [disable persistent network, cdrom support]),
 	[], [enable_rule_generator=yes])
-AM_CONDITIONAL([ENABLE_RULE_GENERATOR], [test "x$enable_rule_genarator" = xyes])
+AM_CONDITIONAL([ENABLE_RULE_GENERATOR], [test "x$enable_rule_generator" = xyes])
 
 # ------------------------------------------------------------------------------
 # usb/pci-db - read vendor/device string database
@@ -190,7 +190,7 @@ AM_CONDITIONAL([ENABLE_EDD], [test "x$enable_edd" = xyes])
 # ------------------------------------------------------------------------------
 # mobile-action-modeswitch - switch Mobile Action cables into serial mode
 # ------------------------------------------------------------------------------
-AC_ARG_ENABLE([ACTION_MODESWITCH],
+AC_ARG_ENABLE([action_modeswitch],
 	AS_HELP_STRING([--enable-action_modeswitch], [enable action modeswitch support]),
 	[], [enable_action_modeswitch=no])
 if test "x$enable_action_modeswitch" = xyes; then
