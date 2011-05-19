@@ -69,6 +69,9 @@
         "  <property name=\"StandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"StandardError\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"TTYPath\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"TTYReset\" type=\"b\" access=\"read\"/>\n"   \
+        "  <property name=\"TTYVHangup\" type=\"b\" access=\"read\"/>\n"   \
+        "  <property name=\"TTYVTDisallocate\" type=\"b\" access=\"read\"/>\n"   \
         "  <property name=\"SyslogPriority\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"SyslogIdentifier\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SyslogLevelPrefix\" type=\"b\" access=\"read\"/>\n" \
