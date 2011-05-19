@@ -404,6 +404,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sDirectoryMode: %04o\n"
                 "%sKeepAlive: %s\n"
                 "%sFreeBind: %s\n"
+                "%sTransparent: %s\n"
                 "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
@@ -412,6 +413,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
                 prefix, yes_no(s->free_bind),
+                prefix, yes_no(s->transparent),
                 prefix, strna(s->tcp_congestion));
 
         if (s->control_pid > 0)
@@ -897,6 +899,7 @@ static int socket_open_fds(Socket *s) {
                                              s->bind_ipv6_only,
                                              s->bind_to_device,
                                              s->free_bind,
+                                             s->transparent,
                                              s->directory_mode,
                                              s->socket_mode,
                                              label,

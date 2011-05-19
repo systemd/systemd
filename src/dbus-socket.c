@@ -49,6 +49,7 @@
         "  <property name=\"IPTTL\" type=\"i\" access=\"read\"/>\n"     \
         "  <property name=\"PipeSize\" type=\"t\" access=\"read\"/>\n"  \
         "  <property name=\"FreeBind\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"Transparent\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Mark\" type=\"i\" access=\"read\"/>\n"      \
         "  <property name=\"MaxConnections\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"NAccepted\" type=\"u\" access=\"read\"/>\n" \
@@ -107,6 +108,7 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { "org.freedesktop.systemd1.Socket", "IPTTL",          bus_property_append_int,          "i", &u->socket.ip_ttl          },
                 { "org.freedesktop.systemd1.Socket", "PipeSize",       bus_property_append_size,         "t", &u->socket.pipe_size       },
                 { "org.freedesktop.systemd1.Socket", "FreeBind",       bus_property_append_bool,         "b", &u->socket.free_bind       },
+                { "org.freedesktop.systemd1.Socket", "Transparent",    bus_property_append_bool,         "b", &u->socket.transparent     },
                 { "org.freedesktop.systemd1.Socket", "Mark",           bus_property_append_int,          "i", &u->socket.mark            },
                 { "org.freedesktop.systemd1.Socket", "MaxConnections", bus_property_append_unsigned,     "u", &u->socket.max_connections },
                 { "org.freedesktop.systemd1.Socket", "NConnections",   bus_property_append_unsigned,     "u", &u->socket.n_connections   },

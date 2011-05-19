@@ -1995,6 +1995,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Mark",                   config_parse_int,             0, &u->socket.mark,                                 "Socket"  },
                 { "PipeSize",               config_parse_size,            0, &u->socket.pipe_size,                            "Socket"  },
                 { "FreeBind",               config_parse_bool,            0, &u->socket.free_bind,                            "Socket"  },
+                { "Transparent",            config_parse_bool,            0, &u->socket.transparent,                          "Socket"  },
                 { "TCPCongestion",          config_parse_string,          0, &u->socket.tcp_congestion,                       "Socket"  },
                 { "MessageQueueMaxMessages", config_parse_long,           0, &u->socket.mq_maxmsg,                            "Socket"  },
                 { "MessageQueueMessageSize", config_parse_long,           0, &u->socket.mq_msgsize,                           "Socket"  },

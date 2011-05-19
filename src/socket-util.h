@@ -78,6 +78,7 @@ int socket_address_listen(
                 SocketAddressBindIPv6Only only,
                 const char *bind_to_device,
                 bool free_bind,
+                bool transparent,
                 mode_t directory_mode,
                 mode_t socket_mode,
                 const char *label,

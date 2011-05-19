@@ -389,6 +389,7 @@ int socket_address_listen(
                 SocketAddressBindIPv6Only only,
                 const char *bind_to_device,
                 bool free_bind,
+                bool transparent,
                 mode_t directory_mode,
                 mode_t socket_mode,
                 const char *label,
@@ -432,6 +433,12 @@ int socket_address_listen(
                         one = 1;
                         if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &one, sizeof(one)) < 0)
                                 log_warning("IP_FREEBIND failed: %m");
+                }
+
+                if (transparent) {
+                        one = 1;
+                        if (setsockopt(fd, IPPROTO_IP, IP_TRANSPARENT, &one, sizeof(one)) < 0)
+                                log_warning("IP_TRANSPARENT failed: %m");
                 }
         }
 

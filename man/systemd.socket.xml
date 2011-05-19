@@ -507,6 +507,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>Transparent=</varname></term>
+                                <listitem><para>Takes a boolean
+                                value. Controls the IP_TRANSPARENT
+                                option. Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>TCPCongestion=</varname></term>
                                 <listitem><para>Takes a string
                                 value. Controls the TCP congestion
