@@ -66,7 +66,7 @@ struct udev_enumerate {
  *
  * Returns: an enumeration context
  **/
-struct udev_enumerate *udev_enumerate_new(struct udev *udev)
+UDEV_EXPORT struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 {
 	struct udev_enumerate *udev_enumerate;
 
@@ -94,7 +94,7 @@ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
  *
  * Returns: the passed enumeration context
  **/
-struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate)
+UDEV_EXPORT struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
 		return NULL;
@@ -109,7 +109,7 @@ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate)
  * Drop a reference of an enumeration context. If the refcount reaches zero,
  * all resources of the enumeration context will be released.
  **/
-void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
+UDEV_EXPORT void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 {
 	unsigned int i;
 
@@ -138,7 +138,7 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
  *
  * Returns: the udev library context.
  */
-struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate)
+UDEV_EXPORT struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
 		return NULL;
@@ -247,7 +247,7 @@ static size_t devices_delay_later(struct udev *udev, const char *syspath)
  *
  * Returns: the first entry of the sorted list of device paths.
  */
-struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate)
+UDEV_EXPORT struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
 		return NULL;
@@ -329,7 +329,7 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
+UDEV_EXPORT int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -348,7 +348,7 @@ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, co
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
+UDEV_EXPORT int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -368,7 +368,7 @@ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, 
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
+UDEV_EXPORT int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -388,7 +388,7 @@ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, cons
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
+UDEV_EXPORT int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -428,7 +428,7 @@ exit:
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value)
+UDEV_EXPORT int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -447,7 +447,7 @@ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, con
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const char *tag)
+UDEV_EXPORT int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const char *tag)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -477,7 +477,7 @@ int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const ch
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev_enumerate)
+UDEV_EXPORT int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -492,7 +492,7 @@ int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev_enumerat
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname)
+UDEV_EXPORT int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -710,7 +710,7 @@ static int scan_dir(struct udev_enumerate *udev_enumerate, const char *basedir, 
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath)
+UDEV_EXPORT int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath)
 {
 	struct udev_device *udev_device;
 
@@ -733,7 +733,7 @@ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char
  *
  * Returns: 0 on success, otherwise a negative error value.
  **/
-int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
+UDEV_EXPORT int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	char base[UTIL_PATH_SIZE];
@@ -793,7 +793,7 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
  *
  * Returns: 0 on success, otherwise a negative error value.
  **/
-int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
+UDEV_EXPORT int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	char base[UTIL_PATH_SIZE];

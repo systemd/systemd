@@ -42,7 +42,7 @@ dist_libexec_SCRIPTS =
 # libudev
 # ------------------------------------------------------------------------------
 LIBUDEV_CURRENT=11
-LIBUDEV_REVISION=4
+LIBUDEV_REVISION=5
 LIBUDEV_AGE=11
 
 SUBDIRS += libudev/docs
@@ -60,12 +60,8 @@ libudev_libudev_la_SOURCES =\
 	libudev/libudev-monitor.c \
 	libudev/libudev-queue.c
 
-libudev_libudev_la_CFLAGS = \
-	-fvisibility=default
-
 libudev_libudev_la_LDFLAGS = \
-	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE) \
-	-export-symbols $(top_srcdir)/libudev/exported_symbols
+	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE)
 
 noinst_LTLIBRARIES = \
 	libudev/libudev-private.la
@@ -85,7 +81,7 @@ endif
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libudev/libudev.pc
 
-EXTRA_DIST += libudev/exported_symbols libudev/COPYING
+EXTRA_DIST += libudev/COPYING
 # move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
 libudev-install-move-hook:
 	if test "$(libdir)" != "$(rootlib_execdir)"; then \

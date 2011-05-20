@@ -45,6 +45,8 @@ udev_log_null(struct udev *udev, const char *format, ...) {}
 #  define err(udev, arg...) udev_log_null(udev, ## arg)
 #endif
 
+#define UDEV_EXPORT __attribute__ ((visibility("default")))
+
 static inline void udev_log_init(const char *program_name)
 {
 	openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);

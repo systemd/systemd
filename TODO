@@ -1,3 +1,5 @@
+ - make private functions in libudev-device.c static
+
  - delete mobile-action-modeswitch
    (moved to usb_modeswitch)
 
