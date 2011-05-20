@@ -80,6 +80,10 @@
 #define TIOCVHANGUP 0x5437
 #endif
 
+#ifndef IP_TRANSPARENT
+#define IP_TRANSPARENT 19
+#endif
+
 static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
 }
