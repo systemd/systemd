@@ -417,6 +417,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
 
                 /* Trying to umount. Forcing to umount if busy (only for NFS mounts) */
                 if (umount2(m->path, MNT_FORCE) == 0) {
+                        log_info("Unmounted %s.", m->path);
                         if (changed)
                                 *changed = true;
 
