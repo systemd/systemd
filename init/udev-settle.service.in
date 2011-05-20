@@ -11,7 +11,7 @@
 [Unit]
 Description=udev Wait for Complete Device Initialization
 DefaultDependencies=no
-Requires=udev.service
+Wants=udev.service
 After=udev-trigger.service
 Before=basic.target
 
