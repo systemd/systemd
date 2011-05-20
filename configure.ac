@@ -93,8 +93,18 @@ if test "x$enable_hwdb" = xyes; then
 		AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
 	fi
 
-	PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
-	AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
+	AC_ARG_WITH(usb-ids-path,
+		[AS_HELP_STRING([--with-usb-ids-path=DIR], [Path to usb.ids file])],
+		[USB_DATABASE=${withval}],
+		[if test -n "$usbids" ; then
+			USB_DATABASE="$usbids"
+		else
+			PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
+			AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
+		fi])
+	AC_MSG_CHECKING([for USB database location])
+	AC_MSG_RESULT([$USB_DATABASE])
+	AC_SUBST(USB_DATABASE)
 
 	AC_ARG_WITH(pci-ids-path,
 		[AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
