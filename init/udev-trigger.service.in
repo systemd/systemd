@@ -1,6 +1,7 @@
 [Unit]
 Description=udev Coldplug all Devices
 Wants=udev.service
+After=udev.socket
 DefaultDependencies=no
 
 [Service]
