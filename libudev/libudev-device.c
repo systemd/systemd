@@ -57,7 +57,6 @@ struct udev_device {
 	char *driver;
 	char *action;
 	char *devpath_old;
-	char *sysname_old;
 	char *knodename;
 	char *id_filename;
 	char **envp;
@@ -91,6 +90,260 @@ struct udev_device {
 	bool sysattr_list_read;
 	bool db_persist;
 };
+
+/**
+ * udev_device_get_devnum:
+ * @udev_device: udev device
+ *
+ * This is only valid if the device was received through a monitor. Devices read from
+ * sys do not have a sequence number.
+ *
+ * Returns: the kernel event sequence number, or 0 if there is no sequence number available.
+ **/
+UDEV_EXPORT unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return 0;
+	return udev_device->seqnum;
+}
+
+static int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum)
+{
+	char num[32];
+
+	udev_device->seqnum = seqnum;
+	snprintf(num, sizeof(num), "%llu", seqnum);
+	udev_device_add_property(udev_device, "SEQNUM", num);
+	return 0;
+}
+
+int udev_device_get_ifindex(struct udev_device *udev_device)
+{
+	if (!udev_device->info_loaded)
+		udev_device_read_uevent_file(udev_device);
+	return udev_device->ifindex;
+}
+
+static int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
+{
+	char num[32];
+
+	udev_device->ifindex = ifindex;
+	snprintf(num, sizeof(num), "%u", ifindex);
+	udev_device_add_property(udev_device, "IFINDEX", num);
+	return 0;
+}
+
+/**
+ * udev_device_get_devnum:
+ * @udev_device: udev device
+ *
+ * Returns: the device major/minor number.
+ **/
+UDEV_EXPORT dev_t udev_device_get_devnum(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return makedev(0, 0);
+	if (!udev_device->info_loaded)
+		udev_device_read_uevent_file(udev_device);
+	return udev_device->devnum;
+}
+
+static int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
+{
+	char num[32];
+
+	udev_device->devnum = devnum;
+
+	snprintf(num, sizeof(num), "%u", major(devnum));
+	udev_device_add_property(udev_device, "MAJOR", num);
+	snprintf(num, sizeof(num), "%u", minor(devnum));
+	udev_device_add_property(udev_device, "MINOR", num);
+	return 0;
+}
+
+int udev_device_get_timeout(struct udev_device *udev_device)
+{
+	return udev_device->timeout;
+}
+
+static int udev_device_set_timeout(struct udev_device *udev_device, int timeout)
+{
+	char num[32];
+
+	udev_device->timeout = timeout;
+	snprintf(num, sizeof(num), "%u", timeout);
+	udev_device_add_property(udev_device, "TIMEOUT", num);
+	return 0;
+}
+
+const char *udev_device_get_knodename(struct udev_device *udev_device)
+{
+	return udev_device->knodename;
+}
+
+static int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename)
+{
+	free(udev_device->knodename);
+	udev_device->knodename = strdup(knodename);
+	if (udev_device->knodename == NULL)
+		return -ENOMEM;
+	/* do not overwrite the udev property with the kernel property */
+	if (udev_device->devnode == NULL)
+		udev_device_add_property(udev_device, "DEVNAME", udev_device->knodename);
+	return 0;
+}
+
+const char *udev_device_get_devpath_old(struct udev_device *udev_device)
+{
+	return udev_device->devpath_old;
+}
+
+static int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old)
+{
+	const char *pos;
+
+	free(udev_device->devpath_old);
+	udev_device->devpath_old = strdup(devpath_old);
+	if (udev_device->devpath_old == NULL)
+		return -ENOMEM;
+	udev_device_add_property(udev_device, "DEVPATH_OLD", udev_device->devpath_old);
+
+	pos = strrchr(udev_device->devpath_old, '/');
+	if (pos == NULL)
+		return -EINVAL;
+	return 0;
+}
+
+/**
+ * udev_device_get_driver:
+ * @udev_device: udev device
+ *
+ * Returns: the driver string, or #NULL if there is no driver attached.
+ **/
+UDEV_EXPORT const char *udev_device_get_driver(struct udev_device *udev_device)
+{
+	char driver[UTIL_NAME_SIZE];
+
+	if (udev_device == NULL)
+		return NULL;
+	if (!udev_device->driver_set) {
+		udev_device->driver_set = true;
+		if (util_get_sys_driver(udev_device->udev, udev_device->syspath, driver, sizeof(driver)) > 0)
+			udev_device->driver = strdup(driver);
+	}
+	return udev_device->driver;
+}
+
+static int udev_device_set_driver(struct udev_device *udev_device, const char *driver)
+{
+	free(udev_device->driver);
+	udev_device->driver = strdup(driver);
+	if (udev_device->driver == NULL)
+		return -ENOMEM;
+	udev_device->driver_set = true;
+	udev_device_add_property(udev_device, "DRIVER", udev_device->driver);
+	return 0;
+}
+
+/**
+ * udev_device_get_devtype:
+ * @udev_device: udev device
+ *
+ * Retrieve the devtype string of the udev device.
+ *
+ * Returns: the devtype name of the udev device, or #NULL if it can not be determined
+ **/
+UDEV_EXPORT const char *udev_device_get_devtype(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	if (!udev_device->devtype_set) {
+		udev_device->devtype_set = true;
+		udev_device_read_uevent_file(udev_device);
+	}
+	return udev_device->devtype;
+}
+
+static int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype)
+{
+	free(udev_device->devtype);
+	udev_device->devtype = strdup(devtype);
+	if (udev_device->devtype == NULL)
+		return -ENOMEM;
+	udev_device->devtype_set = true;
+	udev_device_add_property(udev_device, "DEVTYPE", udev_device->devtype);
+	return 0;
+}
+
+static int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
+{
+	free(udev_device->subsystem);
+	udev_device->subsystem = strdup(subsystem);
+	if (udev_device->subsystem == NULL)
+		return -ENOMEM;
+	udev_device->subsystem_set = true;
+	udev_device_add_property(udev_device, "SUBSYSTEM", udev_device->subsystem);
+	return 0;
+}
+
+/**
+ * udev_device_get_subsystem:
+ * @udev_device: udev device
+ *
+ * Retrieve the subsystem string of the udev device. The string does not
+ * contain any "/".
+ *
+ * Returns: the subsystem name of the udev device, or #NULL if it can not be determined
+ **/
+UDEV_EXPORT const char *udev_device_get_subsystem(struct udev_device *udev_device)
+{
+	char subsystem[UTIL_NAME_SIZE];
+
+	if (udev_device == NULL)
+		return NULL;
+	if (!udev_device->subsystem_set) {
+		udev_device->subsystem_set = true;
+		/* read "subsystem" link */
+		if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
+			udev_device_set_subsystem(udev_device, subsystem);
+			return udev_device->subsystem;
+		}
+		/* implicit names */
+		if (strncmp(udev_device->devpath, "/module/", 8) == 0) {
+			udev_device_set_subsystem(udev_device, "module");
+			return udev_device->subsystem;
+		}
+		if (strstr(udev_device->devpath, "/drivers/") != NULL) {
+			udev_device_set_subsystem(udev_device, "drivers");
+			return udev_device->subsystem;
+		}
+		if (strncmp(udev_device->devpath, "/subsystem/", 11) == 0 ||
+		    strncmp(udev_device->devpath, "/class/", 7) == 0 ||
+		    strncmp(udev_device->devpath, "/bus/", 5) == 0) {
+			udev_device_set_subsystem(udev_device, "subsystem");
+			return udev_device->subsystem;
+		}
+	}
+	return udev_device->subsystem;
+}
+
+mode_t udev_device_get_devnode_mode(struct udev_device *udev_device)
+{
+	if (!udev_device->info_loaded)
+		udev_device_read_uevent_file(udev_device);
+	return udev_device->devnode_mode;
+}
+
+static int udev_device_set_devnode_mode(struct udev_device *udev_device, mode_t mode)
+{
+	char num[32];
+
+	udev_device->devnode_mode = mode;
+	snprintf(num, sizeof(num), "%#o", mode);
+	udev_device_add_property(udev_device, "DEVMODE", num);
+	return 0;
+}
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
@@ -837,7 +1090,6 @@ UDEV_EXPORT void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
-	free(udev_device->sysname_old);
 	free(udev_device->knodename);
 	free(udev_device->id_filename);
 	free(udev_device->envp);
@@ -935,73 +1187,6 @@ UDEV_EXPORT const char *udev_device_get_devnode(struct udev_device *udev_device)
 	return udev_device->devnode;
 }
 
-mode_t udev_device_get_devnode_mode(struct udev_device *udev_device)
-{
-	if (!udev_device->info_loaded)
-		udev_device_read_uevent_file(udev_device);
-	return udev_device->devnode_mode;
-}
-
-/**
- * udev_device_get_subsystem:
- * @udev_device: udev device
- *
- * Retrieve the subsystem string of the udev device. The string does not
- * contain any "/".
- *
- * Returns: the subsystem name of the udev device, or #NULL if it can not be determined
- **/
-UDEV_EXPORT const char *udev_device_get_subsystem(struct udev_device *udev_device)
-{
-	char subsystem[UTIL_NAME_SIZE];
-
-	if (udev_device == NULL)
-		return NULL;
-	if (!udev_device->subsystem_set) {
-		udev_device->subsystem_set = true;
-		/* read "subsystem" link */
-		if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
-			udev_device_set_subsystem(udev_device, subsystem);
-			return udev_device->subsystem;
-		}
-		/* implicit names */
-		if (strncmp(udev_device->devpath, "/module/", 8) == 0) {
-			udev_device_set_subsystem(udev_device, "module");
-			return udev_device->subsystem;
-		}
-		if (strstr(udev_device->devpath, "/drivers/") != NULL) {
-			udev_device_set_subsystem(udev_device, "drivers");
-			return udev_device->subsystem;
-		}
-		if (strncmp(udev_device->devpath, "/subsystem/", 11) == 0 ||
-		    strncmp(udev_device->devpath, "/class/", 7) == 0 ||
-		    strncmp(udev_device->devpath, "/bus/", 5) == 0) {
-			udev_device_set_subsystem(udev_device, "subsystem");
-			return udev_device->subsystem;
-		}
-	}
-	return udev_device->subsystem;
-}
-
-/**
- * udev_device_get_devtype:
- * @udev_device: udev device
- *
- * Retrieve the devtype string of the udev device.
- *
- * Returns: the devtype name of the udev device, or #NULL if it can not be determined
- **/
-UDEV_EXPORT const char *udev_device_get_devtype(struct udev_device *udev_device)
-{
-	if (udev_device == NULL)
-		return NULL;
-	if (!udev_device->devtype_set) {
-		udev_device->devtype_set = true;
-		udev_device_read_uevent_file(udev_device);
-	}
-	return udev_device->devtype;
-}
-
 /**
  * udev_device_get_devlinks_list_entry:
  * @udev_device: udev device
@@ -1086,41 +1271,6 @@ UDEV_EXPORT struct udev_list_entry *udev_device_get_properties_list_entry(struct
 }
 
 /**
- * udev_device_get_driver:
- * @udev_device: udev device
- *
- * Returns: the driver string, or #NULL if there is no driver attached.
- **/
-UDEV_EXPORT const char *udev_device_get_driver(struct udev_device *udev_device)
-{
-	char driver[UTIL_NAME_SIZE];
-
-	if (udev_device == NULL)
-		return NULL;
-	if (!udev_device->driver_set) {
-		udev_device->driver_set = true;
-		if (util_get_sys_driver(udev_device->udev, udev_device->syspath, driver, sizeof(driver)) > 0)
-			udev_device->driver = strdup(driver);
-	}
-	return udev_device->driver;
-}
-
-/**
- * udev_device_get_devnum:
- * @udev_device: udev device
- *
- * Returns: the device major/minor number.
- **/
-UDEV_EXPORT dev_t udev_device_get_devnum(struct udev_device *udev_device)
-{
-	if (udev_device == NULL)
-		return makedev(0, 0);
-	if (!udev_device->info_loaded)
-		udev_device_read_uevent_file(udev_device);
-	return udev_device->devnum;
-}
-
-/**
  * udev_device_get_action:
  * @udev_device: udev device
  *
@@ -1135,22 +1285,6 @@ UDEV_EXPORT const char *udev_device_get_action(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return NULL;
 	return udev_device->action;
-}
-
-/**
- * udev_device_get_devnum:
- * @udev_device: udev device
- *
- * This is only valid if the device was received through a monitor. Devices read from
- * sys do not have a sequence number.
- *
- * Returns: the kernel event sequence number, or 0 if there is no sequence number available.
- **/
-UDEV_EXPORT unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
-{
-	if (udev_device == NULL)
-		return 0;
-	return udev_device->seqnum;
 }
 
 /**
@@ -1394,28 +1528,6 @@ int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath
 	return 0;
 }
 
-int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
-{
-	free(udev_device->subsystem);
-	udev_device->subsystem = strdup(subsystem);
-	if (udev_device->subsystem == NULL)
-		return -ENOMEM;
-	udev_device->subsystem_set = true;
-	udev_device_add_property(udev_device, "SUBSYSTEM", udev_device->subsystem);
-	return 0;
-}
-
-int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype)
-{
-	free(udev_device->devtype);
-	udev_device->devtype = strdup(devtype);
-	if (udev_device->devtype == NULL)
-		return -ENOMEM;
-	udev_device->devtype_set = true;
-	udev_device_add_property(udev_device, "DEVTYPE", udev_device->devtype);
-	return 0;
-}
-
 int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode)
 {
 	free(udev_device->devnode);
@@ -1423,16 +1535,6 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 	if (udev_device->devnode == NULL)
 		return -ENOMEM;
 	udev_device_add_property(udev_device, "DEVNAME", udev_device->devnode);
-	return 0;
-}
-
-int udev_device_set_devnode_mode(struct udev_device *udev_device, mode_t mode)
-{
-	char num[32];
-
-	udev_device->devnode_mode = mode;
-	snprintf(num, sizeof(num), "%#o", mode);
-	udev_device_add_property(udev_device, "DEVMODE", num);
 	return 0;
 }
 
@@ -1636,112 +1738,6 @@ int udev_device_set_action(struct udev_device *udev_device, const char *action)
 	return 0;
 }
 
-int udev_device_set_driver(struct udev_device *udev_device, const char *driver)
-{
-	free(udev_device->driver);
-	udev_device->driver = strdup(driver);
-	if (udev_device->driver == NULL)
-		return -ENOMEM;
-	udev_device->driver_set = true;
-	udev_device_add_property(udev_device, "DRIVER", udev_device->driver);
-	return 0;
-}
-
-const char *udev_device_get_devpath_old(struct udev_device *udev_device)
-{
-	return udev_device->devpath_old;
-}
-
-int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old)
-{
-	const char *pos;
-	size_t len;
-
-	free(udev_device->devpath_old);
-	udev_device->devpath_old = strdup(devpath_old);
-	if (udev_device->devpath_old == NULL)
-		return -ENOMEM;
-	udev_device_add_property(udev_device, "DEVPATH_OLD", udev_device->devpath_old);
-
-	pos = strrchr(udev_device->devpath_old, '/');
-	if (pos == NULL)
-		return -EINVAL;
-	udev_device->sysname_old = strdup(&pos[1]);
-	if (udev_device->sysname_old == NULL)
-		return -ENOMEM;
-
-	/* some devices have '!' in their name, change that to '/' */
-	len = 0;
-	while (udev_device->sysname_old[len] != '\0') {
-		if (udev_device->sysname_old[len] == '!')
-			udev_device->sysname_old[len] = '/';
-		len++;
-	}
-	return 0;
-}
-
-const char *udev_device_get_sysname_old(struct udev_device *udev_device)
-{
-	if (udev_device == NULL)
-		return NULL;
-	return udev_device->sysname_old;
-}
-
-const char *udev_device_get_knodename(struct udev_device *udev_device)
-{
-	return udev_device->knodename;
-}
-
-int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename)
-{
-	free(udev_device->knodename);
-	udev_device->knodename = strdup(knodename);
-	if (udev_device->knodename == NULL)
-		return -ENOMEM;
-	/* do not overwrite the udev property with the kernel property */
-	if (udev_device->devnode == NULL)
-		udev_device_add_property(udev_device, "DEVNAME", udev_device->knodename);
-	return 0;
-}
-
-int udev_device_get_timeout(struct udev_device *udev_device)
-{
-	return udev_device->timeout;
-}
-
-int udev_device_set_timeout(struct udev_device *udev_device, int timeout)
-{
-	char num[32];
-
-	udev_device->timeout = timeout;
-	snprintf(num, sizeof(num), "%u", timeout);
-	udev_device_add_property(udev_device, "TIMEOUT", num);
-	return 0;
-}
-
-int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum)
-{
-	char num[32];
-
-	udev_device->seqnum = seqnum;
-	snprintf(num, sizeof(num), "%llu", seqnum);
-	udev_device_add_property(udev_device, "SEQNUM", num);
-	return 0;
-}
-
-int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
-{
-	char num[32];
-
-	udev_device->devnum = devnum;
-
-	snprintf(num, sizeof(num), "%u", major(devnum));
-	udev_device_add_property(udev_device, "MAJOR", num);
-	snprintf(num, sizeof(num), "%u", minor(devnum));
-	udev_device_add_property(udev_device, "MINOR", num);
-	return 0;
-}
-
 int udev_device_get_devlink_priority(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
@@ -1765,23 +1761,6 @@ int udev_device_get_watch_handle(struct udev_device *udev_device)
 int udev_device_set_watch_handle(struct udev_device *udev_device, int handle)
 {
 	udev_device->watch_handle = handle;
-	return 0;
-}
-
-int udev_device_get_ifindex(struct udev_device *udev_device)
-{
-	if (!udev_device->info_loaded)
-		udev_device_read_uevent_file(udev_device);
-	return udev_device->ifindex;
-}
-
-int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
-{
-	char num[32];
-
-	udev_device->ifindex = ifindex;
-	snprintf(num, sizeof(num), "%u", ifindex);
-	udev_device_add_property(udev_device, "IFINDEX", num);
 	return 0;
 }
 
