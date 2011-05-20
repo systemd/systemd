@@ -1,3 +1,6 @@
+ - revert: systemd: trigger - run after udev.service (for now)
+   after systemd has a new release we can depend on
+
  - delete mobile-action-modeswitch
    (moved to usb_modeswitch)
 
