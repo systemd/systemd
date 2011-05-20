@@ -3,5 +3,6 @@ Description=udev Kernel Device Manager Sockets
 DefaultDependencies=no
 
 [Socket]
+ReceiveBuffer=134217728
 ListenSequentialPacket=@/org/kernel/udev/udevd
 ListenNetlink=kobject-uevent 1
