@@ -500,9 +500,9 @@
                                 <command>pkg-config systemd
                                 --variable=systemdsystemunitdir</command>. Other
                                 directories checked are
-                                <filename>/usr/local/share/systemd/system</filename>
+                                <filename>/usr/local/lib/systemd/system</filename>
                                 and
-                                <filename>/usr/share/systemd/system</filename>. User
+                                <filename>/usr/lib/systemd/system</filename>. User
                                 configuration always takes
                                 precedence. <command>pkg-config
                                 systemd
