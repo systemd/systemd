@@ -569,15 +569,15 @@ int bus_property_append_ul(DBusMessageIter *i, const char *property, void *data)
 }
 
 int bus_property_append_long(DBusMessageIter *i, const char *property, void *data) {
-        uint64_t u;
+        int64_t l;
 
         assert(i);
         assert(property);
         assert(data);
 
-        u = (int64_t) *(long*) data;
+        l = (int64_t) *(long*) data;
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT64, &u))
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT64, &l))
                 return -ENOMEM;
 
         return 0;
