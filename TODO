@@ -1,4 +1,6 @@
- - revert: systemd: trigger - run after udev.service (for now)
+ - add TAGS=="foo" match
+
+ - revert: "systemd: trigger - run after udev.service (for now)"
    after systemd has a new release we can depend on
 
  - delete mobile-action-modeswitch
@@ -7,11 +9,13 @@
  - /run/udev/control socket
    (add ConditionVirtualization=!pidns)
 
- - rules_generator:
-   - no longer rename netif in kernel namespace
-   - do not create rules on-the-fly, require explicit
-     configuration
+ - kill rules_generator:
+   - no longer rename netifs in kernel namespace
    - drop persistent optical names
+   - do not create rules on-the-fly, require explicit configuration
+     for netifs and optical drives
+   - properly document what system management needs to put
+     into rules files
 
  - kill tabs?
 
