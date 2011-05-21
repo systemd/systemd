@@ -55,6 +55,8 @@
         "  <property name=\"MaxConnections\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"NAccepted\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"NConnections\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"MessageQueueMaxMessages\" type=\"x\" access=\"read\"/>\n" \
+        "  <property name=\"MessageQueueMessageSize\" type=\"x\" access=\"read\"/>\n" \
         " </interface>\n"                                               \
 
 #define INTROSPECTION                                                   \
