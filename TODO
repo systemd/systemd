@@ -1,3 +1,6 @@
+* udev-kernel.socket + udev.control.socket seems not
+  to work, udevd is started but no fd is passed
+
 F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
@@ -12,12 +15,13 @@ F15 External:
 * bluetooth should be possible to disable (PENDING)
 
 * get writev() /dev/kmsg support into the F15 kernel
-    https://lkml.org/lkml/2011/4/6/473
-  patched merged into -mm
+    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=7e5b58bcbcb3d7518389c1d82fb6e926f5a9f72c
 
 * make anaconda write timeout=0 for encrypted devices
 
 Features:
+* possibly set timezone offset from systemd at init instead
+  of calling hwclock
 
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
@@ -176,7 +180,7 @@ Features:
 * dot output for --test showing the 'initial transaction'
 
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
-  - timerfd() with TFD_TIMER_CANCELON_SET support: https://lkml.org/lkml/2011/4/27/383
+    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=99ee5315dac6211e972fa3f23bcc9a0343ff58c4
 
 * systemd --user
   - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
@@ -189,7 +193,7 @@ Features:
     through running X and getty sessions, and any unallocated
     activated tty will start a new getty. the hardcoding of
     getty[1-6] will entirely go away.
-  - http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
+  - http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=fbc92a3455577ab17615cbcb91826399061bd789
 
 * implicitly import "defaults" settings file into all types
 
