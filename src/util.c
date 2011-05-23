@@ -4181,6 +4181,20 @@ finish:
         return r;
 }
 
+bool dirent_is_file(struct dirent *de) {
+        assert(de);
+
+        if (ignore_file(de->d_name))
+                return false;
+
+        if (de->d_type != DT_REG &&
+            de->d_type != DT_LNK &&
+            de->d_type != DT_UNKNOWN)
+                return false;
+
+        return true;
+}
+
 void execute_directory(const char *directory, DIR *d, char *argv[]) {
         DIR *_d = NULL;
         struct dirent *de;
@@ -4214,12 +4228,7 @@ void execute_directory(const char *directory, DIR *d, char *argv[]) {
                 pid_t pid;
                 int k;
 
-                if (ignore_file(de->d_name))
-                        continue;
-
-                if (de->d_type != DT_REG &&
-                    de->d_type != DT_LNK &&
-                    de->d_type != DT_UNKNOWN)
+                if (!dirent_is_file(de))
                         continue;
 
                 if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {

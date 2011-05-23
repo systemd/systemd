@@ -268,6 +268,7 @@ bool path_equal(const char *a, const char *b);
 
 char *ascii_strlower(char *path);
 
+bool dirent_is_file(struct dirent *de);
 bool ignore_file(const char *filename);
 
 bool chars_intersect(const char *a, const char *b);
