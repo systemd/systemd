@@ -2260,7 +2260,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
         assert(m);
         assert(ev);
 
-        assert(w = ev->data.ptr);
+        assert_se(w = ev->data.ptr);
 
         if (w->type == WATCH_INVALID)
                 return 0;

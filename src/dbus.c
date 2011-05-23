@@ -91,41 +91,6 @@ static void bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus status, 
                 set_move_one(m->bus_connections_for_dispatch, m->bus_connections, bus);
 }
 
-static uint32_t bus_flags_to_events(DBusWatch *bus_watch) {
-        unsigned flags;
-        uint32_t events = 0;
-
-        assert(bus_watch);
-
-        /* no watch flags for disabled watches */
-        if (!dbus_watch_get_enabled(bus_watch))
-                return 0;
-
-        flags = dbus_watch_get_flags(bus_watch);
-
-        if (flags & DBUS_WATCH_READABLE)
-                events |= EPOLLIN;
-        if (flags & DBUS_WATCH_WRITABLE)
-                events |= EPOLLOUT;
-
-        return events | EPOLLHUP | EPOLLERR;
-}
-
-static unsigned events_to_bus_flags(uint32_t events) {
-        unsigned flags = 0;
-
-        if (events & EPOLLIN)
-                flags |= DBUS_WATCH_READABLE;
-        if (events & EPOLLOUT)
-                flags |= DBUS_WATCH_WRITABLE;
-        if (events & EPOLLHUP)
-                flags |= DBUS_WATCH_HANGUP;
-        if (events & EPOLLERR)
-                flags |= DBUS_WATCH_ERROR;
-
-        return flags;
-}
-
 void bus_watch_event(Manager *m, Watch *w, int events) {
         assert(m);
         assert(w);
@@ -136,7 +101,7 @@ void bus_watch_event(Manager *m, Watch *w, int events) {
         if (!dbus_watch_get_enabled(w->data.bus_watch))
                 return;
 
-        dbus_watch_handle(w->data.bus_watch, events_to_bus_flags(events));
+        dbus_watch_handle(w->data.bus_watch, bus_events_to_flags(events));
 }
 
 static dbus_bool_t bus_add_watch(DBusWatch *bus_watch, void *data) {
@@ -196,7 +161,8 @@ static void bus_remove_watch(DBusWatch *bus_watch, void *data) {
         assert(bus_watch);
         assert(m);
 
-        if (!(w = dbus_watch_get_data(bus_watch)))
+        w = dbus_watch_get_data(bus_watch);
+        if (!w)
                 return;
 
         assert(w->type == WATCH_DBUS_WATCH);
@@ -216,7 +182,10 @@ static void bus_toggle_watch(DBusWatch *bus_watch, void *data) {
         assert(bus_watch);
         assert(m);
 
-        assert_se(w = dbus_watch_get_data(bus_watch));
+        w = dbus_watch_get_data(bus_watch);
+        if (!w)
+                return;
+
         assert(w->type == WATCH_DBUS_WATCH);
 
         zero(ev);
@@ -304,10 +273,12 @@ static void bus_remove_timeout(DBusTimeout *timeout, void *data) {
         assert(timeout);
         assert(m);
 
-        if (!(w = dbus_timeout_get_data(timeout)))
+        w = dbus_timeout_get_data(timeout);
+        if (!w)
                 return;
 
         assert(w->type == WATCH_DBUS_TIMEOUT);
+
         assert_se(epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
         close_nointr_nofail(w->fd);
         free(w);
@@ -321,7 +292,10 @@ static void bus_toggle_timeout(DBusTimeout *timeout, void *data) {
         assert(timeout);
         assert(m);
 
-        assert_se(w = dbus_timeout_get_data(timeout));
+        w = dbus_timeout_get_data(timeout);
+        if (!w)
+                return;
+
         assert(w->type == WATCH_DBUS_TIMEOUT);
 
         if ((r = bus_timeout_arm(m, w)) < 0)
@@ -819,7 +793,7 @@ static int bus_init_system(Manager *m) {
 
         if (!dbus_connection_add_filter(m->system_bus, system_bus_message_filter, m, NULL)) {
                 log_error("Not enough memory");
-                r = -EIO;
+                r = -ENOMEM;
                 goto fail;
         }
 
