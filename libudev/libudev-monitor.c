@@ -178,7 +178,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
 		return NULL;
 
 	if (fd < 0) {
-		udev_monitor->sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC, NETLINK_KOBJECT_UEVENT);
+		udev_monitor->sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
 		if (udev_monitor->sock == -1) {
 			err(udev, "error getting socket: %m\n");
 			free(udev_monitor);
