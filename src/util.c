@@ -4537,141 +4537,6 @@ int vt_disallocate(const char *name) {
         return 0;
 }
 
-static const char *const ioprio_class_table[] = {
-        [IOPRIO_CLASS_NONE] = "none",
-        [IOPRIO_CLASS_RT] = "realtime",
-        [IOPRIO_CLASS_BE] = "best-effort",
-        [IOPRIO_CLASS_IDLE] = "idle"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(ioprio_class, int);
-
-static const char *const sigchld_code_table[] = {
-        [CLD_EXITED] = "exited",
-        [CLD_KILLED] = "killed",
-        [CLD_DUMPED] = "dumped",
-        [CLD_TRAPPED] = "trapped",
-        [CLD_STOPPED] = "stopped",
-        [CLD_CONTINUED] = "continued",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
-
-static const char *const log_facility_unshifted_table[LOG_NFACILITIES] = {
-        [LOG_FAC(LOG_KERN)] = "kern",
-        [LOG_FAC(LOG_USER)] = "user",
-        [LOG_FAC(LOG_MAIL)] = "mail",
-        [LOG_FAC(LOG_DAEMON)] = "daemon",
-        [LOG_FAC(LOG_AUTH)] = "auth",
-        [LOG_FAC(LOG_SYSLOG)] = "syslog",
-        [LOG_FAC(LOG_LPR)] = "lpr",
-        [LOG_FAC(LOG_NEWS)] = "news",
-        [LOG_FAC(LOG_UUCP)] = "uucp",
-        [LOG_FAC(LOG_CRON)] = "cron",
-        [LOG_FAC(LOG_AUTHPRIV)] = "authpriv",
-        [LOG_FAC(LOG_FTP)] = "ftp",
-        [LOG_FAC(LOG_LOCAL0)] = "local0",
-        [LOG_FAC(LOG_LOCAL1)] = "local1",
-        [LOG_FAC(LOG_LOCAL2)] = "local2",
-        [LOG_FAC(LOG_LOCAL3)] = "local3",
-        [LOG_FAC(LOG_LOCAL4)] = "local4",
-        [LOG_FAC(LOG_LOCAL5)] = "local5",
-        [LOG_FAC(LOG_LOCAL6)] = "local6",
-        [LOG_FAC(LOG_LOCAL7)] = "local7"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(log_facility_unshifted, int);
-
-static const char *const log_level_table[] = {
-        [LOG_EMERG] = "emerg",
-        [LOG_ALERT] = "alert",
-        [LOG_CRIT] = "crit",
-        [LOG_ERR] = "err",
-        [LOG_WARNING] = "warning",
-        [LOG_NOTICE] = "notice",
-        [LOG_INFO] = "info",
-        [LOG_DEBUG] = "debug"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(log_level, int);
-
-static const char* const sched_policy_table[] = {
-        [SCHED_OTHER] = "other",
-        [SCHED_BATCH] = "batch",
-        [SCHED_IDLE] = "idle",
-        [SCHED_FIFO] = "fifo",
-        [SCHED_RR] = "rr"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(sched_policy, int);
-
-static const char* const rlimit_table[] = {
-        [RLIMIT_CPU] = "LimitCPU",
-        [RLIMIT_FSIZE] = "LimitFSIZE",
-        [RLIMIT_DATA] = "LimitDATA",
-        [RLIMIT_STACK] = "LimitSTACK",
-        [RLIMIT_CORE] = "LimitCORE",
-        [RLIMIT_RSS] = "LimitRSS",
-        [RLIMIT_NOFILE] = "LimitNOFILE",
-        [RLIMIT_AS] = "LimitAS",
-        [RLIMIT_NPROC] = "LimitNPROC",
-        [RLIMIT_MEMLOCK] = "LimitMEMLOCK",
-        [RLIMIT_LOCKS] = "LimitLOCKS",
-        [RLIMIT_SIGPENDING] = "LimitSIGPENDING",
-        [RLIMIT_MSGQUEUE] = "LimitMSGQUEUE",
-        [RLIMIT_NICE] = "LimitNICE",
-        [RLIMIT_RTPRIO] = "LimitRTPRIO",
-        [RLIMIT_RTTIME] = "LimitRTTIME"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
-
-static const char* const ip_tos_table[] = {
-        [IPTOS_LOWDELAY] = "low-delay",
-        [IPTOS_THROUGHPUT] = "throughput",
-        [IPTOS_RELIABILITY] = "reliability",
-        [IPTOS_LOWCOST] = "low-cost",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);
-
-static const char *const signal_table[] = {
-        [SIGHUP] = "HUP",
-        [SIGINT] = "INT",
-        [SIGQUIT] = "QUIT",
-        [SIGILL] = "ILL",
-        [SIGTRAP] = "TRAP",
-        [SIGABRT] = "ABRT",
-        [SIGBUS] = "BUS",
-        [SIGFPE] = "FPE",
-        [SIGKILL] = "KILL",
-        [SIGUSR1] = "USR1",
-        [SIGSEGV] = "SEGV",
-        [SIGUSR2] = "USR2",
-        [SIGPIPE] = "PIPE",
-        [SIGALRM] = "ALRM",
-        [SIGTERM] = "TERM",
-#ifdef SIGSTKFLT
-        [SIGSTKFLT] = "STKFLT",  /* Linux on SPARC doesn't know SIGSTKFLT */
-#endif
-        [SIGCHLD] = "CHLD",
-        [SIGCONT] = "CONT",
-        [SIGSTOP] = "STOP",
-        [SIGTSTP] = "TSTP",
-        [SIGTTIN] = "TTIN",
-        [SIGTTOU] = "TTOU",
-        [SIGURG] = "URG",
-        [SIGXCPU] = "XCPU",
-        [SIGXFSZ] = "XFSZ",
-        [SIGVTALRM] = "VTALRM",
-        [SIGPROF] = "PROF",
-        [SIGWINCH] = "WINCH",
-        [SIGIO] = "IO",
-        [SIGPWR] = "PWR",
-        [SIGSYS] = "SYS"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(signal, int);
 
 static int file_is_conf(const struct dirent *d, const char *suffix) {
         assert(d);
@@ -4868,3 +4733,139 @@ int hwclock_set_time(const struct tm *tm) {
 
         return err;
 }
+
+static const char *const ioprio_class_table[] = {
+        [IOPRIO_CLASS_NONE] = "none",
+        [IOPRIO_CLASS_RT] = "realtime",
+        [IOPRIO_CLASS_BE] = "best-effort",
+        [IOPRIO_CLASS_IDLE] = "idle"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ioprio_class, int);
+
+static const char *const sigchld_code_table[] = {
+        [CLD_EXITED] = "exited",
+        [CLD_KILLED] = "killed",
+        [CLD_DUMPED] = "dumped",
+        [CLD_TRAPPED] = "trapped",
+        [CLD_STOPPED] = "stopped",
+        [CLD_CONTINUED] = "continued",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
+
+static const char *const log_facility_unshifted_table[LOG_NFACILITIES] = {
+        [LOG_FAC(LOG_KERN)] = "kern",
+        [LOG_FAC(LOG_USER)] = "user",
+        [LOG_FAC(LOG_MAIL)] = "mail",
+        [LOG_FAC(LOG_DAEMON)] = "daemon",
+        [LOG_FAC(LOG_AUTH)] = "auth",
+        [LOG_FAC(LOG_SYSLOG)] = "syslog",
+        [LOG_FAC(LOG_LPR)] = "lpr",
+        [LOG_FAC(LOG_NEWS)] = "news",
+        [LOG_FAC(LOG_UUCP)] = "uucp",
+        [LOG_FAC(LOG_CRON)] = "cron",
+        [LOG_FAC(LOG_AUTHPRIV)] = "authpriv",
+        [LOG_FAC(LOG_FTP)] = "ftp",
+        [LOG_FAC(LOG_LOCAL0)] = "local0",
+        [LOG_FAC(LOG_LOCAL1)] = "local1",
+        [LOG_FAC(LOG_LOCAL2)] = "local2",
+        [LOG_FAC(LOG_LOCAL3)] = "local3",
+        [LOG_FAC(LOG_LOCAL4)] = "local4",
+        [LOG_FAC(LOG_LOCAL5)] = "local5",
+        [LOG_FAC(LOG_LOCAL6)] = "local6",
+        [LOG_FAC(LOG_LOCAL7)] = "local7"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(log_facility_unshifted, int);
+
+static const char *const log_level_table[] = {
+        [LOG_EMERG] = "emerg",
+        [LOG_ALERT] = "alert",
+        [LOG_CRIT] = "crit",
+        [LOG_ERR] = "err",
+        [LOG_WARNING] = "warning",
+        [LOG_NOTICE] = "notice",
+        [LOG_INFO] = "info",
+        [LOG_DEBUG] = "debug"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(log_level, int);
+
+static const char* const sched_policy_table[] = {
+        [SCHED_OTHER] = "other",
+        [SCHED_BATCH] = "batch",
+        [SCHED_IDLE] = "idle",
+        [SCHED_FIFO] = "fifo",
+        [SCHED_RR] = "rr"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(sched_policy, int);
+
+static const char* const rlimit_table[] = {
+        [RLIMIT_CPU] = "LimitCPU",
+        [RLIMIT_FSIZE] = "LimitFSIZE",
+        [RLIMIT_DATA] = "LimitDATA",
+        [RLIMIT_STACK] = "LimitSTACK",
+        [RLIMIT_CORE] = "LimitCORE",
+        [RLIMIT_RSS] = "LimitRSS",
+        [RLIMIT_NOFILE] = "LimitNOFILE",
+        [RLIMIT_AS] = "LimitAS",
+        [RLIMIT_NPROC] = "LimitNPROC",
+        [RLIMIT_MEMLOCK] = "LimitMEMLOCK",
+        [RLIMIT_LOCKS] = "LimitLOCKS",
+        [RLIMIT_SIGPENDING] = "LimitSIGPENDING",
+        [RLIMIT_MSGQUEUE] = "LimitMSGQUEUE",
+        [RLIMIT_NICE] = "LimitNICE",
+        [RLIMIT_RTPRIO] = "LimitRTPRIO",
+        [RLIMIT_RTTIME] = "LimitRTTIME"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
+
+static const char* const ip_tos_table[] = {
+        [IPTOS_LOWDELAY] = "low-delay",
+        [IPTOS_THROUGHPUT] = "throughput",
+        [IPTOS_RELIABILITY] = "reliability",
+        [IPTOS_LOWCOST] = "low-cost",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);
+
+static const char *const signal_table[] = {
+        [SIGHUP] = "HUP",
+        [SIGINT] = "INT",
+        [SIGQUIT] = "QUIT",
+        [SIGILL] = "ILL",
+        [SIGTRAP] = "TRAP",
+        [SIGABRT] = "ABRT",
+        [SIGBUS] = "BUS",
+        [SIGFPE] = "FPE",
+        [SIGKILL] = "KILL",
+        [SIGUSR1] = "USR1",
+        [SIGSEGV] = "SEGV",
+        [SIGUSR2] = "USR2",
+        [SIGPIPE] = "PIPE",
+        [SIGALRM] = "ALRM",
+        [SIGTERM] = "TERM",
+#ifdef SIGSTKFLT
+        [SIGSTKFLT] = "STKFLT",  /* Linux on SPARC doesn't know SIGSTKFLT */
+#endif
+        [SIGCHLD] = "CHLD",
+        [SIGCONT] = "CONT",
+        [SIGSTOP] = "STOP",
+        [SIGTSTP] = "TSTP",
+        [SIGTTIN] = "TTIN",
+        [SIGTTOU] = "TTOU",
+        [SIGURG] = "URG",
+        [SIGXCPU] = "XCPU",
+        [SIGXFSZ] = "XFSZ",
+        [SIGVTALRM] = "VTALRM",
+        [SIGPROF] = "PROF",
+        [SIGWINCH] = "WINCH",
+        [SIGIO] = "IO",
+        [SIGPWR] = "PWR",
+        [SIGSYS] = "SYS"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(signal, int);
