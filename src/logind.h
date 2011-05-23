@@ -44,103 +44,11 @@
  */
 
 typedef struct Manager Manager;
-typedef struct Device Device;
-typedef struct Seat Seat;
-typedef struct Session Session;
-typedef struct User User;
 
-struct Device {
-        Manager *manager;
-
-        char *sysfs;
-        Seat *seat;
-
-        dual_timestamp timestamp;
-
-        LIST_FIELDS(struct Device, devices);
-};
-
-struct Seat {
-        Manager *manager;
-        char *id;
-
-        char *state_file;
-
-        LIST_HEAD(Device, devices);
-
-        Session *active;
-        LIST_HEAD(Session, sessions);
-};
-
-typedef enum SessionType {
-        SESSION_TERMINAL,
-        SESSION_X11,
-        _SESSION_TYPE_MAX,
-        _SESSION_TYPE_INVALID = -1
-} SessionType;
-
-struct Session {
-        Manager *manager;
-
-        char *id;
-        SessionType type;
-
-        char *state_file;
-
-        User *user;
-
-        dual_timestamp timestamp;
-
-        char *tty;
-        char *display;
-
-        bool remote;
-        char *remote_host;
-
-        int vtnr;
-        Seat *seat;
-
-        pid_t leader;
-        uint64_t audit_id;
-
-        int pipe_fd;
-
-        char *cgroup_path;
-        char **controllers, **reset_controllers;
-
-        bool kill_processes;
-
-        LIST_FIELDS(Session, sessions_by_user);
-        LIST_FIELDS(Session, sessions_by_seat);
-};
-
-typedef enum UserState {
-        USER_OFFLINE,
-        USER_LINGERING,
-        USER_ONLINE,
-        USER_ACTIVE,
-        _USER_STATE_MAX,
-        _USER_STATE_INVALID = -1
-} UserState;
-
-struct User {
-        Manager *manager;
-
-        uid_t uid;
-        gid_t gid;
-        char *name;
-
-        char *state_file;
-        char *runtime_path;
-        char *service;
-        char *cgroup_path;
-
-        Session *display;
-
-        dual_timestamp timestamp;
-
-        LIST_HEAD(Session, sessions);
-};
+#include "logind-device.h"
+#include "logind-seat.h"
+#include "logind-session.h"
+#include "logind-user.h"
 
 struct Manager {
         DBusConnection *bus;
@@ -170,39 +78,6 @@ struct Manager {
         bool kill_user_processes;
 };
 
-Device* device_new(Manager *m, const char *sysfs);
-void device_free(Device *d);
-void device_attach(Device *d, Seat *s);
-void device_detach(Device *d);
-
-Seat *seat_new(Manager *m, const char *id);
-void seat_free(Seat *s);
-int seat_preallocate_vts(Seat *s);
-void seat_active_vt_changed(Seat *s, int vtnr);
-int seat_apply_acls(Seat *s);
-int seat_stop(Seat *s);
-int seat_save(Seat *s);
-int seat_load(Seat *s);
-
-Session *session_new(Manager *m, User *u, const char *id);
-void session_free(Session *s);
-int session_activate(Session *s);
-bool session_is_active(Session *s);
-int session_check_gc(Session *s);
-int session_start(Session *s);
-int session_stop(Session *s);
-int session_save(Session *s);
-int session_load(Session *s);
-
-User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name);
-void user_free(User *u);
-int user_start(User *u);
-int user_stop(User *u);
-int user_check_gc(User *u);
-UserState user_get_state(User *u);
-int user_save(User *u);
-int user_load(User *u);
-
 Manager *manager_new(void);
 void manager_free(Manager *m);
 int manager_add_device(Manager *m, const char *sysfs, Device **_device);
@@ -223,12 +98,6 @@ int manager_start_linger_users(Manager *m);
 int manager_startup(Manager *m);
 int manager_run(Manager *m);
 int manager_spawn_autovt(Manager *m, int vtnr);
-
-const char* session_type_to_string(SessionType t);
-SessionType session_type_from_string(const char *s);
-
-const char* user_state_to_string(UserState s);
-UserState user_state_from_string(const char *s);
 
 bool x11_display_is_local(const char *display);
 

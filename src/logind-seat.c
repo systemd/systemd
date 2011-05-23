@@ -26,7 +26,7 @@
 #include <sys/ioctl.h>
 #include <linux/vt.h>
 
-#include "logind.h"
+#include "logind-seat.h"
 #include "util.h"
 
 Seat *seat_new(Manager *m, const char *id) {

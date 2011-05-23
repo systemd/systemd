@@ -22,7 +22,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "logind.h"
+#include "logind-device.h"
 #include "util.h"
 
 Device* device_new(Manager *m, const char *sysfs) {

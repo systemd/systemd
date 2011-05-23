@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "logind.h"
+#include "logind-user.h"
 #include "util.h"
 #include "cgroup-util.h"
 #include "hashmap.h"

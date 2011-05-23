@@ -23,7 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "logind.h"
+#include "logind-session.h"
 #include "strv.h"
 #include "util.h"
 #include "cgroup-util.h"
