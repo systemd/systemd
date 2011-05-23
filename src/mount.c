@@ -114,7 +114,7 @@ static void mount_done(Unit *u) {
         m->where = NULL;
 
         /* Try to detach us from the automount unit if there is any */
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_AUTOMOUNT]) {
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_AUTOMOUNT]) {
                 Automount *a = (Automount*) other;
 
                 if (a->mount == m)
@@ -166,7 +166,7 @@ static int mount_add_mount_links(Mount *m) {
         /* Adds in links to other mount points that might lie below or
          * above us in the hierarchy */
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_MOUNT]) {
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_MOUNT]) {
                 Mount *n = (Mount*) other;
                 MountParameters *pn;
 
@@ -223,7 +223,7 @@ static int mount_add_swap_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_SWAP])
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_SWAP])
                 if ((r = swap_add_one_mount_link((Swap*) other, m)) < 0)
                         return r;
 
@@ -236,7 +236,7 @@ static int mount_add_path_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_PATH])
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_PATH])
                 if ((r = path_add_one_mount_link((Path*) other, m)) < 0)
                         return r;
 
@@ -249,7 +249,7 @@ static int mount_add_automount_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_AUTOMOUNT])
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_AUTOMOUNT])
                 if ((r = automount_add_one_mount_link((Automount*) other, m)) < 0)
                         return r;
 
@@ -262,7 +262,7 @@ static int mount_add_socket_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_SOCKET])
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_SOCKET])
                 if ((r = socket_add_one_mount_link((Socket*) other, m)) < 0)
                         return r;
 
@@ -1687,7 +1687,7 @@ void mount_fd_event(Manager *m, int events) {
                 log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-r));
 
                 /* Reset flags, just in case, for later calls */
-                LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_MOUNT]) {
+                LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_MOUNT]) {
                         Mount *mount = (Mount*) meta;
 
                         mount->is_mounted = mount->just_mounted = mount->just_changed = false;
@@ -1698,7 +1698,7 @@ void mount_fd_event(Manager *m, int events) {
 
         manager_dispatch_load_queue(m);
 
-        LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_MOUNT]) {
+        LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = (Mount*) meta;
 
                 if (!mount->is_mounted) {

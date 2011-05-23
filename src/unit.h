@@ -168,7 +168,7 @@ struct Meta {
         CGroupBonding *cgroup_bondings;
 
         /* Per type list */
-        LIST_FIELDS(Meta, units_per_type);
+        LIST_FIELDS(Meta, units_by_type);
 
         /* Load queue */
         LIST_FIELDS(Meta, load_queue);

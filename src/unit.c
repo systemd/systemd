@@ -159,7 +159,7 @@ int unit_add_name(Unit *u, const char *text) {
                 u->meta.id = s;
                 u->meta.instance = i;
 
-                LIST_PREPEND(Meta, units_per_type, u->meta.manager->units_per_type[t], &u->meta);
+                LIST_PREPEND(Meta, units_by_type, u->meta.manager->units_by_type[t], &u->meta);
 
                 if (UNIT_VTABLE(u)->init)
                         UNIT_VTABLE(u)->init(u);
@@ -354,7 +354,7 @@ void unit_free(Unit *u) {
                 bidi_set_free(u, u->meta.dependencies[d]);
 
         if (u->meta.type != _UNIT_TYPE_INVALID)
-                LIST_REMOVE(Meta, units_per_type, u->meta.manager->units_per_type[u->meta.type], &u->meta);
+                LIST_REMOVE(Meta, units_by_type, u->meta.manager->units_by_type[u->meta.type], &u->meta);
 
         if (u->meta.in_load_queue)
                 LIST_REMOVE(Meta, load_queue, u->meta.manager->load_queue, &u->meta);

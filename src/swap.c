@@ -155,7 +155,7 @@ static int swap_add_mount_links(Swap *s) {
 
         assert(s);
 
-        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_MOUNT])
                 if ((r = swap_add_one_mount_link(s, (Mount*) other)) < 0)
                         return r;
 
@@ -1100,7 +1100,7 @@ int swap_fd_event(Manager *m, int events) {
                 log_error("Failed to reread /proc/swaps: %s", strerror(-r));
 
                 /* Reset flags, just in case, for late calls */
-                LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_SWAP]) {
+                LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_SWAP]) {
                         Swap *swap = (Swap*) meta;
 
                         swap->is_active = swap->just_activated = false;
@@ -1111,7 +1111,7 @@ int swap_fd_event(Manager *m, int events) {
 
         manager_dispatch_load_queue(m);
 
-        LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_SWAP]) {
+        LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_SWAP]) {
                 Swap *swap = (Swap*) meta;
 
                 if (!swap->is_active) {

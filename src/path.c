@@ -102,7 +102,7 @@ static int path_add_mount_links(Path *p) {
 
         assert(p);
 
-        LIST_FOREACH(units_per_type, other, p->meta.manager->units_per_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, p->meta.manager->units_by_type[UNIT_MOUNT])
                 if ((r = path_add_one_mount_link(p, (Mount*) other)) < 0)
                         return r;
 

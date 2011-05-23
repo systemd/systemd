@@ -131,7 +131,7 @@ static void socket_done(Unit *u) {
         unit_unwatch_timer(u, &s->timer_watch);
 
         /* Make sure no service instance refers to us anymore. */
-        LIST_FOREACH(units_per_type, i, u->meta.manager->units_per_type[UNIT_SERVICE]) {
+        LIST_FOREACH(units_by_type, i, u->meta.manager->units_by_type[UNIT_SERVICE]) {
                 Service *service = (Service *) i;
 
                 if (service->accept_socket == s)
@@ -283,7 +283,7 @@ static int socket_add_mount_links(Socket *s) {
 
         assert(s);
 
-        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_MOUNT])
                 if ((r = socket_add_one_mount_link(s, (Mount*) other)) < 0)
                         return r;
 
@@ -1361,7 +1361,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 /* If there's already a start pending don't bother to
                  * do anything */
-                LIST_FOREACH(units_per_type, i, s->meta.manager->units_per_type[UNIT_SERVICE]) {
+                LIST_FOREACH(units_by_type, i, s->meta.manager->units_by_type[UNIT_SERVICE]) {
                         Service *service = (Service *) i;
 
                         if (!set_get(service->configured_sockets, s))
