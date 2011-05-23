@@ -158,7 +158,8 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-        systemd-hostnamed
+        systemd-hostnamed \
+        systemd-logind
 
 if ENABLE_BINFMT
 rootlibexec_PROGRAMS += \
@@ -805,6 +806,27 @@ systemd_hostnamed_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
+
+systemd_logind_SOURCES = \
+	src/logind.c \
+        src/logind-device.c \
+        src/logind-seat.c \
+        src/logind-session.c \
+        src/logind-user.c \
+        src/dbus-common.c \
+        src/dbus-loop.c \
+        src/cgroup-util.c
+
+systemd_logind_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+        $(UDEV_CFLAGS)
+
+systemd_logind_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(DBUS_LIBS) \
+        $(UDEV_LIBS)
 
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \

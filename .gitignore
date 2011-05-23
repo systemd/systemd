@@ -1,3 +1,4 @@
+systemd-logind
 systemd-hostnamed
 systemd-binfmt
 systemd-getty-generator
