@@ -357,6 +357,8 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
 int rm_rf(const char *path, bool only_dirs, bool delete_root);
 
+int pipe_eof(int fd);
+
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
 void status_vprintf(const char *format, va_list ap);

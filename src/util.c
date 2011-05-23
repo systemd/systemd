@@ -4437,6 +4437,24 @@ char* hostname_cleanup(char *s) {
         return s;
 }
 
+int pipe_eof(int fd) {
+        struct pollfd pollfd;
+        int r;
+
+        zero(pollfd);
+        pollfd.fd = fd;
+        pollfd.events = POLLIN|POLLHUP;
+
+        r = poll(&pollfd, 1, 0);
+        if (r < 0)
+                return -errno;
+
+        if (r == 0)
+                return 0;
+
+        return pollfd.revents & POLLHUP;
+}
+
 int terminal_vhangup_fd(int fd) {
         if (ioctl(fd, TIOCVHANGUP) < 0)
                 return -errno;
