@@ -655,16 +655,54 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
-int main(int argc, char *argv[]) {
-        const DBusObjectPathVTable hostname_vtable = {
+static int connect_bus(DBusConnection **_bus) {
+        static const DBusObjectPathVTable hostname_vtable = {
                 .message_function = hostname_message_handler
         };
-
-        DBusConnection *bus = NULL;
         DBusError error;
+        DBusConnection *bus = NULL;
         int r;
 
+        assert(_bus);
+
         dbus_error_init(&error);
+
+        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
+        if (!bus) {
+                log_error("Failed to get system D-Bus connection: %s", error.message);
+                r = -ECONNREFUSED;
+                goto fail;
+        }
+
+        if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL)) {
+                log_error("Not enough memory");
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        if (dbus_bus_request_name(bus, "org.freedesktop.hostname1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error) < 0) {
+                log_error("Failed to register name on bus: %s", error.message);
+                r = -EEXIST;
+                goto fail;
+        }
+
+        if (_bus)
+                *_bus = bus;
+
+        return 0;
+
+fail:
+        dbus_connection_close(bus);
+        dbus_connection_unref(bus);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+        DBusConnection *bus = NULL;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -687,24 +725,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        if (!bus) {
-                log_error("Failed to get system D-Bus connection: %s", error.message);
-                r = -ECONNREFUSED;
+        r = connect_bus(&bus);
+        if (r < 0)
                 goto finish;
-        }
-
-        if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL)) {
-                log_error("Not enough memory");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (dbus_bus_request_name(bus, "org.freedesktop.hostname1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error) < 0) {
-                log_error("Failed to register name on bus: %s", error.message);
-                r = -EEXIST;
-                goto finish;
-        }
 
         while (dbus_connection_read_write_dispatch(bus, -1))
                 ;
@@ -719,8 +742,6 @@ finish:
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
         }
-
-        dbus_error_free(&error);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
