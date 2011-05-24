@@ -274,7 +274,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-security.mount \
 	units/var-run.mount \
 	units/media.mount \
-	units/hwclock-load.service \
 	units/hwclock-save.service \
 	units/remount-rootfs.service \
 	units/printer.target \
@@ -1430,9 +1429,6 @@ endif
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/sysinit.target.wants && \
-		rm -f hwclock-load.service && \
-		$(LN_S) $(systemunitdir)/hwclock-load.service hwclock-load.service )
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \

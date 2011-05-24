@@ -1049,6 +1049,13 @@ int main(int argc, char *argv[]) {
 
                 if (label_init() < 0)
                         goto finish;
+
+                if (hwclock_is_localtime()) {
+                        int min;
+
+                        min = hwclock_apply_localtime_delta();
+                        log_info("Hwclock configured in localtime, applying delta of %i minutes to system time", min);
+                }
         } else {
                 arg_running_as = MANAGER_USER;
                 log_set_target(LOG_TARGET_CONSOLE);

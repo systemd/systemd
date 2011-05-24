@@ -51,6 +51,8 @@
 #include <dlfcn.h>
 #include <sys/wait.h>
 #include <sys/capability.h>
+#include <sys/time.h>
+#include <linux/rtc.h>
 
 #include "macro.h"
 #include "util.h"
@@ -4760,4 +4762,82 @@ finish:
         hashmap_free(fh);
         *strv = files;
         return r;
+}
+
+bool hwclock_is_localtime(void) {
+        FILE *f;
+        char line[LINE_MAX];
+        bool local = false;
+
+        /*
+         * The third line of adjtime is "UTC" or "LOCAL" or nothing.
+         *   # /etc/adjtime
+         *   0.0 0 0.0
+         *   0
+         *   UTC
+         */
+        f = fopen("/etc/adjtime", "re");
+        if (f) {
+                if (fgets(line, sizeof(line), f) &&
+                    fgets(line, sizeof(line), f) &&
+                    fgets(line, sizeof(line), f) ) {
+                            if (!strcmp(line, "LOCAL\n"))
+                                 local = true;
+                }
+                fclose(f);
+        }
+        return local;
+}
+
+int hwclock_apply_localtime_delta(void) {
+        const struct timeval *tv_null = NULL;
+        struct timeval tv;
+        struct tm *tm;
+        int minuteswest;
+        struct timezone tz;
+
+        gettimeofday(&tv, NULL);
+        tm = localtime(&tv.tv_sec);
+        minuteswest = tm->tm_gmtoff / 60;
+
+        tz.tz_minuteswest = -minuteswest;
+        tz.tz_dsttime = 0; /* DST_NONE*/
+
+        /*
+         * If the hardware clock does not run in UTC, but in local time:
+         * The very first time we set the kernel's timezone, it will warp
+         * the clock so that it runs in UTC instead of local time.
+         */
+        if (settimeofday(tv_null, &tz) < 0)
+                return -errno;
+        else
+                return minuteswest;
+}
+
+int hwclock_get_time(struct tm *tm) {
+        int fd;
+        int err = 0;
+
+        fd = open("/dev/rtc0", O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+        if (ioctl(fd, RTC_RD_TIME, tm) < 0)
+                err = -errno;
+        close(fd);
+
+        return err;
+}
+
+int hwclock_set_time(const struct tm *tm) {
+        int fd;
+        int err = 0;
+
+        fd = open("/dev/rtc0", O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+        if (ioctl(fd, RTC_SET_TIME, tm) < 0)
+                err = -errno;
+        close(fd);
+
+        return err;
 }

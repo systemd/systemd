@@ -451,4 +451,13 @@ int signal_from_string(const char *s);
 int signal_from_string_try_harder(const char *s);
 
 int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
+
+bool hwclock_is_localtime(void);
+
+int hwclock_apply_localtime_delta(void);
+
+int hwclock_get_time(struct tm *tm);
+
+int hwclock_set_time(const struct tm *tm);
+
 #endif
