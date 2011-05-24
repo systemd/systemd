@@ -330,6 +330,7 @@ int default_signals(int sig, ...);
 int sigaction_many(const struct sigaction *sa, ...);
 
 int close_pipe(int p[]);
+int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);

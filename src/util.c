@@ -4455,7 +4455,49 @@ int pipe_eof(int fd) {
         return pollfd.revents & POLLHUP;
 }
 
+int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
+        FILE *f;
+        char *t;
+        const char *fn;
+        size_t k;
+        int fd;
+
+        assert(path);
+        assert(_f);
+        assert(_temp_path);
+
+        t = new(char, strlen(path) + 1 + 6 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        fn = file_name_from_path(path);
+        k = fn-path;
+        memcpy(t, path, k);
+        t[k] = '.';
+        stpcpy(stpcpy(t+k+1, fn), "XXXXXX");
+
+        fd = mkostemp(t, O_WRONLY|O_CLOEXEC);
+        if (fd < 0) {
+                free(t);
+                return -errno;
+        }
+
+        f = fdopen(fd, "we");
+        if (!f) {
+                unlink(t);
+                free(t);
+                return -errno;
+        }
+
+        *_f = f;
+        *_temp_path = t;
+
+        return 0;
+}
+
 int terminal_vhangup_fd(int fd) {
+        assert(fd >= 0);
+
         if (ioctl(fd, TIOCVHANGUP) < 0)
                 return -errno;
 
