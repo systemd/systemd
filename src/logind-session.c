@@ -174,6 +174,7 @@ int session_load(Session *s) {
 
 int session_activate(Session *s) {
         int r;
+        Session *old_active;
 
         assert(s);
 
@@ -192,9 +193,13 @@ int session_activate(Session *s) {
         if (r < 0)
                 return r;
 
+        old_active = s->seat->active;
         s->seat->active = s;
 
-        return seat_apply_acls(s->seat);
+        seat_apply_acls(s->seat, old_active);
+        manager_spawn_autovt(s->manager, s->vtnr);
+
+        return 0;
 }
 
 bool x11_display_is_local(const char *display) {

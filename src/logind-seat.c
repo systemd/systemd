@@ -25,8 +25,10 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/vt.h>
+#include <string.h>
 
 #include "logind-seat.h"
+#include "logind-acl.h"
 #include "util.h"
 
 Seat *seat_new(Manager *m, const char *id) {
@@ -179,40 +181,32 @@ int seat_preallocate_vts(Seat *s) {
         return r;
 }
 
-int seat_apply_acls(Seat *s) {
+int seat_apply_acls(Seat *s, Session *old_active) {
+        int r;
+
         assert(s);
 
+        r = devnode_acl_all(s->manager->udev,
+                            s->id,
+                            false,
+                            !!old_active, old_active ? old_active->user->uid : 0,
+                            !!s->active, s->active ? s->active->user->uid : 0);
 
-        return 0;
-}
-
-static int vt_is_busy(int vtnr) {
-        struct vt_stat vt_stat;
-        int r = 0, fd;
-
-        assert(vtnr >= 1);
-
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        if (ioctl(fd, VT_GETSTATE, &vt_stat) < 0)
-                r = -errno;
-        else
-                r = !!(vt_stat.v_state & (1 << vtnr));
-
-        close_nointr_nofail(fd);
+        if (r < 0)
+                log_error("Failed to apply ACLs: %s", strerror(-r));
 
         return r;
 }
 
-void seat_active_vt_changed(Seat *s, int vtnr) {
+int seat_active_vt_changed(Seat *s, int vtnr) {
         Session *i;
+        Session *old_active;
 
         assert(s);
         assert(vtnr >= 1);
         assert(s->manager->vtconsole == s);
 
+        old_active = s->active;
         s->active = NULL;
 
         LIST_FOREACH(sessions_by_seat, i, s->sessions)
@@ -221,10 +215,13 @@ void seat_active_vt_changed(Seat *s, int vtnr) {
                         break;
                 }
 
-        seat_apply_acls(s);
+        if (old_active == s->active)
+                return 0;
 
-        if (vt_is_busy(vtnr) == 0)
-                manager_spawn_autovt(s->manager, vtnr);
+        seat_apply_acls(s, old_active);
+        manager_spawn_autovt(s->manager, vtnr);
+
+        return 0;
 }
 
 int seat_stop(Seat *s) {

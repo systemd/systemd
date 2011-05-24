@@ -26,6 +26,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/epoll.h>
+#include <sys/ioctl.h>
+#include <linux/vt.h>
 
 #include "logind.h"
 #include "dbus-common.h"
@@ -290,7 +292,7 @@ int manager_enumerate_devices(Manager *m) {
 
         e = udev_enumerate_new(m->udev);
         if (!e)
-                return -ENOMEM;
+                goto finish;
 
         if (udev_enumerate_add_match_subsystem(e, "graphics") < 0)
                 goto finish;
@@ -627,8 +629,36 @@ int manager_dispatch_console(Manager *m) {
         return 0;
 }
 
+static int vt_is_busy(int vtnr) {
+        struct vt_stat vt_stat;
+        int r = 0, fd;
+
+        assert(vtnr >= 1);
+
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (ioctl(fd, VT_GETSTATE, &vt_stat) < 0)
+                r = -errno;
+        else
+                r = !!(vt_stat.v_state & (1 << vtnr));
+
+        close_nointr_nofail(fd);
+
+        return r;
+}
+
 int manager_spawn_autovt(Manager *m, int vtnr) {
+        int r;
+
         assert(m);
+
+        r = vt_is_busy(vtnr);
+        if (r != 0)
+                return r;
+
+        /* ... */
 
         return 0;
 }
@@ -849,7 +879,7 @@ int manager_run(Manager *m) {
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        int r = 0;
+        int r;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();

@@ -36,11 +36,12 @@
  *
  * recreate VTs when disallocated
  * udev rules
- * spawn user systemd
- * non-local X11 server
- * udev-acl
- * reboot/shutdown halt management
  * PAM rewrite
+ * spawn user systemd
+ * dbus API
+ *
+ * non-local X11 server
+ * reboot/shutdown halt management
  */
 
 typedef struct Manager Manager;

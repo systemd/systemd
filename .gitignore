@@ -1,3 +1,4 @@
+systemd-uaccess
 systemd-logind
 systemd-hostnamed
 systemd-binfmt

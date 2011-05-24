@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindseathfoo
-#define foologindseathfoo
+#ifndef foologindaclhfoo
+#define foologindaclhfoo
 
 /***
   This file is part of systemd.
@@ -22,33 +22,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct Seat Seat;
+#include <sys/types.h>
+#include <stdbool.h>
+#include <libudev.h>
 
-#include "list.h"
-#include "util.h"
-#include "logind.h"
-#include "logind-device.h"
-#include "logind-session.h"
+int devnode_acl(const char *path,
+                bool flush,
+                bool del, uid_t old_uid,
+                bool add, uid_t new_uid);
 
-struct Seat {
-        Manager *manager;
-        char *id;
-
-        char *state_file;
-
-        LIST_HEAD(Device, devices);
-
-        Session *active;
-        LIST_HEAD(Session, sessions);
-};
-
-Seat *seat_new(Manager *m, const char *id);
-void seat_free(Seat *s);
-int seat_preallocate_vts(Seat *s);
-int seat_active_vt_changed(Seat *s, int vtnr);
-int seat_apply_acls(Seat *s, Session *old_active);
-int seat_stop(Seat *s);
-int seat_save(Seat *s);
-int seat_load(Seat *s);
+int devnode_acl_all(struct udev *udev,
+                    const char *seat,
+                    bool flush,
+                    bool del, uid_t old_uid,
+                    bool add, uid_t new_uid);
 
 #endif
