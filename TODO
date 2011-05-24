@@ -23,6 +23,8 @@ Features:
 * possibly set timezone offset from systemd at init instead
   of calling hwclock
 
+* kernel: add device_type = "fb", "fbcon" to class "graphics"
+
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
   assumes starting a service is enough to make it accessible
