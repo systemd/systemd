@@ -34,7 +34,7 @@ Session* session_new(Manager *m, User *u, const char *id) {
         assert(m);
         assert(id);
 
-        s = new(Session, 1);
+        s = new0(Session, 1);
         if (!s)
                 return NULL;
 
@@ -56,13 +56,16 @@ Session* session_new(Manager *m, User *u, const char *id) {
         s->pipe_fd = -1;
         s->user = u;
 
-        dual_timestamp_get(&s->timestamp);
+        LIST_PREPEND(Session, sessions_by_user, u->sessions, s);
 
         return s;
 }
 
 void session_free(Session *s) {
         assert(s);
+
+        if (s->in_gc_queue)
+                LIST_REMOVE(Session, gc_queue, s->manager->session_gc_queue, s);
 
         if (s->user) {
                 LIST_REMOVE(Session, sessions_by_user, s->user->sessions, s);
@@ -83,25 +86,32 @@ void session_free(Session *s) {
 
         hashmap_remove(s->manager->sessions, s->id);
 
-        free(s->state_file);
+        if (s->state_file) {
+                unlink(s->state_file);
+                free(s->state_file);
+        }
+
         free(s);
 }
 
 int session_save(Session *s) {
         FILE *f;
         int r = 0;
+        char *temp_path;
 
         assert(s);
 
         r = safe_mkdir("/run/systemd/session", 0755, 0, 0);
         if (r < 0)
-                return r;
+                goto finish;
 
-        f = fopen(s->state_file, "we");
-        if (!f)
-                return -errno;
+        r = fopen_temporary(s->state_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
 
         assert(s->user);
+
+        fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -157,12 +167,20 @@ int session_save(Session *s) {
                         (unsigned long long) s->audit_id);
 
         fflush(f);
-        if (ferror(f)) {
+
+        if (ferror(f) || rename(temp_path, s->state_file) < 0) {
                 r = -errno;
                 unlink(s->state_file);
+                unlink(temp_path);
         }
 
         fclose(f);
+        free(temp_path);
+
+finish:
+        if (r < 0)
+                log_error("Failed to save session data for %s: %s", s->id, strerror(-r));
+
         return r;
 }
 
@@ -196,10 +214,7 @@ int session_activate(Session *s) {
         old_active = s->seat->active;
         s->seat->active = s;
 
-        seat_apply_acls(s->seat, old_active);
-        manager_spawn_autovt(s->manager, s->vtnr);
-
-        return 0;
+        return seat_apply_acls(s->seat, old_active);
 }
 
 bool x11_display_is_local(const char *display) {
@@ -333,11 +348,6 @@ int session_start(Session *s) {
         assert(s);
         assert(s->user);
 
-        /* Create user first */
-        r = user_start(s->user);
-        if (r < 0)
-                return r;
-
         /* Create cgroup */
         r = session_create_cgroup(s);
         if (r < 0)
@@ -345,6 +355,12 @@ int session_start(Session *s) {
 
         /* Create X11 symlink */
         session_link_x11_socket(s);
+
+        /* Save session data */
+        session_save(s);
+
+        dual_timestamp_get(&s->timestamp);
+
         return 0;
 }
 
@@ -429,6 +445,8 @@ int session_stop(Session *s) {
         /* Remove X11 symlink */
         session_unlink_x11_socket(s);
 
+        session_save(s);
+
         return r;
 }
 
@@ -452,7 +470,7 @@ int session_check_gc(Session *s) {
                 if (r < 0)
                         return r;
 
-                if (r <= 0)
+                if (r == 0)
                         return 1;
         }
 
@@ -467,6 +485,16 @@ int session_check_gc(Session *s) {
         }
 
         return 0;
+}
+
+void session_add_to_gc_queue(Session *s) {
+        assert(s);
+
+        if (s->in_gc_queue)
+                return;
+
+        LIST_PREPEND(Session, gc_queue, s->manager->session_gc_queue, s);
+        s->in_gc_queue = true;
 }
 
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {

@@ -54,14 +54,18 @@ struct User {
 
         dual_timestamp timestamp;
 
+        bool in_gc_queue:1;
+
         LIST_HEAD(Session, sessions);
+        LIST_FIELDS(User, gc_queue);
 };
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name);
 void user_free(User *u);
+int user_check_gc(User *u);
+void user_add_to_gc_queue(User *u);
 int user_start(User *u);
 int user_stop(User *u);
-int user_check_gc(User *u);
 UserState user_get_state(User *u);
 int user_save(User *u);
 int user_load(User *u);

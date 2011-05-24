@@ -66,17 +66,21 @@ struct Session {
         char *cgroup_path;
         char **controllers, **reset_controllers;
 
-        bool kill_processes;
+        bool kill_processes:1;
+        bool in_gc_queue:1;
 
         LIST_FIELDS(Session, sessions_by_user);
         LIST_FIELDS(Session, sessions_by_seat);
+
+        LIST_FIELDS(Session, gc_queue);
 };
 
 Session *session_new(Manager *m, User *u, const char *id);
 void session_free(Session *s);
+int session_check_gc(Session *s);
+void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
-int session_check_gc(Session *s);
 int session_start(Session *s);
 int session_stop(Session *s);
 int session_save(Session *s);

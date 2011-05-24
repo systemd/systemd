@@ -35,7 +35,7 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         assert(m);
         assert(name);
 
-        u = new(User, 1);
+        u = new0(User, 1);
         if (!u)
                 return NULL;
 
@@ -68,6 +68,9 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
 void user_free(User *u) {
         assert(u);
 
+        if (u->in_gc_queue)
+                LIST_REMOVE(User, gc_queue, u->manager->user_gc_queue, u);
+
         while (u->sessions)
                 session_free(u->sessions);
 
@@ -79,26 +82,35 @@ void user_free(User *u) {
         hashmap_remove(u->manager->users, ULONG_TO_PTR((unsigned long) u->uid));
 
         free(u->name);
-        free(u->state_file);
+
+        if (u->state_file) {
+                unlink(u->state_file);
+                free(u->state_file);
+        }
+
         free(u);
 }
 
 int user_save(User *u) {
         FILE *f;
         int r;
+        char *temp_path;
 
         assert(u);
         assert(u->state_file);
 
         r = safe_mkdir("/run/systemd/user", 0755, 0, 0);
         if (r < 0)
-                return r;
+                goto finish;
 
-        f = fopen(u->state_file, "we");
-        if (!f)
-                return -errno;
+        r = fopen_temporary(u->state_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
+
+        fchmod(fileno(f), 0644);
 
         fprintf(f,
+                "# This is private data. Do not parse.\n"
                 "NAME=%s\n"
                 "STATE=%s\n",
                 u->name,
@@ -125,12 +137,20 @@ int user_save(User *u) {
                         u->display->id);
 
         fflush(f);
-        if (ferror(f)) {
+
+        if (ferror(f) || rename(temp_path, u->state_file) < 0) {
                 r = -errno;
                 unlink(u->state_file);
+                unlink(temp_path);
         }
 
         fclose(f);
+        free(temp_path);
+
+finish:
+        if (r < 0)
+                log_error("Failed to save user data for %s: %s", u->name, strerror(-r));
+
         return r;
 }
 
@@ -259,6 +279,9 @@ int user_start(User *u) {
         r = user_start_service(u);
         if (r < 0)
                 return r;
+
+        /* Save new user data */
+        user_save(u);
 
         dual_timestamp_get(&u->timestamp);
 
@@ -393,6 +416,16 @@ int user_check_gc(User *u) {
         }
 
         return 0;
+}
+
+void user_add_to_gc_queue(User *u) {
+        assert(u);
+
+        if (u->in_gc_queue)
+                return;
+
+        LIST_PREPEND(User, gc_queue, u->manager->user_gc_queue, u);
+        u->in_gc_queue = true;
 }
 
 UserState user_get_state(User *u) {

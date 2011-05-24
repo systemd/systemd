@@ -200,7 +200,6 @@ int manager_add_session(Manager *m, User *u, const char *id, Session **_session)
 
 int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user) {
         User *u;
-        int r;
 
         assert(m);
         assert(name);
@@ -217,16 +216,10 @@ int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **
         if (!u)
                 return -ENOMEM;
 
-        r = user_start(u);
-        if (r < 0) {
-                user_stop(u);
-                user_free(u);
-        } else {
-                if (_user)
-                        *_user = u;
-        }
+        if (_user)
+                *_user = u;
 
-        return r;
+        return 0;
 }
 
 int manager_add_user_by_name(Manager *m, const char *name, User **_user) {
@@ -257,33 +250,53 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
 }
 
 int manager_process_device(Manager *m, struct udev_device *d) {
-        const char *sn;
-        Seat *seat;
         Device *device;
         int r;
 
         assert(m);
 
-        sn = udev_device_get_property_value(d, "SEAT");
-        if (!sn)
-                sn = "seat0";
+        if (streq_ptr(udev_device_get_action(d), "remove")) {
 
-        r = manager_add_device(m, udev_device_get_syspath(d), &device);
-        if (r < 0)
-                return r;
+                device = hashmap_get(m->devices, udev_device_get_syspath(d));
+                if (!device)
+                        return 0;
 
-        r = manager_add_seat(m, sn, &seat);
-        if (r < 0)
-                return r;
+                seat_add_to_gc_queue(device->seat);
+                device_free(device);
 
-        device_attach(device, seat);
+        } else {
+                const char *sn;
+                Seat *seat;
+
+                sn = udev_device_get_property_value(d, "SEAT");
+                if (!sn)
+                        sn = "seat0";
+
+                if (!startswith(sn, "seat"))
+                        return -EINVAL;
+
+                r = manager_add_device(m, udev_device_get_syspath(d), &device);
+                if (r < 0)
+                        return r;
+
+                r = manager_add_seat(m, sn, &seat);
+                if (r < 0) {
+                        if (!device->seat)
+                                device_free(device);
+
+                        return r;
+                }
+
+                device_attach(device, seat);
+        }
+
         return 0;
 }
 
 int manager_enumerate_devices(Manager *m) {
         struct udev_list_entry *item = NULL, *first = NULL;
         struct udev_enumerate *e;
-        int r = -ENOMEM;
+        int r;
 
         assert(m);
 
@@ -291,16 +304,21 @@ int manager_enumerate_devices(Manager *m) {
          * necessary */
 
         e = udev_enumerate_new(m->udev);
-        if (!e)
+        if (!e) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = udev_enumerate_add_match_subsystem(e, "graphics");
+        if (r < 0)
                 goto finish;
 
-        if (udev_enumerate_add_match_subsystem(e, "graphics") < 0)
+        r = udev_enumerate_add_match_tag(e, "seat");
+        if (r < 0)
                 goto finish;
 
-        if (udev_enumerate_add_match_tag(e, "seat") < 0)
-                goto finish;
-
-        if (udev_enumerate_scan_devices(e) < 0)
+        r = udev_enumerate_scan_devices(e);
+        if (r < 0)
                 goto finish;
 
         first = udev_enumerate_get_list_entry(e);
@@ -309,8 +327,10 @@ int manager_enumerate_devices(Manager *m) {
                 int k;
 
                 d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
-                if (!d)
+                if (!d) {
+                        r = -ENOMEM;
                         goto finish;
+                }
 
                 k = manager_process_device(m, d);
                 udev_device_unref(d);
@@ -353,6 +373,9 @@ int manager_enumerate_seats(Manager *m) {
                 if (!dirent_is_file(de))
                         continue;
 
+                if (!startswith(de->d_name, "seat"))
+                        continue;
+
                 s = hashmap_get(m->seats, de->d_name);
                 if (!s) {
                         unlinkat(dirfd(d), de->d_name, 0);
@@ -385,24 +408,61 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
 
         while ((r = cg_read_subgroup(d, &name)) > 0) {
                 User *user;
+                int k;
 
-                r = manager_add_user_by_name(m, name, &user);
+                k = manager_add_user_by_name(m, name, &user);
+                if (k < 0) {
+                        free(name);
+                        r = k;
+                        continue;
+                }
+
+                user_add_to_gc_queue(user);
+
+                if (!user->cgroup_path)
+                        if (asprintf(&user->cgroup_path, "%s/%s", m->cgroup_path, name) < 0) {
+                                r = -ENOMEM;
+                                free(name);
+                                break;
+                        }
+
                 free(name);
+        }
 
-                if (r < 0)
-                        break;
+        closedir(d);
 
-                if (user->cgroup_path)
+        return r;
+}
+
+
+static int manager_enumerate_linger_users(Manager *m) {
+        DIR *d;
+        struct dirent *de;
+        int r = 0;
+
+        d = opendir("/var/lib/systemd/linger");
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                log_error("Failed to open /var/lib/systemd/linger/: %m");
+                return -errno;
+        }
+
+        while ((de = readdir(d))) {
+                int k;
+
+                if (!dirent_is_file(de))
                         continue;
 
-                if (asprintf(&user->cgroup_path, "%s/%s", m->cgroup_path, name) < 0) {
-                        r = -ENOMEM;
-                        break;
+                k = manager_add_user_by_name(m, de->d_name, NULL);
+                if (k < 0) {
+                        log_notice("Couldn't add lingering user %s: %s", de->d_name, strerror(-k));
+                        r = k;
                 }
         }
 
-        if (d)
-                closedir(d);
+        closedir(d);
 
         return r;
 }
@@ -410,12 +470,19 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
 int manager_enumerate_users(Manager *m) {
         DIR *d;
         struct dirent *de;
-        int r;
+        int r, k;
 
         assert(m);
 
+        /* First, enumerate user cgroups */
         r = manager_enumerate_users_from_cgroup(m);
 
+        /* Second, add lingering users on top */
+        k = manager_enumerate_linger_users(m);
+        if (k < 0)
+                r = k;
+
+        /* Third, read in user data stored on disk */
         d = opendir("/run/systemd/users");
         if (!d) {
                 if (errno == ENOENT)
@@ -428,7 +495,6 @@ int manager_enumerate_users(Manager *m) {
         while ((de = readdir(d))) {
                 unsigned long ul;
                 User *u;
-                int k;
 
                 if (!dirent_is_file(de))
                         continue;
@@ -465,6 +531,9 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
                 char *name;
                 int k;
 
+                if (!u->cgroup_path)
+                        continue;
+
                 k = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, &d);
                 if (k < 0) {
                         if (k == -ENOENT)
@@ -479,18 +548,21 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
                         Session *session;
 
                         k = manager_add_session(m, u, name, &session);
-                        free(name);
-
-                        if (k < 0)
-                                break;
-
-                        if (session->cgroup_path)
-                                continue;
-
-                        if (asprintf(&session->cgroup_path, "%s/%s", u->cgroup_path, name) < 0) {
-                                k = -ENOMEM;
+                        if (k < 0) {
+                                free(name);
                                 break;
                         }
+
+                        session_add_to_gc_queue(session);
+
+                        if (!session->cgroup_path)
+                                if (asprintf(&session->cgroup_path, "%s/%s", u->cgroup_path, name) < 0) {
+                                        k = -ENOMEM;
+                                        free(name);
+                                        break;
+                                }
+
+                        free(name);
                 }
 
                 closedir(d);
@@ -509,8 +581,10 @@ int manager_enumerate_sessions(Manager *m) {
 
         assert(m);
 
+        /* First enumerate session cgroups */
         r = manager_enumerate_sessions_from_cgroup(m);
 
+        /* Second, read in session data stored on disk */
         d = opendir("/run/systemd/sessions");
         if (!d) {
                 if (errno == ENOENT)
@@ -543,38 +617,6 @@ int manager_enumerate_sessions(Manager *m) {
         return r;
 }
 
-int manager_start_linger_users(Manager *m) {
-        DIR *d;
-        struct dirent *de;
-        int r = 0;
-
-        d = opendir("/var/lib/systemd/linger");
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_error("Failed to open /var/lib/systemd/linger/: %m");
-                return -errno;
-        }
-
-        while ((de = readdir(d))) {
-                int k;
-
-                if (!dirent_is_file(de))
-                        continue;
-
-                k = manager_add_user_by_name(m, de->d_name, NULL);
-                if (k < 0) {
-                        log_notice("Couldn't add lingering user %s: %s", de->d_name, strerror(-k));
-                        r = k;
-                }
-        }
-
-        closedir(d);
-
-        return r;
-}
-
 int manager_dispatch_udev(Manager *m) {
         struct udev_device *d;
         int r;
@@ -592,39 +634,10 @@ int manager_dispatch_udev(Manager *m) {
 }
 
 int manager_dispatch_console(Manager *m) {
-        char t[64];
-        ssize_t k;
-        int r, vtnr;
-
         assert(m);
 
-        lseek(m->console_active_fd, SEEK_SET, 0);
-
-        k = read(m->console_active_fd, t, sizeof(t)-1);
-        if (k <= 0) {
-                log_error("Failed to read current console: %s", k < 0 ? strerror(-errno) : "EOF");
-                return k < 0 ? -errno : -EIO;
-        }
-
-        t[k] = 0;
-        if (!startswith(t, "tty")) {
-                log_error("Hm, /sys/class/tty/tty0/active is badly formatted.");
-                return -EIO;
-        }
-
-        r = safe_atoi(t+3, &vtnr);
-        if (r < 0) {
-                log_error("Failed to parse VT number %s", t+3);
-                return r;
-        }
-
-        if (vtnr <= 0) {
-                log_error("VT number invalid: %s", t+3);
-                return -EIO;
-        }
-
         if (m->vtconsole)
-                seat_active_vt_changed(m->vtconsole, vtnr);
+                seat_read_active_vt(m->vtconsole);
 
         return 0;
 }
@@ -766,7 +779,7 @@ static int manager_connect_console(Manager *m) {
         }
 
         zero(ev);
-        ev.events = EPOLLIN;
+        ev.events = 0;
         ev.data.u32 = FD_CONSOLE;
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->console_active_fd, &ev) < 0)
@@ -777,6 +790,7 @@ static int manager_connect_console(Manager *m) {
 
 static int manager_connect_udev(Manager *m) {
         struct epoll_event ev;
+        int r;
 
         assert(m);
         assert(!m->udev_monitor);
@@ -785,13 +799,17 @@ static int manager_connect_udev(Manager *m) {
         if (!m->udev_monitor)
                 return -ENOMEM;
 
-        udev_monitor_filter_add_match_tag(m->udev_monitor, "seat");
+        r = udev_monitor_filter_add_match_tag(m->udev_monitor, "seat");
+        if (r < 0)
+                return r;
 
-        if (udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "graphics", NULL) < 0)
-                return -ENOMEM;
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "graphics", NULL);
+        if (r < 0)
+                return r;
 
-        if (udev_monitor_enable_receiving(m->udev_monitor) < 0)
-                return -ENOMEM;
+        r = udev_monitor_enable_receiving(m->udev_monitor);
+        if (r < 0)
+                return r;
 
         m->udev_fd = udev_monitor_get_fd(m->udev_monitor);
 
@@ -805,8 +823,50 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
+void manager_gc(Manager *m) {
+        Seat *seat;
+        Session *session;
+        User *user;
+
+        assert(m);
+
+        while ((seat = m->seat_gc_queue)) {
+                LIST_REMOVE(Seat, gc_queue, m->seat_gc_queue, seat);
+                seat->in_gc_queue = false;
+
+                if (seat_check_gc(seat) == 0) {
+                        seat_stop(seat);
+                        seat_free(seat);
+                }
+        }
+
+        while ((session = m->session_gc_queue)) {
+                LIST_REMOVE(Session, gc_queue, m->session_gc_queue, session);
+                session->in_gc_queue = false;
+
+                if (session_check_gc(session) == 0) {
+                        session_stop(session);
+                        session_free(session);
+                }
+        }
+
+        while ((user = m->user_gc_queue)) {
+                LIST_REMOVE(User, gc_queue, m->user_gc_queue, user);
+                user->in_gc_queue = false;
+
+                if (user_check_gc(user) == 0) {
+                        user_stop(user);
+                        user_free(user);
+                }
+        }
+}
+
 int manager_startup(Manager *m) {
         int r;
+        Seat *seat;
+        Session *session;
+        User *user;
+        Iterator i;
 
         assert(m);
         assert(m->epoll_fd <= 0);
@@ -830,14 +890,29 @@ int manager_startup(Manager *m) {
         if (r < 0)
                 return r;
 
+        /* Instantiate magic seat 0 */
+        r = manager_add_seat(m, "seat0", &m->vtconsole);
+        if (r < 0)
+                return r;
+
         /* Deserialize state */
         manager_enumerate_devices(m);
         manager_enumerate_seats(m);
         manager_enumerate_users(m);
         manager_enumerate_sessions(m);
 
-        /* Spawn lingering users */
-        manager_start_linger_users(m);
+        /* Get rid of objects that are no longer used */
+        manager_gc(m);
+
+        /* And start everything */
+        HASHMAP_FOREACH(seat, m->seats, i)
+                seat_start(seat);
+
+        HASHMAP_FOREACH(user, m->users, i)
+                user_start(user);
+
+        HASHMAP_FOREACH(session, m->sessions, i)
+                session_start(session);
 
         return 0;
 }
@@ -848,6 +923,8 @@ int manager_run(Manager *m) {
         for (;;) {
                 struct epoll_event event;
                 int n;
+
+                manager_gc(m);
 
                 if (dbus_connection_dispatch(m->bus) != DBUS_DISPATCH_COMPLETE)
                         continue;

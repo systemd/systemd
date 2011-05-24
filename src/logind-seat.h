@@ -40,15 +40,26 @@ struct Seat {
 
         Session *active;
         LIST_HEAD(Session, sessions);
+
+        bool in_gc_queue:1;
+
+        LIST_FIELDS(Seat, gc_queue);
 };
 
 Seat *seat_new(Manager *m, const char *id);
 void seat_free(Seat *s);
-int seat_preallocate_vts(Seat *s);
-int seat_active_vt_changed(Seat *s, int vtnr);
-int seat_apply_acls(Seat *s, Session *old_active);
-int seat_stop(Seat *s);
+
 int seat_save(Seat *s);
 int seat_load(Seat *s);
+
+int seat_apply_acls(Seat *s, Session *old_active);
+int seat_active_vt_changed(Seat *s, int vtnr);
+int seat_read_active_vt(Seat *s);
+
+int seat_start(Seat *s);
+int seat_stop(Seat *s);
+
+int seat_check_gc(Seat *s);
+void seat_add_to_gc_queue(Seat *s);
 
 #endif

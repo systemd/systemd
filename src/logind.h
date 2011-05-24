@@ -59,6 +59,10 @@ struct Manager {
         Hashmap *sessions;
         Hashmap *users;
 
+        LIST_HEAD(Seat, seat_gc_queue);
+        LIST_HEAD(Session, session_gc_queue);
+        LIST_HEAD(User, user_gc_queue);
+
         struct udev *udev;
         struct udev_monitor *udev_monitor;
 
@@ -81,24 +85,28 @@ struct Manager {
 
 Manager *manager_new(void);
 void manager_free(Manager *m);
+
 int manager_add_device(Manager *m, const char *sysfs, Device **_device);
 int manager_add_seat(Manager *m, const char *id, Seat **_seat);
 int manager_add_session(Manager *m, User *u, const char *id, Session **_session);
 int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user);
 int manager_add_user_by_name(Manager *m, const char *name, User **_user);
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
+
 int manager_process_device(Manager *m, struct udev_device *d);
 int manager_dispatch_udev(Manager *m);
 int manager_dispatch_console(Manager *m);
+
 int manager_enumerate_devices(Manager *m);
 int manager_enumerate_seats(Manager *m);
 int manager_enumerate_sessions(Manager *m);
 int manager_enumerate_users(Manager *m);
-int manager_start_one_linger_user(Manager *m, const char *user);
-int manager_start_linger_users(Manager *m);
+
 int manager_startup(Manager *m);
 int manager_run(Manager *m);
 int manager_spawn_autovt(Manager *m, int vtnr);
+
+void manager_gc(Manager *m);
 
 bool x11_display_is_local(const char *display);
 
