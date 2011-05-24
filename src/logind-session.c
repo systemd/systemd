@@ -86,11 +86,7 @@ void session_free(Session *s) {
 
         hashmap_remove(s->manager->sessions, s->id);
 
-        if (s->state_file) {
-                unlink(s->state_file);
-                free(s->state_file);
-        }
-
+        free(s->state_file);
         free(s);
 }
 
@@ -445,7 +441,8 @@ int session_stop(Session *s) {
         /* Remove X11 symlink */
         session_unlink_x11_socket(s);
 
-        session_save(s);
+        unlink(s->state_file);
+        session_add_to_gc_queue(s);
 
         return r;
 }

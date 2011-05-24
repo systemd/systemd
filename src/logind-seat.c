@@ -75,11 +75,7 @@ void seat_free(Seat *s) {
 
         hashmap_remove(s->manager->seats, s->id);
 
-        if (s->state_file) {
-                unlink(s->state_file);
-                free(s->state_file);
-        }
-
+        free(s->state_file);
         free(s);
 }
 
@@ -323,7 +319,7 @@ int seat_stop(Seat *s) {
                         r = k;
         }
 
-        seat_save(s);
+        unlink(s->state_file);
         seat_add_to_gc_queue(s);
 
         return r;

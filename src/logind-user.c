@@ -82,12 +82,7 @@ void user_free(User *u) {
         hashmap_remove(u->manager->users, ULONG_TO_PTR((unsigned long) u->uid));
 
         free(u->name);
-
-        if (u->state_file) {
-                unlink(u->state_file);
-                free(u->state_file);
-        }
-
+        free(u->state_file);
         free(u);
 }
 
@@ -384,6 +379,9 @@ int user_stop(User *u) {
         k = user_remove_runtime_path(u);
         if (k < 0)
                 r = k;
+
+        unlink(u->state_file);
+        user_add_to_gc_queue(u);
 
         return r;
 }
