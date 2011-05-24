@@ -19,6 +19,8 @@ F15 External:
 
 * make anaconda write timeout=0 for encrypted devices
 
+* fix broken Sockets=syslog-ng.socket packaging
+
 Features:
 * possibly set timezone offset from systemd at init instead
   of calling hwclock
