@@ -1,12 +1,13 @@
 [Unit]
 Description=udev Kernel Device Manager
-Wants=udev.socket
-After=udev.socket
+Wants=udev-control.socket udev-kernel.socket
+After=udev-control.socket udev-kernel.socket
 Before=basic.target
 DefaultDependencies=no
 
 [Service]
 Type=notify
 OOMScoreAdjust=-1000
+Sockets=udev-control.socket udev-kernel.socket
 Restart=on-failure
 ExecStart=@sbindir@/udevd
