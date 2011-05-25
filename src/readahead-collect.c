@@ -380,7 +380,7 @@ static int collect(const char *root) {
 
                 if ((n = read(fanotify_fd, &data, sizeof(data))) < 0) {
 
-                        if (errno == EINTR || errno == EAGAIN)
+                        if (errno == EINTR || errno == EAGAIN || errno == EACCES)
                                 continue;
 
                         log_error("Failed to read event: %m");
