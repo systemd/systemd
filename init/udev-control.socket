@@ -1,0 +1,7 @@
+[Unit]
+Description=udev Control Socket
+DefaultDependencies=no
+
+[Socket]
+Service=udev.service
+ListenSequentialPacket=@/org/kernel/udev/udevd
