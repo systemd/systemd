@@ -1,3 +1,11 @@
+udev 171
+========
+!!! revert: "systemd: trigger - run after udev.service (for now)"
+
+The systemd service files require systemd version 28. The systemd
+socket activation make it possible now to start 'udevd' and 'udevadm
+trigger' in parallel.
+
 udev 170
 ========
 Fix bug in control message handling, which can lead to a failing

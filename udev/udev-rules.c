@@ -136,6 +136,7 @@ enum token_type {
 	TK_M_SUBSYSTEMS,		/* val */
 	TK_M_DRIVERS,			/* val */
 	TK_M_ATTRS,			/* val, attr */
+	TK_M_TAGS,			/* val */
 	TK_M_PARENTS_MAX,
 
 	TK_M_TEST,			/* val, mode_t */
@@ -271,6 +272,7 @@ static const char *token_str(enum token_type type)
 		[TK_M_SUBSYSTEMS] =		"M SUBSYSTEMS",
 		[TK_M_DRIVERS] =		"M DRIVERS",
 		[TK_M_ATTRS] =			"M ATTRS",
+		[TK_M_TAGS] =			"M TAGS",
 		[TK_M_PARENTS_MAX] =		"M PARENTS_MAX",
 
 		[TK_M_TEST] =			"M TEST",
@@ -342,6 +344,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_M_KERNELS:
 	case TK_M_SUBSYSTEMS:
 	case TK_M_DRIVERS:
+	case TK_M_TAGS:
 	case TK_M_PROGRAM:
 	case TK_M_IMPORT_FILE:
 	case TK_M_IMPORT_PROG:
@@ -1013,6 +1016,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_M_KERNELS:
 	case TK_M_SUBSYSTEMS:
 	case TK_M_DRIVERS:
+	case TK_M_TAGS:
 	case TK_M_PROGRAM:
 	case TK_M_IMPORT_FILE:
 	case TK_M_IMPORT_PROG:
@@ -1339,6 +1343,15 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "do not reference parent sysfs directories directly, "
 				    "it may break with a future kernel, please fix it in %s:%u", filename, lineno);
 			rule_add_key(&rule_tmp, TK_M_ATTRS, op, value, attr);
+			continue;
+		}
+
+		if (strcmp(key, "TAGS") == 0) {
+			if (op > OP_MATCH_MAX) {
+				err(rules->udev, "invalid TAGS operation\n");
+				goto invalid;
+			}
+			rule_add_key(&rule_tmp, TK_M_TAGS, op, value, NULL);
 			continue;
 		}
 
@@ -2165,7 +2178,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		case TK_M_KERNELS:
 		case TK_M_SUBSYSTEMS:
 		case TK_M_DRIVERS:
-		case TK_M_ATTRS: {
+		case TK_M_ATTRS:
+		case TK_M_TAGS: {
 			struct token *next;
 
 			/* get whole sequence of parent matches */
@@ -2199,13 +2213,21 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 						if (match_attr(rules, event->dev_parent, event, key) != 0)
 							goto try_parent;
 						break;
+					case TK_M_TAGS: {
+						bool match = udev_device_has_tag(event->dev_parent, &rules->buf[cur->key.value_off]);
+
+						if (match && key->key.op == OP_NOMATCH)
+							goto try_parent;
+						if (!match && key->key.op == OP_MATCH)
+							goto try_parent;
+						break;
+					}
 					default:
 						goto nomatch;
 					}
 					dbg(event->udev, "parent key matched\n");
 				}
 				dbg(event->udev, "all parent keys matched\n");
-				/* all keys matched */
 				break;
 
 			try_parent:

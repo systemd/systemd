@@ -234,6 +234,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>TAGS</option></term>
+          <listitem>
+            <para>Search the devpath upwards for a device with matching tag.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>ENV{<replaceable>key</replaceable>}</option></term>
           <listitem>
             <para>Match against a device property value.</para>
