@@ -418,9 +418,13 @@ DBusHandlerResult bus_default_message_handler(
                         return bus_send_error_reply(c, message, &error, -EINVAL);
                 }
 
-        } else if (!nulstr_contains(interfaces, dbus_message_get_interface(message))) {
-                dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface");
-                return bus_send_error_reply(c, message, &error, -EINVAL);
+        } else {
+                const char *interface = dbus_message_get_interface(message);
+
+                if (!interface || !nulstr_contains(interfaces, interface)) {
+                        dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface");
+                        return bus_send_error_reply(c, message, &error, -EINVAL);
+                }
         }
 
         if (reply) {
