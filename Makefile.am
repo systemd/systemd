@@ -274,7 +274,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-security.mount \
 	units/var-run.mount \
 	units/media.mount \
-	units/hwclock-save.service \
 	units/remount-rootfs.service \
 	units/printer.target \
 	units/sound.target \
@@ -1374,10 +1373,8 @@ endif
 		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
 		rm -f systemd-update-utmp-shutdown.service \
-			hwclock-save.service \
 			systemd-random-seed-save.service && \
 		$(LN_S) ../systemd-update-utmp-shutdown.service systemd-update-utmp-shutdown.service && \
-		$(LN_S) ../hwclock-save.service hwclock-save.service && \
 		$(LN_S) ../systemd-random-seed-save.service systemd-random-seed-save.service )
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
 		rm -f systemd-remount-api-vfs.service \
