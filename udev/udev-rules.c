@@ -2526,11 +2526,15 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			}
 			break;
 		}
-		case TK_A_TAG:
+		case TK_A_TAG: {
+			char tag[UTIL_PATH_SIZE];
+
+			udev_event_apply_format(event, &rules->buf[cur->key.value_off], tag, sizeof(tag));
 			if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
 				udev_device_cleanup_tags_list(event->dev);
-			udev_device_add_tag(event->dev, &rules->buf[cur->key.value_off]);
+			udev_device_add_tag(event->dev, tag);
 			break;
+		}
 		case TK_A_NAME: {
 			const char *name  = &rules->buf[cur->key.value_off];
 			char name_str[UTIL_PATH_SIZE];
