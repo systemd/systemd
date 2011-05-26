@@ -273,6 +273,14 @@
                                 be reset for the processes of the
                                 logged in user.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>debug=</option></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true, logs debugging
+                                information.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>Note that setting <varname>kill-user=1</varname>

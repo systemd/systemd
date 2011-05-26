@@ -46,7 +46,8 @@ static int parse_argv(pam_handle_t *handle,
                       char ***controllers,
                       char ***reset_controllers,
                       char ***kill_only_users,
-                      char ***kill_exclude_users) {
+                      char ***kill_exclude_users,
+                      bool *debug) {
 
         unsigned i;
         bool reset_controller_set = false;
@@ -144,6 +145,15 @@ static int parse_argv(pam_handle_t *handle,
                         }
 
                         kill_exclude_users_set = true;
+
+                } else if (startswith(argv[i], "debug=")) {
+                        if ((k = parse_boolean(argv[i] + 6)) < 0) {
+                                pam_syslog(handle, LOG_ERR, "Failed to parse debug= argument.");
+                                return k;
+                        }
+
+                        if (debug)
+                                *debug = k;
 
                 } else {
                         pam_syslog(handle, LOG_ERR, "Unknown parameter '%s'.", argv[i]);
@@ -406,6 +416,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         char *buf = NULL;
         int lock_fd = -1;
         bool create_session = true;
+        bool debug = false;
         char **controllers = NULL, **reset_controllers = NULL, **c;
         char *cgroup_user_tree = NULL;
 
@@ -421,7 +432,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        argc, argv,
                        &create_session, NULL, NULL,
                        &controllers, &reset_controllers,
-                       NULL, NULL) < 0)
+                       NULL, NULL, &debug) < 0)
                 return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
@@ -505,7 +516,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 goto finish;
         }
 
-        pam_syslog(handle, LOG_DEBUG, "Moving new user session for %s into control group %s.", username, buf);
+        if (debug)
+                pam_syslog(handle, LOG_DEBUG, "Moving new user session for %s into control group %s.", username, buf);
 
         if ((r = create_user_group(handle, SYSTEMD_CGROUP_CONTROLLER, buf, pw, true, true)) != PAM_SUCCESS)
                 goto finish;
@@ -616,6 +628,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         const char *username = NULL;
         bool kill_session = false;
         bool kill_user = false;
+        bool debug = false;
         int lock_fd = -1, r;
         char *session_path = NULL, *nosession_path = NULL, *user_path = NULL;
         const char *id;
@@ -634,7 +647,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        argc, argv,
                        NULL, &kill_session, &kill_user,
                        &controllers, NULL,
-                       &kill_only_users, &kill_exclude_users) < 0)
+                       &kill_only_users, &kill_exclude_users, &debug) < 0)
                 return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
@@ -676,13 +689,15 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 }
 
                 if (kill_session && check_user_lists(handle, pw->pw_uid, kill_only_users, kill_exclude_users))  {
-                        pam_syslog(handle, LOG_DEBUG, "Killing remaining processes of user session %s of %s.", id, username);
+                        if (debug)
+                                pam_syslog(handle, LOG_DEBUG, "Killing remaining processes of user session %s of %s.", id, username);
 
                         /* Kill processes in session cgroup, and delete it */
                         if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, session_path, true)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to kill session cgroup: %s", strerror(-r));
                 } else {
-                        pam_syslog(handle, LOG_DEBUG, "Moving remaining processes of user session %s of %s into control group %s.", id, username, nosession_path);
+                        if (debug)
+                                pam_syslog(handle, LOG_DEBUG, "Moving remaining processes of user session %s of %s into control group %s.", id, username, nosession_path);
 
                         /* Migrate processes from session to user
                          * cgroup. First, try to create the user group
