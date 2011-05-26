@@ -5,7 +5,7 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
-ACTION!="add|change", GOTO="systemd_end"
+ACTION=="remove", GOTO="systemd_end"
 
 SUBSYSTEM=="tty", KERNEL=="tty[0-9]|tty1[0-2]", TAG+="systemd"
 SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*", TAG+="systemd"
