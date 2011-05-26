@@ -355,7 +355,9 @@ static struct udev_device *handle_usb(struct udev_device *parent, char **path)
 	const char *port;
 
 	devtype = udev_device_get_devtype(parent);
-	if (devtype == NULL || strcmp(devtype, "usb_interface") != 0)
+	if (devtype == NULL)
+		return parent;
+	if (strcmp(devtype, "usb_interface") != 0 && strcmp(devtype, "usb_device") != 0)
 		return parent;
 
 	str = udev_device_get_sysname(parent);
