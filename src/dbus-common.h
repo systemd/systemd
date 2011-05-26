@@ -129,6 +129,8 @@ int bus_property_append_long(DBusMessageIter *i, const char *property, void *dat
 
 #define bus_property_append_int bus_property_append_int32
 #define bus_property_append_pid bus_property_append_uint32
+#define bus_property_append_uid bus_property_append_uint32
+#define bus_property_append_gid bus_property_append_uint32
 #define bus_property_append_mode bus_property_append_uint32
 #define bus_property_append_unsigned bus_property_append_uint32
 #define bus_property_append_usec bus_property_append_uint64

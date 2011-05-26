@@ -503,7 +503,7 @@ int bus_property_append_uint64(DBusMessageIter *i, const char *property, void *d
         assert(property);
         assert(data);
 
-        /* Let's ensure that pid_t is actually 64bit, and hence this
+        /* Let's ensure that usec_t is actually 64bit, and hence this
          * function can be used for usec_t */
         assert_cc(sizeof(uint64_t) == sizeof(usec_t));
 
@@ -518,11 +518,14 @@ int bus_property_append_uint32(DBusMessageIter *i, const char *property, void *d
         assert(property);
         assert(data);
 
-        /* Let's ensure that pid_t and mode_t is actually 32bit, and
-         * hence this function can be used for pid_t/mode_t */
+        /* Let's ensure that pid_t, mode_t, uid_t, gid_t are actually
+         * 32bit, and hence this function can be used for
+         * pid_t/mode_t/uid_t/gid_t */
         assert_cc(sizeof(uint32_t) == sizeof(pid_t));
         assert_cc(sizeof(uint32_t) == sizeof(mode_t));
         assert_cc(sizeof(uint32_t) == sizeof(unsigned));
+        assert_cc(sizeof(uint32_t) == sizeof(uid_t));
+        assert_cc(sizeof(uint32_t) == sizeof(gid_t));
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT32, data))
                 return -ENOMEM;
