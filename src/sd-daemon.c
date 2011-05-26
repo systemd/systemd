@@ -169,7 +169,7 @@ _sd_hidden_ int sd_is_fifo(int fd, const char *path) {
         return 1;
 }
 
-_sd_hidden_ static int sd_is_socket_internal(int fd, int type, int listening) {
+static int sd_is_socket_internal(int fd, int type, int listening) {
         struct stat st_fd;
 
         if (fd < 0 || type < 0)
