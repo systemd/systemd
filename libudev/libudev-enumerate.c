@@ -765,7 +765,18 @@ UDEV_EXPORT int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerat
 				dev = udev_device_new_from_id_filename(udev_enumerate->udev, dent->d_name);
 				if (dev == NULL)
 					continue;
+
+				if (!match_subsystem(udev_enumerate, udev_device_get_subsystem(dev)))
+					goto nomatch;
+				if (!match_sysname(udev_enumerate, udev_device_get_sysname(dev)))
+					goto nomatch;
+				if (!match_property(udev_enumerate, dev))
+					goto nomatch;
+				if (!match_sysattr(udev_enumerate, dev))
+					goto nomatch;
+
 				syspath_add(udev_enumerate, udev_device_get_syspath(dev));
+nomatch:
 				udev_device_unref(dev);
 			}
 			closedir(dir);
