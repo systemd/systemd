@@ -1,3 +1,29 @@
+Summary of changes from v170 to v171
+============================================
+
+Kay Sievers (17):
+      libudev: export symbols explicitely and individually from C code not from separate file or prefix match
+      libudev: device - make a bunch of symbols static
+      systemd: Replace Requires= with Wants=, run trigger in parallel
+      systemd: sort trigger after socket
+      systemd: trigger - run after udev.service (for now)
+      systemd: set socket buffer size to 128 MB like udev has
+      update TODO
+      update TODO
+      libudev: monitor - use SOCK_NONBLOCK
+      systemd: split socket file
+      systemd: add missing socket files
+      rules: fix whitespace
+      rules: implement TAGS== match
+      libudev: enumerate - do not ignore other matches when add_match_tag() is used
+      rules: support substitutions in TAG=
+      path_id: allow to be asked about usb_devices not only usb_interfaces
+      systemd: run udev.service and udev-trigger.service in parallel
+
+Scott James Remnant (1):
+      configure: allow usb.ids location to be specified
+
+
 Summary of changes from v169 to v170
 ============================================
 
