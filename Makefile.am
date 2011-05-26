@@ -810,10 +810,14 @@ systemd_hostnamed_LDADD = \
 
 systemd_logind_SOURCES = \
 	src/logind.c \
+	src/logind-dbus.c \
         src/logind-device.c \
         src/logind-seat.c \
+        src/logind-seat-dbus.c \
         src/logind-session.c \
+        src/logind-session-dbus.c \
         src/logind-user.c \
+        src/logind-user-dbus.c \
         src/logind-acl.c \
         src/dbus-common.c \
         src/dbus-loop.c \

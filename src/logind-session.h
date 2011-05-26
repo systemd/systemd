@@ -31,7 +31,7 @@ typedef struct Session Session;
 #include "logind-user.h"
 
 typedef enum SessionType {
-        SESSION_TERMINAL,
+        SESSION_TTY,
         SESSION_X11,
         _SESSION_TYPE_MAX,
         _SESSION_TYPE_INVALID = -1
@@ -53,20 +53,21 @@ struct Session {
         char *display;
 
         bool remote;
+        char *remote_user;
         char *remote_host;
 
         int vtnr;
         Seat *seat;
 
         pid_t leader;
-        uint64_t audit_id;
+        uint32_t audit_id;
 
         int pipe_fd;
 
         char *cgroup_path;
         char **controllers, **reset_controllers;
 
-        bool kill_processes:1;
+        bool kill_processes;
         bool in_gc_queue:1;
 
         LIST_FIELDS(Session, sessions_by_user);
@@ -85,6 +86,10 @@ int session_start(Session *s);
 int session_stop(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
+
+char *session_bus_path(Session *s);
+
+extern const DBusObjectPathVTable bus_session_vtable;
 
 const char* session_type_to_string(SessionType t);
 SessionType session_type_from_string(const char *s);

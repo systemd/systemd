@@ -80,6 +80,6 @@ void device_attach(Device *d, Seat *s) {
         if (d->seat)
                 device_detach(d);
 
-        LIST_PREPEND(Device, devices, d->seat->devices, d);
         d->seat = s;
+        LIST_PREPEND(Device, devices, s->devices, d);
 }

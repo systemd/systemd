@@ -42,6 +42,7 @@ struct Seat {
         LIST_HEAD(Session, sessions);
 
         bool in_gc_queue:1;
+        bool started:1;
 
         LIST_FIELDS(Seat, gc_queue);
 };
@@ -61,5 +62,10 @@ int seat_stop(Seat *s);
 
 int seat_check_gc(Seat *s);
 void seat_add_to_gc_queue(Seat *s);
+
+bool seat_name_is_valid(const char *name);
+char *seat_bus_path(Seat *s);
+
+extern const DBusObjectPathVTable bus_seat_vtable;
 
 #endif

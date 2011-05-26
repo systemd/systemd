@@ -83,6 +83,7 @@ void session_free(Session *s) {
         free(s->tty);
         free(s->display);
         free(s->remote_host);
+        free(s->remote_user);
 
         hashmap_remove(s->manager->sessions, s->id);
 
@@ -146,6 +147,11 @@ int session_save(Session *s) {
                 fprintf(f,
                         "REMOTE_HOST=%s\n",
                         s->remote_host);
+
+        if (s->remote_user)
+                fprintf(f,
+                        "REMOTE_USER=%s\n",
+                        s->remote_user);
 
         if (s->seat && s->seat->manager->vtconsole == s->seat)
                 fprintf(f,
@@ -495,7 +501,7 @@ void session_add_to_gc_queue(Session *s) {
 }
 
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
-        [SESSION_TERMINAL] = "terminal",
+        [SESSION_TTY] = "tty",
         [SESSION_X11] = "x11"
 };
 

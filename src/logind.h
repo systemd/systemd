@@ -72,14 +72,14 @@ struct Manager {
         int bus_fd;
         int epoll_fd;
 
-        int n_autovts;
+        unsigned n_autovts;
 
         Seat *vtconsole;
 
         char *cgroup_path;
         char **controllers, **reset_controllers;
 
-        char **kill_only_users, **kill_exlude_users;
+        char **kill_only_users, **kill_exclude_users;
 
         bool kill_user_processes;
 };
@@ -110,5 +110,7 @@ int manager_spawn_autovt(Manager *m, int vtnr);
 void manager_gc(Manager *m);
 
 bool x11_display_is_local(const char *display);
+
+extern const DBusObjectPathVTable bus_manager_vtable;
 
 #endif

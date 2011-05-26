@@ -182,7 +182,8 @@ static int vt_allocate(int vtnr) {
 }
 
 static int seat_preallocate_vts(Seat *s) {
-        int i, r = 0;
+        int r = 0;
+        unsigned i;
 
         assert(s);
         assert(s->manager);
@@ -295,6 +296,11 @@ int seat_read_active_vt(Seat *s) {
 int seat_start(Seat *s) {
         assert(s);
 
+        if (s->started)
+                return 0;
+
+        log_info("New seat %s.", s->id);
+
         /* Initialize VT magic stuff */
         seat_preallocate_vts(s);
 
@@ -303,6 +309,8 @@ int seat_start(Seat *s) {
 
         /* Save seat data */
         seat_save(s);
+
+        s->started = true;
 
         return 0;
 }
@@ -313,6 +321,11 @@ int seat_stop(Seat *s) {
 
         assert(s);
 
+        if (!s->started)
+                return 0;
+
+        log_info("Removed seat %s.", s->id);
+
         LIST_FOREACH(sessions_by_seat, session, s->sessions) {
                 k = session_stop(session);
                 if (k < 0)
@@ -321,6 +334,8 @@ int seat_stop(Seat *s) {
 
         unlink(s->state_file);
         seat_add_to_gc_queue(s);
+
+        s->started = false;
 
         return r;
 }
@@ -342,4 +357,31 @@ void seat_add_to_gc_queue(Seat *s) {
 
         LIST_PREPEND(Seat, gc_queue, s->manager->seat_gc_queue, s);
         s->in_gc_queue = true;
+}
+
+static bool seat_name_valid_char(char c) {
+        return
+                (c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9') ||
+                c == '-' ||
+                c == '_';
+}
+
+bool seat_name_is_valid(const char *name) {
+        const char *p;
+
+        assert(name);
+
+        if (!startswith(name, "seat"))
+                return false;
+
+        if (!name[4])
+                return false;
+
+        for (p = name; *p; p++)
+                if (!seat_name_valid_char(*p))
+                        return false;
+
+        return true;
 }

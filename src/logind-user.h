@@ -70,6 +70,10 @@ UserState user_get_state(User *u);
 int user_save(User *u);
 int user_load(User *u);
 
+char *user_bus_path(User *s);
+
+extern const DBusObjectPathVTable bus_user_vtable;
+
 const char* user_state_to_string(UserState s);
 UserState user_state_from_string(const char *s);
 

@@ -255,9 +255,15 @@ int manager_process_device(Manager *m, struct udev_device *d) {
 
         assert(m);
 
+        /* FIXME: drop this check as soon as libudev's enum support
+         * honours tags and subsystem matches at the same time */
+        if (!streq_ptr(udev_device_get_subsystem(d), "graphics"))
+                return 0;
+
         if (streq_ptr(udev_device_get_action(d), "remove")) {
 
-                device = hashmap_get(m->devices, udev_device_get_syspath(d));
+                /* FIXME: use syspath instead of sysname here, as soon as fb driver is fixed */
+                device = hashmap_get(m->devices, udev_device_get_sysname(d));
                 if (!device)
                         return 0;
 
@@ -268,14 +274,16 @@ int manager_process_device(Manager *m, struct udev_device *d) {
                 const char *sn;
                 Seat *seat;
 
-                sn = udev_device_get_property_value(d, "SEAT");
+                sn = udev_device_get_property_value(d, "ID_SEAT");
                 if (!sn)
                         sn = "seat0";
 
-                if (!startswith(sn, "seat"))
-                        return -EINVAL;
+                if (!seat_name_is_valid(sn)) {
+                        log_warning("Device with invalid seat name %s found, ignoring.", sn);
+                        return 0;
+                }
 
-                r = manager_add_device(m, udev_device_get_syspath(d), &device);
+                r = manager_add_device(m, udev_device_get_sysname(d), &device);
                 if (r < 0)
                         return r;
 
@@ -288,6 +296,7 @@ int manager_process_device(Manager *m, struct udev_device *d) {
                 }
 
                 device_attach(device, seat);
+                seat_start(seat);
         }
 
         return 0;
@@ -371,9 +380,6 @@ int manager_enumerate_seats(Manager *m) {
                 int k;
 
                 if (!dirent_is_file(de))
-                        continue;
-
-                if (!startswith(de->d_name, "seat"))
                         continue;
 
                 s = hashmap_get(m->seats, de->d_name);
@@ -676,27 +682,15 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
         return 0;
 }
 
-static DBusHandlerResult login_message_handler(
-                DBusConnection *connection,
-                DBusMessage *message,
-                void *userdata) {
-
-        return DBUS_HANDLER_RESULT_HANDLED;
-}
-
 static DBusHandlerResult login_message_filter(
                 DBusConnection *connection,
                 DBusMessage *message,
                 void *userdata) {
 
-        return DBUS_HANDLER_RESULT_HANDLED;
+        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static int manager_connect_bus(Manager *m) {
-        const DBusObjectPathVTable login_vtable = {
-                .message_function = login_message_handler
-        };
-
         DBusError error;
         int r;
         struct epoll_event ev;
@@ -714,13 +708,11 @@ static int manager_connect_bus(Manager *m) {
                 goto fail;
         }
 
-        if (!dbus_connection_register_object_path(m->bus, "/org/freedesktop/login1", &login_vtable, NULL)) {
-                log_error("Not enough memory");
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        if (!dbus_connection_add_filter(m->bus, login_message_filter, m, NULL)) {
+        if (!dbus_connection_register_object_path(m->bus, "/org/freedesktop/login1", &bus_manager_vtable, m) ||
+            !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/seat", &bus_seat_vtable, m) ||
+            !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/session", &bus_session_vtable, m) ||
+            !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/user", &bus_user_vtable, m) ||
+            !dbus_connection_add_filter(m->bus, login_message_filter, m, NULL)) {
                 log_error("Not enough memory");
                 r = -ENOMEM;
                 goto fail;
@@ -931,6 +923,9 @@ int manager_run(Manager *m) {
 
                 n = epoll_wait(m->epoll_fd, &event, 1, -1);
                 if (n < 0) {
+                        if (errno == EINTR || errno == EAGAIN)
+                                continue;
+
                         log_error("epoll() failed: %m");
                         return -errno;
                 }
