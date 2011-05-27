@@ -403,7 +403,7 @@ static int delete_dm(dev_t devnum) {
         return r >= 0 ? 0 : -errno;
 }
 
-static int mount_points_list_umount(MountPoint **head, bool *changed) {
+static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_error) {
         MountPoint *m, *n;
         int n_failed = 0;
 
@@ -422,7 +422,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
                                 *changed = true;
 
                         mount_point_free(head, m);
-                } else {
+                } else if (log_error) {
                         log_warning("Could not unmount %s: %m", m->path);
                         n_failed++;
                 }
@@ -565,10 +565,12 @@ int umount_all(bool *changed) {
         /* retry umount, until nothing can be umounted anymore */
         do {
                 umount_changed = false;
-                r = mount_points_list_umount(&mp_list_head, &umount_changed);
+                r = mount_points_list_umount(&mp_list_head, &umount_changed, false);
                 if (umount_changed)
                         *changed = true;
         } while(umount_changed);
+        /* umount one more time with logging enabled */
+        r = mount_points_list_umount(&mp_list_head, &umount_changed, true);
         if (r <= 0)
                 goto end;
 
