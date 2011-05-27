@@ -38,7 +38,8 @@ SUBSYSTEM=="graphics",		GROUP="video"
 SUBSYSTEM=="drm",		GROUP="video"
 
 # sound
-SUBSYSTEM=="sound",		GROUP="audio"
+SUBSYSTEM=="sound",		GROUP="audio", \
+  OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"
 
 # DVB (video)
 SUBSYSTEM=="dvb", GROUP="video"
