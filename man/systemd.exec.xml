@@ -57,13 +57,13 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>Unit configuration files for services, sockets
+                <para>Unit configuration files for services, sockets,
                 mount points and swap devices share a subset of
                 configuration options which define the execution
                 environment of spawned processes.</para>
 
                 <para>This man page lists the configuration options
-                shared by these three unit types. See
+                shared by these four unit types. See
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for the common options of all unit configuration
                 files, and
