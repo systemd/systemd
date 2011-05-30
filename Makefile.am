@@ -699,6 +699,9 @@ git-release:
 	git gc
 	git prune
 
+tar-sync:
+	scp udev-$(VERSION).gz master.kernel.org:/pub/linux/utils/kernel/hotplug/
+
 doc-sync:
 	rsync -av udev/*.html master.kernel.org:/pub/linux/utils/kernel/hotplug/udev/
 	rsync -av --delete libudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/libudev/

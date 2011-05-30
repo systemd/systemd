@@ -1,3 +1,5 @@
+ - libudev: return errno or set errno
+
  - delete mobile-action-modeswitch
    (moved to usb_modeswitch)
 
