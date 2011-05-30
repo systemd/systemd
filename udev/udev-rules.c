@@ -2709,8 +2709,9 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
 		case TK_A_STATIC_NODE: {
 			char filename[UTIL_PATH_SIZE];
 			struct stat stats;
+
 			/* we assure, that the permissions tokens are sorted before the static token */
-			if (mode == 0 && uid == 0 && gid == 0)
+			if (uid == 0 && gid == 0)
 				goto next;
 			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(rules->udev), "/",
 				      &rules->buf[cur->key.value_off], NULL);
@@ -2718,14 +2719,19 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
 				goto next;
 			if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))
 				goto next;
-			if (mode != 0 && mode != (stats.st_mode & 0777)) {
+
+			if (mode == 0 && gid > 0)
+				mode = 0660;
+			if (mode != (stats.st_mode & 0777)) {
 				chmod(filename, mode);
 				info(rules->udev, "chmod '%s' %#o\n", filename, mode);
 			}
+
 			if ((uid != 0 && uid != stats.st_uid) || (gid != 0 && gid != stats.st_gid)) {
 				chown(filename, uid, gid);
 				info(rules->udev, "chown '%s' %u %u\n", filename, uid, gid);
 			}
+
 			utimensat(AT_FDCWD, filename, NULL, 0);
 			break;
 		}
