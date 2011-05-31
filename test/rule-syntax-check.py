@@ -55,9 +55,9 @@ for path in sys.argv[1:]:
             if not (no_args_tests.match(clause) or args_tests.match(clause) or
                     no_args_assign.match(clause) or args_assign.match(clause)):
 
-                print 'Invalid line %s:%i: %s' % (path, lineno, line)   
-                print '  clause:', clause
-                print
+                print('Invalid line %s:%i: %s' % (path, lineno, line))
+                print('  clause:', clause)
+                print()
                 result = 1
                 break
 
