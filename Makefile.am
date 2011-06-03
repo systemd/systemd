@@ -695,9 +695,12 @@ git-release:
 	head -1 ChangeLog | grep -q "to v$(VERSION)"
 	head -1 NEWS | grep -q "udev $(VERSION)"
 	git commit -a -m "release $(VERSION)"
-	cat .git/refs/heads/master > .git/refs/tags/$(VERSION)
-	git gc
-	git prune
+	git tag $(VERSION)
+	git gc --prune=0
+
+git-sync:
+	git push
+	git push --tags $(VERSION)
 
 tar-sync:
 	scp udev-$(VERSION).gz master.kernel.org:/pub/linux/utils/kernel/hotplug/
