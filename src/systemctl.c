@@ -1565,6 +1565,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
 
                         dbus_error_free(&error);
                         dbus_message_unref(m);
+                        m = NULL;
                         continue;
                 }
 
