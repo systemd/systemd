@@ -39,7 +39,8 @@ int selinux_setup(char *const argv[]) {
        int enforce = 0;
 
        /* Already initialized? */
-       if (path_is_mount_point("/selinux") > 0)
+       if (path_is_mount_point("/sys/fs/selinux") > 0 ||
+           path_is_mount_point("/selinux") > 0)
                return 0;
 
        /* Before we load the policy we create a flag file to ensure

@@ -63,6 +63,7 @@ static const MountPoint mount_table[] = {
  * we just list them here so that we know that we should ignore them */
 
 static const char * const ignore_paths[] = {
+        "/sys/fs/selinux",
         "/selinux",
         "/proc/bus/usb"
 };
