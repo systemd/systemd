@@ -305,6 +305,14 @@ dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
 libexec_PROGRAMS += extras/mtd_probe/mtd_probe
 
 # ------------------------------------------------------------------------------
+# accelerometer - updates device orientation
+# ------------------------------------------------------------------------------
+extras_accelerometer_accelerometer_SOURCES = extras/accelerometer/accelerometer.c
+extras_accelerometer_accelerometer_LDADD = libudev/libudev-private.la -lm
+libexec_PROGRAMS += extras/accelerometer/accelerometer
+dist_udevrules_DATA += extras/accelerometer/61-accelerometer.rules
+
+# ------------------------------------------------------------------------------
 # qemu -- qemu/kvm guest tweaks
 # ------------------------------------------------------------------------------
 dist_udevrules_DATA += extras/qemu/42-qemu-usb.rules

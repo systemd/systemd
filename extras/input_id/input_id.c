@@ -109,8 +109,14 @@ static void test_pointers (const unsigned long* bitmask_ev,
 	int is_mouse = 0;
 	int is_touchpad = 0;
 
-	if (!test_bit (EV_KEY, bitmask_ev))
+	if (!test_bit (EV_KEY, bitmask_ev)) {
+		if (test_bit (EV_ABS, bitmask_ev) &&
+		    test_bit (ABS_X, bitmask_abs) &&
+		    test_bit (ABS_Y, bitmask_abs) &&
+		    test_bit (ABS_Z, bitmask_abs))
+			puts("ID_INPUT_ACCELEROMETER=1");
 		return;
+	}
 
 	if (test_bit (EV_ABS, bitmask_ev) &&
 	    test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
