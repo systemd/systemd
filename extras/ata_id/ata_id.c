@@ -535,7 +535,7 @@ int main(int argc, char *argv[])
 				info(udev, "HDIO_GET_IDENTITY unsupported for '%s'\n", node);
 				rc = 2;
 			} else {
-				err(udev, "HDIO_GET_IDENTITY failed for '%s'\n", node);
+				err(udev, "HDIO_GET_IDENTITY failed for '%s': %m\n", node);
 				rc = 3;
 			}
 			goto close;
