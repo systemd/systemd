@@ -47,7 +47,7 @@ static bool has_option(const char *haystack, const char *needle) {
                         continue;
                 }
 
-                if (f[l] != 0 && f[l] == ',') {
+                if (f[l] != 0 && f[l] != ',') {
                         f++;
                         continue;
                 }
