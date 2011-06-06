@@ -1,10 +1,28 @@
 /*
  * accelerometer - exports device orientation through property
  *
- * Copyright (C) 2011 Red Hat, Inc.
- * Author: Bastien Nocera <hadess@hadess.net>
+ * When an "change" event is received on an accelerometer,
+ * open its device node, and from the value, as well as the previous
+ * value of the property, calculate the device's new orientation,
+ * and export it as ID_INPUT_ACCELEROMETER_ORIENTATION.
  *
- * orientation_calc() from the sensorfw package:
+ * Possible values are:
+ * undefined
+ * * normal
+ * * bottom-up
+ * * left-up
+ * * right-up
+ *
+ * The property will be persistent across sessions, and the new
+ * orientations can be deducted from the previous one (it allows
+ * for a threshold for switching between opposite ends of the
+ * orientation).
+ *
+ * Copyright (C) 2011 Red Hat, Inc.
+ * Author:
+ *   Bastien Nocera <hadess@hadess.net>
+ *
+ * orientation_calc() from the sensorfw package
  * Copyright (C) 2009-2010 Nokia Corporation
  * Authors:
  *   Üstün Ergenoglu <ext-ustun.ergenoglu@nokia.com>
