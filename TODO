@@ -1,4 +1,19 @@
- - libudev: return errno or set errno
+ - detect uevent loops !!!
+
+ - udev_enumerate_add_match_subsystem(enum, "input");
+   udev_enumerate_add_match_sysname(enum, "event*");
+   udev_enumerate_add_match_children(input_dev);
+   udev_enumerate_scan_devices(enum);
+
+ - monitor: use clock MONOTONIC
+
+ - libudev: return proper errno or set errno
+
+ - move ctrl.c from libudev/ to udev/
+
+ - move:
+     udevd -> --libexecdir
+     udevadm -> --bindir
 
  - delete mobile-action-modeswitch
    (moved to usb_modeswitch)
