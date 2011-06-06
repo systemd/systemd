@@ -288,8 +288,10 @@ static void apply_acl_to_devices(uid_t uid, int add)
 		if (device == NULL)
 			continue;
 		node = udev_device_get_devnode(device);
-		if (node == NULL)
+		if (node == NULL) {
+			udev_device_unref(device);
 			continue;
+		}
 		set_facl(node, uid, add);
 		udev_device_unref(device);
 	}
