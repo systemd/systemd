@@ -154,9 +154,8 @@ bool enough_ram(void) {
 
         assert_se(sysinfo(&si) >= 0);
 
-        return si.totalram > 127 * 1024*1024; /* Enable readahead only
-                                               * with at least 128MB
-                                               * memory */
+        /* Enable readahead only with at least 128MB memory */
+        return si.totalram > 127 * 1024*1024 / si.mem_unit;
 }
 
 int open_inotify(void) {
