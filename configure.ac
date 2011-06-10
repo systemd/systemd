@@ -1,11 +1,17 @@
-AC_INIT([udev], [171], [linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
-AM_INIT_AUTOMAKE([check-news foreign 1.10 dist-bzip2 subdir-objects])
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+AC_INIT([udev],
+	[171],
+	[linux-hotplug@vger.kernel.org],
+	[udev],
+	[http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev.html])
+AC_CONFIG_SRCDIR([udev/udevd.c])
+AC_CONFIG_AUX_DIR([build-aux])
+AM_INIT_AUTOMAKE([check-news foreign 1.11 -Wall -Wno-portability silent-rules tar-pax dist-bzip2 subdir-objects])
 AC_DISABLE_STATIC
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 AC_CONFIG_MACRO_DIR([m4])
+AM_SILENT_RULES([yes])
 LT_INIT
 AC_PROG_AWK
 GTK_DOC_CHECK(1.10)
@@ -131,8 +137,6 @@ if test "x$enable_udev_acl" = xyes; then
 	AC_CHECK_HEADER([acl/libacl.h], [:], AC_MSG_ERROR([libacl header not found]))
 
 	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
-	AC_SUBST([GLIB_CFLAGS])
-	AC_SUBST([GLIB_LIBS])
 fi
 AM_CONDITIONAL([ENABLE_UDEV_ACL], [test "x$enable_udev_acl" = xyes])
 
@@ -144,13 +148,11 @@ AC_ARG_ENABLE([gudev],
 	[], [enable_gudev=yes])
 if test "x$enable_gudev" = xyes; then
 	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
-	AC_SUBST([GLIB_CFLAGS])
-	AC_SUBST([GLIB_LIBS])
 fi
 
 AC_ARG_ENABLE([introspection],
-       AS_HELP_STRING([--disable-introspection], [disable GObject introspection]),
-       [], [enable_introspection=yes])
+	AS_HELP_STRING([--disable-introspection], [disable GObject introspection]),
+	[], [enable_introspection=yes])
 if test "x$enable_introspection" = xyes; then
 	PKG_CHECK_MODULES([INTROSPECTION], [gobject-introspection-1.0 >= 0.6.2])
 	AC_DEFINE([ENABLE_INTROSPECTION], [1], [enable GObject introspection support])
@@ -205,8 +207,6 @@ AC_ARG_ENABLE([action_modeswitch],
 	[], [enable_action_modeswitch=no])
 if test "x$enable_action_modeswitch" = xyes; then
 	PKG_CHECK_MODULES(LIBUSB, libusb >= 0.1.12)
-	AC_SUBST(LIBUSB_CFLAGS)
-	AC_SUBST(LIBUSB_LIBS)
 fi
 AM_CONDITIONAL([ENABLE_ACTION_MODESWITCH], [test "x$enable_action_modeswitch" = xyes])
 
