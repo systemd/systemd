@@ -31,7 +31,6 @@ systemd-random-seed-save.service
 systemd-initctl.service
 systemd-logger.service
 getty@.service
-remote-fs.target
 systemd-update-utmp-runlevel.service
 systemd-update-utmp-shutdown.service
 test-env-replace
