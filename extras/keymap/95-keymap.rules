@@ -74,8 +74,8 @@ ENV{DMI_VENDOR}=="Dell*", ATTR{[dmi/id]product_name}=="Latitude XT2", RUN+="keym
 ENV{DMI_VENDOR}=="Compaq*", ATTR{[dmi/id]product_name}=="*E500*|*Evo N*", RUN+="keymap $name compaq-e_evo"
 
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="*3000*", RUN+="keymap $name lenovo-3000"
-ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X6*", ATTR{[dmi/id]product_version}=="* Tablet" RUN+="keymap $name lenovo-thinkpad_x6_tablet"
-ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X20* Tablet*", ATTR{[dmi/id]product_version}=="* Tablet" RUN+="keymap $name lenovo-thinkpad_x200_tablet"
+ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X6*", ATTR{[dmi/id]product_version}=="* Tablet", RUN+="keymap $name lenovo-thinkpad_x6_tablet"
+ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X20* Tablet*", ATTR{[dmi/id]product_version}=="* Tablet", RUN+="keymap $name lenovo-thinkpad_x200_tablet"
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="*IdeaPad*", RUN+="keymap $name lenovo-ideapad"
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_name}=="S10-*", RUN+="keymap $name lenovo-ideapad"
 ENV{DMI_VENDOR}=="LENOVO", ATTR{[dmi/id]product_version}=="*IdeaPad Y550*", RUN+="keymap $name 0x95 media 0xA3 play"
