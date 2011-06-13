@@ -4160,6 +4160,13 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                 return -ENOENT;
         }
 
+        i->path = filename;
+
+        if ((r = config_parse(filename, f, NULL, items, true, i)) < 0) {
+                fclose(f);
+                return r;
+        }
+
         /* Consider unit files stored in /lib and /usr always enabled
          * if they have no [Install] data. */
         if (streq(verb, "is-enabled") &&
@@ -4167,13 +4174,6 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
             strv_isempty(i->wanted_by) &&
             !path_startswith(filename, "/etc"))
                 return 1;
-
-        i->path = filename;
-
-        if ((r = config_parse(filename, f, NULL, items, true, i)) < 0) {
-                fclose(f);
-                return r;
-        }
 
         n_symlinks += strv_length(i->aliases);
         n_symlinks += strv_length(i->wanted_by);
