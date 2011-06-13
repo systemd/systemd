@@ -4172,8 +4172,10 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
         if (streq(verb, "is-enabled") &&
             strv_isempty(i->aliases) &&
             strv_isempty(i->wanted_by) &&
-            !path_startswith(filename, "/etc"))
+            !path_startswith(filename, "/etc")) {
+                fclose(f);
                 return 1;
+        }
 
         n_symlinks += strv_length(i->aliases);
         n_symlinks += strv_length(i->wanted_by);
