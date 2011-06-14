@@ -244,6 +244,7 @@ dist_systemunit_DATA = \
 	units/halt.target \
 	units/kexec.target \
 	units/local-fs.target \
+	units/remote-fs.target \
 	units/cryptsetup.target \
 	units/network.target \
 	units/nss-lookup.target \
@@ -301,7 +302,6 @@ nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
 	units/console-shell.service \
-	units/remote-fs.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
@@ -349,7 +349,6 @@ EXTRA_DIST = \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
 	units/console-shell.service.m4 \
-	units/remote-fs.target.m4 \
 	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
