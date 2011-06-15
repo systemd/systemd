@@ -116,10 +116,12 @@
                                 <term><varname>ID=</varname></term>
 
                                 <listitem><para>A lower-case string
-                                identifying the operating system,
-                                excluding any version information and
-                                suitable for processing by scripts. If
-                                not set defaults to
+                                (no spaces) identifying the operating
+                                system, excluding any version
+                                information and suitable for
+                                processing by scripts or usage in
+                                generated file names. If not set
+                                defaults to
                                 <literal>linux</literal>. Example:
                                 <literal>ID=fedora</literal>.</para></listitem>
                         </varlistentry>
@@ -128,10 +130,10 @@
                                 <term><varname>VERSION_ID=</varname></term>
 
                                 <listitem><para>A lower-case string
-                                (mostly numeric) identifying the
+                                (mostly numeric, no spaces) identifying the
                                 operating system version, excluding
                                 any name information and suitable for
-                                processing by scripts. Example:
+                                processing by scripts or usage in generated file names. Example:
                                 <literal>VERSION_ID=15</literal>.</para></listitem>
                         </varlistentry>
 
