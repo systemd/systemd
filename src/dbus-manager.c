@@ -128,6 +128,10 @@
         "  </method>\n"                                                 \
         "  <method name=\"UnsetEnvironment\">\n"                        \
         "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnsetAndSetEnvironment\">\n"                  \
+        "   <arg name=\"unset\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"set\" type=\"as\" direction=\"in\"/>\n"         \
         "  </method>\n"
 
 #define BUS_MANAGER_INTERFACE_SIGNALS                                   \
@@ -1034,6 +1038,58 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 strv_free(m->environment);
                 m->environment = e;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetAndSetEnvironment")) {
+                char **l_set = NULL, **l_unset = NULL, **e = NULL, **f = NULL;
+                DBusMessageIter iter;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                r = bus_parse_strv_iter(&iter, &l_unset);
+                if (r < 0) {
+                        if (r == -ENOMEM)
+                                goto oom;
+
+                        return bus_send_error_reply(connection, message, NULL, r);
+                }
+
+                if (!dbus_message_iter_next(&iter)) {
+                        strv_free(l_unset);
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+                }
+
+                r = bus_parse_strv_iter(&iter, &l_set);
+                if (r < 0) {
+                        strv_free(l_unset);
+                        if (r == -ENOMEM)
+                                goto oom;
+
+                        return bus_send_error_reply(connection, message, NULL, r);
+                }
+
+                e = strv_env_delete(m->environment, 1, l_unset);
+                strv_free(l_unset);
+
+                if (!e) {
+                        strv_free(l_set);
+                        goto oom;
+                }
+
+                f = strv_env_merge(2, e, l_set);
+                strv_free(l_set);
+                strv_free(e);
+
+                if (!f)
+                        goto oom;
+
+                if (!(reply = dbus_message_new_method_return(message))) {
+                        strv_free(f);
+                        goto oom;
+                }
+
+                strv_free(m->environment);
+                m->environment = f;
 
         } else
                 return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, properties);

@@ -38,8 +38,6 @@ int bus_query_pid(Manager *m, const char *name);
 
 int bus_broadcast(Manager *m, DBusMessage *message);
 
-int bus_parse_strv(DBusMessage *m, char ***_l);
-
 bool bus_has_subscriber(Manager *m);
 bool bus_connection_has_subscriber(Manager *m, DBusConnection *c);
 

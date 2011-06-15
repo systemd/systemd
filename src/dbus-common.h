@@ -158,4 +158,7 @@ DBusMessage* bus_properties_changed_new(const char *path, const char *interface,
 uint32_t bus_flags_to_events(DBusWatch *bus_watch);
 unsigned bus_events_to_flags(uint32_t events);
 
+int bus_parse_strv(DBusMessage *m, char ***_l);
+int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l);
+
 #endif

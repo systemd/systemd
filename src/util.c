@@ -4692,6 +4692,7 @@ int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
         }
 
         qsort(files, hashmap_size(fh), sizeof(char *), base_cmp);
+
 finish:
         strv_free(dirs);
         hashmap_free(fh);

@@ -27,6 +27,10 @@ Features:
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
+* hostnamed: make file updates atomic
+
+* support sd_notify() style notificatio when reload is finished (RELOADED=1)
+
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
   assumes starting a service is enough to make it accessible
@@ -45,8 +49,6 @@ Features:
 * add dbus call to convert snapshot into target
 
 * move /selinux to /sys/fs/selinux
-
-* unset cgroup agents on shutdown
 
 * add prefix match to sysctl, tmpfiles, ...
 
@@ -153,8 +155,6 @@ Features:
   and check for active selinux with getcon_raw() == "kernel"
 
 * Support --test based on current system state
-
-* systemctl enable as D-Bus call
 
 * consider services with any kind of link in /etc/systemd/system enabled
 
