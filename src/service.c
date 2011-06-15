@@ -470,6 +470,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 LSB_DESCRIPTION
         } state = NORMAL;
         char *short_description = NULL, *long_description = NULL, *chkconfig_description = NULL, *description;
+        struct stat st;
 
         assert(s);
         assert(path);
@@ -481,9 +482,23 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 goto finish;
         }
 
+        zero(st);
+        if (fstat(fileno(f), &st) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
         free(s->sysv_path);
         if (!(s->sysv_path = strdup(path))) {
                 r = -ENOMEM;
+                goto finish;
+        }
+
+        s->sysv_mtime = timespec_load(&st.st_mtim);
+
+        if (null_or_empty(&st)) {
+                u->meta.load_state = UNIT_MASKED;
+                r = 0;
                 goto finish;
         }
 
@@ -3212,6 +3227,29 @@ static void service_reset_failed(Unit *u) {
         s->failure = false;
 }
 
+static bool service_need_daemon_reload(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+#ifdef HAVE_SYSV_COMPAT
+        if (s->sysv_path) {
+                struct stat st;
+
+                zero(st);
+                if (stat(s->sysv_path, &st) < 0)
+                        /* What, cannot access this anymore? */
+                        return true;
+
+                if (s->sysv_mtime > 0 &&
+                    timespec_load(&st.st_mtim) != s->sysv_mtime)
+                        return true;
+        }
+#endif
+
+        return false;
+}
+
 static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *error) {
         Service *s = SERVICE(u);
         int r = 0;
@@ -3360,6 +3398,8 @@ const UnitVTable service_vtable = {
         .timer_event = service_timer_event,
 
         .reset_failed = service_reset_failed,
+
+        .need_daemon_reload = service_need_daemon_reload,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
         .notify_message = service_notify_message,

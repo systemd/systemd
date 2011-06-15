@@ -144,6 +144,7 @@ struct Service {
 
         char *sysv_path;
         char *sysv_runlevels;
+        usec_t sysv_mtime;
 #endif
 
         char *bus_name;

@@ -646,7 +646,7 @@
                                 removed. If the list of capabilities
                                 is prefixed with ~ all but the listed
                                 capabilities will be included, the
-                                effect of this assignment
+                                effect of the assignment
                                 inverted. Note that this option does
                                 not actually set or unset any
                                 capabilities in the effective,

@@ -317,6 +317,9 @@ struct UnitVTable {
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
+        /* Check whether unit needs a daemon reload */
+        bool (*need_daemon_reload)(Unit *u);
+
         /* Reset failed state if we are in failed state */
         void (*reset_failed)(Unit *u);
 

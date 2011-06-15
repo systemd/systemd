@@ -2305,21 +2305,25 @@ void unit_status_printf(Unit *u, const char *format, ...) {
 }
 
 bool unit_need_daemon_reload(Unit *u) {
-        struct stat st;
-
         assert(u);
 
-        if (!u->meta.fragment_path)
-                return false;
+        if (u->meta.fragment_path) {
+                struct stat st;
 
-        zero(st);
-        if (stat(u->meta.fragment_path, &st) < 0)
-                /* What, cannot access this anymore? */
-                return true;
+                zero(st);
+                if (stat(u->meta.fragment_path, &st) < 0)
+                        /* What, cannot access this anymore? */
+                        return true;
 
-        return
-                u->meta.fragment_mtime &&
-                timespec_load(&st.st_mtim) != u->meta.fragment_mtime;
+                if (u->meta.fragment_mtime > 0 &&
+                    timespec_load(&st.st_mtim) != u->meta.fragment_mtime)
+                        return true;
+        }
+
+        if (UNIT_VTABLE(u)->need_daemon_reload)
+                return UNIT_VTABLE(u)->need_daemon_reload(u);
+
+        return false;
 }
 
 void unit_reset_failed(Unit *u) {
