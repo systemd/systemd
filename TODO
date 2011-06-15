@@ -74,6 +74,8 @@ Features:
 
 * show enablement status in systemctl status
 
+* when failing to start a service due to ratelimiting, try again later, if restart=always is set
+
 * write blog stories about:
   - enabling dbus services
   - status update
