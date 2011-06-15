@@ -567,6 +567,7 @@ int write_one_line_file(const char *fn, const char *line) {
         if (!(f = fopen(fn, "we")))
                 return -errno;
 
+        errno = 0;
         if (fputs(line, f) < 0) {
                 r = -errno;
                 goto finish;
@@ -587,6 +588,64 @@ int write_one_line_file(const char *fn, const char *line) {
 
 finish:
         fclose(f);
+        return r;
+}
+
+int fchmod_umask(int fd, mode_t m) {
+        mode_t u;
+        int r;
+
+        u = umask(0777);
+        r = fchmod(fd, m & (~u)) < 0 ? -errno : 0;
+        umask(u);
+
+        return r;
+}
+
+int write_one_line_file_atomic(const char *fn, const char *line) {
+        FILE *f;
+        int r;
+        char *p;
+
+        assert(fn);
+        assert(line);
+
+        r = fopen_temporary(fn, &f, &p);
+        if (r < 0)
+                return r;
+
+        fchmod_umask(fileno(f), 0644);
+
+        errno = 0;
+        if (fputs(line, f) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (!endswith(line, "\n"))
+                fputc('\n', f);
+
+        fflush(f);
+
+        if (ferror(f)) {
+                if (errno != 0)
+                        r = -errno;
+                else
+                        r = -EIO;
+        } else {
+                if (rename(p, fn) < 0)
+                        r = -errno;
+                else
+                        r = 0;
+        }
+
+finish:
+        if (r < 0)
+                unlink(p);
+
+        fclose(f);
+        free(p);
+
         return r;
 }
 
@@ -621,7 +680,7 @@ finish:
         return r;
 }
 
-int read_full_file(const char *fn, char **contents) {
+int read_full_file(const char *fn, char **contents, size_t *size) {
         FILE *f;
         int r;
         size_t n, l;
@@ -633,6 +692,12 @@ int read_full_file(const char *fn, char **contents) {
 
         if (fstat(fileno(f), &st) < 0) {
                 r = -errno;
+                goto finish;
+        }
+
+        /* Safety check */
+        if (st.st_size > 4*1024*1024) {
+                r = -E2BIG;
                 goto finish;
         }
 
@@ -680,6 +745,9 @@ int read_full_file(const char *fn, char **contents) {
         *contents = buf;
         buf = NULL;
 
+        if (size)
+                *size = l;
+
         r = 0;
 
 finish:
@@ -699,7 +767,7 @@ int parse_env_file(
         assert(fname);
         assert(separator);
 
-        if ((r = read_full_file(fname, &contents)) < 0)
+        if ((r = read_full_file(fname, &contents, NULL)) < 0)
                 return r;
 
         p = contents;
@@ -838,15 +906,17 @@ finish:
 }
 
 int write_env_file(const char *fname, char **l) {
-
-        char **i;
+        char **i, *p;
         FILE *f;
         int r;
 
-        f = fopen(fname, "we");
-        if (!f)
-                return -errno;
+        r = fopen_temporary(fname, &f, &p);
+        if (r < 0)
+                return r;
 
+        fchmod_umask(fileno(f), 0644);
+
+        errno = 0;
         STRV_FOREACH(i, l) {
                 fputs(*i, f);
                 fputc('\n', f);
@@ -854,8 +924,23 @@ int write_env_file(const char *fname, char **l) {
 
         fflush(f);
 
-        r = ferror(f) ? -errno : 0;
+        if (ferror(f)) {
+                if (errno != 0)
+                        r = -errno;
+                else
+                        r = -EIO;
+        } else {
+                if (rename(p, fname) < 0)
+                        r = -errno;
+                else
+                        r = 0;
+        }
+
+        if (r < 0)
+                unlink(p);
+
         fclose(f);
+        free(p);
 
         return r;
 }
@@ -4776,6 +4861,152 @@ int hwclock_set_time(const struct tm *tm) {
         close(fd);
 
         return err;
+}
+
+int copy_file(const char *from, const char *to) {
+        int r, fdf, fdt;
+
+        assert(from);
+        assert(to);
+
+        fdf = open(from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fdf < 0)
+                return -errno;
+
+        fdt = open(to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY, 0644);
+        if (fdt < 0) {
+                close_nointr_nofail(fdf);
+                return -errno;
+        }
+
+        for (;;) {
+                char buf[PIPE_BUF];
+                ssize_t n, k;
+
+                n = read(fdf, buf, sizeof(buf));
+                if (n < 0) {
+                        r = -errno;
+
+                        close_nointr_nofail(fdf);
+                        close_nointr(fdt);
+                        unlink(to);
+
+                        return r;
+                }
+
+                if (n == 0)
+                        break;
+
+                errno = 0;
+                k = loop_write(fdt, buf, n, false);
+                if (n != k) {
+                        r = k < 0 ? k : (errno ? -errno : -EIO);
+
+                        close_nointr_nofail(fdf);
+                        close_nointr(fdt);
+
+                        unlink(to);
+                        return r;
+                }
+        }
+
+        close_nointr_nofail(fdf);
+        r = close_nointr(fdt);
+
+        if (r < 0) {
+                unlink(to);
+                return r;
+        }
+
+        return 0;
+}
+
+int symlink_or_copy(const char *from, const char *to) {
+        char *pf = NULL, *pt = NULL;
+        struct stat a, b;
+        int r;
+
+        assert(from);
+        assert(to);
+
+        if (parent_of_path(from, &pf) < 0 ||
+            parent_of_path(to, &pt) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (stat(pf, &a) < 0 ||
+            stat(pt, &b) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (a.st_dev != b.st_dev) {
+                free(pf);
+                free(pt);
+
+                return copy_file(from, to);
+        }
+
+        if (symlink(from, to) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        free(pf);
+        free(pt);
+
+        return r;
+}
+
+int symlink_or_copy_atomic(const char *from, const char *to) {
+        char *t, *x;
+        const char *fn;
+        size_t k;
+        unsigned long long ull;
+        unsigned i;
+        int r;
+
+        assert(from);
+        assert(to);
+
+        t = new(char, strlen(to) + 1 + 16 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        fn = file_name_from_path(to);
+        k = fn-to;
+        memcpy(t, to, k);
+        t[k] = '.';
+        x = stpcpy(t+k+1, fn);
+
+        ull = random_ull();
+        for (i = 0; i < 16; i++) {
+                *(x++) = hexchar(ull & 0xF);
+                ull >>= 4;
+        }
+
+        *x = 0;
+
+        r = symlink_or_copy(from, t);
+        if (r < 0) {
+                unlink(t);
+                free(t);
+                return r;
+        }
+
+        if (rename(t, to) < 0) {
+                r = -errno;
+                unlink(t);
+                free(t);
+                return r;
+        }
+
+        free(t);
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

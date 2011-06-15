@@ -200,8 +200,9 @@ pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 int get_starttime_of_pid(pid_t pid, unsigned long long *st);
 
 int write_one_line_file(const char *fn, const char *line);
+int write_one_line_file_atomic(const char *fn, const char *line);
 int read_one_line_file(const char *fn, char **line);
-int read_full_file(const char *fn, char **contents);
+int read_full_file(const char *fn, char **contents, size_t *size);
 
 int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
 int load_env_file(const char *fname, char ***l);
@@ -422,6 +423,22 @@ int terminal_vhangup(const char *name);
 
 int vt_disallocate(const char *name);
 
+int copy_file(const char *from, const char *to);
+int symlink_or_copy(const char *from, const char *to);
+int symlink_or_copy_atomic(const char *from, const char *to);
+
+int fchmod_umask(int fd, mode_t mode);
+
+int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
+
+bool hwclock_is_localtime(void);
+
+int hwclock_apply_localtime_delta(void);
+
+int hwclock_get_time(struct tm *tm);
+
+int hwclock_set_time(const struct tm *tm);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
@@ -453,15 +470,5 @@ const char *signal_to_string(int i);
 int signal_from_string(const char *s);
 
 int signal_from_string_try_harder(const char *s);
-
-int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
-
-bool hwclock_is_localtime(void);
-
-int hwclock_apply_localtime_delta(void);
-
-int hwclock_get_time(struct tm *tm);
-
-int hwclock_set_time(const struct tm *tm);
 
 #endif

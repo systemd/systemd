@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
 
                         log_info("Creating /run/nologin, blocking further logins...");
 
-                        if ((e = write_one_line_file("/run/nologin", "System is going down.")) < 0)
+                        if ((e = write_one_line_file_atomic("/run/nologin", "System is going down.")) < 0)
                                 log_error("Failed to create /run/nologin: %s", strerror(-e));
                         else
                                 unlink_nologin = true;
