@@ -235,7 +235,7 @@ int bus_execute_append_capability_bs(DBusMessageIter *i, const char *property, v
         assert(property);
         assert(c);
 
-        /* We store this negated internally, to match the kernel, bu
+        /* We store this negated internally, to match the kernel, but
          * we expose it normalized. */
 
         normal = *(uint64_t*) data;

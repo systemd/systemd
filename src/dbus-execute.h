@@ -77,7 +77,7 @@
         "  <property name=\"SyslogLevelPrefix\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Capabilities\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SecureBits\" type=\"i\" access=\"read\"/>\n" \
-        "  <property name=\"CapabilityBoundingSetDrop\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"CapabilityBoundingSet\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"User\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Group\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"SupplementaryGroups\" type=\"as\" access=\"read\"/>\n" \
