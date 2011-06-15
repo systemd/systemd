@@ -3963,6 +3963,7 @@ static int create_symlink(const char *verb, const char *old_path, const char *ne
                         return 1;
                 }
 
+                free(dest);
                 return 0;
         }
 
