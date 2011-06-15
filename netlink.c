@@ -35,32 +35,9 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-#include "netlink.h"
+#include "ifconf.h"
 
-static int address_compare(const void *_a, const void *_b) {
-        const struct address *a = _a, *b = _b;
-
-        /* Order lowest scope first, IPv4 before IPv6, lowest interface index first */
-
-        if (a->scope < b->scope)
-                return -1;
-        if (a->scope > b->scope)
-                return 1;
-
-        if (a->family == AF_INET && b->family == AF_INET6)
-                return -1;
-        if (a->family == AF_INET6 && b->family == AF_INET)
-                return 1;
-
-        if (a->ifindex < b->ifindex)
-                return -1;
-        if (a->ifindex > b->ifindex)
-                return 1;
-
-        return 0;
-}
-
-int netlink_acquire_addresses(struct address **_list, unsigned *_n_list) {
+int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list) {
 
         struct {
                 struct nlmsghdr hdr;

@@ -32,7 +32,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
-#include "netlink.h"
+#include "ifconf.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
  * 127.0.0.1 that it can be translated back to the local hostname. For
@@ -118,7 +118,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         }
 
         /* If this fails, n_addresses is 0. Which is fine */
-        netlink_acquire_addresses(&addresses, &n_addresses);
+        ifconf_acquire_addresses(&addresses, &n_addresses);
 
         /* If this call fails we fill in 0 as scope. Which is fine */
         lo_ifi = if_nametoindex(LOOPBACK_INTERFACE);
@@ -204,7 +204,7 @@ static enum nss_status fill_in_hostent(
 
         alen = PROTO_ADDRESS_SIZE(af);
 
-        netlink_acquire_addresses(&addresses, &n_addresses);
+        ifconf_acquire_addresses(&addresses, &n_addresses);
 
         for (a = addresses, n = 0, c = 0; n < n_addresses; a++, n++)
                 if (af == a->family)
@@ -403,7 +403,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        netlink_acquire_addresses(&addresses, &n_addresses);
+        ifconf_acquire_addresses(&addresses, &n_addresses);
 
         for (a = addresses, n = 0; n < n_addresses; n++, a++) {
                 if (af != a->family)

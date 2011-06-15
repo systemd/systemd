@@ -43,8 +43,13 @@ homepage: all dist
 
 libnss_myhostname_la_SOURCES = \
 	nss-myhostname.c \
-	netlink.c \
-	netlink.h
+	ifconf.h
+
+if LEGACY
+libnss_myhostname_la_SOURCES += legacy.c
+else
+libnss_myhostname_la_SOURCES += netlink.c
+endif
 
 libnss_myhostname_la_LDFLAGS = \
 	-avoid-version \

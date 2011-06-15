@@ -1,7 +1,9 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foonetlinkhfoo
-#define foonetlinkhfoo
+#ifndef fooifconfhfoo
+#define fooifconfhfoo
+
+#include <sys/socket.h>
 
 /***
   This file is part of nss-myhostname.
@@ -37,12 +39,36 @@ struct address {
 #define _public_ __attribute__ ((visibility("default")))
 #define _hidden_ __attribute__ ((visibility("hidden")))
 
-int netlink_acquire_addresses(struct address **_list, unsigned *_n_list) _hidden_;
+int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list) _hidden_;
 
 static inline size_t PROTO_ADDRESS_SIZE(int proto) {
         assert(proto == AF_INET || proto == AF_INET6);
 
         return proto == AF_INET6 ? 16 : 4;
 }
+
+static inline int address_compare(const void *_a, const void *_b) {
+        const struct address *a = _a, *b = _b;
+
+        /* Order lowest scope first, IPv4 before IPv6, lowest interface index first */
+
+        if (a->scope < b->scope)
+                return -1;
+        if (a->scope > b->scope)
+                return 1;
+
+        if (a->family == AF_INET && b->family == AF_INET6)
+                return -1;
+        if (a->family == AF_INET6 && b->family == AF_INET)
+                return 1;
+
+        if (a->ifindex < b->ifindex)
+                return -1;
+        if (a->ifindex > b->ifindex)
+                return 1;
+
+        return 0;
+}
+
 
 #endif
