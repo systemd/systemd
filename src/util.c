@@ -230,11 +230,12 @@ int close_nointr(int fd) {
         for (;;) {
                 int r;
 
-                if ((r = close(fd)) >= 0)
+                r = close(fd);
+                if (r >= 0)
                         return r;
 
                 if (errno != EINTR)
-                        return r;
+                        return -errno;
         }
 }
 
