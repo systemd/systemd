@@ -342,7 +342,6 @@ dist_userunit_DATA = \
 	units/user/exit.target
 
 nodist_userunit_DATA = \
-	units/user/remote-fs.target \
 	units/user/exit.service
 
 EXTRA_DIST = \
@@ -1387,11 +1386,9 @@ endif
 		$(LN_S) ../var-run.mount var-run.mount && \
 		$(LN_S) ../media.mount media.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
-		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target sound.target && \
+		rm -f shutdown.target sockets.target bluetooth.target printer.target sound.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
 		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \
-		$(LN_S) $(systemunitdir)/local-fs.target local-fs.target && \
-		$(LN_S) $(systemunitdir)/swap.target swap.target && \
 		$(LN_S) $(systemunitdir)/bluetooth.target bluetooth.target && \
 		$(LN_S) $(systemunitdir)/printer.target printer.target && \
 		$(LN_S) $(systemunitdir)/sound.target sound.target )
