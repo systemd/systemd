@@ -27,6 +27,10 @@ Features:
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
+* readahead: use BTRFS_IOC_DEFRAG_RANGE instead of BTRFS_IOC_DEFRAG ioctl, with START_IO
+
+* readahead: check whether a btrfs volume includes ssd by checking mount flag "ssd"
+
 * hostnamed: make file updates atomic
 
 * support sd_notify() style notificatio when reload is finished (RELOADED=1)
