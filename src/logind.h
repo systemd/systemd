@@ -35,11 +35,9 @@
 /* TODO:
  *
  * recreate VTs when disallocated
- * udev rules
  * PAM rewrite
  * spawn user systemd
  * dbus API
- * don't allow everybody to take logind name
  *
  * non-local X11 server
  * reboot/shutdown halt management

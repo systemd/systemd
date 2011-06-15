@@ -1,3 +1,5 @@
+systemd-localed
+systemd-timedated
 systemd-uaccess
 systemd-logind
 systemd-hostnamed

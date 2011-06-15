@@ -1,0 +1,544 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+/***
+  This file is part of systemd.
+
+  Copyright 2011 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <dbus/dbus.h>
+
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "util.h"
+#include "strv.h"
+#include "dbus-common.h"
+#include "polkit.h"
+
+#define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
+#define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        " <interface name=\"org.freedesktop.timedate1\">\n"             \
+        "  <property name=\"Timezone\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"LocalRTC\" type=\"b\" access=\"read\"/>\n"  \
+        "  <method name=\"SetTime\">\n"                                 \
+        "   <arg name=\"usec_utc\" type=\"x\" direction=\"in\"/>\n"     \
+        "   <arg name=\"relative\" type=\"b\" direction=\"in\"/>\n"     \
+        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetTimezone\">\n"                             \
+        "   <arg name=\"timezone\" type=\"s\" direction=\"in\"/>\n"     \
+        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetLocalRTC\">\n"                             \
+        "   <arg name=\"local_rtc\" type=\"b\" direction=\"in\"/>\n"    \
+        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        " </interface>\n"                                               \
+        BUS_PROPERTIES_INTERFACE                                        \
+        BUS_INTROSPECTABLE_INTERFACE                                    \
+        BUS_PEER_INTERFACE                                              \
+        "</node>\n"
+
+#define INTERFACES_LIST                         \
+        BUS_GENERIC_INTERFACES_LIST             \
+        "org.freedesktop.locale1\0"
+
+static char *zone = NULL;
+static bool local_rtc = false;
+
+static void free_data(void) {
+        free(zone);
+        zone = NULL;
+
+        local_rtc = false;
+}
+
+static bool valid_timezone(const char *name) {
+        const char *p;
+        char *t;
+        bool slash = false;
+        int r;
+        struct stat st;
+
+        assert(name);
+
+        if (*name == '/' || *name == 0)
+                return false;
+
+        for (p = name; *p; p++) {
+                if (!(*p >= '0' && *p <= '9') &&
+                    !(*p >= 'a' && *p <= 'z') &&
+                    !(*p >= 'A' && *p <= 'Z') &&
+                    !(*p == '-' || *p == '_' || *p == '+' || *p == '/'))
+                        return false;
+
+                if (*p == '/') {
+
+                        if (slash)
+                                return false;
+
+                        slash = true;
+                } else
+                        slash = false;
+        }
+
+        if (slash)
+                return false;
+
+        t = strappend("/usr/share/zoneinfo/", name);
+        if (!t)
+                return false;
+
+        r = stat(t, &st);
+        free(t);
+
+        if (r < 0)
+                return false;
+
+        if (!S_ISREG(st.st_mode))
+                return false;
+
+        return true;
+}
+
+static void verify_timezone(void) {
+        char *p, *a = NULL, *b = NULL;
+        size_t l, q;
+        int j, k;
+
+        if (!zone)
+                return;
+
+        p = strappend("/usr/share/zoneinfo/", zone);
+        if (!p) {
+                log_error("Out of memory");
+                return;
+        }
+
+        j = read_full_file("/etc/localtime", &a, &l);
+        k = read_full_file(p, &b, &q);
+
+        free(p);
+
+        if (j < 0 || k < 0 || l != q || memcmp(a, b, l)) {
+                log_warning("/etc/localtime and /etc/timezone out of sync.");
+                free(zone);
+                zone = NULL;
+        }
+
+        free(a);
+        free(b);
+}
+
+static int read_data(void) {
+        int r;
+        FILE *f;
+
+        free_data();
+
+        r = read_one_line_file("/etc/timezone", &zone);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        verify_timezone();
+
+        f = fopen("/etc/adjtime", "r");
+        if (f) {
+                char line[LINE_MAX];
+                bool b;
+
+                b = fgets(line, sizeof(line), f) &&
+                        fgets(line, sizeof(line), f) &&
+                        fgets(line, sizeof(line), f);
+
+                fclose(f);
+
+                if (!b)
+                        return -EIO;
+
+                truncate_nl(line);
+                local_rtc = streq(line, "LOCAL");
+
+        } else if (errno != ENOENT)
+                return -errno;
+
+        return 0;
+}
+
+static int write_data_timezone(void) {
+        int r = 0;
+        char *p;
+
+        if (!zone) {
+                if (unlink("/etc/timezone") < 0 && errno != ENOENT)
+                        r = -errno;
+
+                if (unlink("/etc/localtime") < 0 && errno != ENOENT)
+                        r = -errno;
+
+                return r;
+        }
+
+        p = strappend("/usr/share/zoneinfo/", zone);
+        if (!p) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        r = symlink_or_copy_atomic(p, "/etc/localtime");
+        free(p);
+
+        if (r < 0)
+                return r;
+
+        r = write_one_line_file_atomic("/etc/timezone", zone);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int write_data_local_rtc(void) {
+        int r;
+        char *s, *w;
+
+        r = read_full_file("/etc/adjtime", &s, NULL);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                if (!local_rtc)
+                        return 0;
+
+                w = strdup(NULL_ADJTIME_LOCAL);
+                if (!w)
+                        return -ENOMEM;
+        } else {
+                char *p, *e;
+                size_t a, b;
+
+                p = strchr(s, '\n');
+                if (!p) {
+                        free(s);
+                        return -EIO;
+                }
+
+                p = strchr(p+1, '\n');
+                if (!p) {
+                        free(s);
+                        return -EIO;
+                }
+
+                p++;
+                e = strchr(p, '\n');
+                if (!p) {
+                        free(s);
+                        return -EIO;
+                }
+
+                a = p - s;
+                b = strlen(e);
+
+                w = new(char, a + (local_rtc ? 5 : 3) + b + 1);
+                if (!w) {
+                        free(s);
+                        return -ENOMEM;
+                }
+
+                *(char*) mempcpy(stpcpy(mempcpy(w, s, a), local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+
+                if (streq(w, NULL_ADJTIME_UTC)) {
+                        free(w);
+
+                        if (unlink("/etc/adjtime") < 0) {
+                                if (errno != ENOENT)
+                                        return -errno;
+                        }
+
+                        return 0;
+                }
+        }
+
+        r = write_one_line_file_atomic("/etc/adjtime", w);
+        free(w);
+
+        return r;
+}
+
+static DBusHandlerResult timedate_message_handler(
+                DBusConnection *connection,
+                DBusMessage *message,
+                void *userdata) {
+
+        const BusProperty properties[] = {
+                { "org.freedesktop.timedate1", "Timezone", bus_property_append_string, "s", zone       },
+                { "org.freedesktop.timedate1", "LocalRTC", bus_property_append_bool,   "b", &local_rtc },
+                { NULL, NULL, NULL, NULL, NULL }
+        };
+
+        DBusMessage *reply = NULL, *changed = NULL;
+        DBusError error;
+        int r;
+
+        assert(connection);
+        assert(message);
+
+        dbus_error_init(&error);
+
+        if (dbus_message_is_method_call(message, "org.freedesktop.timedate1", "SetTimezone")) {
+                const char *z;
+                dbus_bool_t interactive;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &z,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (!valid_timezone(z))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                if (!streq_ptr(z, zone)) {
+                        char *t;
+
+                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-timezone", interactive, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+
+                        t = strdup(z);
+                        if (!t)
+                                goto oom;
+
+                        free(zone);
+                        zone = t;
+
+                        r = write_data_timezone();
+                        if (r < 0) {
+                                log_error("Failed to set timezone: %s", strerror(-r));
+                                return bus_send_error_reply(connection, message, NULL, r);
+                        }
+
+                        log_info("Changed timezone to '%s'.", zone);
+
+                        changed = bus_properties_changed_new(
+                                        "/org/freedesktop/timedate1",
+                                        "org.freedesktop.timedate1",
+                                        "Timezone\0");
+                        if (!changed)
+                                goto oom;
+                }
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.timedate1", "SetLocalRTC")) {
+                dbus_bool_t lrtc;
+                dbus_bool_t interactive;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_BOOLEAN, &lrtc,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (lrtc != local_rtc) {
+                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-local-rtc", interactive, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+
+                        local_rtc = lrtc;
+
+                        r = write_data_local_rtc();
+                        if (r < 0) {
+                                log_error("Failed to set RTC to local/UTC: %s", strerror(-r));
+                                return bus_send_error_reply(connection, message, NULL, r);
+                        }
+
+                        log_info("Changed local RTC setting to '%s'.", yes_no(local_rtc));
+
+                        changed = bus_properties_changed_new(
+                                        "/org/freedesktop/timedate1",
+                                        "org.freedesktop.timedate1",
+                                        "LocalRTC\0");
+                        if (!changed)
+                                goto oom;
+                }
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.timedate1", "SetTime")) {
+                int64_t utc;
+                dbus_bool_t relative;
+                dbus_bool_t interactive;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_INT64, &utc,
+                                    DBUS_TYPE_BOOLEAN, &relative,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (!relative && utc <= 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                if (!relative || utc != 0) {
+                        struct timespec ts;
+
+                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-time", interactive, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+
+                        if (relative)
+                                timespec_store(&ts, now(CLOCK_REALTIME) + utc);
+                        else
+                                timespec_store(&ts, utc);
+
+                        if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
+                                log_error("Failed to set local time: %m");
+                                return bus_send_error_reply(connection, message, NULL, -errno);
+                        }
+
+                        log_info("Changed local time to %s", ctime(&ts.tv_sec));
+                }
+
+        } else
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+
+        if (!(reply = dbus_message_new_method_return(message)))
+                goto oom;
+
+        if (!dbus_connection_send(connection, reply, NULL))
+                goto oom;
+
+        dbus_message_unref(reply);
+        reply = NULL;
+
+        if (changed) {
+
+                if (!dbus_connection_send(connection, changed, NULL))
+                        goto oom;
+
+                dbus_message_unref(changed);
+        }
+
+        return DBUS_HANDLER_RESULT_HANDLED;
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        if (changed)
+                dbus_message_unref(changed);
+
+        dbus_error_free(&error);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+}
+
+static int connect_bus(DBusConnection **_bus) {
+        static const DBusObjectPathVTable timedate_vtable = {
+                .message_function = timedate_message_handler
+        };
+        DBusError error;
+        DBusConnection *bus = NULL;
+        int r;
+
+        assert(_bus);
+
+        dbus_error_init(&error);
+
+        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
+        if (!bus) {
+                log_error("Failed to get system D-Bus connection: %s", error.message);
+                r = -ECONNREFUSED;
+                goto fail;
+        }
+
+        if (!dbus_connection_register_object_path(bus, "/org/freedesktop/timedate1", &timedate_vtable, NULL)) {
+                log_error("Not enough memory");
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        if (dbus_bus_request_name(bus, "org.freedesktop.timedate1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error) < 0) {
+                log_error("Failed to register name on bus: %s", error.message);
+                r = -EEXIST;
+                goto fail;
+        }
+
+        if (_bus)
+                *_bus = bus;
+
+        return 0;
+
+fail:
+        dbus_connection_close(bus);
+        dbus_connection_unref(bus);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+        DBusConnection *bus = NULL;
+
+        log_set_target(LOG_TARGET_AUTO);
+        log_parse_environment();
+        log_open();
+
+        if (argc != 1) {
+                log_error("This program takes no arguments.");
+                r = -EINVAL;
+                goto finish;
+        }
+
+        umask(0022);
+
+        r = read_data();
+        if (r < 0) {
+                log_error("Failed to read timezone data: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = connect_bus(&bus);
+        if (r < 0)
+                goto finish;
+
+        while (dbus_connection_read_write_dispatch(bus, -1))
+                ;
+
+        r = 0;
+
+finish:
+        free_data();
+
+        if (bus) {
+                dbus_connection_flush(bus);
+                dbus_connection_close(bus);
+                dbus_connection_unref(bus);
+        }
+
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+}

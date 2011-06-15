@@ -30,9 +30,16 @@
         " <interface name=\"org.freedesktop.login1.Session\">\n"        \
         "  <method name=\"Terminate\"/>\n"                              \
         "  <method name=\"Activate\"/>\n"                               \
+        "  <method name=\"Lock\"/>\n"                                   \
+        "  <method name=\"Unlock\"/>\n"                                 \
+        "  <method name=\"SetIdleHint\">\n"                             \
+        "   <arg name=\"b\" type=\"b\"/>\n"                             \
+        "  </method>\n"                                                 \
         "  <property name=\"Id\" type=\"u\" access=\"read\"/>\n"        \
         "  <property name=\"User\" type=\"(uo)\" access=\"read\"/>\n"   \
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Timestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"TimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupPath\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"VTNr\" type=\"u\" access=\"read\"/>\n"      \
         "  <property name=\"Seat\" type=\"(so)\" access=\"read\"/>\n"   \
@@ -48,6 +55,9 @@
         "  <property name=\"Controllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ResetControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"KillProcesses\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \

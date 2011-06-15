@@ -29,8 +29,12 @@
 #define BUS_SEAT_INTERFACE \
         " <interface name=\"org.freedesktop.login1.Seat\">\n"           \
         "  <method name=\"Terminate\"/>\n"                              \
+        "  <method name=\"ActivateSession\">\n"                         \
+        "   <arg name=\"id\" type=\"s\"/>\n"                            \
+        "  </method>\n"                                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
-        "  <property name=\"Active\" type=\"so\" access=\"read\"/>\n"   \
+        "  <property name=\"ActiveSession\" type=\"so\" access=\"read\"/>\n" \
+        "  <property name=\"CanActivateSessions\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Sessions\" type=\"a(so)\" access=\"read\"/>\n" \
         " </interface>\n"                                               \
 
@@ -125,6 +129,23 @@ static int bus_seat_append_sessions(DBusMessageIter *i, const char *property, vo
         return 0;
 }
 
+
+static int bus_seat_append_can_activate(DBusMessageIter *i, const char *property, void *data) {
+        Seat *s = data;
+        dbus_bool_t b;
+
+        assert(i);
+        assert(property);
+        assert(s);
+
+        b = s->manager->vtconsole == s;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int get_seat_for_path(Manager *m, const char *path, Seat **_s) {
         Seat *s;
         char *id;
@@ -156,9 +177,10 @@ static DBusHandlerResult seat_message_dispatch(
                 DBusMessage *message) {
 
         const BusProperty properties[] = {
-                { "org.freedesktop.login1.Seat", "Id",       bus_property_append_string, "s",     s->id },
-                { "org.freedesktop.login1.Seat", "Active",   bus_seat_append_active,     "(so)",  s     },
-                { "org.freedesktop.login1.Seat", "Sessions", bus_seat_append_sessions,   "a(so)", s     },
+                { "org.freedesktop.login1.Seat", "Id",                  bus_property_append_string,   "s",     s->id },
+                { "org.freedesktop.login1.Seat", "ActiveSession",       bus_seat_append_active,       "(so)",  s     },
+                { "org.freedesktop.login1.Seat", "CanActivateSessions", bus_seat_append_can_activate, "b",     s     },
+                { "org.freedesktop.login1.Seat", "Sessions",            bus_seat_append_sessions,     "a(so)", s     },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

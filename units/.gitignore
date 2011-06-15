@@ -1,3 +1,5 @@
+systemd-localed.service
+systemd-timedated.service
 systemd-hostnamed.service
 console-shell.service
 systemd-sysctl.service

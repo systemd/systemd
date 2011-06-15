@@ -159,6 +159,8 @@ rootlibexec_PROGRAMS = \
 	systemd-detect-virt \
 	systemd-sysctl \
         systemd-hostnamed \
+        systemd-localed \
+        systemd-timedated \
         systemd-logind \
         systemd-uaccess
 
@@ -199,11 +201,15 @@ dist_pkgsysconf_DATA = \
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \
-        src/org.freedesktop.hostname1.conf
+        src/org.freedesktop.hostname1.conf \
+        src/org.freedesktop.locale1.conf \
+        src/org.freedesktop.timedate1.conf
 
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service \
-        src/org.freedesktop.hostname1.service
+        src/org.freedesktop.hostname1.service \
+        src/org.freedesktop.locale1.service \
+        src/org.freedesktop.timedate1.service
 
 dist_udevrules_DATA = \
 	src/99-systemd.rules
@@ -308,6 +314,8 @@ nodist_systemunit_DATA = \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
 	units/systemd-hostnamed.service \
+	units/systemd-localed.service \
+	units/systemd-timedated.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
 	units/systemd-vconsole-setup.service \
@@ -355,6 +363,8 @@ EXTRA_DIST = \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-hostnamed.service.in \
+	units/systemd-localed.service.in \
+	units/systemd-timedated.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-vconsole-setup.service.in \
@@ -443,7 +453,9 @@ nodist_polkitpolicy_DATA = \
 	src/org.freedesktop.systemd1.policy
 
 dist_polkitpolicy_DATA = \
-        src/org.freedesktop.hostname1.policy
+        src/org.freedesktop.hostname1.policy \
+        src/org.freedesktop.locale1.policy \
+        src/org.freedesktop.timedate1.policy
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
@@ -797,13 +809,42 @@ systemd_shutdownd_LDADD = \
 
 systemd_hostnamed_SOURCES = \
 	src/hostnamed.c \
-        src/dbus-common.c
+        src/dbus-common.c \
+        src/polkit.c
 
 systemd_hostnamed_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
 
 systemd_hostnamed_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(DBUS_LIBS)
+
+systemd_localed_SOURCES = \
+	src/localed.c \
+        src/dbus-common.c \
+        src/polkit.c
+
+systemd_localed_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_localed_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(DBUS_LIBS)
+
+systemd_timedated_SOURCES = \
+	src/timedated.c \
+        src/dbus-common.c \
+        src/polkit.c
+
+systemd_timedated_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_timedated_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
@@ -1449,7 +1490,9 @@ endif
 		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
-                $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
+                $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service && \
+                $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service && \
+                $(LN_S) systemd-timedate.service dbus-org.freedesktop.timedate1.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path && \
 		$(LN_S) ../getty.target getty.target && \
