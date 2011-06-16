@@ -4785,40 +4785,50 @@ finish:
         return r;
 }
 
-bool hwclock_is_localtime(void) {
+int hwclock_is_localtime(void) {
         FILE *f;
-        char line[LINE_MAX];
         bool local = false;
 
         /*
          * The third line of adjtime is "UTC" or "LOCAL" or nothing.
          *   # /etc/adjtime
-         *   0.0 0 0.0
+         *   0.0 0 0
          *   0
          *   UTC
          */
         f = fopen("/etc/adjtime", "re");
         if (f) {
-                if (fgets(line, sizeof(line), f) &&
-                    fgets(line, sizeof(line), f) &&
-                    fgets(line, sizeof(line), f) ) {
-                            if (!strcmp(line, "LOCAL\n"))
-                                 local = true;
-                }
+                char line[LINE_MAX];
+                bool b;
+
+                b = fgets(line, sizeof(line), f) &&
+                        fgets(line, sizeof(line), f) &&
+                        fgets(line, sizeof(line), f);
+
                 fclose(f);
-        }
+
+                if (!b)
+                        return -EIO;
+
+
+                truncate_nl(line);
+                local = streq(line, "LOCAL");
+
+        } else if (errno != -ENOENT)
+                return -errno;
+
         return local;
 }
 
 int hwclock_apply_localtime_delta(void) {
         const struct timeval *tv_null = NULL;
-        struct timeval tv;
+        struct timespec ts;
         struct tm *tm;
         int minuteswest;
         struct timezone tz;
 
-        gettimeofday(&tv, NULL);
-        tm = localtime(&tv.tv_sec);
+        assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
+        assert_se(tm = localtime(&ts.tv_sec));
         minuteswest = tm->tm_gmtoff / 60;
 
         tz.tz_minuteswest = -minuteswest;
@@ -4831,20 +4841,43 @@ int hwclock_apply_localtime_delta(void) {
          */
         if (settimeofday(tv_null, &tz) < 0)
                 return -errno;
-        else
-                return minuteswest;
+
+        return minuteswest;
+}
+
+int hwclock_reset_localtime_delta(void) {
+        const struct timeval *tv_null = NULL;
+        struct timezone tz;
+
+        tz.tz_minuteswest = 0;
+        tz.tz_dsttime = 0; /* DST_NONE*/
+
+        if (settimeofday(tv_null, &tz) < 0)
+                return -errno;
+
+        return 0;
 }
 
 int hwclock_get_time(struct tm *tm) {
         int fd;
         int err = 0;
 
+        assert(tm);
+
         fd = open("/dev/rtc0", O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
+
+        /* This leaves the timezone fields of struct tm
+         * uninitialized! */
         if (ioctl(fd, RTC_RD_TIME, tm) < 0)
                 err = -errno;
-        close(fd);
+
+        /* We don't now daylight saving, so we reset this in order not
+         * to confused mktime(). */
+        tm->tm_isdst = -1;
+
+        close_nointr_nofail(fd);
 
         return err;
 }
@@ -4853,12 +4886,16 @@ int hwclock_set_time(const struct tm *tm) {
         int fd;
         int err = 0;
 
+        assert(tm);
+
         fd = open("/dev/rtc0", O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
+
         if (ioctl(fd, RTC_SET_TIME, tm) < 0)
                 err = -errno;
-        close(fd);
+
+        close_nointr_nofail(fd);
 
         return err;
 }

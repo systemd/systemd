@@ -74,6 +74,10 @@ Features:
 
 * support wildcard expansion in EnvironmentFile= and friends
 
+* add JoinControllers= to system.conf to mount certain cgroup
+  controllers together in order to guarantee atomic creation/addition
+  of cgroups
+
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
 * fix alsa mixer restore to not print error when no config is stored

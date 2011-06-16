@@ -50,6 +50,7 @@
         "  </method>\n"                                                 \
         "  <method name=\"SetLocalRTC\">\n"                             \
         "   <arg name=\"local_rtc\" type=\"b\" direction=\"in\"/>\n"    \
+        "   <arg name=\"correct_system\" type=\"b\" direction=\"in\"/>\n" \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
         " </interface>\n"                                               \
@@ -151,7 +152,6 @@ static void verify_timezone(void) {
 
 static int read_data(void) {
         int r;
-        FILE *f;
 
         free_data();
 
@@ -161,25 +161,7 @@ static int read_data(void) {
 
         verify_timezone();
 
-        f = fopen("/etc/adjtime", "r");
-        if (f) {
-                char line[LINE_MAX];
-                bool b;
-
-                b = fgets(line, sizeof(line), f) &&
-                        fgets(line, sizeof(line), f) &&
-                        fgets(line, sizeof(line), f);
-
-                fclose(f);
-
-                if (!b)
-                        return -EIO;
-
-                truncate_nl(line);
-                local_rtc = streq(line, "LOCAL");
-
-        } else if (errno != ENOENT)
-                return -errno;
+        local_rtc = hwclock_is_localtime() > 0;
 
         return 0;
 }
@@ -333,10 +315,24 @@ static DBusHandlerResult timedate_message_handler(
                         free(zone);
                         zone = t;
 
+                        /* 1. Write new configuration file */
                         r = write_data_timezone();
                         if (r < 0) {
                                 log_error("Failed to set timezone: %s", strerror(-r));
                                 return bus_send_error_reply(connection, message, NULL, r);
+                        }
+
+                        if (local_rtc) {
+                                struct timespec ts;
+                                struct tm *tm;
+
+                                /* 2. Teach kernel new timezone */
+                                hwclock_apply_localtime_delta();
+
+                                /* 3. Sync RTC from system clock, with the new delta */
+                                assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
+                                assert_se(tm = localtime(&ts.tv_sec));
+                                hwclock_set_time(tm);
                         }
 
                         log_info("Changed timezone to '%s'.", zone);
@@ -351,27 +347,79 @@ static DBusHandlerResult timedate_message_handler(
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.timedate1", "SetLocalRTC")) {
                 dbus_bool_t lrtc;
+                dbus_bool_t correct_system;
                 dbus_bool_t interactive;
 
                 if (!dbus_message_get_args(
                                     message,
                                     &error,
                                     DBUS_TYPE_BOOLEAN, &lrtc,
+                                    DBUS_TYPE_BOOLEAN, &correct_system,
                                     DBUS_TYPE_BOOLEAN, &interactive,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if (lrtc != local_rtc) {
+                        struct timespec ts;
+
                         r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-local-rtc", interactive, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
                         local_rtc = lrtc;
 
+                        /* 1. Write new configuration file */
                         r = write_data_local_rtc();
                         if (r < 0) {
                                 log_error("Failed to set RTC to local/UTC: %s", strerror(-r));
                                 return bus_send_error_reply(connection, message, NULL, r);
+                        }
+
+                        /* 2. Teach kernel new timezone */
+                        if (local_rtc)
+                                hwclock_apply_localtime_delta();
+                        else
+                                hwclock_reset_localtime_delta();
+
+                        /* 3. Synchronize clocks */
+                        assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
+
+                        if (correct_system) {
+                                struct tm tm;
+
+                                /* Sync system clock from RTC; first,
+                                 * initialize the timezone fields of
+                                 * struct tm. */
+                                if (local_rtc)
+                                        tm = *localtime(&ts.tv_sec);
+                                else
+                                        tm = *gmtime(&ts.tv_sec);
+
+                                /* Override the main fields of
+                                 * struct tm, but not the timezone
+                                 * fields */
+                                if (hwclock_get_time(&tm) >= 0) {
+
+                                        /* And set the system clock
+                                         * with this */
+                                        if (local_rtc)
+                                                ts.tv_sec = mktime(&tm);
+                                        else
+                                                ts.tv_sec = timegm(&tm);
+
+                                        clock_settime(CLOCK_REALTIME, &ts);
+                                }
+
+                        } else {
+                                struct tm *tm;
+
+                                /* Sync RTC from system clock */
+                                if (local_rtc)
+                                        tm = localtime(&ts.tv_sec);
+                                else
+                                        tm = gmtime(&ts.tv_sec);
+
+                                hwclock_set_time(tm);
                         }
 
                         log_info("Changed local RTC setting to '%s'.", yes_no(local_rtc));
@@ -403,6 +451,7 @@ static DBusHandlerResult timedate_message_handler(
 
                 if (!relative || utc != 0) {
                         struct timespec ts;
+                        struct tm* tm;
 
                         r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-time", interactive, &error);
                         if (r < 0)
@@ -413,10 +462,19 @@ static DBusHandlerResult timedate_message_handler(
                         else
                                 timespec_store(&ts, utc);
 
+                        /* Set system clock */
                         if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
                                 log_error("Failed to set local time: %m");
                                 return bus_send_error_reply(connection, message, NULL, -errno);
                         }
+
+                        /* Sync down to RTC */
+                        if (local_rtc)
+                                tm = localtime(&ts.tv_sec);
+                        else
+                                tm = gmtime(&ts.tv_sec);
+
+                        hwclock_set_time(tm);
 
                         log_info("Changed local time to %s", ctime(&ts.tv_sec));
                 }

@@ -1050,11 +1050,14 @@ int main(int argc, char *argv[]) {
                 if (label_init() < 0)
                         goto finish;
 
-                if (hwclock_is_localtime()) {
+                if (hwclock_is_localtime() > 0) {
                         int min;
 
                         min = hwclock_apply_localtime_delta();
-                        log_info("Hwclock configured in localtime, applying delta of %i minutes to system time", min);
+                        if (min < 0)
+                                log_error("Failed to apply local time delta: %s", strerror(-min));
+                        else
+                                log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
                 }
         } else {
                 arg_running_as = MANAGER_USER;
