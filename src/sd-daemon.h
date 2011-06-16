@@ -125,6 +125,18 @@ int sd_is_fifo(int fd, const char *path);
 
 /*
   Helper call for identifying a passed file descriptor. Returns 1 if
+  the file descriptor is a special character device on the file
+  system stored under the specified path, 0 otherwise.
+  If path is NULL a path name check will not be done and the call
+  only verifies if the file descriptor refers to a special character.
+  Returns a negative errno style error code on failure.
+
+  See sd_is_special(3) for more information.
+*/
+int sd_is_special(int fd, const char *path);
+
+/*
+  Helper call for identifying a passed file descriptor. Returns 1 if
   the file descriptor is a socket of the specified family (AF_INET,
   ...) and type (SOCK_DGRAM, SOCK_STREAM, ...), 0 otherwise. If
   family is 0 a socket family check will not be done. If type is 0 a

@@ -169,6 +169,42 @@ _sd_hidden_ int sd_is_fifo(int fd, const char *path) {
         return 1;
 }
 
+_sd_hidden_ int sd_is_special(int fd, const char *path) {
+        struct stat st_fd;
+
+        if (fd < 0)
+                return -EINVAL;
+
+        if (fstat(fd, &st_fd) < 0)
+                return -errno;
+
+        if (!S_ISREG(st_fd.st_mode) && !S_ISCHR(st_fd.st_mode))
+                return 0;
+
+        if (path) {
+                struct stat st_path;
+
+                if (stat(path, &st_path) < 0) {
+
+                        if (errno == ENOENT || errno == ENOTDIR)
+                                return 0;
+
+                        return -errno;
+                }
+
+                if (S_ISREG(st_fd.st_mode) && S_ISREG(st_path.st_mode))
+                        return
+                                st_path.st_dev == st_fd.st_dev &&
+                                st_path.st_ino == st_fd.st_ino;
+                else if (S_ISCHR(st_fd.st_mode) && S_ISCHR(st_path.st_mode))
+                        return st_path.st_rdev == st_fd.st_rdev;
+                else
+                        return 0;
+        }
+
+        return 1;
+}
+
 static int sd_is_socket_internal(int fd, int type, int listening) {
         struct stat st_fd;
 
