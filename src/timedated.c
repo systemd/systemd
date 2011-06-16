@@ -50,7 +50,7 @@
         "  </method>\n"                                                 \
         "  <method name=\"SetLocalRTC\">\n"                             \
         "   <arg name=\"local_rtc\" type=\"b\" direction=\"in\"/>\n"    \
-        "   <arg name=\"correct_system\" type=\"b\" direction=\"in\"/>\n" \
+        "   <arg name=\"fix_system\" type=\"b\" direction=\"in\"/>\n" \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
         " </interface>\n"                                               \
@@ -347,14 +347,14 @@ static DBusHandlerResult timedate_message_handler(
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.timedate1", "SetLocalRTC")) {
                 dbus_bool_t lrtc;
-                dbus_bool_t correct_system;
+                dbus_bool_t fix_system;
                 dbus_bool_t interactive;
 
                 if (!dbus_message_get_args(
                                     message,
                                     &error,
                                     DBUS_TYPE_BOOLEAN, &lrtc,
-                                    DBUS_TYPE_BOOLEAN, &correct_system,
+                                    DBUS_TYPE_BOOLEAN, &fix_system,
                                     DBUS_TYPE_BOOLEAN, &interactive,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
@@ -384,7 +384,7 @@ static DBusHandlerResult timedate_message_handler(
                         /* 3. Synchronize clocks */
                         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
 
-                        if (correct_system) {
+                        if (fix_system) {
                                 struct tm tm;
 
                                 /* Sync system clock from RTC; first,
@@ -422,7 +422,7 @@ static DBusHandlerResult timedate_message_handler(
                                 hwclock_set_time(tm);
                         }
 
-                        log_info("Changed local RTC setting to '%s'.", yes_no(local_rtc));
+                        log_error("RTC configured to %s time.", local_rtc ? "local" : "UTC");
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/timedate1",
