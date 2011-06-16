@@ -203,13 +203,15 @@ dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \
         src/org.freedesktop.hostname1.conf \
         src/org.freedesktop.locale1.conf \
-        src/org.freedesktop.timedate1.conf
+        src/org.freedesktop.timedate1.conf \
+        src/org.freedesktop.login1.conf
 
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service \
         src/org.freedesktop.hostname1.service \
         src/org.freedesktop.locale1.service \
-        src/org.freedesktop.timedate1.service
+        src/org.freedesktop.timedate1.service \
+        src/org.freedesktop.login1.service
 
 dist_udevrules_DATA = \
 	src/99-systemd.rules
@@ -227,7 +229,10 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Automount.xml \
 	org.freedesktop.systemd1.Snapshot.xml \
 	org.freedesktop.systemd1.Swap.xml \
-	org.freedesktop.systemd1.Path.xml
+	org.freedesktop.systemd1.Path.xml \
+        org.freedesktop.hostname1.xml \
+        org.freedesktop.locale1.xml \
+        org.freedesktop.timedate1.xml
 
 dist_bashcompletion_DATA = \
 	src/systemctl-bash-completion.sh
@@ -316,6 +321,7 @@ nodist_systemunit_DATA = \
 	units/systemd-hostnamed.service \
 	units/systemd-localed.service \
 	units/systemd-timedated.service \
+	units/systemd-logind.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
 	units/systemd-vconsole-setup.service \
@@ -365,6 +371,7 @@ EXTRA_DIST = \
 	units/systemd-hostnamed.service.in \
 	units/systemd-localed.service.in \
 	units/systemd-timedated.service.in \
+	units/systemd-logind.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-vconsole-setup.service.in \
@@ -455,7 +462,8 @@ nodist_polkitpolicy_DATA = \
 dist_polkitpolicy_DATA = \
         src/org.freedesktop.hostname1.policy \
         src/org.freedesktop.locale1.policy \
-        src/org.freedesktop.timedate1.policy
+        src/org.freedesktop.timedate1.policy \
+        src/org.freedesktop.login1.policy
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
@@ -1388,6 +1396,21 @@ org.freedesktop.systemd1.%.xml: systemd
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
+org.freedesktop.hostname1.xml: systemd-hostnamed
+	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.hostname1 $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+org.freedesktop.locale1.xml: systemd-localed
+	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.locale1 $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+org.freedesktop.timedate1.xml: systemd-timedated
+	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.timedate1 $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
 CLEANFILES += \
 	$(dbusinterface_DATA)
 
@@ -1492,7 +1515,8 @@ endif
 		$(LN_S) reboot.target ctrl-alt-del.target && \
                 $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service && \
                 $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service && \
-                $(LN_S) systemd-timedate.service dbus-org.freedesktop.timedate1.service )
+                $(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service && \
+                $(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path && \
 		$(LN_S) ../getty.target getty.target && \

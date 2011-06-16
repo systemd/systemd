@@ -33,9 +33,7 @@
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
+#define INTERFACE                                                       \
         " <interface name=\"org.freedesktop.timedate1\">\n"             \
         "  <property name=\"Timezone\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"LocalRTC\" type=\"b\" access=\"read\"/>\n"  \
@@ -50,10 +48,15 @@
         "  </method>\n"                                                 \
         "  <method name=\"SetLocalRTC\">\n"                             \
         "   <arg name=\"local_rtc\" type=\"b\" direction=\"in\"/>\n"    \
-        "   <arg name=\"fix_system\" type=\"b\" direction=\"in\"/>\n" \
+        "   <arg name=\"fix_system\" type=\"b\" direction=\"in\"/>\n"   \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
-        " </interface>\n"                                               \
+        " </interface>\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        INTERFACE                                                       \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         BUS_PEER_INTERFACE                                              \
@@ -62,6 +65,8 @@
 #define INTERFACES_LIST                         \
         BUS_GENERIC_INTERFACES_LIST             \
         "org.freedesktop.locale1\0"
+
+const char timedate_interface[] _introspect_("timedate1") = INTERFACE;
 
 static char *zone = NULL;
 static bool local_rtc = false;
@@ -565,6 +570,14 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        if (argc == 2 && streq(argv[1], "--introspect")) {
+                fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
+                      "<node>\n", stdout);
+                fputs(timedate_interface, stdout);
+                fputs("</node>\n", stdout);
+                return 0;
+        }
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");

@@ -1,3 +1,4 @@
+systemd-logind.service
 systemd-localed.service
 systemd-timedated.service
 systemd-hostnamed.service

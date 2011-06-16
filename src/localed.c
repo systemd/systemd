@@ -30,16 +30,19 @@
 #include "dbus-common.h"
 #include "polkit.h"
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
+#define INTERFACE                                                       \
         " <interface name=\"org.freedesktop.locale1\">\n"               \
         "  <property name=\"Locale\" type=\"as\" access=\"read\"/>\n"   \
         "  <method name=\"SetLocale\">\n"                               \
         "   <arg name=\"locale\" type=\"as\" direction=\"in\"/>\n"      \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
-        " </interface>\n"                                               \
+        " </interface>\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        INTERFACE                                                       \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         BUS_PEER_INTERFACE                                              \
@@ -48,6 +51,8 @@
 #define INTERFACES_LIST                         \
         BUS_GENERIC_INTERFACES_LIST             \
         "org.freedesktop.locale1\0"
+
+const char locale_interface[] _introspect_("locale1") = INTERFACE;
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be
@@ -562,6 +567,14 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        if (argc == 2 && streq(argv[1], "--introspect")) {
+                fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
+                      "<node>\n", stdout);
+                fputs(locale_interface, stdout);
+                fputs("</node>\n", stdout);
+                return 0;
+        }
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");

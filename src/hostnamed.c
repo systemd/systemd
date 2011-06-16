@@ -31,9 +31,7 @@
 #include "dbus-common.h"
 #include "polkit.h"
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
+#define INTERFACE \
         " <interface name=\"org.freedesktop.hostname1\">\n"             \
         "  <property name=\"Hostname\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"StaticHostname\" type=\"s\" access=\"read\"/>\n" \
@@ -55,7 +53,12 @@
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
-        " </interface>\n"                                               \
+        " </interface>\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        INTERFACE                                                       \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         BUS_PEER_INTERFACE                                              \
@@ -64,6 +67,8 @@
 #define INTERFACES_LIST                         \
         BUS_GENERIC_INTERFACES_LIST             \
         "org.freedesktop.hostname1\0"
+
+const char hostname_interface[] _introspect_("hostname1") = INTERFACE;
 
 enum {
         PROP_HOSTNAME,
@@ -546,6 +551,14 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        if (argc == 2 && streq(argv[1], "--introspect")) {
+                fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
+                      "<node>\n", stdout);
+                fputs(hostname_interface, stdout);
+                fputs("</node>\n", stdout);
+                return 0;
+        }
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");

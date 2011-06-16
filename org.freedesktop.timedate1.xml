@@ -1,0 +1,22 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+ <interface name="org.freedesktop.timedate1">
+  <property name="Timezone" type="s" access="read"/>
+  <property name="LocalRTC" type="b" access="read"/>
+  <method name="SetTime">
+   <arg name="usec_utc" type="x" direction="in"/>
+   <arg name="relative" type="b" direction="in"/>
+   <arg name="user_interaction" type="b" direction="in"/>
+  </method>
+  <method name="SetTimezone">
+   <arg name="timezone" type="s" direction="in"/>
+   <arg name="user_interaction" type="b" direction="in"/>
+  </method>
+  <method name="SetLocalRTC">
+   <arg name="local_rtc" type="b" direction="in"/>
+   <arg name="fix_system" type="b" direction="in"/>
+   <arg name="user_interaction" type="b" direction="in"/>
+  </method>
+ </interface>
+</node>

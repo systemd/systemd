@@ -38,6 +38,7 @@
  * PAM rewrite
  * spawn user systemd
  * dbus API
+ * direct client API
  *
  * non-local X11 server
  * reboot/shutdown halt management
