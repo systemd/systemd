@@ -2287,7 +2287,6 @@ static int load_from_path(Unit *u, const char *path) {
                 goto finish;
         }
 
-        zero(st);
         if (fstat(fileno(f), &st) < 0) {
                 r = -errno;
                 goto finish;

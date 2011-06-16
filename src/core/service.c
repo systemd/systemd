@@ -564,7 +564,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 goto finish;
         }
 
-        zero(st);
         if (fstat(fileno(f), &st) < 0) {
                 r = -errno;
                 goto finish;

@@ -152,7 +152,6 @@ _sd_export_ int sd_is_fifo(int fd, const char *path) {
         if (fd < 0)
                 return -EINVAL;
 
-        memset(&st_fd, 0, sizeof(st_fd));
         if (fstat(fd, &st_fd) < 0)
                 return -errno;
 
@@ -162,7 +161,6 @@ _sd_export_ int sd_is_fifo(int fd, const char *path) {
         if (path) {
                 struct stat st_path;
 
-                memset(&st_path, 0, sizeof(st_path));
                 if (stat(path, &st_path) < 0) {
 
                         if (errno == ENOENT || errno == ENOTDIR)
