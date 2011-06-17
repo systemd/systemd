@@ -108,6 +108,8 @@ int manager_spawn_autovt(Manager *m, int vtnr);
 
 void manager_gc(Manager *m);
 
+int manager_get_idle_hint(Manager *m, dual_timestamp *t);
+
 bool x11_display_is_local(const char *display);
 
 extern const DBusObjectPathVTable bus_manager_vtable;

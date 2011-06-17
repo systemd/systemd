@@ -57,8 +57,14 @@ int seat_apply_acls(Seat *s, Session *old_active);
 int seat_active_vt_changed(Seat *s, int vtnr);
 int seat_read_active_vt(Seat *s);
 
+int seat_attach_session(Seat *s, Session *session);
+
+bool seat_is_vtconsole(Seat *s);
+int seat_get_idle_hint(Seat *s, dual_timestamp *t);
+
 int seat_start(Seat *s);
 int seat_stop(Seat *s);
+int seat_stop_sessions(Seat *s);
 
 int seat_check_gc(Seat *s);
 void seat_add_to_gc_queue(Seat *s);

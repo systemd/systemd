@@ -156,7 +156,7 @@ int user_load(User *u) {
 
         assert(u);
 
-        r = parse_env_file(u->state_file, "r",
+        r = parse_env_file(u->state_file, NEWLINE,
                            "CGROUP", &u->cgroup_path,
                            "RUNTIME", &u->runtime_path,
                            "SERVICE", &u->service,
@@ -384,6 +384,42 @@ int user_stop(User *u) {
         user_add_to_gc_queue(u);
 
         return r;
+}
+
+int user_get_idle_hint(User *u, dual_timestamp *t) {
+        Session *s;
+        bool idle_hint = true;
+        dual_timestamp ts = { 0, 0 };
+
+        assert(u);
+
+        LIST_FOREACH(sessions_by_user, s, u->sessions) {
+                dual_timestamp k;
+                int ih;
+
+                ih = session_get_idle_hint(s, &k);
+                if (ih < 0)
+                        return ih;
+
+                if (!ih) {
+                        if (!idle_hint) {
+                                if (k.monotonic < ts.monotonic)
+                                        ts = k;
+                        } else {
+                                idle_hint = false;
+                                ts = k;
+                        }
+                } else if (idle_hint) {
+
+                        if (k.monotonic > ts.monotonic)
+                                ts = k;
+                }
+        }
+
+        if (t)
+                *t = ts;
+
+        return idle_hint;
 }
 
 int user_check_gc(User *u) {

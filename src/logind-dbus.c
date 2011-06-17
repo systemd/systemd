@@ -19,6 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <string.h>
+
 #include "logind.h"
 #include "dbus-common.h"
 
@@ -62,6 +65,9 @@
         "   <arg name=\"path\" type=\"o\" direction=\"out\"/>\n"        \
         "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
         "  </method>\n"                                                 \
+        "  <method name=\"ActivateSession\">\n"                         \
+        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "  </method>\n"                                                 \
         "  <method name=\"TerminateSession\">\n"                        \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
@@ -102,6 +108,9 @@
         "  <property name=\"KillOnlyUsers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"KillExcludeUsers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"KillUserProcesses\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -119,6 +128,39 @@
         BUS_GENERIC_INTERFACES_LIST                  \
         "org.freedesktop.login1.Manager\0"
 
+static int bus_manager_append_idle_hint(DBusMessageIter *i, const char *property, void *data) {
+        Manager *m = data;
+        bool b;
+
+        assert(i);
+        assert(property);
+        assert(m);
+
+        b = manager_get_idle_hint(m, NULL);
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_manager_append_idle_hint_since(DBusMessageIter *i, const char *property, void *data) {
+        Manager *m = data;
+        dual_timestamp t;
+        uint64_t u;
+
+        assert(i);
+        assert(property);
+        assert(m);
+
+        manager_get_idle_hint(m, &t);
+        u = streq(property, "IdleSinceHint") ? t.realtime : t.monotonic;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &u))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusHandlerResult manager_message_handler(
                 DBusConnection *connection,
                 DBusMessage *message,
@@ -127,13 +169,16 @@ static DBusHandlerResult manager_message_handler(
         Manager *m = userdata;
 
         const BusProperty properties[] = {
-                { "org.freedesktop.login1.Manager", "ControlGroupHierarchy", bus_property_append_string,   "s",  m->cgroup_path          },
-                { "org.freedesktop.login1.Manager", "Controllers",           bus_property_append_strv,     "as", m->controllers          },
-                { "org.freedesktop.login1.Manager", "ResetControllers",      bus_property_append_strv,     "as", m->reset_controllers    },
-                { "org.freedesktop.login1.Manager", "NAutoVTs",              bus_property_append_unsigned, "u",  &m->n_autovts           },
-                { "org.freedesktop.login1.Manager", "KillOnlyUsers",         bus_property_append_strv,     "as", m->kill_only_users      },
-                { "org.freedesktop.login1.Manager", "KillExcludeUsers",      bus_property_append_strv,     "as", m->kill_exclude_users   },
-                { "org.freedesktop.login1.Manager", "KillUserProcesses",     bus_property_append_bool,     "b",  &m->kill_user_processes },
+                { "org.freedesktop.login1.Manager", "ControlGroupHierarchy",  bus_property_append_string,   "s",  m->cgroup_path          },
+                { "org.freedesktop.login1.Manager", "Controllers",            bus_property_append_strv,     "as", m->controllers          },
+                { "org.freedesktop.login1.Manager", "ResetControllers",       bus_property_append_strv,     "as", m->reset_controllers    },
+                { "org.freedesktop.login1.Manager", "NAutoVTs",               bus_property_append_unsigned, "u",  &m->n_autovts           },
+                { "org.freedesktop.login1.Manager", "KillOnlyUsers",          bus_property_append_strv,     "as", m->kill_only_users      },
+                { "org.freedesktop.login1.Manager", "KillExcludeUsers",       bus_property_append_strv,     "as", m->kill_exclude_users   },
+                { "org.freedesktop.login1.Manager", "KillUserProcesses",      bus_property_append_bool,     "b",  &m->kill_user_processes },
+                { "org.freedesktop.login1.Manager", "IdleHint",               bus_manager_append_idle_hint, "b",  m                       },
+                { "org.freedesktop.login1.Manager", "IdleSinceHint",          bus_manager_append_idle_hint_since, "t", m                  },
+                { "org.freedesktop.login1.Manager", "IdleSinceHintMonotonic", bus_manager_append_idle_hint_since, "t", m                  },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

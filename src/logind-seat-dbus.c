@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <string.h>
 
 #include "logind.h"
 #include "logind-seat.h"
@@ -36,6 +37,9 @@
         "  <property name=\"ActiveSession\" type=\"so\" access=\"read\"/>\n" \
         "  <property name=\"CanActivateSessions\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Sessions\" type=\"a(so)\" access=\"read\"/>\n" \
+        "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"                                               \
 
 #define INTROSPECTION                                                   \
@@ -129,7 +133,6 @@ static int bus_seat_append_sessions(DBusMessageIter *i, const char *property, vo
         return 0;
 }
 
-
 static int bus_seat_append_can_activate(DBusMessageIter *i, const char *property, void *data) {
         Seat *s = data;
         dbus_bool_t b;
@@ -138,9 +141,42 @@ static int bus_seat_append_can_activate(DBusMessageIter *i, const char *property
         assert(property);
         assert(s);
 
-        b = s->manager->vtconsole == s;
+        b = seat_is_vtconsole(s);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_seat_append_idle_hint(DBusMessageIter *i, const char *property, void *data) {
+        Seat *s = data;
+        bool b;
+
+        assert(i);
+        assert(property);
+        assert(s);
+
+        b = seat_get_idle_hint(s, NULL);
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_seat_append_idle_hint_since(DBusMessageIter *i, const char *property, void *data) {
+        Seat *s = data;
+        dual_timestamp t;
+        uint64_t k;
+
+        assert(i);
+        assert(property);
+        assert(s);
+
+        seat_get_idle_hint(s, &t);
+        k = streq(property, "IdleSinceHint") ? t.realtime : t.monotonic;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &k))
                 return -ENOMEM;
 
         return 0;
@@ -181,14 +217,73 @@ static DBusHandlerResult seat_message_dispatch(
                 { "org.freedesktop.login1.Seat", "ActiveSession",       bus_seat_append_active,       "(so)",  s     },
                 { "org.freedesktop.login1.Seat", "CanActivateSessions", bus_seat_append_can_activate, "b",     s     },
                 { "org.freedesktop.login1.Seat", "Sessions",            bus_seat_append_sessions,     "a(so)", s     },
+                { "org.freedesktop.login1.Seat", "IdleHint",            bus_seat_append_idle_hint,    "b",     s     },
+                { "org.freedesktop.login1.Seat", "IdleSinceHint",          bus_seat_append_idle_hint_since, "t", s   },
+                { "org.freedesktop.login1.Seat", "IdleSinceHintMonotonic", bus_seat_append_idle_hint_since, "t", s   },
                 { NULL, NULL, NULL, NULL, NULL }
         };
+
+        DBusError error;
+        DBusMessage *reply = NULL;
+        int r;
 
         assert(s);
         assert(connection);
         assert(message);
 
-        return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+        dbus_error_init(&error);
+
+        if (dbus_message_is_method_call(message, "org.freedesktop.login1.Seat", "Terminate")) {
+
+                r = seat_stop_sessions(s);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Seat", "ActivateSession")) {
+                const char *name;
+                Session *session;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                session = hashmap_get(s->manager->sessions, name);
+                if (!session || session->seat != s)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                r = session_activate(session);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+        } else
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+
+        if (reply) {
+                if (!dbus_connection_send(connection, reply, NULL))
+                        goto oom;
+
+                dbus_message_unref(reply);
+        }
+
+        return DBUS_HANDLER_RESULT_HANDLED;
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 static DBusHandlerResult seat_message_handler(

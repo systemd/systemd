@@ -853,6 +853,44 @@ void manager_gc(Manager *m) {
         }
 }
 
+int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
+        Session *s;
+        bool idle_hint = true;
+        dual_timestamp ts = { 0, 0 };
+        Iterator i;
+
+        assert(m);
+
+        HASHMAP_FOREACH(s, m->sessions, i) {
+                dual_timestamp k;
+                int ih;
+
+                ih = session_get_idle_hint(s, &k);
+                if (ih < 0)
+                        return ih;
+
+                if (!ih) {
+                        if (!idle_hint) {
+                                if (k.monotonic < ts.monotonic)
+                                        ts = k;
+                        } else {
+                                idle_hint = false;
+                                ts = k;
+                        }
+                } else if (idle_hint) {
+
+                        if (k.monotonic > ts.monotonic)
+                                ts = k;
+                }
+        }
+
+        if (t)
+                *t = ts;
+
+        return idle_hint;
+}
+
+
 int manager_startup(Manager *m) {
         int r;
         Seat *seat;

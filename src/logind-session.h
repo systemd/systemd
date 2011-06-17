@@ -67,6 +67,9 @@ struct Session {
         char *cgroup_path;
         char **controllers, **reset_controllers;
 
+        bool idle_hint;
+        dual_timestamp idle_hint_timestamp;
+
         bool kill_processes;
         bool in_gc_queue:1;
 
@@ -82,6 +85,7 @@ int session_check_gc(Session *s);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
+int session_get_idle_hint(Session *s, dual_timestamp *t);
 int session_start(Session *s);
 int session_stop(Session *s);
 int session_save(Session *s);

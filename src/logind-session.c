@@ -28,6 +28,8 @@
 #include "util.h"
 #include "cgroup-util.h"
 
+#define IDLE_THRESHOLD_USEC (5*USEC_PER_MINUTE)
+
 Session* session_new(Manager *m, User *u, const char *id) {
         Session *s;
 
@@ -153,7 +155,7 @@ int session_save(Session *s) {
                         "REMOTE_USER=%s\n",
                         s->remote_user);
 
-        if (s->seat && s->seat->manager->vtconsole == s->seat)
+        if (s->seat && seat_is_vtconsole(s->seat))
                 fprintf(f,
                         "VTNR=%i\n",
                         s->vtnr);
@@ -187,9 +189,87 @@ finish:
 }
 
 int session_load(Session *s) {
+        char *remote = NULL,
+                *kill_processes = NULL,
+                *seat = NULL,
+                *vtnr = NULL,
+                *leader = NULL,
+                *audit_id = NULL;
+
+        int k, r;
+
         assert(s);
 
-        return 0;
+        r = parse_env_file(s->state_file, NEWLINE,
+                           "REMOTE",         &remote,
+                           "KILL_PROCESSES", &kill_processes,
+                           "CGROUP",         &s->cgroup_path,
+                           "SEAT",           &seat,
+                           "TTY",            &s->tty,
+                           "DISPLAY",        &s->display,
+                           "REMOTE_HOST",    &s->remote_host,
+                           "REMOTE_USER",    &s->remote_user,
+                           "VTNR",           &vtnr,
+                           "LEADER",         &leader,
+                           "AUDIT_ID",       &audit_id,
+                           NULL);
+
+        if (r < 0)
+                goto finish;
+
+        if (remote) {
+                k = parse_boolean(remote);
+                if (k >= 0)
+                        s->remote = k;
+        }
+
+        if (kill_processes) {
+                k = parse_boolean(kill_processes);
+                if (k >= 0)
+                        s->kill_processes = k;
+        }
+
+        if (seat) {
+                Seat *o;
+
+                o = hashmap_get(s->manager->seats, seat);
+                if (o)
+                        seat_attach_session(o, s);
+        }
+
+        if (vtnr && s->seat && seat_is_vtconsole(s->seat)) {
+                int v;
+
+                k = safe_atoi(vtnr, &v);
+                if (k >= 0 && v >= 1)
+                        s->vtnr = v;
+        }
+
+        if (leader) {
+                pid_t pid;
+
+                k = parse_pid(leader, &pid);
+                if (k >= 0 && pid >= 1)
+                        s->leader = pid;
+        }
+
+        if (audit_id) {
+                uint32_t l;
+
+                k = safe_atou32(audit_id, &l);
+                if (k >= 0 && l >= l)
+                        s->audit_id = l;
+        }
+
+finish:
+        free(remote);
+        free(kill_processes);
+        free(seat);
+        free(vtnr);
+        free(leader);
+        free(audit_id);
+
+        return r;
 }
 
 int session_activate(Session *s) {
@@ -207,7 +287,7 @@ int session_activate(Session *s) {
         if (s->seat->active == s)
                 return 0;
 
-        assert(s->manager->vtconsole == s->seat);
+        assert(seat_is_vtconsole(s->seat));
 
         r = chvt(s->vtnr);
         if (r < 0)
@@ -460,6 +540,59 @@ bool session_is_active(Session *s) {
                 return true;
 
         return s->seat->active == s;
+}
+
+int session_get_idle_hint(Session *s, dual_timestamp *t) {
+        char *p;
+        struct stat st;
+        usec_t u, n;
+        bool b;
+        int k;
+
+        assert(s);
+
+        if (s->idle_hint) {
+                if (t)
+                        *t = s->idle_hint_timestamp;
+
+                return s->idle_hint;
+        }
+
+        if (isempty(s->tty))
+                goto dont_know;
+
+        if (s->tty[0] != '/') {
+                p = strappend("/dev/", s->tty);
+                if (!p)
+                        return -ENOMEM;
+        } else
+                p = NULL;
+
+        if (!startswith(p ? p : s->tty, "/dev/")) {
+                free(p);
+                goto dont_know;
+        }
+
+        k = lstat(p ? p : s->tty, &st);
+        free(p);
+
+        if (k < 0)
+                goto dont_know;
+
+        u = timespec_load(&st.st_atim);
+        n = now(CLOCK_REALTIME);
+        b = u + IDLE_THRESHOLD_USEC < n;
+
+        if (t)
+                dual_timestamp_from_realtime(t, u + b ? IDLE_THRESHOLD_USEC : 0);
+
+        return b;
+
+dont_know:
+        if (t)
+                *t = s->idle_hint_timestamp;
+
+        return 0;
 }
 
 int session_check_gc(Session *s) {

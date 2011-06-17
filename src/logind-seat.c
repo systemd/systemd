@@ -99,7 +99,7 @@ int seat_save(Seat *s) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "IS_VTCONSOLE=%i\n",
-                s->manager->vtconsole == s);
+                seat_is_vtconsole(s));
 
         if (s->active) {
                 assert(s->active->user);
@@ -158,6 +158,8 @@ finish:
 int seat_load(Seat *s) {
         assert(s);
 
+        /* There isn't actually anything to read here ... */
+
         return 0;
 }
 
@@ -191,7 +193,7 @@ static int seat_preallocate_vts(Seat *s) {
         if (s->manager->n_autovts <= 0)
                 return 0;
 
-        if (s->manager->vtconsole != s)
+        if (!seat_is_vtconsole(s))
                 return 0;
 
         for (i = 1; i < s->manager->n_autovts; i++) {
@@ -230,7 +232,7 @@ int seat_active_vt_changed(Seat *s, int vtnr) {
         assert(s);
         assert(vtnr >= 1);
 
-        if (s->manager->vtconsole != s)
+        if (!seat_is_vtconsole(s))
                 return -EINVAL;
 
         log_debug("VT changed to %i", vtnr);
@@ -260,7 +262,7 @@ int seat_read_active_vt(Seat *s) {
 
         assert(s);
 
-        if (s->manager->vtconsole != s)
+        if (!seat_is_vtconsole(s))
                 return 0;
 
         lseek(s->manager->console_active_fd, SEEK_SET, 0);
@@ -316,8 +318,7 @@ int seat_start(Seat *s) {
 }
 
 int seat_stop(Seat *s) {
-        Session *session;
-        int r = 0, k;
+        int r = 0;
 
         assert(s);
 
@@ -326,11 +327,7 @@ int seat_stop(Seat *s) {
 
         log_info("Removed seat %s.", s->id);
 
-        LIST_FOREACH(sessions_by_seat, session, s->sessions) {
-                k = session_stop(session);
-                if (k < 0)
-                        r = k;
-        }
+        seat_stop_sessions(s);
 
         unlink(s->state_file);
         seat_add_to_gc_queue(s);
@@ -340,10 +337,86 @@ int seat_stop(Seat *s) {
         return r;
 }
 
+int seat_stop_sessions(Seat *s) {
+        Session *session;
+        int r = 0, k;
+
+        assert(s);
+
+        LIST_FOREACH(sessions_by_seat, session, s->sessions) {
+                k = session_stop(session);
+                if (k < 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+int seat_attach_session(Seat *s, Session *session) {
+        assert(s);
+        assert(session);
+        assert(!session->seat);
+
+        if (!seat_is_vtconsole(s)) {
+                if (s->sessions)
+                        return -EEXIST;
+
+                assert(!s->active);
+                s->active = session;
+        }
+
+        session->seat = s;
+        LIST_PREPEND(Session, sessions_by_seat, s->sessions, session);
+
+        return 0;
+}
+
+bool seat_is_vtconsole(Seat *s) {
+        assert(s);
+
+        return s->manager->vtconsole == s;
+}
+
+int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
+        Session *session;
+        bool idle_hint = true;
+        dual_timestamp ts = { 0, 0 };
+
+        assert(s);
+
+        LIST_FOREACH(sessions_by_seat, session, s->sessions) {
+                dual_timestamp k;
+                int ih;
+
+                ih = session_get_idle_hint(session, &k);
+                if (ih < 0)
+                        return ih;
+
+                if (!ih) {
+                        if (!idle_hint) {
+                                if (k.monotonic < ts.monotonic)
+                                        ts = k;
+                        } else {
+                                idle_hint = false;
+                                ts = k;
+                        }
+                } else if (idle_hint) {
+
+                        if (k.monotonic > ts.monotonic)
+                                ts = k;
+                }
+        }
+
+        if (t)
+                *t = ts;
+
+        return idle_hint;
+}
+
 int seat_check_gc(Seat *s) {
         assert(s);
 
-        if (s->manager->vtconsole == s)
+        if (seat_is_vtconsole(s))
                 return 1;
 
         return !!s->devices;

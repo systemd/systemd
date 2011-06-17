@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <string.h>
 
 #include "logind.h"
 #include "logind-user.h"
@@ -31,12 +32,17 @@
         "  <property name=\"UID\" type=\"u\" access=\"read\"/>\n"       \
         "  <property name=\"GID\" type=\"u\" access=\"read\"/>\n"       \
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Timestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"TimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"RuntimePath\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"ControlGroupPath\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"Display\" type=\"(so)\" access=\"read\"/>\n" \
         "  <property name=\"State\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Sessions\" type=\"a(so)\" access=\"read\"/>\n" \
+        "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"                                               \
 
 #define INTROSPECTION                                                   \
@@ -146,6 +152,39 @@ static int bus_user_append_sessions(DBusMessageIter *i, const char *property, vo
         return 0;
 }
 
+static int bus_user_append_idle_hint(DBusMessageIter *i, const char *property, void *data) {
+        User *u = data;
+        bool b;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        b = user_get_idle_hint(u, NULL);
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_user_append_idle_hint_since(DBusMessageIter *i, const char *property, void *data) {
+        User *u = data;
+        dual_timestamp t;
+        uint64_t k;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        user_get_idle_hint(u, &t);
+        k = streq(property, "IdleSinceHint") ? t.realtime : t.monotonic;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &k))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int get_user_for_path(Manager *m, const char *path, User **_u) {
         User *u;
         unsigned long lu;
@@ -176,23 +215,59 @@ static DBusHandlerResult user_message_dispatch(
                 DBusMessage *message) {
 
         const BusProperty properties[] = {
-                { "org.freedesktop.login1.User", "UID",              bus_property_append_uid,    "u",     &u->uid         },
-                { "org.freedesktop.login1.User", "GID",              bus_property_append_gid,    "u",     &u->gid         },
-                { "org.freedesktop.login1.User", "Name",             bus_property_append_string, "s",     u->name         },
-                { "org.freedesktop.login1.User", "RuntimePath",      bus_property_append_string, "s",     u->runtime_path },
-                { "org.freedesktop.login1.User", "ControlGroupPath", bus_property_append_string, "s",     u->cgroup_path  },
-                { "org.freedesktop.login1.User", "Service",          bus_property_append_string, "s",     u->service      },
-                { "org.freedesktop.login1.User", "Display",          bus_user_append_display,    "(so)",  u               },
-                { "org.freedesktop.login1.User", "State",            bus_user_append_state,      "s",     u               },
-                { "org.freedesktop.login1.User", "Sessions",         bus_user_append_sessions,   "a(so)", u               },
+                { "org.freedesktop.login1.User", "UID",                bus_property_append_uid,    "u",     &u->uid                 },
+                { "org.freedesktop.login1.User", "GID",                bus_property_append_gid,    "u",     &u->gid                 },
+                { "org.freedesktop.login1.User", "Name",               bus_property_append_string, "s",     u->name                 },
+                { "org.freedesktop.login1.User", "Timestamp",          bus_property_append_usec,   "t",     &u->timestamp.realtime  },
+                { "org.freedesktop.login1.User", "TimestampMonotonic", bus_property_append_usec,   "t",     &u->timestamp.monotonic },
+                { "org.freedesktop.login1.User", "RuntimePath",        bus_property_append_string, "s",     u->runtime_path         },
+                { "org.freedesktop.login1.User", "ControlGroupPath",   bus_property_append_string, "s",     u->cgroup_path          },
+                { "org.freedesktop.login1.User", "Service",            bus_property_append_string, "s",     u->service              },
+                { "org.freedesktop.login1.User", "Display",            bus_user_append_display,    "(so)",  u                       },
+                { "org.freedesktop.login1.User", "State",              bus_user_append_state,      "s",     u                       },
+                { "org.freedesktop.login1.User", "Sessions",           bus_user_append_sessions,   "a(so)", u                       },
+                { "org.freedesktop.login1.User", "IdleHint",           bus_user_append_idle_hint,  "b",     u                       },
+                { "org.freedesktop.login1.User", "IdleSinceHint",          bus_user_append_idle_hint_since, "t", u                  },
+                { "org.freedesktop.login1.User", "IdleSinceHintMonotonic", bus_user_append_idle_hint_since, "t", u                  },
                 { NULL, NULL, NULL, NULL, NULL }
         };
+
+        DBusError error;
+        DBusMessage *reply = NULL;
+        int r;
 
         assert(u);
         assert(connection);
         assert(message);
 
-        return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+        if (dbus_message_is_method_call(message, "org.freedesktop.login1.User", "Terminate")) {
+
+                r = user_stop(u);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+        } else
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+
+        if (reply) {
+                if (!dbus_connection_send(connection, reply, NULL))
+                        goto oom;
+
+                dbus_message_unref(reply);
+        }
+
+        return DBUS_HANDLER_RESULT_HANDLED;
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 static DBusHandlerResult user_message_handler(
