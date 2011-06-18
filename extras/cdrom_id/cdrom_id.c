@@ -41,7 +41,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-static int debug;
+static bool debug;
 
 static void log_fn(struct udev *udev, int priority,
 		   const char *file, int line, const char *fn,
@@ -156,13 +156,11 @@ struct scsi_cmd {
 	struct sg_io_hdr sg_io;
 };
 
-static void scsi_cmd_init(struct udev *udev, struct scsi_cmd *cmd, unsigned char *buf, size_t bufsize)
+static void scsi_cmd_init(struct udev *udev, struct scsi_cmd *cmd)
 {
 	memset(cmd, 0x00, sizeof(struct scsi_cmd));
-	memset(buf, 0x00, bufsize);
 	cmd->cgc.quiet = 1;
 	cmd->cgc.sense = &cmd->_sense.s;
-	memset(&cmd->sg_io, 0, sizeof(cmd->sg_io));
 	cmd->sg_io.interface_id = 'S';
 	cmd->sg_io.mx_sb_len = sizeof(cmd->_sense);
 	cmd->sg_io.cmdp = cmd->cgc.cmd;
@@ -182,9 +180,13 @@ static int scsi_cmd_run(struct udev *udev, struct scsi_cmd *cmd, int fd, unsigne
 {
 	int ret = 0;
 
-	cmd->sg_io.dxferp = buf;
-	cmd->sg_io.dxfer_len = bufsize;
-	cmd->sg_io.dxfer_direction = SG_DXFER_FROM_DEV;
+	if (bufsize > 0) {
+		cmd->sg_io.dxferp = buf;
+		cmd->sg_io.dxfer_len = bufsize;
+		cmd->sg_io.dxfer_direction = SG_DXFER_FROM_DEV;
+	} else {
+		cmd->sg_io.dxfer_direction = SG_DXFER_NONE;
+	}
 	if (ioctl(fd, SG_IO, &cmd->sg_io))
 		return -1;
 
@@ -198,6 +200,39 @@ static int scsi_cmd_run(struct udev *udev, struct scsi_cmd *cmd, int fd, unsigne
 		}
 	}
 	return ret;
+}
+
+static int media_lock(struct udev *udev, int fd, bool lock)
+{
+	int err;
+
+	/* disable the kernel's lock logic */
+	err = ioctl(fd, CDROM_CLEAR_OPTIONS, CDO_LOCK);
+	if (err < 0)
+		info(udev, "CDROM_CLEAR_OPTIONS, CDO_LOCK failed\n");
+
+	err = ioctl(fd, CDROM_LOCKDOOR, lock ? 1 : 0);
+	if (err < 0)
+		info(udev, "CDROM_LOCKDOOR failed\n");
+
+	return err;
+}
+
+static int media_eject(struct udev *udev, int fd)
+{
+	struct scsi_cmd sc;
+	int err;
+
+	scsi_cmd_init(udev, &sc);
+	scsi_cmd_set(udev, &sc, 0, 0x1b);
+	scsi_cmd_set(udev, &sc, 4, 0x02);
+	scsi_cmd_set(udev, &sc, 5, 0);
+	err = scsi_cmd_run(udev, &sc, fd, NULL, 0);
+	if ((err != 0)) {
+		info_scsi_cmd_err(udev, "START_STOP_UNIT", err);
+		return -1;
+	}
+	return 0;
 }
 
 static int cd_capability_compat(struct udev *udev, int fd)
@@ -237,12 +272,13 @@ static int cd_media_compat(struct udev *udev, int fd)
 	return 0;
 }
 
-static int cd_inquiry(struct udev *udev, int fd) {
+static int cd_inquiry(struct udev *udev, int fd)
+{
 	struct scsi_cmd sc;
 	unsigned char inq[128];
 	int err;
 
-	scsi_cmd_init(udev, &sc, inq, sizeof(inq));
+	scsi_cmd_init(udev, &sc);
 	scsi_cmd_set(udev, &sc, 0, 0x12);
 	scsi_cmd_set(udev, &sc, 4, 36);
 	scsi_cmd_set(udev, &sc, 5, 0);
@@ -467,7 +503,7 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
 
 	unsigned char header[32];
 
-	scsi_cmd_init(udev, &sc, header, sizeof(header));
+	scsi_cmd_init(udev, &sc);
 	scsi_cmd_set(udev, &sc, 0, 0x51);
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
 	scsi_cmd_set(udev, &sc, 9, 0);
@@ -513,7 +549,7 @@ static int cd_profiles(struct udev *udev, int fd)
 	ret = -1;
 
 	/* First query the current profile */
-	scsi_cmd_init(udev, &sc, features, sizeof(features));
+	scsi_cmd_init(udev, &sc);
 	scsi_cmd_set(udev, &sc, 0, 0x46);
 	scsi_cmd_set(udev, &sc, 8, 8);
 	scsi_cmd_set(udev, &sc, 9, 0);
@@ -549,7 +585,7 @@ static int cd_profiles(struct udev *udev, int fd)
 	}
 
 	/* Now get the full feature buffer */
-	scsi_cmd_init(udev, &sc, features,  len);
+	scsi_cmd_init(udev, &sc);
 	scsi_cmd_set(udev, &sc, 0, 0x46);
 	scsi_cmd_set(udev, &sc, 7, ( len >> 8 ) & 0xff);
 	scsi_cmd_set(udev, &sc, 8, len & 0xff);
@@ -601,7 +637,7 @@ static int cd_media_info(struct udev *udev, int fd)
 	};
 	int err;
 
-	scsi_cmd_init(udev, &sc, header, sizeof(header));
+	scsi_cmd_init(udev, &sc);
 	scsi_cmd_set(udev, &sc, 0, 0x51);
 	scsi_cmd_set(udev, &sc, 8, sizeof(header) & 0xff);
 	scsi_cmd_set(udev, &sc, 9, 0);
@@ -639,7 +675,7 @@ static int cd_media_info(struct udev *udev, int fd)
 			unsigned char dvdstruct[8];
 			unsigned char format[12];
 
-			scsi_cmd_init(udev, &sc, dvdstruct, sizeof(dvdstruct));
+			scsi_cmd_init(udev, &sc);
 			scsi_cmd_set(udev, &sc, 0, 0xAD);
 			scsi_cmd_set(udev, &sc, 7, 0xC0);
 			scsi_cmd_set(udev, &sc, 9, sizeof(dvdstruct));
@@ -656,7 +692,7 @@ static int cd_media_info(struct udev *udev, int fd)
 			}
 
 			/* let's make sure we don't try to read unformatted media */
-			scsi_cmd_init(udev, &sc, format, sizeof(format));
+			scsi_cmd_init(udev, &sc);
 			scsi_cmd_set(udev, &sc, 0, 0x23);
 			scsi_cmd_set(udev, &sc, 8, sizeof(format));
 			scsi_cmd_set(udev, &sc, 9, 0);
@@ -697,7 +733,7 @@ static int cd_media_info(struct udev *udev, int fd)
 		 * has "blank" status", DVD-RAM was examined earlier) and check
 		 * for ISO and UDF PVDs or a fs superblock presence and do it
 		 * in one ioctl (we need just sectors 0 and 16) */
-		scsi_cmd_init(udev, &sc, buffer, sizeof(buffer));
+		scsi_cmd_init(udev, &sc);
 		scsi_cmd_set(udev, &sc, 0, 0x28);
 		scsi_cmd_set(udev, &sc, 5, 0);
 		scsi_cmd_set(udev, &sc, 8, 32);
@@ -750,7 +786,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	unsigned char *p;
 	int err;
 
-	scsi_cmd_init(udev, &sc, header, sizeof(header));
+	scsi_cmd_init(udev, &sc);
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 6, 1);
 	scsi_cmd_set(udev, &sc, 8, sizeof(header) & 0xff);
@@ -774,7 +810,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	if (len < 8)
 		return 0;
 
-	scsi_cmd_init(udev, &sc, toc, sizeof(toc));
+	scsi_cmd_init(udev, &sc);
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 6, header[2]); /* First Track/Session Number */
 	scsi_cmd_set(udev, &sc, 7, (len >> 8) & 0xff);
@@ -805,7 +841,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 			cd_media_track_count_audio++;
 	}
 
-	scsi_cmd_init(udev, &sc, header, sizeof(header));
+	scsi_cmd_init(udev, &sc);
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 2, 1); /* Session Info */
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
@@ -825,10 +861,16 @@ int main(int argc, char *argv[])
 {
 	struct udev *udev;
 	static const struct option options[] = {
+		{ "lock-media", no_argument, NULL, 'l' },
+		{ "unlock-media", no_argument, NULL, 'u' },
+		{ "eject-media", no_argument, NULL, 'e' },
 		{ "debug", no_argument, NULL, 'd' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
+	bool eject = false;
+	bool lock = false;
+	bool unlock = false;
 	const char *node = NULL;
 	int fd = -1;
 	int cnt;
@@ -844,18 +886,30 @@ int main(int argc, char *argv[])
 	while (1) {
 		int option;
 
-		option = getopt_long(argc, argv, "dh", options, NULL);
+		option = getopt_long(argc, argv, "deluh", options, NULL);
 		if (option == -1)
 			break;
 
 		switch (option) {
+		case 'l':
+			lock = true;
+			break;
+		case 'u':
+			unlock = true;
+			break;
+		case 'e':
+			eject = true;
+			break;
 		case 'd':
-			debug = 1;
+			debug = true;
 			if (udev_get_log_priority(udev) < LOG_INFO)
 				udev_set_log_priority(udev, LOG_INFO);
 			break;
 		case 'h':
 			printf("Usage: cdrom_id [options] <device>\n"
+			       "  --lock-media    lock the media (to enable eject request events)\n"
+			       "  --unlock-media  unlock the media\n"
+			       "  --eject-media   eject the media\n"
 			       "  --debug         debug to stderr\n"
 			       "  --help          print this help text\n\n");
 			goto exit;
@@ -904,14 +958,13 @@ int main(int argc, char *argv[])
 
 	/* check if drive talks MMC */
 	if (cd_inquiry(udev, fd) < 0)
-		goto print;
+		goto work;
 
 	/* read drive and possibly current profile */
 	if (cd_profiles(udev, fd) != 0)
-		goto print;
+		goto work;
 
-	/* at this point we are guaranteed to have media in the
-	 * drive - find out more about it */
+	/* at this point we are guaranteed to have media in the drive - find out more about it */
 
 	/* get session/track info */
 	cd_media_toc(udev, fd);
@@ -919,7 +972,25 @@ int main(int argc, char *argv[])
 	/* get writable media state */
 	cd_media_info(udev, fd);
 
-print:
+work:
+	/* lock the media, so we enable eject button events */
+	if (lock && cd_media) {
+		info(udev, "PREVENT_ALLOW_MEDIUM_REMOVAL (lock)\n");
+		media_lock(udev, fd, true);
+	}
+
+	if (unlock && cd_media) {
+		info(udev, "PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)\n");
+		media_lock(udev, fd, false);
+	}
+
+	if (eject) {
+		info(udev, "PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)\n");
+		media_lock(udev, fd, false);
+		info(udev, "START_STOP_UNIT (eject)\n");
+		media_eject(udev, fd);
+	}
+
 	printf("ID_CDROM=1\n");
 	if (cd_cd_rom)
 		printf("ID_CDROM_CD=1\n");
@@ -1026,4 +1097,3 @@ exit:
 	udev_log_close();
 	return rc;
 }
-
