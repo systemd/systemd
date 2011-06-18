@@ -199,17 +199,6 @@ AC_ARG_ENABLE([edd],
 	[], [enable_edd=no])
 AM_CONDITIONAL([ENABLE_EDD], [test "x$enable_edd" = xyes])
 
-# ------------------------------------------------------------------------------
-# mobile-action-modeswitch - switch Mobile Action cables into serial mode
-# ------------------------------------------------------------------------------
-AC_ARG_ENABLE([action_modeswitch],
-	AS_HELP_STRING([--enable-action_modeswitch], [enable action modeswitch support]),
-	[], [enable_action_modeswitch=no])
-if test "x$enable_action_modeswitch" = xyes; then
-	PKG_CHECK_MODULES(LIBUSB, libusb >= 0.1.12)
-fi
-AM_CONDITIONAL([ENABLE_ACTION_MODESWITCH], [test "x$enable_action_modeswitch" = xyes])
-
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
@@ -261,7 +250,6 @@ AC_MSG_RESULT([
 	keymap:			${enable_keymap}
 	floppy:			${enable_floppy}
 	edd:			${enable_edd}
-	action_modeswitch:	${enable_action_modeswitch}
 
 	usb.ids:		${USB_DATABASE}
 	pci.ids:		${PCI_DATABASE}

@@ -636,23 +636,6 @@ libexec_PROGRAMS += extras/edd_id/edd_id
 dist_udevrules_DATA += extras/edd_id/61-persistent-storage-edd.rules
 endif
 
-if ENABLE_ACTION_MODESWITCH
-# ------------------------------------------------------------------------------
-# mobile-action-modeswitch - switch Mobile Action cables into serial mode
-# ------------------------------------------------------------------------------
-extras_mobile_action_modeswitch_mobile_action_modeswitch_SOURCES =\
-	extras/mobile-action-modeswitch/mobile-action-modeswitch.c \
-	extras/mobile-action-modeswitch/utils.c \
-	extras/mobile-action-modeswitch/utils.h \
-	extras/mobile-action-modeswitch/ma8280p_us.c \
-	extras/mobile-action-modeswitch/ma8280p_us.h
-extras_mobile_action_modeswitch_mobile_action_modeswitch_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
-extras_mobile_action_modeswitch_mobile_action_modeswitch_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
-dist_udevrules_DATA += \
-	extras/mobile-action-modeswitch/61-mobile-action.rules
-libexec_PROGRAMS += extras/mobile-action-modeswitch/mobile-action-modeswitch
-endif
-
 # ------------------------------------------------------------------------------
 # install, uninstall, clean hooks
 # ------------------------------------------------------------------------------

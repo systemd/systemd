@@ -17,9 +17,6 @@
      udevd -> --libexecdir
      udevadm -> --bindir
 
- - delete mobile-action-modeswitch
-   (moved to usb_modeswitch)
-
  - /run/udev/control socket
    (add ConditionVirtualization=!pidns)
 

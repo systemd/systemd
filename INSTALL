@@ -43,8 +43,6 @@ All options:
       Enable legacy floppy support.
   --enable-edd
       Enable disk edd support.
-  --enable-action_modeswitch
-      Enable action modeswitch support.
 
 The options used in a RPM spec file usually look like:
   %configure \
