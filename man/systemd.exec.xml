@@ -638,7 +638,7 @@
                                 executed process. See
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details. Takes a whitespace
-                                seperated list of capability names as
+                                separated list of capability names as
                                 read by
                                 <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
                                 Capabilities listed will be included
@@ -715,7 +715,7 @@
                                 path for this unit is implied. This
                                 option may be used to place executed
                                 processes in arbitrary groups in
-                                arbitrary hierachies -- which can be
+                                arbitrary hierarchies -- which can be
                                 configured externally with additional execution limits. By default
                                 systemd will place all executed
                                 processes in separate per-unit control
@@ -753,7 +753,7 @@
                                 usual file access controls would
                                 permit this. Directories listed in
                                 <varname>InaccessibleDirectories=</varname>
-                                will be made inaccesible for processes
+                                will be made inaccessible for processes
                                 inside the namespace. Note that
                                 restricting access with these options
                                 does not extend to submounts of a

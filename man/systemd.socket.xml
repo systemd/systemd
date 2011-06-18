@@ -518,7 +518,7 @@
                                 <term><varname>Broadcast=</varname></term>
                                 <listitem><para>Takes a boolean
                                 value. This controls the SO_BROADCAST
-                                option, which allows boradcast
+                                option, which allows broadcast
                                 datagrams to be sent from this
                                 socket. Defaults to
                                 <option>false</option>.</para></listitem>

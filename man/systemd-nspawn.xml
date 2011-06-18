@@ -61,7 +61,7 @@
                 container. In many ways it is similar to
                 <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                 but more powerful since it fully virtualizes the file
-                system hierachy, as well as the process tree, the
+                system hierarchy, as well as the process tree, the
                 various IPC subsystems and the host and domain
                 name.</para>
 
@@ -106,7 +106,7 @@
                 <para>Note that running two
                 <command>systemd-nspawn</command> containers from the
                 same directory tree will not make processes in them
-                see each other. The PID namespace seperation of the
+                see each other. The PID namespace separation of the
                 two containers is complete and the containers will
                 share very few runtime objects except for the
                 underlying file system.</para>

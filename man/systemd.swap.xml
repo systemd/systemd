@@ -78,7 +78,7 @@
 
                 <para>All swap units automatically get the appropriate
                 dependencies on the devices (resp. on the mount points
-                of the files) they are actived from.</para>
+                of the files) they are activated from.</para>
 
                 <para>Swap units with
                 <varname>DefaultDependencies=</varname> enabled

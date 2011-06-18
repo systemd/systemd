@@ -250,7 +250,7 @@
                                 cgroup will be created by default for
                                 each user logging in, in addition to
                                 the cgroup in the named 'name=systemd'
-                                hierarchy. If ommited, defaults to an
+                                hierarchy. If omitted, defaults to an
                                 empty list. This may be used to move
                                 user sessions into their own groups in
                                 the 'cpu' hierarchy which ensures that
@@ -267,7 +267,7 @@
                                 separated list of cgroup controllers
                                 in which hierarchies the logged in
                                 processes will be reset to the root
-                                cgroup. If ommited, defaults to 'cpu',
+                                cgroup. If omitted, defaults to 'cpu',
                                 meaning that a 'cpu' cgroup grouping
                                 inherited from the login manager will
                                 be reset for the processes of the

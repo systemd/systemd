@@ -386,8 +386,8 @@
                                 <term><option>--host</option></term>
 
                                 <listitem><para>Execute operation
-                                remotely. Specifiy a hostname, or
-                                username and hostname seperated by @,
+                                remotely. Specify a hostname, or
+                                username and hostname separated by @,
                                 to connect to. This will use SSH to
                                 talk to the remote systemd
                                 instance.</para></listitem>

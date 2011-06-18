@@ -610,7 +610,7 @@
                                 verify that the specified condition is
                                 true. With
                                 <varname>ConditionPathExists=</varname>
-                                a file existance condition can be
+                                a file existence condition can be
                                 checked before a unit is started. If
                                 the specified absolute path name does
                                 not exist startup of a unit will not
