@@ -69,7 +69,10 @@ KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DAT
 # probe filesystem metadata of disks
 KERNEL!="sr*", IMPORT{program}="/sbin/blkid -o udev -p $tempnode"
 
-# watch for future changes
+# enable in-kernel media-presence polling
+SUBSYSTEM=="module", KERNEL=="block", ATTR{parameters/events_dfl_poll_msecs}="2000"
+
+# watch metadata changes by tools closing the device after writing
 KERNEL!="sr*", OPTIONS+="watch"
 
 # by-label/by-uuid links (filesystem metadata)
