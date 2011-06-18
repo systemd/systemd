@@ -43,9 +43,9 @@ _systemctl () {
 
         local -A OPTS=(
                [STANDALONE]='--all -a --defaults --fail --ignore-dependencies --failed --force -f --full --global
-                             --help -h --no-ask-password --no-block --no-reload --no-wall
-                             --order --require --quiet -q --system --user --version'
-                      [ARG]='--kill-mode --kill-who --property -p --signal -s --type -t'
+                             --help -h --no-ask-password --no-block --no-pager --no-reload --no-wall
+                             --order --require --quiet -q --privileged -P --system --user --version'
+                      [ARG]='--host -H --kill-mode --kill-who --property -p --signal -s --type -t'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -62,7 +62,7 @@ _systemctl () {
                         --kill-mode)
                                 comps='control-group process'
                         ;;
-                        --property|-p)
+                        --property|-p|--host|-H)
                                 comps=''
                         ;;
                 esac
