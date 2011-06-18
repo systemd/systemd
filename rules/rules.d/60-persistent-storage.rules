@@ -7,6 +7,10 @@
 ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="block", ATTR{block/*/uevent}="change"
 
 ACTION=="remove", GOTO="persistent_storage_end"
+
+# enable in-kernel media-presence polling
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="block", ATTR{parameters/events_dfl_poll_msecs}="2000"
+
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
 # skip rules for inappropriate block devices
@@ -68,9 +72,6 @@ KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DAT
 
 # probe filesystem metadata of disks
 KERNEL!="sr*", IMPORT{program}="/sbin/blkid -o udev -p $tempnode"
-
-# enable in-kernel media-presence polling
-SUBSYSTEM=="module", KERNEL=="block", ATTR{parameters/events_dfl_poll_msecs}="2000"
 
 # watch metadata changes by tools closing the device after writing
 KERNEL!="sr*", OPTIONS+="watch"
