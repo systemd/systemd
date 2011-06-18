@@ -814,15 +814,25 @@ UDEV_EXPORT int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enume
 	if (udev_enumerate == NULL)
 		return -EINVAL;
 
+	/* all kernel modules */
+	if (match_subsystem(udev_enumerate, "module")) {
+		dbg(udev, "searching '%s/modules/*' dir\n", subsysdir);
+		scan_dir_and_add_devices(udev_enumerate, "module", NULL, NULL);
+	}
+
 	util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
 	if (stat(base, &statbuf) == 0)
 		subsysdir = "subsystem";
 	else
 		subsysdir = "bus";
+
+	/* all subsystems (only buses support coldplug) */
 	if (match_subsystem(udev_enumerate, "subsystem")) {
 		dbg(udev, "searching '%s/*' dir\n", subsysdir);
 		scan_dir_and_add_devices(udev_enumerate, subsysdir, NULL, NULL);
 	}
+
+	/* all subsystem drivers */
 	if (match_subsystem(udev_enumerate, "drivers")) {
 		dbg(udev, "searching '%s/*/drivers/*' dir\n", subsysdir);
 		scan_dir(udev_enumerate, subsysdir, "drivers", "drivers");
