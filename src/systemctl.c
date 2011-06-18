@@ -5572,7 +5572,7 @@ static void pager_open(void) {
         if (!on_tty() || arg_no_pager)
                 return;
 
-        if ((pager = getenv("PAGER")))
+        if ((pager = getenv("SYSTEMD_PAGER")) || (pager = getenv("PAGER")))
                 if (!*pager || streq(pager, "cat"))
                         return;
 
