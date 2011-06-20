@@ -80,6 +80,8 @@ Features:
 
 * In systemctl make sure both is-enabled and is-active print a string, or neither.
 
+* teach systemctl to enable unit files in arbitrary directories
+
 * when failing to start a service due to ratelimiting, try again later, if restart=always is set
 
 * write blog stories about:
