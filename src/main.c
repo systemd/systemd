@@ -169,7 +169,7 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
                 }
 
-                log_info("Successfully spawned crash shall as pid %lu.", (unsigned long) pid);
+                log_info("Successfully spawned crash shell as pid %lu.", (unsigned long) pid);
         }
 
         log_info("Freezing execution.");
