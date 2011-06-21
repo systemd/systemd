@@ -249,11 +249,90 @@ static DBusHandlerResult session_message_dispatch(
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
+        DBusError error;
+        DBusMessage *reply = NULL;
+        int r;
+
         assert(s);
         assert(connection);
         assert(message);
 
-        return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+        dbus_error_init(&error);
+
+        if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Terminate")) {
+
+                r = session_stop(s);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Activate")) {
+
+                r = session_activate(s);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Lock") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Unlock")) {
+                bool b;
+                DBusMessage *sig;
+
+                sig = dbus_message_new_signal(dbus_message_get_path(message), "org.freedesktop.login1.Session", dbus_message_get_member(message));
+                if (!sig)
+                        goto oom;
+
+                b = dbus_connection_send(connection, sig, NULL);
+                dbus_message_unref(sig);
+
+                if (!b)
+                        goto oom;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "SetIdleHint")) {
+                dbus_bool_t b;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_BOOLEAN, &b,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                session_set_idle_hint(s, b);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+
+        if (reply) {
+                if (!dbus_connection_send(connection, reply, NULL))
+                        goto oom;
+
+                dbus_message_unref(reply);
+        }
+
+        return DBUS_HANDLER_RESULT_HANDLED;
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 static DBusHandlerResult session_message_handler(

@@ -86,6 +86,7 @@ void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
 int session_get_idle_hint(Session *s, dual_timestamp *t);
+void session_set_idle_hint(Session *s, bool b);
 int session_start(Session *s);
 int session_stop(Session *s);
 int session_save(Session *s);

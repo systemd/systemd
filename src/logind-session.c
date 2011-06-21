@@ -595,6 +595,16 @@ dont_know:
         return 0;
 }
 
+void session_set_idle_hint(Session *s, bool b) {
+        assert(s);
+
+        if (s->idle_hint == b)
+                return;
+
+        s->idle_hint = b;
+        dual_timestamp_get(&s->idle_hint_timestamp);
+}
+
 int session_check_gc(Session *s) {
         int r;
 
