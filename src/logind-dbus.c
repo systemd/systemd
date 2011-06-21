@@ -40,7 +40,7 @@
         "   <arg name=\"seat\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"ListSessions\">\n"                            \
-        "   <arg name=\"users\" type=\"a(sussso)\" direction=\"out\"/>\n" \
+        "   <arg name=\"sessions\" type=\"a(susso)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"ListUsers\">\n"                               \
         "   <arg name=\"users\" type=\"a(uso)\" direction=\"out\"/>\n"  \
@@ -292,6 +292,137 @@ static DBusHandlerResult manager_message_handler(
                 free(p);
 
                 if (!b)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListSessions")) {
+                char *p;
+                Session *session;
+                Iterator i;
+                DBusMessageIter iter, sub;
+                const char *empty = "";
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                dbus_message_iter_init_append(reply, &iter);
+
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "susso", &sub))
+                        goto oom;
+
+                HASHMAP_FOREACH(session, m->sessions, i) {
+                        DBusMessageIter sub2;
+                        uint32_t uid;
+
+                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
+                                goto oom;
+
+                        uid = session->user->uid;
+
+                        p = session_bus_path(session);
+                        if (!p)
+                                goto oom;
+
+                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &session->id) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &uid) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &session->user->name) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, session->seat ? (const char**) &session->seat->id : &empty) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p)) {
+                                free(p);
+                                goto oom;
+                        }
+
+                        free(p);
+
+                        if (!dbus_message_iter_close_container(&sub, &sub2))
+                                goto oom;
+                }
+
+                if (!dbus_message_iter_close_container(&iter, &sub))
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListUsers")) {
+                char *p;
+                User *user;
+                Iterator i;
+                DBusMessageIter iter, sub;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                dbus_message_iter_init_append(reply, &iter);
+
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "uso", &sub))
+                        goto oom;
+
+                HASHMAP_FOREACH(user, m->users, i) {
+                        DBusMessageIter sub2;
+                        uint32_t uid;
+
+                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
+                                goto oom;
+
+                        uid = user->uid;
+
+                        p = user_bus_path(user);
+                        if (!p)
+                                goto oom;
+
+                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &uid) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &user->name) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p)) {
+                                free(p);
+                                goto oom;
+                        }
+
+                        free(p);
+
+                        if (!dbus_message_iter_close_container(&sub, &sub2))
+                                goto oom;
+                }
+
+                if (!dbus_message_iter_close_container(&iter, &sub))
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListSeats")) {
+                char *p;
+                Seat *seat;
+                Iterator i;
+                DBusMessageIter iter, sub;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                dbus_message_iter_init_append(reply, &iter);
+
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "so", &sub))
+                        goto oom;
+
+                HASHMAP_FOREACH(seat, m->seats, i) {
+                        DBusMessageIter sub2;
+
+                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
+                                goto oom;
+
+                        p = seat_bus_path(seat);
+                        if (!p)
+                                goto oom;
+
+                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &seat->id) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p)) {
+                                free(p);
+                                goto oom;
+                        }
+
+                        free(p);
+
+                        if (!dbus_message_iter_close_container(&sub, &sub2))
+                                goto oom;
+                }
+
+                if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ActivateSession")) {
