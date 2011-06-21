@@ -333,3 +333,40 @@ char *seat_bus_path(Seat *s) {
 
         return r;
 }
+
+int seat_send_signal(Seat *s, bool new_seat) {
+        DBusMessage *m;
+        int r = -ENOMEM;
+        char *p = NULL;
+
+        assert(s);
+
+        m = dbus_message_new_signal("/org/freedesktop/login1",
+                                    "org.freedesktop.login1.Manager",
+                                    new_seat ? "SeatNew" : "SeatRemoved");
+
+        if (!m)
+                return -ENOMEM;
+
+        p = seat_bus_path(s);
+        if (!p)
+                goto finish;
+
+        if (!dbus_message_append_args(
+                            m,
+                            DBUS_TYPE_STRING, &s->id,
+                            DBUS_TYPE_OBJECT_PATH, &p,
+                            DBUS_TYPE_INVALID))
+                goto finish;
+
+        if (!dbus_connection_send(s->manager->bus, m, NULL))
+                goto finish;
+
+        r = 0;
+
+finish:
+        dbus_message_unref(m);
+        free(p);
+
+        return r;
+}

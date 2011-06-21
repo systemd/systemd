@@ -382,3 +382,40 @@ char *session_bus_path(Session *s) {
 
         return r;
 }
+
+int session_send_signal(Session *s, bool new_session) {
+        DBusMessage *m;
+        int r = -ENOMEM;
+        char *p = NULL;
+
+        assert(s);
+
+        m = dbus_message_new_signal("/org/freedesktop/login1",
+                                    "org.freedesktop.login1.Manager",
+                                    new_session ? "SessionNew" : "SessionRemoved");
+
+        if (!m)
+                return -ENOMEM;
+
+        p = session_bus_path(s);
+        if (!p)
+                goto finish;
+
+        if (!dbus_message_append_args(
+                            m,
+                            DBUS_TYPE_STRING, &s->id,
+                            DBUS_TYPE_OBJECT_PATH, &p,
+                            DBUS_TYPE_INVALID))
+                goto finish;
+
+        if (!dbus_connection_send(s->manager->bus, m, NULL))
+                goto finish;
+
+        r = 0;
+
+finish:
+        dbus_message_unref(m);
+        free(p);
+
+        return r;
+}

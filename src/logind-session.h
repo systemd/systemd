@@ -96,6 +96,8 @@ char *session_bus_path(Session *s);
 
 extern const DBusObjectPathVTable bus_session_vtable;
 
+int session_send_signal(Session *s, bool new_session);
+
 const char* session_type_to_string(SessionType t);
 SessionType session_type_from_string(const char *s);
 

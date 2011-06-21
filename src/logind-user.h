@@ -75,6 +75,8 @@ char *user_bus_path(User *s);
 
 extern const DBusObjectPathVTable bus_user_vtable;
 
+int user_send_signal(User *u, bool new_user);
+
 const char* user_state_to_string(UserState s);
 UserState user_state_from_string(const char *s);
 

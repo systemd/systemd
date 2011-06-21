@@ -314,6 +314,8 @@ int seat_start(Seat *s) {
 
         s->started = true;
 
+        seat_send_signal(s, true);
+
         return 0;
 }
 
@@ -326,6 +328,8 @@ int seat_stop(Seat *s) {
                 return 0;
 
         log_info("Removed seat %s.", s->id);
+
+        seat_send_signal(s, false);
 
         seat_stop_sessions(s);
 

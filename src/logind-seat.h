@@ -74,4 +74,6 @@ char *seat_bus_path(Seat *s);
 
 extern const DBusObjectPathVTable bus_seat_vtable;
 
+int seat_send_signal(Seat *s, bool new_seat);
+
 #endif

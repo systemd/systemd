@@ -313,3 +313,43 @@ char *user_bus_path(User *u) {
 
         return s;
 }
+
+int user_send_signal(User *u, bool new_user) {
+        DBusMessage *m;
+        int r = -ENOMEM;
+        char *p = NULL;
+        uint32_t uid;
+
+        assert(u);
+
+        m = dbus_message_new_signal("/org/freedesktop/login1",
+                                    "org.freedesktop.login1.Manager",
+                                    new_user ? "UserNew" : "UserRemoved");
+
+        if (!m)
+                return -ENOMEM;
+
+        p = user_bus_path(u);
+        if (!p)
+                goto finish;
+
+        uid = u->uid;
+
+        if (!dbus_message_append_args(
+                            m,
+                            DBUS_TYPE_UINT32, &uid,
+                            DBUS_TYPE_OBJECT_PATH, &p,
+                            DBUS_TYPE_INVALID))
+                goto finish;
+
+        if (!dbus_connection_send(u->manager->bus, m, NULL))
+                goto finish;
+
+        r = 0;
+
+finish:
+        dbus_message_unref(m);
+        free(p);
+
+        return r;
+}

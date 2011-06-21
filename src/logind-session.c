@@ -443,6 +443,8 @@ int session_start(Session *s) {
 
         dual_timestamp_get(&s->timestamp);
 
+        session_send_signal(s, true);
+
         return 0;
 }
 
@@ -518,6 +520,8 @@ int session_stop(Session *s) {
         int r = 0, k;
 
         assert(s);
+
+        session_send_signal(s, false);
 
         /* Kill cgroup */
         k = session_kill_cgroup(s);

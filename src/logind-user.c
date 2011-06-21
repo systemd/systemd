@@ -280,6 +280,8 @@ int user_start(User *u) {
 
         dual_timestamp_get(&u->timestamp);
 
+        user_send_signal(u, true);
+
         return 0;
 }
 
@@ -364,6 +366,8 @@ int user_stop(User *u) {
                 if (k < 0)
                         r = k;
         }
+
+        user_send_signal(u, false);
 
         /* Kill systemd */
         k = user_stop_service(u);
