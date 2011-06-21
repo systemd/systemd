@@ -604,3 +604,25 @@ oom:
 const DBusObjectPathVTable bus_manager_vtable = {
         .message_function = manager_message_handler
 };
+
+int manager_send_changed(Manager *manager, const char *properties) {
+        DBusMessage *m;
+        int r = -ENOMEM;
+
+        assert(manager);
+
+        m = bus_properties_changed_new("/org/freedesktop/login1", "org.freedesktop.login1.Manager", properties);
+        if (!m)
+                goto finish;
+
+        if (!dbus_connection_send(manager->bus, m, NULL))
+                goto finish;
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        return r;
+}

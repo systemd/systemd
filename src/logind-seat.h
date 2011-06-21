@@ -54,6 +54,7 @@ int seat_save(Seat *s);
 int seat_load(Seat *s);
 
 int seat_apply_acls(Seat *s, Session *old_active);
+int seat_set_active(Seat *s, Session *session);
 int seat_active_vt_changed(Seat *s, int vtnr);
 int seat_read_active_vt(Seat *s);
 
@@ -75,5 +76,6 @@ char *seat_bus_path(Seat *s);
 extern const DBusObjectPathVTable bus_seat_vtable;
 
 int seat_send_signal(Seat *s, bool new_seat);
+int seat_send_changed(Seat *s, const char *properties);
 
 #endif

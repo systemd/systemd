@@ -55,6 +55,7 @@ struct User {
         dual_timestamp timestamp;
 
         bool in_gc_queue:1;
+        bool started:1;
 
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);
@@ -76,6 +77,7 @@ char *user_bus_path(User *s);
 extern const DBusObjectPathVTable bus_user_vtable;
 
 int user_send_signal(User *u, bool new_user);
+int user_send_changed(User *u, const char *properties);
 
 const char* user_state_to_string(UserState s);
 UserState user_state_from_string(const char *s);

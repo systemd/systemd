@@ -226,8 +226,33 @@ int seat_apply_acls(Seat *s, Session *old_active) {
         return r;
 }
 
+int seat_set_active(Seat *s, Session *session) {
+        Session *old_active;
+
+        assert(s);
+        assert(session);
+        assert(session->seat == s);
+
+        if (session == s->active)
+                return 0;
+
+        old_active = s->active;
+        s->active = session;
+
+        seat_apply_acls(s, old_active);
+
+        if (session && session->started)
+                session_send_changed(session, "Active\0");
+
+        if (!session || session->started)
+                seat_send_changed(s, "ActiveSession\0");
+
+        return 0;
+}
+
 int seat_active_vt_changed(Seat *s, int vtnr) {
-        Session *i, *new_active = NULL, *old_active;
+        Session *i, *new_active = NULL;
+        int r;
 
         assert(s);
         assert(vtnr >= 1);
@@ -243,16 +268,10 @@ int seat_active_vt_changed(Seat *s, int vtnr) {
                         break;
                 }
 
-        if (new_active == s->active)
-                return 0;
-
-        old_active = s->active;
-        s->active = new_active;
-
-        seat_apply_acls(s, old_active);
+        r = seat_set_active(s, new_active);
         manager_spawn_autovt(s->manager, vtnr);
 
-        return 0;
+        return r;
 }
 
 int seat_read_active_vt(Seat *s) {
@@ -361,16 +380,18 @@ int seat_attach_session(Seat *s, Session *session) {
         assert(session);
         assert(!session->seat);
 
-        if (!seat_is_vtconsole(s)) {
-                if (s->sessions)
-                        return -EEXIST;
-
-                assert(!s->active);
-                s->active = session;
-        }
+        if (!seat_is_vtconsole(s) && s->sessions)
+                return -EEXIST;
 
         session->seat = s;
         LIST_PREPEND(Session, sessions_by_seat, s->sessions, session);
+
+        seat_send_changed(s, "Sessions\0");
+
+        if (!seat_is_vtconsole(s)) {
+                assert(!s->active);
+                seat_set_active(s, session);
+        }
 
         return 0;
 }

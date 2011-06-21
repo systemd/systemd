@@ -419,3 +419,31 @@ finish:
 
         return r;
 }
+
+int session_send_changed(Session *s, const char *properties) {
+        DBusMessage *m;
+        int r = -ENOMEM;
+        char *p = NULL;
+
+        assert(s);
+
+        p = session_bus_path(s);
+        if (!p)
+                return -ENOMEM;
+
+        m = bus_properties_changed_new(p, "org.freedesktop.login1.Session", properties);
+        if (!m)
+                goto finish;
+
+        if (!dbus_connection_send(s->manager->bus, m, NULL))
+                goto finish;
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+        free(p);
+
+        return r;
+}

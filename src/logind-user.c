@@ -260,6 +260,9 @@ int user_start(User *u) {
 
         assert(u);
 
+        if (u->started)
+                return 0;
+
         /* Make XDG_RUNTIME_DIR */
         r = user_mkdir_runtime_path(u);
         if (r < 0)
@@ -279,6 +282,8 @@ int user_start(User *u) {
         user_save(u);
 
         dual_timestamp_get(&u->timestamp);
+
+        u->started = true;
 
         user_send_signal(u, true);
 
@@ -361,6 +366,9 @@ int user_stop(User *u) {
         int r = 0, k;
         assert(u);
 
+        if (!u->started)
+                return 0;
+
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 k = session_stop(s);
                 if (k < 0)
@@ -386,6 +394,8 @@ int user_stop(User *u) {
 
         unlink(u->state_file);
         user_add_to_gc_queue(u);
+
+        u->started = false;
 
         return r;
 }

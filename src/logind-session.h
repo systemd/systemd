@@ -72,6 +72,7 @@ struct Session {
 
         bool kill_processes;
         bool in_gc_queue:1;
+        bool started:1;
 
         LIST_FIELDS(Session, sessions_by_user);
         LIST_FIELDS(Session, sessions_by_seat);
@@ -97,6 +98,7 @@ char *session_bus_path(Session *s);
 extern const DBusObjectPathVTable bus_session_vtable;
 
 int session_send_signal(Session *s, bool new_session);
+int session_send_changed(Session *s, const char *properties);
 
 const char* session_type_to_string(SessionType t);
 SessionType session_type_from_string(const char *s);

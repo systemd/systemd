@@ -114,4 +114,6 @@ bool x11_display_is_local(const char *display);
 
 extern const DBusObjectPathVTable bus_manager_vtable;
 
+int manager_send_changed(Manager *manager, const char *properties);
+
 #endif

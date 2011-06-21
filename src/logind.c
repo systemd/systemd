@@ -890,7 +890,6 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         return idle_hint;
 }
 
-
 int manager_startup(Manager *m) {
         int r;
         Seat *seat;

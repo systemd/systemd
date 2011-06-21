@@ -76,8 +76,12 @@ void session_free(Session *s) {
                         s->user->display = NULL;
         }
 
-        if (s->seat)
+        if (s->seat) {
+                if (s->seat->active == s)
+                        s->seat->active = NULL;
+
                 LIST_REMOVE(Session, sessions_by_seat, s->seat->sessions, s);
+        }
 
         free(s->cgroup_path);
         strv_free(s->controllers);
@@ -229,7 +233,7 @@ int session_load(Session *s) {
                         s->kill_processes = k;
         }
 
-        if (seat) {
+        if (seat && !s->seat) {
                 Seat *o;
 
                 o = hashmap_get(s->manager->seats, seat);
@@ -430,6 +434,9 @@ int session_start(Session *s) {
         assert(s);
         assert(s->user);
 
+        if (s->started)
+                return 0;
+
         /* Create cgroup */
         r = session_create_cgroup(s);
         if (r < 0)
@@ -443,7 +450,18 @@ int session_start(Session *s) {
 
         dual_timestamp_get(&s->timestamp);
 
+        s->started = true;
+
         session_send_signal(s, true);
+
+        if (s->seat) {
+                if (s->seat->active == s)
+                        seat_send_changed(s->seat, "Sessions\0ActiveSession\0");
+                else
+                        seat_send_changed(s->seat, "Sessions\0");
+        }
+
+        user_send_changed(s->user, "Sessions\0");
 
         return 0;
 }
@@ -521,7 +539,8 @@ int session_stop(Session *s) {
 
         assert(s);
 
-        session_send_signal(s, false);
+        if (!s->started)
+                return 0;
 
         /* Kill cgroup */
         k = session_kill_cgroup(s);
@@ -533,6 +552,19 @@ int session_stop(Session *s) {
 
         unlink(s->state_file);
         session_add_to_gc_queue(s);
+
+        session_send_signal(s, false);
+
+        if (s->seat) {
+                if (s->seat->active == s)
+                        seat_set_active(s->seat, NULL);
+
+                seat_send_changed(s->seat, "Sessions\0");
+        }
+
+        user_send_changed(s->user, "Sessions\0");
+
+        s->started = false;
 
         return r;
 }
@@ -607,6 +639,27 @@ void session_set_idle_hint(Session *s, bool b) {
 
         s->idle_hint = b;
         dual_timestamp_get(&s->idle_hint_timestamp);
+
+        session_send_changed(s,
+                             "IdleHint\0"
+                             "IdleSinceHint\0"
+                             "IdleSinceHintMonotonic\0");
+
+        if (s->seat)
+                seat_send_changed(s->seat,
+                                  "IdleHint\0"
+                                  "IdleSinceHint\0"
+                                  "IdleSinceHintMonotonic\0");
+
+        user_send_changed(s->user,
+                          "IdleHint\0"
+                          "IdleSinceHint\0"
+                          "IdleSinceHintMonotonic\0");
+
+        manager_send_changed(s->manager,
+                             "IdleHint\0"
+                             "IdleSinceHint\0"
+                             "IdleSinceHintMonotonic\0");
 }
 
 int session_check_gc(Session *s) {

@@ -353,3 +353,31 @@ finish:
 
         return r;
 }
+
+int user_send_changed(User *u, const char *properties) {
+        DBusMessage *m;
+        int r = -ENOMEM;
+        char *p = NULL;
+
+        assert(u);
+
+        p = user_bus_path(u);
+        if (!p)
+                return -ENOMEM;
+
+        m = bus_properties_changed_new(p, "org.freedesktop.login1.User", properties);
+        if (!m)
+                goto finish;
+
+        if (!dbus_connection_send(u->manager->bus, m, NULL))
+                goto finish;
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+        free(p);
+
+        return r;
+}
