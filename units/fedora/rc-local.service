@@ -7,11 +7,11 @@
 
 [Unit]
 Description=/etc/rc.local Compatibility
-ConditionPathExists=/etc/rc.local
+ConditionPathExists=/etc/rc.d/rc.local
 
 [Service]
 Type=forking
-ExecStart=/etc/rc.local start
+ExecStart=/etc/rc.d/rc.local start
 TimeoutSec=0
 StandardOutput=tty
 RemainAfterExit=yes
