@@ -151,13 +151,13 @@ static int bus_seat_append_can_activate(DBusMessageIter *i, const char *property
 
 static int bus_seat_append_idle_hint(DBusMessageIter *i, const char *property, void *data) {
         Seat *s = data;
-        bool b;
+        dbus_bool_t b;
 
         assert(i);
         assert(property);
         assert(s);
 
-        b = seat_get_idle_hint(s, NULL);
+        b = seat_get_idle_hint(s, NULL) > 0;
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
 

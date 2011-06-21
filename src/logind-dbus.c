@@ -130,13 +130,13 @@
 
 static int bus_manager_append_idle_hint(DBusMessageIter *i, const char *property, void *data) {
         Manager *m = data;
-        bool b;
+        dbus_bool_t b;
 
         assert(i);
         assert(property);
         assert(m);
 
-        b = manager_get_idle_hint(m, NULL);
+        b = manager_get_idle_hint(m, NULL) > 0;
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
 

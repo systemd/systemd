@@ -230,8 +230,7 @@ int seat_set_active(Seat *s, Session *session) {
         Session *old_active;
 
         assert(s);
-        assert(session);
-        assert(session->seat == s);
+        assert(!session || session->seat == s);
 
         if (session == s->active)
                 return 0;

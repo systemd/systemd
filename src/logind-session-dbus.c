@@ -144,7 +144,7 @@ static int bus_session_append_user(DBusMessageIter *i, const char *property, voi
 
 static int bus_session_append_active(DBusMessageIter *i, const char *property, void *data) {
         Session *s = data;
-        bool b;
+        dbus_bool_t b;
 
         assert(i);
         assert(property);
@@ -159,13 +159,13 @@ static int bus_session_append_active(DBusMessageIter *i, const char *property, v
 
 static int bus_session_append_idle_hint(DBusMessageIter *i, const char *property, void *data) {
         Session *s = data;
-        bool b;
+        int b;
 
         assert(i);
         assert(property);
         assert(s);
 
-        b = session_get_idle_hint(s, NULL);
+        b = session_get_idle_hint(s, NULL) > 0;
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
 

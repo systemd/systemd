@@ -154,13 +154,14 @@ static int bus_user_append_sessions(DBusMessageIter *i, const char *property, vo
 
 static int bus_user_append_idle_hint(DBusMessageIter *i, const char *property, void *data) {
         User *u = data;
-        bool b;
+        dbus_bool_t b;
 
         assert(i);
         assert(property);
         assert(u);
 
-        b = user_get_idle_hint(u, NULL);
+        b = user_get_idle_hint(u, NULL) > 0;
+
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
 
