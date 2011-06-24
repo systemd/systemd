@@ -121,7 +121,7 @@ static int bus_user_append_sessions(DBusMessageIter *i, const char *property, vo
         assert(property);
         assert(u);
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "so", &sub))
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(so)", &sub))
                 return -ENOMEM;
 
         LIST_FOREACH(sessions_by_user, session, u->sessions) {

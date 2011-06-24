@@ -102,7 +102,7 @@ static int bus_seat_append_sessions(DBusMessageIter *i, const char *property, vo
         assert(property);
         assert(s);
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "so", &sub))
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(so)", &sub))
                 return -ENOMEM;
 
         LIST_FOREACH(sessions_by_seat, session, s->sessions) {

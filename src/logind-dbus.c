@@ -589,7 +589,7 @@ static DBusHandlerResult manager_message_handler(
 
                 dbus_message_iter_init_append(reply, &iter);
 
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "susso", &sub))
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(susso)", &sub))
                         goto oom;
 
                 HASHMAP_FOREACH(session, m->sessions, i) {
@@ -635,7 +635,7 @@ static DBusHandlerResult manager_message_handler(
 
                 dbus_message_iter_init_append(reply, &iter);
 
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "uso", &sub))
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(uso)", &sub))
                         goto oom;
 
                 HASHMAP_FOREACH(user, m->users, i) {
@@ -679,7 +679,7 @@ static DBusHandlerResult manager_message_handler(
 
                 dbus_message_iter_init_append(reply, &iter);
 
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "so", &sub))
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(so)", &sub))
                         goto oom;
 
                 HASHMAP_FOREACH(seat, m->seats, i) {
