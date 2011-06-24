@@ -350,17 +350,16 @@ int seat_stop(Seat *s) {
 
         assert(s);
 
-        if (!s->started)
-                return 0;
-
-        log_info("Removed seat %s.", s->id);
-
-        seat_send_signal(s, false);
+        if (s->started)
+                log_info("Removed seat %s.", s->id);
 
         seat_stop_sessions(s);
 
         unlink(s->state_file);
         seat_add_to_gc_queue(s);
+
+        if (s->started)
+                seat_send_signal(s, false);
 
         s->started = false;
 

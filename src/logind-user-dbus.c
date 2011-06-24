@@ -362,6 +362,9 @@ int user_send_changed(User *u, const char *properties) {
 
         assert(u);
 
+        if (!u->started)
+                return 0;
+
         p = user_bus_path(u);
         if (!p)
                 return -ENOMEM;

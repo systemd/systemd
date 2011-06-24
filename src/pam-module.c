@@ -60,7 +60,7 @@ static int parse_argv(pam_handle_t *handle,
 
                 if (startswith(argv[i], "kill-processes=")) {
                         if ((k = parse_boolean(argv[i] + 15)) < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to parse kill-session= argument.");
+                                pam_syslog(handle, LOG_ERR, "Failed to parse kill-processes= argument.");
                                 return k;
                         }
 
@@ -304,26 +304,25 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 int flags,
                 int argc, const char **argv) {
 
-        const char *username = NULL;
         struct passwd *pw;
         bool kill_processes = false, debug = false;
+        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type;
         char **controllers = NULL, **reset_controllers = NULL, **kill_only_users = NULL, **kill_exclude_users = NULL;
-        int r;
         DBusError error;
         uint32_t uid, pid;
         DBusMessageIter iter;
         dbus_bool_t kp;
-        const char *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type;
         int session_fd = -1;
         DBusConnection *bus = NULL;
         DBusMessage *m = NULL, *reply = NULL;
         dbus_bool_t remote;
+        int r;
 
         assert(handle);
 
         dbus_error_init(&error);
 
-        pam_syslog(handle, LOG_ERR, "pam-systemd initializing");
+        /* pam_syslog(handle, LOG_INFO, "pam-systemd initializing"); */
 
         /* Make this a NOP on non-systemd systems */
         if (sd_booted() <= 0)
@@ -333,8 +332,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        argc, argv,
                        &controllers, &reset_controllers,
                        &kill_processes, &kill_only_users, &kill_exclude_users,
-                       &debug) < 0)
-                return PAM_SESSION_ERR;
+                       &debug) < 0) {
+                r = PAM_SESSION_ERR;
+                goto finish;
+        }
 
         r = get_user_data(handle, &username, &pw);
         if (r != PAM_SUCCESS)
@@ -342,6 +343,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (kill_processes)
                 kill_processes = check_user_lists(handle, pw->pw_uid, kill_only_users, kill_exclude_users);
+
+        dbus_connection_set_change_sigpipe(FALSE);
 
         bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
         if (!bus) {
@@ -370,18 +373,14 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         pam_get_item(handle, PAM_TTY, (const void**) &tty);
         pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
         pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
+        seat = pam_getenv(handle, "XDG_SEAT");
 
-        if (isempty(tty))
-                service = "";
-        if (isempty(tty))
-                tty = "";
-        if (isempty(display))
-                display = "";
-        if (isempty(remote_user))
-                remote_user = "";
-        if (isempty(remote_host))
-                remote_host = "";
-        seat = "";
+        service = strempty(service);
+        tty = strempty(tty);
+        display = strempty(display);
+        remote_user = strempty(remote_user);
+        remote_host = strempty(remote_host);
+        seat = strempty(seat);
 
         type = !isempty(display) ? "x11" :
                    !isempty(tty) ? "tty" : "other";
@@ -481,11 +480,11 @@ finish:
                 dbus_connection_unref(bus);
         }
 
-        if (reply)
-                dbus_message_unref(reply);
-
         if (m)
                 dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
 
         if (session_fd >= 0)
                 close_nointr_nofail(session_fd);

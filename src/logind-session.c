@@ -480,6 +480,10 @@ int session_start(Session *s) {
         if (s->started)
                 return 0;
 
+        r = user_start(s->user);
+        if (r < 0)
+                return r;
+
         log_info("New session %s of user %s.", s->id, s->user->name);
 
         /* Create cgroup */
@@ -514,7 +518,16 @@ int session_start(Session *s) {
 static bool session_shall_kill(Session *s) {
         assert(s);
 
-        return s->kill_processes;
+        if (!s->kill_processes)
+                return false;
+
+        if (strv_contains(s->manager->kill_exclude_users, s->user->name))
+                return false;
+
+        if (strv_isempty(s->manager->kill_only_users))
+                return true;
+
+        return strv_contains(s->manager->kill_only_users, s->user->name);
 }
 
 static int session_kill_cgroup(Session *s) {
@@ -584,10 +597,8 @@ int session_stop(Session *s) {
 
         assert(s);
 
-        if (!s->started)
-                return 0;
-
-        log_info("Removed session %s.", s->id);
+        if (s->started)
+                log_info("Removed session %s.", s->id);
 
         /* Kill cgroup */
         k = session_kill_cgroup(s);
@@ -599,8 +610,10 @@ int session_stop(Session *s) {
 
         unlink(s->state_file);
         session_add_to_gc_queue(s);
+        user_add_to_gc_queue(s->user);
 
-        session_send_signal(s, false);
+        if (s->started)
+                session_send_signal(s, false);
 
         if (s->seat) {
                 if (s->seat->active == s)

@@ -378,6 +378,9 @@ int seat_send_changed(Seat *s, const char *properties) {
 
         assert(s);
 
+        if (!s->started)
+                return 0;
+
         p = seat_bus_path(s);
         if (!p)
                 return -ENOMEM;

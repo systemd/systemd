@@ -35,10 +35,11 @@
 /* TODO:
  *
  * recreate VTs when disallocated
- * PAM rewrite
  * spawn user systemd
  * direct client API
  * subscribe to cgroup changes, fd HUP
+ * D-Bus method: AttachDevice(seat, device);
+ * D-Bus method: PermitLinger(user, bool b);
  *
  * non-local X11 server
  * reboot/shutdown halt management

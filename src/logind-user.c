@@ -265,6 +265,8 @@ int user_start(User *u) {
         if (u->started)
                 return 0;
 
+        log_info("New user %s logged in.", u->name);
+
         /* Make XDG_RUNTIME_DIR */
         r = user_mkdir_runtime_path(u);
         if (r < 0)
@@ -304,7 +306,16 @@ static int user_stop_service(User *u) {
 static int user_shall_kill(User *u) {
         assert(u);
 
-        return u->manager->kill_user_processes;
+        if (!u->manager->kill_user_processes)
+                return false;
+
+        if (strv_contains(u->manager->kill_exclude_users, u->name))
+                return false;
+
+        if (strv_isempty(u->manager->kill_only_users))
+                return true;
+
+        return strv_contains(u->manager->kill_only_users, u->name);
 }
 
 static int user_kill_cgroup(User *u) {
@@ -368,16 +379,14 @@ int user_stop(User *u) {
         int r = 0, k;
         assert(u);
 
-        if (!u->started)
-                return 0;
+        if (u->started)
+                log_info("User %s logged out.", u->name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 k = session_stop(s);
                 if (k < 0)
                         r = k;
         }
-
-        user_send_signal(u, false);
 
         /* Kill systemd */
         k = user_stop_service(u);
@@ -396,6 +405,9 @@ int user_stop(User *u) {
 
         unlink(u->state_file);
         user_add_to_gc_queue(u);
+
+        if (u->started)
+                user_send_signal(u, false);
 
         u->started = false;
 

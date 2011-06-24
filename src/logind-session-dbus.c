@@ -429,6 +429,9 @@ int session_send_changed(Session *s, const char *properties) {
 
         assert(s);
 
+        if (!s->started)
+                return 0;
+
         p = session_bus_path(s);
         if (!p)
                 return -ENOMEM;
