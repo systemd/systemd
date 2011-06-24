@@ -37,7 +37,7 @@
  * recreate VTs when disallocated
  * spawn user systemd
  * direct client API
- * subscribe to cgroup changes, fd HUP
+ * subscribe to fd HUP
  * D-Bus method: AttachDevice(seat, device);
  * D-Bus method: PermitLinger(user, bool b);
  *
@@ -84,6 +84,8 @@ struct Manager {
         bool kill_user_processes;
 
         unsigned long session_counter;
+
+        Hashmap *cgroups;
 };
 
 Manager *manager_new(void);
@@ -109,6 +111,8 @@ int manager_startup(Manager *m);
 int manager_run(Manager *m);
 int manager_spawn_autovt(Manager *m, int vtnr);
 
+void manager_cgroup_notify_empty(Manager *m, const char *cgroup);
+
 void manager_gc(Manager *m);
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
@@ -116,6 +120,8 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 bool x11_display_is_local(const char *display);
 
 extern const DBusObjectPathVTable bus_manager_vtable;
+
+DBusHandlerResult bus_message_filter(DBusConnection *c, DBusMessage *message, void *userdata);
 
 int manager_send_changed(Manager *manager, const char *properties);
 

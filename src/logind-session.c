@@ -83,6 +83,9 @@ void session_free(Session *s) {
                 LIST_REMOVE(Session, sessions_by_seat, s->seat->sessions, s);
         }
 
+        if (s->cgroup_path)
+                hashmap_remove(s->manager->cgroups, s->cgroup_path);
+
         free(s->cgroup_path);
         strv_free(s->controllers);
 
@@ -468,6 +471,8 @@ static int session_create_cgroup(Session *s) {
                 }
         }
 
+        hashmap_put(s->manager->cgroups, s->cgroup_path, s);
+
         return 0;
 }
 
@@ -561,6 +566,8 @@ static int session_kill_cgroup(Session *s) {
 
         STRV_FOREACH(k, s->user->manager->controllers)
                 cg_trim(*k, s->cgroup_path, true);
+
+        hashmap_remove(s->manager->cgroups, s->cgroup_path);
 
         free(s->cgroup_path);
         s->cgroup_path = NULL;

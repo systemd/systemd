@@ -56,6 +56,7 @@ Manager *manager_new(void) {
         m->seats = hashmap_new(string_hash_func, string_compare_func);
         m->sessions = hashmap_new(string_hash_func, string_compare_func);
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
+        m->cgroups = hashmap_new(string_hash_func, string_compare_func);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users) {
                 manager_free(m);
@@ -100,6 +101,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->users);
         hashmap_free(m->devices);
         hashmap_free(m->seats);
+        hashmap_free(m->cgroups);
 
         if (m->console_active_fd >= 0)
                 close_nointr_nofail(m->console_active_fd);
@@ -682,12 +684,34 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
         return 0;
 }
 
-static DBusHandlerResult login_message_filter(
-                DBusConnection *connection,
-                DBusMessage *message,
-                void *userdata) {
+void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
+        Session *s;
+        char *p;
 
-        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+        assert(m);
+        assert(cgroup);
+
+        p = strdup(cgroup);
+        if (!p) {
+                log_error("Out of memory.");
+                return;
+        }
+
+        for (;;) {
+                char *e;
+
+                if (isempty(p) || streq(p, "/"))
+                        break;
+
+                s = hashmap_get(m->cgroups, p);
+                if (s)
+                        session_add_to_gc_queue(s);
+
+                assert_se(e = strrchr(p, '/'));
+                *e = 0;
+        }
+
+        free(p);
 }
 
 static int manager_connect_bus(Manager *m) {
@@ -712,7 +736,7 @@ static int manager_connect_bus(Manager *m) {
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/seat", &bus_seat_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/session", &bus_session_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/user", &bus_user_vtable, m) ||
-            !dbus_connection_add_filter(m->bus, login_message_filter, m, NULL)) {
+            !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
                 log_error("Not enough memory");
                 r = -ENOMEM;
                 goto fail;
@@ -957,6 +981,8 @@ int manager_run(Manager *m) {
 
                 if (dbus_connection_dispatch(m->bus) != DBUS_DISPATCH_COMPLETE)
                         continue;
+
+                manager_gc(m);
 
                 n = epoll_wait(m->epoll_fd, &event, 1, -1);
                 if (n < 0) {

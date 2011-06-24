@@ -896,6 +896,36 @@ const DBusObjectPathVTable bus_manager_vtable = {
         .message_function = manager_message_handler
 };
 
+DBusHandlerResult bus_message_filter(
+                DBusConnection *connection,
+                DBusMessage *message,
+                void *userdata) {
+
+        Manager *m = userdata;
+        DBusError error;
+
+        assert(m);
+        assert(connection);
+        assert(message);
+
+        dbus_error_init(&error);
+
+        if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
+                const char *cgroup;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_STRING, &cgroup,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse Released message: %s", bus_error_message(&error));
+                else
+                        manager_cgroup_notify_empty(m, cgroup);
+        }
+
+        dbus_error_free(&error);
+
+        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
 int manager_send_changed(Manager *manager, const char *properties) {
         DBusMessage *m;
         int r = -ENOMEM;
