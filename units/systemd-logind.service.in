@@ -14,4 +14,5 @@ Description=Login Service
 ExecStart=@rootlibexecdir@/systemd-logind
 Type=dbus
 BusName=org.freedesktop.login1
-CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL
+StandardOutput=syslog
