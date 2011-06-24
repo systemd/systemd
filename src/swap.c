@@ -1237,7 +1237,7 @@ static int swap_enumerate(Manager *m) {
 
         if (!m->proc_swaps) {
                 if (!(m->proc_swaps = fopen("/proc/swaps", "re")))
-                        return -errno;
+                        return (errno == ENOENT) ? 0 : -errno;
 
                 m->swap_watch.type = WATCH_SWAP;
                 m->swap_watch.fd = fileno(m->proc_swaps);
