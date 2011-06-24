@@ -382,8 +382,8 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
-        session->pipe_fd = pipe_fds[1];
-        pipe_fds[1] = -1;
+        session->pipe_fd = pipe_fds[0];
+        pipe_fds[0] = -1;
 
         if (s) {
                 r = seat_attach_session(s, session);
@@ -412,7 +412,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                         DBUS_TYPE_STRING, &session->id,
                         DBUS_TYPE_OBJECT_PATH, &p,
                         DBUS_TYPE_STRING, &session->user->runtime_path,
-                        DBUS_TYPE_UNIX_FD, &pipe_fds[0],
+                        DBUS_TYPE_UNIX_FD, &pipe_fds[1],
                         DBUS_TYPE_INVALID);
         free(p);
 
@@ -421,7 +421,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
-        close_nointr_nofail(pipe_fds[0]);
+        close_nointr_nofail(pipe_fds[1]);
         *_reply = reply;
 
         return 0;

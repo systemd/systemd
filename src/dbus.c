@@ -446,7 +446,7 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
                 if (!dbus_message_get_args(message, &error,
                                            DBUS_TYPE_STRING, &cgroup,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse Released message: %s", error.message);
+                        log_error("Failed to parse Released message: %s", bus_error_message(&error));
                 else
                         cgroup_notify_empty(m, cgroup);
         }

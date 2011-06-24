@@ -80,6 +80,8 @@ Features:
 
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
+* cgroup_notify_empty(): recursively check groups up the tree, too
+
 * fix alsa mixer restore to not print error when no config is stored
 
 * show enablement status in systemctl status
