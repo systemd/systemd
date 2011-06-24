@@ -40,7 +40,6 @@
  * subscribe to fd HUP
  * D-Bus method: AttachDevice(seat, device);
  * D-Bus method: PermitLinger(user, bool b);
- * properly handle if two sessions with the same loginuid are attempted to be created
  *
  * non-local X11 server
  * reboot/shutdown halt management
