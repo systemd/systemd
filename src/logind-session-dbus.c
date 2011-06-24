@@ -49,6 +49,7 @@
         "  <property name=\"Remote\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"RemoteHost\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RemoteUser\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Leader\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"Audit\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
@@ -236,6 +237,7 @@ static DBusHandlerResult session_message_dispatch(
                 { "org.freedesktop.login1.Session", "Remote",             bus_property_append_bool,     "b",    &s->remote              },
                 { "org.freedesktop.login1.Session", "RemoteUser",         bus_property_append_string,   "s",    s->remote_user          },
                 { "org.freedesktop.login1.Session", "RemoteHost",         bus_property_append_string,   "s",    s->remote_host          },
+                { "org.freedesktop.login1.Session", "Service",            bus_property_append_string,   "s",    s->service              },
                 { "org.freedesktop.login1.Session", "Leader",             bus_property_append_pid,      "u",    &s->leader              },
                 { "org.freedesktop.login1.Session", "Audit",              bus_property_append_uint32,   "u",    &s->audit_id            },
                 { "org.freedesktop.login1.Session", "Type",               bus_session_append_type,      "s",    &s->type                },

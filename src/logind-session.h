@@ -33,6 +33,7 @@ typedef struct Session Session;
 typedef enum SessionType {
         SESSION_TTY,
         SESSION_X11,
+        SESSION_OTHER,
         _SESSION_TYPE_MAX,
         _SESSION_TYPE_INVALID = -1
 } SessionType;
@@ -55,6 +56,8 @@ struct Session {
         bool remote;
         char *remote_user;
         char *remote_host;
+
+        char *service;
 
         int vtnr;
         Seat *seat;

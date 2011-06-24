@@ -4040,8 +4040,31 @@ bool tty_is_vc(const char *tty) {
         if (startswith(tty, "/dev/"))
                 tty += 5;
 
-        return startswith(tty, "tty") &&
-                tty[3] >= '0' && tty[3] <= '9';
+        return vtnr_from_tty(tty) >= 0;
+}
+
+int vtnr_from_tty(const char *tty) {
+        int i, r;
+
+        assert(tty);
+
+        if (startswith(tty, "/dev/"))
+                tty += 5;
+
+        if (!startswith(tty, "tty") )
+                return -EINVAL;
+
+        if (tty[3] < '0' || tty[3] > '9')
+                return -EINVAL;
+
+        r = safe_atoi(tty+3, &i);
+        if (r < 0)
+                return r;
+
+        if (i < 0 || i > 63)
+                return -EINVAL;
+
+        return i;
 }
 
 const char *default_term_for_tty(const char *tty) {
@@ -5066,6 +5089,38 @@ int symlink_or_copy_atomic(const char *from, const char *to) {
 
         free(t);
         return r;
+}
+
+int audit_session_from_pid(pid_t pid, uint32_t *id) {
+        char *p, *s;
+        uint32_t u;
+        int r;
+
+        assert(pid >= 1);
+        assert(id);
+
+        if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
+                return -ENOENT;
+
+        if (asprintf(&p, "/proc/%lu/sessionid", (unsigned long) pid) < 0)
+                return -ENOMEM;
+
+        r = read_one_line_file(p, &s);
+        free(p);
+        if (r < 0)
+                return r;
+
+        r = safe_atou32(s, &u);
+        free(s);
+
+        if (r < 0)
+                return r;
+
+        if (u == (uint32_t) -1 || u <= 0)
+                return -ENOENT;
+
+        *id = u;
+        return 0;
 }
 
 static const char *const ioprio_class_table[] = {

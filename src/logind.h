@@ -37,8 +37,8 @@
  * recreate VTs when disallocated
  * PAM rewrite
  * spawn user systemd
- * dbus API
  * direct client API
+ * subscribe to cgroup changes, fd HUP
  *
  * non-local X11 server
  * reboot/shutdown halt management
@@ -76,11 +76,13 @@ struct Manager {
         Seat *vtconsole;
 
         char *cgroup_path;
-        char **controllers, **reset_controllers;
+        char **controllers;
 
         char **kill_only_users, **kill_exclude_users;
 
         bool kill_user_processes;
+
+        unsigned long session_counter;
 };
 
 Manager *manager_new(void);

@@ -45,7 +45,7 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
                 return NULL;
         }
 
-        if (asprintf(&u->state_file, "/run/systemd/user/%lu", (unsigned long) uid) < 0) {
+        if (asprintf(&u->state_file, "/run/systemd/users/%lu", (unsigned long) uid) < 0) {
                 free(u->name);
                 free(u);
                 return NULL;
@@ -94,7 +94,7 @@ int user_save(User *u) {
         assert(u);
         assert(u->state_file);
 
-        r = safe_mkdir("/run/systemd/user", 0755, 0, 0);
+        r = safe_mkdir("/run/systemd/users", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -152,7 +152,7 @@ finish:
 int user_load(User *u) {
         int r;
         char *display = NULL;
-        Session *s;
+        Session *s = NULL;
 
         assert(u);
 
@@ -172,8 +172,10 @@ int user_load(User *u) {
                 return r;
         }
 
-        s = hashmap_get(u->manager->sessions, display);
-        free(display);
+        if (display) {
+                s = hashmap_get(u->manager->sessions, display);
+                free(display);
+        }
 
         if (s && s->display && x11_display_is_local(s->display))
                 u->display = s;

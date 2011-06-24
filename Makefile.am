@@ -1248,10 +1248,12 @@ systemd_tty_ask_password_agent_LDADD = \
 
 pam_systemd_la_SOURCES = \
 	src/pam-module.c \
-	src/cgroup-util.c
+        src/dbus-common.c
 
 pam_systemd_la_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+        $(PAM_CFLAGS) \
+        $(DBUS_CFLAGS) \
 	-fvisibility=hidden
 
 pam_systemd_la_LDFLAGS = \
@@ -1264,7 +1266,8 @@ pam_systemd_la_LDFLAGS = \
 pam_systemd_la_LIBADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
-	$(PAM_LIBS)
+	$(PAM_LIBS) \
+        $(DBUS_LIBS)
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
@@ -1510,7 +1513,7 @@ endif
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service && \
+		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service dbus-org.freedesktop.locale1.service dbus-org.freedesktop.timedate1.service dbus-org.freedesktop.login1.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
                 $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service && \

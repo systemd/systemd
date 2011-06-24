@@ -40,7 +40,7 @@ Session* session_new(Manager *m, User *u, const char *id) {
         if (!s)
                 return NULL;
 
-        s->state_file = strappend("/run/systemd/session/", id);
+        s->state_file = strappend("/run/systemd/sessions/", id);
         if (!s->state_file) {
                 free(s);
                 return NULL;
@@ -90,8 +90,12 @@ void session_free(Session *s) {
         free(s->display);
         free(s->remote_host);
         free(s->remote_user);
+        free(s->service);
 
         hashmap_remove(s->manager->sessions, s->id);
+
+        if (s->pipe_fd >= 0)
+                close_nointr_nofail(s->pipe_fd);
 
         free(s->state_file);
         free(s);
@@ -104,7 +108,7 @@ int session_save(Session *s) {
 
         assert(s);
 
-        r = safe_mkdir("/run/systemd/session", 0755, 0, 0);
+        r = safe_mkdir("/run/systemd/sessions", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -158,6 +162,11 @@ int session_save(Session *s) {
                 fprintf(f,
                         "REMOTE_USER=%s\n",
                         s->remote_user);
+
+        if (s->service)
+                fprintf(f,
+                        "SERVICE=%s\n",
+                        s->service);
 
         if (s->seat && seat_is_vtconsole(s->seat))
                 fprintf(f,
@@ -213,9 +222,9 @@ int session_load(Session *s) {
                            "DISPLAY",        &s->display,
                            "REMOTE_HOST",    &s->remote_host,
                            "REMOTE_USER",    &s->remote_user,
+                           "SERVICE",        &s->service,
                            "VTNR",           &vtnr,
                            "LEADER",         &leader,
-                           "AUDIT_ID",       &audit_id,
                            NULL);
 
         if (r < 0)
@@ -253,16 +262,11 @@ int session_load(Session *s) {
                 pid_t pid;
 
                 k = parse_pid(leader, &pid);
-                if (k >= 0 && pid >= 1)
+                if (k >= 0 && pid >= 1) {
                         s->leader = pid;
-        }
 
-        if (audit_id) {
-                uint32_t l;
-
-                k = safe_atou32(audit_id, &l);
-                if (k >= 0 && l >= l)
-                        s->audit_id = l;
+                        audit_session_from_pid(pid, &s->audit_id);
+                }
         }
 
 finish:
@@ -384,6 +388,28 @@ done:
         return 0;
 }
 
+static int session_create_one_group(Session *s, const char *controller, const char *path) {
+        int r;
+
+        assert(s);
+        assert(controller);
+        assert(path);
+
+        if (s->leader > 0)
+                r = cg_create_and_attach(controller, path, s->leader);
+        else
+                r = cg_create(controller, path);
+
+        if (r < 0)
+                return r;
+
+        r = cg_set_task_access(controller, path, 0644, s->user->uid, s->user->gid);
+        if (r >= 0)
+                r = cg_set_group_access(controller, path, 0755, s->user->uid, s->user->gid);
+
+        return r;
+}
+
 static int session_create_cgroup(Session *s) {
         char **k;
         char *p;
@@ -401,11 +427,7 @@ static int session_create_cgroup(Session *s) {
         } else
                 p = s->cgroup_path;
 
-        if (s->leader > 0)
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, p, s->leader);
-        else
-                r = cg_create(SYSTEMD_CGROUP_CONTROLLER, p);
-
+        r = session_create_one_group(s, SYSTEMD_CGROUP_CONTROLLER, p);
         if (r < 0) {
                 free(p);
                 s->cgroup_path = NULL;
@@ -415,14 +437,35 @@ static int session_create_cgroup(Session *s) {
 
         s->cgroup_path = p;
 
-        STRV_FOREACH(k, s->manager->controllers) {
-                if (s->leader > 0)
-                        r = cg_create_and_attach(*k, p, s->leader);
-                else
-                        r = cg_create(*k, p);
+        STRV_FOREACH(k, s->controllers) {
 
+                if (strv_contains(s->reset_controllers, *k))
+                        continue;
+
+                r = session_create_one_group(s, *k, p);
                 if (r < 0)
-                        log_warning("Failed to create cgroup %s:%s: %s", *k, p, strerror(-r));
+                        log_warning("Failed to create %s:%s: %s", *k, p, strerror(-r));
+        }
+
+        STRV_FOREACH(k, s->manager->controllers) {
+
+                if (strv_contains(s->reset_controllers, *k) ||
+                    strv_contains(s->controllers, *k))
+                        continue;
+
+                r = session_create_one_group(s, *k, p);
+                if (r < 0)
+                        log_warning("Failed to create %s:%s: %s", *k, p, strerror(-r));
+        }
+
+        if (s->leader > 0) {
+
+                STRV_FOREACH(k, s->reset_controllers) {
+                        r = cg_attach(*k, "/", s->leader);
+                        if (r < 0)
+                                log_warning("Failed to reset controller %s: %s", *k, strerror(-r));
+
+                }
         }
 
         return 0;
@@ -436,6 +479,8 @@ int session_start(Session *s) {
 
         if (s->started)
                 return 0;
+
+        log_info("New session %s of user %s.", s->id, s->user->name);
 
         /* Create cgroup */
         r = session_create_cgroup(s);
@@ -541,6 +586,8 @@ int session_stop(Session *s) {
 
         if (!s->started)
                 return 0;
+
+        log_info("Removed session %s.", s->id);
 
         /* Kill cgroup */
         k = session_kill_cgroup(s);
@@ -702,7 +749,8 @@ void session_add_to_gc_queue(Session *s) {
 
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_TTY] = "tty",
-        [SESSION_X11] = "x11"
+        [SESSION_X11] = "x11",
+        [SESSION_OTHER] = "other"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);

@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
         path = argv[1];
         seat = argv[2];
 
-        p = strappend("/run/systemd/seat/", seat);
+        p = strappend("/run/systemd/seats/", seat);
         if (!p) {
                 log_error("Out of memory.");
                 goto finish;

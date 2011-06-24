@@ -41,7 +41,7 @@ Seat *seat_new(Manager *m, const char *id) {
         if (!s)
                 return NULL;
 
-        s->state_file = strappend("/run/systemd/seat/", id);
+        s->state_file = strappend("/run/systemd/seats/", id);
         if (!s->state_file) {
                 free(s);
                 return NULL;
@@ -86,7 +86,7 @@ int seat_save(Seat *s) {
 
         assert(s);
 
-        r = safe_mkdir("/run/systemd/seat", 0755, 0, 0);
+        r = safe_mkdir("/run/systemd/seats", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -245,6 +245,14 @@ int seat_set_active(Seat *s, Session *session) {
 
         if (!session || session->started)
                 seat_send_changed(s, "ActiveSession\0");
+
+        seat_save(s);
+
+        if (session)
+                session_save(session);
+
+        if (old_active)
+                session_save(old_active);
 
         return 0;
 }

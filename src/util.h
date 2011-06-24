@@ -396,6 +396,7 @@ char *fstab_node_to_udev_node(const char *p);
 void filter_environ(const char *prefix);
 
 bool tty_is_vc(const char *tty);
+int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
 int detect_vm(const char **id);
@@ -438,6 +439,8 @@ int hwclock_apply_localtime_delta(void);
 int hwclock_reset_localtime_delta(void);
 int hwclock_get_time(struct tm *tm);
 int hwclock_set_time(const struct tm *tm);
+
+int audit_session_from_pid(pid_t pid, uint32_t *id);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

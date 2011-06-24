@@ -21,9 +21,11 @@
 
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "logind.h"
 #include "dbus-common.h"
+#include "strv.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
@@ -51,6 +53,7 @@
         "  <method name=\"CreateSession\">\n"                           \
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
         "   <arg name=\"leader\" type=\"u\" direction=\"in\"/>\n"       \
+        "   <arg name=\"sevice\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"type\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"tty\" type=\"s\" direction=\"in\"/>\n"          \
@@ -60,9 +63,10 @@
         "   <arg name=\"remote_host\" type=\"s\" direction=\"in\"/>\n"  \
         "   <arg name=\"controllers\" type=\"as\" direction=\"in\"/>\n" \
         "   <arg name=\"reset_controllers\" type=\"as\" direction=\"in\"/>\n" \
-        "   <arg name=\"kill_processes\" type=\"as\" direction=\"in\"/>\n" \
+        "   <arg name=\"kill_processes\" type=\"b\" direction=\"in\"/>\n" \
         "   <arg name=\"id\" type=\"s\" direction=\"out\"/>\n"          \
         "   <arg name=\"path\" type=\"o\" direction=\"out\"/>\n"        \
+        "   <arg name=\"runtime_path\" type=\"o\" direction=\"out\"/>\n" \
         "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
         "  </method>\n"                                                 \
         "  <method name=\"ActivateSession\">\n"                         \
@@ -161,6 +165,285 @@ static int bus_manager_append_idle_hint_since(DBusMessageIter *i, const char *pr
         return 0;
 }
 
+static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMessage **_reply) {
+        Session *session = NULL;
+        User *user = NULL;
+        const char *type, *seat, *tty, *display, *remote_user, *remote_host, *service;
+        uint32_t uid, leader, audit_id = 0;
+        dbus_bool_t remote, kill_processes;
+        char **controllers = NULL, **reset_controllers = NULL;
+        SessionType t;
+        Seat *s;
+        DBusMessageIter iter;
+        int r;
+        char *id, *p;
+        int vtnr = -1;
+        int pipe_fds[2] = { -1, -1 };
+        DBusMessage *reply = NULL;
+        bool b;
+
+        assert(m);
+        assert(message);
+        assert(_reply);
+
+        if (!dbus_message_iter_init(message, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &uid);
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &leader);
+
+        if (leader <= 0 ||
+            !dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &service);
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &type);
+        t = session_type_from_string(type);
+
+        if (t < 0 ||
+            !dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &seat);
+
+        if (isempty(seat))
+                s = NULL;
+        else {
+                s = hashmap_get(m->seats, seat);
+                if (!s)
+                        return -ENOENT;
+        }
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &tty);
+
+        if (tty_is_vc(tty)) {
+
+                if (!s)
+                        s = m->vtconsole;
+                else if (s != m->vtconsole)
+                        return -EINVAL;
+
+                vtnr = vtnr_from_tty(tty);
+
+                if (vtnr <= 0)
+                        return vtnr < 0 ? vtnr : -EINVAL;
+
+        } else if (s == m->vtconsole)
+                return -EINVAL;
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &display);
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BOOLEAN)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &remote);
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &remote_user);
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &remote_host);
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        r = bus_parse_strv_iter(&iter, &controllers);
+        if (r < 0)
+                return -EINVAL;
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRING) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        r = bus_parse_strv_iter(&iter, &reset_controllers);
+        if (r < 0)
+                goto fail;
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BOOLEAN) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        dbus_message_iter_get_basic(&iter, &kill_processes);
+
+        r = manager_add_user_by_uid(m, uid, &user);
+        if (r < 0)
+                goto fail;
+
+        audit_session_from_pid(leader, &audit_id);
+
+        if (audit_id > 0)
+                asprintf(&id, "%lu", (unsigned long) audit_id);
+        else
+                asprintf(&id, "c%lu", ++m->session_counter);
+
+        if (!id) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        if (hashmap_get(m->sessions, id)) {
+                r = -EEXIST;
+                goto fail;
+        }
+
+        r = manager_add_session(m, user, id, &session);
+        free(id);
+        if (r < 0)
+                goto fail;
+
+        session->leader = leader;
+        session->audit_id = audit_id;
+        session->type = t;
+        session->remote = remote;
+        session->controllers = controllers;
+        session->reset_controllers = reset_controllers;
+        session->kill_processes = kill_processes;
+        session->vtnr = vtnr;
+
+        controllers = reset_controllers = NULL;
+
+        if (!isempty(tty)) {
+                session->tty = strdup(tty);
+                if (!session->tty) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        if (!isempty(display)) {
+                session->display = strdup(display);
+                if (!session->display) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        if (!isempty(remote_user)) {
+                session->remote_user = strdup(remote_user);
+                if (!session->remote_user) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        if (!isempty(remote_host)) {
+                session->remote_host = strdup(remote_host);
+                if (!session->remote_host) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        if (!isempty(service)) {
+                session->service = strdup(service);
+                if (!session->service) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        if (pipe(pipe_fds) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        session->pipe_fd = pipe_fds[1];
+        pipe_fds[1] = -1;
+
+        if (s) {
+                r = seat_attach_session(s, session);
+                if (r < 0)
+                        goto fail;
+        }
+
+        r = session_start(session);
+        if (r < 0)
+                goto fail;
+
+        reply = dbus_message_new_method_return(message);
+        if (!reply) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        p = session_bus_path(session);
+        if (!p) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        b = dbus_message_append_args(
+                        reply,
+                        DBUS_TYPE_STRING, &session->id,
+                        DBUS_TYPE_OBJECT_PATH, &p,
+                        DBUS_TYPE_STRING, &session->user->runtime_path,
+                        DBUS_TYPE_UNIX_FD, &pipe_fds[0],
+                        DBUS_TYPE_INVALID);
+        free(p);
+
+        if (!b) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        close_nointr_nofail(pipe_fds[0]);
+        *_reply = reply;
+
+        return 0;
+
+fail:
+        strv_free(controllers);
+        strv_free(reset_controllers);
+
+        if (session)
+                session_add_to_gc_queue(session);
+
+        if (user)
+                user_add_to_gc_queue(user);
+
+        close_pipe(pipe_fds);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        return r;
+}
+
 static DBusHandlerResult manager_message_handler(
                 DBusConnection *connection,
                 DBusMessage *message,
@@ -171,7 +454,6 @@ static DBusHandlerResult manager_message_handler(
         const BusProperty properties[] = {
                 { "org.freedesktop.login1.Manager", "ControlGroupHierarchy",  bus_property_append_string,   "s",  m->cgroup_path          },
                 { "org.freedesktop.login1.Manager", "Controllers",            bus_property_append_strv,     "as", m->controllers          },
-                { "org.freedesktop.login1.Manager", "ResetControllers",       bus_property_append_strv,     "as", m->reset_controllers    },
                 { "org.freedesktop.login1.Manager", "NAutoVTs",               bus_property_append_unsigned, "u",  &m->n_autovts           },
                 { "org.freedesktop.login1.Manager", "KillOnlyUsers",          bus_property_append_strv,     "as", m->kill_only_users      },
                 { "org.freedesktop.login1.Manager", "KillExcludeUsers",       bus_property_append_strv,     "as", m->kill_exclude_users   },
@@ -424,6 +706,15 @@ static DBusHandlerResult manager_message_handler(
 
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CreateSession")) {
+
+                r = bus_manager_create_session(m, message, &reply);
+                if (r == -ENOMEM)
+                        goto oom;
+
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ActivateSession")) {
                 const char *name;

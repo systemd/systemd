@@ -463,23 +463,12 @@ int bus_property_append_string(DBusMessageIter *i, const char *property, void *d
 }
 
 int bus_property_append_strv(DBusMessageIter *i, const char *property, void *data) {
-        DBusMessageIter sub;
         char **t = data;
 
         assert(i);
         assert(property);
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "s", &sub))
-                return -ENOMEM;
-
-        STRV_FOREACH(t, t)
-                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, t))
-                        return -ENOMEM;
-
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
+        return bus_append_strv_iter(i, t);
 }
 
 int bus_property_append_bool(DBusMessageIter *i, const char *property, void *data) {
@@ -793,6 +782,24 @@ int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l) {
 
         if (_l)
                 *_l = l;
+
+        return 0;
+}
+
+int bus_append_strv_iter(DBusMessageIter *iter, char **l) {
+        DBusMessageIter sub;
+
+        assert(iter);
+
+        if (!dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, "s", &sub))
+                return -ENOMEM;
+
+        STRV_FOREACH(l, l)
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, l))
+                        return -ENOMEM;
+
+        if (!dbus_message_iter_close_container(iter, &sub))
+                return -ENOMEM;
 
         return 0;
 }

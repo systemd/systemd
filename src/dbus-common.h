@@ -161,4 +161,6 @@ unsigned bus_events_to_flags(uint32_t events);
 int bus_parse_strv(DBusMessage *m, char ***_l);
 int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l);
 
+int bus_append_strv_iter(DBusMessageIter *iter, char **l);
+
 #endif
