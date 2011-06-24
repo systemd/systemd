@@ -176,7 +176,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         Seat *s;
         DBusMessageIter iter;
         int r;
-        char *id, *p;
+        char *id = NULL, *p;
         int vtnr = -1;
         int pipe_fds[2] = { -1, -1 };
         DBusMessage *reply = NULL;
@@ -306,19 +306,30 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
         audit_session_from_pid(leader, &audit_id);
 
-        if (audit_id > 0)
+        if (audit_id > 0) {
                 asprintf(&id, "%lu", (unsigned long) audit_id);
-        else
-                asprintf(&id, "c%lu", ++m->session_counter);
 
-        if (!id) {
-                r = -ENOMEM;
-                goto fail;
-        }
+                if (!id) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
-        if (hashmap_get(m->sessions, id)) {
-                r = -EEXIST;
-                goto fail;
+                if (hashmap_get(m->sessions, id)) {
+                        r = -EEXIST;
+                        goto fail;
+                }
+
+        } else {
+                do {
+                        free(id);
+                        asprintf(&id, "c%lu", ++m->session_counter);
+
+                        if (!id) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                } while (hashmap_get(m->sessions, id));
         }
 
         r = manager_add_session(m, user, id, &session);
