@@ -382,6 +382,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--root=</option></term>
+
+                                <listitem><para>When used with
+				<command>enable</command>/
+				<command>disable</command>/
+				<command>is-enabled</command>,
+				use alternative root path for systemd
+				install.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-H</option></term>
                                 <term><option>--host</option></term>
 

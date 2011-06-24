@@ -80,6 +80,7 @@ static bool arg_failed = false;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static const char *arg_kill_mode = NULL;
+static const char *arg_root = NULL;
 static int arg_signal = SIGTERM;
 static usec_t arg_when = 0;
 static enum action {
@@ -3848,8 +3849,14 @@ static int remove_marked_symlinks(const char *config_path) {
         return r;
 }
 
-static int create_symlink(const char *verb, const char *old_path, const char *new_path) {
+static int create_symlink(const char *verb, const char *orig_old_path, const char *new_path) {
         int r;
+	const char *old_path;
+
+	if (arg_root)
+		old_path = orig_old_path+strlen(arg_root);
+	else
+		old_path = orig_old_path;
 
         assert(old_path);
         assert(new_path);
@@ -4062,11 +4069,22 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
 
         STRV_FOREACH(p, paths->unit_path) {
                 int fd;
+		char *path, *should_free;
 
-                if (!(filename = path_make_absolute(i->name, *p))) {
+		if (arg_root)
+			should_free = path = strappend(arg_root, *p);
+		else {
+			should_free = NULL;
+			path = *p;
+		}
+
+                if (!(filename = path_make_absolute(i->name, path))) {
                         log_error("Out of memory");
                         return -ENOMEM;
                 }
+
+		if (should_free)
+			free(should_free);
 
                 /* Ensure that we don't follow symlinks */
                 if ((fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOCTTY)) >= 0)
@@ -4102,7 +4120,14 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                         }
 
                         sysv[strlen(sysv) - sizeof(".service") + 1] = 0;
-                        exists = access(sysv, F_OK) >= 0;
+                        if (arg_root) {
+                                char *tmp_path;
+
+                                tmp_path = strappend (arg_root, sysv);
+                                exists = access (tmp_path, F_OK) >= 0;
+                                free (tmp_path);
+			} else
+                                exists = access(sysv, F_OK) >= 0;
 
                         if (exists) {
                                 pid_t pid;
@@ -4110,6 +4135,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
 
                                 const char *argv[] = {
                                         "/sbin/chkconfig",
+                                        NULL,
                                         NULL,
                                         NULL,
                                         NULL
@@ -4121,8 +4147,10 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                                 argv[2] =
                                         streq(verb, "enable") ? "on" :
                                         streq(verb, "disable") ? "off" : "--level=5";
+                                if (arg_root)
+                                        argv[3] = strappend("--root=", arg_root);
 
-                                log_info("Executing %s %s %s", argv[0], argv[1], strempty(argv[2]));
+	                        log_info("Executing %s %s %s %s", argv[0], argv[1], strempty(argv[2]), strempty(argv[3]));
 
                                 if ((pid = fork()) < 0) {
                                         log_error("Failed to fork: %m");
@@ -4199,20 +4227,24 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
 }
 
 static char *get_config_path(void) {
+        char *ret;
 
         if (arg_user && arg_global)
-                return strdup(USER_CONFIG_UNIT_PATH);
+                ret = strdup(USER_CONFIG_UNIT_PATH);
 
         if (arg_user) {
-                char *p;
-
-                if (user_config_home(&p) < 0)
+                if (user_config_home(&ret) < 0)
                         return NULL;
-
-                return p;
         }
 
-        return strdup(SYSTEM_CONFIG_UNIT_PATH);
+        ret = strdup(SYSTEM_CONFIG_UNIT_PATH);
+        if (arg_root) {
+                char *p;
+                p = strappend (arg_root, ret);
+                free (ret);
+                return p;
+        } else
+                return ret;
 }
 
 static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
@@ -4295,7 +4327,7 @@ static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
                     /* Don't try to reload anything if we are called for system changes but the system wasn't booted with systemd */
                     (arg_user || sd_booted() > 0) &&
                     /* Don't try to reload anything if we are running in a chroot environment */
-                    (arg_user || running_in_chroot() <= 0) ) {
+                    (arg_user || running_in_chroot() <= 0 || arg_root) ) {
                         int q;
 
                         if ((q = daemon_reload(bus, args, n)) < 0)
@@ -4347,6 +4379,7 @@ static int systemctl_help(void) {
                "                      Do not ask for system passwords\n"
                "     --order          When generating graph for dot, show only order\n"
                "     --require        When generating graph for dot, show only requirement\n"
+               "     --root=path      Use <root> as the root file system\n"
                "     --system         Connect to system manager\n"
                "     --user           Connect to user service manager\n"
                "     --global         Enable/disable unit files globally\n"
@@ -4481,6 +4514,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_WALL,
                 ARG_ORDER,
                 ARG_REQUIRE,
+                ARG_ROOT,
                 ARG_FULL,
                 ARG_NO_RELOAD,
                 ARG_DEFAULTS,
@@ -4509,6 +4543,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "quiet",     no_argument,       NULL, 'q'           },
                 { "order",     no_argument,       NULL, ARG_ORDER     },
                 { "require",   no_argument,       NULL, ARG_REQUIRE   },
+                { "root",      required_argument, NULL, ARG_ROOT      },
                 { "force",     no_argument,       NULL, 'f'           },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
                 { "defaults",  no_argument,       NULL, ARG_DEFAULTS  },
@@ -4601,6 +4636,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_REQUIRE:
                         arg_dot = DOT_REQUIRE;
+                        break;
+
+                case ARG_ROOT:
+                        arg_root = optarg;
                         break;
 
                 case ARG_FULL:
