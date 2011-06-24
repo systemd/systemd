@@ -37,9 +37,8 @@
  * recreate VTs when disallocated
  * spawn user systemd
  * direct client API
- * subscribe to fd HUP
  * D-Bus method: AttachDevice(seat, device);
- * D-Bus method: PermitLinger(user, bool b);
+ * D-Bus method: SetLinger(user, bool b);
  *
  * non-local X11 server
  * reboot/shutdown halt management
@@ -86,6 +85,14 @@ struct Manager {
         unsigned long session_counter;
 
         Hashmap *cgroups;
+        Hashmap *pipe_fds;
+};
+
+enum {
+        FD_UDEV,
+        FD_CONSOLE,
+        FD_BUS,
+        FD_PIPE_BASE
 };
 
 Manager *manager_new(void);

@@ -33,12 +33,6 @@
 #include "dbus-common.h"
 #include "dbus-loop.h"
 
-enum {
-        FD_UDEV,
-        FD_CONSOLE,
-        FD_BUS
-};
-
 Manager *manager_new(void) {
         Manager *m;
 
@@ -57,6 +51,7 @@ Manager *manager_new(void) {
         m->sessions = hashmap_new(string_hash_func, string_compare_func);
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->cgroups = hashmap_new(string_hash_func, string_compare_func);
+        m->pipe_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users) {
                 manager_free(m);
@@ -102,6 +97,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->devices);
         hashmap_free(m->seats);
         hashmap_free(m->cgroups);
+        hashmap_free(m->pipe_fds);
 
         if (m->console_active_fd >= 0)
                 close_nointr_nofail(m->console_active_fd);
@@ -714,6 +710,19 @@ void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
         free(p);
 }
 
+static void manager_pipe_notify_eof(Manager *m, int fd) {
+        Session *s;
+
+        assert_se(m);
+        assert_se(fd >= 0);
+
+        assert_se(s = hashmap_get(m->pipe_fds, INT_TO_PTR(fd + 1)));
+        assert(s->pipe_fd == fd);
+        session_unset_pipe_fd(s);
+
+        session_add_to_gc_queue(s);
+}
+
 static int manager_connect_bus(Manager *m) {
         DBusError error;
         int r;
@@ -1006,6 +1015,10 @@ int manager_run(Manager *m) {
                 case FD_BUS:
                         bus_loop_dispatch(m->bus_fd);
                         break;
+
+                default:
+                        if (event.data.u32 >= FD_PIPE_BASE)
+                                manager_pipe_notify_eof(m, event.data.u32 - FD_PIPE_BASE);
                 }
         }
 

@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/epoll.h>
 
 #include "logind-session.h"
 #include "strv.h"
@@ -97,8 +98,7 @@ void session_free(Session *s) {
 
         hashmap_remove(s->manager->sessions, s->id);
 
-        if (s->pipe_fd >= 0)
-                close_nointr_nofail(s->pipe_fd);
+        session_unset_pipe_fd(s);
 
         free(s->state_file);
         free(s);
@@ -727,6 +727,45 @@ void session_set_idle_hint(Session *s, bool b) {
                              "IdleHint\0"
                              "IdleSinceHint\0"
                              "IdleSinceHintMonotonic\0");
+}
+
+int session_set_pipe_fd(Session *s, int fd) {
+        struct epoll_event ev;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+        assert(s->pipe_fd < 0);
+
+        r = hashmap_put(s->manager->pipe_fds, INT_TO_PTR(fd + 1), s);
+        if (r < 0)
+                return r;
+
+        zero(ev);
+        ev.events = 0;
+        ev.data.u32 = FD_PIPE_BASE + fd;
+
+        if (epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
+                assert_se(hashmap_remove(s->manager->pipe_fds, INT_TO_PTR(fd + 1)) == s);
+                return -errno;
+        }
+
+        s->pipe_fd = fd;
+        return 0;
+}
+
+void session_unset_pipe_fd(Session *s) {
+        assert(s);
+
+        if (s->pipe_fd < 0)
+                return;
+
+        assert_se(hashmap_remove(s->manager->pipe_fds, INT_TO_PTR(s->pipe_fd + 1)) == s);
+
+        assert_se(epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->pipe_fd, NULL) == 0);
+
+        close_nointr_nofail(s->pipe_fd);
+        s->pipe_fd = -1;
 }
 
 int session_check_gc(Session *s) {

@@ -437,7 +437,9 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
-        session->pipe_fd = pipe_fds[0];
+        r = session_set_pipe_fd(session, pipe_fds[0]);
+        if (r < 0)
+                goto fail;
         pipe_fds[0] = -1;
 
         if (s) {
