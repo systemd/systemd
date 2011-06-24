@@ -136,6 +136,11 @@ int session_save(Session *s) {
                 s->remote,
                 s->kill_processes);
 
+        if (s->type >= 0)
+                fprintf(f,
+                        "TYPE=%s\n",
+                        session_type_to_string(s->type));
+
         if (s->cgroup_path)
                 fprintf(f,
                         "CGROUP=%s\n",
@@ -210,7 +215,8 @@ int session_load(Session *s) {
                 *seat = NULL,
                 *vtnr = NULL,
                 *leader = NULL,
-                *audit_id = NULL;
+                *audit_id = NULL,
+                *type = NULL;
 
         int k, r;
 
@@ -228,6 +234,7 @@ int session_load(Session *s) {
                            "SERVICE",        &s->service,
                            "VTNR",           &vtnr,
                            "LEADER",         &leader,
+                           "TYPE",           &type,
                            NULL);
 
         if (r < 0)
@@ -270,6 +277,14 @@ int session_load(Session *s) {
 
                         audit_session_from_pid(pid, &s->audit_id);
                 }
+        }
+
+        if (type) {
+                SessionType t;
+
+                t = session_type_from_string(type);
+                if (t >= 0)
+                        s->type = t;
         }
 
 finish:
@@ -809,7 +824,7 @@ void session_add_to_gc_queue(Session *s) {
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_TTY] = "tty",
         [SESSION_X11] = "x11",
-        [SESSION_OTHER] = "other"
+        [SESSION_UNSPECIFIED] = "unspecified"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);

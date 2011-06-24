@@ -31,9 +31,9 @@ typedef struct Session Session;
 #include "logind-user.h"
 
 typedef enum SessionType {
+        SESSION_UNSPECIFIED,
         SESSION_TTY,
         SESSION_X11,
-        SESSION_OTHER,
         _SESSION_TYPE_MAX,
         _SESSION_TYPE_INVALID = -1
 } SessionType;
