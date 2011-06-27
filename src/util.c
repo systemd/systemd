@@ -3114,23 +3114,28 @@ int getttyname_harder(int fd, char **r) {
 
         if (streq(s, "tty")) {
                 free(s);
-                return get_ctty(r, NULL);
+                return get_ctty(0, NULL, r);
         }
 
         *r = s;
         return 0;
 }
 
-int get_ctty_devnr(dev_t *d) {
+int get_ctty_devnr(pid_t pid, dev_t *d) {
         int k;
-        char line[LINE_MAX], *p;
+        char line[LINE_MAX], *p, *fn;
         unsigned long ttynr;
         FILE *f;
 
-        if (!(f = fopen("/proc/self/stat", "r")))
+        if (asprintf(&fn, "/proc/%lu/stat", (unsigned long) (pid <= 0 ? getpid() : pid)) < 0)
+                return -ENOMEM;
+
+        f = fopen(fn, "re");
+        free(fn);
+        if (!f)
                 return -errno;
 
-        if (!(fgets(line, sizeof(line), f))) {
+        if (!fgets(line, sizeof(line), f)) {
                 k = -errno;
                 fclose(f);
                 return k;
@@ -3138,7 +3143,8 @@ int get_ctty_devnr(dev_t *d) {
 
         fclose(f);
 
-        if (!(p = strrchr(line, ')')))
+        p = strrchr(line, ')');
+        if (!p)
                 return -EIO;
 
         p++;
@@ -3156,14 +3162,15 @@ int get_ctty_devnr(dev_t *d) {
         return 0;
 }
 
-int get_ctty(char **r, dev_t *_devnr) {
+int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         int k;
         char fn[PATH_MAX], *s, *b, *p;
         dev_t devnr;
 
         assert(r);
 
-        if ((k = get_ctty_devnr(&devnr)) < 0)
+        k = get_ctty_devnr(pid, &devnr);
+        if (k < 0)
                 return k;
 
         snprintf(fn, sizeof(fn), "/dev/char/%u:%u", major(devnr), minor(devnr));
@@ -5120,6 +5127,40 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
                 return -ENOENT;
 
         *id = u;
+        return 0;
+}
+
+bool display_is_local(const char *display) {
+        assert(display);
+
+        return
+                display[0] == ':' &&
+                display[1] >= '0' &&
+                display[1] <= '9';
+}
+
+int socket_from_display(const char *display, char **path) {
+        size_t k;
+        char *f, *c;
+
+        assert(display);
+        assert(path);
+
+        if (!display_is_local(display))
+                return -EINVAL;
+
+        k = strspn(display+1, "0123456789");
+
+        f = new(char, sizeof("/tmp/.X11-unix/X") + k);
+        if (!f)
+                return -ENOMEM;
+
+        c = stpcpy(f, "/tmp/.X11-unix/X");
+        memcpy(c, display+1, k);
+        c[k] = 0;
+
+        *path = f;
+
         return 0;
 }
 

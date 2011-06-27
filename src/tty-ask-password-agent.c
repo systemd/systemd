@@ -433,7 +433,8 @@ static int wall_tty_block(void) {
         int fd, r;
         dev_t devnr;
 
-        if ((r = get_ctty_devnr(&devnr)) < 0)
+        r = get_ctty_devnr(0, &devnr);
+        if (r < 0)
                 return -r;
 
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)

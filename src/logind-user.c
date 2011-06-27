@@ -177,7 +177,7 @@ int user_load(User *u) {
                 free(display);
         }
 
-        if (s && s->display && x11_display_is_local(s->display))
+        if (s && s->display && display_is_local(s->display))
                 u->display = s;
 
         return r;
@@ -234,9 +234,9 @@ static int user_create_cgroup(User *u) {
 
         r = cg_create(SYSTEMD_CGROUP_CONTROLLER, p);
         if (r < 0) {
+                log_error("Failed to create cgroup "SYSTEMD_CGROUP_CONTROLLER":%s: %s", p, strerror(-r));
                 free(p);
                 u->cgroup_path = NULL;
-                log_error("Failed to create cgroup "SYSTEMD_CGROUP_CONTROLLER":%s: %s", p, strerror(-r));
                 return r;
         }
 

@@ -353,8 +353,8 @@ char* getlogname_malloc(void);
 int getttyname_malloc(int fd, char **r);
 int getttyname_harder(int fd, char **r);
 
-int get_ctty_devnr(dev_t *d);
-int get_ctty(char **r, dev_t *_devnr);
+int get_ctty_devnr(pid_t pid, dev_t *d);
+int get_ctty(pid_t, dev_t *_devnr, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
@@ -441,6 +441,9 @@ int hwclock_get_time(struct tm *tm);
 int hwclock_set_time(const struct tm *tm);
 
 int audit_session_from_pid(pid_t pid, uint32_t *id);
+
+bool display_is_local(const char *display);
+int socket_from_display(const char *display, char **path);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

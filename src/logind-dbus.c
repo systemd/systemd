@@ -53,9 +53,10 @@
         "  <method name=\"CreateSession\">\n"                           \
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
         "   <arg name=\"leader\" type=\"u\" direction=\"in\"/>\n"       \
-        "   <arg name=\"sevice\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"sevice\" type=\"s\" direction=\"in\"/>\n"       \
         "   <arg name=\"type\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"vtnr\" type=\"u\" direction=\"in\"/>\n"         \
         "   <arg name=\"tty\" type=\"s\" direction=\"in\"/>\n"          \
         "   <arg name=\"display\" type=\"s\" direction=\"in\"/>\n"      \
         "   <arg name=\"remote\" type=\"b\" direction=\"in\"/>\n"       \
@@ -177,7 +178,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         DBusMessageIter iter;
         int r;
         char *id = NULL, *p;
-        int vtnr = -1;
+        uint32_t vtnr = 0;
         int pipe_fds[2] = { -1, -1 };
         DBusMessage *reply = NULL;
         bool b;
@@ -228,25 +229,47 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         }
 
         if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &vtnr);
+
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
 
         dbus_message_iter_get_basic(&iter, &tty);
 
         if (tty_is_vc(tty)) {
+                int v;
 
                 if (!s)
                         s = m->vtconsole;
                 else if (s != m->vtconsole)
                         return -EINVAL;
 
-                vtnr = vtnr_from_tty(tty);
+                v = vtnr_from_tty(tty);
+
+                if (v <= 0)
+                        return v < 0 ? v : -EINVAL;
 
                 if (vtnr <= 0)
-                        return vtnr < 0 ? vtnr : -EINVAL;
+                        vtnr = (uint32_t) v;
+                else if (vtnr != (uint32_t) v)
+                        return -EINVAL;
 
-        } else if (s == m->vtconsole)
+        } else if (!isempty(tty) && seat_is_vtconsole(s))
                 return -EINVAL;
+
+        if (s) {
+                if (seat_is_vtconsole(s)) {
+                        if (vtnr <= 0 || vtnr > 63)
+                                return -EINVAL;
+                } else {
+                        if (vtnr > 0)
+                                return -EINVAL;
+                }
+        }
 
         if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)

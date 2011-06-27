@@ -325,14 +325,6 @@ int session_activate(Session *s) {
         return seat_apply_acls(s->seat, old_active);
 }
 
-bool x11_display_is_local(const char *display) {
-        assert(display);
-
-        return
-                display[0] == ':' &&
-                display[1] >= '0' &&
-                display[1] <= '9';
-}
 
 static int session_link_x11_socket(Session *s) {
         char *t, *f, *c;
@@ -345,7 +337,7 @@ static int session_link_x11_socket(Session *s) {
         if (s->user->display)
                 return 0;
 
-        if (!s->display || !x11_display_is_local(s->display))
+        if (!s->display || !display_is_local(s->display))
                 return 0;
 
         k = strspn(s->display+1, "0123456789");
@@ -447,9 +439,9 @@ static int session_create_cgroup(Session *s) {
 
         r = session_create_one_group(s, SYSTEMD_CGROUP_CONTROLLER, p);
         if (r < 0) {
+                log_error("Failed to create "SYSTEMD_CGROUP_CONTROLLER":%s: %s", p, strerror(-r));
                 free(p);
                 s->cgroup_path = NULL;
-                log_error("Failed to create "SYSTEMD_CGROUP_CONTROLLER":%s: %s", p, strerror(-r));
                 return r;
         }
 

@@ -38,6 +38,7 @@
 #include "strv.h"
 #include "dbus-common.h"
 #include "def.h"
+#include "socket-util.h"
 
 static int parse_argv(pam_handle_t *handle,
                       int argc, const char **argv,
@@ -299,6 +300,71 @@ static bool check_user_lists(
         return false;
 }
 
+static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
+        char *p = NULL;
+        int r;
+        int fd;
+        union sockaddr_union sa;
+        struct ucred ucred;
+        socklen_t l;
+        char *tty;
+        int v;
+
+        assert(display);
+        assert(seat);
+        assert(vtnr);
+
+        /* We deduce the X11 socket from the display name, then use
+         * SO_PEERCRED to determine the X11 server process, ask for
+         * the controlling tty of that and if it's a VC then we know
+         * the seat and the virtual terminal. Sounds ugly, is only
+         * semi-ugly. */
+
+        r = socket_from_display(display, &p);
+        if (r < 0)
+                return r;
+
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (fd < 0) {
+                free(p);
+                return -errno;
+        }
+
+        zero(sa);
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, p, sizeof(sa.un.sun_path)-1);
+        free(p);
+
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        l = sizeof(ucred);
+        r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l);
+        close_nointr_nofail(fd);
+
+        if (r < 0)
+                return -errno;
+
+        r = get_ctty(ucred.pid, NULL, &tty);
+        if (r < 0)
+                return r;
+
+        v = vtnr_from_tty(tty);
+        free(tty);
+
+        if (v < 0)
+                return v;
+        else if (v == 0)
+                return -ENOENT;
+
+        *seat = "seat0";
+        *vtnr = (uint32_t) v;
+
+        return 0;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -306,7 +372,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         struct passwd *pw;
         bool kill_processes = false, debug = false;
-        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type;
+        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type, *cvtnr = NULL;
         char **controllers = NULL, **reset_controllers = NULL, **kill_only_users = NULL, **kill_exclude_users = NULL;
         DBusError error;
         uint32_t uid, pid;
@@ -317,6 +383,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         DBusMessage *m = NULL, *reply = NULL;
         dbus_bool_t remote;
         int r;
+        uint32_t vtnr = 0;
 
         assert(handle);
 
@@ -373,7 +440,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         pam_get_item(handle, PAM_TTY, (const void**) &tty);
         pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
         pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
-        seat = pam_getenv(handle, "XDG_SEAT");
+        seat = pam_getenv(handle, "LOGIN_SEAT");
+        cvtnr = pam_getenv(handle, "LOGIN_VTNR");
 
         service = strempty(service);
         tty = strempty(tty);
@@ -392,6 +460,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 tty = "";
         }
 
+        if (!isempty(cvtnr))
+                safe_atou32(cvtnr, &vtnr);
+
+        if (!isempty(display) && isempty(seat) && vtnr <= 0)
+                get_seat_from_display(display, &seat, &vtnr);
+
         type = !isempty(display) ? "x11" :
                    !isempty(tty) ? "tty" : "other";
 
@@ -403,6 +477,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                       DBUS_TYPE_STRING, &service,
                                       DBUS_TYPE_STRING, &type,
                                       DBUS_TYPE_STRING, &seat,
+                                      DBUS_TYPE_UINT32, &vtnr,
                                       DBUS_TYPE_STRING, &tty,
                                       DBUS_TYPE_STRING, &display,
                                       DBUS_TYPE_BOOLEAN, &remote,
