@@ -258,7 +258,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 else if (vtnr != (uint32_t) v)
                         return -EINVAL;
 
-        } else if (!isempty(tty) && seat_is_vtconsole(s))
+        } else if (!isempty(tty) && s && seat_is_vtconsole(s))
                 return -EINVAL;
 
         if (s) {
