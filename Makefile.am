@@ -1513,26 +1513,23 @@ endif
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service dbus-org.freedesktop.locale1.service dbus-org.freedesktop.timedate1.service dbus-org.freedesktop.login1.service && \
+		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service dbus-org.freedesktop.locale1.service dbus-org.freedesktop.timedate1.service dbus-org.freedesktop.login1.service autovt-getty@.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
                 $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service && \
                 $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service && \
                 $(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service && \
-                $(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service )
+                $(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service && \
+                $(LN_S) getty@.service autovt-getty@.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path && \
+		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path systemd-logind.service && \
 		$(LN_S) ../getty.target getty.target && \
 		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service && \
-		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path )
+		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path && \
+                $(LN_S) ../systemd-logind.service systemd-logind.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
-		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty2.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty3.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty4.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
+		rm -f getty@tty1.service && \
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
