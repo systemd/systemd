@@ -111,6 +111,9 @@ int session_save(Session *s) {
 
         assert(s);
 
+        if (!s->started)
+                return 0;
+
         r = safe_mkdir("/run/systemd/sessions", 0755, 0, 0);
         if (r < 0)
                 goto finish;

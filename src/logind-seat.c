@@ -86,6 +86,9 @@ int seat_save(Seat *s) {
 
         assert(s);
 
+        if (!s->started)
+                return 0;
+
         r = safe_mkdir("/run/systemd/seats", 0755, 0, 0);
         if (r < 0)
                 goto finish;

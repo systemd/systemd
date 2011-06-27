@@ -94,6 +94,9 @@ int user_save(User *u) {
         assert(u);
         assert(u->state_file);
 
+        if (!u->started)
+                return 0;
+
         r = safe_mkdir("/run/systemd/users", 0755, 0, 0);
         if (r < 0)
                 goto finish;
