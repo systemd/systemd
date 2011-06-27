@@ -54,7 +54,7 @@ static int find_acl(acl_t acl, uid_t uid, acl_entry_t *entry) {
                         return -errno;
 
                 b = *u == uid;
-                free(u);
+                acl_free(u);
 
                 if (b) {
                         *entry = i;
@@ -262,14 +262,15 @@ int devnode_acl_all(struct udev *udev,
                 }
 
                 node = udev_device_get_devnode(d);
-                udev_device_unref(d);
-
                 if (!node) {
+                        udev_device_unref(d);
                         r = -ENOMEM;
                         goto finish;
                 }
 
                 r = devnode_acl(node, flush, del, old_uid, add, new_uid);
+                udev_device_unref(d);
+
                 if (r < 0)
                         goto finish;
         }
