@@ -37,7 +37,7 @@
  * recreate VTs when disallocated
  * spawn user systemd
  * direct client API
- * D-Bus method: AttachDevice(seat, device);
+ * D-Bus method: AttachDevices(seat, devices[]);
  * D-Bus method: SetLinger(user, bool b);
  *
  * non-local X11 server

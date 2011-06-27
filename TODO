@@ -56,8 +56,6 @@ Features:
 
 * add prefix match to sysctl, tmpfiles, ...
 
-* send out "finished" signal when we are finished booting
-
 * drop /.readahead on bigger upgrades with yum
 
 * add inode stat() check to readahead to suppress preloading changed files

@@ -151,6 +151,12 @@
         "   <arg name=\"id\" type=\"u\"/>\n"                            \
         "   <arg name=\"job\" type=\"o\"/>\n"                           \
         "   <arg name=\"result\" type=\"s\"/>\n"                        \
+        "  </signal>"                                                   \
+        "  <signal name=\"StartupFinished\">\n"                         \
+        "   <arg name=\"kernel\" type=\"t\"/>\n"                        \
+        "   <arg name=\"initrd\" type=\"t\"/>\n"                        \
+        "   <arg name=\"userspace\" type=\"t\"/>\n"                     \
+        "   <arg name=\"total\" type=\"t\"/>\n"                         \
         "  </signal>"
 
 #define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \

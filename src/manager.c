@@ -2899,6 +2899,7 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
 
 void manager_check_finished(Manager *m) {
         char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
+        usec_t kernel_usec = 0, initrd_usec = 0, userspace_usec = 0, total_usec = 0;
 
         assert(m);
 
@@ -2912,29 +2913,37 @@ void manager_check_finished(Manager *m) {
 
         if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0) {
 
-                if (dual_timestamp_is_set(&m->initrd_timestamp)) {
-                        log_info("Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
-                                 format_timespan(kernel, sizeof(kernel),
-                                                 m->initrd_timestamp.monotonic),
-                                 format_timespan(initrd, sizeof(initrd),
-                                                 m->startup_timestamp.monotonic - m->initrd_timestamp.monotonic),
-                                 format_timespan(userspace, sizeof(userspace),
-                                                 m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
-                                 format_timespan(sum, sizeof(sum),
-                                                 m->finish_timestamp.monotonic));
-                } else
-                        log_info("Startup finished in %s (kernel) + %s (userspace) = %s.",
-                                 format_timespan(kernel, sizeof(kernel),
-                                                 m->startup_timestamp.monotonic),
-                                 format_timespan(userspace, sizeof(userspace),
-                                                 m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
-                                 format_timespan(sum, sizeof(sum),
-                                                 m->finish_timestamp.monotonic));
-        } else
-                log_debug("Startup finished in %s.",
-                          format_timespan(userspace, sizeof(userspace),
-                                          m->finish_timestamp.monotonic - m->startup_timestamp.monotonic));
+                userspace_usec = m->finish_timestamp.monotonic - m->startup_timestamp.monotonic;
+                total_usec = m->finish_timestamp.monotonic;
 
+                if (dual_timestamp_is_set(&m->initrd_timestamp)) {
+
+                        kernel_usec = m->initrd_timestamp.monotonic;
+                        initrd_usec = m->startup_timestamp.monotonic - m->initrd_timestamp.monotonic;
+
+                        log_info("Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
+                                 format_timespan(kernel, sizeof(kernel), kernel_usec),
+                                 format_timespan(initrd, sizeof(initrd), initrd_usec),
+                                 format_timespan(userspace, sizeof(userspace), userspace_usec),
+                                 format_timespan(sum, sizeof(sum), total_usec));
+                } else {
+                        kernel_usec = m->startup_timestamp.monotonic;
+                        initrd_usec = 0;
+
+                        log_info("Startup finished in %s (kernel) + %s (userspace) = %s.",
+                                 format_timespan(kernel, sizeof(kernel), kernel_usec),
+                                 format_timespan(userspace, sizeof(userspace), userspace_usec),
+                                 format_timespan(sum, sizeof(sum), total_usec));
+                }
+        } else {
+                userspace_usec = initrd_usec = kernel_usec = 0;
+                total_usec = m->finish_timestamp.monotonic - m->startup_timestamp.monotonic;
+
+                log_debug("Startup finished in %s.",
+                          format_timespan(sum, sizeof(sum), total_usec));
+        }
+
+        bus_broadcast_finished(m, kernel_usec, initrd_usec, userspace_usec, total_usec);
 }
 
 void manager_run_generators(Manager *m) {

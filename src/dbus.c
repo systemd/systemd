@@ -1274,3 +1274,42 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
 
         return 0;
 }
+
+void bus_broadcast_finished(
+                Manager *m,
+                usec_t kernel_usec,
+                usec_t initrd_usec,
+                usec_t userspace_usec,
+                usec_t total_usec) {
+
+        DBusMessage *message;
+
+        assert(m);
+
+        message = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartupFinished");
+        if (!message) {
+                log_error("Out of memory.");
+                return;
+        }
+
+        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
+        if (!dbus_message_append_args(message,
+                                      DBUS_TYPE_UINT64, &kernel_usec,
+                                      DBUS_TYPE_UINT64, &initrd_usec,
+                                      DBUS_TYPE_UINT64, &userspace_usec,
+                                      DBUS_TYPE_UINT64, &total_usec,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Out of memory.");
+                goto finish;
+        }
+
+
+        if (bus_broadcast(m, message) < 0) {
+                log_error("Out of memory.");
+                goto finish;
+        }
+
+finish:
+        if (m)
+                dbus_message_unref(message);
+}
