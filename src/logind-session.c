@@ -511,12 +511,15 @@ int session_start(Session *s) {
         /* Create X11 symlink */
         session_link_x11_socket(s);
 
-        /* Save session data */
-        session_save(s);
-
         dual_timestamp_get(&s->timestamp);
 
+        if (s->seat)
+                seat_read_active_vt(s->seat);
+
         s->started = true;
+
+        /* Save session data */
+        session_save(s);
 
         session_send_signal(s, true);
 
