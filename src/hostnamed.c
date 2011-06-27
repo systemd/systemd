@@ -513,7 +513,7 @@ static int connect_bus(DBusConnection **_bus) {
 
         bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
         if (!bus) {
-                log_error("Failed to get system D-Bus connection: %s", error.message);
+                log_error("Failed to get system D-Bus connection: %s", bus_error_message(&error));
                 r = -ECONNREFUSED;
                 goto fail;
         }

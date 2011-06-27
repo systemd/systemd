@@ -332,7 +332,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                                            DBUS_TYPE_STRING, &old_owner,
                                            DBUS_TYPE_STRING, &new_owner,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse NameOwnerChanged message: %s", error.message);
+                        log_error("Failed to parse NameOwnerChanged message: %s", bus_error_message(&error));
                 else  {
                         if (set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) name))
                                 log_debug("Subscription client vanished: %s (left: %u)", name, set_size(BUS_CONNECTION_SUBSCRIBED(m, connection)));
@@ -351,7 +351,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                 if (!dbus_message_get_args(message, &error,
                                            DBUS_TYPE_STRING, &name,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse ActivationRequest message: %s", error.message);
+                        log_error("Failed to parse ActivationRequest message: %s", bus_error_message(&error));
                 else  {
                         int r;
                         Unit *u;
@@ -482,7 +482,7 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
                 if (!dbus_message_get_args(message, &error,
                                            DBUS_TYPE_STRING, &cgroup,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse Released message: %s", error.message);
+                        log_error("Failed to parse Released message: %s", bus_error_message(&error));
                 else
                         cgroup_notify_empty(m, cgroup);
 
@@ -540,7 +540,7 @@ static void request_name_pending_cb(DBusPendingCall *pending, void *userdata) {
         case DBUS_MESSAGE_TYPE_ERROR:
 
                 assert_se(dbus_set_error_from_message(&error, reply));
-                log_warning("RequestName() failed: %s", error.message);
+                log_warning("RequestName() failed: %s", bus_error_message(&error));
                 break;
 
         case DBUS_MESSAGE_TYPE_METHOD_RETURN: {
@@ -550,7 +550,7 @@ static void request_name_pending_cb(DBusPendingCall *pending, void *userdata) {
                                            &error,
                                            DBUS_TYPE_UINT32, &r,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse RequestName() reply: %s", error.message);
+                        log_error("Failed to parse RequestName() reply: %s", bus_error_message(&error));
                         break;
                 }
 
@@ -637,7 +637,7 @@ static void query_name_list_pending_cb(DBusPendingCall *pending, void *userdata)
         case DBUS_MESSAGE_TYPE_ERROR:
 
                 assert_se(dbus_set_error_from_message(&error, reply));
-                log_warning("ListNames() failed: %s", error.message);
+                log_warning("ListNames() failed: %s", bus_error_message(&error));
                 break;
 
         case DBUS_MESSAGE_TYPE_METHOD_RETURN: {
@@ -782,7 +782,7 @@ static int bus_init_system(Manager *m) {
                 m->system_bus = m->api_bus;
         else {
                 if (!(m->system_bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error))) {
-                        log_debug("Failed to get system D-Bus connection, retrying later: %s", error.message);
+                        log_debug("Failed to get system D-Bus connection, retrying later: %s", bus_error_message(&error));
                         r = 0;
                         goto fail;
                 }
@@ -806,7 +806,7 @@ static int bus_init_system(Manager *m) {
                                    &error);
 
                 if (dbus_error_is_set(&error)) {
-                        log_error("Failed to register match: %s", error.message);
+                        log_error("Failed to register match: %s", bus_error_message(&error));
                         r = -EIO;
                         goto fail;
                 }
@@ -844,7 +844,7 @@ static int bus_init_api(Manager *m) {
                 m->api_bus = m->system_bus;
         else {
                 if (!(m->api_bus = dbus_bus_get_private(m->running_as == MANAGER_USER ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error))) {
-                        log_debug("Failed to get API D-Bus connection, retrying later: %s", error.message);
+                        log_debug("Failed to get API D-Bus connection, retrying later: %s", bus_error_message(&error));
                         r = 0;
                         goto fail;
                 }
@@ -872,7 +872,7 @@ static int bus_init_api(Manager *m) {
                            &error);
 
         if (dbus_error_is_set(&error)) {
-                log_error("Failed to register match: %s", error.message);
+                log_error("Failed to register match: %s", bus_error_message(&error));
                 r = -EIO;
                 goto fail;
         }
@@ -887,7 +887,7 @@ static int bus_init_api(Manager *m) {
                            &error);
 
         if (dbus_error_is_set(&error)) {
-                log_error("Failed to register match: %s", error.message);
+                log_error("Failed to register match: %s", bus_error_message(&error));
                 r = -EIO;
                 goto fail;
         }
@@ -936,7 +936,7 @@ static int bus_init_private(Manager *m) {
 
         unlink("/run/systemd/private");
         if (!(m->private_bus = dbus_server_listen("unix:path=/run/systemd/private", &error))) {
-                log_error("Failed to create private D-Bus server: %s", error.message);
+                log_error("Failed to create private D-Bus server: %s", bus_error_message(&error));
                 r = -EIO;
                 goto fail;
         }
@@ -1113,7 +1113,7 @@ static void query_pid_pending_cb(DBusPendingCall *pending, void *userdata) {
         case DBUS_MESSAGE_TYPE_ERROR:
 
                 assert_se(dbus_set_error_from_message(&error, reply));
-                log_warning("GetConnectionUnixProcessID() failed: %s", error.message);
+                log_warning("GetConnectionUnixProcessID() failed: %s", bus_error_message(&error));
                 break;
 
         case DBUS_MESSAGE_TYPE_METHOD_RETURN: {
@@ -1123,7 +1123,7 @@ static void query_pid_pending_cb(DBusPendingCall *pending, void *userdata) {
                                            &error,
                                            DBUS_TYPE_UINT32, &r,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse GetConnectionUnixProcessID() reply: %s", error.message);
+                        log_error("Failed to parse GetConnectionUnixProcessID() reply: %s", bus_error_message(&error));
                         break;
                 }
 

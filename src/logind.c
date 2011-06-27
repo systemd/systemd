@@ -736,7 +736,7 @@ static int manager_connect_bus(Manager *m) {
 
         m->bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
         if (!m->bus) {
-                log_error("Failed to get system D-Bus connection: %s", error.message);
+                log_error("Failed to get system D-Bus connection: %s", bus_error_message(&error));
                 r = -ECONNREFUSED;
                 goto fail;
         }
@@ -759,7 +759,7 @@ static int manager_connect_bus(Manager *m) {
                            &error);
 
         if (dbus_error_is_set(&error)) {
-                log_error("Failed to register match: %s", error.message);
+                log_error("Failed to register match: %s", bus_error_message(&error));
                 r = -EIO;
                 goto fail;
         }
