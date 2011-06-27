@@ -408,9 +408,11 @@ static int session_create_one_group(Session *s, const char *controller, const ch
         assert(controller);
         assert(path);
 
-        if (s->leader > 0)
+        if (s->leader > 0) {
                 r = cg_create_and_attach(controller, path, s->leader);
-        else
+                if (r < 0)
+                        r = cg_create(controller, path);
+        } else
                 r = cg_create(controller, path);
 
         if (r < 0)
