@@ -54,6 +54,8 @@ Features:
 
 * move /selinux to /sys/fs/selinux
 
+* detect LXC with $container=lxc
+
 * add prefix match to sysctl, tmpfiles, ...
 
 * drop /.readahead on bigger upgrades with yum
