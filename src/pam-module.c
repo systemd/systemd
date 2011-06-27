@@ -389,7 +389,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
                 if (isempty(display))
                         display = tty;
-                tty = NULL;
+                tty = "";
         }
 
         type = !isempty(display) ? "x11" :
