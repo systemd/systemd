@@ -764,8 +764,15 @@ static int manager_connect_bus(Manager *m) {
                 goto fail;
         }
 
-        if (dbus_bus_request_name(m->bus, "org.freedesktop.login1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error) < 0) {
-                log_error("Failed to register name on bus: %s", error.message);
+        r = dbus_bus_request_name(m->bus, "org.freedesktop.login1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to register name on bus: %s", bus_error_message(&error));
+                r = -EIO;
+                goto fail;
+        }
+
+        if (r != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)  {
+                log_error("Failed to acquire name.");
                 r = -EEXIST;
                 goto fail;
         }
