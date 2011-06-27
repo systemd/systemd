@@ -771,7 +771,7 @@ static void manager_pipe_notify_eof(Manager *m, int fd) {
         assert(s->pipe_fd == fd);
         session_unset_pipe_fd(s);
 
-        session_add_to_gc_queue(s);
+        session_stop(s);
 }
 
 static int manager_connect_bus(Manager *m) {
