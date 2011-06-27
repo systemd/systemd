@@ -349,19 +349,20 @@ SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
 
 M4_DISTRO_FLAG=
+have_plymouth=no
 
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 M4_DISTRO_FLAG=-DTARGET_FEDORA=1
-		have_plymouth=true
+                have_plymouth=yes
                 ;;
         suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
                 M4_DISTRO_FLAG=-DTARGET_SUSE=1
-		have_plymouth=true
+                have_plymouth=yes
                 ;;
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
@@ -394,19 +395,19 @@ case $with_distro in
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
                 M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
-                have_plymouth=true
+                have_plymouth=yes
                 ;;
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
                 M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
-		have_plymouth=true
+                have_plymouth=yes
                 ;;
         mandriva)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_MANDRIVA, [], [Target is Mandriva])
                 M4_DISTRO_FLAG=-DTARGET_MANDRIVA=1
-		have_plymouth=true
+                have_plymouth=yes
                 ;;
         meego)
                 SYSTEM_SYSVINIT_PATH=
@@ -457,6 +458,11 @@ AC_ARG_WITH([tty-gid],
         [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
         [])
 
+AC_ARG_ENABLE(plymouth, AS_HELP_STRING([--enable-plymouth], [enable plymouth support]))
+if test -n "$enable_plymouth"; then
+        have_plymouth="$enable_plymouth"
+fi
+
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
@@ -471,7 +477,7 @@ AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
 AM_CONDITIONAL(TARGET_MEEGO, test x"$with_distro" = xmeego)
 AM_CONDITIONAL(TARGET_ANGSTROM, test x"$with_distro" = xangstrom)
 
-AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
+AM_CONDITIONAL(HAVE_PLYMOUTH, test "$have_plymouth" = "yes")
 AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
 
 AC_ARG_WITH([dbuspolicydir],
@@ -535,6 +541,7 @@ echo "
         SELinux:                 ${have_selinux}
         ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
+        plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}
