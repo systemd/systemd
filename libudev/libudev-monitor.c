@@ -37,7 +37,7 @@
 /**
  * udev_monitor:
  *
- * Opaque object handling one event source.
+ * Opaque object handling an event source.
  */
 struct udev_monitor {
 	struct udev *udev;
@@ -102,7 +102,12 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
  * @udev: udev library context
  * @socket_path: unix socket path
  *
- * Create new udev monitor and connect to a specified socket. The
+ * This function should not be used in any new application. The
+ * kernel's netlink socket multiplexes messages to all interested
+ * clients. Creating custom sockets from udev to applications
+ * should be avoided.
+ *
+ * Create a new udev monitor and connect to a specified socket. The
  * path to a socket either points to an existing socket file, or if
  * the socket path starts with a '@' character, an abstract namespace
  * socket will be used.
@@ -211,14 +216,11 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
  * Applications should usually not connect directly to the
  * "kernel" events, because the devices might not be useable
  * at that time, before udev has configured them, and created
- * device nodes.
- *
- * Accessing devices at the same time as udev, might result
- * in unpredictable behavior.
- *
- * The "udev" events are sent out after udev has finished its
- * event processing, all rules have been processed, and needed
- * device nodes are created.
+ * device nodes. Accessing devices at the same time as udev,
+ * might result in unpredictable behavior. The "udev" events
+ * are sent out after udev has finished its event processing,
+ * all rules have been processed, and needed device nodes are
+ * created.
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev monitor.
@@ -257,7 +259,8 @@ static inline void bpf_jmp(struct sock_filter *inss, unsigned int *i,
  * udev_monitor_filter_update:
  * @udev_monitor: monitor
  *
- * Update the installed filter. This might only be needed, if the filter was removed or changed.
+ * Update the installed socket filter. This is only needed,
+ * if the filter was removed or changed.
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
@@ -561,9 +564,7 @@ tag:
  * Receive data from the udev monitor socket, allocate a new udev
  * device, fill in the received data, and return the device.
  *
- * Only socket connections with uid=0 are accepted. The caller
- * needs to make sure that there is data to read from the socket.
- * The call will block until the socket becomes readable.
+ * Only socket connections with uid=0 are accepted.
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev device.
@@ -816,7 +817,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
  * @subsystem: the subsystem value to match the incoming devices against
  * @devtype: the devtype value to match the incoming devices against
  *
- * This filer is efficiently executed inside the kernel, and libudev subscribers
+ * This filter is efficiently executed inside the kernel, and libudev subscribers
  * will usually not be woken up for devices which do not match.
  *
  * The filter must be installed before the monitor is switched to listening mode.
@@ -840,7 +841,7 @@ UDEV_EXPORT int udev_monitor_filter_add_match_subsystem_devtype(struct udev_moni
  * @udev_monitor: the monitor
  * @tag: the name of a tag
  *
- * This filer is efficiently executed inside the kernel, and libudev subscribers
+ * This filter is efficiently executed inside the kernel, and libudev subscribers
  * will usually not be woken up for devices which do not match.
  *
  * The filter must be installed before the monitor is switched to listening mode.
