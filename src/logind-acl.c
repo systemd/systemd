@@ -233,9 +233,11 @@ int devnode_acl_all(struct udev *udev,
         if (r < 0)
                 goto finish;
 
-        r = udev_enumerate_add_match_tag(e, seat);
-        if (r < 0)
-                goto finish;
+        if (!streq(seat, "seat0")) {
+                r = udev_enumerate_add_match_tag(e, seat);
+                if (r < 0)
+                        goto finish;
+        }
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
