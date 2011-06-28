@@ -1661,13 +1661,16 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                  * unit name. */
                 name = file_name_from_path(*filename);
 
-                if (unit_name_is_valid(name, false)) {
-                        if (!(id = set_get(names, name))) {
+                if (unit_name_is_valid(name, true)) {
 
-                                if (!(id = strdup(name)))
+                        id = set_get(names, name);
+                        if (!id) {
+                                id = strdup(name);
+                                if (!id)
                                         return -ENOMEM;
 
-                                if ((r = set_put(names, id)) < 0) {
+                                r = set_put(names, id);
+                                if (r < 0) {
                                         free(id);
                                         return r;
                                 }
