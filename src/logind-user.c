@@ -285,12 +285,12 @@ int user_start(User *u) {
         if (r < 0)
                 return r;
 
-        /* Save new user data */
-        user_save(u);
-
         dual_timestamp_get(&u->timestamp);
 
         u->started = true;
+
+        /* Save new user data */
+        user_save(u);
 
         user_send_signal(u, true);
 

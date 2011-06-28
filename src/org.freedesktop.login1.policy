@@ -16,7 +16,7 @@
         <vendor>The systemd Project</vendor>
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
-        <action id="org.freedesktop.login1.enable-user-linger">
+        <action id="org.freedesktop.login1.set-user-linger">
                 <description>Allow non-logged-in users to run programs</description>
                 <message>Authentication is required to allow a non-logged-in user to run programs</message>
                 <defaults>

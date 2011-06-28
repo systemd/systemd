@@ -22,10 +22,12 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <pwd.h>
 
 #include "logind.h"
 #include "dbus-common.h"
 #include "strv.h"
+#include "polkit.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
@@ -81,6 +83,11 @@
         "  </method>\n"                                                 \
         "  <method name=\"TerminateSeat\">\n"                           \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetUserLinger\">\n"                           \
+        "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
+        "   <arg name=\"b\" type=\"b\" direction=\"in\"/>\n"            \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
         "  <signal name=\"SessionNew\">\n"                              \
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
@@ -887,6 +894,57 @@ static DBusHandlerResult manager_message_handler(
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "SetUserLinger")) {
+                uint32_t uid;
+                struct passwd *pw;
+                dbus_bool_t b, interactive;
+                char *path;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &uid,
+                                    DBUS_TYPE_BOOLEAN, &b,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                errno = 0;
+                pw = getpwuid(uid);
+                if (!pw)
+                        return bus_send_error_reply(connection, message, NULL, errno ? -errno : -EINVAL);
+
+                r = verify_polkit(connection, message, "org.freedesktop.login1.set-user-linger", interactive, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                r = safe_mkdir("/var/lib/systemd/linger", 0755, 0, 0);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                path = strappend("/var/lib/systemd/linger/", pw->pw_name);
+                if (!path)
+                        goto oom;
+
+                if (b) {
+                        r = touch(path);
+                        free(path);
+
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+                } else {
+                        r = unlink(path);
+                        free(path);
+
+                        if (r < 0 && errno != ENOENT)
+                                return bus_send_error_reply(connection, message, &error, -errno);
+                }
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
                 char *introspection = NULL;

@@ -870,7 +870,8 @@ systemd_logind_SOURCES = \
         src/logind-acl.c \
         src/dbus-common.c \
         src/dbus-loop.c \
-        src/cgroup-util.c
+        src/cgroup-util.c \
+        src/polkit.c
 
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \

@@ -328,7 +328,6 @@ int session_activate(Session *s) {
         return seat_apply_acls(s->seat, old_active);
 }
 
-
 static int session_link_x11_socket(Session *s) {
         char *t, *f, *c;
         size_t k;
@@ -520,10 +519,13 @@ int session_start(Session *s) {
 
         /* Save session data */
         session_save(s);
+        user_save(s->user);
 
         session_send_signal(s, true);
 
         if (s->seat) {
+                seat_save(s->seat);
+
                 if (s->seat->active == s)
                         seat_send_changed(s->seat, "Sessions\0ActiveSession\0");
                 else

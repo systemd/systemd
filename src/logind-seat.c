@@ -253,11 +253,15 @@ int seat_set_active(Seat *s, Session *session) {
 
         seat_save(s);
 
-        if (session)
+        if (session) {
                 session_save(session);
+                user_save(session->user);
+        }
 
-        if (old_active)
+        if (old_active) {
                 session_save(old_active);
+                user_save(old_active->user);
+        }
 
         return 0;
 }
@@ -340,10 +344,10 @@ int seat_start(Seat *s) {
         /* Read current VT */
         seat_read_active_vt(s);
 
+        s->started = true;
+
         /* Save seat data */
         seat_save(s);
-
-        s->started = true;
 
         seat_send_signal(s, true);
 

@@ -38,7 +38,6 @@
  * direct client API
  * add configuration file
  * D-Bus method: AttachDevices(seat, devices[]);
- * D-Bus method: SetLinger(user, bool b);
  *
  * non-local X11 server
  * reboot/shutdown halt management
