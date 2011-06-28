@@ -557,6 +557,8 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         char *rule = NULL, *file = NULL;
         const char *id_for_seat;
         int r;
+        struct udev_enumerate *e;
+        struct udev_list_entry *first, *item;
 
         assert(m);
         assert(seat);
@@ -589,6 +591,38 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
 
         mkdir_p("/etc/udev/rules.d", 0755);
         r = write_one_line_file(file, rule);
+        if (r < 0)
+                goto finish;
+
+        e = udev_enumerate_new(m->udev);
+        if (!e) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (udev_enumerate_scan_devices(e) < 0) {
+                r = -EIO;
+                goto finish;
+        }
+
+        first = udev_enumerate_get_list_entry(e);
+        udev_list_entry_foreach(item, first) {
+                char *t;
+                const char *p;
+
+                p = udev_list_entry_get_name(item);
+                if (!startswith(p, sysfs))
+                        continue;
+
+                t = strappend(p, "/uevent");
+                if (!t) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                write_one_line_file(t, "change");
+                free(t);
+        }
 
 finish:
         free(rule);
@@ -596,6 +630,9 @@ finish:
 
         if (d)
                 udev_device_unref(d);
+
+        if (e)
+                udev_enumerate_unref(e);
 
         return r;
 }

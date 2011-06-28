@@ -39,6 +39,13 @@
  * add configuration file
  * D-Bus method: AttachDevices(seat, devices[]);
  * use named pipes to detect when a session dies
+ * verify access to SetIdleHint
+ * drop redundant udev_device_get_is_initialized() use as soon as libudev is fixed
+ * properly escape/remove : and . from seat names in udev rules
+ * use device_has_tag() as soon as it is available
+ * trigger based on libudev if available
+ * enumerate recursively with libudev when triggering
+ * make sure IMPORT{parent}="ID_SEAT" works between usb hub and sound card
  *
  * non-local X11 server
  * reboot/shutdown halt management
