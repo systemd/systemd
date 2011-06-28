@@ -52,7 +52,7 @@ Manager *manager_new(void) {
         m->sessions = hashmap_new(string_hash_func, string_compare_func);
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->cgroups = hashmap_new(string_hash_func, string_compare_func);
-        m->pipe_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
+        m->fifo_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users) {
                 manager_free(m);
@@ -98,7 +98,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->devices);
         hashmap_free(m->seats);
         hashmap_free(m->cgroups);
-        hashmap_free(m->pipe_fds);
+        hashmap_free(m->fifo_fds);
 
         if (m->console_active_fd >= 0)
                 close_nointr_nofail(m->console_active_fd);
@@ -802,9 +802,9 @@ static void manager_pipe_notify_eof(Manager *m, int fd) {
         assert_se(m);
         assert_se(fd >= 0);
 
-        assert_se(s = hashmap_get(m->pipe_fds, INT_TO_PTR(fd + 1)));
-        assert(s->pipe_fd == fd);
-        session_unset_pipe_fd(s);
+        assert_se(s = hashmap_get(m->fifo_fds, INT_TO_PTR(fd + 1)));
+        assert(s->fifo_fd == fd);
+        session_remove_fifo(s);
 
         session_stop(s);
 }
@@ -1081,9 +1081,6 @@ int manager_startup(Manager *m) {
         manager_enumerate_users(m);
         manager_enumerate_sessions(m);
 
-        /* Get rid of objects that are no longer used */
-        manager_gc(m);
-
         /* And start everything */
         HASHMAP_FOREACH(seat, m->seats, i)
                 seat_start(seat);
@@ -1139,8 +1136,8 @@ int manager_run(Manager *m) {
                         break;
 
                 default:
-                        if (event.data.u32 >= FD_PIPE_BASE)
-                                manager_pipe_notify_eof(m, event.data.u32 - FD_PIPE_BASE);
+                        if (event.data.u32 >= FD_FIFO_BASE)
+                                manager_pipe_notify_eof(m, event.data.u32 - FD_FIFO_BASE);
                 }
         }
 

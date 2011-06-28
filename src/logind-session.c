@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/epoll.h>
+#include <fcntl.h>
 
 #include "logind-session.h"
 #include "strv.h"
@@ -56,7 +57,7 @@ Session* session_new(Manager *m, User *u, const char *id) {
         }
 
         s->manager = m;
-        s->pipe_fd = -1;
+        s->fifo_fd = -1;
         s->user = u;
 
         LIST_PREPEND(Session, sessions_by_user, u->sessions, s);
@@ -98,7 +99,7 @@ void session_free(Session *s) {
 
         hashmap_remove(s->manager->sessions, s->id);
 
-        session_unset_pipe_fd(s);
+        session_remove_fifo(s);
 
         free(s->state_file);
         free(s);
@@ -148,6 +149,11 @@ int session_save(Session *s) {
                 fprintf(f,
                         "CGROUP=%s\n",
                         s->cgroup_path);
+
+        if (s->fifo_path)
+                fprintf(f,
+                        "FIFO=%s\n",
+                        s->fifo_path);
 
         if (s->seat)
                 fprintf(f,
@@ -229,6 +235,7 @@ int session_load(Session *s) {
                            "REMOTE",         &remote,
                            "KILL_PROCESSES", &kill_processes,
                            "CGROUP",         &s->cgroup_path,
+                           "FIFO",           &s->fifo_path,
                            "SEAT",           &seat,
                            "TTY",            &s->tty,
                            "DISPLAY",        &s->display,
@@ -289,6 +296,8 @@ int session_load(Session *s) {
                 if (t >= 0)
                         s->type = t;
         }
+
+        session_open_fifo(s);
 
 finish:
         free(remote);
@@ -746,43 +755,77 @@ void session_set_idle_hint(Session *s, bool b) {
                              "IdleSinceHintMonotonic\0");
 }
 
-int session_set_pipe_fd(Session *s, int fd) {
+int session_open_fifo(Session *s) {
         struct epoll_event ev;
         int r;
 
         assert(s);
-        assert(fd >= 0);
-        assert(s->pipe_fd < 0);
 
-        r = hashmap_put(s->manager->pipe_fds, INT_TO_PTR(fd + 1), s);
+        if (s->fifo_fd >= 0)
+                return 0;
+
+        if (!s->fifo_path)
+                return -EINVAL;
+
+        s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
+        if (s->fifo_fd < 0)
+                return -errno;
+
+        r = hashmap_put(s->manager->fifo_fds, INT_TO_PTR(s->fifo_fd + 1), s);
         if (r < 0)
                 return r;
 
         zero(ev);
         ev.events = 0;
-        ev.data.u32 = FD_PIPE_BASE + fd;
+        ev.data.u32 = FD_FIFO_BASE + s->fifo_fd;
 
-        if (epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-                assert_se(hashmap_remove(s->manager->pipe_fds, INT_TO_PTR(fd + 1)) == s);
+        if (epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, s->fifo_fd, &ev) < 0)
                 return -errno;
-        }
 
-        s->pipe_fd = fd;
         return 0;
 }
 
-void session_unset_pipe_fd(Session *s) {
+int session_create_fifo(Session *s) {
+        int r;
+
         assert(s);
 
-        if (s->pipe_fd < 0)
-                return;
+        if (!s->fifo_path) {
+                if (asprintf(&s->fifo_path, "/run/systemd/sessions/%s.ref", s->id) < 0)
+                        return -ENOMEM;
 
-        assert_se(hashmap_remove(s->manager->pipe_fds, INT_TO_PTR(s->pipe_fd + 1)) == s);
+                if (mkfifo(s->fifo_path, 0600) < 0 && errno != EEXIST)
+                        return -errno;
+        }
 
-        assert_se(epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->pipe_fd, NULL) == 0);
+        /* Open reading side */
+        r = session_open_fifo(s);
+        if (r < 0)
+                return r;
 
-        close_nointr_nofail(s->pipe_fd);
-        s->pipe_fd = -1;
+        /* Open writing side */
+        r = open(s->fifo_path, O_WRONLY|O_CLOEXEC|O_NDELAY);
+        if (r < 0)
+                return -errno;
+
+        return r;
+}
+
+void session_remove_fifo(Session *s) {
+        assert(s);
+
+        if (s->fifo_fd >= 0) {
+                assert_se(hashmap_remove(s->manager->fifo_fds, INT_TO_PTR(s->fifo_fd + 1)) == s);
+                assert_se(epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->fifo_fd, NULL) == 0);
+                close_nointr_nofail(s->fifo_fd);
+                s->fifo_fd = -1;
+        }
+
+        if (s->fifo_path) {
+                unlink(s->fifo_path);
+                free(s->fifo_path);
+                s->fifo_path = NULL;
+        }
 }
 
 int session_check_gc(Session *s) {
@@ -790,9 +833,12 @@ int session_check_gc(Session *s) {
 
         assert(s);
 
-        if (s->pipe_fd >= 0) {
+        if (!s->started)
+                return 0;
 
-                r = pipe_eof(s->pipe_fd);
+        if (s->fifo_fd >= 0) {
+
+                r = pipe_eof(s->fifo_fd);
                 if (r < 0)
                         return r;
 

@@ -37,15 +37,14 @@
  * spawn user systemd
  * direct client API
  * add configuration file
- * D-Bus method: AttachDevices(seat, devices[]);
- * use named pipes to detect when a session dies
  * verify access to SetIdleHint
+ *
+ * udev:
  * drop redundant udev_device_get_is_initialized() use as soon as libudev is fixed
  * properly escape/remove : and . from seat names in udev rules
  * use device_has_tag() as soon as it is available
  * trigger based on libudev if available
  * enumerate recursively with libudev when triggering
- * make sure IMPORT{parent}="ID_SEAT" works between usb hub and sound card
  *
  * non-local X11 server
  * reboot/shutdown halt management
@@ -94,7 +93,7 @@ struct Manager {
         unsigned long session_counter;
 
         Hashmap *cgroups;
-        Hashmap *pipe_fds;
+        Hashmap *fifo_fds;
 };
 
 enum {
@@ -102,7 +101,7 @@ enum {
         FD_VCSA_UDEV,
         FD_CONSOLE,
         FD_BUS,
-        FD_PIPE_BASE
+        FD_FIFO_BASE
 };
 
 Manager *manager_new(void);

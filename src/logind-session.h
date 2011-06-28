@@ -65,7 +65,8 @@ struct Session {
         pid_t leader;
         uint32_t audit_id;
 
-        int pipe_fd;
+        int fifo_fd;
+        char *fifo_path;
 
         char *cgroup_path;
         char **controllers, **reset_controllers;
@@ -91,8 +92,9 @@ int session_activate(Session *s);
 bool session_is_active(Session *s);
 int session_get_idle_hint(Session *s, dual_timestamp *t);
 void session_set_idle_hint(Session *s, bool b);
-int session_set_pipe_fd(Session *s, int fd);
-void session_unset_pipe_fd(Session *s);
+int session_open_fifo(Session *s);
+int session_create_fifo(Session *s);
+void session_remove_fifo(Session *s);
 int session_start(Session *s);
 int session_stop(Session *s);
 int session_save(Session *s);

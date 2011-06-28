@@ -191,7 +191,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         int r;
         char *id = NULL, *p;
         uint32_t vtnr = 0;
-        int pipe_fds[2] = { -1, -1 };
+        int fifo_fd = -1;
         DBusMessage *reply = NULL;
         bool b;
 
@@ -353,6 +353,12 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
                 if (session) {
 
+                        fifo_fd = session_create_fifo(session);
+                        if (fifo_fd < 0) {
+                                r = fifo_fd;
+                                goto fail;
+                        }
+
                         /* Session already exists, client is probably
                          * something like "su" which changes uid but
                          * is still the same audit session */
@@ -362,15 +368,6 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                                 r = -ENOMEM;
                                 goto fail;
                         }
-
-                        /* Create a throw-away fd */
-                        if (pipe(pipe_fds) < 0) {
-                                r = -errno;
-                                goto fail;
-                        }
-
-                        close_nointr_nofail(pipe_fds[0]);
-                        pipe_fds[0] = -1;
 
                         p = session_bus_path(session);
                         if (!p) {
@@ -383,7 +380,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                                         DBUS_TYPE_STRING, &session->id,
                                         DBUS_TYPE_OBJECT_PATH, &p,
                                         DBUS_TYPE_STRING, &session->user->runtime_path,
-                                        DBUS_TYPE_UNIX_FD, &pipe_fds[1],
+                                        DBUS_TYPE_UNIX_FD, &fifo_fd,
                                         DBUS_TYPE_INVALID);
                         free(p);
 
@@ -392,7 +389,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                                 goto fail;
                         }
 
-                        close_nointr_nofail(pipe_fds[1]);
+                        close_nointr_nofail(fifo_fd);
                         *_reply = reply;
 
                         return 0;
@@ -467,15 +464,11 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 }
         }
 
-        if (pipe(pipe_fds) < 0) {
-                r = -errno;
+        fifo_fd = session_create_fifo(session);
+        if (fifo_fd < 0) {
+                r = fifo_fd;
                 goto fail;
         }
-
-        r = session_set_pipe_fd(session, pipe_fds[0]);
-        if (r < 0)
-                goto fail;
-        pipe_fds[0] = -1;
 
         if (s) {
                 r = seat_attach_session(s, session);
@@ -504,7 +497,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                         DBUS_TYPE_STRING, &session->id,
                         DBUS_TYPE_OBJECT_PATH, &p,
                         DBUS_TYPE_STRING, &session->user->runtime_path,
-                        DBUS_TYPE_UNIX_FD, &pipe_fds[1],
+                        DBUS_TYPE_UNIX_FD, &fifo_fd,
                         DBUS_TYPE_INVALID);
         free(p);
 
@@ -513,7 +506,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
-        close_nointr_nofail(pipe_fds[1]);
+        close_nointr_nofail(fifo_fd);
         *_reply = reply;
 
         return 0;
@@ -528,7 +521,8 @@ fail:
         if (user)
                 user_add_to_gc_queue(user);
 
-        close_pipe(pipe_fds);
+        if (fifo_fd >= 0)
+                close_nointr_nofail(fifo_fd);
 
         if (reply)
                 dbus_message_unref(reply);
@@ -611,7 +605,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
                 const char *p;
 
                 p = udev_list_entry_get_name(item);
-                if (!startswith(p, sysfs))
+                if (!path_startswith(p, sysfs))
                         continue;
 
                 t = strappend(p, "/uevent");

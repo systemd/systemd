@@ -459,6 +459,9 @@ int user_check_gc(User *u) {
 
         assert(u);
 
+        if (!u->started)
+                return 0;
+
         if (u->sessions)
                 return 1;
 

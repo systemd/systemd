@@ -449,6 +449,9 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
 int seat_check_gc(Seat *s) {
         assert(s);
 
+        if (!s->started)
+                return 0;
+
         if (seat_is_vtconsole(s))
                 return 1;
 
