@@ -89,6 +89,11 @@
         "   <arg name=\"b\" type=\"b\" direction=\"in\"/>\n"            \
         "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
+        "  <method name=\"AttachDevice\">\n"                            \
+        "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"sysfs\" type=\"s\" direction=\"in\"/>\n"        \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
         "  <signal name=\"SessionNew\">\n"                              \
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
@@ -531,6 +536,67 @@ fail:
         return r;
 }
 
+static bool device_has_tag(struct udev_device *d, const char *tag) {
+        struct udev_list_entry *first, *item;
+
+        assert(d);
+        assert(tag);
+
+        first = udev_device_get_tags_list_entry(d);
+        udev_list_entry_foreach(item, first)
+                if (streq(udev_list_entry_get_name(item), tag))
+                        return true;
+
+        return false;
+}
+
+static int attach_device(Manager *m, const char *seat, const char *sysfs) {
+        struct udev_device *d;
+        char *rule = NULL, *file = NULL;
+        const char *path;
+        int r;
+
+        assert(m);
+        assert(seat);
+        assert(sysfs);
+
+        d = udev_device_new_from_syspath(m->udev, sysfs);
+        if (!d)
+                return -ENODEV;
+
+        if (!device_has_tag(d, "seat")) {
+                r = -ENODEV;
+                goto finish;
+        }
+
+        path = udev_device_get_property_value(d, "ID_PATH");
+        if (!path) {
+                r = -ENODEV;
+                goto finish;
+        }
+
+        if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", path) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (asprintf(&rule, "TAG==\"seat\", ID_PATH==\"%s\", ID_SEAT=\"%s\"", path, seat) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = write_one_line_file(file, rule);
+
+finish:
+        free(rule);
+        free(file);
+
+        if (d)
+                udev_device_unref(d);
+
+        return r;
+}
+
 static DBusHandlerResult manager_message_handler(
                 DBusConnection *connection,
                 DBusMessage *message,
@@ -957,6 +1023,33 @@ static DBusHandlerResult manager_message_handler(
                 if (!reply)
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "AttachDevice")) {
+                const char *sysfs, *seat;
+                dbus_bool_t interactive;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &seat,
+                                    DBUS_TYPE_STRING, &sysfs,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (!path_startswith(sysfs, "/sys") || !seat_name_is_valid(seat))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                r = verify_polkit(connection, message, "org.freedesktop.login1.attach-device", interactive, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                r = attach_device(m, seat, sysfs);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
                 char *introspection = NULL;

@@ -38,6 +38,7 @@
  * direct client API
  * add configuration file
  * D-Bus method: AttachDevices(seat, devices[]);
+ * use named pipes to detect when a session dies
  *
  * non-local X11 server
  * reboot/shutdown halt management

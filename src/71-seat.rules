@@ -12,13 +12,9 @@ SUBSYSTEM=="sound", KERNEL=="card*", TAG+="seat"
 SUBSYSTEM=="input", TAG+="seat"
 SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat"
 SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
+
 SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="0001", ENV{ID_AUTOSEAT}="1"
 
-IMPORT{parent}="ID_SEAT"
-
-ENV{ID_AUTOSEAT}=="1", ENV{ID_SEAT}=="", ENV{ID_PATH}=="", IMPORT{program}="path_id %p"
-ENV{ID_AUTOSEAT}=="1", ENV{ID_SEAT}=="", ENV{ID_PATH}!="", ENV{ID_SEAT}="seat-$env{ID_PATH}"
-
-ENV{ID_SEAT}!="", TAG+="$env{ID_SEAT}"
+TAG=="seat", ENV{ID_PATH}=="", IMPORT{program}="path_id %p"
 
 LABEL="seat_end"

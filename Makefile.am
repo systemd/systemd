@@ -214,6 +214,9 @@ dist_dbussystemservice_DATA = \
         src/org.freedesktop.login1.service
 
 dist_udevrules_DATA = \
+        src/70-uaccess.rules \
+        src/71-seat.rules \
+        src/73-seat-late.rules \
 	src/99-systemd.rules
 
 dbusinterface_DATA = \
