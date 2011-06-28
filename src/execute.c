@@ -957,9 +957,12 @@ static int do_capability_bounding_set_drop(uint64_t drop) {
                 }
         }
 
-        for (i = 0; i <= CAP_LAST_CAP; i++)
+        for (i = 0; i <= MAX(63LU, (unsigned long) CAP_LAST_CAP); i++)
                 if (drop & ((uint64_t) 1ULL << (uint64_t) i)) {
                         if (prctl(PR_CAPBSET_DROP, i) < 0) {
+                                if (errno == EINVAL)
+                                        break;
+
                                 r = -errno;
                                 goto finish;
                         }
@@ -1754,13 +1757,14 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         (c->secure_bits & SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
 
         if (c->capability_bounding_set_drop) {
+                unsigned long l;
                 fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
-                for (i = 0; i <= CAP_LAST_CAP; i++)
-                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) i))) {
+                for (l = 0; l <= (unsigned long) CAP_LAST_CAP; l++)
+                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l))) {
                                 char *t;
 
-                                if ((t = cap_to_name(i))) {
+                                if ((t = cap_to_name(l))) {
                                         fprintf(f, " %s", t);
                                         cap_free(t);
                                 }
