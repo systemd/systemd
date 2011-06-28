@@ -264,11 +264,6 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
 
         assert(m);
 
-        /* FIXME: drop this check as soon as libudev's enum support
-         * honours tags and subsystem matches at the same time */
-        if (!streq_ptr(udev_device_get_subsystem(d), "graphics"))
-                return 0;
-
         if (streq_ptr(udev_device_get_action(d), "remove")) {
 
                 /* FIXME: use syspath instead of sysname here, as soon as fb driver is fixed */
