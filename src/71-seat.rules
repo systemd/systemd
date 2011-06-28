@@ -15,7 +15,10 @@ SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
 SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="0001", ENV{ID_AUTOSEAT}="1"
 
 IMPORT{parent}="ID_SEAT"
-ENV{ID_AUTOSEAT}=="1", ENV{ID_SEAT}=="", ENV{ID_SEAT}="seat-foo"
-ENV{ID_SEAT}!="", TAG+="seat-foo"
+
+ENV{ID_AUTOSEAT}=="1", ENV{ID_SEAT}=="", ENV{ID_PATH}=="", IMPORT{program}="path_id %p"
+ENV{ID_AUTOSEAT}=="1", ENV{ID_SEAT}=="", ENV{ID_PATH}!="", ENV{ID_SEAT}="seat-$env{ID_PATH}"
+
+ENV{ID_SEAT}!="", TAG+="$env{ID_SEAT}"
 
 LABEL="seat_end"
