@@ -146,7 +146,7 @@ static int swap_list_get(MountPoint **head) {
         assert(head);
 
         if (!(proc_swaps = fopen("/proc/swaps", "re")))
-                return -errno;
+                return (errno == ENOENT) ? 0 : -errno;
 
         (void) fscanf(proc_swaps, "%*s %*s %*s %*s %*s\n");
 
