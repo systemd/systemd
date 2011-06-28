@@ -1310,6 +1310,6 @@ void bus_broadcast_finished(
         }
 
 finish:
-        if (m)
+        if (message)
                 dbus_message_unref(message);
 }
