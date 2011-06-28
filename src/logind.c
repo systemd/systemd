@@ -729,7 +729,7 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
                 goto finish;
         }
 
-        if (asprintf(&name, "autovt-getty@tty%i.service", vtnr) < 0) {
+        if (asprintf(&name, "autovt@tty%i.service", vtnr) < 0) {
                 log_error("Could not allocate service name.");
                 r = -ENOMEM;
                 goto finish;
