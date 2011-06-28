@@ -683,9 +683,14 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
 
         dbus_error_init(&error);
 
+        if (vtnr > m->n_autovts)
+                return 0;
+
         r = vt_is_busy(vtnr);
-        if (r != 0)
+        if (r < 0)
                 return r;
+        else if (r > 0)
+                return -EBUSY;
 
         message = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnit");
         if (!message) {
