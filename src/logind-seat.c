@@ -199,7 +199,7 @@ static int seat_preallocate_vts(Seat *s) {
         if (!seat_is_vtconsole(s))
                 return 0;
 
-        for (i = 1; i < s->manager->n_autovts; i++) {
+        for (i = 1; i <= s->manager->n_autovts; i++) {
                 int q;
 
                 q = vt_allocate(i);
