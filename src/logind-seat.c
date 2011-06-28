@@ -117,27 +117,20 @@ int seat_save(Seat *s) {
         if (s->sessions) {
                 Session *i;
 
-                fputs("OTHER=", f);
+                fputs("SESSIONS=", f);
                 LIST_FOREACH(sessions_by_seat, i, s->sessions) {
-                        if (i == s->active)
-                                continue;
-
                         fprintf(f,
                                 "%s%c",
                                 i->id,
                                 i->sessions_by_seat_next ? ' ' : '\n');
                 }
 
-                fputs("OTHER_UIDS=", f);
-                LIST_FOREACH(sessions_by_seat, i, s->sessions) {
-                        if (i == s->active)
-                                continue;
-
+                fputs("UIDS=", f);
+                LIST_FOREACH(sessions_by_seat, i, s->sessions)
                         fprintf(f,
                                 "%lu%c",
                                 (unsigned long) i->user->uid,
                                 i->sessions_by_seat_next ? ' ' : '\n');
-                }
         }
 
         fflush(f);
