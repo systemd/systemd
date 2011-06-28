@@ -641,6 +641,7 @@ static DBusHandlerResult manager_message_handler(
         const BusProperty properties[] = {
                 { "org.freedesktop.login1.Manager", "ControlGroupHierarchy",  bus_property_append_string,   "s",  m->cgroup_path          },
                 { "org.freedesktop.login1.Manager", "Controllers",            bus_property_append_strv,     "as", m->controllers          },
+                { "org.freedesktop.login1.Manager", "ResetControllers",       bus_property_append_strv,     "as", m->reset_controllers    },
                 { "org.freedesktop.login1.Manager", "NAutoVTs",               bus_property_append_unsigned, "u",  &m->n_autovts           },
                 { "org.freedesktop.login1.Manager", "KillOnlyUsers",          bus_property_append_strv,     "as", m->kill_only_users      },
                 { "org.freedesktop.login1.Manager", "KillExcludeUsers",       bus_property_append_strv,     "as", m->kill_exclude_users   },

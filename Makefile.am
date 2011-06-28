@@ -197,7 +197,9 @@ pamlib_LTLIBRARIES = \
 endif
 
 dist_pkgsysconf_DATA = \
-	src/system.conf
+	src/system.conf \
+        src/user.conf \
+        src/systemd-logind.conf
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \

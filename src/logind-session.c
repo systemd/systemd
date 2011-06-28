@@ -473,6 +473,7 @@ static int session_create_cgroup(Session *s) {
         STRV_FOREACH(k, s->manager->controllers) {
 
                 if (strv_contains(s->reset_controllers, *k) ||
+                    strv_contains(s->manager->reset_controllers, *k) ||
                     strv_contains(s->controllers, *k))
                         continue;
 
@@ -484,6 +485,18 @@ static int session_create_cgroup(Session *s) {
         if (s->leader > 0) {
 
                 STRV_FOREACH(k, s->reset_controllers) {
+                        r = cg_attach(*k, "/", s->leader);
+                        if (r < 0)
+                                log_warning("Failed to reset controller %s: %s", *k, strerror(-r));
+
+                }
+
+                STRV_FOREACH(k, s->manager->reset_controllers) {
+
+                        if (strv_contains(s->reset_controllers, *k) ||
+                            strv_contains(s->controllers, *k))
+                                continue;
+
                         r = cg_attach(*k, "/", s->leader);
                         if (r < 0)
                                 log_warning("Failed to reset controller %s: %s", *k, strerror(-r));

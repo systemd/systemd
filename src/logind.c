@@ -32,6 +32,8 @@
 #include "logind.h"
 #include "dbus-common.h"
 #include "dbus-loop.h"
+#include "strv.h"
+#include "conf-parser.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -123,6 +125,11 @@ void manager_free(Manager *m) {
 
         if (m->epoll_fd >= 0)
                 close_nointr_nofail(m->epoll_fd);
+
+        strv_free(m->controllers);
+        strv_free(m->reset_controllers);
+        strv_free(m->kill_only_users);
+        strv_free(m->kill_exclude_users);
 
         free(m->cgroup_path);
         free(m);
@@ -1144,6 +1151,48 @@ int manager_run(Manager *m) {
         return 0;
 }
 
+static int manager_parse_config_file(Manager *m) {
+
+        const ConfigItem items[] = {
+                { "NAutoVTs",          config_parse_unsigned, 0, &m->n_autovts,           "Login" },
+                { "KillUserProcesses", config_parse_bool,     0, &m->kill_user_processes, "Login" },
+                { "KilOnlyUsers",      config_parse_strv,     0, &m->kill_only_users,     "Login" },
+                { "KillExcludeUsers",  config_parse_strv,     0, &m->kill_exclude_users,  "Login" },
+                { "Controllers",       config_parse_strv,     0, &m->controllers,         "Login" },
+                { "ResetControllers",  config_parse_strv,     0, &m->reset_controllers,   "Login" },
+                { NULL, NULL, 0, NULL, NULL }
+        };
+
+        static const char * const sections[] = {
+                "Login",
+                NULL
+        };
+
+        FILE *f;
+        const char *fn;
+        int r;
+
+        assert(m);
+
+        fn = "/etc/systemd/systemd-logind.conf";
+        f = fopen(fn, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                log_warning("Failed to open configuration file %s: %m", fn);
+                return -errno;
+        }
+
+        r = config_parse(fn, f, sections, items, false, NULL);
+        if (r < 0)
+                log_warning("Failed to parse configuration file: %s", strerror(-r));
+
+        fclose(f);
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r;
@@ -1166,6 +1215,8 @@ int main(int argc, char *argv[]) {
                 r = -ENOMEM;
                 goto finish;
         }
+
+        manager_parse_config_file(m);
 
         r = manager_startup(m);
         if (r < 0) {

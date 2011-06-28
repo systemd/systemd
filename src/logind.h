@@ -84,7 +84,7 @@ struct Manager {
         Seat *vtconsole;
 
         char *cgroup_path;
-        char **controllers;
+        char **controllers, **reset_controllers;
 
         char **kill_only_users, **kill_exclude_users;
 

@@ -246,6 +246,10 @@ static int user_create_cgroup(User *u) {
         u->cgroup_path = p;
 
         STRV_FOREACH(k, u->manager->controllers) {
+
+                if (strv_contains(u->manager->reset_controllers, *k))
+                        continue;
+
                 r = cg_create(*k, p);
                 if (r < 0)
                         log_warning("Failed to create cgroup %s:%s: %s", *k, p, strerror(-r));
