@@ -542,6 +542,8 @@ static bool device_has_tag(struct udev_device *d, const char *tag) {
         assert(d);
         assert(tag);
 
+        udev_device_get_is_initialized(d);
+
         first = udev_device_get_tags_list_entry(d);
         udev_list_entry_foreach(item, first)
                 if (streq(udev_list_entry_get_name(item), tag))
