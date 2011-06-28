@@ -186,12 +186,14 @@ static int vt_allocate(int vtnr) {
         return r;
 }
 
-static int seat_preallocate_vts(Seat *s) {
+int seat_preallocate_vts(Seat *s) {
         int r = 0;
         unsigned i;
 
         assert(s);
         assert(s->manager);
+
+        log_debug("Preallocating VTs...");
 
         if (s->manager->n_autovts <= 0)
                 return 0;

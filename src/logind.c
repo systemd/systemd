@@ -42,7 +42,8 @@ Manager *manager_new(void) {
 
         m->console_active_fd = -1;
         m->bus_fd = -1;
-        m->udev_fd = -1;
+        m->udev_seat_fd = -1;
+        m->udev_vcsa_fd = -1;
         m->epoll_fd = -1;
         m->n_autovts = 6;
 
@@ -102,8 +103,11 @@ void manager_free(Manager *m) {
         if (m->console_active_fd >= 0)
                 close_nointr_nofail(m->console_active_fd);
 
-        if (m->udev_monitor)
-                udev_monitor_unref(m->udev_monitor);
+        if (m->udev_seat_monitor)
+                udev_monitor_unref(m->udev_seat_monitor);
+
+        if (m->udev_vcsa_monitor)
+                udev_monitor_unref(m->udev_vcsa_monitor);
 
         if (m->udev)
                 udev_unref(m->udev);
@@ -247,7 +251,7 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
         return manager_add_user(m, uid, p->pw_gid, p->pw_name, _user);
 }
 
-int manager_process_device(Manager *m, struct udev_device *d) {
+int manager_process_seat_device(Manager *m, struct udev_device *d) {
         Device *device;
         int r;
 
@@ -339,7 +343,7 @@ int manager_enumerate_devices(Manager *m) {
                         goto finish;
                 }
 
-                k = manager_process_device(m, d);
+                k = manager_process_seat_device(m, d);
                 udev_device_unref(d);
 
                 if (k < 0)
@@ -621,17 +625,42 @@ int manager_enumerate_sessions(Manager *m) {
         return r;
 }
 
-int manager_dispatch_udev(Manager *m) {
+int manager_dispatch_seat_udev(Manager *m) {
         struct udev_device *d;
         int r;
 
         assert(m);
 
-        d = udev_monitor_receive_device(m->udev_monitor);
+        d = udev_monitor_receive_device(m->udev_seat_monitor);
         if (!d)
                 return -ENOMEM;
 
-        r = manager_process_device(m, d);
+        r = manager_process_seat_device(m, d);
+        udev_device_unref(d);
+
+        return r;
+}
+
+
+int manager_dispatch_vcsa_udev(Manager *m) {
+        struct udev_device *d;
+        int r = 0;
+        const char *name;
+
+        assert(m);
+
+        d = udev_monitor_receive_device(m->udev_vcsa_monitor);
+        if (!d)
+                return -ENOMEM;
+
+        name = udev_device_get_sysname(d);
+
+        /* Whenever a VCSA device is removed try to reallocate our
+         * VTs, to make sure our auto VTs never go away. */
+
+        if (name && startswith(name, "vcsa") && streq_ptr(udev_device_get_action(d), "remove"))
+                r = seat_preallocate_vts(m->vtconsole);
+
         udev_device_unref(d);
 
         return r;
@@ -680,10 +709,11 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
         DBusError error;
 
         assert(m);
+        assert(vtnr >= 1);
 
         dbus_error_init(&error);
 
-        if (vtnr > m->n_autovts)
+        if ((unsigned) vtnr > m->n_autovts)
                 return 0;
 
         r = vt_is_busy(vtnr);
@@ -881,31 +911,56 @@ static int manager_connect_udev(Manager *m) {
         int r;
 
         assert(m);
-        assert(!m->udev_monitor);
+        assert(!m->udev_seat_monitor);
+        assert(!m->udev_vcsa_monitor);
 
-        m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
-        if (!m->udev_monitor)
+        m->udev_seat_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        if (!m->udev_seat_monitor)
                 return -ENOMEM;
 
-        r = udev_monitor_filter_add_match_tag(m->udev_monitor, "seat");
+        r = udev_monitor_filter_add_match_tag(m->udev_seat_monitor, "seat");
         if (r < 0)
                 return r;
 
-        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "graphics", NULL);
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_seat_monitor, "graphics", NULL);
         if (r < 0)
                 return r;
 
-        r = udev_monitor_enable_receiving(m->udev_monitor);
+        r = udev_monitor_enable_receiving(m->udev_seat_monitor);
         if (r < 0)
                 return r;
 
-        m->udev_fd = udev_monitor_get_fd(m->udev_monitor);
+        m->udev_seat_fd = udev_monitor_get_fd(m->udev_seat_monitor);
 
         zero(ev);
         ev.events = EPOLLIN;
-        ev.data.u32 = FD_UDEV;
+        ev.data.u32 = FD_SEAT_UDEV;
 
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_fd, &ev) < 0)
+        if (m->n_autovts <= 0)
+                return 0;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_seat_fd, &ev) < 0)
+                return -errno;
+
+        m->udev_vcsa_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        if (!m->udev_vcsa_monitor)
+                return -ENOMEM;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_vcsa_monitor, "vc", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_enable_receiving(m->udev_vcsa_monitor);
+        if (r < 0)
+                return r;
+
+        m->udev_vcsa_fd = udev_monitor_get_fd(m->udev_vcsa_monitor);
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.u32 = FD_VCSA_UDEV;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_vcsa_fd, &ev) < 0)
                 return -errno;
 
         return 0;
@@ -1067,8 +1122,12 @@ int manager_run(Manager *m) {
 
                 switch (event.data.u32) {
 
-                case FD_UDEV:
-                        manager_dispatch_udev(m);
+                case FD_SEAT_UDEV:
+                        manager_dispatch_seat_udev(m);
+                        break;
+
+                case FD_VCSA_UDEV:
+                        manager_dispatch_vcsa_udev(m);
                         break;
 
                 case FD_CONSOLE:

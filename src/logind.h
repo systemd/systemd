@@ -34,7 +34,6 @@
 
 /* TODO:
  *
- * recreate VTs when disallocated
  * spawn user systemd
  * direct client API
  * add configuration file
@@ -65,9 +64,11 @@ struct Manager {
         LIST_HEAD(User, user_gc_queue);
 
         struct udev *udev;
-        struct udev_monitor *udev_monitor;
+        struct udev_monitor *udev_seat_monitor, *udev_vcsa_monitor;
 
-        int udev_fd;
+        int udev_seat_fd;
+        int udev_vcsa_fd;
+
         int console_active_fd;
         int bus_fd;
         int epoll_fd;
@@ -90,7 +91,8 @@ struct Manager {
 };
 
 enum {
-        FD_UDEV,
+        FD_SEAT_UDEV,
+        FD_VCSA_UDEV,
         FD_CONSOLE,
         FD_BUS,
         FD_PIPE_BASE
@@ -106,8 +108,9 @@ int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **
 int manager_add_user_by_name(Manager *m, const char *name, User **_user);
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
 
-int manager_process_device(Manager *m, struct udev_device *d);
-int manager_dispatch_udev(Manager *m);
+int manager_process_seat_device(Manager *m, struct udev_device *d);
+int manager_dispatch_seat_udev(Manager *m);
+int manager_dispatch_vcsa_udev(Manager *m);
 int manager_dispatch_console(Manager *m);
 
 int manager_enumerate_devices(Manager *m);
