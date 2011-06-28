@@ -7,7 +7,8 @@
 
 ACTION=="remove", GOTO="seat_end"
 
-TAG=="uaccess", TAG+="seat"
+TAG=="uaccess", SUBSYSTEM!="sound", TAG+="seat"
+SUBSYSTEM=="sound", KERNEL=="card*", TAG+="seat"
 SUBSYSTEM=="input", TAG+="seat"
 SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat"
 SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
