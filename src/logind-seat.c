@@ -492,5 +492,8 @@ bool seat_name_is_valid(const char *name) {
                 if (!seat_name_valid_char(*p))
                         return false;
 
+        if (strlen(name) > 255)
+                return false;
+
         return true;
 }

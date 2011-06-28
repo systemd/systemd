@@ -45,6 +45,7 @@
  * use device_has_tag() as soon as it is available
  * trigger based on libudev if available
  * enumerate recursively with libudev when triggering
+ * use sysfs in device hash table, not sysname, when fb driver is fixed
  *
  * non-local X11 server
  * reboot/shutdown halt management
