@@ -928,17 +928,29 @@ static DBusHandlerResult manager_message_handler(
                         goto oom;
 
                 if (b) {
+                        User *u;
+
                         r = touch(path);
                         free(path);
 
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
+
+                        if (manager_add_user_by_uid(m, uid, &u) >= 0)
+                                user_start(u);
+
                 } else {
+                        User *u;
+
                         r = unlink(path);
                         free(path);
 
                         if (r < 0 && errno != ENOENT)
                                 return bus_send_error_reply(connection, message, &error, -errno);
+
+                        u = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+                        if (u)
+                                user_add_to_gc_queue(u);
                 }
 
                 reply = dbus_message_new_method_return(message);
