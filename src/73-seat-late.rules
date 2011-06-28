@@ -8,7 +8,7 @@
 ACTION=="remove", GOTO="seat_late_end"
 TAG!="seat", GOTO="seat_late_end"
 
-ENV{ID_SEAT}=="", ENV{ID_AUTOSEAT}=="1", ENV{ID_PATH}!="", ENV{ID_SEAT}="seat-$env{ID_PATH}"
+ENV{ID_SEAT}=="", ENV{ID_AUTOSEAT}=="1", ENV{ID_FOR_SEAT}!="", ENV{ID_SEAT}="seat-$env{ID_FOR_SEAT}"
 ENV{ID_SEAT}=="", IMPORT{parent}="ID_SEAT"
 
 ENV{ID_SEAT}!="", TAG+="$env{ID_SEAT}"

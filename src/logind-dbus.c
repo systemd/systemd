@@ -553,7 +553,7 @@ static bool device_has_tag(struct udev_device *d, const char *tag) {
 static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         struct udev_device *d;
         char *rule = NULL, *file = NULL;
-        const char *path;
+        const char *id_for_seat;
         int r;
 
         assert(m);
@@ -569,22 +569,23 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
                 goto finish;
         }
 
-        path = udev_device_get_property_value(d, "ID_PATH");
-        if (!path) {
+        id_for_seat = udev_device_get_property_value(d, "ID_FOR_SEAT");
+        if (!id_for_seat) {
                 r = -ENODEV;
                 goto finish;
         }
 
-        if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", path) < 0) {
+        if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
 
-        if (asprintf(&rule, "TAG==\"seat\", ID_PATH==\"%s\", ID_SEAT=\"%s\"", path, seat) < 0) {
+        if (asprintf(&rule, "TAG==\"seat\", ENV{ID_FOR_SEAT}==\"%s\", ENV{ID_SEAT}=\"%s\"", id_for_seat, seat) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
 
+        mkdir_p("/etc/udev/rules.d", 0755);
         r = write_one_line_file(file, rule);
 
 finish:
