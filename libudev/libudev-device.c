@@ -1641,6 +1641,8 @@ UDEV_EXPORT struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_
 {
 	if (udev_device == NULL)
 		return NULL;
+	if (!udev_device->info_loaded)
+		udev_device_read_db(udev_device, NULL);
 	return udev_list_get_entry(&udev_device->tags_list);
 }
 

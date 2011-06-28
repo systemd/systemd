@@ -1,4 +1,4 @@
- - detect uevent loops !!!
+ - remove RUN+="socket:"
 
  - use 'udevd:' in logs
 
