@@ -297,7 +297,19 @@ int session_load(Session *s) {
                         s->type = t;
         }
 
-        session_open_fifo(s);
+        if (s->fifo_path) {
+                int fd;
+
+                /* If we open an unopened pipe for reading we will not
+                   get an EOF. to trigger an EOF we hence open it for
+                   reading, but close it right-away which then will
+                   trigger the EOF. */
+
+                fd = session_create_fifo(s);
+                if (fd >= 0)
+                        close_nointr_nofail(fd);
+        }
+
 
 finish:
         free(remote);
@@ -768,41 +780,12 @@ void session_set_idle_hint(Session *s, bool b) {
                              "IdleSinceHintMonotonic\0");
 }
 
-int session_open_fifo(Session *s) {
-        struct epoll_event ev;
-        int r;
-
-        assert(s);
-
-        if (s->fifo_fd >= 0)
-                return 0;
-
-        if (!s->fifo_path)
-                return -EINVAL;
-
-        s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
-        if (s->fifo_fd < 0)
-                return -errno;
-
-        r = hashmap_put(s->manager->fifo_fds, INT_TO_PTR(s->fifo_fd + 1), s);
-        if (r < 0)
-                return r;
-
-        zero(ev);
-        ev.events = 0;
-        ev.data.u32 = FD_FIFO_BASE + s->fifo_fd;
-
-        if (epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, s->fifo_fd, &ev) < 0)
-                return -errno;
-
-        return 0;
-}
-
 int session_create_fifo(Session *s) {
         int r;
 
         assert(s);
 
+        /* Create FIFO */
         if (!s->fifo_path) {
                 if (asprintf(&s->fifo_path, "/run/systemd/sessions/%s.ref", s->id) < 0)
                         return -ENOMEM;
@@ -812,9 +795,24 @@ int session_create_fifo(Session *s) {
         }
 
         /* Open reading side */
-        r = session_open_fifo(s);
-        if (r < 0)
-                return r;
+        if (s->fifo_fd < 0) {
+                struct epoll_event ev;
+
+                s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
+                if (s->fifo_fd < 0)
+                        return -errno;
+
+                r = hashmap_put(s->manager->fifo_fds, INT_TO_PTR(s->fifo_fd + 1), s);
+                if (r < 0)
+                        return r;
+
+                zero(ev);
+                ev.events = 0;
+                ev.data.u32 = FD_FIFO_BASE + s->fifo_fd;
+
+                if (epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, s->fifo_fd, &ev) < 0)
+                        return -errno;
+        }
 
         /* Open writing side */
         r = open(s->fifo_path, O_WRONLY|O_CLOEXEC|O_NDELAY);
