@@ -302,6 +302,7 @@ static DBusHandlerResult session_message_dispatch(
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "SetIdleHint")) {
                 dbus_bool_t b;
+                unsigned long ul;
 
                 if (!dbus_message_get_args(
                                     message,
@@ -309,6 +310,13 @@ static DBusHandlerResult session_message_dispatch(
                                     DBUS_TYPE_BOOLEAN, &b,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), &error);
+                if (ul == (unsigned long) -1)
+                        return bus_send_error_reply(connection, message, &error, -EIO);
+
+                if (ul != 0 && ul != s->user->uid)
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
 
                 session_set_idle_hint(s, b);
 
