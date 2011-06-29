@@ -57,9 +57,9 @@ static int parse_argv(pam_handle_t *handle,
         for (i = 0; i < (unsigned) argc; i++) {
                 int k;
 
-                if (startswith(argv[i], "kill-processes=")) {
-                        if ((k = parse_boolean(argv[i] + 15)) < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to parse kill-processes= argument.");
+                if (startswith(argv[i], "kill-session-processes=")) {
+                        if ((k = parse_boolean(argv[i] + 23)) < 0) {
+                                pam_syslog(handle, LOG_ERR, "Failed to parse kill-session-processes= argument.");
                                 return k;
                         }
 

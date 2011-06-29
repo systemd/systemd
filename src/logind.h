@@ -36,9 +36,9 @@
  *
  * spawn user systemd
  * direct client API
- * add configuration file man page
  * verify access to SetIdleHint
  * add FlushDevices bus call
+ * hook up ACL tool for udev
  *
  * udev:
  * drop redundant udev_device_get_is_initialized() use as soon as libudev is fixed

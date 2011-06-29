@@ -147,6 +147,20 @@
                                 <literal>cpu</literal>.</para></listitem>
                         </varlistentry>
                 </variablelist>
+
+                <para>Note that setting
+                <varname>KillUserProcesses=1</varname> will break tools
+                like
+                <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+                <para>Note that <varname>KillUserProcesses=1</varname>
+                is a weaker version of
+                <varname>kill-session-processes=1</varname> which may
+                be configured per-service for
+                <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>. The
+                latter kills processes of a session as soon as it
+                ends, the former kills processes as soon as the last
+                session of the user ends.</para>
         </refsect1>
 
         <refsect1>
