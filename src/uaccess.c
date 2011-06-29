@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         }
 
         path = argv[1];
-        seat = argc >= 3 ? argv[2] : "seat0";
+        seat = argc < 3 || isempty(argv[2]) ? "seat0" : argv[2];
 
         p = strappend("/run/systemd/seats/", seat);
         if (!p) {

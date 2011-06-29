@@ -22,6 +22,9 @@ F15 External:
 * fix broken Sockets=syslog-ng.socket packaging
 
 Features:
+
+* understand https://bugzilla.redhat.com/show_bug.cgi?id=672194
+
 * possibly set timezone offset from systemd at init instead
   of calling hwclock
 

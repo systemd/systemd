@@ -286,7 +286,7 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
                 Seat *seat;
 
                 sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (!sn)
+                if (isempty(sn))
                         sn = "seat0";
 
                 if (!seat_name_is_valid(sn)) {

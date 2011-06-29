@@ -222,7 +222,7 @@ int devnode_acl_all(struct udev *udev,
 
         assert(udev);
 
-        if (!seat)
+        if (isempty(seat))
                 seat = "seat0";
 
         e = udev_enumerate_new(udev);
@@ -233,11 +233,13 @@ int devnode_acl_all(struct udev *udev,
         if (r < 0)
                 goto finish;
 
-        if (!streq(seat, "seat0")) {
-                r = udev_enumerate_add_match_tag(e, seat);
-                if (r < 0)
-                        goto finish;
-        }
+        /* FIXME: when libudev is able to handle multiple match tags
+         * properly, optimize the search here a bit */
+        /* if (!streq(seat, "seat0")) { */
+        /*         r = udev_enumerate_add_match_tag(e, seat); */
+        /*         if (r < 0) */
+        /*                 goto finish; */
+        /* } */
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
@@ -254,8 +256,8 @@ int devnode_acl_all(struct udev *udev,
                         goto finish;
                 }
 
-                sn = udev_device_get_property_value(d, "SEAT");
-                if (!sn)
+                sn = udev_device_get_property_value(d, "ID_SEAT");
+                if (isempty(sn))
                         sn = "seat0";
 
                 if (!streq(seat, sn)) {
@@ -269,6 +271,8 @@ int devnode_acl_all(struct udev *udev,
                         r = -ENOMEM;
                         goto finish;
                 }
+
+                log_debug("Fixing up %s for seat %s...", node, sn);
 
                 r = devnode_acl(node, flush, del, old_uid, add, new_uid);
                 udev_device_unref(d);

@@ -45,6 +45,7 @@
  * trigger based on libudev if available
  * enumerate recursively with libudev when triggering
  * use sysfs in device hash table, not sysname, when fb driver is fixed
+ * fix ACL enumeration as soon as libudev can properly handle two match tags when enumerating
  *
  * non-local X11 server
  * reboot/shutdown halt management
