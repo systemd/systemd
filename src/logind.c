@@ -1158,7 +1158,7 @@ static int manager_parse_config_file(Manager *m) {
         const ConfigItem items[] = {
                 { "NAutoVTs",          config_parse_unsigned, 0, &m->n_autovts,           "Login" },
                 { "KillUserProcesses", config_parse_bool,     0, &m->kill_user_processes, "Login" },
-                { "KilOnlyUsers",      config_parse_strv,     0, &m->kill_only_users,     "Login" },
+                { "KillOnlyUsers",     config_parse_strv,     0, &m->kill_only_users,     "Login" },
                 { "KillExcludeUsers",  config_parse_strv,     0, &m->kill_exclude_users,  "Login" },
                 { "Controllers",       config_parse_strv,     0, &m->controllers,         "Login" },
                 { "ResetControllers",  config_parse_strv,     0, &m->reset_controllers,   "Login" },
