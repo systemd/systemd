@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
         const char *path, *seat;
         char *p, *active_uid = NULL;
         unsigned long ul;
+        bool changed_acl = false;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -66,21 +67,37 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = safe_atolu(active_uid, &ul);
-        if (r < 0) {
-                log_error("Failed to parse active UID value %s: %s", active_uid, strerror(-r));
-                goto finish;
-        }
+        if (active_uid) {
+                r = safe_atolu(active_uid, &ul);
+                if (r < 0) {
+                        log_error("Failed to parse active UID value %s: %s", active_uid, strerror(-r));
+                        goto finish;
+                }
 
-        r = devnode_acl(path, true, false, 0, true, (uid_t) ul);
-        if (r < 0) {
-                log_error("Failed to apply ACL on %s: %s", path, strerror(-r));
-                goto finish;
+                r = devnode_acl(path, true, false, 0, true, (uid_t) ul);
+                if (r < 0) {
+                        log_error("Failed to apply ACL on %s: %s", path, strerror(-r));
+                        goto finish;
+                }
+
+                changed_acl = true;
         }
 
         r = 0;
 
 finish:
+        if (path && !changed_acl) {
+                int k;
+                /* Better be safe that sorry and reset ACL */
+
+                k = devnode_acl(path, true, false, 0, false, 0);
+                if (k < 0) {
+                        log_error("Failed to apply ACL on %s: %s", path, strerror(-k));
+                        if (r >= 0)
+                                r = k;
+                }
+        }
+
         free(active_uid);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
