@@ -626,6 +626,7 @@ MANPAGES = \
 	man/shutdown.8 \
 	man/pam_systemd.8 \
 	man/systemd.conf.5 \
+	man/systemd-logind.conf.5 \
 	man/tmpfiles.d.5 \
 	man/hostname.5 \
 	man/machine-id.5 \

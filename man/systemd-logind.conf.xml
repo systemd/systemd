@@ -1,0 +1,160 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-logind.conf">
+        <refentryinfo>
+                <title>systemd-logind.conf</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-logind.conf</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-logind.conf</refname>
+                <refpurpose>login manager configuration file</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd-login.conf</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>This files configures various parameters of the systemd login manager.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>All options are configured in the
+                <literal>[Login]</literal> section:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>NAutoVTs=</varname></term>
+
+                                <listitem><para>Takes a positive
+                                integer. How many virtual terminals to
+                                allocate by default and when switched
+                                to autospawn <literal>autovt</literal>
+                                services on (if they are otherwise
+                                unused). These services are
+                                instantiated from a template of
+                                <filename>autovt@.service</filename>
+                                with the virtual terminal TTY name,
+                                e.g. <filename>autovt@tty4.service</filename>. By
+                                default
+                                <filename>autovt@.service</filename>
+                                is linked to
+                                <filename>getty@.service</filename>,
+                                i.e. login prompts are started
+                                dynamically as the user switches to
+                                unused virtual terminals, and this
+                                parameter hence controls how many
+                                gettys are available on the virtual
+                                terminals. Defaults to 6. When set to
+                                0, automatic spawning of
+                                <literal>autovt</literal> services is
+                                disabled.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillUserProcesses=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. Configures whether the
+                                processes of a user should be killed
+                                when she or he completely logs out (i.e. after
+                                her/his last session ended). Defaults to
+                                <literal>no</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillOnlyUsers=</varname></term>
+                                <term><varname>KillExcludeUsers=</varname></term>
+
+                                <listitem><para>These settings take
+                                space separated lists of user names
+                                that influence the effect of
+                                <varname>KillUserProcesses=</varname>. If
+                                not empty only processes of users
+                                listed in
+                                <varname>KillOnlyUsers</varname> will
+                                be killed when they log out
+                                entirely. Processes of users listed in
+                                <varname>KillExcludeUsers=</varname>
+                                are excluded from being
+                                killed. <varname>KillExcludeUsers=</varname>
+                                defaults to <literal>root</literal>
+                                and takes precedence over
+                                <varname>KillOnlyUsers=</varname>
+                                which defaults to the empty list.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Controllers=</varname></term>
+                                <term><varname>ResetControllers=</varname></term>
+
+                                <listitem><para>These settings control
+                                the default control group hierarchies
+                                users logging are added to. When
+                                logging in users will get private
+                                control groups in all hierarchies
+                                listed in
+                                <varname>Controllers=</varname> and be
+                                reset to the root control group in all
+                                hierarchies listed in
+                                <varname>ResetControllers=</varname>. <varname>Controllers=</varname>
+                                defaults to the empty list,
+                                <varname>ResetControllers=</varname>
+                                defaults to
+                                <literal>cpu</literal>.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
