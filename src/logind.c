@@ -56,7 +56,14 @@ Manager *manager_new(void) {
         m->cgroups = hashmap_new(string_hash_func, string_compare_func);
         m->fifo_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users) {
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->cgroups || !m->fifo_fds) {
+                manager_free(m);
+                return NULL;
+        }
+
+        m->reset_controllers = strv_new("cpu", NULL);
+        m->kill_exclude_users = strv_new("root", NULL);
+        if (!m->reset_controllers || !m->kill_exclude_users) {
                 manager_free(m);
                 return NULL;
         }

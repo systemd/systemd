@@ -50,8 +50,6 @@ static int parse_argv(pam_handle_t *handle,
                       bool *debug) {
 
         unsigned i;
-        bool reset_controller_set = false;
-        bool kill_exclude_users_set = false;
 
         assert(argc >= 0);
         assert(argc == 0 || argv);
@@ -107,8 +105,6 @@ static int parse_argv(pam_handle_t *handle,
                                 *reset_controllers = l;
                         }
 
-                        reset_controller_set = true;
-
                 } else if (startswith(argv[i], "kill-only-users=")) {
 
                         if (kill_only_users) {
@@ -137,8 +133,6 @@ static int parse_argv(pam_handle_t *handle,
                                 *kill_exclude_users = l;
                         }
 
-                        kill_exclude_users_set = true;
-
                 } else if (startswith(argv[i], "debug=")) {
                         if ((k = parse_boolean(argv[i] + 6)) < 0) {
                                 pam_syslog(handle, LOG_ERR, "Failed to parse debug= argument.");
@@ -157,34 +151,6 @@ static int parse_argv(pam_handle_t *handle,
                         pam_syslog(handle, LOG_ERR, "Unknown parameter '%s'.", argv[i]);
                         return -EINVAL;
                 }
-        }
-
-        if (!reset_controller_set && reset_controllers) {
-                char **l;
-
-                if (!(l = strv_new("cpu", NULL))) {
-                        pam_syslog(handle, LOG_ERR, "Out of memory");
-                        return -ENOMEM;
-                }
-
-                *reset_controllers = l;
-        }
-
-        if (controllers)
-                strv_remove(*controllers, SYSTEMD_CGROUP_CONTROLLER);
-
-        if (reset_controllers)
-                strv_remove(*reset_controllers, SYSTEMD_CGROUP_CONTROLLER);
-
-        if (!kill_exclude_users_set && kill_exclude_users) {
-                char **l;
-
-                if (!(l = strv_new("root", NULL))) {
-                        pam_syslog(handle, LOG_ERR, "Out of memory");
-                        return -ENOMEM;
-                }
-
-                *kill_exclude_users = l;
         }
 
         return 0;
