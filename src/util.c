@@ -4674,7 +4674,11 @@ int vt_disallocate(const char *name) {
                 if (fd < 0)
                         return fd;
 
-                loop_write(fd, "\033[H\033[2J", 7, false); /* clear screen */
+                loop_write(fd,
+                           "\033[r"    /* clear scrolling region */
+                           "\033[H"    /* move home */
+                           "\033[2J",  /* clear screen */
+                           10, false);
                 close_nointr_nofail(fd);
 
                 return 0;
@@ -4710,8 +4714,11 @@ int vt_disallocate(const char *name) {
         if (fd < 0)
                 return fd;
 
-        /* Requires Linux 2.6.40 */
-        loop_write(fd, "\033[H\033[3J", 7, false); /* clear screen including scrollback */
+        loop_write(fd,
+                   "\033[r"   /* clear scrolling region */
+                   "\033[H"   /* move home */
+                   "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
+                   10, false);
         close_nointr_nofail(fd);
 
         return 0;
