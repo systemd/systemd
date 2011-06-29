@@ -446,10 +446,10 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
         return idle_hint;
 }
 
-int seat_check_gc(Seat *s) {
+int seat_check_gc(Seat *s, bool drop_not_started) {
         assert(s);
 
-        if (!s->started)
+        if (drop_not_started && !s->started)
                 return 0;
 
         if (seat_is_vtconsole(s))

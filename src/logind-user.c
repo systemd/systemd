@@ -457,13 +457,13 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
         return idle_hint;
 }
 
-int user_check_gc(User *u) {
+int user_check_gc(User *u, bool drop_not_started) {
         int r;
         char *p;
 
         assert(u);
 
-        if (!u->started)
+        if (drop_not_started && !u->started)
                 return 0;
 
         if (u->sessions)

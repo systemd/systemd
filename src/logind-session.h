@@ -86,7 +86,7 @@ struct Session {
 
 Session *session_new(Manager *m, User *u, const char *id);
 void session_free(Session *s);
-int session_check_gc(Session *s);
+int session_check_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);

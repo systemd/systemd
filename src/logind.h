@@ -131,7 +131,7 @@ int manager_spawn_autovt(Manager *m, int vtnr);
 
 void manager_cgroup_notify_empty(Manager *m, const char *cgroup);
 
-void manager_gc(Manager *m);
+void manager_gc(Manager *m, bool drop_not_started);
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 

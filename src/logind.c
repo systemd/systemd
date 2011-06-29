@@ -975,7 +975,7 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
-void manager_gc(Manager *m) {
+void manager_gc(Manager *m, bool drop_not_started) {
         Seat *seat;
         Session *session;
         User *user;
@@ -986,7 +986,7 @@ void manager_gc(Manager *m) {
                 LIST_REMOVE(Seat, gc_queue, m->seat_gc_queue, seat);
                 seat->in_gc_queue = false;
 
-                if (seat_check_gc(seat) == 0) {
+                if (seat_check_gc(seat, drop_not_started) == 0) {
                         seat_stop(seat);
                         seat_free(seat);
                 }
@@ -996,7 +996,7 @@ void manager_gc(Manager *m) {
                 LIST_REMOVE(Session, gc_queue, m->session_gc_queue, session);
                 session->in_gc_queue = false;
 
-                if (session_check_gc(session) == 0) {
+                if (session_check_gc(session, drop_not_started) == 0) {
                         session_stop(session);
                         session_free(session);
                 }
@@ -1006,7 +1006,7 @@ void manager_gc(Manager *m) {
                 LIST_REMOVE(User, gc_queue, m->user_gc_queue, user);
                 user->in_gc_queue = false;
 
-                if (user_check_gc(user) == 0) {
+                if (user_check_gc(user, drop_not_started) == 0) {
                         user_stop(user);
                         user_free(user);
                 }
@@ -1090,6 +1090,9 @@ int manager_startup(Manager *m) {
         manager_enumerate_users(m);
         manager_enumerate_sessions(m);
 
+        /* Remove stale objects before we start them */
+        manager_gc(m, false);
+
         /* And start everything */
         HASHMAP_FOREACH(seat, m->seats, i)
                 seat_start(seat);
@@ -1110,12 +1113,12 @@ int manager_run(Manager *m) {
                 struct epoll_event event;
                 int n;
 
-                manager_gc(m);
+                manager_gc(m, true);
 
                 if (dbus_connection_dispatch(m->bus) != DBUS_DISPATCH_COMPLETE)
                         continue;
 
-                manager_gc(m);
+                manager_gc(m, true);
 
                 n = epoll_wait(m->epoll_fd, &event, 1, -1);
                 if (n < 0) {

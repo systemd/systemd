@@ -841,12 +841,12 @@ void session_remove_fifo(Session *s) {
         }
 }
 
-int session_check_gc(Session *s) {
+int session_check_gc(Session *s, bool drop_not_started) {
         int r;
 
         assert(s);
 
-        if (!s->started)
+        if (drop_not_started && !s->started)
                 return 0;
 
         if (s->fifo_fd >= 0) {
