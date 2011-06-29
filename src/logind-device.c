@@ -70,6 +70,7 @@ void device_detach(Device *d) {
         if (d->seat)
                 LIST_REMOVE(Device, devices, d->seat->devices, d);
 
+        seat_add_to_gc_queue(d->seat);
         d->seat = NULL;
 }
 

@@ -37,7 +37,6 @@
  * spawn user systemd
  * direct client API
  * verify access to SetIdleHint
- * add FlushDevices bus call
  * hook up ACL tool for udev
  *
  * udev:

@@ -36,4 +36,14 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.flush-devices">
+                <description>Flush device to seat attachments</description>
+                <message>Authentication is required to allow reseting how devices are attached to seats</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>

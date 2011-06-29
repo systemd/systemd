@@ -94,6 +94,9 @@
         "   <arg name=\"sysfs\" type=\"s\" direction=\"in\"/>\n"        \
         "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
+        "  <method name=\"FlushDevices\">\n"                            \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
         "  <signal name=\"SessionNew\">\n"                              \
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
@@ -548,13 +551,58 @@ static bool device_has_tag(struct udev_device *d, const char *tag) {
         return false;
 }
 
+static int trigger_device(Manager *m, const char *prefix) {
+        struct udev_enumerate *e;
+        struct udev_list_entry *first, *item;
+        int r;
+
+        assert(m);
+
+        e = udev_enumerate_new(m->udev);
+        if (!e) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (udev_enumerate_scan_devices(e) < 0) {
+                r = -EIO;
+                goto finish;
+        }
+
+        first = udev_enumerate_get_list_entry(e);
+        udev_list_entry_foreach(item, first) {
+                char *t;
+                const char *p;
+
+                p = udev_list_entry_get_name(item);
+
+                if (prefix && !path_startswith(p, prefix))
+                        continue;
+
+                t = strappend(p, "/uevent");
+                if (!t) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                write_one_line_file(t, "change");
+                free(t);
+        }
+
+        r = 0;
+
+finish:
+        if (e)
+                udev_enumerate_unref(e);
+
+        return r;
+}
+
 static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         struct udev_device *d;
         char *rule = NULL, *file = NULL;
         const char *id_for_seat;
         int r;
-        struct udev_enumerate *e;
-        struct udev_list_entry *first, *item;
 
         assert(m);
         assert(seat);
@@ -590,35 +638,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         if (r < 0)
                 goto finish;
 
-        e = udev_enumerate_new(m->udev);
-        if (!e) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (udev_enumerate_scan_devices(e) < 0) {
-                r = -EIO;
-                goto finish;
-        }
-
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                char *t;
-                const char *p;
-
-                p = udev_list_entry_get_name(item);
-                if (!path_startswith(p, sysfs))
-                        continue;
-
-                t = strappend(p, "/uevent");
-                if (!t) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                write_one_line_file(t, "change");
-                free(t);
-        }
+        r = trigger_device(m, sysfs);
 
 finish:
         free(rule);
@@ -627,10 +647,40 @@ finish:
         if (d)
                 udev_device_unref(d);
 
-        if (e)
-                udev_enumerate_unref(e);
-
         return r;
+}
+
+static int flush_devices(Manager *m) {
+        DIR *d;
+
+        assert(m);
+
+        d = opendir("/etc/udev/rules.d");
+        if (!d) {
+                if (errno != ENOENT)
+                        log_warning("Failed to open /etc/udev/rules.d: %m");
+        } else {
+                struct dirent *de;
+
+                while ((de = readdir(d))) {
+
+                        if (!dirent_is_file(de))
+                                continue;
+
+                        if (!startswith(de->d_name, "72-seat-"))
+                                continue;
+
+                        if (!endswith(de->d_name, ".rules"))
+                                continue;
+
+                        if (unlinkat(dirfd(d), de->d_name, 0) < 0)
+                                log_warning("Failed to unlink %s: %m", de->d_name);
+                }
+
+                closedir(d);
+        }
+
+        return trigger_device(m, NULL);
 }
 
 static DBusHandlerResult manager_message_handler(
@@ -1081,6 +1131,29 @@ static DBusHandlerResult manager_message_handler(
                         return bus_send_error_reply(connection, message, &error, r);
 
                 r = attach_device(m, seat, sysfs);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "FlushDevices")) {
+                dbus_bool_t interactive;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                r = verify_polkit(connection, message, "org.freedesktop.login1.flush-devices", interactive, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                r = flush_devices(m);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
