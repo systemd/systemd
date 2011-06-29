@@ -160,6 +160,8 @@ struct ExecContext {
         bool non_blocking;
         bool private_tmp;
 
+        bool control_group_modify;
+
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn
          * /bin/mount it is run in the same process group as us so

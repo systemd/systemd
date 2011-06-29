@@ -1911,7 +1911,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "KillMode",               config_parse_kill_mode,       0, &(context).kill_mode,                            section   }, \
                 { "KillSignal",             config_parse_kill_signal,     0, &(context).kill_signal,                          section   }, \
                 { "SendSIGKILL",            config_parse_bool,            0, &(context).send_sigkill,                         section   }, \
-                { "UtmpIdentifier",         config_parse_string_printf,   0, &(context).utmp_id,                              section   }
+                { "UtmpIdentifier",         config_parse_string_printf,   0, &(context).utmp_id,                              section   }, \
+                { "ControlGroupModify",     config_parse_bool,            0, &(context).control_group_modify,                 section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           0, u,                                               "Unit"    },

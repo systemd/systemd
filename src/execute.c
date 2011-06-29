@@ -1246,6 +1246,13 @@ int exec_spawn(ExecCommand *command,
                                         r = EXIT_STDIN;
                                         goto fail_child;
                                 }
+
+                        if (cgroup_bondings && context->control_group_modify)
+                                if (cgroup_bonding_set_group_access_list(cgroup_bondings, 0755, uid, gid) < 0 ||
+                                    cgroup_bonding_set_task_access_list(cgroup_bondings, 0644, uid, gid) < 0) {
+                                        r = EXIT_CGROUP;
+                                        goto fail_child;
+                                }
                 }
 
 #ifdef HAVE_PAM
@@ -1649,12 +1656,14 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sWorkingDirectory: %s\n"
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
-                "%sPrivateTmp: %s\n",
+                "%sPrivateTmp: %s\n"
+                "%sControlGroupModify: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
                 prefix, yes_no(c->non_blocking),
-                prefix, yes_no(c->private_tmp));
+                prefix, yes_no(c->private_tmp),
+                prefix, yes_no(c->control_group_modify));
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

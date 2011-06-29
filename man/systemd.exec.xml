@@ -630,6 +630,18 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ControlGroupModify=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. If true, the control groups
+                                created for this unit will be owned by
+                                ther user specified with
+                                <varname>User=</varname> (and the
+                                configured group), and he can create
+                                subgroups as well as add processes to
+                                the group.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>CapabilityBoundingSet=</varname></term>
 
                                 <listitem><para>Controls which

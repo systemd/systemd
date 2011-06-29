@@ -140,6 +140,50 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid) {
         return 0;
 }
 
+int cgroup_bonding_set_group_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid) {
+        assert(b);
+
+        if (!b->realized)
+                return -EINVAL;
+
+        return cg_set_group_access(b->controller, b->path, mode, uid, gid);
+}
+
+int cgroup_bonding_set_group_access_list(CGroupBonding *first, mode_t mode, uid_t uid, gid_t gid) {
+        CGroupBonding *b;
+        int r;
+
+        LIST_FOREACH(by_unit, b, first) {
+                r = cgroup_bonding_set_group_access(b, mode, uid, gid);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int cgroup_bonding_set_task_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid) {
+        assert(b);
+
+        if (!b->realized)
+                return -EINVAL;
+
+        return cg_set_task_access(b->controller, b->path, mode, uid, gid);
+}
+
+int cgroup_bonding_set_task_access_list(CGroupBonding *first, mode_t mode, uid_t uid, gid_t gid) {
+        CGroupBonding *b;
+        int r;
+
+        LIST_FOREACH(by_unit, b, first) {
+                r = cgroup_bonding_set_task_access(b, mode, uid, gid);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s) {
         assert(b);
         assert(sig >= 0);
