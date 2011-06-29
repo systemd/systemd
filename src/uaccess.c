@@ -36,14 +36,14 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if (argc != 2) {
-                log_error("This program expects two argument.");
+        if (argc < 2 || argc > 3) {
+                log_error("This program expects one or two arguments.");
                 r = -EINVAL;
                 goto finish;
         }
 
         path = argv[1];
-        seat = argv[2];
+        seat = argc >= 3 ? argv[2] : "seat0";
 
         p = strappend("/run/systemd/seats/", seat);
         if (!p) {

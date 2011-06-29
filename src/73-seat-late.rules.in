@@ -12,4 +12,6 @@ ENV{ID_SEAT}=="", IMPORT{parent}="ID_SEAT"
 
 ENV{ID_SEAT}!="", TAG+="$env{ID_SEAT}"
 
+TAG=="uaccess", RUN+="@rootlibexecdir@/systemd-uaccess $env{DEVNAME} $env{ID_SEAT}"
+
 LABEL="seat_late_end"
