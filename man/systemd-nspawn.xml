@@ -139,6 +139,19 @@
                                 used.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--user=</option></term>
+                                <term><option>--u</option></term>
+
+                                <listitem><para>Run the command
+                                under specified user, create home
+                                directory and cd into it. As rest
+                                of systemd-nspawn, this is not
+                                the security feature and limits
+                                against accidental changes only.
+                                </para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
         </refsect1>

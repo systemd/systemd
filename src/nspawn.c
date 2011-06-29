@@ -36,6 +36,7 @@
 #include <sys/epoll.h>
 #include <termios.h>
 #include <sys/signalfd.h>
+#include <grp.h>
 
 #include "log.h"
 #include "util.h"
@@ -45,13 +46,15 @@
 #include "strv.h"
 
 static char *arg_directory = NULL;
+static char *arg_user = NULL;
 
 static int help(void) {
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help            Show this help\n"
-               "  -D --directory=NAME  Root directory for the container\n",
+               "  -D --directory=NAME  Root directory for the container\n"
+               "  -u --user=USER       Run the command under specified user or uid\n",
                program_invocation_short_name);
 
         return 0;
@@ -62,6 +65,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h' },
                 { "directory", required_argument, NULL, 'D' },
+                { "user",      optional_argument, NULL, 'u' },
                 { NULL,        0,                 NULL, 0   }
         };
 
@@ -70,7 +74,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -82,6 +86,15 @@ static int parse_argv(int argc, char *argv[]) {
                         free(arg_directory);
                         if (!(arg_directory = strdup(optarg))) {
                                 log_error("Failed to duplicate root directory.");
+                                return -ENOMEM;
+                        }
+
+                        break;
+
+                case 'u':
+                        free(arg_user);
+                        if (!(arg_user = strdup(optarg))) {
+                                log_error("Failed to duplicate user name.");
                                 return -ENOMEM;
                         }
 
@@ -693,14 +706,19 @@ int main(int argc, char *argv[]) {
                 /* child */
 
                 const char *hn;
+                const char *home = NULL;
+                uid_t uid = (uid_t) -1;
+                gid_t gid = (gid_t) -1;
                 const char *envp[] = {
-                        "HOME=/root",
                         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                        NULL,
+                        NULL, /* TERM */
+                        NULL, /* HOME */
+                        NULL, /* USER */
+                        NULL, /* LOGNAME */
                         NULL
                 };
 
-                envp[2] = strv_find_prefix(environ, "TERM=");
+                envp[1] = strv_find_prefix(environ, "TERM=");
 
                 close_nointr_nofail(master);
 
@@ -757,13 +775,53 @@ int main(int argc, char *argv[]) {
                 if (drop_capabilities() < 0)
                         goto child_fail;
 
+                if (arg_user) {
+
+                        if (get_user_creds((const char**)&arg_user, &uid, &gid, &home) < 0) {
+                                log_error("get_user_creds() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (mkdir_parents(home, 0775) < 0) {
+                                log_error("mkdir_parents() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (safe_mkdir(home, 0775, uid, gid) < 0) {
+                                log_error("safe_mkdir() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (initgroups((const char*)arg_user, gid) < 0) {
+                                log_error("initgroups() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (setregid(gid, gid) < 0) {
+                                log_error("setregid() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (setreuid(uid, uid) < 0) {
+                                log_error("setreuid() failed: %m");
+                                goto child_fail;
+                        }
+                }
+
+                if ((asprintf((char**)(envp + 2), "HOME=%s", home? home: "/root") < 0) ||
+                    (asprintf((char**)(envp + 3), "USER=%s", arg_user? arg_user : "root") < 0) ||
+                    (asprintf((char**)(envp + 4), "LOGNAME=%s", arg_user? arg_user : "root") < 0)) {
+                    log_error("environment setup failed: %m");
+                    goto child_fail;
+                }
+
                 if ((hn = file_name_from_path(arg_directory)))
                         sethostname(hn, strlen(hn));
 
                 if (argc > optind)
                         execvpe(argv[optind], argv + optind, (char**) envp);
                 else {
-                        chdir("/root");
+                        chdir(home? home : "/root");
                         execle("/bin/bash", "-bash", NULL, (char**) envp);
                 }
 
