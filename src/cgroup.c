@@ -189,7 +189,7 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s) {
         assert(sig >= 0);
 
         /* Don't kill cgroups that aren't ours */
-        if (!b->realized || !b->ours)
+        if (!b->ours)
                 return 0;
 
         return cg_kill_recursive(b->controller, b->path, sig, sigcont, true, false, s);
