@@ -843,7 +843,7 @@ static int setup_pam(
 
                 /* This string must fit in 10 chars (i.e. the length
                  * of "/sbin/init") */
-                rename_process("sd:pam");
+                rename_process("sd(PAM)");
 
                 /* Make sure we don't keep open the passed fds in this
                 child. We assume that otherwise only those fds are
@@ -861,13 +861,20 @@ static int setup_pam(
                 /* Check if our parent process might already have
                  * died? */
                 if (getppid() == parent_pid) {
-                        if (sigwait(&ss, &sig) < 0)
-                                goto child_finish;
+                        for (;;) {
+                                if (sigwait(&ss, &sig) < 0) {
+                                        if (errno == EINTR)
+                                                continue;
 
-                        assert(sig == SIGTERM);
+                                        goto child_finish;
+                                }
+
+                                assert(sig == SIGTERM);
+                                break;
+                        }
                 }
 
-                /* Only if our parent died we'll end the session */
+                /* If our parent died we'll end the session */
                 if (getppid() != parent_pid)
                         if ((pam_code = pam_close_session(handle, PAM_DATA_SILENT)) != PAM_SUCCESS)
                                 goto child_finish;
