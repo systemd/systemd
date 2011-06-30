@@ -886,7 +886,7 @@ static int setup_pam(
          * cleanups, so forget about the handle here. */
         handle = NULL;
 
-        /* Unblock SIGSUR1 again in the parent */
+        /* Unblock SIGTERM again in the parent */
         if (sigprocmask(SIG_SETMASK, &old_ss, NULL) < 0)
                 goto fail;
 
@@ -1255,6 +1255,14 @@ int exec_spawn(ExecCommand *command,
                                 }
                 }
 
+                if (apply_permissions)
+                        if (enforce_groups(context, username, uid) < 0) {
+                                r = EXIT_GROUP;
+                                goto fail_child;
+                        }
+
+                umask(context->umask);
+
 #ifdef HAVE_PAM
                 if (context->pam_name && username) {
                         if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) < 0) {
@@ -1263,14 +1271,6 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 #endif
-
-                if (apply_permissions)
-                        if (enforce_groups(context, username, uid) < 0) {
-                                r = EXIT_GROUP;
-                                goto fail_child;
-                        }
-
-                umask(context->umask);
 
                 if (strv_length(context->read_write_dirs) > 0 ||
                     strv_length(context->read_only_dirs) > 0 ||
