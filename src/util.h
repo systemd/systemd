@@ -477,4 +477,7 @@ int signal_from_string(const char *s);
 
 int signal_from_string_try_harder(const char *s);
 
+extern int saved_argc;
+extern char **saved_argv;
+
 #endif

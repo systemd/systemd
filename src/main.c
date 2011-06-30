@@ -1033,6 +1033,8 @@ int main(int argc, char *argv[]) {
 
         program_invocation_short_name = systemd;
         prctl(PR_SET_NAME, systemd);
+        saved_argv = argv;
+        saved_argc = argc;
 
         log_show_color(isatty(STDERR_FILENO) > 0);
         log_show_location(false);
