@@ -361,6 +361,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
 
+        /* Make sure we don't enter a loop by talking to
+         * systemd-logind when it is actually waiting for the
+         * background to finish start-up, */
+        pam_get_item(handle, PAM_SERVICE, (const void**) &service);
+        if (streq_ptr(service, "systemd-shared"))
+                return PAM_SUCCESS;
+
         if (parse_argv(handle,
                        argc, argv,
                        &controllers, &reset_controllers,
@@ -401,7 +408,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         uid = pw->pw_uid;
         pid = getpid();
 
-        pam_get_item(handle, PAM_SERVICE, (const void**) &service);
         pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
         pam_get_item(handle, PAM_TTY, (const void**) &tty);
         pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);

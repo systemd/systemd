@@ -1,3 +1,4 @@
+user@.service
 systemd-logind.service
 systemd-localed.service
 systemd-timedated.service

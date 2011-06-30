@@ -353,7 +353,8 @@ nodist_systemunit_DATA = \
 	units/fsck@.service \
 	units/fsck-root.service \
 	units/quotacheck.service \
-	units/rescue.service
+	units/rescue.service \
+        units/user@.service
 
 if ENABLE_BINFMT
 nodist_systemunit_DATA += \
@@ -404,6 +405,7 @@ EXTRA_DIST = \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
 	units/quotacheck.service.in \
+        units/user@.service.in \
 	systemd.pc.in \
 	introspect.awk \
 	src/org.freedesktop.systemd1.policy.in \
