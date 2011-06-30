@@ -1741,9 +1741,12 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 
         assert(b->path);
 
-        if (!b->controller)
+        if (!b->controller) {
                 if (!(b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER)))
                         return -ENOMEM;
+
+                b->ours = true;
+        }
 
         /* Ensure this hasn't been added yet */
         assert(!b->unit);
@@ -1789,6 +1792,7 @@ static char *default_cgroup_path(Unit *u) {
 int unit_add_cgroup_from_text(Unit *u, const char *name) {
         char *controller = NULL, *path = NULL;
         CGroupBonding *b = NULL;
+        bool ours = false;
         int r;
 
         assert(u);
@@ -1797,11 +1801,15 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         if ((r = cg_split_spec(name, &controller, &path)) < 0)
                 return r;
 
-        if (!path)
+        if (!path) {
                 path = default_cgroup_path(u);
+                ours = true;
+        }
 
-        if (!controller)
+        if (!controller) {
                 controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
+                ours = true;
+        }
 
         if (!path || !controller) {
                 free(path);
@@ -1822,7 +1830,8 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
 
         b->controller = controller;
         b->path = path;
-        b->ours = false;
+        b->ours = ours;
+        b->essential = streq(controller, SYSTEMD_CGROUP_CONTROLLER);
 
         if ((r = unit_add_cgroup(u, b)) < 0)
                 goto fail;
