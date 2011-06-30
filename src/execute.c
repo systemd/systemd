@@ -1269,7 +1269,7 @@ int exec_spawn(ExecCommand *command,
 
 #ifdef HAVE_PAM
                 if (context->pam_name && username) {
-                        if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) < 0) {
+                        if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) != 0) {
                                 r = EXIT_PAM;
                                 goto fail_child;
                         }
