@@ -58,6 +58,7 @@
 #include "special.h"
 #include "bus-errors.h"
 #include "exit-status.h"
+#include "sd-daemon.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -2944,6 +2945,10 @@ void manager_check_finished(Manager *m) {
         }
 
         bus_broadcast_finished(m, kernel_usec, initrd_usec, userspace_usec, total_usec);
+
+        sd_notifyf(false,
+                   "READY=1\nSTATUS=Startup finished in %s.",
+                   format_timespan(sum, sizeof(sum), total_usec));
 }
 
 void manager_run_generators(Manager *m) {

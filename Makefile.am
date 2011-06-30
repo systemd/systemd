@@ -546,7 +546,8 @@ libsystemd_core_la_SOURCES = \
 	src/tcpwrap.c \
 	src/cgroup-util.c \
 	src/condition.c \
-        src/dbus-common.c
+        src/dbus-common.c \
+        src/sd-daemon.c
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
