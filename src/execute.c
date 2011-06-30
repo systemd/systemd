@@ -817,9 +817,6 @@ static int setup_pam(
 
         close_session = true;
 
-        if ((pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | PAM_SILENT)) != PAM_SUCCESS)
-                goto fail;
-
         if ((!(e = pam_getenvlist(handle)))) {
                 pam_code = PAM_BUF_ERR;
                 goto fail;
