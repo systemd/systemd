@@ -251,7 +251,7 @@ static int config_parse_listen(
         if (streq(lvalue, "ListenFIFO")) {
                 p->type = SOCKET_FIFO;
 
-                if (!(p->path = strdup(rvalue))) {
+                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
                         free(p);
                         return -ENOMEM;
                 }
@@ -261,7 +261,7 @@ static int config_parse_listen(
         } else if (streq(lvalue, "ListenSpecial")) {
                 p->type = SOCKET_SPECIAL;
 
-                if (!(p->path = strdup(rvalue))) {
+                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
                         free(p);
                         return -ENOMEM;
                 }
@@ -272,7 +272,7 @@ static int config_parse_listen(
 
                 p->type = SOCKET_MQUEUE;
 
-                if (!(p->path = strdup(rvalue))) {
+                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
                         free(p);
                         return -ENOMEM;
                 }
@@ -280,18 +280,30 @@ static int config_parse_listen(
                 path_kill_slashes(p->path);
 
         } else if (streq(lvalue, "ListenNetlink")) {
-                p->type = SOCKET_SOCKET;
+                char  *k;
+                int r;
 
-                if (socket_address_parse_netlink(&p->address, rvalue) < 0) {
+                p->type = SOCKET_SOCKET;
+                k = unit_full_printf(UNIT(s), rvalue);
+                r = socket_address_parse_netlink(&p->address, k);
+                free(k);
+
+                if (r < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
                         return 0;
                 }
 
         } else {
-                p->type = SOCKET_SOCKET;
+                char *k;
+                int r;
 
-                if (socket_address_parse(&p->address, rvalue) < 0) {
+                p->type = SOCKET_SOCKET;
+                k = unit_full_printf(UNIT(s), rvalue);
+                r = socket_address_parse(&p->address, k);
+                free(k);
+
+                if (r < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
                         return 0;

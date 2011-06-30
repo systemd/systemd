@@ -36,6 +36,7 @@
  *
  * spawn user systemd
  * direct client API
+ * add display symlinks also per-session
  *
  * udev:
  * drop redundant udev_device_get_is_initialized() use as soon as libudev is fixed
