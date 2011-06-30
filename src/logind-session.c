@@ -787,6 +787,10 @@ int session_create_fifo(Session *s) {
 
         /* Create FIFO */
         if (!s->fifo_path) {
+                r = safe_mkdir("/run/systemd/sessions", 0755, 0, 0);
+                if (r < 0)
+                        return r;
+
                 if (asprintf(&s->fifo_path, "/run/systemd/sessions/%s.ref", s->id) < 0)
                         return -ENOMEM;
 
