@@ -199,6 +199,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			       "  --help\n\n");
 			goto exit;
 		default:
+			rc = 1;
 			goto exit;
 		}
 	}

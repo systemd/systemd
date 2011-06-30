@@ -138,6 +138,9 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			       "  --help\n\n");
 			goto out;
 		}
+		default:
+			rc = 1;
+			goto out;
 	}
 
 	if (!print_kernel && !print_udev) {
