@@ -1071,10 +1071,23 @@ static int config_parse_cgroup(
         char *state;
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t;
+                char *t, *k;
                 int r;
 
-                if (!(t = cunescape_length(w, l)))
+                t = strndup(w, l);
+                if (!t)
+                        return -ENOMEM;
+
+                k = unit_full_printf(u, t);
+                free(t);
+
+                if (!k)
+                        return -ENOMEM;
+
+                t = cunescape(k);
+                free(k);
+
+                if (!t)
                         return -ENOMEM;
 
                 r = unit_add_cgroup_from_text(u, t);
