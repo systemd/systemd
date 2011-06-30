@@ -898,6 +898,9 @@ static int setup_pam(
          * might have opened it, but we don't want this fd around. */
         closelog();
 
+        *pam_env = e;
+        e = NULL;
+
         return 0;
 
 fail:
@@ -1063,7 +1066,7 @@ int exec_spawn(ExecCommand *command,
 
                 /* This string must fit in 10 chars (i.e. the length
                  * of "/sbin/init") */
-                rename_process("sd.exec");
+                rename_process("sd(EXEC)");
 
                 /* We reset exactly these signals, since they are the
                  * only ones we set to SIG_IGN in the main daemon. All
