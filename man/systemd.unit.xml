@@ -186,16 +186,24 @@
                 configuration options. Other specifiers that may be
                 used are <literal>%n</literal>, <literal>%N</literal>,
                 <literal>%p</literal>, <literal>%P</literal>,
-                <literal>%I</literal> and <literal>%f</literal>, for
+                <literal>%I</literal>, <literal>%f</literal>,
+                <literal>%c</literal>, <literal>%r</literal>,
+                <literal>%R</literal> and <literal>%t</literal> for
                 the full unit name, the unescaped unit name, the
                 prefix name, the unescaped prefix name, the unescaped
-                instance name and the unescaped filename,
+                instance name, the unescaped filename, the control
+                group path of the unit, the root control group path of
+                systemd, and the parent directory of the root control
+                cgroup path of systemd and the runtime socket dir,
                 respectively. The unescaped filename is either the
                 unescaped instance name (if set) with / prepended (if
                 necessary), or the prefix name similarly prepended
                 with /. The prefix name here refers to the string
                 before the @, i.e. "getty" in the example above, where
-                "tty3" is the instance name.</para>
+                "tty3" is the instance name. The runtime socket
+                directory is either <filename>/run</filename> (for the
+                system manager) or <literal>$XDG_RUNTIME_DIR</literal>
+                (for user managers).</para>
 
                 <para>If a unit file is empty (i.e. has the file size
                 0) or is symlinked to <filename>/dev/null</filename>

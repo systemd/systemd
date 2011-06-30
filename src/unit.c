@@ -2003,6 +2003,47 @@ static char *specifier_filename(char specifier, void *data, void *userdata) {
         return unit_name_to_path(u->meta.instance);
 }
 
+static char *specifier_cgroup(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        return default_cgroup_path(u);
+}
+
+static char *specifier_cgroup_root(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        char *p;
+        assert(u);
+
+        if (specifier == 'r')
+                return strdup(u->meta.manager->cgroup_hierarchy);
+
+        if (parent_of_path(u->meta.manager->cgroup_hierarchy, &p) < 0)
+                return strdup("");
+
+        if (streq(p, "/")) {
+                free(p);
+                return strdup("");
+        }
+
+        return p;
+}
+
+static char *specifier_runtime(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        if (u->meta.manager->running_as == MANAGER_USER) {
+                const char *e;
+
+                e = getenv("XDG_RUNTIME_DIR");
+                if (e)
+                        return strdup(e);
+        }
+
+        return strdup("/run");
+}
+
 char *unit_name_printf(Unit *u, const char* format) {
 
         /*
@@ -2032,7 +2073,13 @@ char *unit_name_printf(Unit *u, const char* format) {
 char *unit_full_printf(Unit *u, const char *format) {
 
         /* This is similar to unit_name_printf() but also supports
-         * unescaping */
+         * unescaping. Also, adds a couple of additional codes:
+         *
+         * %c cgroup path of unit
+         * %r root cgroup path of this systemd instance (e.g. "/user/lennart/shared/systemd-4711")
+         * %R parent of root cgroup path (e.g. "/usr/lennart/shared")
+         * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
+         */
 
         const Specifier table[] = {
                 { 'n', specifier_string,              u->meta.id },
@@ -2042,6 +2089,10 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'i', specifier_string,              u->meta.instance },
                 { 'I', specifier_instance_unescaped,  NULL },
                 { 'f', specifier_filename,            NULL },
+                { 'c', specifier_cgroup,              NULL },
+                { 'r', specifier_cgroup_root,         NULL },
+                { 'R', specifier_cgroup_root,         NULL },
+                { 't', specifier_runtime,             NULL },
                 { 0, NULL, NULL }
         };
 
@@ -2419,7 +2470,6 @@ int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error) {
 
         return UNIT_VTABLE(u)->kill(u, w, m, signo, error);
 }
-
 
 int unit_following_set(Unit *u, Set **s) {
         assert(u);
