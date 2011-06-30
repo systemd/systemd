@@ -73,10 +73,6 @@ Features:
 
 * GC unreferenced jobs (such as .device jobs)
 
-* support wildcard expansion in ListenStream= and friends
-
-* support wildcard expansion in EnvironmentFile= and friends
-
 * add JoinControllers= to system.conf to mount certain cgroup
   controllers together in order to guarantee atomic creation/addition
   of cgroups

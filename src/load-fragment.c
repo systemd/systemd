@@ -188,6 +188,35 @@ static int config_parse_string_printf(
         return 0;
 }
 
+static int config_parse_strv_printf(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        char *k;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        k = unit_full_printf(u, rvalue);
+        if (!k)
+                return -ENOMEM;
+
+        r = config_parse_strv(filename, line, section, lvalue, ltype, k, data, userdata);
+        free(k);
+
+        return r;
+}
+
 static int config_parse_path_printf(
                 const char *filename,
                 unsigned line,
@@ -1496,18 +1525,27 @@ static int config_parse_env_file(
                 void *userdata) {
 
         char ***env = data, **k;
+        Unit *u = userdata;
+        char *s;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (!path_is_absolute(rvalue[0] == '-' ? rvalue + 1 : rvalue)) {
-                log_error("[%s:%u] Path '%s' is not absolute, ignoring.", filename, line, rvalue);
+        s = unit_full_printf(u, rvalue);
+        if (!s)
+                return -ENOMEM;
+
+        if (!path_is_absolute(s[0] == '-' ? s + 1 : s)) {
+                log_error("[%s:%u] Path '%s' is not absolute, ignoring.", filename, line, s);
+                free(s);
                 return 0;
         }
 
-        if (!(k = strv_append(*env, rvalue)))
+        k = strv_append(*env, s);
+        free(s);
+        if (!k)
                 return -ENOMEM;
 
         strv_free(*env);
@@ -1892,7 +1930,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "CPUSchedulingResetOnFork", config_parse_bool,          0, &(context).cpu_sched_reset_on_fork,              section   }, \
                 { "CPUAffinity",            config_parse_cpu_affinity,    0, &(context),                                      section   }, \
                 { "UMask",                  config_parse_mode,            0, &(context).umask,                                section   }, \
-                { "Environment",            config_parse_strv,            0, &(context).environment,                          section   }, \
+                { "Environment",            config_parse_strv_printf,     0, &(context).environment,                          section   }, \
                 { "EnvironmentFile",        config_parse_env_file,        0, &(context).environment_files,                    section   }, \
                 { "StandardInput",          config_parse_input,           0, &(context).std_input,                            section   }, \
                 { "StandardOutput",         config_parse_output,          0, &(context).std_output,                           section   }, \
