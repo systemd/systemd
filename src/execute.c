@@ -579,52 +579,6 @@ static int get_group_creds(const char *groupname, gid_t *gid) {
         return 0;
 }
 
-static int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home) {
-        struct passwd *p;
-        unsigned long lu;
-
-        assert(username);
-        assert(*username);
-        assert(uid);
-        assert(gid);
-        assert(home);
-
-        /* We enforce some special rules for uid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
-
-        if (streq(*username, "root") || streq(*username, "0")) {
-                *username = "root";
-                *uid = 0;
-                *gid = 0;
-                *home = "/root";
-                return 0;
-        }
-
-        if (safe_atolu(*username, &lu) >= 0) {
-                errno = 0;
-                p = getpwuid((uid_t) lu);
-
-                /* If there are multiple users with the same id, make
-                 * sure to leave $USER to the configured value instead
-                 * of the first occurrence in the database. However if
-                 * the uid was configured by a numeric uid, then let's
-                 * pick the real username from /etc/passwd. */
-                if (*username && p)
-                        *username = p->pw_name;
-        } else {
-                errno = 0;
-                p = getpwnam(*username);
-        }
-
-        if (!p)
-                return errno != 0 ? -errno : -ESRCH;
-
-        *uid = p->pw_uid;
-        *gid = p->pw_gid;
-        *home = p->pw_dir;
-        return 0;
-}
-
 static int enforce_groups(const ExecContext *context, const char *username, gid_t gid) {
         bool keep_groups = false;
         int r;
