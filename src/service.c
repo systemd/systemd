@@ -2977,6 +2977,9 @@ static int service_enumerate(Manager *m) {
 
         assert(m);
 
+        if (m->running_as != MANAGER_SYSTEM)
+                return 0;
+
         zero(runlevel_services);
 
         STRV_FOREACH(p, m->lookup_paths.sysvrcnd_path)
