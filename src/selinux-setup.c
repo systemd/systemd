@@ -72,12 +72,13 @@ int selinux_setup(char *const argv[]) {
                return -errno;
 
        } else {
-               log_full(enforce > 0 ? LOG_ERR : LOG_WARNING, "Failed to load SELinux policy.");
 
                unlink("/dev/.systemd-relabel-run-dev");
 
-               if (enforce > 0)
+               if (enforce > 0) {
+                       log_full(LOG_ERR, "Failed to load SELinux policy.");
                        return -EIO;
+               }
        }
 #endif
 
