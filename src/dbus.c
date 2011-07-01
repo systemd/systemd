@@ -731,8 +731,8 @@ static int bus_setup_loop(Manager *m, DBusConnection *bus) {
         return 0;
 }
 
-static dbus_bool_t allow_only_root(DBusConnection *connection, unsigned long uid, void *data) {
-        return uid == 0;
+static dbus_bool_t allow_only_same_user(DBusConnection *connection, unsigned long uid, void *data) {
+        return uid == 0 || uid == geteuid();
 }
 
 static void bus_new_connection(
@@ -749,7 +749,7 @@ static void bus_new_connection(
                 return;
         }
 
-        dbus_connection_set_unix_user_function(new_connection, allow_only_root, NULL, NULL);
+        dbus_connection_set_unix_user_function(new_connection, allow_only_same_user, NULL, NULL);
 
         if (bus_setup_loop(m, new_connection) < 0)
                 return;
@@ -930,12 +930,35 @@ static int bus_init_private(Manager *m) {
         if (m->private_bus)
                 return 0;
 
-        /* We want the private bus only when running as init */
-        if (getpid() != 1)
-                return 0;
+        if (m->running_as == MANAGER_SYSTEM) {
 
-        unlink("/run/systemd/private");
-        if (!(m->private_bus = dbus_server_listen("unix:path=/run/systemd/private", &error))) {
+                /* We want the private bus only when running as init */
+                if (getpid() != 1)
+                        return 0;
+
+                unlink("/run/systemd/private");
+                m->private_bus = dbus_server_listen("unix:path=/run/systemd/private", &error);
+        } else {
+                const char *e;
+                char *p;
+
+                e = getenv("XDG_RUNTIME_DIR");
+                if (!e)
+                        return 0;
+
+                if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0) {
+                        log_error("Not enough memory");
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                mkdir_parents(p+10, 0755);
+                unlink(p+10);
+                m->private_bus = dbus_server_listen(p, &error);
+                free(p);
+        }
+
+        if (!m->private_bus) {
                 log_error("Failed to create private D-Bus server: %s", bus_error_message(&error));
                 r = -EIO;
                 goto fail;

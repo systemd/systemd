@@ -55,7 +55,7 @@ int bus_check_peercred(DBusConnection *c) {
                 return -E2BIG;
         }
 
-        if (ucred.uid != 0)
+        if (ucred.uid != 0 && ucred.uid != geteuid())
                 return -EPERM;
 
         return 1;
@@ -98,27 +98,53 @@ static int sync_auth(DBusConnection *bus, DBusError *error) {
         return 0;
 }
 
-int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *error) {
-        DBusConnection *bus;
+int bus_connect(DBusBusType t, DBusConnection **_bus, bool *_private, DBusError *error) {
+        DBusConnection *bus = NULL;
         int r;
+        bool private = true;
 
         assert(_bus);
 
-        /* If we are root, then let's not go via the bus */
         if (geteuid() == 0 && t == DBUS_BUS_SYSTEM) {
+                /* If we are root, then let's talk directly to the
+                 * system instance, instead of going via the bus */
 
-                if (!(bus = dbus_connection_open_private("unix:path=/run/systemd/private", error))) {
-#ifndef LEGACY
-                        dbus_error_free(error);
+                bus = dbus_connection_open_private("unix:path=/run/systemd/private", error);
+                if (!bus)
+                        return -EIO;
 
-                        /* Retry with the pre v21 socket name, to ease upgrades */
-                        if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", error)))
-#endif
-                                return -EIO;
+        } else {
+                if (t == DBUS_BUS_SESSION) {
+                        const char *e;
+
+                        /* If we are supposed to talk to the instance,
+                         * try via XDG_RUNTIME_DIR first, then
+                         * fallback to normal bus access */
+
+                        e = getenv("XDG_RUNTIME_DIR");
+                        if (e) {
+                                char *p;
+
+                                if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0)
+                                        return -ENOMEM;
+
+                                bus = dbus_connection_open_private(p, NULL);
+                                free(p);
+                        }
                 }
 
-                dbus_connection_set_exit_on_disconnect(bus, FALSE);
+                if (!bus) {
+                        bus = dbus_bus_get_private(t, error);
+                        if (!bus)
+                                return -EIO;
 
+                        private = false;
+                }
+        }
+
+        dbus_connection_set_exit_on_disconnect(bus, FALSE);
+
+        if (private) {
                 if (bus_check_peercred(bus) < 0) {
                         dbus_connection_close(bus);
                         dbus_connection_unref(bus);
@@ -126,25 +152,17 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
                         dbus_set_error_const(error, DBUS_ERROR_ACCESS_DENIED, "Failed to verify owner of bus.");
                         return -EACCES;
                 }
-
-                if (private)
-                        *private = true;
-
-        } else {
-                if (!(bus = dbus_bus_get_private(t, error)))
-                        return -EIO;
-
-                dbus_connection_set_exit_on_disconnect(bus, FALSE);
-
-                if (private)
-                        *private = false;
         }
 
-        if ((r = sync_auth(bus, error)) < 0) {
+        r = sync_auth(bus, error);
+        if (r < 0) {
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
                 return r;
         }
+
+        if (_private)
+                *_private = private;
 
         *_bus = bus;
         return 0;
