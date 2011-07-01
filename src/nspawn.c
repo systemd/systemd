@@ -797,12 +797,12 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
                         }
 
-                        if (setregid(gid, gid) < 0) {
+                        if (setresgid(gid, gid, gid) < 0) {
                                 log_error("setregid() failed: %m");
                                 goto child_fail;
                         }
 
-                        if (setreuid(uid, uid) < 0) {
+                        if (setresuid(uid, uid, uid) < 0) {
                                 log_error("setreuid() failed: %m");
                                 goto child_fail;
                         }
@@ -811,7 +811,7 @@ int main(int argc, char *argv[]) {
                 if ((asprintf((char**)(envp + 2), "HOME=%s", home? home: "/root") < 0) ||
                     (asprintf((char**)(envp + 3), "USER=%s", arg_user? arg_user : "root") < 0) ||
                     (asprintf((char**)(envp + 4), "LOGNAME=%s", arg_user? arg_user : "root") < 0)) {
-                    log_error("environment setup failed: %m");
+                    log_error("Out of memory");
                     goto child_fail;
                 }
 
@@ -821,7 +821,7 @@ int main(int argc, char *argv[]) {
                 if (argc > optind)
                         execvpe(argv[optind], argv + optind, (char**) envp);
                 else {
-                        chdir(home? home : "/root");
+                        chdir(home ? home : "/root");
                         execle("/bin/bash", "-bash", NULL, (char**) envp);
                 }
 

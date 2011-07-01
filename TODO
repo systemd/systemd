@@ -77,6 +77,8 @@ Features:
   controllers together in order to guarantee atomic creation/addition
   of cgroups
 
+* don't enter "exited" mode for sysv services with pid file
+
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
 * cgroup_notify_empty(): recursively check groups up the tree, too
