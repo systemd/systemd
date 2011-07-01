@@ -1063,7 +1063,7 @@ int main(int argc, char *argv[]) {
                 }
         } else {
                 arg_running_as = MANAGER_USER;
-                log_set_target(LOG_TARGET_CONSOLE);
+                log_set_target(LOG_TARGET_AUTO);
         }
 
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
