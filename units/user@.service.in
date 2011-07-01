@@ -12,7 +12,8 @@ After=systemd-user-sessions.service
 [Service]
 User=%I
 PAMName=systemd-shared
-ControlGroup=/user/%I/shared
+ControlGroup=%R/user/%I/shared cpu:/
 ControlGroupModify=yes
 Type=notify
 ExecStart=-@rootbindir@/systemd --user
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%I/dbus/user_bus_socket
