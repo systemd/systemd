@@ -9,6 +9,7 @@
 Description=POSIX Message Queue File System Automount Point
 DefaultDependencies=no
 Before=sysinit.target
+ConditionPathExists=/proc/sys/fs/mqueue
 
 [Automount]
 Where=/dev/mqueue

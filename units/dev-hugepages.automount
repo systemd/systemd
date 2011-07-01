@@ -9,6 +9,7 @@
 Description=Huge Pages File System Automount Point
 DefaultDependencies=no
 Before=sysinit.target
+ConditionPathExists=/sys/kernel/mm/hugepages
 
 [Automount]
 Where=/dev/hugepages
