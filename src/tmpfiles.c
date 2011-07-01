@@ -983,15 +983,11 @@ int main(int argc, char *argv[]) {
                 strv_free(files);
         }
 
-
-
         HASHMAP_FOREACH(i, globs, iterator)
-                if (process_item(i) < 0)
-                        r = EXIT_FAILURE;
+                process_item(i);
 
         HASHMAP_FOREACH(i, items, iterator)
-                if (process_item(i) < 0)
-                        r = EXIT_FAILURE;
+                process_item(i);
 
 finish:
         while ((i = hashmap_steal_first(items)))
