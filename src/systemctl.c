@@ -4815,10 +4815,10 @@ static int parse_time_spec(const char *t, usec_t *_u) {
 
         if (streq(t, "now"))
                 *_u = 0;
-        else if (t[0] == '+') {
+        else if (!strchr(t, ':')) {
                 uint64_t u;
 
-                if (safe_atou64(t + 1, &u) < 0)
+                if (safe_atou64(t, &u) < 0)
                         return -EINVAL;
 
                 *_u = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
