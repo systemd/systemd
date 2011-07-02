@@ -348,7 +348,7 @@ finish:
         if (unlink_nologin)
                 unlink("/run/nologin");
 
-        if (exec_shutdown) {
+        if (exec_shutdown && !c.dry_run) {
                 char sw[3];
 
                 sw[0] = '-';

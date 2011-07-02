@@ -5422,7 +5422,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
-static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
+static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
         int fd = -1;
         struct msghdr msghdr;
         struct iovec iovec;
@@ -5432,6 +5432,7 @@ static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
         zero(c);
         c.elapse = t;
         c.mode = mode;
+        c.dry_run = dry_run;
         c.warn_wall = warn;
 
         if (message)
@@ -5527,6 +5528,7 @@ static int halt_main(DBusConnection *bus) {
                                    arg_action == ACTION_HALT     ? 'H' :
                                    arg_action == ACTION_POWEROFF ? 'P' :
                                                                    'r',
+                                   arg_dry,
                                    !arg_no_wall,
                                    m);
                 free(m);
@@ -5774,7 +5776,7 @@ int main(int argc, char*argv[]) {
                 break;
 
         case ACTION_CANCEL_SHUTDOWN:
-                r = send_shutdownd(0, 0, false, NULL);
+                r = send_shutdownd(0, 0, false, false, NULL);
                 break;
 
         case ACTION_INVALID:

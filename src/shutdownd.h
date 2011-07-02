@@ -33,6 +33,7 @@ _packed_ struct shutdownd_command {
         char mode; /* H, P, r, i.e. the switches usually passed to
                     * shutdown to select whether to halt, power-off or
                     * reboot the machine */
+        bool dry_run;
         bool warn_wall;
 
         /* Yepp, sometimes we are lazy and use fixed-size strings like
