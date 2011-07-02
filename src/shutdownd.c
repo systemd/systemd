@@ -100,6 +100,9 @@ static int read_packet(int fd, struct shutdownd_command *_c) {
 }
 
 static void warn_wall(usec_t n, struct shutdownd_command *c) {
+        char date[FORMAT_TIMESTAMP_MAX];
+        const char *prefix;
+        char *l = NULL;
 
         assert(c);
         assert(c->warn_wall);
@@ -107,28 +110,21 @@ static void warn_wall(usec_t n, struct shutdownd_command *c) {
         if (n >= c->elapse)
                 return;
 
-        if (c->wall_message[0])
-                utmp_wall(c->wall_message, NULL);
+        if (c->mode == 'H')
+                prefix = "The system is going down for system halt at ";
+        else if (c->mode == 'P')
+                prefix = "The system is going down for power-off at ";
+        else if (c->mode == 'r')
+                prefix = "The system is going down for reboot at ";
+        else
+                assert_not_reached("Unknown mode!");
+
+        if (asprintf(&l, "%s%s%s%s!", c->wall_message, c->wall_message[0] ? "\n" : "",
+                     prefix, format_timestamp(date, sizeof(date), c->elapse)) < 0)
+                log_error("Failed to allocate wall message");
         else {
-                char date[FORMAT_TIMESTAMP_MAX];
-                const char* prefix;
-                char *l = NULL;
-
-                if (c->mode == 'H')
-                        prefix = "The system is going down for system halt at ";
-                else if (c->mode == 'P')
-                        prefix = "The system is going down for power-off at ";
-                else if (c->mode == 'r')
-                        prefix = "The system is going down for reboot at ";
-                else
-                        assert_not_reached("Unknown mode!");
-
-                if (asprintf(&l, "%s%s!", prefix, format_timestamp(date, sizeof(date), c->elapse)) < 0)
-                        log_error("Failed to allocate wall message");
-                else {
-                        utmp_wall(l, NULL);
-                        free(l);
-                }
+                utmp_wall(l, NULL);
+                free(l);
         }
 }
 
