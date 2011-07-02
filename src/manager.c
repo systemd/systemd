@@ -897,6 +897,9 @@ static int transaction_merge_jobs(Manager *m, DBusError *e) {
                                 transaction_merge_and_delete_job(m, j, k, t);
                 }
 
+                if (j->unit->meta.job && !j->installed)
+                        transaction_merge_and_delete_job(m, j, j->unit->meta.job, t);
+
                 assert(!j->transaction_next);
                 assert(!j->transaction_prev);
         }
