@@ -1011,7 +1011,7 @@ int main(string[] args) {
         } catch (IOError e) {
                 show_error(e.message);
         } catch (GLib.Error e) {
-                show_error(e.message);
+                stderr.printf("%s\n", e.message);
         }
 
         return 0;
