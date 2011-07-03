@@ -23,6 +23,8 @@ F15 External:
 
 Features:
 
+* kernel: add /proc/sys file exposing CAP_LAST_CAP?
+
 * understand https://bugzilla.redhat.com/show_bug.cgi?id=672194
 
 * possibly set timezone offset from systemd at init instead
