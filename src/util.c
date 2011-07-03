@@ -490,7 +490,7 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
         char_array_0(fn);
 
-        if (!(f = fopen(fn, "r")))
+        if (!(f = fopen(fn, "re")))
                 return -errno;
 
         if (!(fgets(line, sizeof(line), f))) {
@@ -535,7 +535,7 @@ int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
         assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
         char_array_0(fn);
 
-        if (!(f = fopen(fn, "r")))
+        if (!(f = fopen(fn, "re")))
                 return -errno;
 
         if (!(fgets(line, sizeof(line), f))) {
@@ -1010,7 +1010,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
         if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
                 return -ENOMEM;
 
-        f = fopen(p, "r");
+        f = fopen(p, "re");
         free(p);
 
         if (!f)
@@ -2656,7 +2656,7 @@ int release_terminal(void) {
         int r = 0, fd;
         struct sigaction sa_old, sa_new;
 
-        if ((fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY)) < 0)
+        if ((fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC)) < 0)
                 return -errno;
 
         /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
@@ -4272,7 +4272,7 @@ int detect_container(const char **id) {
                 return 1;
         }
 
-        if ((f = fopen("/proc/self/cgroup", "r"))) {
+        if ((f = fopen("/proc/self/cgroup", "re"))) {
 
                 for (;;) {
                         char line[LINE_MAX], *p;
