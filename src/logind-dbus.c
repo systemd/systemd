@@ -634,7 +634,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         }
 
         mkdir_p("/etc/udev/rules.d", 0755);
-        r = write_one_line_file(file, rule);
+        r = write_one_line_file_atomic(file, rule);
         if (r < 0)
                 goto finish;
 
