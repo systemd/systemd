@@ -384,9 +384,9 @@ static int parse_password(const char *filename, char **wall) {
                                         packet[0] = '+';
                                         strcpy(packet+1, password);
                                 }
-                        }
 
-                        free(password);
+                                free(password);
+                        }
                 }
 
                 if (r == -ETIME || r == -ENOENT) {
