@@ -376,12 +376,14 @@ static int parse_password(const char *filename, char **wall) {
                                 release_terminal();
                         }
 
-                        packet_length = 1+strlen(password)+1;
-                        if (!(packet = new(char, packet_length)))
-                                r = -ENOMEM;
-                        else {
-                                packet[0] = '+';
-                                strcpy(packet+1, password);
+                        if (r >= 0) {
+                                packet_length = 1+strlen(password)+1;
+                                if (!(packet = new(char, packet_length)))
+                                        r = -ENOMEM;
+                                else {
+                                        packet[0] = '+';
+                                        strcpy(packet+1, password);
+                                }
                         }
 
                         free(password);
