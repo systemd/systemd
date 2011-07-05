@@ -23,6 +23,8 @@ F15 External:
 
 Features:
 
+* optionally support --if-listed in systemctl enable to enable only services listed in some filed
+
 * wildcard support for .path units (think CUPS spool directory!)
 
 * kernel: add /proc/sys file exposing CAP_LAST_CAP?
