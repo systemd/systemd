@@ -49,6 +49,12 @@ void fdset_free(FDSet *s) {
                  * here, so that the EBADFD that valgrind will return
                  * us on close() doesn't influence us */
 
+                /* When reloading duplicates of the private bus
+                 * connection fds and suchlike are closed here, which
+                 * has no effect at all, since they are only
+                 * duplicates. So don't be surprised about these log
+                 * messages. */
+
                 log_debug("Closing left-over fd %i", PTR_TO_FD(p));
                 close_nointr(PTR_TO_FD(p));
         }

@@ -370,7 +370,7 @@ void unit_free(Unit *u) {
                 u->meta.manager->n_in_gc_queue--;
         }
 
-        cgroup_bonding_free_list(u->meta.cgroup_bondings, u->meta.manager->n_serializing <= 0);
+        cgroup_bonding_free_list(u->meta.cgroup_bondings, u->meta.manager->n_reloading <= 0);
 
         free(u->meta.description);
         free(u->meta.fragment_path);
@@ -1137,7 +1137,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
          * behaviour here. For example: if a mount point is remounted
          * this function will be called too! */
 
-        if (u->meta.manager->n_deserializing <= 0) {
+        if (u->meta.manager->n_reloading <= 0) {
                 dual_timestamp ts;
 
                 dual_timestamp_get(&ts);
@@ -1225,7 +1225,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         } else
                 unexpected = true;
 
-        if (u->meta.manager->n_deserializing <= 0) {
+        if (u->meta.manager->n_reloading <= 0) {
 
                 /* If this state change happened without being
                  * requested by a job, then let's retroactively start
@@ -1258,7 +1258,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (u->meta.type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
-                    u->meta.manager->n_deserializing <= 0) {
+                    u->meta.manager->n_reloading <= 0) {
                         /* Write audit record if we have just finished starting up */
                         manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, true);
                         u->meta.in_audit = true;
@@ -1275,7 +1275,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 if (u->meta.type == UNIT_SERVICE &&
                     UNIT_IS_INACTIVE_OR_FAILED(ns) &&
                     !UNIT_IS_INACTIVE_OR_FAILED(os) &&
-                    u->meta.manager->n_deserializing <= 0) {
+                    u->meta.manager->n_reloading <= 0) {
 
                         /* Hmm, if there was no start record written
                          * write it now, so that we always have a nice

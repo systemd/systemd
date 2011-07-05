@@ -1496,7 +1496,7 @@ static void service_set_state(Service *s, ServiceState state) {
 
         /* For the inactive states unit_notify() will trim the cgroup,
          * but for exit we have to do that ourselves... */
-        if (state == SERVICE_EXITED && s->meta.manager->n_deserializing <= 0)
+        if (state == SERVICE_EXITED && s->meta.manager->n_reloading <= 0)
                 cgroup_bonding_trim_list(s->meta.cgroup_bondings, true);
 
         if (old_state != state)

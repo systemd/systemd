@@ -595,7 +595,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
          * this is already known, so we increase the counter here
          * already */
         if (serialization)
-                m->n_deserializing ++;
+                m->n_reloading ++;
 
         /* First, enumerate what we can from all config files */
         r = manager_enumerate(m);
@@ -610,8 +610,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 r = q;
 
         if (serialization) {
-                assert(m->n_deserializing > 0);
-                m->n_deserializing --;
+                assert(m->n_reloading > 0);
+                m->n_reloading --;
         }
 
         return r;
@@ -2476,7 +2476,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
         /* Don't generate audit events if the service was already
          * started and we're just deserializing */
-        if (m->n_deserializing > 0)
+        if (m->n_reloading > 0)
                 return;
 
         if (m->running_as != MANAGER_SYSTEM)
@@ -2517,7 +2517,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 
         /* Don't generate plymouth events if the service was already
          * started and we're just deserializing */
-        if (m->n_deserializing > 0)
+        if (m->n_reloading > 0)
                 return;
 
         if (m->running_as != MANAGER_SYSTEM)
@@ -2659,7 +2659,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        m->n_serializing ++;
+        m->n_reloading ++;
 
         fprintf(f, "current-job-id=%i\n", m->current_job_id);
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
@@ -2682,13 +2682,13 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
                 fputc('\n', f);
 
                 if ((r = unit_serialize(u, f, fds)) < 0) {
-                        m->n_serializing --;
+                        m->n_reloading --;
                         return r;
                 }
         }
 
-        assert(m->n_serializing > 0);
-        m->n_serializing --;
+        assert(m->n_reloading > 0);
+        m->n_reloading --;
 
         if (ferror(f))
                 return -EIO;
@@ -2708,7 +2708,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
         log_debug("Deserializing state...");
 
-        m->n_deserializing ++;
+        m->n_reloading ++;
 
         for (;;) {
                 char line[LINE_MAX], *l;
@@ -2781,8 +2781,8 @@ finish:
                 goto finish;
         }
 
-        assert(m->n_deserializing > 0);
-        m->n_deserializing --;
+        assert(m->n_reloading > 0);
+        m->n_reloading --;
 
         return r;
 }
@@ -2797,21 +2797,21 @@ int manager_reload(Manager *m) {
         if ((r = manager_open_serialization(m, &f)) < 0)
                 return r;
 
-        m->n_serializing ++;
+        m->n_reloading ++;
 
         if (!(fds = fdset_new())) {
-                m->n_serializing --;
+                m->n_reloading --;
                 r = -ENOMEM;
                 goto finish;
         }
 
         if ((r = manager_serialize(m, f, fds)) < 0) {
-                m->n_serializing --;
+                m->n_reloading --;
                 goto finish;
         }
 
         if (fseeko(f, 0, SEEK_SET) < 0) {
-                m->n_serializing --;
+                m->n_reloading --;
                 r = -errno;
                 goto finish;
         }
@@ -2819,9 +2819,6 @@ int manager_reload(Manager *m) {
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
         manager_undo_generators(m);
-
-        assert(m->n_serializing > 0);
-        m->n_serializing --;
 
         /* Find new unit paths */
         lookup_paths_free(&m->lookup_paths);
@@ -2831,8 +2828,6 @@ int manager_reload(Manager *m) {
         manager_run_generators(m);
 
         manager_build_unit_path_cache(m);
-
-        m->n_deserializing ++;
 
         /* First, enumerate what we can from all config files */
         if ((q = manager_enumerate(m)) < 0)
@@ -2849,8 +2844,8 @@ int manager_reload(Manager *m) {
         if ((q = manager_coldplug(m)) < 0)
                 r = q;
 
-        assert(m->n_deserializing > 0);
-        m->n_deserializing--;
+        assert(m->n_reloading > 0);
+        m->n_reloading--;
 
 finish:
         if (f)

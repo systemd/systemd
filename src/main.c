@@ -898,6 +898,9 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
         assert(_f);
         assert(_fds);
 
+        /* Make sure nothing is really destructed when we shut down */
+        m->n_reloading ++;
+
         if ((r = manager_open_serialization(m, &f)) < 0) {
                 log_error("Failed to create serialization file: %s", strerror(-r));
                 goto fail;
