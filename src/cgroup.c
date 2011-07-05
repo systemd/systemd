@@ -46,9 +46,6 @@ int cgroup_bonding_realize(CGroupBonding *b) {
 
         b->realized = true;
 
-        if (b->ours)
-                cg_trim(b->controller, b->path, false);
-
         return 0;
 }
 
