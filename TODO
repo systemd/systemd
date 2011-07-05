@@ -23,6 +23,8 @@ F15 External:
 
 Features:
 
+* wildcard support for .path units (think CUPS spool directory!)
+
 * kernel: add /proc/sys file exposing CAP_LAST_CAP?
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
@@ -39,8 +41,6 @@ Features:
   when we start a service in order to avoid confusion when a user
   assumes starting a service is enough to make it accessible
 
-* drop -lrt req for sd-daemon.[ch]
-
 * Make it possible to set the keymap independently from the font on
   the kernel cmdline. Right now setting one resets also the other.
 
@@ -51,8 +51,6 @@ Features:
 * figure out a standard place to configure timezone name, inform myllynen@redhat.com
 
 * add dbus call to convert snapshot into target
-
-* move /selinux to /sys/fs/selinux
 
 * detect LXC with $container=lxc
 
