@@ -52,6 +52,7 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
 
 # libusb device nodes
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="", IMPORT{program}="usb_id --export %p"
 
 # printer
 KERNEL=="parport[0-9]*",	GROUP="lp"
@@ -60,10 +61,7 @@ SUBSYSTEM=="ppdev",		GROUP="lp"
 SUBSYSTEM=="usb",		KERNEL=="lp*", SYMLINK+="usb%k", GROUP="lp"
 KERNEL=="lp[0-9]*",		GROUP="lp"
 KERNEL=="irlpt[0-9]*",		GROUP="lp"
-# hplip and cups 1.4+ use raw USB devices, so permissions should be similar to
-# the ones from the old usblp kernel module
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="", IMPORT{program}="usb_id --export %p"
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701*:", GROUP="lp", MODE="0664"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701*:", GROUP="lp"
 
 # block
 SUBSYSTEM=="block", GROUP="disk"

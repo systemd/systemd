@@ -7,7 +7,6 @@ ENV{MAJOR}=="", GOTO="acl_end"
 ACTION=="remove", GOTO="acl_apply"
 
 # PTP/MTP protocol devices, cameras, portable media players
-SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="", ENV{DEVTYPE}=="usb_device", IMPORT{program}="usb_id --export %p"
 SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:060101:*", TAG+="udev-acl"
 
 # digicams with proprietary protocol
