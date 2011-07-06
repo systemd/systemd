@@ -50,29 +50,29 @@ static void log_fn(struct udev *udev, int priority,
 static int path_prepend(char **path, const char *fmt, ...)
 {
 	va_list va;
-	char *old;
 	char *pre;
-	int err;
-
-	old = *path;
+	int err = 0;
 
 	va_start(va, fmt);
 	err = vasprintf(&pre, fmt, va);
 	va_end(va);
 	if (err < 0)
-		return err;
+		goto out;
 
-	if (old != NULL) {
-		err = asprintf(path, "%s-%s", pre, old);
-		if (err < 0)
-			return err;
+	if (*path != NULL) {
+		char *new;
+
+		err = asprintf(&new, "%s-%s", pre, *path);
 		free(pre);
+		if (err < 0)
+			goto out;
+		free(*path);
+		*path = new;
 	} else {
 		*path = pre;
 	}
-
-	free(old);
-	return 0;
+out:
+	return err;
 }
 
 /*
@@ -337,15 +337,19 @@ out:
 	return parent;
 }
 
-static void handle_scsi_tape(struct udev_device *dev, char **suffix)
+static void handle_scsi_tape(struct udev_device *dev, char **path)
 {
 	const char *name;
 
+	/* must be the last device in the syspath */
+	if (*path != NULL)
+		return;
+
 	name = udev_device_get_sysname(dev);
 	if (strncmp(name, "nst", 3) == 0 && strchr("lma", name[3]) != NULL)
-		asprintf(suffix, "nst%c", name[3]);
+		path_prepend(path, "nst%c", name[3]);
 	else if (strncmp(name, "st", 2) == 0 && strchr("lma", name[2]) != NULL)
-		asprintf(suffix, "st%c", name[2]);
+		path_prepend(path, "st%c", name[2]);
 }
 
 static struct udev_device *handle_usb(struct udev_device *parent, char **path)
@@ -413,9 +417,8 @@ int main(int argc, char **argv)
 	struct udev_device *parent;
 	char syspath[UTIL_PATH_SIZE];
 	const char *devpath;
-	char *path;
-	char *path_suffix;
-	int rc = 1;
+	char *path = NULL;
+	int rc = EXIT_FAILURE;
 
 	udev = udev_new();
 	if (udev == NULL)
@@ -460,9 +463,6 @@ int main(int argc, char **argv)
 		goto exit;
 	}
 
-	path = NULL;
-	path_suffix = NULL;
-
 	/* S390 ccw bus */
 	parent = udev_device_get_parent_with_subsystem_devtype(dev, "ccw", NULL);
 	if (parent != NULL) {
@@ -480,7 +480,7 @@ int main(int argc, char **argv)
 		if (subsys == NULL) {
 			;
 		} else if (strcmp(subsys, "scsi_tape") == 0) {
-			handle_scsi_tape(parent, &path_suffix);
+			handle_scsi_tape(parent, &path);
 		} else if (strcmp(subsys, "scsi") == 0) {
 			parent = handle_scsi(parent, &path);
 		} else if (strcmp(subsys, "cciss") == 0) {
@@ -508,14 +508,9 @@ int main(int argc, char **argv)
 	}
 out:
 	if (path != NULL) {
-		if (path_suffix != NULL) {
-			printf("ID_PATH=%s%s\n", path, path_suffix);
-			free(path_suffix);
-		} else {
-			printf("ID_PATH=%s\n", path);
-		}
+		printf("ID_PATH=%s\n", path);
 		free(path);
-		rc = 0;
+		rc = EXIT_SUCCESS;
 	}
 
 	udev_device_unref(dev);
