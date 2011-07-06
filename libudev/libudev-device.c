@@ -1646,17 +1646,18 @@ UDEV_EXPORT struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_
 	return udev_list_get_entry(&udev_device->tags_list);
 }
 
-int udev_device_has_tag(struct udev_device *udev_device, const char *tag)
+UDEV_EXPORT int udev_device_has_tag(struct udev_device *udev_device, const char *tag)
 {
 	struct udev_list_entry *list_entry;
 
+	if (udev_device == NULL)
+		return NULL;
 	if (!udev_device->info_loaded)
 		udev_device_read_db(udev_device, NULL);
 	list_entry = udev_device_get_tags_list_entry(udev_device);
-	list_entry =  udev_list_entry_get_by_name(list_entry, tag);
-	if (list_entry != NULL)
-		return 1;
-	return 0;
+	if (udev_list_entry_get_by_name(list_entry, tag) != NULL)
+		return true;
+	return false;
 }
 
 #define ENVP_SIZE			128
