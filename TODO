@@ -14,16 +14,13 @@ F15 External:
 
 * bluetooth should be possible to disable (PENDING)
 
-* get writev() /dev/kmsg support into the F15 kernel
-    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=7e5b58bcbcb3d7518389c1d82fb6e926f5a9f72c
-
 * make anaconda write timeout=0 for encrypted devices
 
 * fix broken Sockets=syslog-ng.socket packaging
 
 Features:
 
-* optionally support --if-listed in systemctl enable to enable only services listed in some filed
+* support presets
 
 * wildcard support for .path units (think CUPS spool directory!)
 
@@ -52,7 +49,7 @@ Features:
 
 * figure out a standard place to configure timezone name, inform myllynen@redhat.com
 
-* add dbus call to convert snapshot into target
+* add dbus call to convert snapshot into target, and a dbus call to generate target from current state
 
 * detect LXC with $container=lxc
 
@@ -68,6 +65,19 @@ Features:
 
 * support notifications for services being enabled/disabled
 
+* show enablement status in systemctl status
+
+* consider services with any kind of link in /etc/systemd/system enabled
+
+* teach systemctl to enable unit files in arbitrary directories
+
+* In systemctl make sure both is-enabled and is-active print a string, or neither.
+
+* Implement:
+    systemctl mask <unit>
+    systemctl unmask <unit>
+  Also support --temp to make this temporary by placing mask links in /run.
+
 * add support for /bin/mount -s
 
 * GC unreferenced jobs (such as .device jobs)
@@ -76,23 +86,13 @@ Features:
   controllers together in order to guarantee atomic creation/addition
   of cgroups
 
-* don't enter "exited" mode for sysv services with pid file
-
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
 * cgroup_notify_empty(): recursively check groups up the tree, too
 
 * fix alsa mixer restore to not print error when no config is stored
 
-* show enablement status in systemctl status
-
-* support SYSTEMD_PAGER taking precedence over PAGER
-
 * fix upstart reboot compat call
-
-* In systemctl make sure both is-enabled and is-active print a string, or neither.
-
-* teach systemctl to enable unit files in arbitrary directories
 
 * when failing to start a service due to ratelimiting, try again later, if restart=always is set
 
@@ -100,9 +100,6 @@ Features:
   - enabling dbus services
   - status update
   - /etc/sysconfig and /etc/default
-  - how to write socket activated services
-
-* maybe add tiny dbus services similar to hostnamed for locale and wallclock/timezone?
 
 * allow port=0 in .socket units
 
@@ -166,23 +163,13 @@ Features:
 
 * Support --test based on current system state
 
-* consider services with any kind of link in /etc/systemd/system enabled
-
 * show failure error string in "systemctl status"
 
 * make sure timeouts are applied to Type=oneshot services.
 
-* Implement:
-    systemctl mask <unit>
-    systemctl unmask <unit>
-  Also support --temp to make this temporary by placing mask links in /run.
-
 * detect LXC environment
 
 * investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
-
-* Maybe store in unit files whether a service should be enabled by default on package installation
-  (belongs into a distro pattern though, not in an upstream package's service file)
 
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
