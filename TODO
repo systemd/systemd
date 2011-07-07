@@ -1,13 +1,13 @@
- - remove RUN+="socket:"
-
- - use 'udevd:' in logs
-
  - udev_enumerate_add_match_subsystem(enum, "input");
    udev_enumerate_add_match_sysname(enum, "event*");
    udev_enumerate_add_match_children(input_dev);
    udev_enumerate_scan_devices(enum);
 
+ - test (now fixed) /dev/tape/ links
+
  - monitor: use clock MONOTONIC
+
+ - remove RUN+="socket:"
 
  - libudev: return proper errno or set errno
 
