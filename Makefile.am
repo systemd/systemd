@@ -438,6 +438,12 @@ dist_systemunit_DATA += \
 	units/frugalware/display-manager.service
 endif
 
+if TARGET_SUSE
+dist_systemunit_DATA += \
+	units/suse/rc-local.service \
+	units/suse/halt-local.service
+endif
+
 if HAVE_PLYMOUTH
 dist_systemunit_DATA += \
 	units/plymouth-start.service \
@@ -1702,6 +1708,19 @@ if TARGET_DEBIAN_OR_UBUNTU
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel5.target && \
 		$(LN_S) multi-user.target runlevel5.target )
+endif
+
+if TARGET_SUSE
+	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f local.service && \
+		$(LN_S) rc-local.service local.service )
+	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
+		rm -f halt-local.service && \
+		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 endif
 
 if HAVE_SYSV_COMPAT
