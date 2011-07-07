@@ -3866,8 +3866,12 @@ char *normalize_env_assignment(const char *s) {
 }
 
 int wait_for_terminate(pid_t pid, siginfo_t *status) {
+        siginfo_t dummy;
+
         assert(pid >= 1);
-        assert(status);
+
+        if (!status)
+                status = &dummy;
 
         for (;;) {
                 zero(*status);

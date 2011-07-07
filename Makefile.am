@@ -1118,7 +1118,8 @@ systemctl_SOURCES = \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
 	src/exit-status.c \
-	src/unit-name.c
+	src/unit-name.c \
+        src/pager.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1177,7 +1178,8 @@ systemd_readahead_replay_LDADD = \
 systemd_cgls_SOURCES = \
 	src/cgls.c \
 	src/cgroup-show.c \
-	src/cgroup-util.c
+	src/cgroup-util.c \
+        src/pager.c
 
 systemd_cgls_CFLAGS = \
 	$(AM_CFLAGS)

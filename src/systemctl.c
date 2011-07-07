@@ -56,6 +56,7 @@
 #include "bus-errors.h"
 #include "build.h"
 #include "unit-name.h"
+#include "pager.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -118,11 +119,14 @@ static const char *arg_host = NULL;
 
 static bool private_bus = false;
 
-static pid_t pager_pid = 0;
 static pid_t agent_pid = 0;
 
 static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
-static void pager_open(void);
+
+static void pager_open_if_enabled(void) {
+        if (!arg_no_pager)
+                pager_open();
+}
 
 static bool on_tty(void) {
         static int t = -1;
@@ -475,7 +479,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
         assert(bus);
 
-        pager_open();
+        pager_open_if_enabled();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -825,7 +829,7 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
 
         assert(bus);
 
-        pager_open();
+        pager_open_if_enabled();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -2652,7 +2656,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
         show_properties = !streq(args[0], "status");
 
         if (show_properties)
-                pager_open();
+                pager_open_if_enabled();
 
         if (show_properties && n <= 1) {
                 /* If not argument is specified inspect the manager
@@ -3048,7 +3052,7 @@ static int dump(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
-        pager_open();
+        pager_open_if_enabled();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -3419,7 +3423,7 @@ static int show_enviroment(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
-        pager_open();
+        pager_open_if_enabled();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -5600,96 +5604,6 @@ static int runlevel_main(void) {
                runlevel <= 0 ? 'N' : runlevel);
 
         return 0;
-}
-
-static void pager_open(void) {
-        int fd[2];
-        const char *pager;
-        pid_t parent_pid;
-
-        if (pager_pid > 0)
-                return;
-
-        if (!on_tty() || arg_no_pager)
-                return;
-
-        if ((pager = getenv("SYSTEMD_PAGER")) || (pager = getenv("PAGER")))
-                if (!*pager || streq(pager, "cat"))
-                        return;
-
-        /* Determine and cache number of columns before we spawn the
-         * pager so that we get the value from the actual tty */
-        columns();
-
-        if (pipe(fd) < 0) {
-                log_error("Failed to create pager pipe: %m");
-                return;
-        }
-
-        parent_pid = getpid();
-
-        pager_pid = fork();
-        if (pager_pid < 0) {
-                log_error("Failed to fork pager: %m");
-                close_pipe(fd);
-                return;
-        }
-
-        /* In the child start the pager */
-        if (pager_pid == 0) {
-
-                dup2(fd[0], STDIN_FILENO);
-                close_pipe(fd);
-
-                setenv("LESS", "FRSX", 0);
-
-                /* Make sure the pager goes away when the parent dies */
-                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
-                        _exit(EXIT_FAILURE);
-
-                /* Check whether our parent died before we were able
-                 * to set the death signal */
-                if (getppid() != parent_pid)
-                        _exit(EXIT_SUCCESS);
-
-                if (pager) {
-                        execlp(pager, pager, NULL);
-                        execl("/bin/sh", "sh", "-c", pager, NULL);
-                } else {
-                        /* Debian's alternatives command for pagers is
-                         * called 'pager'. Note that we do not call
-                         * sensible-pagers here, since that is just a
-                         * shell script that implements a logic that
-                         * is similar to this one anyway, but is
-                         * Debian-specific. */
-                        execlp("pager", "pager", NULL);
-
-                        execlp("less", "less", NULL);
-                        execlp("more", "more", NULL);
-                }
-
-                log_error("Unable to execute pager: %m");
-                _exit(EXIT_FAILURE);
-        }
-
-        /* Return in the parent */
-        if (dup2(fd[1], STDOUT_FILENO) < 0)
-                log_error("Failed to duplicate pager pipe: %m");
-
-        close_pipe(fd);
-}
-
-static void pager_close(void) {
-        siginfo_t dummy;
-
-        if (pager_pid <= 0)
-                return;
-
-        /* Inform pager that we are done */
-        fclose(stdout);
-        kill(pager_pid, SIGCONT);
-        wait_for_terminate(pager_pid, &dummy);
-        pager_pid = 0;
 }
 
 static void agent_close(void) {

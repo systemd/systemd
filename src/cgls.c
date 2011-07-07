@@ -30,20 +30,29 @@
 #include "cgroup-util.h"
 #include "log.h"
 #include "util.h"
+#include "pager.h"
+
+static bool arg_no_pager = false;
 
 static void help(void) {
 
         printf("%s [OPTIONS...] [CGROUP...]\n\n"
                "Recursively show control group contents.\n\n"
-               "  -h --help         Show this help\n",
+               "  -h --help         Show this help\n"
+               "     --no-pager       Do not pipe output into a pager.\n",
                program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
+        enum {
+                ARG_NO_PAGER = 0x100
+        };
+
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'         },
-                { NULL,        0,                 NULL, 0           }
+                { "help",      no_argument,       NULL, 'h'          },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
+                { NULL,        0,                 NULL, 0            }
         };
 
         int c;
@@ -58,6 +67,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         help();
                         return 0;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -83,6 +96,9 @@ int main(int argc, char *argv[]) {
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
+
+        if (!arg_no_pager)
+                pager_open();
 
         if (optind < argc) {
                 unsigned i;
@@ -132,6 +148,7 @@ int main(int argc, char *argv[]) {
         retval = EXIT_SUCCESS;
 
 finish:
+        pager_close();
 
         return retval;
 }
