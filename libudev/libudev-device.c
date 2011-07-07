@@ -1651,7 +1651,7 @@ UDEV_EXPORT int udev_device_has_tag(struct udev_device *udev_device, const char 
 	struct udev_list_entry *list_entry;
 
 	if (udev_device == NULL)
-		return NULL;
+		return false;
 	if (!udev_device->info_loaded)
 		udev_device_read_db(udev_device, NULL);
 	list_entry = udev_device_get_tags_list_entry(udev_device);

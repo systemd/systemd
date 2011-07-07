@@ -58,6 +58,7 @@ udev_device_get_sysattr_value
 udev_device_get_sysattr_list_entry
 udev_device_get_seqnum
 udev_device_get_usec_since_initialized
+udev_device_has_tag
 </SECTION>
 
 <SECTION>
