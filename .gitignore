@@ -1,3 +1,4 @@
+systemd-loginctl
 systemd-localed
 systemd-timedated
 systemd-uaccess

@@ -116,6 +116,7 @@ endif
 rootbin_PROGRAMS = \
 	systemd \
 	systemctl \
+        systemd-loginctl \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
@@ -1128,6 +1129,21 @@ systemctl_CFLAGS = \
 systemctl_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
+	$(DBUS_LIBS)
+
+systemd_loginctl_SOURCES = \
+	src/loginctl.c \
+	src/dbus-common.c \
+	src/cgroup-show.c \
+	src/cgroup-util.c \
+        src/pager.c
+
+systemd_loginctl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_loginctl_LDADD = \
+	libsystemd-basic.la \
 	$(DBUS_LIBS)
 
 systemd_notify_SOURCES = \

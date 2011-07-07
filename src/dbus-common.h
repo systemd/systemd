@@ -163,4 +163,6 @@ int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l);
 
 int bus_append_strv_iter(DBusMessageIter *iter, char **l);
 
+int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, bool next);
+
 #endif

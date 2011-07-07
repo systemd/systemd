@@ -33,7 +33,6 @@
 #include <sys/stat.h>
 #include <stddef.h>
 #include <sys/prctl.h>
-
 #include <dbus/dbus.h>
 
 #include "log.h"
@@ -276,22 +275,6 @@ static int translate_bus_error_to_exit_status(int r, const DBusError *error) {
                 return r;
 
         return EXIT_FAILURE;
-}
-
-static int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, bool next) {
-
-        assert(iter);
-        assert(data);
-
-        if (dbus_message_iter_get_arg_type(iter) != type)
-                return -EIO;
-
-        dbus_message_iter_get_basic(iter, data);
-
-        if (!dbus_message_iter_next(iter) != !next)
-                return -EIO;
-
-        return 0;
 }
 
 static void warn_wall(enum action action) {
