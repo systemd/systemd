@@ -38,8 +38,8 @@ static void help(void) {
 
         printf("%s [OPTIONS...] [CGROUP...]\n\n"
                "Recursively show control group contents.\n\n"
-               "  -h --help         Show this help\n"
-               "     --no-pager       Do not pipe output into a pager.\n",
+               "  -h --help           Show this help\n"
+               "     --no-pager       Do not pipe output into a pager\n",
                program_invocation_short_name);
 }
 

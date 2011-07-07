@@ -80,8 +80,8 @@ static bool arg_failed = false;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static const char *arg_kill_mode = NULL;
-static const char *arg_root = NULL;
 static int arg_signal = SIGTERM;
+static const char *arg_root = NULL;
 static usec_t arg_when = 0;
 static enum action {
         ACTION_INVALID,
@@ -4352,7 +4352,6 @@ static int systemctl_help(void) {
                "                      pending\n"
                "     --ignore-dependencies\n"
                "                      When queueing a new job, ignore all its dependencies\n"
-               "     --kill-mode=MODE How to send signal\n"
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
                "  -H --host=[user@]host\n"
@@ -4363,7 +4362,7 @@ static int systemctl_help(void) {
                "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
                "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
                "                      configuration\n"
-               "     --no-pager       Do not pipe output into a pager.\n"
+               "     --no-pager       Do not pipe output into a pager\n"
                "     --no-ask-password\n"
                "                      Do not ask for system passwords\n"
                "     --order          When generating graph for dot, show only order\n"
@@ -4536,7 +4535,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "force",     no_argument,       NULL, 'f'           },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
                 { "defaults",  no_argument,       NULL, ARG_DEFAULTS  },
-                { "kill-mode", required_argument, NULL, ARG_KILL_MODE },
+                { "kill-mode", required_argument, NULL, ARG_KILL_MODE }, /* undocumented on purpose */
                 { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
                 { "signal",    required_argument, NULL, 's'           },
                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
