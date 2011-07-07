@@ -38,6 +38,7 @@ typedef enum PathState {
 
 typedef enum PathType {
         PATH_EXISTS,
+        PATH_EXISTS_GLOB,
         PATH_DIRECTORY_NOT_EMPTY,
         PATH_CHANGED,
         _PATH_TYPE_MAX,

@@ -53,6 +53,7 @@
 #include <sys/capability.h>
 #include <sys/time.h>
 #include <linux/rtc.h>
+#include <glob.h>
 
 #include "macro.h"
 #include "util.h"
@@ -5236,6 +5237,30 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
         *gid = p->pw_gid;
         *home = p->pw_dir;
         return 0;
+}
+
+int glob_exists(const char *path) {
+        glob_t g;
+        int r, k;
+
+        assert(path);
+
+        zero(g);
+        errno = 0;
+        k = glob(path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+
+        if (k == GLOB_NOMATCH)
+                r = 0;
+        else if (k == GLOB_NOSPACE)
+                r = -ENOMEM;
+        else if (k == 0)
+                r = !strv_isempty(g.gl_pathv);
+        else
+                r = errno ? -errno : -EIO;
+
+        globfree(&g);
+
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

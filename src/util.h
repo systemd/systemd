@@ -447,6 +447,8 @@ int socket_from_display(const char *display, char **path);
 
 int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home);
 
+int glob_exists(const char *path);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

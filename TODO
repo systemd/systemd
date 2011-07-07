@@ -20,9 +20,9 @@ F15 External:
 
 Features:
 
-* support presets
+* add loginctl, i.e. a systemctl for logind introspection
 
-* wildcard support for .path units (think CUPS spool directory!)
+* support presets
 
 * kernel: add /proc/sys file exposing CAP_LAST_CAP?
 

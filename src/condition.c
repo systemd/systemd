@@ -34,6 +34,8 @@
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
 
+        assert(type < _CONDITION_TYPE_MAX);
+
         if (!(c = new0(Condition, 1)))
                 return NULL;
 
@@ -148,6 +150,9 @@ bool condition_test(Condition *c) {
         case CONDITION_PATH_EXISTS:
                 return (access(c->parameter, F_OK) >= 0) == !c->negate;
 
+        case CONDITION_PATH_EXISTS_GLOB:
+                return (glob_exists(c->parameter) > 0) == !c->negate;
+
         case CONDITION_PATH_IS_DIRECTORY: {
                 struct stat st;
 
@@ -231,6 +236,7 @@ void condition_dump_list(Condition *first, FILE *f, const char *prefix) {
 
 static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_EXISTS] = "ConditionPathExists",
+        [CONDITION_PATH_EXISTS_GLOB] = "ConditionPathExistsGlob",
         [CONDITION_PATH_IS_DIRECTORY] = "ConditionPathIsDirectory",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",

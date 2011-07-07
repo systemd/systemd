@@ -197,6 +197,7 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
 static int path_watch_one(Path *p, PathSpec *s) {
         static const int flags_table[_PATH_TYPE_MAX] = {
                 [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
+                [PATH_EXISTS_GLOB] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_CHANGED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
                 [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO
         };
@@ -367,6 +368,10 @@ static bool path_check_good(Path *p, bool initial) {
                         good = access(s->path, F_OK) >= 0;
                         break;
 
+                case PATH_EXISTS_GLOB:
+                        good = glob_exists(s->path) > 0;
+                        break;
+
                 case PATH_DIRECTORY_NOT_EMPTY: {
                         int k;
 
@@ -438,7 +443,7 @@ static void path_mkdir(Path *p) {
         LIST_FOREACH(spec, s, p->specs) {
                 int r;
 
-                if (s->type == PATH_EXISTS)
+                if (s->type == PATH_EXISTS || s->type == PATH_EXISTS_GLOB)
                         continue;
 
                 if ((r = mkdir_p(s->path, p->directory_mode)) < 0)
@@ -672,6 +677,7 @@ DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);
 
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS] = "PathExists",
+        [PATH_EXISTS_GLOB] = "PathExistsGlob",
         [PATH_CHANGED] = "PathChanged",
         [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty"
 };

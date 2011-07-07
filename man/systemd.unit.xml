@@ -607,6 +607,7 @@
 
                         <varlistentry>
                                 <term><varname>ConditionPathExists=</varname></term>
+                                <term><varname>ConditionPathExistsGlob=</varname></term>
                                 <term><varname>ConditionPathIsDirectory=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
@@ -632,7 +633,12 @@
                                 is prefixed with an exclamation mark
                                 (!), the test is negated, and the unit
                                 only started if the path does not
-                                exist. <varname>ConditionPathIsDirectory=</varname>
+                                exist. <varname>ConditionPathExistsGlob=</varname>
+                                work in a similar way, but checks for
+                                the existance of at least one file or
+                                directory matching the specified
+                                globbing
+                                pattern. <varname>ConditionPathIsDirectory=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
@@ -677,12 +683,12 @@
                                 test may be negated by prepending an
                                 exclamation mark.
                                 <varname>ConditionSecurity=</varname>
-                                may be used to check whether the given security
-                                module is enabled on the system.
-                                Currently the only recognized value is
-                                <varname>selinux</varname>.
-                                The test may be negated by prepending an
-                                exclamation mark. Finally,
+                                may be used to check whether the given
+                                security module is enabled on the
+                                system.  Currently the only recognized
+                                value is <varname>selinux</varname>.
+                                The test may be negated by prepending
+                                an exclamation mark. Finally,
                                 <varname>ConditionNull=</varname> may
                                 be used to add a constant condition
                                 check value to the unit. It takes a

@@ -111,6 +111,7 @@
                 <variablelist>
                         <varlistentry>
                                 <term><varname>PathExists=</varname></term>
+                                <term><varname>PathExistsGlob=</varname></term>
                                 <term><varname>PathChanged=</varname></term>
                                 <term><varname>DirectoryNotEmpty=</varname></term>
 
@@ -121,7 +122,11 @@
                                 file or directory. If the file
                                 specified exists the configured unit
                                 is
-                                activated. <varname>PathChanged=</varname>
+                                activated. <varname>PathExistsGlob=</varname>
+                                works similar, but checks for the
+                                existance of at least one file
+                                matching the globbing pattern
+                                specified. <varname>PathChanged=</varname>
                                 may be used to watch a file or
                                 directory and activate the configured
                                 unit whenever it changes or is
@@ -140,12 +145,13 @@
 
                                 <para>If a path is already existing
                                 (in case of
-                                <varname>PathExists=</varname>) or a
-                                directory already is not empty (in
+                                <varname>PathExists=</varname> and
+                                <varname>PathExistsGlob=</varname>) or
+                                a directory already is not empty (in
                                 case of
                                 <varname>DirectoryNotEmpty=</varname>)
-                                at the time the path unit is activated,
-                                then the configured unit is
+                                at the time the path unit is
+                                activated, then the configured unit is
                                 immediately activated as
                                 well. Something similar does not apply
                                 to <varname>PathChanged=</varname>.
