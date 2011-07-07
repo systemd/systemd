@@ -103,6 +103,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		{ "property-match", required_argument, NULL, 'p' },
 		{ "tag-match", required_argument, NULL, 'g' },
 		{ "sysname-match", required_argument, NULL, 'y' },
+		{ "parent-match", required_argument, NULL, 'b' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
@@ -128,7 +129,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		const char *val;
 		char buf[UTIL_PATH_SIZE];
 
-		option = getopt_long(argc, argv, "vng:o:t:hc:p:s:S:a:A:y:", options, NULL);
+		option = getopt_long(argc, argv, "vng:o:t:hc:p:s:S:a:A:y:b:", options, NULL);
 		if (option == -1)
 			break;
 
@@ -179,6 +180,27 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		case 'y':
 			udev_enumerate_add_match_sysname(udev_enumerate, optarg);
 			break;
+		case 'b': {
+			char path[UTIL_PATH_SIZE];
+			struct udev_device *dev;
+
+			/* add sys dir if needed */
+			if (strncmp(optarg, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0)
+				util_strscpyl(path, sizeof(path), udev_get_sys_path(udev), optarg, NULL);
+			else
+				util_strscpy(path, sizeof(path), optarg);
+			util_remove_trailing_chars(path, '/');
+			dev = udev_device_new_from_syspath(udev, path);
+			if (dev == NULL) {
+				err(udev, "unable to open the device '%s'\n", optarg);
+				rc = 2;
+				goto exit;
+			}
+			udev_enumerate_add_match_parent(udev_enumerate, dev);
+			/* drop reference immediately, enumerate pins the device as long as needed */
+			udev_device_unref(dev);
+			break;
+		}
 		case 'h':
 			printf("Usage: udevadm trigger OPTIONS\n"
 			       "  --verbose                       print the list of devices while running\n"
@@ -196,6 +218,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			       "  --property-match=<key>=<value>  trigger devices with a matching property\n"
 			       "  --tag-match=<key>=<value>       trigger devices with a matching property\n"
 			       "  --sysname-match=<name>          trigger devices with a matching name\n"
+			       "  --parent-match=<name>           trigger devices with that parent device\n"
 			       "  --help\n\n");
 			goto exit;
 		default:

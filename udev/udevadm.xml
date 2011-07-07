@@ -252,6 +252,12 @@
             specified multiple times and supports shell style pattern matching.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>--parent-match=<replaceable>syspath</replaceable></option></term>
+          <listitem>
+            <para>Trigger events for all children of a given device.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 

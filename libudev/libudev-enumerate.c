@@ -52,6 +52,7 @@ struct udev_enumerate {
 	struct udev_list_node sysname_match_list;
 	struct udev_list_node properties_match_list;
 	struct udev_list_node tags_match_list;
+	struct udev_device *parent_match;
 	struct udev_list_node devices_list;
 	struct syspath *devices;
 	unsigned int devices_cur;
@@ -125,6 +126,7 @@ UDEV_EXPORT void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->sysname_match_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->properties_match_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->tags_match_list);
+	udev_device_unref(udev_enumerate->parent_match);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
 	for (i = 0; i < udev_enumerate->devices_cur; i++)
 		free(udev_enumerate->devices[i].syspath);
@@ -460,6 +462,30 @@ UDEV_EXPORT int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumera
 }
 
 /**
+ * udev_enumerate_add_match_parent:
+ * @udev_enumerate: context
+ * @parent: filter for the parent device
+ *
+ * Return only the children of a given device.
+ *
+ * A reference for the device is held until the udev_enumerate context
+ * is cleaned up.
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
+UDEV_EXPORT int udev_enumerate_add_match_parent(struct udev_enumerate *udev_enumerate, struct udev_device *parent)
+{
+	if (udev_enumerate == NULL)
+		return -EINVAL;
+	if (parent == NULL)
+		return 0;
+	if (udev_enumerate->parent_match != NULL)
+		udev_device_unref(udev_enumerate->parent_match);
+	udev_enumerate->parent_match = udev_device_ref(parent);
+	return 0;
+}
+
+/**
  * udev_enumerate_add_match_is_initialized:
  * @udev_enumerate: context
  *
@@ -581,6 +607,17 @@ static bool match_tag(struct udev_enumerate *udev_enumerate, struct udev_device 
 	return true;
 }
 
+static bool match_parent(struct udev_enumerate *udev_enumerate, struct udev_device *dev)
+{
+	const char *parent;
+
+	if (udev_enumerate->parent_match == NULL)
+		return true;
+
+	parent = udev_device_get_devpath(udev_enumerate->parent_match);
+	return strncmp(parent, udev_device_get_devpath(dev), strlen(parent)) == 0;
+}
+
 static bool match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname)
 {
 	struct udev_list_entry *list_entry;
@@ -645,6 +682,8 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 			    (major(udev_device_get_devnum(dev)) > 0 || udev_device_get_ifindex(dev) > 0))
 				goto nomatch;
 		}
+		if (!match_parent(udev_enumerate, dev))
+			goto nomatch;
 		if (!match_tag(udev_enumerate, dev))
 			goto nomatch;
 		if (!match_property(udev_enumerate, dev))
@@ -727,6 +766,122 @@ UDEV_EXPORT int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate
 	return 0;
 }
 
+static int scan_devices_tags(struct udev_enumerate *udev_enumerate)
+{
+	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
+	struct udev_list_entry *list_entry;
+
+	/* scan only tagged devices, use tags reverse-index, instead of searching all devices in /sys */
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->tags_match_list)) {
+		DIR *dir;
+		struct dirent *dent;
+		char path[UTIL_PATH_SIZE];
+
+		util_strscpyl(path, sizeof(path), udev_get_run_path(udev), "/tags/",
+			      udev_list_entry_get_name(list_entry), NULL);
+		dir = opendir(path);
+		if (dir == NULL)
+			continue;
+		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+			struct udev_device *dev;
+
+			if (dent->d_name[0] == '.')
+				continue;
+
+			dev = udev_device_new_from_id_filename(udev_enumerate->udev, dent->d_name);
+			if (dev == NULL)
+				continue;
+
+			if (!match_subsystem(udev_enumerate, udev_device_get_subsystem(dev)))
+				goto nomatch;
+			if (!match_sysname(udev_enumerate, udev_device_get_sysname(dev)))
+				goto nomatch;
+			if (!match_parent(udev_enumerate, dev))
+				goto nomatch;
+			if (!match_property(udev_enumerate, dev))
+				goto nomatch;
+			if (!match_sysattr(udev_enumerate, dev))
+				goto nomatch;
+
+			syspath_add(udev_enumerate, udev_device_get_syspath(dev));
+nomatch:
+			udev_device_unref(dev);
+		}
+		closedir(dir);
+	}
+	return 0;
+}
+
+static int parent_add_child(struct udev_enumerate *enumerate, const char *path)
+{
+	struct udev_device *dev;
+
+	dev = udev_device_new_from_syspath(enumerate->udev, path);
+	if (dev == NULL)
+		return -ENODEV;
+
+	if (!match_subsystem(enumerate, udev_device_get_subsystem(dev)))
+		return 0;
+	if (!match_sysname(enumerate, udev_device_get_sysname(dev)))
+		return 0;
+	if (!match_property(enumerate, dev))
+		return 0;
+	if (!match_sysattr(enumerate, dev))
+		return 0;
+
+	syspath_add(enumerate, udev_device_get_syspath(dev));
+	udev_device_unref(dev);
+	return 1;
+}
+
+static int parent_crawl_children(struct udev_enumerate *enumerate, const char *path, int maxdepth)
+{
+	DIR *d;
+	struct dirent *dent;
+
+	d = opendir(path);
+	if (d == NULL)
+		return -errno;
+
+	for (dent = readdir(d); dent != NULL; dent = readdir(d)) {
+		char *child;
+
+		if (dent->d_name[0] == '.')
+			continue;
+		if (dent->d_type != DT_DIR)
+			continue;
+		if (asprintf(&child, "%s/%s", path, dent->d_name) < 0)
+			continue;
+		parent_add_child(enumerate, child);
+		if (maxdepth > 0)
+			parent_crawl_children(enumerate, child, maxdepth-1);
+		free(child);
+	}
+
+	closedir(d);
+	return 0;
+}
+
+static int scan_devices_all(struct udev_enumerate *udev_enumerate)
+{
+	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
+	char base[UTIL_PATH_SIZE];
+	struct stat statbuf;
+
+	util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
+	if (stat(base, &statbuf) == 0) {
+		/* we have /subsystem/, forget all the old stuff */
+		dbg(udev, "searching '/subsystem/*/devices/*' dir\n");
+		scan_dir(udev_enumerate, "subsystem", "devices", NULL);
+	} else {
+		dbg(udev, "searching '/bus/*/devices/*' dir\n");
+		scan_dir(udev_enumerate, "bus", "devices", NULL);
+		dbg(udev, "searching '/class/*' dir\n");
+		scan_dir(udev_enumerate, "class", NULL, NULL);
+	}
+	return 0;
+}
+
 /**
  * udev_enumerate_scan_devices:
  * @udev_enumerate: udev enumeration context
@@ -735,67 +890,16 @@ UDEV_EXPORT int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate
  **/
 UDEV_EXPORT int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 {
-	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
-	char base[UTIL_PATH_SIZE];
-	struct stat statbuf;
-
 	if (udev_enumerate == NULL)
 		return -EINVAL;
 
-	if (udev_list_get_entry(&udev_enumerate->tags_match_list) != NULL) {
-		struct udev_list_entry *list_entry;
+	if (udev_list_get_entry(&udev_enumerate->tags_match_list) != NULL)
+		return scan_devices_tags(udev_enumerate);
 
-		/* scan only tagged devices, use tags reverse-index, instead of searching all devices in /sys */
-		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->tags_match_list)) {
-			DIR *dir;
-			struct dirent *dent;
-			char path[UTIL_PATH_SIZE];
+	if (udev_enumerate->parent_match != NULL)
+		return parent_crawl_children(udev_enumerate, udev_device_get_syspath(udev_enumerate->parent_match), 256);
 
-			util_strscpyl(path, sizeof(path), udev_get_run_path(udev), "/tags/",
-				      udev_list_entry_get_name(list_entry), NULL);
-			dir = opendir(path);
-			if (dir == NULL)
-				continue;
-			for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-				struct udev_device *dev;
-
-				if (dent->d_name[0] == '.')
-					continue;
-
-				dev = udev_device_new_from_id_filename(udev_enumerate->udev, dent->d_name);
-				if (dev == NULL)
-					continue;
-
-				if (!match_subsystem(udev_enumerate, udev_device_get_subsystem(dev)))
-					goto nomatch;
-				if (!match_sysname(udev_enumerate, udev_device_get_sysname(dev)))
-					goto nomatch;
-				if (!match_property(udev_enumerate, dev))
-					goto nomatch;
-				if (!match_sysattr(udev_enumerate, dev))
-					goto nomatch;
-
-				syspath_add(udev_enumerate, udev_device_get_syspath(dev));
-nomatch:
-				udev_device_unref(dev);
-			}
-			closedir(dir);
-		}
-	} else {
-		util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
-		if (stat(base, &statbuf) == 0) {
-			/* we have /subsystem/, forget all the old stuff */
-			dbg(udev, "searching '/subsystem/*/devices/*' dir\n");
-			scan_dir(udev_enumerate, "subsystem", "devices", NULL);
-		} else {
-		dbg(udev, "searching '/bus/*/devices/*' dir\n");
-			scan_dir(udev_enumerate, "bus", "devices", NULL);
-			dbg(udev, "searching '/class/*' dir\n");
-			scan_dir(udev_enumerate, "class", NULL, NULL);
-		}
-	}
-
-	return 0;
+	return scan_devices_all(udev_enumerate);
 }
 
 /**
