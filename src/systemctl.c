@@ -785,7 +785,7 @@ static int dot(DBusConnection *bus, char **args, unsigned n) {
                  "                 red       = Conflicts\n"
                  "                 green     = After\n");
 
-        if (isatty(fileno(stdout)))
+        if (on_tty())
                 log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
                            "-- Try a shell pipeline like 'systemctl dot | dot -Tsvg > systemd.svg'!\n");
 
@@ -841,7 +841,7 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_message_iter_recurse(&iter, &sub);
 
-        if (isatty(STDOUT_FILENO))
+        if (on_tty())
                 printf("%4s %-25s %-15s %-7s\n", "JOB", "UNIT", "TYPE", "STATE");
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
@@ -877,7 +877,7 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
                 dbus_message_iter_next(&sub);
         }
 
-        if (isatty(STDOUT_FILENO))
+        if (on_tty())
                 printf("\n%u jobs listed.\n", k);
 
         r = 0;
