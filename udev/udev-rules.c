@@ -2528,10 +2528,20 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		}
 		case TK_A_TAG: {
 			char tag[UTIL_PATH_SIZE];
+			const char *p;
 
 			udev_event_apply_format(event, &rules->buf[cur->key.value_off], tag, sizeof(tag));
 			if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
 				udev_device_cleanup_tags_list(event->dev);
+			for (p = tag; *p != '\0'; p++) {
+				if ((*p >= 'a' && *p <= 'z') ||
+				    (*p >= 'A' && *p <= 'Z') ||
+				    (*p >= '0' && *p <= '9') ||
+				    *p == '-' || *p == '_')
+					continue;
+				err(event->udev, "ignoring invalid tag name '%s'\n", tag);
+				break;
+			}
 			udev_device_add_tag(event->dev, tag);
 			break;
 		}
