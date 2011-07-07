@@ -508,7 +508,37 @@ int main(int argc, char **argv)
 	}
 out:
 	if (path != NULL) {
+		char tag[UTIL_NAME_SIZE];
+		size_t i;
+		const char *p;
+
+		/* compose valid udev tag name */
+		for (p = path, i = 0; *p; p++) {
+			if ((*p >= '0' && *p <= '9') ||
+			    (*p >= 'A' && *p <= 'Z') ||
+			    (*p >= 'a' && *p <= 'z') ||
+			    *p == '-') {
+				tag[i++] = *p;
+				continue;
+			}
+
+			/* skip all leading '_' */
+			if (i == 0)
+				continue;
+
+			/* avoid second '_' */
+			if (tag[i-1] == '_')
+				continue;
+
+			tag[i++] = '_';
+		}
+		/* strip trailing '_' */
+		while (i > 0 && tag[i-1] == '_')
+			i--;
+		tag[i] = '\0';
+
 		printf("ID_PATH=%s\n", path);
+		printf("ID_PATH_TAG=%s\n", tag);
 		free(path);
 		rc = EXIT_SUCCESS;
 	}
