@@ -122,11 +122,6 @@ static pid_t agent_pid = 0;
 
 static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
 
-static void pager_open_if_enabled(void) {
-        if (!arg_no_pager)
-                pager_open();
-}
-
 static bool on_tty(void) {
         static int t = -1;
 
@@ -140,6 +135,13 @@ static bool on_tty(void) {
                 t = isatty(STDOUT_FILENO) > 0;
 
         return t;
+}
+
+static void pager_open_if_enabled(void) {
+        on_tty();
+
+        if (!arg_no_pager)
+                pager_open();
 }
 
 static void spawn_ask_password_agent(void) {
