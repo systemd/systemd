@@ -862,6 +862,15 @@ static int parent_crawl_children(struct udev_enumerate *enumerate, const char *p
 	return 0;
 }
 
+static int scan_devices_children(struct udev_enumerate *enumerate)
+{
+	const char *path;
+
+	path = udev_device_get_syspath(enumerate->parent_match);
+	parent_add_child(enumerate, path);
+	return parent_crawl_children(enumerate, path, 256);
+}
+
 static int scan_devices_all(struct udev_enumerate *udev_enumerate)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
@@ -893,12 +902,15 @@ UDEV_EXPORT int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerat
 	if (udev_enumerate == NULL)
 		return -EINVAL;
 
+	/* efficiently lookup tags only, we maintain a reverse-index */
 	if (udev_list_get_entry(&udev_enumerate->tags_match_list) != NULL)
 		return scan_devices_tags(udev_enumerate);
 
+	/* walk the subtree of one parent device only */
 	if (udev_enumerate->parent_match != NULL)
-		return parent_crawl_children(udev_enumerate, udev_device_get_syspath(udev_enumerate->parent_match), 256);
+		return scan_devices_children(udev_enumerate);
 
+	/* scan devices of all subsystems */
 	return scan_devices_all(udev_enumerate);
 }
 
