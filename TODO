@@ -20,6 +20,8 @@ F15 External:
 
 Features:
 
+* Remove kill_mode parameter to kill bus calls
+
 * Fix nspawn to not read-only mount /selinux on the host system
 
 * make sure people don't leave processes around after ExecStartPre=

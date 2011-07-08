@@ -541,6 +541,7 @@ static bool device_has_tag(struct udev_device *d, const char *tag) {
         assert(d);
         assert(tag);
 
+        /* FIXME */
         udev_device_get_is_initialized(d);
 
         first = udev_device_get_tags_list_entry(d);

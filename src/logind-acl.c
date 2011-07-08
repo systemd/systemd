@@ -229,17 +229,15 @@ int devnode_acl_all(struct udev *udev,
         if (!e)
                 return -ENOMEM;
 
+        /* We can only match by one tag in libudev. We choose
+         * "uaccess" for that. If we could match for two tags here we
+         * could add the seat name as second match tag, but this would
+         * be hardly optimizable in libudev, and hence checking the
+         * second tag manually in our loop is a good solution. */
+
         r = udev_enumerate_add_match_tag(e, "uaccess");
         if (r < 0)
                 goto finish;
-
-        /* FIXME: when libudev is able to handle multiple match tags
-         * properly, optimize the search here a bit */
-        /* if (!streq(seat, "seat0")) { */
-        /*         r = udev_enumerate_add_match_tag(e, seat); */
-        /*         if (r < 0) */
-        /*                 goto finish; */
-        /* } */
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
