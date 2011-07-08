@@ -1151,7 +1151,58 @@ finish:
 }
 
 static int activate(DBusConnection *bus, char **args, unsigned n) {
-        return 0;
+        DBusMessage *m = NULL, *reply = NULL;
+        int ret = 0;
+        DBusError error;
+        unsigned i;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        for (i = 1; i < n; i++) {
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "ActivateSession");
+                if (!m) {
+                        log_error("Could not allocate message.");
+                        ret = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        ret = -ENOMEM;
+                        goto finish;
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+                if (!reply) {
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
+                        ret = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_unref(m);
+                dbus_message_unref(reply);
+                m = reply = NULL;
+        }
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return ret;
 }
 
 static int kill_session(DBusConnection *bus, char **args, unsigned n) {
@@ -1327,21 +1378,21 @@ static int loginctl_main(DBusConnection *bus, int argc, char *argv[], DBusError 
         } verbs[] = {
                 { "list-sessions",         LESS,   1, list_sessions    },
                 { "session-status",        MORE,   2, show             },
-                { "show-session",          MORE,   2, show             },
+                { "show-session",          MORE,   1, show             },
                 { "activate",              EQUAL,  2, activate         },
                 { "lock-session",          MORE,   2, activate         },
                 { "terminate-session",     MORE,   2, activate         },
                 { "kill-session",          MORE,   2, kill_session     },
                 { "list-users",            EQUAL,  1, list_users       },
                 { "user-status",           MORE,   2, show             },
-                { "show-user",             MORE,   2, show             },
+                { "show-user",             MORE,   1, show             },
                 { "enable-linger",         MORE,   2, enable_linger    },
                 { "disable-linger",        MORE,   2, enable_linger    },
                 { "terminate-user",        MORE,   2, enable_linger    },
                 { "kill-user",             MORE,   2, kill_session     },
                 { "list-seats",            EQUAL,  1, list_seats       },
                 { "seat-status",           MORE,   2, show             },
-                { "show-seat",             MORE,   2, show             },
+                { "show-seat",             MORE,   1, show             },
                 { "attach",                MORE,   3, attach           },
                 { "flush-devices",         EQUAL,  1, flush_devices    },
                 { "terminate-seat",        MORE,   2, terminate_seat   },
