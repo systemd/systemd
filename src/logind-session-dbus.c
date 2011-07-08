@@ -36,7 +36,7 @@
         "  <method name=\"SetIdleHint\">\n"                             \
         "   <arg name=\"b\" type=\"b\"/>\n"                             \
         "  </method>\n"                                                 \
-        "  <property name=\"Id\" type=\"u\" access=\"read\"/>\n"        \
+        "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"User\" type=\"(uo)\" access=\"read\"/>\n"   \
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Timestamp\" type=\"t\" access=\"read\"/>\n" \
