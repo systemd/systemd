@@ -165,4 +165,6 @@ int bus_append_strv_iter(DBusMessageIter *iter, char **l);
 
 int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, bool next);
 
+int generic_print_property(const char *name, DBusMessageIter *iter, bool all);
+
 #endif

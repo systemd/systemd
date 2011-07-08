@@ -20,6 +20,12 @@ F15 External:
 
 Features:
 
+* Fix nspawn to not read-only mount /selinux on the host system
+
+* make sure people don't leave processes around after ExecStartPre=
+
+* make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
+
 * add loginctl, i.e. a systemctl for logind introspection
 
 * support presets

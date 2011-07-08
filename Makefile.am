@@ -1136,15 +1136,18 @@ systemd_loginctl_SOURCES = \
 	src/dbus-common.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
-        src/pager.c
+        src/pager.c \
+        src/sysfs-show.c
 
 systemd_loginctl_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(DBUS_CFLAGS) \
+        $(UDEV_CFLAGS)
 
 systemd_loginctl_LDADD = \
 	libsystemd-basic.la \
-	$(DBUS_LIBS)
+	$(DBUS_LIBS) \
+        $(UDEV_LIBS)
 
 systemd_notify_SOURCES = \
 	src/notify.c \

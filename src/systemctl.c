@@ -2080,6 +2080,10 @@ static void print_status_info(UnitStatusInfo *i) {
 
 static int status_property(const char *name, DBusMessageIter *iter, UnitStatusInfo *i) {
 
+        assert(name);
+        assert(iter);
+        assert(i);
+
         switch (dbus_message_iter_get_arg_type(iter)) {
 
         case DBUS_TYPE_STRING: {
@@ -2087,7 +2091,7 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                 dbus_message_iter_get_basic(iter, &s);
 
-                if (s[0]) {
+                if (!isempty(s)) {
                         if (streq(name, "Id"))
                                 i->id = s;
                         else if (streq(name, "LoadState"))
@@ -2246,74 +2250,6 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
         switch (dbus_message_iter_get_arg_type(iter)) {
 
-        case DBUS_TYPE_STRING: {
-                const char *s;
-                dbus_message_iter_get_basic(iter, &s);
-
-                if (arg_all || s[0])
-                        printf("%s=%s\n", name, s);
-
-                return 0;
-        }
-
-        case DBUS_TYPE_BOOLEAN: {
-                dbus_bool_t b;
-                dbus_message_iter_get_basic(iter, &b);
-                printf("%s=%s\n", name, yes_no(b));
-
-                return 0;
-        }
-
-        case DBUS_TYPE_UINT64: {
-                uint64_t u;
-                dbus_message_iter_get_basic(iter, &u);
-
-                /* Yes, heuristics! But we can change this check
-                 * should it turn out to not be sufficient */
-
-                if (endswith(name, "Timestamp")) {
-                        char timestamp[FORMAT_TIMESTAMP_MAX], *t;
-
-                        if ((t = format_timestamp(timestamp, sizeof(timestamp), u)) || arg_all)
-                                printf("%s=%s\n", name, strempty(t));
-                } else if (strstr(name, "USec")) {
-                        char timespan[FORMAT_TIMESPAN_MAX];
-
-                        printf("%s=%s\n", name, format_timespan(timespan, sizeof(timespan), u));
-                } else
-                        printf("%s=%llu\n", name, (unsigned long long) u);
-
-                return 0;
-        }
-
-        case DBUS_TYPE_UINT32: {
-                uint32_t u;
-                dbus_message_iter_get_basic(iter, &u);
-
-                if (strstr(name, "UMask") || strstr(name, "Mode"))
-                        printf("%s=%04o\n", name, u);
-                else
-                        printf("%s=%u\n", name, (unsigned) u);
-
-                return 0;
-        }
-
-        case DBUS_TYPE_INT32: {
-                int32_t i;
-                dbus_message_iter_get_basic(iter, &i);
-
-                printf("%s=%i\n", name, (int) i);
-                return 0;
-        }
-
-        case DBUS_TYPE_DOUBLE: {
-                double d;
-                dbus_message_iter_get_basic(iter, &d);
-
-                printf("%s=%g\n", name, d);
-                return 0;
-        }
-
         case DBUS_TYPE_STRUCT: {
                 DBusMessageIter sub;
                 dbus_message_iter_recurse(iter, &sub);
@@ -2345,55 +2281,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
         case DBUS_TYPE_ARRAY:
 
-                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING) {
-                        DBusMessageIter sub;
-                        bool space = false;
-
-                        dbus_message_iter_recurse(iter, &sub);
-                        if (arg_all ||
-                            dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                                printf("%s=", name);
-
-                                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                                        const char *s;
-
-                                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
-                                        dbus_message_iter_get_basic(&sub, &s);
-                                        printf("%s%s", space ? " " : "", s);
-
-                                        space = true;
-                                        dbus_message_iter_next(&sub);
-                                }
-
-                                puts("");
-                        }
-
-                        return 0;
-
-                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_BYTE) {
-                        DBusMessageIter sub;
-
-                        dbus_message_iter_recurse(iter, &sub);
-                        if (arg_all ||
-                            dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                                printf("%s=", name);
-
-                                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                                        uint8_t u;
-
-                                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_BYTE);
-                                        dbus_message_iter_get_basic(&sub, &u);
-                                        printf("%02x", u);
-
-                                        dbus_message_iter_next(&sub);
-                                }
-
-                                puts("");
-                        }
-
-                        return 0;
-
-                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "EnvironmentFiles")) {
+                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "EnvironmentFiles")) {
                         DBusMessageIter sub, sub2;
 
                         dbus_message_iter_recurse(iter, &sub);
@@ -2497,6 +2385,9 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                 break;
         }
+
+        if (generic_print_property(name, iter, arg_all) > 0)
+                return 0;
 
         if (arg_all)
                 printf("%s=[unprintable]\n", name);
