@@ -451,7 +451,6 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
         return r;
 }
 
-
 static int manager_enumerate_linger_users(Manager *m) {
         DIR *d;
         struct dirent *de;
@@ -563,6 +562,9 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
 
                 while ((k = cg_read_subgroup(d, &name)) > 0) {
                         Session *session;
+
+                        if (streq(name, "shared"))
+                                continue;
 
                         k = manager_add_session(m, u, name, &session);
                         if (k < 0) {
