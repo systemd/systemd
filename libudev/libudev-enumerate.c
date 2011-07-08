@@ -464,9 +464,10 @@ UDEV_EXPORT int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumera
 /**
  * udev_enumerate_add_match_parent:
  * @udev_enumerate: context
- * @parent: filter for the parent device
+ * @parent: parent device where to start searching
  *
- * Return only the children of a given device.
+ * Return the devices on the subtree of one given device. The parent
+ * itself is included in the list.
  *
  * A reference for the device is held until the udev_enumerate context
  * is cleaned up.

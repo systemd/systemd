@@ -1,7 +1,4 @@
- - udev_enumerate_add_match_subsystem(enum, "input");
-   udev_enumerate_add_match_sysname(enum, "event*");
-   udev_enumerate_add_match_children(input_dev);
-   udev_enumerate_scan_devices(enum);
+ - udev_enumerate_remove_matches()
 
  - test (now fixed) /dev/tape/ links
 
