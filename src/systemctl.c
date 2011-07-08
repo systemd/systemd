@@ -4245,7 +4245,7 @@ static int systemctl_help(void) {
                "                      When queueing a new job, ignore all its dependencies\n"
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
-               "  -H --host=[user@]host\n"
+               "  -H --host=[USER@]HOST\n"
                "                      Show information for remote host\n"
                "  -P --privileged     Acquire privileges before execution\n"
                "  -q --quiet          Suppress output\n"
