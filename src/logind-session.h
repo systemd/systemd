@@ -105,6 +105,7 @@ extern const DBusObjectPathVTable bus_session_vtable;
 
 int session_send_signal(Session *s, bool new_session);
 int session_send_changed(Session *s, const char *properties);
+int session_send_lock(Session *s, bool lock);
 
 const char* session_type_to_string(SessionType t);
 SessionType session_type_from_string(const char *s);

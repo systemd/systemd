@@ -75,6 +75,12 @@
         "  <method name=\"ActivateSession\">\n"                         \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
+        "  <method name=\"LockSession\">\n"                             \
+        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnlockSession\">\n"                           \
+        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "  </method>\n"                                                 \
         "  <method name=\"TerminateSession\">\n"                        \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
@@ -975,6 +981,29 @@ static DBusHandlerResult manager_message_handler(
                 r = session_activate(session);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "LockSession") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "UnlockSession")) {
+                const char *name;
+                Session *session;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                session = hashmap_get(m->sessions, name);
+                if (!session)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                if (session_send_lock(session, streq(dbus_message_get_member(message), "LockSession")) < 0)
+                        goto oom;
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)

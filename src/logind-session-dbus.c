@@ -283,17 +283,8 @@ static DBusHandlerResult session_message_dispatch(
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Lock") ||
                    dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Unlock")) {
-                bool b;
-                DBusMessage *sig;
 
-                sig = dbus_message_new_signal(dbus_message_get_path(message), "org.freedesktop.login1.Session", dbus_message_get_member(message));
-                if (!sig)
-                        goto oom;
-
-                b = dbus_connection_send(connection, sig, NULL);
-                dbus_message_unref(sig);
-
-                if (!b)
+                if (session_send_signal(s, streq(dbus_message_get_member(message), "Lock")) < 0)
                         goto oom;
 
                 reply = dbus_message_new_method_return(message);
@@ -459,4 +450,30 @@ finish:
         free(p);
 
         return r;
+}
+
+int session_send_lock(Session *s, bool lock) {
+        DBusMessage *m;
+        bool b;
+        char *p;
+
+        assert(s);
+
+        p = session_bus_path(s);
+        if (!p)
+                return -ENOMEM;
+
+        m = dbus_message_new_signal(p, "org.freedesktop.login1.Session", lock ? "Lock" : "Unlock");
+        free(p);
+
+        if (!m)
+                return -ENOMEM;
+
+        b = dbus_connection_send(s->manager->bus, m, NULL);
+        dbus_message_unref(m);
+
+        if (!b)
+                return -ENOMEM;
+
+        return 0;
 }

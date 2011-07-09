@@ -59,7 +59,8 @@ static int show_sysfs_one(
         while (*item) {
                 struct udev_list_entry *next, *lookahead;
                 struct udev_device *d;
-                const char *sn, *id, *name, *sysfs, *subsystem, *sysname;
+                const char *sn, *name, *sysfs, *subsystem, *sysname;
+                char *l, *k;
 
                 sysfs = udev_list_entry_get_name(*item);
                 if (!path_startswith(sysfs, sub))
@@ -82,7 +83,6 @@ static int show_sysfs_one(
                         continue;
                 }
 
-                id = udev_device_get_property_value(d, "ID_FOR_SEAT");
                 name = udev_device_get_sysattr_value(d, "name");
                 if (!name)
                         name = udev_device_get_sysattr_value(d, "id");
@@ -109,7 +109,7 @@ static int show_sysfs_one(
                                         if (isempty(lookahead_sn))
                                                 lookahead_sn = "seat0";
 
-                                        found = streq(seat, lookahead_sn) && device_has_tag(d, "seat");
+                                        found = streq(seat, lookahead_sn) && device_has_tag(lookahead_d, "seat");
                                         udev_device_unref(lookahead_d);
 
                                         if (found)
@@ -120,19 +120,29 @@ static int show_sysfs_one(
                         lookahead = udev_list_entry_get_next(lookahead);
                 }
 
-                printf("%s%s %s (%s:%s)", prefix, lookahead ? "\342\224\234" : "\342\224\224", id ? id : sysfs, subsystem, sysname);
+                k = ellipsize(sysfs, n_columns, 20);
+                printf("%s%s %s\n", prefix, lookahead ? "\342\224\234" : "\342\224\224", k ? k : sysfs);
+                free(k);
 
-                if (name)
-                        printf(" \"%s\"\n", name);
-                else
-                        printf("\n");
+                if (asprintf(&l,
+                             "(%s:%s)%s%s%s",
+                             subsystem, sysname,
+                             name ? " \"" : "", name ? name : "", name ? "\"" : "") < 0) {
+                        udev_device_unref(d);
+                        return -ENOMEM;
+                }
+
+                k = ellipsize(l, n_columns, 70);
+                printf("%s%s %s\n", prefix, lookahead ? "\342\224\202" : " ", k ? k : l);
+                free(k);
+                free(l);
 
                 *item = next;
                 if (*item) {
                         char *p;
 
                         p = strappend(prefix, lookahead ? "\342\224\202 " : "  ");
-                        show_sysfs_one(udev, seat, item, sysfs, p, n_columns - 2);
+                        show_sysfs_one(udev, seat, item, sysfs, p ? p : prefix, n_columns - 2);
                         free(p);
                 }
 
