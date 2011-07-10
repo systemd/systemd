@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <getopt.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -43,13 +44,12 @@ static void sig_handler(int signum)
 
 static void print_device(struct udev_device *device, const char *source, int prop)
 {
-	struct timeval tv;
-	struct timezone tz;
+	struct timespec ts;
 
-	gettimeofday(&tv, &tz);
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 	printf("%-6s[%llu.%06u] %-8s %s (%s)\n",
 	       source,
-	       (unsigned long long) tv.tv_sec, (unsigned int) tv.tv_usec,
+	       (unsigned long long) ts.tv_sec, (unsigned int) ts.tv_nsec/1000,
 	       udev_device_get_action(device),
 	       udev_device_get_devpath(device),
 	       udev_device_get_subsystem(device));

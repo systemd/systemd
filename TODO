@@ -2,8 +2,6 @@
 
  - test (now fixed) /dev/tape/ links
 
- - monitor: use clock MONOTONIC
-
  - remove RUN+="socket:"
 
  - libudev: return proper errno or set errno
