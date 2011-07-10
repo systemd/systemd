@@ -496,6 +496,9 @@ int main(int argc, char **argv)
 		} else if (strcmp(subsys, "platform") == 0) {
 			path_prepend(&path, "platform-%s", udev_device_get_sysname(parent));
 			parent = skip_subsystem(parent, "platform");
+		} else if (strcmp(subsys, "acpi") == 0) {
+			path_prepend(&path, "acpi-%s", udev_device_get_sysname(parent));
+			parent = skip_subsystem(parent, "acpi");
 		} else if (strcmp(subsys, "xen") == 0) {
 			path_prepend(&path, "xen-%s", udev_device_get_sysname(parent));
 			parent = skip_subsystem(parent, "xen");
