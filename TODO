@@ -2,18 +2,14 @@
 
  - test (now fixed) /dev/tape/ links
 
- - remove RUN+="socket:"
-
  - libudev: return proper errno or set errno
 
- - move ctrl.c from libudev/ to udev/
+ - /run/udev/control socket
+   (add ConditionVirtualization=!pidns)
 
  - move:
      udevd -> --libexecdir
      udevadm -> --bindir
-
- - /run/udev/control socket
-   (add ConditionVirtualization=!pidns)
 
  - kill rules_generator:
    - no longer rename netifs in kernel namespace
@@ -23,8 +19,10 @@
    - properly document what system management needs to put
      into rules files
 
- - kill tabs?
+ - remove RUN+="socket:"
 
  - remove deprecated trigger --type=failed logic
 
  - remove deprecated BUS=, SYSFS{}=, ID= keys
+
+ - kill tabs?

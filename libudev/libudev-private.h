@@ -114,40 +114,6 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 			     struct udev_monitor *destination, struct udev_device *udev_device);
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd);
 
-/* libudev-ctrl.c - daemon runtime setup */
-struct udev_ctrl;
-struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
-struct udev_ctrl *udev_ctrl_new_from_socket_fd(struct udev *udev, const char *socket_path, int fd);
-int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
-struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl);
-struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl);
-struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl);
-int udev_ctrl_get_fd(struct udev_ctrl *uctrl);
-int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, int timeout);
-int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_ping(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_exit(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, int timeout);
-int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, int timeout);
-struct udev_ctrl_connection;
-struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl);
-struct udev_ctrl_connection *udev_ctrl_connection_ref(struct udev_ctrl_connection *conn);
-struct udev_ctrl_connection *udev_ctrl_connection_unref(struct udev_ctrl_connection *conn);
-struct udev_ctrl_msg;
-struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn);
-struct udev_ctrl_msg *udev_ctrl_msg_ref(struct udev_ctrl_msg *ctrl_msg);
-struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_stop_exec_queue(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_ping(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_exit(struct udev_ctrl_msg *ctrl_msg);
-const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
-
 /* libudev-list.c */
 enum udev_list_flags {
 	UDEV_LIST_NONE =        0,

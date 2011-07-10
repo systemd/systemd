@@ -68,7 +68,6 @@ noinst_LTLIBRARIES = \
 
 libudev_libudev_private_la_SOURCES =\
 	$(libudev_libudev_la_SOURCES) \
-	libudev/libudev-ctrl.c \
 	libudev/libudev-util-private.c \
 	libudev/libudev-device-private.c \
 	libudev/libudev-queue-private.c
@@ -160,7 +159,8 @@ udev_common_sources =\
 	udev/udev-event.c \
 	udev/udev-watch.c \
 	udev/udev-node.c \
-	udev/udev-rules.c
+	udev/udev-rules.c \
+	udev/udev-ctrl.c
 
 udev_udevd_SOURCES = \
 	$(udev_common_sources) \

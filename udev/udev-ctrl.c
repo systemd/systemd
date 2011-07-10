@@ -20,8 +20,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "libudev.h"
-#include "libudev-private.h"
+#include "udev.h"
 
 /* wire protocol magic must match */
 #define UDEV_CTRL_MAGIC				0xdead1dea
