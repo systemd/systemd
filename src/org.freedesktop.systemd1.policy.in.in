@@ -17,8 +17,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.systemd1.reply-password">
-                <description>Send passphrase back to system</description>
-                <message>Authentication is required to send the entered passphrase back to the system.</message>
+                <_description>Send passphrase back to system</_description>
+                <_message>Authentication is required to send the entered passphrase back to the system.</_message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>no</allow_inactive>
@@ -28,8 +28,8 @@
         </action>
 
         <action id="org.freedesktop.systemd1.bus-access">
-                <description>Privileged system and service manager access</description>
-                <message>Authentication is required to access the system and service manager.</message>
+                <_description>Privileged system and service manager access</_description>
+                <_message>Authentication is required to access the system and service manager.</_message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>no</allow_inactive>

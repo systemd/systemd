@@ -411,7 +411,6 @@ EXTRA_DIST = \
         units/user@.service.in \
 	systemd.pc.in \
 	introspect.awk \
-	src/org.freedesktop.systemd1.policy.in \
         src/73-seat-late.rules.in
 
 if ENABLE_BINFMT
@@ -475,17 +474,26 @@ dist_doc_DATA = \
 pkgconfigdata_DATA = \
 	systemd.pc
 
-nodist_polkitpolicy_DATA = \
-	src/org.freedesktop.systemd1.policy
-
-dist_polkitpolicy_in_files = \
+# Passed through intltool only
+polkitpolicy_in_files = \
         src/org.freedesktop.hostname1.policy.in \
         src/org.freedesktop.locale1.policy.in \
         src/org.freedesktop.timedate1.policy.in \
         src/org.freedesktop.login1.policy.in
 
+# First passed through sed, followed by intltool
+polkitpolicy_in_in_files = \
+	src/org.freedesktop.systemd1.policy.in.in
+
+nodist_polkitpolicy_DATA = \
+        $(polkitpolicy_in_files:.policy.in=.policy) \
+        $(polkitpolicy_in_files:.policy.in.in=.policy)
+
+EXTRA_DIST += \
+        $(polkitpolicy_in_files) \
+        $(polkitpolicy_in_in_files)
+
 @INTLTOOL_POLICY_RULE@
-polkitpolicy_DATA = $(dist_polkitpolicy_in_files:.policy.in=.policy)
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
@@ -1357,7 +1365,7 @@ man/%: man/%.in Makefile
 %.pc: %.pc.in Makefile
 	$(SED_PROCESS)
 
-src/%.policy: src/%.policy.in Makefile
+src/%.policy.in: src/%.policy.in.in Makefile
 	$(SED_PROCESS)
 
 src/%.rules: src/%.rules.in Makefile
@@ -1383,8 +1391,8 @@ CLEANFILES = \
 	$(nodist_man_MANS) \
 	${XML_IN_FILES:.xml.in=.html} \
 	$(pkgconfigdata_DATA) \
-	$(polkitpolicy_DATA) \
-	src/org.freedesktop.systemd1.policy
+	$(nodist_polkitpolicy_DATA) \
+        src/73-seat-late.rules
 
 if HAVE_VALAC
 CLEANFILES += \
