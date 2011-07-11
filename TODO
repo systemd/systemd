@@ -1,15 +1,11 @@
- - udev_enumerate_remove_matches()
-
  - test (now fixed) /dev/tape/ links
-
- - libudev: return proper errno or set errno
 
  - /run/udev/control socket
    (add ConditionVirtualization=!pidns)
 
- - move:
-     udevd -> --libexecdir
-     udevadm -> --bindir
+ - move udevd -> --libexecdir
+
+ - allow path_id, usb_id, usb_db, pci_db as built-in?
 
  - kill rules_generator:
    - no longer rename netifs in kernel namespace
@@ -19,10 +15,14 @@
    - properly document what system management needs to put
      into rules files
 
- - remove RUN+="socket:"
+ - move udevadm -> --bindir
 
  - remove deprecated trigger --type=failed logic
 
  - remove deprecated BUS=, SYSFS{}=, ID= keys
 
+ - remove RUN+="socket:"
+
  - kill tabs?
+
+ - libudev: return proper errno or set errno

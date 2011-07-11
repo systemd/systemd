@@ -1,3 +1,19 @@
+udev 172
+========
+Bugfixes.
+
+Udev now enables kernel media-presence polling if available. Part
+of udisks optical drive tray-handling moved to cdrom_id: The tray
+is locked as soon as a media is detected to enable the receiving
+of media-eject-request events. Media-eject-request events will
+eject the media.
+
+Libudev enumerate is now able to enumerate a subtree of a given
+device.
+
+The mobile-action-modeswitch modeswitch tool was deleted. The
+functionality is provided by usb_modeswitch now.
+
 udev 171
 ========
 Bugfixes.

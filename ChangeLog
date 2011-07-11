@@ -1,3 +1,68 @@
+Summary of changes from v171 to v172
+============================================
+
+Bastien Nocera (3):
+      accelerometer: add orientation property
+      udev-acl: fix memleak
+      accelerometer: add documentation
+
+Harald Hoyer (2):
+      udevadm-*.c: return != 0, if unknown option given
+      udev/udevadm-monitor.c: fixed misplaced brace
+
+Kay Sievers (33):
+      rules: apply 'audio' group of the static snd/{seq,timer} nodes
+      Makefile: add tar-sync
+      rules: static_node - use 0660 if group is given to get the cigar
+      rule-syntax-check.py: use print()
+      make: use 'git tag'
+      rules: run input_id for main input devices too
+      update TODO
+      configure: add AC_CONFIG_AUX_DIR, AC_CONFIG_SRCDIR
+      cdrom_id: add tray lock and eject handling
+      rules: enable in-kernel media-presence polling
+      update TODO
+      delete mobile-action-modeswitch which has moved to usb_modeswitch
+      libudev: enumerate - scan /sys/module
+      rules: move polling rule above 'block' match
+      libudev: monitor - update doc
+      rules: set polling value only if it is disabled
+      libudev: device - fix udev_device_get_tags_list_entry() to always load database
+      rules: remove redundant MODE="0664" from lp rules
+      rules: fix wrong wildcard match, we always need a ':*' at the end
+      libudev: device - export udev_device_has_tag()
+      path_id: add missing '-' to tape suffix
+      path_id: add ID_PATH_TAG= to be used in udev tags
+      enforce valid TAG+= names
+      update TODO
+      libudev: device - add udev_device_has_tag() to libudev.h and gtk-doc
+      libudev: enumerate - add udev_enumerate_add_match_parent()
+      libudev: enumerate - include parent device itself with match_parent()
+      libudev: enumerate - clarify documentation
+      path_id: recognize ACPI parent devices
+      rules: input - call path_id for ACPI devices
+      udevadm: monitor - use uptime to match the kernel's timestamp
+      libudev: ctrl - move code to udev directory
+      update sd-daemon.[ch]
+
+Keshav P.R (1):
+      rules: support for gpt partition uuid/label
+
+Lee, Chun-Yi (1):
+      Support more MSI notebook by using asterisk on dmi vendor name
+
+Marco d'Itri (1):
+      Add missing commas to 95-keymap.rules
+
+Martin Pitt (3):
+      keymap: Add Microsoft Natural Keyboard
+      keymap: Add force-release quirk for Hannspree SN10.
+      keymap: Add slight name variations of Toshiba Satellites
+
+Peter Jones (1):
+      ata_id: show the error message when HDIO_GET_IDENTITY fails
+
+
 Summary of changes from v170 to v171
 ============================================
 
