@@ -55,13 +55,12 @@ static void log_fn(struct udev *udev, int priority,
 {
 	if (debug) {
 		char buf[1024];
-		struct timeval tv;
-		struct timezone tz;
+		struct timespec ts;
 
 		vsnprintf(buf, sizeof(buf), format, args);
-		gettimeofday(&tv, &tz);
+		clock_gettime(CLOCK_MONOTONIC, &ts);
 		fprintf(stderr, "%llu.%06u [%u] %s: %s",
-			(unsigned long long) tv.tv_sec, (unsigned int) tv.tv_usec,
+			(unsigned long long) ts.tv_sec, (unsigned int) ts.tv_nsec/1000,
 			(int) getpid(), fn, buf);
 	} else {
 		vsyslog(priority, format, args);
