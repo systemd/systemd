@@ -608,7 +608,17 @@ EXTRA_DIST += \
 	src/shutdownd.h \
 	src/umount.h \
 	src/readahead-common.h \
-	src/ask-password-api.h
+	src/ask-password-api.h \
+        src/pager.h \
+        src/sysfs-show.h \
+        src/polkit.h \
+        src/logind.h \
+        src/logind-device.h \
+        src/logind-seat.h \
+        src/logind-session.h \
+        src/logind-user.h \
+        src/logind-acl.h \
+        src/dbus-loop.h
 
 MANPAGES = \
 	man/systemd.1 \
