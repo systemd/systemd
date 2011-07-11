@@ -24,6 +24,11 @@
 #include <sys/reboot.h>
 #include <linux/reboot.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mount.h>
+#include <sys/syscall.h>
+#include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
@@ -32,12 +37,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "missing.h"
 #include "log.h"
 #include "umount.h"
 #include "util.h"
 
 #define TIMEOUT_USEC (5 * USEC_PER_SEC)
 #define FINALIZE_ATTEMPTS 50
+#define pivot_root(new_root,put_old) syscall(SYS_pivot_root,new_root,put_old)
 
 static bool ignore_proc(pid_t pid) {
         if (pid == 1)
@@ -192,6 +199,90 @@ finish:
         sigprocmask(SIG_SETMASK, &oldmask, NULL);
 }
 
+static bool prepare_new_root(void) {
+        int r = false;
+        const char *dirs[] = { "/run/initramfs/oldroot",
+                               "/run/initramfs/proc",
+                               "/run/initramfs/sys",
+                               "/run/initramfs/dev",
+                               "/run/initramfs/run",
+                               NULL };
+        const char **dir;
+        const char *msg;
+
+        msg = "Failed to mount bind /run/initramfs on /run/initramfs";
+        if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) != 0)
+                goto out;
+
+        msg="Failed to make /run/initramfs private mount %m:";
+        if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) != 0)
+                goto out;
+
+        for (dir = &dirs[0]; *dir != NULL; dir++) {
+                asprintf((char **) &msg, "mkdir %s: %%m", *dir);
+                if (mkdir(*dir, 0755) != 0) {
+                        if (errno != EEXIST)
+                                goto out;
+                }
+                free((char *) msg);
+        }
+
+        msg = "Failed to mount bind /sys on /run/initramfs/sys";
+        if (mount("/sys", "/run/initramfs/sys", NULL, MS_BIND, NULL) != 0)
+                goto out;
+        msg = "Failed to mount bind /proc on /run/initramfs/proc";
+        if (mount("/proc", "/run/initramfs/proc", NULL, MS_BIND, NULL) != 0)
+                goto out;
+        msg = "Failed to mount bind /dev on /run/initramfs/dev";
+        if (mount("/dev", "/run/initramfs/dev", NULL, MS_BIND, NULL) != 0)
+                goto out;
+        msg = "Failed to mount bind /run on /run/initramfs/run";
+        if (mount("/run", "/run/initramfs/run", NULL, MS_BIND, NULL) != 0)
+                goto out;
+
+        r = true;
+ out:
+        if (!r)
+                log_error("%s: %m", msg);
+        return r;
+}
+
+static bool pivot_to_new_root(void) {
+        int fd;
+        int r = 0;
+        chdir("/run/initramfs");
+
+        /*
+          In case some evil process made "/" MS_SHARED
+          It works for pivot_root, but the ref count for the root device
+          is not decreasing :-/
+        */
+        if (mount(NULL, "/", NULL, MS_PRIVATE, NULL) != 0) {
+                log_error("Failed to make \"/\" private mount %m: ");
+                return false;
+        }
+
+        r = pivot_root(".", "oldroot");
+        if (r!=0) {
+                log_error("pivot failed: %m");
+                /* only chroot, if pivot root succeded */
+                return false;
+        }
+        chroot(".");
+        log_info("pivot rooted");
+
+        fd = open("dev/console", O_RDONLY);
+        dup2(fd, STDIN_FILENO);
+        close_nointr_nofail(fd);
+        fd = open("dev/console", O_WRONLY);
+        dup2(fd, STDOUT_FILENO);
+        close_nointr_nofail(fd);
+        fd = open("dev/console", O_WRONLY);
+        dup2(fd, STDERR_FILENO);
+        close_nointr_nofail(fd);
+        return true;
+}
+
 int main(int argc, char *argv[]) {
         int cmd, r;
         unsigned retries;
@@ -329,6 +420,17 @@ int main(int argc, char *argv[]) {
         }
 
         sync();
+
+        if (access("/run/initramfs/shutdown", X_OK) == 0) {
+                char *new_argv[3];
+                new_argv[0] = strdup(argv[0]);
+                new_argv[1] = strdup(argv[1]);
+                new_argv[2] = NULL;
+                if (prepare_new_root() && pivot_to_new_root()) {
+                        execv("/shutdown", new_argv);
+                        log_error("Failed to execute shutdown binary: %m");
+                }
+        }
 
         if (cmd == LINUX_REBOOT_CMD_KEXEC) {
                 /* We cheat and exec kexec to avoid doing all its work */

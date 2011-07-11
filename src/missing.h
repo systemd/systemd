@@ -172,4 +172,8 @@ struct btrfs_ioctl_vol_args {
 #define MS_MOVE 8192
 #endif
 
+#ifndef MS_PRIVATE
+#define MS_PRIVATE  (1 << 18)
+#endif
+
 #endif

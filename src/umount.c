@@ -403,7 +403,7 @@ static int delete_dm(dev_t devnum) {
         return r >= 0 ? 0 : -errno;
 }
 
-static int mount_points_list_umount(MountPoint **head, bool *changed) {
+static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_error) {
         MountPoint *m, *n;
         int n_failed = 0;
 
@@ -417,11 +417,12 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
 
                 /* Trying to umount. Forcing to umount if busy (only for NFS mounts) */
                 if (umount2(m->path, MNT_FORCE) == 0) {
+                        log_info("Unmounted %s.", m->path);
                         if (changed)
                                 *changed = true;
 
                         mount_point_free(head, m);
-                } else {
+                } else if (log_error) {
                         log_warning("Could not unmount %s: %m", m->path);
                         n_failed++;
                 }
@@ -551,6 +552,8 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
 
 int umount_all(bool *changed) {
         int r;
+        bool umount_changed;
+
         LIST_HEAD(MountPoint, mp_list_head);
 
         LIST_HEAD_INIT(MountPoint, mp_list_head);
@@ -559,7 +562,15 @@ int umount_all(bool *changed) {
         if (r < 0)
                 goto end;
 
-        r = mount_points_list_umount(&mp_list_head, changed);
+        /* retry umount, until nothing can be umounted anymore */
+        do {
+                umount_changed = false;
+                r = mount_points_list_umount(&mp_list_head, &umount_changed, false);
+                if (umount_changed)
+                        *changed = true;
+        } while(umount_changed);
+        /* umount one more time with logging enabled */
+        r = mount_points_list_umount(&mp_list_head, &umount_changed, true);
         if (r <= 0)
                 goto end;
 
