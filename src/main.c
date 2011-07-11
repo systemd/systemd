@@ -991,7 +991,7 @@ static void test_usr(void) {
         if (dir_is_empty("/usr") <= 0)
                 return;
 
-        log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
+        log_warning("/usr appears to be on its own filesytem and is not already mounted. This is not a supported setup. "
                     "Some things will probably break (sometimes even silently) in mysterious ways. "
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
