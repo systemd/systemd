@@ -885,7 +885,6 @@ systemd_logind_SOURCES = \
         src/logind-session-dbus.c \
         src/logind-user.c \
         src/logind-user-dbus.c \
-        src/logind-acl.c \
         src/dbus-common.c \
         src/dbus-loop.c \
         src/cgroup-util.c \
@@ -905,8 +904,15 @@ systemd_logind_LDADD = \
         $(ACL_LIBS)
 
 systemd_uaccess_SOURCES = \
-	src/uaccess.c \
-        src/logind-acl.c
+	src/uaccess.c
+
+if HAVE_ACL
+systemd_logind_SOURCES += \
+	src/logind-acl.c
+
+systemd_uaccess_SOURCES += \
+	src/logind-acl.c
+endif
 
 systemd_uaccess_CFLAGS = \
 	$(AM_CFLAGS) \

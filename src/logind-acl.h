@@ -26,6 +26,8 @@
 #include <stdbool.h>
 #include <libudev.h>
 
+#ifdef HAVE_ACL
+
 int devnode_acl(const char *path,
                 bool flush,
                 bool del, uid_t old_uid,
@@ -36,5 +38,23 @@ int devnode_acl_all(struct udev *udev,
                     bool flush,
                     bool del, uid_t old_uid,
                     bool add, uid_t new_uid);
+#else
+
+static inline int devnode_acl(const char *path,
+                bool flush,
+                bool del, uid_t old_uid,
+                bool add, uid_t new_uid) {
+        return 0;
+}
+
+static inline int devnode_acl_all(struct udev *udev,
+                                  const char *seat,
+                                  bool flush,
+                                  bool del, uid_t old_uid,
+                                  bool add, uid_t new_uid) {
+        return 0;
+}
+
+#endif
 
 #endif
