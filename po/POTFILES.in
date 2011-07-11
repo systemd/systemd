@@ -1,0 +1,4 @@
+src/org.freedesktop.hostname1.policy.in
+src/org.freedesktop.locale1.policy.in
+src/org.freedesktop.login1.policy.in
+src/org.freedesktop.timedate1.policy.in

@@ -43,6 +43,15 @@ AS_IF([test "x$STOW" = "xyes" && test -d /usr/local/stow], [
         ac_default_prefix="/usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION}"
 ])
 
+# i18n stuff for the PolicyKit policy files
+IT_PROG_INTLTOOL([0.40.0])
+
+GETTEXT_PACKAGE=systemd
+AC_SUBST(GETTEXT_PACKAGE)
+
+AM_GNU_GETTEXT([external])
+AM_GNU_GETTEXT_VERSION([0.18.1])
+
 AC_PROG_MKDIR_P
 AC_PROG_LN_S
 AC_PROG_SED
@@ -523,7 +532,7 @@ AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([rootdir], [$with_rootdir])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile po/Makefile.in])
 AC_OUTPUT
 
 echo "

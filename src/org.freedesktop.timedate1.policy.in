@@ -16,9 +16,9 @@
         <vendor>The systemd Project</vendor>
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
-        <action id="org.freedesktop.login1.set-user-linger">
-                <description>Allow non-logged-in users to run programs</description>
-                <message>Authentication is required to allow a non-logged-in user to run programs</message>
+        <action id="org.freedesktop.timedate1.set-time">
+                <_description>Set system time</_description>
+                <_message>Authentication is required to set the system time.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -26,9 +26,9 @@
                 </defaults>
         </action>
 
-        <action id="org.freedesktop.login1.attach-device">
-                <description>Allow attaching devices to seats</description>
-                <message>Authentication is required to allow attaching a device to a seat</message>
+        <action id="org.freedesktop.timedate1.set-timezone">
+                <_description>Set system timezone</_description>
+                <_message>Authentication is required to set the system timezone.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -36,9 +36,10 @@
                 </defaults>
         </action>
 
-        <action id="org.freedesktop.login1.flush-devices">
-                <description>Flush device to seat attachments</description>
-                <message>Authentication is required to allow reseting how devices are attached to seats</message>
+        <action id="org.freedesktop.timedate1.set-local-rtc">
+                <_description>Set RTC to local timezone or UTC</_description>
+                <_message>Authentication is required to control whether
+                the RTC stores the local or UTC time.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

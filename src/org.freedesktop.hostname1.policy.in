@@ -17,8 +17,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.hostname1.set-hostname">
-                <description>Set host name</description>
-                <message>Authentication is required to set the local host name.</message>
+                <_description>Set host name</_description>
+                <_message>Authentication is required to set the local host name.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -27,8 +27,8 @@
         </action>
 
         <action id="org.freedesktop.hostname1.set-static-hostname">
-                <description>Set static host name</description>
-                <message>Authentication is required to set the statically configured local host name, as well as the pretty host name.</message>
+                <_description>Set static host name</_description>
+                <_message>Authentication is required to set the statically configured local host name, as well as the pretty host name.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -37,8 +37,8 @@
         </action>
 
         <action id="org.freedesktop.hostname1.set-machine-info">
-                <description>Set machine information</description>
-                <message>Authentication is required to set local machine information.</message>
+                <_description>Set machine information</_description>
+                <_message>Authentication is required to set local machine information.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

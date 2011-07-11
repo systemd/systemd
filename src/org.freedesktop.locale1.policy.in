@@ -17,8 +17,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.locale1.set-locale">
-                <description>Set system locale</description>
-                <message>Authentication is required to set the system locale.</message>
+                <_description>Set system locale</_description>
+                <_message>Authentication is required to set the system locale.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

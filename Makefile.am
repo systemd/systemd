@@ -17,6 +17,8 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
+SUBDIRS = po
+
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
@@ -470,11 +472,14 @@ pkgconfigdata_DATA = \
 nodist_polkitpolicy_DATA = \
 	src/org.freedesktop.systemd1.policy
 
-dist_polkitpolicy_DATA = \
-        src/org.freedesktop.hostname1.policy \
-        src/org.freedesktop.locale1.policy \
-        src/org.freedesktop.timedate1.policy \
-        src/org.freedesktop.login1.policy
+dist_polkitpolicy_in_files = \
+        src/org.freedesktop.hostname1.policy.in \
+        src/org.freedesktop.locale1.policy.in \
+        src/org.freedesktop.timedate1.policy.in \
+        src/org.freedesktop.login1.policy.in
+
+@INTLTOOL_POLICY_RULE@
+polkitpolicy_DATA = $(dist_polkitpolicy_in_files:.policy.in=.policy)
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
@@ -1356,6 +1361,7 @@ CLEANFILES = \
 	$(nodist_man_MANS) \
 	${XML_IN_FILES:.xml.in=.html} \
 	$(pkgconfigdata_DATA) \
+	$(polkitpolicy_DATA) \
 	src/org.freedesktop.systemd1.policy
 
 if HAVE_VALAC
