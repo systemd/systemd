@@ -2721,7 +2721,7 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
 			struct stat stats;
 
 			/* we assure, that the permissions tokens are sorted before the static token */
-			if (uid == 0 && gid == 0)
+			if (mode == 0 && uid == 0 && gid == 0)
 				goto next;
 			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(rules->udev), "/",
 				      &rules->buf[cur->key.value_off], NULL);
