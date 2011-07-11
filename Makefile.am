@@ -694,7 +694,7 @@ git-sync:
 	git push --tags $(VERSION)
 
 tar-sync:
-	scp udev-$(VERSION).gz master.kernel.org:/pub/linux/utils/kernel/hotplug/
+	scp udev-$(VERSION).tar.gz master.kernel.org:/pub/linux/utils/kernel/hotplug/
 
 doc-sync:
 	rsync -av udev/*.html master.kernel.org:/pub/linux/utils/kernel/hotplug/udev/
