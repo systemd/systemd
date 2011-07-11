@@ -20,6 +20,9 @@ F15 External:
 
 Features:
 
+* implement Register= switch in .socket units to enable registration
+  in Avahi, RPC and other socket registration services.
+
 * Remove kill_mode parameter to kill bus calls
 
 * Fix nspawn to not read-only mount /selinux on the host system
