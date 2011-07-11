@@ -487,7 +487,7 @@ polkitpolicy_in_in_files = \
 
 nodist_polkitpolicy_DATA = \
         $(polkitpolicy_in_files:.policy.in=.policy) \
-        $(polkitpolicy_in_files:.policy.in.in=.policy)
+        $(polkitpolicy_in_in_files:.policy.in.in=.policy)
 
 EXTRA_DIST += \
         $(polkitpolicy_in_files) \
