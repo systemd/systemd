@@ -43,7 +43,9 @@ REQUIREMENTS:
         PAM >= 1.1.2 (optional)
         libcryptsetup (optional)
         libaudit (optional)
+        libacl (optional)
         libselinux (optional)
+        liblzma (optional)
         tcpwrappers (optional)
 
         When you build from git you need the following additional dependencies:
@@ -53,7 +55,10 @@ REQUIREMENTS:
         automake
         autoconf
         libtool
+        intltool
         gperf
+        gtkdocize (optional)
+        python (optional)
         make, gcc, and similar tools
 
         During runtime you need the following dependencies:
