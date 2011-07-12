@@ -437,7 +437,10 @@ EXTRA_DIST += \
 	extras/gudev/COPYING \
 	extras/gudev/gudevmarshal.list \
 	extras/gudev/gudevenumtypes.h.template \
-	extras/gudev/gudevenumtypes.c.template
+	extras/gudev/gudevenumtypes.c.template \
+	extras/gudev/gjs-example.js \
+	extras/gudev/seed-example-enum.js \
+	extras/gudev/seed-example.js
 
 extras/gudev/gudevmarshal.h: extras/gudev/gudevmarshal.list
 	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
