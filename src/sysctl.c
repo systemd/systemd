@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
+#include <getopt.h>
 
 #include "log.h"
 #include "strv.h"
@@ -32,13 +33,16 @@
 
 #define PROC_SYS_PREFIX "/proc/sys/"
 
+static const char *arg_prefix = NULL;
+
 static int apply_sysctl(const char *property, const char *value) {
         char *p, *n;
         int r = 0, k;
 
         log_debug("Setting '%s' to '%s'", property, value);
 
-        if (!(p = new(char, sizeof(PROC_SYS_PREFIX) + strlen(property)))) {
+        p = new(char, sizeof(PROC_SYS_PREFIX) + strlen(property));
+        if (!p) {
                 log_error("Out of memory");
                 return -ENOMEM;
         }
@@ -50,7 +54,14 @@ static int apply_sysctl(const char *property, const char *value) {
                 if (*n == '.')
                         *n = '/';
 
-        if ((k = write_one_line_file(p, value)) < 0) {
+        if (arg_prefix && !path_startswith(p, arg_prefix)) {
+                log_debug("Skipping %s", p);
+                free(p);
+                return 0;
+        }
+
+        k = write_one_line_file(p, value);
+        if (k < 0) {
 
                 log_full(k == -ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "Failed to write '%s' to '%s': %s", value, p, strerror(-k));
@@ -121,10 +132,74 @@ finish:
         return r;
 }
 
+static int help(void) {
+
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
+               "Applies kernel sysctl settings.\n\n"
+               "  -h --help             Show this help\n"
+               "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_PREFIX
+        };
+
+        static const struct option options[] = {
+                { "help",      no_argument,       NULL, 'h'           },
+                { "prefix",    required_argument, NULL, ARG_PREFIX    },
+                { NULL,        0,                 NULL, 0             }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        help();
+                        return 0;
+
+                case ARG_PREFIX: {
+                        char *p;
+
+                        for (p = optarg; *p; p++)
+                                if (*p == '.')
+                                        *p = '/';
+
+                        arg_prefix = optarg;
+
+                        break;
+                }
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
         int r = 0;
 
-        if (argc > 2) {
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+
+        if (argc-optind > 1) {
                 log_error("This program expects one or no arguments.");
                 return EXIT_FAILURE;
         }
@@ -133,11 +208,10 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if (argc > 1)
-                r = apply_file(argv[1], false);
+        if (argc > optind)
+                r = apply_file(argv[optind], false);
         else {
                 char **files, **f;
-
 
                 r = conf_files_list(&files, ".conf",
                                     "/run/sysctl.d",

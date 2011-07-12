@@ -20,6 +20,8 @@ F15 External:
 
 Features:
 
+* possibly apply systemd-sysctl per network device subtrees on hotplug
+
 * add conditions for file executability
 
 * allow creating fifos with tmpfiles
@@ -115,6 +117,7 @@ Features:
   - enabling dbus services
   - status update
   - /etc/sysconfig and /etc/default
+  - how to make changes to sysctl and sysfs attributes
 
 * allow port=0 in .socket units
 
