@@ -277,6 +277,7 @@ extras_scsi_id_scsi_id_SOURCES =\
 extras_scsi_id_scsi_id_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/scsi_id/scsi_id
 dist_man_MANS += extras/scsi_id/scsi_id.8
+EXTRA_DIST += extras/scsi_id/README
 
 # ------------------------------------------------------------------------------
 # usb_id - USB device property import
