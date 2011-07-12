@@ -20,6 +20,10 @@ F15 External:
 
 Features:
 
+* logind: spawn user@..service on login
+
+* logind: implement shutdown service
+
 * possibly apply systemd-sysctl per network device subtrees on hotplug
 
 * add conditions for file executability
@@ -36,8 +40,6 @@ Features:
 * make sure people don't leave processes around after ExecStartPre=
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
-
-* add loginctl, i.e. a systemctl for logind introspection
 
 * support presets
 
@@ -69,8 +71,6 @@ Features:
 * add dbus call to convert snapshot into target, and a dbus call to generate target from current state
 
 * detect LXC with $container=lxc
-
-* add prefix match to sysctl, tmpfiles, ...
 
 * drop /.readahead on bigger upgrades with yum
 
@@ -205,10 +205,6 @@ Features:
 * Support ProcessNeededForShutdown=true to allow stuff like mdmon to
   be killed very late after the rootfs is read only? If implement pass
   this to shutdown binary via command line argument.
-
-* use pivot_root on shutdown so that we can unmount the root directory.
-   - copy binaries to, and pivot_root() to the "shutdown tmpfs"
-   - solve "mdadm --wait-clean" problem that way
 
 * dot output for --test showing the 'initial transaction'
 
