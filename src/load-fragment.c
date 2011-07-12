@@ -2003,6 +2003,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ConditionPathExistsGlob",    config_parse_condition_path,   CONDITION_PATH_EXISTS_GLOB,    u,              "Unit"    },
                 { "ConditionPathIsDirectory",   config_parse_condition_path,   CONDITION_PATH_IS_DIRECTORY,   u,              "Unit"    },
                 { "ConditionDirectoryNotEmpty", config_parse_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, u,              "Unit"    },
+                { "ConditionFileIsExecutable",  config_parse_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  u,              "Unit"    },
                 { "ConditionKernelCommandLine", config_parse_condition_string, CONDITION_KERNEL_COMMAND_LINE, u,              "Unit"    },
                 { "ConditionVirtualization",    config_parse_condition_string, CONDITION_VIRTUALIZATION,      u,              "Unit"    },
                 { "ConditionSecurity",          config_parse_condition_string, CONDITION_SECURITY,            u,              "Unit"    },

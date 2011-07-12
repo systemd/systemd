@@ -610,6 +610,7 @@
                                 <term><varname>ConditionPathExistsGlob=</varname></term>
                                 <term><varname>ConditionPathIsDirectory=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
+                                <term><varname>ConditionFileIsExecutable=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
                                 <term><varname>ConditionVirtualization=</varname></term>
                                 <term><varname>ConditionSecurity=</varname></term>
@@ -642,7 +643,13 @@
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
-                                exists and is a directory.
+                                exists and is a
+                                directory. <varname>ConditionFileIsExecutable=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists, is a regular file and marked
+                                executable.
                                 <varname>ConditionDirectoryNotEmpty=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>

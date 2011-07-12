@@ -7,7 +7,7 @@
 
 [Unit]
 Description=/etc/init.d/boot.local Compatibility
-ConditionPathExists=/etc/init.d/boot.local
+ConditionFileIsExecutable=/etc/init.d/boot.local
 
 [Service]
 Type=oneshot

@@ -26,8 +26,6 @@ Features:
 
 * possibly apply systemd-sysctl per network device subtrees on hotplug
 
-* add conditions for file executability
-
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
 

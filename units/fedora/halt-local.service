@@ -7,7 +7,7 @@
 
 [Unit]
 Description=/sbin/halt.local Compatibility
-ConditionPathExists=/sbin/halt.local
+ConditionFileIsExecutable=/sbin/halt.local
 DefaultDependencies=no
 After=shutdown.target
 Before=final.target

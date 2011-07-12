@@ -7,7 +7,7 @@
 
 [Unit]
 Description=/etc/init.d/halt.local Compatibility
-ConditionPathExists=/etc/init.d/halt.local
+ConditionFileIsExecutable=/etc/init.d/halt.local
 DefaultDependencies=no
 After=shutdown.target
 Before=final.target

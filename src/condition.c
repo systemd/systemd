@@ -168,6 +168,15 @@ bool condition_test(Condition *c) {
                 return !(k == -ENOENT || k > 0) == !c->negate;
         }
 
+        case CONDITION_FILE_IS_EXECUTABLE: {
+                struct stat st;
+
+                if (lstat(c->parameter, &st) < 0)
+                        return !c->negate;
+
+                return (S_ISREG(st.st_mode) && (st.st_mode & 0111)) == !c->negate;
+        }
+
         case CONDITION_KERNEL_COMMAND_LINE:
                 return test_kernel_command_line(c->parameter) == !c->negate;
 

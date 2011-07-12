@@ -7,7 +7,7 @@
 
 [Unit]
 Description=/etc/rc.local Compatibility
-ConditionPathExists=/etc/rc.d/rc.local
+ConditionFileIsExecutable=/etc/rc.d/rc.local
 
 [Service]
 Type=forking
