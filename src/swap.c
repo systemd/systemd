@@ -1286,11 +1286,12 @@ static int swap_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *
                 return -ENOENT;
         }
 
-        if (s->control_pid > 0)
-                if (kill(s->control_pid, signo) < 0)
-                        r = -errno;
+        if (who == KILL_CONTROL || who == KILL_ALL)
+                if (s->control_pid > 0)
+                        if (kill(s->control_pid, signo) < 0)
+                                r = -errno;
 
-        if (mode == KILL_CONTROL_GROUP) {
+        if (who == KILL_ALL && mode == KILL_CONTROL_GROUP) {
                 int q;
 
                 if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
@@ -1304,7 +1305,7 @@ static int swap_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *
                         }
 
                 if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, false, pid_set)) < 0)
-                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                        if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }
 
