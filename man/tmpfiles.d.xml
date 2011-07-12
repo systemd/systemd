@@ -113,6 +113,11 @@ d    /run/user 0755 root root 10d</programlisting>
                                 </varlistentry>
 
                                 <varlistentry>
+                                        <term><varname>p</varname></term>
+                                        <listitem><para>Create a named pipe (FIFO) if it doesn't exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
                                         <term><varname>x</varname></term>
                                         <listitem><para>Ignore a path
                                         during cleaning. Use this type

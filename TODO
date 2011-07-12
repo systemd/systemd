@@ -28,8 +28,6 @@ Features:
 
 * add conditions for file executability
 
-* allow creating fifos with tmpfiles
-
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
 

@@ -56,6 +56,7 @@ enum {
         TRUNCATE_FILE = 'F',
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
+        CREATE_FIFO = 'p',
 
         /* These ones take globs */
         IGNORE_PATH = 'x',
@@ -505,6 +506,48 @@ static int create_item(Item *i) {
                         }
 
                 break;
+
+        case CREATE_FIFO:
+
+                u = umask(0);
+                r = mkfifo(i->path, i->mode);
+                umask(u);
+
+                if (r < 0 && errno != EEXIST) {
+                        log_error("Failed to create fifo %s: %m", i->path);
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (stat(i->path, &st) < 0) {
+                        log_error("stat(%s) failed: %m", i->path);
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (!S_ISFIFO(st.st_mode)) {
+                        log_error("%s is not a fifo.", i->path);
+                        r = -EEXIST;
+                        goto finish;
+                }
+
+                if (i->mode_set)
+                        if (chmod(i->path, i->mode) < 0) {
+                                log_error("chmod(%s) failed: %m", i->path);
+                                r = -errno;
+                                goto finish;
+                        }
+
+                if (i->uid_set || i->gid_set)
+                        if (chown(i->path,
+                                   i->uid_set ? i->uid : (uid_t) -1,
+                                   i->gid_set ? i->gid : (gid_t) -1) < 0) {
+                                log_error("chown(%s) failed: %m", i->path);
+                                r = -errno;
+                                goto finish;
+                        }
+
+                break;
         }
 
         if ((r = label_fix(i->path, false)) < 0)
@@ -529,6 +572,7 @@ static int remove_item(Item *i, const char *instance) {
         case CREATE_FILE:
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
+        case CREATE_FIFO:
         case IGNORE_PATH:
                 break;
 
@@ -562,6 +606,7 @@ static int remove_item_glob(Item *i) {
         case CREATE_FILE:
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
+        case CREATE_FIFO:
         case IGNORE_PATH:
                 break;
 
@@ -689,6 +734,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
             i->type != TRUNCATE_FILE &&
             i->type != CREATE_DIRECTORY &&
             i->type != TRUNCATE_DIRECTORY &&
+            i->type != CREATE_FIFO &&
             i->type != IGNORE_PATH &&
             i->type != REMOVE_PATH &&
             i->type != RECURSIVE_REMOVE_PATH) {
