@@ -38,8 +38,6 @@
  * direct client API
  *
  * udev:
- * drop redundant udev_device_get_is_initialized() use as soon as libudev is fixed
- * use device_has_tag() as soon as it is available
  * enumerate recursively with libudev when triggering
  * use sysfs in device hash table, not sysname, when fb driver is fixed
  *

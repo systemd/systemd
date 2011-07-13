@@ -26,23 +26,6 @@
 #include "util.h"
 #include "sysfs-show.h"
 
-static bool device_has_tag(struct udev_device *d, const char *tag) {
-        struct udev_list_entry *first, *item;
-
-        assert(d);
-        assert(tag);
-
-        /* FIXME */
-        udev_device_get_is_initialized(d);
-
-        first = udev_device_get_tags_list_entry(d);
-        udev_list_entry_foreach(item, first)
-                if (streq(udev_list_entry_get_name(item), tag))
-                        return true;
-
-        return false;
-}
-
 static int show_sysfs_one(
                 struct udev *udev,
                 const char *seat,
@@ -77,7 +60,7 @@ static int show_sysfs_one(
                         sn = "seat0";
 
                 /* fixme, also check for tag 'seat' here */
-                if (!streq(seat, sn) || !device_has_tag(d, "seat")) {
+                if (!streq(seat, sn) || !udev_device_has_tag(d, "seat")) {
                         udev_device_unref(d);
                         *item = udev_list_entry_get_next(*item);
                         continue;
@@ -109,7 +92,7 @@ static int show_sysfs_one(
                                         if (isempty(lookahead_sn))
                                                 lookahead_sn = "seat0";
 
-                                        found = streq(seat, lookahead_sn) && device_has_tag(lookahead_d, "seat");
+                                        found = streq(seat, lookahead_sn) && udev_device_has_tag(lookahead_d, "seat");
                                         udev_device_unref(lookahead_d);
 
                                         if (found)

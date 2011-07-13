@@ -550,23 +550,6 @@ fail:
         return r;
 }
 
-static bool device_has_tag(struct udev_device *d, const char *tag) {
-        struct udev_list_entry *first, *item;
-
-        assert(d);
-        assert(tag);
-
-        /* FIXME */
-        udev_device_get_is_initialized(d);
-
-        first = udev_device_get_tags_list_entry(d);
-        udev_list_entry_foreach(item, first)
-                if (streq(udev_list_entry_get_name(item), tag))
-                        return true;
-
-        return false;
-}
-
 static int trigger_device(Manager *m, const char *prefix) {
         struct udev_enumerate *e;
         struct udev_list_entry *first, *item;
@@ -628,7 +611,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         if (!d)
                 return -ENODEV;
 
-        if (!device_has_tag(d, "seat")) {
+        if (!udev_device_has_tag(d, "seat")) {
                 r = -ENODEV;
                 goto finish;
         }
