@@ -40,7 +40,6 @@
  *
  * udev:
  * drop redundant udev_device_get_is_initialized() use as soon as libudev is fixed
- * properly escape/remove : and . from seat names in udev rules
  * use device_has_tag() as soon as it is available
  * trigger based on libudev if available
  * enumerate recursively with libudev when triggering
