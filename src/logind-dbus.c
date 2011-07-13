@@ -550,7 +550,7 @@ fail:
         return r;
 }
 
-static int trigger_device(Manager *m, const char *prefix) {
+static int trigger_device(Manager *m, struct udev_device *d) {
         struct udev_enumerate *e;
         struct udev_list_entry *first, *item;
         int r;
@@ -563,6 +563,14 @@ static int trigger_device(Manager *m, const char *prefix) {
                 goto finish;
         }
 
+        if (d) {
+                if (udev_enumerate_add_match_parent(e, d) < 0) {
+                        r = -EIO;
+                        goto finish;
+                }
+        }
+
+
         if (udev_enumerate_scan_devices(e) < 0) {
                 r = -EIO;
                 goto finish;
@@ -574,9 +582,6 @@ static int trigger_device(Manager *m, const char *prefix) {
                 const char *p;
 
                 p = udev_list_entry_get_name(item);
-
-                if (prefix && !path_startswith(p, prefix))
-                        continue;
 
                 t = strappend(p, "/uevent");
                 if (!t) {
@@ -637,7 +642,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         if (r < 0)
                 goto finish;
 
-        r = trigger_device(m, sysfs);
+        r = trigger_device(m, d);
 
 finish:
         free(rule);

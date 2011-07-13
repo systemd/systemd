@@ -38,7 +38,6 @@
  * direct client API
  *
  * udev:
- * enumerate recursively with libudev when triggering
  * use sysfs in device hash table, not sysname, when fb driver is fixed
  *
  * non-local X11 server
