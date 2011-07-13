@@ -64,7 +64,7 @@ static void print_device(struct udev_device *device, const char *source, int pro
 	}
 }
 
-int udevadm_monitor(struct udev *udev, int argc, char *argv[])
+static int adm_monitor(struct udev *udev, int argc, char *argv[])
 {
 	struct sigaction act;
 	sigset_t mask;
@@ -289,3 +289,9 @@ out:
 	udev_list_cleanup_entries(udev, &tag_match_list);
 	return rc;
 }
+
+const struct udevadm_cmd udevadm_monitor = {
+	.name = "monitor",
+	.cmd = adm_monitor,
+	.help = "listen to kernel and udev events",
+};

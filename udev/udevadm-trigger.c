@@ -89,7 +89,7 @@ static const char *keyval(const char *str, const char **val, char *buf, size_t s
 	return buf;
 }
 
-int udevadm_trigger(struct udev *udev, int argc, char *argv[])
+static int adm_trigger(struct udev *udev, int argc, char *argv[])
 {
 	static const struct option options[] = {
 		{ "verbose", no_argument, NULL, 'v' },
@@ -247,3 +247,9 @@ exit:
 	udev_enumerate_unref(udev_enumerate);
 	return rc;
 }
+
+const struct udevadm_cmd udevadm_trigger = {
+	.name = "trigger",
+	.cmd = adm_trigger,
+	.help = "request events from the kernel",
+};

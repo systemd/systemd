@@ -36,7 +36,7 @@
 
 #include "udev.h"
 
-int udevadm_settle(struct udev *udev, int argc, char *argv[])
+static int adm_settle(struct udev *udev, int argc, char *argv[])
 {
 	static const struct option options[] = {
 		{ "seq-start", required_argument, NULL, 's' },
@@ -225,3 +225,9 @@ out:
 	udev_queue_unref(udev_queue);
 	return rc;
 }
+
+const struct udevadm_cmd udevadm_settle = {
+	.name = "settle",
+	.cmd = adm_settle,
+	.help = "wait for the event queue to finish",
+};

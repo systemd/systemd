@@ -31,7 +31,7 @@
 
 #include "udev.h"
 
-int udevadm_test(struct udev *udev, int argc, char *argv[])
+static int adm_test(struct udev *udev, int argc, char *argv[])
 {
 	int resolve_names = 1;
 	char filename[UTIL_PATH_SIZE];
@@ -161,3 +161,10 @@ out:
 	udev_rules_unref(rules);
 	return rc;
 }
+
+const struct udevadm_cmd udevadm_test = {
+	.name = "test",
+	.cmd = adm_test,
+	.help = "simulation run",
+	.debug = true,
+};

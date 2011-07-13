@@ -44,77 +44,46 @@ static void log_fn(struct udev *udev, int priority,
 	}
 }
 
-struct command {
-	const char *name;
-	int (*cmd)(struct udev *udev, int argc, char *argv[]);
-	const char *help;
-	int debug;
-};
-
-static const struct command cmds[];
-
-static int version(struct udev *udev, int argc, char *argv[])
+static int adm_version(struct udev *udev, int argc, char *argv[])
 {
 	printf("%s\n", VERSION);
 	return 0;
 }
+static const struct udevadm_cmd udevadm_version = {
+	.name = "version",
+	.cmd = adm_version,
+};
 
-static int help(struct udev *udev, int argc, char *argv[])
+static int adm_help(struct udev *udev, int argc, char *argv[]);
+static const struct udevadm_cmd udevadm_help = {
+	.name = "help",
+	.cmd = adm_help,
+};
+
+static const struct udevadm_cmd *udevadm_cmds[] = {
+	&udevadm_info,
+	&udevadm_trigger,
+	&udevadm_settle,
+	&udevadm_control,
+	&udevadm_monitor,
+	&udevadm_test,
+	&udevadm_version,
+	&udevadm_help,
+};
+
+static int adm_help(struct udev *udev, int argc, char *argv[])
 {
-	const struct command *cmd;
+	unsigned int i;
 
 	printf("Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
-	for (cmd = cmds; cmd->name != NULL; cmd++)
-		if (cmd->help != NULL)
-			printf("  %-12s %s\n", cmd->name, cmd->help);
+	for (i = 0; i < ARRAY_SIZE(udevadm_cmds); i++)
+		if (udevadm_cmds[i]->help != NULL)
+			printf("  %-12s %s\n", udevadm_cmds[i]->name, udevadm_cmds[i]->help);
 	printf("\n");
 	return 0;
 }
 
-static const struct command cmds[] = {
-	{
-		.name = "info",
-		.cmd = udevadm_info,
-		.help = "query sysfs or the udev database",
-	},
-	{
-		.name = "trigger",
-		.cmd = udevadm_trigger,
-		.help = "request events from the kernel",
-	},
-	{
-		.name = "settle",
-		.cmd = udevadm_settle,
-		.help = "wait for the event queue to finish",
-	},
-	{
-		.name = "control",
-		.cmd = udevadm_control,
-		.help = "control the udev daemon",
-	},
-	{
-		.name = "monitor",
-		.cmd = udevadm_monitor,
-		.help = "listen to kernel and udev events",
-	},
-	{
-		.name = "test",
-		.cmd = udevadm_test,
-		.help = "simulation run",
-		.debug = true,
-	},
-	{
-		.name = "version",
-		.cmd = version,
-	},
-	{
-		.name = "help",
-		.cmd = help,
-	},
-	{}
-};
-
-static int run_command(struct udev *udev, const struct command *cmd, int argc, char *argv[])
+static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int argc, char *argv[])
 {
 	if (cmd->debug) {
 		debug = true;
@@ -135,7 +104,7 @@ int main(int argc, char *argv[])
 		{}
 	};
 	const char *command;
-	int i;
+	unsigned int i;
 	int rc = 1;
 
 	udev = udev_new();
@@ -160,10 +129,10 @@ int main(int argc, char *argv[])
 				udev_set_log_priority(udev, LOG_INFO);
 			break;
 		case 'h':
-			rc = help(udev, argc, argv);
+			rc = adm_help(udev, argc, argv);
 			goto out;
 		case 'V':
-			rc = version(udev, argc, argv);
+			rc = adm_version(udev, argc, argv);
 			goto out;
 		default:
 			goto out;
@@ -174,18 +143,18 @@ int main(int argc, char *argv[])
 	info(udev, "runtime dir '%s'\n", udev_get_run_path(udev));
 
 	if (command != NULL)
-		for (i = 0; cmds[i].cmd != NULL; i++) {
-			if (strcmp(cmds[i].name, command) == 0) {
+		for (i = 0; i < ARRAY_SIZE(udevadm_cmds); i++) {
+			if (strcmp(udevadm_cmds[i]->name, command) == 0) {
 				argc -= optind;
 				argv += optind;
 				optind = 0;
-				rc = run_command(udev, &cmds[i], argc, argv);
+				rc = run_command(udev, udevadm_cmds[i], argc, argv);
 				goto out;
 			}
 		}
 
 	fprintf(stderr, "missing or unknown command\n\n");
-	help(udev, argc, argv);
+	adm_help(udev, argc, argv);
 	rc = 2;
 out:
 	udev_selinux_exit(udev);

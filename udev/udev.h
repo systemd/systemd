@@ -129,10 +129,16 @@ const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
 
 /* udevadm commands */
-int udevadm_monitor(struct udev *udev, int argc, char *argv[]);
-int udevadm_info(struct udev *udev, int argc, char *argv[]);
-int udevadm_control(struct udev *udev, int argc, char *argv[]);
-int udevadm_trigger(struct udev *udev, int argc, char *argv[]);
-int udevadm_settle(struct udev *udev, int argc, char *argv[]);
-int udevadm_test(struct udev *udev, int argc, char *argv[]);
+struct udevadm_cmd {
+	const char *name;
+	int (*cmd)(struct udev *udev, int argc, char *argv[]);
+	const char *help;
+	int debug;
+};
+extern const struct udevadm_cmd udevadm_monitor;
+extern const struct udevadm_cmd udevadm_info;
+extern const struct udevadm_cmd udevadm_control;
+extern const struct udevadm_cmd udevadm_trigger;
+extern const struct udevadm_cmd udevadm_settle;
+extern const struct udevadm_cmd udevadm_test;
 #endif

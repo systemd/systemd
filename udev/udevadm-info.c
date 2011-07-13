@@ -275,7 +275,7 @@ static void cleanup_db(struct udev *udev)
 	}
 }
 
-int udevadm_info(struct udev *udev, int argc, char *argv[])
+static int uinfo(struct udev *udev, int argc, char *argv[])
 {
 	struct udev_device *device = NULL;
 	bool root = 0;
@@ -556,3 +556,9 @@ exit:
 	udev_device_unref(device);
 	return rc;
 }
+
+const struct udevadm_cmd udevadm_info = {
+	.name = "info",
+	.cmd = uinfo,
+	.help = "query sysfs or the udev database",
+};

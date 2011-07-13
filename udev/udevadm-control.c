@@ -41,7 +41,7 @@ static void print_help(void)
 		"  --help                   print this help text\n\n");
 }
 
-int udevadm_control(struct udev *udev, int argc, char *argv[])
+static int adm_control(struct udev *udev, int argc, char *argv[])
 {
 	struct udev_ctrl *uctrl = NULL;
 	int timeout = 60;
@@ -161,3 +161,9 @@ out:
 	udev_ctrl_unref(uctrl);
 	return rc;
 }
+
+const struct udevadm_cmd udevadm_control = {
+	.name = "control",
+	.cmd = adm_control,
+	.help = "control the udev daemon",
+};
