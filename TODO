@@ -20,6 +20,8 @@ F15 External:
 
 Features:
 
+* warn if the user stops a service but not its associated socket
+
 * logind: spawn user@..service on login
 
 * logind: implement shutdown service

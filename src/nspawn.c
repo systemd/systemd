@@ -124,17 +124,17 @@ static int mount_all(const char *dest) {
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "/proc",     "/proc",     "bind",      NULL,        MS_BIND, true },
-                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND, true },                        /* Bind mount first */
-                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, true },   /* Then, make it r/o */
-                { "/sys",      "/sys",      "bind",      NULL,        MS_BIND, true },                        /* Bind mount first */
-                { "/sys",      "/sys",      "bind",      NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, true },   /* Then, make it r/o */
-                { "tmpfs",     "/dev",      "tmpfs",     "mode=755",  MS_NOSUID, true },
-                { "/dev/pts",  "/dev/pts",  "bind",      NULL,        MS_BIND, true },
-                { "tmpfs",     "/run",      "tmpfs",     "mode=755",  MS_NOSUID|MS_NODEV, true },
+                { "/proc",     "/proc",     "bind",  NULL,       MS_BIND, true                       },
+                { "/proc/sys", "/proc/sys", "bind",  NULL,       MS_BIND, true                       },   /* Bind mount first */
+                { "/proc/sys", "/proc/sys", "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
+                { "/sys",      "/sys",      "bind",  NULL,       MS_BIND,                      true  },   /* Bind mount first */
+                { "/sys",      "/sys",      "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
+                { "tmpfs",     "/dev",      "tmpfs", "mode=755", MS_NOSUID,                    true  },
+                { "/dev/pts",  "/dev/pts",  "bind",  NULL,       MS_BIND,                      true  },
+                { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV,           true  },
 #ifdef HAVE_SELINUX
-                { "/selinux",  "/selinux",  "bind",      NULL,        MS_BIND, false },                       /* Bind mount first */
-                { "/selinux",  "/selinux",  "selinuxfs", NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
+                { "/selinux",  "/selinux",  "bind",  NULL,       MS_BIND,                      false },  /* Bind mount first */
+                { "/selinux",  "/selinux",  "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
 #endif
         };
 
