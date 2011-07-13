@@ -1278,12 +1278,12 @@ static int swap_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *
 
         if (who == KILL_MAIN) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "Swap units have no main processes");
-                return -EINVAL;
+                return -ESRCH;
         }
 
         if (s->control_pid <= 0 && who == KILL_CONTROL) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
-                return -ENOENT;
+                return -ESRCH;
         }
 
         if (who == KILL_CONTROL || who == KILL_ALL)

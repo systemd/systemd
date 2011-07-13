@@ -3262,12 +3262,12 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
 
         if (s->main_pid <= 0 && who == KILL_MAIN) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
-                return -EINVAL;
+                return -ESRCH;
         }
 
         if (s->control_pid <= 0 && who == KILL_CONTROL) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
-                return -ENOENT;
+                return -ESRCH;
         }
 
         if (who == KILL_CONTROL || who == KILL_ALL)
