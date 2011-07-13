@@ -105,7 +105,7 @@ int devnode_acl(const char *path,
                 bool add, uid_t new_uid) {
 
         acl_t acl;
-        int r;
+        int r = 0;
         bool changed = false;
 
         assert(path);

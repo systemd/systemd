@@ -28,7 +28,7 @@
 
 int main(int argc, char *argv[]) {
         int r;
-        const char *path, *seat;
+        const char *path = NULL, *seat;
         char *p, *active_uid = NULL;
         unsigned long ul;
         bool changed_acl = false;
@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
         p = strappend("/run/systemd/seats/", seat);
         if (!p) {
                 log_error("Out of memory.");
+                r = -ENOMEM;
                 goto finish;
         }
 
