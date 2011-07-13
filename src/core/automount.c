@@ -780,11 +780,12 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                         char *p = NULL;
 
                         get_process_comm(packet.v5_packet.pid, &p);
-                        log_debug("Got direct mount request for %s, triggered by %lu (%s)", packet.v5_packet.name, (unsigned long) packet.v5_packet.pid, strna(p));
+                        log_debug("Got direct mount request on %s, triggered by %lu (%s)",
+                                  a->where, (unsigned long) packet.v5_packet.pid, strna(p));
                         free(p);
 
                 } else
-                        log_debug("Got direct mount request for %s", packet.v5_packet.name);
+                        log_debug("Got direct mount request on %s", a->where);
 
                 if (!a->tokens)
                         if (!(a->tokens = set_new(trivial_hash_func, trivial_compare_func))) {
