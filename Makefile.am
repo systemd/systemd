@@ -672,7 +672,8 @@ MANPAGES = \
         man/machine-info.5 \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
-        man/systemd-ask-password.1
+        man/systemd-ask-password.1 \
+        man/systemd-loginctl.1
 
 if ENABLE_BINFMT
 MANPAGES += \

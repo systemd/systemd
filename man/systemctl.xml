@@ -102,7 +102,7 @@
                                 <term><option>-p</option></term>
 
                                 <listitem><para>When showing
-                                unit/job/manager information, limit
+                                unit/job/manager properties, limit
                                 display to certain properties as
                                 specified as argument. If not
                                 specified all set properties are
@@ -121,7 +121,7 @@
                                 <listitem><para>When listing units,
                                 show all units, regardless of their
                                 state, including inactive units. When
-                                showing unit/job/manager information,
+                                showing unit/job/manager properties,
                                 show all properties regardless whether
                                 they are set or not.</para></listitem>
                         </varlistentry>
@@ -194,7 +194,8 @@
                                 enqueued and <command>systemctl</command> will
                                 wait until it is completed. By passing this
                                 argument it is only verified and
-                                enqueued.</para></listitem> </varlistentry>
+                                enqueued.</para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><option>--no-pager</option></term>
