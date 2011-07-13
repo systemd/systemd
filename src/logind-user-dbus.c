@@ -29,6 +29,9 @@
 #define BUS_USER_INTERFACE \
         " <interface name=\"org.freedesktop.login1.User\">\n"           \
         "  <method name=\"Terminate\"/>\n"                              \
+        "  <method name=\"Kill\">\n"                                    \
+        "   <arg name=\"signal\" type=\"s\"/>\n"                        \
+        "  </method>\n"                                                 \
         "  <property name=\"UID\" type=\"u\" access=\"read\"/>\n"       \
         "  <property name=\"GID\" type=\"u\" access=\"read\"/>\n"       \
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
@@ -250,6 +253,27 @@ static DBusHandlerResult user_message_dispatch(
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.User", "Kill")) {
+                int32_t signo;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_INT32, &signo,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (signo <= 0 || signo >= _NSIG)
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                r = user_kill(u, signo);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
         } else
                 return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
 

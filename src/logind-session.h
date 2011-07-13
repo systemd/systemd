@@ -38,6 +38,13 @@ typedef enum SessionType {
         _SESSION_TYPE_INVALID = -1
 } SessionType;
 
+typedef enum KillWho {
+        KILL_LEADER,
+        KILL_ALL,
+        _KILL_WHO_MAX,
+        _KILL_WHO_INVALID = -1
+} KillWho;
+
 struct Session {
         Manager *manager;
 
@@ -98,6 +105,7 @@ int session_start(Session *s);
 int session_stop(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
+int session_kill(Session *s, KillWho who, int signo);
 
 char *session_bus_path(Session *s);
 
@@ -109,5 +117,8 @@ int session_send_lock(Session *s, bool lock);
 
 const char* session_type_to_string(SessionType t);
 SessionType session_type_from_string(const char *s);
+
+const char *kill_who_to_string(KillWho k);
+KillWho kill_who_from_string(const char *s);
 
 #endif

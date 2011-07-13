@@ -81,6 +81,15 @@
         "  <method name=\"UnlockSession\">\n"                           \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
+        "  <method name=\"KillSession\">\n"                             \
+        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "   <arg name=\"who\" type=\"s\"/>\n"                           \
+        "   <arg name=\"signal\" type=\"s\"/>\n"                        \
+        "  </method>\n"                                                 \
+        "  <method name=\"KillUser\">\n"                                \
+        "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
+        "   <arg name=\"signal\" type=\"s\"/>\n"                        \
+        "  </method>\n"                                                 \
         "  <method name=\"TerminateSession\">\n"                        \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
@@ -1004,6 +1013,73 @@ static DBusHandlerResult manager_message_handler(
 
                 if (session_send_lock(session, streq(dbus_message_get_member(message), "LockSession")) < 0)
                         goto oom;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "KillSession")) {
+                const char *swho;
+                int32_t signo;
+                KillWho who;
+                const char *name;
+                Session *session;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_STRING, &swho,
+                                    DBUS_TYPE_INT32, &signo,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (isempty(swho))
+                        who = KILL_ALL;
+                else {
+                        who = kill_who_from_string(swho);
+                        if (who < 0)
+                                return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                if (signo <= 0 || signo >= _NSIG)
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                session = hashmap_get(m->sessions, name);
+                if (!session)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                r = session_kill(session, who, signo);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "KillUser")) {
+                uint32_t uid;
+                User *user;
+                int32_t signo;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &uid,
+                                    DBUS_TYPE_INT32, &signo,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (signo <= 0 || signo >= _NSIG)
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+                if (!user)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                r = user_kill(user, signo);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)

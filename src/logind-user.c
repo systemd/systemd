@@ -325,7 +325,7 @@ static int user_shall_kill(User *u) {
         return strv_contains(u->manager->kill_only_users, u->name);
 }
 
-static int user_kill_cgroup(User *u) {
+static int user_terminate_cgroup(User *u) {
         int r;
         char **k;
 
@@ -401,7 +401,7 @@ int user_stop(User *u) {
                 r = k;
 
         /* Kill cgroup */
-        k = user_kill_cgroup(u);
+        k = user_terminate_cgroup(u);
         if (k < 0)
                 r = k;
 
@@ -513,6 +513,31 @@ UserState user_get_state(User *u) {
                         return USER_ACTIVE;
 
         return USER_ONLINE;
+}
+
+int user_kill(User *u, int signo) {
+        int r = 0, q;
+        Set *pid_set = NULL;
+
+        assert(u);
+
+        if (!u->cgroup_path)
+                return -ESRCH;
+
+        pid_set = set_new(trivial_hash_func, trivial_compare_func);
+        if (!pid_set)
+                return -ENOMEM;
+
+        q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
+        if (q < 0)
+                if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
+                        r = q;
+
+finish:
+        if (pid_set)
+                set_free(pid_set);
+
+        return r;
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {

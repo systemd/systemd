@@ -36,6 +36,10 @@
         "  <method name=\"SetIdleHint\">\n"                             \
         "   <arg name=\"b\" type=\"b\"/>\n"                             \
         "  </method>\n"                                                 \
+        "  <method name=\"Kill\">\n"                                    \
+        "   <arg name=\"who\" type=\"s\"/>\n"                           \
+        "   <arg name=\"signal\" type=\"s\"/>\n"                        \
+        "  </method>\n"                                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"User\" type=\"(uo)\" access=\"read\"/>\n"   \
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
@@ -310,6 +314,38 @@ static DBusHandlerResult session_message_dispatch(
                         return bus_send_error_reply(connection, message, NULL, -EPERM);
 
                 session_set_idle_hint(s, b);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Kill")) {
+                const char *swho;
+                int32_t signo;
+                KillWho who;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &swho,
+                                    DBUS_TYPE_INT32, &signo,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (isempty(swho))
+                        who = KILL_ALL;
+                else {
+                        who = kill_who_from_string(swho);
+                        if (who < 0)
+                                return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                if (signo <= 0 || signo >= _NSIG)
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                r = session_kill(s, who, signo);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)

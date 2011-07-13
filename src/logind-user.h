@@ -71,6 +71,7 @@ UserState user_get_state(User *u);
 int user_get_idle_hint(User *u, dual_timestamp *t);
 int user_save(User *u);
 int user_load(User *u);
+int user_kill(User *u, int signo);
 
 char *user_bus_path(User *s);
 

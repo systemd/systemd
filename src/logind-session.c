@@ -588,7 +588,7 @@ static bool session_shall_kill(Session *s) {
         return strv_contains(s->manager->kill_only_users, s->user->name);
 }
 
-static int session_kill_cgroup(Session *s) {
+static int session_terminate_cgroup(Session *s) {
         int r;
         char **k;
 
@@ -661,7 +661,7 @@ int session_stop(Session *s) {
                 log_info("Removed session %s.", s->id);
 
         /* Kill cgroup */
-        k = session_kill_cgroup(s);
+        k = session_terminate_cgroup(s);
         if (k < 0)
                 r = k;
 
@@ -886,6 +886,48 @@ void session_add_to_gc_queue(Session *s) {
         s->in_gc_queue = true;
 }
 
+int session_kill(Session *s, KillWho who, int signo) {
+        int r = 0;
+        Set *pid_set = NULL;
+
+        assert(s);
+
+        if (!s->cgroup_path)
+                return -ESRCH;
+
+        if (s->leader <= 0 && who == KILL_LEADER)
+                return -ESRCH;
+
+        if (s->leader > 0)
+                if (kill(s->leader, signo) < 0)
+                        r = -errno;
+
+        if (who == KILL_ALL) {
+                int q;
+
+                pid_set = set_new(trivial_hash_func, trivial_compare_func);
+                if (!pid_set)
+                        return -ENOMEM;
+
+                if (s->leader > 0) {
+                        q = set_put(pid_set, LONG_TO_PTR(s->leader));
+                        if (q < 0)
+                                r = q;
+                }
+
+                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, signo, false, true, false, pid_set);
+                if (q < 0)
+                        if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
+                                r = q;
+        }
+
+finish:
+        if (pid_set)
+                set_free(pid_set);
+
+        return r;
+}
+
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_TTY] = "tty",
         [SESSION_X11] = "x11",
@@ -893,3 +935,10 @@ static const char* const session_type_table[_SESSION_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
+
+static const char* const kill_who_table[_KILL_WHO_MAX] = {
+        [KILL_LEADER] = "leader",
+        [KILL_ALL] = "all"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);

@@ -1208,7 +1208,63 @@ finish:
 }
 
 static int kill_session(DBusConnection *bus, char **args, unsigned n) {
-        return 0;
+        DBusMessage *m = NULL, *reply = NULL;
+        int ret = 0;
+        DBusError error;
+        unsigned i;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        if (!arg_kill_who)
+                arg_kill_who = "all";
+
+        for (i = 1; i < n; i++) {
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "KillSession");
+                if (!m) {
+                        log_error("Could not allocate message.");
+                        ret = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_STRING, &arg_kill_who,
+                                              DBUS_TYPE_INT32, arg_signal,
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        ret = -ENOMEM;
+                        goto finish;
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+                if (!reply) {
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
+                        ret = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_unref(m);
+                dbus_message_unref(reply);
+                m = reply = NULL;
+        }
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return ret;
 }
 
 static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
@@ -1328,6 +1384,81 @@ static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
 
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_UINT32, &u,
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        ret = -ENOMEM;
+                        goto finish;
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+                if (!reply) {
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
+                        ret = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_unref(m);
+                dbus_message_unref(reply);
+                m = reply = NULL;
+        }
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return ret;
+}
+
+static int kill_user(DBusConnection *bus, char **args, unsigned n) {
+        DBusMessage *m = NULL, *reply = NULL;
+        int ret = 0;
+        DBusError error;
+        unsigned i;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        if (!arg_kill_who)
+                arg_kill_who = "all";
+
+        for (i = 1; i < n; i++) {
+                uint32_t u;
+
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "KillUser");
+                if (!m) {
+                        log_error("Could not allocate message.");
+                        ret = -ENOMEM;
+                        goto finish;
+                }
+
+                if (safe_atou32(args[i], &u) < 0) {
+                        struct passwd *pw;
+
+                        errno = 0;
+                        pw = getpwnam(args[i]);
+                        if (!pw) {
+                                ret = errno ? -errno : -ENOENT;
+                                log_error("Failed to look up user %s: %s", args[i], strerror(-ret));
+                                goto finish;
+                        }
+
+                        u = pw->pw_uid;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_UINT32, &u,
+                                              DBUS_TYPE_INT32, arg_signal,
                                               DBUS_TYPE_INVALID)) {
                         log_error("Could not append arguments to message.");
                         ret = -ENOMEM;
@@ -1537,7 +1668,7 @@ static int help(void) {
                "Commands:\n"
                "  list-sessions                   List sessions\n"
                "  session-status [ID...]          Show session status\n"
-               "  show-session [ID...]            Show property of one or more sessions\n"
+               "  show-session [ID...]            Show properties of one or more sessions\n"
                "  activate [ID]                   Activate a session\n"
                "  lock-session [ID...]            Screen lock one or more sessions\n"
                "  unlock-session [ID...]          Screen unlock one or more sessions\n"
@@ -1545,18 +1676,17 @@ static int help(void) {
                "  kill-session [ID...]            Send signal to processes of a session\n"
                "  list-users                      List users\n"
                "  user-status [USER...]           Show user status\n"
-               "  show-user [USER...]             Show property of one or more users\n"
+               "  show-user [USER...]             Show properties of one or more users\n"
                "  enable-linger [USER...]         Enable linger state of one or more users\n"
                "  disable-linger [USER...]        Disable linger state of one or more users\n"
                "  terminate-user [USER...]        Terminate all sessions of one or more users\n"
                "  kill-user [USER...]             Send signal to processes of a user\n"
                "  list-seats                      List seats\n"
                "  seat-status [NAME...]           Show seat status\n"
-               "  show-seat [NAME...]             Show property of one or more seats\n"
+               "  show-seat [NAME...]             Show properties of one or more seats\n"
                "  attach [NAME] [DEVICE...]       Attach one or more devices to a seat\n"
                "  flush-devices                   Flush all device associations\n"
-               "  terminate-seat [NAME...]        Terminate all sessions on one or more seats\n"
-               "  kill-seat [NAME...]             Send signal to processes of sessions on a seat\n",
+               "  terminate-seat [NAME...]        Terminate all sessions on one or more seats\n",
                program_invocation_short_name);
 
         return 0;
@@ -1679,21 +1809,20 @@ static int loginctl_main(DBusConnection *bus, int argc, char *argv[], DBusError 
                 { "lock-session",          MORE,   2, activate         },
                 { "unlock-session",        MORE,   2, activate         },
                 { "terminate-session",     MORE,   2, activate         },
-                { "kill-session",          MORE,   2, kill_session     }, /* missing */
+                { "kill-session",          MORE,   2, kill_session     },
                 { "list-users",            EQUAL,  1, list_users       },
                 { "user-status",           MORE,   2, show             },
                 { "show-user",             MORE,   1, show             },
                 { "enable-linger",         MORE,   2, enable_linger    },
                 { "disable-linger",        MORE,   2, enable_linger    },
                 { "terminate-user",        MORE,   2, terminate_user   },
-                { "kill-user",             MORE,   2, kill_session     }, /* missing */
+                { "kill-user",             MORE,   2, kill_user        },
                 { "list-seats",            EQUAL,  1, list_seats       },
                 { "seat-status",           MORE,   2, show             },
                 { "show-seat",             MORE,   1, show             },
                 { "attach",                MORE,   3, attach           },
                 { "flush-devices",         EQUAL,  1, flush_devices    },
-                { "terminate-seat",        MORE,   2, terminate_seat   }, /* missing */
-                { "kill-seat",             MORE,   2, kill_session     }, /* missing */
+                { "terminate-seat",        MORE,   2, terminate_seat   },
         };
 
         int left;
