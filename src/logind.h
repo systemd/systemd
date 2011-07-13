@@ -36,15 +36,12 @@
  *
  * spawn user systemd
  * direct client API
- * add display symlinks also per-session
  *
  * udev:
  * drop redundant udev_device_get_is_initialized() use as soon as libudev is fixed
  * use device_has_tag() as soon as it is available
- * trigger based on libudev if available
  * enumerate recursively with libudev when triggering
  * use sysfs in device hash table, not sysname, when fb driver is fixed
- * fix ACL enumeration as soon as libudev can properly handle two match tags when enumerating
  *
  * non-local X11 server
  * reboot/shutdown halt management

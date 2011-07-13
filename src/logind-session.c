@@ -921,7 +921,6 @@ int session_kill(Session *s, KillWho who, int signo) {
                                 r = q;
         }
 
-finish:
         if (pid_set)
                 set_free(pid_set);
 

@@ -533,7 +533,6 @@ int user_kill(User *u, int signo) {
                 if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                         r = q;
 
-finish:
         if (pid_set)
                 set_free(pid_set);
 
