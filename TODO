@@ -24,14 +24,16 @@ Features:
 
 * logind: implement shutdown service
 
+* logind: non-local X11 server handling
+
+* logind: use sysfs path in device hash table instead of syname, as soon as fb driver is fixed
+
+* logind: add direct client API
+
 * possibly apply systemd-sysctl per network device subtrees on hotplug
 
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
-
-* Remove kill_mode parameter to kill bus calls
-
-* Fix nspawn to not read-only mount /selinux on the host system
 
 * make sure people don't leave processes around after ExecStartPre=
 

@@ -32,18 +32,6 @@
 #include "hashmap.h"
 #include "cgroup-util.h"
 
-/* TODO:
- *
- * spawn user systemd
- * direct client API
- *
- * udev:
- * use sysfs in device hash table, not sysname, when fb driver is fixed
- *
- * non-local X11 server
- * reboot/shutdown halt management
- */
-
 typedef struct Manager Manager;
 
 #include "logind-device.h"
