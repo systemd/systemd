@@ -124,15 +124,17 @@ static int mount_all(const char *dest) {
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "proc",      "/proc",     "proc",      NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND, true },                      /* Bind mount first */
-                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, true }, /* Then, make it r/o */
-                { "sysfs",     "/sys",      "sysfs",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, true },
+                { "/proc",     "/proc",     "bind",      NULL,        MS_BIND, true },
+                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND, true },                        /* Bind mount first */
+                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, true },   /* Then, make it r/o */
+                { "/sys",      "/sys",      "bind",      NULL,        MS_BIND, true },                        /* Bind mount first */
+                { "/sys",      "/sys",      "bind",      NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, true },   /* Then, make it r/o */
                 { "tmpfs",     "/dev",      "tmpfs",     "mode=755",  MS_NOSUID, true },
                 { "/dev/pts",  "/dev/pts",  "bind",      NULL,        MS_BIND, true },
                 { "tmpfs",     "/run",      "tmpfs",     "mode=755",  MS_NOSUID|MS_NODEV, true },
 #ifdef HAVE_SELINUX
-                { "selinux",   "/selinux",  "selinuxfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, false },
+                { "/selinux",  "/selinux",  "bind",      NULL,        MS_BIND, false },                       /* Bind mount first */
+                { "/selinux",  "/selinux",  "selinuxfs", NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
 #endif
         };
 
@@ -737,6 +739,10 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
 
                 if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
+                        goto child_fail;
+
+                /* Mark / as private, in case somebody marked it shared */
+                if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0)
                         goto child_fail;
 
                 if (mount_all(arg_directory) < 0)
