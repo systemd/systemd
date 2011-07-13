@@ -363,7 +363,15 @@
                                 <varname>Requires=</varname> in order
                                 to achieve a system that is more
                                 robust when dealing with failing
-                                services.</para></listitem>
+                                services.</para>
+
+                                <para>Note that dependencies of this
+                                type may also be configured outside of
+                                the unit configuration file by
+                                adding a symlink to a
+                                <filename>.requires/</filename> directory
+                                accompanying the unit file. For
+                                details see above.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -415,7 +423,9 @@
                                 the transaction as a whole. This is
                                 the recommended way to hook start-up
                                 of one unit to the start-up of another
-                                unit. Note that dependencies of this
+                                unit.</para>
+
+                                <para>Note that dependencies of this
                                 type may also be configured outside of
                                 the unit configuration file by
                                 adding a symlink to a
