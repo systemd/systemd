@@ -372,10 +372,23 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if ((mode = kill_mode_from_string(smode)) < 0 ||
-                    (who = kill_who_from_string(swho)) < 0 ||
-                    signo <= 0 ||
-                    signo >= _NSIG)
+                if (isempty(swho))
+                        who = KILL_ALL;
+                else {
+                        who = kill_who_from_string(swho);
+                        if (who < 0)
+                                return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                if (isempty(smode))
+                        mode = KILL_CONTROL_GROUP;
+                else {
+                        mode = kill_mode_from_string(smode);
+                        if (mode < 0)
+                                return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                if (signo <= 0 || signo >= _NSIG)
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if ((r = unit_kill(u, who, mode, signo, &error)) < 0)
