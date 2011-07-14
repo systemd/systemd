@@ -25,6 +25,7 @@
 #include "logind-acl.h"
 #include "util.h"
 #include "log.h"
+#include "sd-daemon.h"
 
 int main(int argc, char *argv[]) {
         int r;
@@ -42,6 +43,11 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
                 goto finish;
         }
+
+        /* Make sure we don't muck around with ACLs the system is not
+         * running systemd. */
+        if (!sd_booted())
+                return 0;
 
         path = argv[1];
         seat = argc < 3 || isempty(argv[2]) ? "seat0" : argv[2];
