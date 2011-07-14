@@ -360,7 +360,7 @@ if ENABLE_UDEV_ACL
 extras_udev_acl_udev_acl_SOURCES = extras/udev-acl/udev-acl.c
 extras_udev_acl_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 extras_udev_acl_udev_acl_LDADD = libudev/libudev-private.la -lacl $(GLIB_LIBS)
-dist_udevrules_DATA += extras/udev-acl/70-acl.rules
+dist_udevrules_DATA += extras/udev-acl/70-udev-acl.rules
 libexec_PROGRAMS += extras/udev-acl/udev-acl
 
 udevacl-install-hook:

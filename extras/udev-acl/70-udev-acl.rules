@@ -6,6 +6,9 @@
 ENV{MAJOR}=="", GOTO="acl_end"
 ACTION=="remove", GOTO="acl_apply"
 
+# systemd replaces udev-acl entirely, skip if active
+TEST=="/sys/fs/cgroup/systemd", TAG=="uaccess", GOTO="acl_end"
+
 # PTP/MTP protocol devices, cameras, portable media players
 SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:060101:*", TAG+="udev-acl"
 

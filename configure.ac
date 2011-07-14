@@ -127,20 +127,6 @@ fi
 AM_CONDITIONAL([ENABLE_HWDB], [test "x$enable_hwdb" = xyes])
 
 # ------------------------------------------------------------------------------
-# udev_acl - apply ACLs for users with local forground sessions
-# ------------------------------------------------------------------------------
-AC_ARG_ENABLE([udev_acl],
-	AS_HELP_STRING([--disable-udev_acl], [disable local user acl permissions support]),
-	[], [enable_udev_acl=yes])
-if test "x$enable_udev_acl" = xyes; then
-	AC_CHECK_LIB([acl], [acl_init], [:], AC_MSG_ERROR([libacl not found]))
-	AC_CHECK_HEADER([acl/libacl.h], [:], AC_MSG_ERROR([libacl header not found]))
-
-	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
-fi
-AM_CONDITIONAL([ENABLE_UDEV_ACL], [test "x$enable_udev_acl" = xyes])
-
-# ------------------------------------------------------------------------------
 # GUdev - libudev gobject interface
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gudev],
@@ -182,6 +168,20 @@ if test "x$enable_keymap" = xyes; then
 	AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
 fi
 AM_CONDITIONAL([ENABLE_KEYMAP], [test "x$enable_keymap" = xyes])
+
+# ------------------------------------------------------------------------------
+# udev_acl - apply ACLs for users with local forground sessions
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([udev_acl],
+	AS_HELP_STRING([--enable-udev_acl], [enable local user acl permissions support]),
+	[], [enable_udev_acl=no])
+if test "x$enable_udev_acl" = xyes; then
+	AC_CHECK_LIB([acl], [acl_init], [:], AC_MSG_ERROR([libacl not found]))
+	AC_CHECK_HEADER([acl/libacl.h], [:], AC_MSG_ERROR([libacl header not found]))
+
+	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
+fi
+AM_CONDITIONAL([ENABLE_UDEV_ACL], [test "x$enable_udev_acl" = xyes])
 
 # ------------------------------------------------------------------------------
 # create_floppy_devices - historical floppy kernel device nodes (/dev/fd0h1440, ...)
