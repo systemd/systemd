@@ -426,12 +426,14 @@ EXTRA_DIST = \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
 	units/quotacheck.service.in \
-        units/user@.service.in \
+	units/user@.service.in \
 	systemd.pc.in \
-        libsystemd-daemon.pc.in \
-        libsystemd-login.pc.in \
+	libsystemd-daemon.pc.in \
+	libsystemd-login.pc.in \
+	src/libsystemd-daemon.sym \
+	src/libsystemd-login.sym \
 	introspect.awk \
-        src/73-seat-late.rules.in
+	src/73-seat-late.rules.in
 
 if ENABLE_BINFMT
 EXTRA_DIST += \
