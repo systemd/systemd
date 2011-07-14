@@ -1,3 +1,4 @@
+libsystemd-daemon.pc
 libsystemd-login.pc
 test-login
 systemd-loginctl

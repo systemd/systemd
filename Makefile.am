@@ -23,6 +23,10 @@ LIBSYSTEMD_LOGIN_CURRENT=0
 LIBSYSTEMD_LOGIN_REVISION=0
 LIBSYSTEMD_LOGIN_AGE=0
 
+LIBSYSTEMD_DAEMON_CURRENT=0
+LIBSYSTEMD_DAEMON_REVISION=0
+LIBSYSTEMD_DAEMON_AGE=0
+
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
@@ -189,6 +193,7 @@ systemgenerator_PROGRAMS += \
 endif
 
 lib_LTLIBRARIES = \
+	libsystemd-daemon.la \
         libsystemd-login.la
 
 pkginclude_HEADERS = \
@@ -422,6 +427,7 @@ EXTRA_DIST = \
 	units/quotacheck.service.in \
         units/user@.service.in \
 	systemd.pc.in \
+        libsystemd-daemon.pc.in \
         libsystemd-login.pc.in \
 	introspect.awk \
         src/73-seat-late.rules.in
@@ -486,6 +492,7 @@ dist_doc_DATA = \
 
 pkgconfigdata_DATA = \
 	systemd.pc \
+        libsystemd-daemon.pc \
         libsystemd-login.pc
 
 # Passed through intltool only
@@ -511,8 +518,7 @@ EXTRA_DIST += \
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
-	libsystemd-core.la \
-	libsystemd-daemon.la
+	libsystemd-core.la
 
 libsystemd_basic_la_SOURCES = \
 	src/util.c \
@@ -600,9 +606,6 @@ libsystemd_core_la_LIBADD = \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS)
-
-libsystemd_daemon_la_SOURCES = \
-	src/sd-daemon.c
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
@@ -1364,6 +1367,22 @@ pam_systemd_la_LIBADD = \
 	$(PAM_LIBS) \
         $(DBUS_LIBS)
 
+libsystemd_daemon_la_SOURCES = \
+	src/sd-daemon.c
+
+libsystemd_daemon_la_CFLAGS = \
+        $(AM_CFLAGS) \
+	-fvisibility=hidden \
+        -DSD_EXPORT_SYMBOLS
+
+libsystemd_daemon_la_LDFLAGS = \
+        -shared \
+        -version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE)
+
+libsystemd_login_la_SOURCES = \
+        src/sd-login.c \
+        src/cgroup-util.c
+
 libsystemd_login_la_CFLAGS = \
         $(AM_CFLAGS) \
 	-fvisibility=hidden
@@ -1371,10 +1390,6 @@ libsystemd_login_la_CFLAGS = \
 libsystemd_login_la_LDFLAGS = \
         -shared \
         -version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE)
-
-libsystemd_login_la_SOURCES = \
-        src/sd-login.c \
-        src/cgroup-util.c
 
 libsystemd_login_la_LIBADD = \
 	libsystemd-basic.la
@@ -1512,22 +1527,22 @@ endif
 DBUS_PREPROCESS = $(CPP) -P $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
 
 org.freedesktop.systemd1.%.xml: systemd
-	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 org.freedesktop.hostname1.xml: systemd-hostnamed
-	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.hostname1 $< $@.tmp && \
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.hostname1 $< $@.tmp && \
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 org.freedesktop.locale1.xml: systemd-localed
-	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.locale1 $< $@.tmp && \
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.locale1 $< $@.tmp && \
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 org.freedesktop.timedate1.xml: systemd-timedated
-	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.timedate1 $< $@.tmp && \
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.timedate1 $< $@.tmp && \
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
