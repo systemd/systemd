@@ -1,3 +1,5 @@
+libsystemd-login.pc
+test-login
 systemd-loginctl
 systemd-localed
 systemd-timedated

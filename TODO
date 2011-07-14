@@ -20,6 +20,8 @@ F15 External:
 
 Features:
 
+* logind: ensure ACLs are updated on login and logout
+
 * warn if the user stops a service but not its associated socket
 
 * ensure we always set the facility when logging to kmsg

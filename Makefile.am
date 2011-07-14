@@ -19,6 +19,10 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = po
 
+LIBSYSTEMD_LOGIN_CURRENT=0
+LIBSYSTEMD_LOGIN_REVISION=0
+LIBSYSTEMD_LOGIN_AGE=0
+
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
@@ -35,6 +39,7 @@ pkgsysconfdir=$(sysconfdir)/systemd
 userunitdir=$(prefix)/lib/systemd/user
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 usergeneratordir=$(pkglibexecdir)/user-generators
+pkgincludedir=$(includedir)/systemd
 
 # And these are the special ones for /
 rootdir=@rootdir@
@@ -183,6 +188,12 @@ systemgenerator_PROGRAMS += \
 	systemd-cryptsetup-generator
 endif
 
+lib_LTLIBRARIES = \
+        libsystemd-login.la
+
+pkginclude_HEADERS = \
+        src/sd-login.h
+
 noinst_PROGRAMS = \
 	test-engine \
 	test-job-type \
@@ -192,7 +203,8 @@ noinst_PROGRAMS = \
 	test-daemon \
 	test-cgroup \
 	test-env-replace \
-	test-strv
+	test-strv \
+        test-login
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -410,6 +422,7 @@ EXTRA_DIST = \
 	units/quotacheck.service.in \
         units/user@.service.in \
 	systemd.pc.in \
+        libsystemd-login.pc.in \
 	introspect.awk \
         src/73-seat-late.rules.in
 
@@ -472,7 +485,8 @@ dist_doc_DATA = \
 	src/sd-readahead.c
 
 pkgconfigdata_DATA = \
-	systemd.pc
+	systemd.pc \
+        libsystemd-login.pc
 
 # Passed through intltool only
 polkitpolicy_in_files = \
@@ -801,6 +815,16 @@ test_strv_CFLAGS = \
 test_strv_LDADD = \
 	libsystemd-basic.la
 
+test_login_SOURCES = \
+	src/test-login.c
+
+test_login_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_login_LDADD = \
+	libsystemd-basic.la \
+        libsystemd-login.la
+
 systemd_logger_SOURCES = \
 	src/logger.c \
 	src/tcpwrap.c
@@ -946,6 +970,7 @@ systemd_uaccess_CFLAGS = \
 
 systemd_uaccess_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-daemon.la \
         $(UDEV_LIBS) \
         $(ACL_LIBS)
 
@@ -1339,6 +1364,21 @@ pam_systemd_la_LIBADD = \
 	$(PAM_LIBS) \
         $(DBUS_LIBS)
 
+libsystemd_login_la_CFLAGS = \
+        $(AM_CFLAGS) \
+	-fvisibility=hidden
+
+libsystemd_login_la_LDFLAGS = \
+        -shared \
+        -version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE)
+
+libsystemd_login_la_SOURCES = \
+        src/sd-login.c \
+        src/cgroup-util.c
+
+libsystemd_login_la_LIBADD = \
+	libsystemd-basic.la
+
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
@@ -1355,6 +1395,9 @@ SED_PROCESS = \
 		-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
 		-e 's,@PACKAGE_URL\@,$(PACKAGE_URL),g' \
 		-e 's,@prefix\@,$(prefix),g' \
+		-e 's,@exec_prefix\@,$(exec_prefix),g' \
+		-e 's,@libdir\@,$(libdir),g' \
+		-e 's,@includedir\@,$(includedir),g' \
 		< $< > $@ || rm $@
 
 units/%: units/%.in Makefile

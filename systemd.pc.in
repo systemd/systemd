@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 prefix=@prefix@
-exec_prefix=${prefix}
+exec_prefix=@exec_prefix@
 systemdsystemunitdir=@systemunitdir@
 systemduserunitdir=@userunitdir@
 systemdsystemconfdir=@pkgsysconfdir@/system
