@@ -36,8 +36,6 @@ Features:
 
 * logind: use sysfs path in device hash table instead of syname, as soon as fb driver is fixed
 
-* logind: add direct client API
-
 * possibly apply systemd-sysctl per network device subtrees on hotplug
 
 * implement Register= switch in .socket units to enable registration
