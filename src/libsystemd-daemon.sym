@@ -1,0 +1,27 @@
+/***
+  Permission is hereby granted, free of charge, to any person
+  obtaining a copy of this software and associated documentation files
+  (the "Software"), to deal in the Software without restriction,
+  including without limitation the rights to use, copy, modify, merge,
+  publish, distribute, sublicense, and/or sell copies of the Software,
+  and to permit persons to whom the Software is furnished to do so,
+  subject to the following conditions:
+***/
+
+/* Original symbols from systemd v31 */
+
+LIBSYSTEMD_DAEMON_31 {
+global:
+        sd_booted;
+        sd_is_fifo;
+        sd_is_mq;
+        sd_is_socket;
+        sd_is_socket_inet;
+        sd_is_socket_unix;
+        sd_is_special;
+        sd_listen_fds;
+        sd_notify;
+        sd_notifyf;
+local:
+        *;
+};

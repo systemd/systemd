@@ -1377,7 +1377,8 @@ libsystemd_daemon_la_CFLAGS = \
 
 libsystemd_daemon_la_LDFLAGS = \
         -shared \
-        -version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE)
+        -version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
+        -Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
 
 libsystemd_login_la_SOURCES = \
         src/sd-login.c \
@@ -1389,7 +1390,8 @@ libsystemd_login_la_CFLAGS = \
 
 libsystemd_login_la_LDFLAGS = \
         -shared \
-        -version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE)
+        -version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
+        -Wl,--version-script=$(top_srcdir)/src/libsystemd-login.sym
 
 libsystemd_login_la_LIBADD = \
 	libsystemd-basic.la
