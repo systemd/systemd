@@ -30,8 +30,6 @@ Features:
 
 * logind: spawn user@..service on login
 
-* logind: implement shutdown service
-
 * logind: non-local X11 server handling
 
 * logind: use sysfs path in device hash table instead of syname, as soon as fb driver is fixed

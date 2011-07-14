@@ -28,6 +28,7 @@
 #include "dbus-common.h"
 #include "strv.h"
 #include "polkit.h"
+#include "special.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
@@ -110,6 +111,12 @@
         "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
         "  <method name=\"FlushDevices\">\n"                            \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
+        "  <method name=\"PowerOff\">\n"                                \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
+        "  <method name=\"Reboot\">\n"                                  \
         "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
         "  <signal name=\"SessionNew\">\n"                              \
@@ -1250,6 +1257,92 @@ static DBusHandlerResult manager_message_handler(
                 r = flush_devices(m);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "PowerOff") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Reboot")) {
+                dbus_bool_t interactive;
+                bool multiple_sessions;
+                DBusMessage *forward, *freply;
+                const char *name;
+                const char *mode = "replace";
+                const char *action;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                multiple_sessions = hashmap_size(m->sessions) > 1;
+
+                if (!multiple_sessions) {
+                        Session *s;
+
+                        /* Hmm, there's only one session, but let's
+                         * make sure it actually belongs to the user
+                         * who is asking. If not, better be safe than
+                         * sorry. */
+
+                        s = hashmap_first(m->sessions);
+                        if (s) {
+                                unsigned long ul;
+
+                                ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), &error);
+                                if (ul == (unsigned long) -1)
+                                        return bus_send_error_reply(connection, message, &error, -EIO);
+
+                                multiple_sessions = s->user->uid != ul;
+                        }
+                }
+
+                if (streq(dbus_message_get_member(message), "PowerOff")) {
+                        if (multiple_sessions)
+                                action = "org.freedesktop.login1.power-off-multiple-sessions";
+                        else
+                                action = "org.freedesktop.login1.power-off";
+
+                        name = SPECIAL_POWEROFF_TARGET;
+                } else {
+                        if (multiple_sessions)
+                                action = "org.freedesktop.login1.reboot-multiple-sessions";
+                        else
+                                action = "org.freedesktop.login1.reboot";
+
+                        name = SPECIAL_REBOOT_TARGET;
+                }
+
+                r = verify_polkit(connection, message, action, interactive, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                forward = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              "/org/freedesktop/systemd1",
+                              "org.freedesktop.systemd1.Manager",
+                              "StartUnit");
+                if (!forward)
+                        return bus_send_error_reply(connection, message, NULL, -ENOMEM);
+
+                if (!dbus_message_append_args(forward,
+                                              DBUS_TYPE_STRING, &name,
+                                              DBUS_TYPE_STRING, &mode,
+                                              DBUS_TYPE_INVALID)) {
+                        dbus_message_unref(forward);
+                        return bus_send_error_reply(connection, message, NULL, -ENOMEM);
+                }
+
+                freply = dbus_connection_send_with_reply_and_block(connection, forward, -1, &error);
+                dbus_message_unref(forward);
+
+                if (!freply)
+                        return bus_send_error_reply(connection, message, &error, -EIO);
+
+                dbus_message_unref(freply);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
