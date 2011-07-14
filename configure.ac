@@ -521,6 +521,11 @@ AC_ARG_WITH([rootdir],
         [],
         [with_rootdir=${ac_default_prefix}])
 
+AC_ARG_WITH([rootlibdir],
+        AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
+        [],
+        [with_rootlibdir=${libdir}])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
@@ -528,11 +533,11 @@ AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([rootdir], [$with_rootdir])
+AC_SUBST([rootlibdir], [$with_rootlibdir])
 
 AC_CONFIG_FILES([Makefile po/Makefile.in])
 AC_OUTPUT
-
-echo "
+AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
         Distribution:            ${with_distro}
@@ -550,10 +555,12 @@ echo "
         plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
-        udev rules dir:          ${with_udevrulesdir}
+        lib dir:                 ${libdir}
+        rootlib dir:             ${with_rootlibdir}
         pam modules dir:         ${with_pamlibdir}
+        udev rules dir:          ${with_udevrulesdir}
         dbus policy dir:         ${with_dbuspolicydir}
         dbus session dir:        ${with_dbussessionservicedir}
         dbus system dir:         ${with_dbussystemservicedir}
         dbus interfaces dir:     ${with_dbusinterfacedir}
-"
+])

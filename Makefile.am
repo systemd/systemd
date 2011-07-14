@@ -194,10 +194,11 @@ endif
 
 lib_LTLIBRARIES = \
 	libsystemd-daemon.la \
-        libsystemd-login.la
+	libsystemd-login.la
 
 pkginclude_HEADERS = \
-        src/sd-login.h
+	src/sd-daemon.h \
+	src/sd-login.h
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -1380,6 +1381,19 @@ libsystemd_daemon_la_LDFLAGS = \
         -version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
         -Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
 
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-daemon-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-daemon.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-daemon.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-daemon.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+libsystemd-daemon-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
+
 libsystemd_login_la_SOURCES = \
         src/sd-login.c \
         src/cgroup-util.c
@@ -1807,6 +1821,10 @@ if HAVE_SYSV_COMPAT
 		rm -f var-lock.mount && \
 		$(LN_S) ../var-lock.mount var-lock.mount )
 endif
+
+install-exec-hook: libsystemd-daemon-install-hook
+
+uninstall-hook: libsystemd-daemon-uninstall-hook
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \

@@ -31,7 +31,7 @@ LICENSE:
 
 REQUIREMENTS:
         Linux kernel >= 2.6.30 (with devtmpfs, cgroups; optional but strongly recommended: autofs4, ipv6)
-        libudev >= 163
+        libudev >= 172
         dbus >= 1.4.0
         libcap
         gtk+ >= 2.20 (optional)
