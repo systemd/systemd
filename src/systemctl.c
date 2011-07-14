@@ -5112,7 +5112,7 @@ static int talk_upstart(void) {
                 goto finish;
         }
 
-        r = 0;
+        r = 1;
 
 finish:
         if (m)

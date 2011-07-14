@@ -22,6 +22,10 @@ Features:
 
 * warn if the user stops a service but not its associated socket
 
+* ensure we always set the facility when logging to kmsg
+
+* service: pid file reading after reload doesn't work, since we don't reset the pid variable
+
 * logind: spawn user@..service on login
 
 * logind: implement shutdown service
