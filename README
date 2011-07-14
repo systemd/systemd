@@ -26,6 +26,9 @@ BUG REPORTS:
 AUTHOR:
         Lennart Poettering with major support from Kay Sievers
 
+LICENSE:
+        GPLv2+ for all code, except sd-daemon.[ch] which is MIT
+
 REQUIREMENTS:
         Linux kernel >= 2.6.30 (with devtmpfs, cgroups; optional but strongly recommended: autofs4, ipv6)
         libudev >= 163
