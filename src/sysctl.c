@@ -30,10 +30,11 @@
 #include "log.h"
 #include "strv.h"
 #include "util.h"
+#include "strv.h"
 
 #define PROC_SYS_PREFIX "/proc/sys/"
 
-static const char *arg_prefix = NULL;
+static char **arg_prefixes = NULL;
 
 static int apply_sysctl(const char *property, const char *value) {
         char *p, *n;
@@ -54,10 +55,21 @@ static int apply_sysctl(const char *property, const char *value) {
                 if (*n == '.')
                         *n = '/';
 
-        if (arg_prefix && !path_startswith(p, arg_prefix)) {
-                log_debug("Skipping %s", p);
-                free(p);
-                return 0;
+        if (!strv_isempty(arg_prefixes)) {
+                char **i;
+                bool good = false;
+
+                STRV_FOREACH(i, arg_prefixes)
+                        if (path_startswith(p, *i)) {
+                                good = true;
+                                break;
+                        }
+
+                if (!good) {
+                        log_debug("Skipping %s", p);
+                        free(p);
+                        return 0;
+                }
         }
 
         k = write_one_line_file(p, value);
@@ -170,12 +182,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PREFIX: {
                         char *p;
+                        char **l;
 
                         for (p = optarg; *p; p++)
                                 if (*p == '.')
                                         *p = '/';
 
-                        arg_prefix = optarg;
+                        l = strv_append(arg_prefixes, optarg);
+                        if (!l) {
+                                log_error("Out of memory");
+                                return -ENOMEM;
+                        }
+
+                        strv_free(arg_prefixes);
+                        arg_prefixes = l;
 
                         break;
                 }
@@ -238,5 +258,7 @@ int main(int argc, char *argv[]) {
                 strv_free(files);
         }
 finish:
+        strv_free(arg_prefixes);
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
