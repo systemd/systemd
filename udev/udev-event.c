@@ -957,10 +957,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
 			if (err == 0) {
 				info(event->udev, "renamed netif to '%s'\n", event->name);
 
-				/* delete stale db file */
-				udev_device_delete_db(dev);
-				udev_device_tag_index(dev, NULL, false);
-
 				/* remember old name */
 				udev_device_add_property(dev, "INTERFACE_OLD", udev_device_get_sysname(dev));
 
