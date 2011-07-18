@@ -1385,6 +1385,26 @@ static int add_rule(struct udev_rules *rules, char *line,
 				if (rule_add_key(&rule_tmp, TK_M_ENV, op, value, attr) != 0)
 					goto invalid;
 			} else {
+				static const char *blacklist[] = {
+					"ACTION",
+					"SUBSYSTEM",
+					"DEVTYPE",
+					"MAJOR",
+					"MINOR",
+					"DRIVER",
+					"IFINDEX",
+					"DEVNAME",
+					"DEVLINKS",
+					"DEVPATH",
+					"TAGS",
+				};
+				unsigned int i;
+
+				for (i = 0; i < ARRAY_SIZE(blacklist); i++)
+					if (strcmp(attr, blacklist[i]) == 0) {
+						err(rules->udev, "invalid ENV attribute, '%s' can not be set %s:%u\n", attr, filename, lineno);
+						continue;
+					}
 				if (rule_add_key(&rule_tmp, TK_A_ENV, op, value, attr) != 0)
 					goto invalid;
 			}
