@@ -111,8 +111,6 @@ Features:
 
 * fix alsa mixer restore to not print error when no config is stored
 
-* fix upstart reboot compat call
-
 * when failing to start a service due to ratelimiting, try again later, if restart=always is set
 
 * write blog stories about:
