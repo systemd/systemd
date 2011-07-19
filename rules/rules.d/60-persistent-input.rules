@@ -2,6 +2,7 @@
 
 ACTION=="remove", GOTO="persistent_input_end"
 SUBSYSTEM!="input", GOTO="persistent_input_end"
+SUBSYSTEMS=="bluetooth", GOTO="persistent_input_end"
 
 ENV{ID_INPUT}=="", IMPORT{program}="input_id %p"
 SUBSYSTEMS=="usb", ENV{ID_BUS}=="", IMPORT{program}="usb_id --export %p"
