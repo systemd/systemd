@@ -295,17 +295,6 @@ libexec_PROGRAMS += extras/v4l_id/v4l_id
 dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
 
 # ------------------------------------------------------------------------------
-# mtd_probe - autoloads FTL module for mtd devices
-# ------------------------------------------------------------------------------
-extras_mtd_probe_mtd_probe_SOURCES =  \
-	extras/mtd_probe/mtd_probe.c \
-	extras/mtd_probe/mtd_probe.h \
-	extras/mtd_probe/probe_smartmedia.c
-extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
-dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
-libexec_PROGRAMS += extras/mtd_probe/mtd_probe
-
-# ------------------------------------------------------------------------------
 # accelerometer - updates device orientation
 # ------------------------------------------------------------------------------
 extras_accelerometer_accelerometer_SOURCES = extras/accelerometer/accelerometer.c
@@ -332,6 +321,20 @@ dist_udevhome_DATA = extras/rule_generator/rule_generator.functions
 dist_udevrules_DATA += \
 	extras/rule_generator/75-cd-aliases-generator.rules \
 	extras/rule_generator/75-persistent-net-generator.rules
+endif
+
+if ENABLE_MTD_PROBE
+# ------------------------------------------------------------------------------
+# mtd_probe - autoloads FTL module for mtd devices
+# ------------------------------------------------------------------------------
+extras_mtd_probe_mtd_probe_SOURCES =  \
+	extras/mtd_probe/mtd_probe.c \
+	extras/mtd_probe/mtd_probe.h \
+	extras/mtd_probe/probe_smartmedia.c
+extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
+dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
+libexec_PROGRAMS += extras/mtd_probe/mtd_probe
+
 endif
 
 if ENABLE_HWDB
