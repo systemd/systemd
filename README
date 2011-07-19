@@ -16,7 +16,7 @@ by udevadm and libudev. Tools and rules in /lib/udev and the entire contents of
 the /dev/.udev directory are private to udev and do change whenever needed.
 
 Requirements:
-  - Version 2.6.32 of the Linux kernel with sysfs, procfs, signalfd, inotify,
+  - Version 2.6.34 of the Linux kernel with sysfs, procfs, signalfd, inotify,
     unix domain sockets, networking and hotplug enabled
 
   - Some architectures might need a later kernel, that supports accept4(),

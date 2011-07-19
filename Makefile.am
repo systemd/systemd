@@ -307,72 +307,6 @@ dist_udevrules_DATA += extras/accelerometer/61-accelerometer.rules
 # ------------------------------------------------------------------------------
 dist_udevrules_DATA += extras/qemu/42-qemu-usb.rules
 
-if ENABLE_RULE_GENERATOR
-# ------------------------------------------------------------------------------
-# rule_generator - persistent network and optical device rule generator
-# ------------------------------------------------------------------------------
-dist_libexec_SCRIPTS += \
-	extras/rule_generator/write_cd_rules \
-	extras/rule_generator/write_net_rules
-
-udevhomedir = $(libexecdir)
-dist_udevhome_DATA = extras/rule_generator/rule_generator.functions
-
-dist_udevrules_DATA += \
-	extras/rule_generator/75-cd-aliases-generator.rules \
-	extras/rule_generator/75-persistent-net-generator.rules
-endif
-
-if ENABLE_MTD_PROBE
-# ------------------------------------------------------------------------------
-# mtd_probe - autoloads FTL module for mtd devices
-# ------------------------------------------------------------------------------
-extras_mtd_probe_mtd_probe_SOURCES =  \
-	extras/mtd_probe/mtd_probe.c \
-	extras/mtd_probe/mtd_probe.h \
-	extras/mtd_probe/probe_smartmedia.c
-extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
-dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
-libexec_PROGRAMS += extras/mtd_probe/mtd_probe
-
-endif
-
-if ENABLE_HWDB
-# ------------------------------------------------------------------------------
-# usb/pci-db - read vendor/device string database
-# ------------------------------------------------------------------------------
-extras_usb_db_usb_db_SOURCES = extras/usb-db/usb-db.c
-extras_usb_db_usb_db_CPPFLAGS = $(AM_CPPFLAGS) -DUSB_DATABASE=\"$(USB_DATABASE)\" -DBUILD_FOR_USB
-extras_usb_db_usb_db_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/usb-db/usb-db
-dist_udevrules_DATA += \
-	rules/rules.d/75-net-description.rules \
-	rules/rules.d/75-tty-description.rules \
-	rules/rules.d/78-sound-card.rules
-
-extras_usb_db_pci_db_SOURCES = extras/usb-db/usb-db.c
-extras_usb_db_pci_db_CPPFLAGS = $(AM_CPPFLAGS) -DPCI_DATABASE=\"$(PCI_DATABASE)\" -DBUILD_FOR_PCI
-extras_usb_db_pci_db_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/usb-db/pci-db
-endif
-
-if ENABLE_UDEV_ACL
-# ------------------------------------------------------------------------------
-# udev_acl - apply ACLs for users with local forground sessions
-# ------------------------------------------------------------------------------
-extras_udev_acl_udev_acl_SOURCES = extras/udev-acl/udev-acl.c
-extras_udev_acl_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
-extras_udev_acl_udev_acl_LDADD = libudev/libudev-private.la -lacl $(GLIB_LIBS)
-dist_udevrules_DATA += extras/udev-acl/70-udev-acl.rules
-libexec_PROGRAMS += extras/udev-acl/udev-acl
-
-udevacl-install-hook:
-	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d
-	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d/udev-acl.ck
-
-INSTALL_EXEC_HOOKS += udevacl-install-hook
-endif
-
 if ENABLE_GUDEV
 # ------------------------------------------------------------------------------
 # GUdev - libudev gobject interface
@@ -518,6 +452,25 @@ INSTALL_EXEC_HOOKS += libgudev-install-move-hook
 UNINSTALL_EXEC_HOOKS += libgudev-uninstall-move-hook
 endif
 
+if ENABLE_HWDB
+# ------------------------------------------------------------------------------
+# usb/pci-db - read vendor/device string database
+# ------------------------------------------------------------------------------
+extras_usb_db_usb_db_SOURCES = extras/usb-db/usb-db.c
+extras_usb_db_usb_db_CPPFLAGS = $(AM_CPPFLAGS) -DUSB_DATABASE=\"$(USB_DATABASE)\" -DBUILD_FOR_USB
+extras_usb_db_usb_db_LDADD = libudev/libudev-private.la
+libexec_PROGRAMS += extras/usb-db/usb-db
+dist_udevrules_DATA += \
+	rules/rules.d/75-net-description.rules \
+	rules/rules.d/75-tty-description.rules \
+	rules/rules.d/78-sound-card.rules
+
+extras_usb_db_pci_db_SOURCES = extras/usb-db/usb-db.c
+extras_usb_db_pci_db_CPPFLAGS = $(AM_CPPFLAGS) -DPCI_DATABASE=\"$(PCI_DATABASE)\" -DBUILD_FOR_PCI
+extras_usb_db_pci_db_LDADD = libudev/libudev-private.la
+libexec_PROGRAMS += extras/usb-db/pci-db
+endif
+
 if ENABLE_KEYMAP
 # ------------------------------------------------------------------------------
 # keymap - map custom hardware's multimedia keys
@@ -621,6 +574,52 @@ extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
 keymaps-distcheck-hook: extras/keymap/keys.txt
 	$(top_srcdir)/extras/keymap/check-keymaps.sh $(top_srcdir) $^
 DISTCHECK_HOOKS += keymaps-distcheck-hook
+endif
+
+if ENABLE_MTD_PROBE
+# ------------------------------------------------------------------------------
+# mtd_probe - autoloads FTL module for mtd devices
+# ------------------------------------------------------------------------------
+extras_mtd_probe_mtd_probe_SOURCES =  \
+	extras/mtd_probe/mtd_probe.c \
+	extras/mtd_probe/mtd_probe.h \
+	extras/mtd_probe/probe_smartmedia.c
+extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
+dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
+libexec_PROGRAMS += extras/mtd_probe/mtd_probe
+endif
+
+if ENABLE_RULE_GENERATOR
+# ------------------------------------------------------------------------------
+# rule_generator - persistent network and optical device rule generator
+# ------------------------------------------------------------------------------
+dist_libexec_SCRIPTS += \
+	extras/rule_generator/write_cd_rules \
+	extras/rule_generator/write_net_rules
+
+udevhomedir = $(libexecdir)
+dist_udevhome_DATA = extras/rule_generator/rule_generator.functions
+
+dist_udevrules_DATA += \
+	extras/rule_generator/75-cd-aliases-generator.rules \
+	extras/rule_generator/75-persistent-net-generator.rules
+endif
+
+if ENABLE_UDEV_ACL
+# ------------------------------------------------------------------------------
+# udev_acl - apply ACLs for users with local forground sessions
+# ------------------------------------------------------------------------------
+extras_udev_acl_udev_acl_SOURCES = extras/udev-acl/udev-acl.c
+extras_udev_acl_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
+extras_udev_acl_udev_acl_LDADD = libudev/libudev-private.la -lacl $(GLIB_LIBS)
+dist_udevrules_DATA += extras/udev-acl/70-udev-acl.rules
+libexec_PROGRAMS += extras/udev-acl/udev-acl
+
+udevacl-install-hook:
+	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d
+	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d/udev-acl.ck
+
+INSTALL_EXEC_HOOKS += udevacl-install-hook
 endif
 
 if ENABLE_FLOPPY

@@ -1,3 +1,7 @@
+ - bluetooth input
+
+ - have a $attrs{} ?
+
  - test (now fixed) /dev/tape/ links
 
  - /run/udev/control socket
