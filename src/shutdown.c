@@ -276,7 +276,6 @@ static int pivot_to_new_root(void) {
                 log_error("Failed to open /dev/console: %m");
         else {
                 make_stdio(fd);
-                close_nointr_nofail(fd);
         }
 
         return 0;
