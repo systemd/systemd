@@ -39,8 +39,6 @@ ENV{SOUND_INITIALIZED}="1"
 
 SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{program}="usb_id --export %p"
 SUBSYSTEMS=="usb", ENV{ID_VENDOR_FROM_DATABASE}=="", IMPORT{program}="usb-db %p"
-SUBSYSTEMS=="usb", ATTRS{idVendor}!="", ATTRS{idProduct}!="", ENV{ID_VENDOR_ID}="$attr{idVendor}", ENV{ID_MODEL_ID}="$attr{idProduct}"
-SUBSYSTEMS=="usb", ATTRS{bInterfaceNumber}!="", ENV{ID_IFACE}="$attr{bInterfaceNumber}"
 SUBSYSTEMS=="usb", GOTO="skip_pci"
 
 SUBSYSTEMS=="pci", ENV{ID_VENDOR_FROM_DATABASE}=="", IMPORT{program}="pci-db %p"
@@ -48,8 +46,8 @@ SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_
 
 LABEL="skip_pci"
 
-ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="?*", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_IFACE}-$attr{id}"
-ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$attr{id}"
+ENV{ID_SERIAL}=="?*", ENV{ID_USB_INTERFACE_NUM}=="?*", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_USB_INTERFACE_NUM}-$attr{id}"
+ENV{ID_SERIAL}=="?*", ENV{ID_USB_INTERFACE_NUM}=="", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$attr{id}"
 
 ENV{ID_PATH}=="", IMPORT{program}="path_id %p/controlC%n"
 
