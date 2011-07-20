@@ -6,8 +6,8 @@
 # pairs.
 
 ACTION=="remove", GOTO="keyboard_end"
-SUBSYSTEM!="input", GOTO="keyboard_end"
 KERNEL!="event*", GOTO="keyboard_end"
+ENV{ID_INPUT_KEY}=="", GOTO="keyboard_end"
 SUBSYSTEMS=="bluetooth", GOTO="keyboard_end"
 
 SUBSYSTEMS=="usb", ENV{ID_VENDOR}=="", IMPORT{program}="usb_id --export %p"
