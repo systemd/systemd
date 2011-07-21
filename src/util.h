@@ -434,8 +434,7 @@ int fchmod_umask(int fd, mode_t mode);
 int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
 
 int hwclock_is_localtime(void);
-
-int hwclock_apply_localtime_delta(void);
+int hwclock_apply_localtime_delta(int *min);
 int hwclock_reset_localtime_delta(void);
 int hwclock_get_time(struct tm *tm);
 int hwclock_set_time(const struct tm *tm);

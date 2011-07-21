@@ -1056,11 +1056,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 if (hwclock_is_localtime() > 0) {
-                        int min;
+                        int err, min;
 
-                        min = hwclock_apply_localtime_delta();
-                        if (min < 0)
-                                log_error("Failed to apply local time delta: %s", strerror(-min));
+                        err = hwclock_apply_localtime_delta(&min);
+                        if (err < 0)
+                                log_error("Failed to apply local time delta: %s", strerror(-err));
                         else
                                 log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
                 }

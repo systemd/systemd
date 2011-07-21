@@ -4905,7 +4905,7 @@ int hwclock_is_localtime(void) {
         return local;
 }
 
-int hwclock_apply_localtime_delta(void) {
+int hwclock_apply_localtime_delta(int *min) {
         const struct timeval *tv_null = NULL;
         struct timespec ts;
         struct tm *tm;
@@ -4926,8 +4926,9 @@ int hwclock_apply_localtime_delta(void) {
          */
         if (settimeofday(tv_null, &tz) < 0)
                 return -errno;
-
-        return minuteswest;
+        if (min)
+                *min = minuteswest;
+        return 0;
 }
 
 int hwclock_reset_localtime_delta(void) {

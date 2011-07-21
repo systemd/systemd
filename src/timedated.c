@@ -332,7 +332,7 @@ static DBusHandlerResult timedate_message_handler(
                                 struct tm *tm;
 
                                 /* 2. Teach kernel new timezone */
-                                hwclock_apply_localtime_delta();
+                                hwclock_apply_localtime_delta(NULL);
 
                                 /* 3. Sync RTC from system clock, with the new delta */
                                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
@@ -382,7 +382,7 @@ static DBusHandlerResult timedate_message_handler(
 
                         /* 2. Teach kernel new timezone */
                         if (local_rtc)
-                                hwclock_apply_localtime_delta();
+                                hwclock_apply_localtime_delta(NULL);
                         else
                                 hwclock_reset_localtime_delta();
 
