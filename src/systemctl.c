@@ -3731,12 +3731,12 @@ static int remove_marked_symlinks(const char *config_path) {
 
 static int create_symlink(const char *verb, const char *orig_old_path, const char *new_path) {
         int r;
-	const char *old_path;
+        const char *old_path;
 
-	if (arg_root)
-		old_path = orig_old_path+strlen(arg_root);
-	else
-		old_path = orig_old_path;
+        if (arg_root)
+                old_path = orig_old_path+strlen(arg_root);
+        else
+                old_path = orig_old_path;
 
         assert(old_path);
         assert(new_path);
@@ -3949,22 +3949,22 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
 
         STRV_FOREACH(p, paths->unit_path) {
                 int fd;
-		char *path, *should_free;
+                char *path, *should_free;
 
-		if (arg_root)
-			should_free = path = strappend(arg_root, *p);
-		else {
-			should_free = NULL;
-			path = *p;
-		}
+                if (arg_root)
+                        should_free = path = strappend(arg_root, *p);
+                else {
+                        should_free = NULL;
+                        path = *p;
+                }
 
                 if (!(filename = path_make_absolute(i->name, path))) {
                         log_error("Out of memory");
                         return -ENOMEM;
                 }
 
-		if (should_free)
-			free(should_free);
+                if (should_free)
+                        free(should_free);
 
                 /* Ensure that we don't follow symlinks */
                 if ((fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOCTTY)) >= 0)
@@ -4006,7 +4006,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                                 tmp_path = strappend (arg_root, sysv);
                                 exists = access (tmp_path, F_OK) >= 0;
                                 free (tmp_path);
-			} else
+                        } else
                                 exists = access(sysv, F_OK) >= 0;
 
                         if (exists) {
@@ -4030,7 +4030,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                                 if (arg_root)
                                         argv[3] = strappend("--root=", arg_root);
 
-	                        log_info("Executing %s %s %s %s", argv[0], argv[1], strempty(argv[2]), strempty(argv[3]));
+                                log_info("Executing %s %s %s %s", argv[0], argv[1], strempty(argv[2]), strempty(argv[3]));
 
                                 if ((pid = fork()) < 0) {
                                         log_error("Failed to fork: %m");
