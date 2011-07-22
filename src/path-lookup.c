@@ -163,7 +163,7 @@ fail:
         goto finish;
 }
 
-int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
+int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal) {
         const char *e;
         char *t;
 
@@ -181,8 +181,27 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                 strv_free(p->unit_path);
 
                 if (running_as == MANAGER_USER) {
-                        if (!(p->unit_path = user_dirs()))
+
+                        if (personal)
+                                p->unit_path = user_dirs();
+                        else
+                                p->unit_path = strv_new(
+                                                /* If you modify this you also want to modify
+                                                 * systemduserunitpath= in systemd.pc.in, and
+                                                 * the arrays in user_dirs() above! */
+                                                "/run/systemd/user",
+                                                USER_CONFIG_UNIT_PATH,
+                                                "/etc/systemd/system",
+                                                "/usr/local/lib/systemd/user",
+                                                "/usr/local/share/systemd/user",
+                                                USER_DATA_UNIT_PATH,
+                                                "/usr/lib/systemd/user",
+                                                "/usr/share/systemd/user",
+                                                NULL);
+
+                        if (!p->unit_path)
                                 return -ENOMEM;
+
                 } else
                         if (!(p->unit_path = strv_new(
                                               /* If you modify this you also want to modify
@@ -192,8 +211,8 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                                               "/etc/systemd/system",
                                               "/usr/local/lib/systemd/system",
                                               "/usr/lib/systemd/system",
-                                              "/lib/systemd/system",
                                               SYSTEM_DATA_UNIT_PATH,
+                                              "/lib/systemd/system",
                                               NULL)))
                                 return -ENOMEM;
         }

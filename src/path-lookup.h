@@ -34,7 +34,7 @@ typedef struct LookupPaths {
 
 int user_config_home(char **config_home);
 
-int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as);
+int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal);
 void lookup_paths_free(LookupPaths *p);
 
 #endif

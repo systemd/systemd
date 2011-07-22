@@ -4139,7 +4139,7 @@ static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         zero(paths);
-        if ((r = lookup_paths_init(&paths, arg_user ? MANAGER_USER : MANAGER_SYSTEM)) < 0) {
+        if ((r = lookup_paths_init(&paths, arg_user ? MANAGER_USER : MANAGER_SYSTEM, true)) < 0) {
                 log_error("Failed to determine lookup paths: %s", strerror(-r));
                 goto finish;
         }

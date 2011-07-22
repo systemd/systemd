@@ -258,7 +258,7 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
                 goto fail;
 
-        if ((r = lookup_paths_init(&m->lookup_paths, m->running_as)) < 0)
+        if ((r = lookup_paths_init(&m->lookup_paths, m->running_as, true)) < 0)
                 goto fail;
 
         if ((r = manager_setup_signals(m)) < 0)
@@ -2822,7 +2822,7 @@ int manager_reload(Manager *m) {
 
         /* Find new unit paths */
         lookup_paths_free(&m->lookup_paths);
-        if ((q = lookup_paths_init(&m->lookup_paths, m->running_as)) < 0)
+        if ((q = lookup_paths_init(&m->lookup_paths, m->running_as, true)) < 0)
                 r = q;
 
         manager_run_generators(m);
