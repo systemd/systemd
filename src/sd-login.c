@@ -327,7 +327,6 @@ _public_ int sd_session_is_active(const char *session) {
 _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
         int r;
         char *p, *s = NULL;
-        unsigned long ul;
 
         if (!session)
                 return -EINVAL;
@@ -610,7 +609,6 @@ static inline sd_login_monitor* FD_TO_MONITOR(int fd) {
 }
 
 _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
-        const char *path;
         int fd, k;
         bool good = false;
 
