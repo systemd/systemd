@@ -509,19 +509,19 @@ int manager_enumerate_users(Manager *m) {
         }
 
         while ((de = readdir(d))) {
-                unsigned long ul;
+                uid_t uid;
                 User *u;
 
                 if (!dirent_is_file(de))
                         continue;
 
-                k = safe_atolu(de->d_name, &ul);
+                k = parse_uid(de->d_name, &uid);
                 if (k < 0) {
                         log_error("Failed to parse file name %s: %s", de->d_name, strerror(-k));
                         continue;
                 }
 
-                u = hashmap_get(m->users, ULONG_TO_PTR(ul));
+                u = hashmap_get(m->users, ULONG_TO_PTR(uid));
                 if (!u) {
                         unlinkat(dirfd(d), de->d_name, 0);
                         continue;

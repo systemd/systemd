@@ -5262,7 +5262,7 @@ int socket_from_display(const char *display, char **path) {
 
 int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home) {
         struct passwd *p;
-        unsigned long lu;
+        uid_t u;
 
         assert(username);
         assert(*username);
@@ -5281,9 +5281,9 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
                 return 0;
         }
 
-        if (safe_atolu(*username, &lu) >= 0) {
+        if (parse_uid(*username, &u) >= 0) {
                 errno = 0;
-                p = getpwuid((uid_t) lu);
+                p = getpwuid(u);
 
                 /* If there are multiple users with the same id, make
                  * sure to leave $USER to the configured value instead

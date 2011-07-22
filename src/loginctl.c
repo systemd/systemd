@@ -1058,9 +1058,10 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         }
 
                 } else if (strstr(args[0], "user")) {
-                        uint32_t uid;
+                        uid_t uid;
+                        uint32_t u;
 
-                        if (safe_atou(args[i], &uid) < 0) {
+                        if (parse_uid(args[i], &uid) < 0) {
                                 struct passwd *pw;
 
                                 pw = getpwnam(args[i]);
@@ -1084,8 +1085,9 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 goto finish;
                         }
 
+                        u = (uint32_t) uid;
                         if (!dbus_message_append_args(m,
-                                                      DBUS_TYPE_UINT32, &uid,
+                                                      DBUS_TYPE_UINT32, &u,
                                                       DBUS_TYPE_INVALID)) {
                                 log_error("Could not append arguments to message.");
                                 ret = -ENOMEM;
@@ -1282,7 +1284,8 @@ static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
         b = streq(args[0], "enable-linger");
 
         for (i = 1; i < n; i++) {
-                uint32_t uid;
+                uint32_t u;
+                uid_t uid;
 
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.login1",
@@ -1295,7 +1298,7 @@ static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                if (safe_atou32(args[i], &uid) < 0) {
+                if (parse_uid(args[i], &uid) < 0) {
                         struct passwd *pw;
 
                         errno = 0;
@@ -1309,8 +1312,9 @@ static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
                         uid = pw->pw_uid;
                 }
 
+                u = (uint32_t) uid;
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_UINT32, &uid,
+                                              DBUS_TYPE_UINT32, &u,
                                               DBUS_TYPE_BOOLEAN, &b,
                                               DBUS_TYPE_BOOLEAN, &interactive,
                                               DBUS_TYPE_INVALID)) {
@@ -1356,6 +1360,7 @@ static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
 
         for (i = 1; i < n; i++) {
                 uint32_t u;
+                uid_t uid;
 
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.login1",
@@ -1368,7 +1373,7 @@ static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                if (safe_atou32(args[i], &u) < 0) {
+                if (parse_uid(args[i], &uid) < 0) {
                         struct passwd *pw;
 
                         errno = 0;
@@ -1379,9 +1384,10 @@ static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
                                 goto finish;
                         }
 
-                        u = pw->pw_uid;
+                        uid = pw->pw_uid;
                 }
 
+                u = (uint32_t) uid;
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_UINT32, &u,
                                               DBUS_TYPE_INVALID)) {
@@ -1429,6 +1435,7 @@ static int kill_user(DBusConnection *bus, char **args, unsigned n) {
                 arg_kill_who = "all";
 
         for (i = 1; i < n; i++) {
+                uid_t uid;
                 uint32_t u;
 
                 m = dbus_message_new_method_call(
@@ -1442,7 +1449,7 @@ static int kill_user(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                if (safe_atou32(args[i], &u) < 0) {
+                if (parse_uid(args[i], &uid) < 0) {
                         struct passwd *pw;
 
                         errno = 0;
@@ -1453,9 +1460,10 @@ static int kill_user(DBusConnection *bus, char **args, unsigned n) {
                                 goto finish;
                         }
 
-                        u = pw->pw_uid;
+                        uid = pw->pw_uid;
                 }
 
+                u = (uint32_t) uid;
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_UINT32, &u,
                                               DBUS_TYPE_INT32, arg_signal,

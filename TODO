@@ -20,6 +20,8 @@ F15 External:
 
 Features:
 
+* fix CUPS .path unit for globbing
+
 * move PAM code into its own binary
 
 * logind: ensure ACLs are updated on login and logout

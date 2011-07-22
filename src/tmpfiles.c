@@ -757,13 +757,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (user && !streq(user, "-")) {
-                unsigned long lu;
+                uid_t uid;
                 struct passwd *p;
 
                 if (streq(user, "root") || streq(user, "0"))
                         i->uid = 0;
-                else if (safe_atolu(user, &lu) >= 0)
-                        i->uid = (uid_t) lu;
+                else if (parse_uid(user, &uid) >= 0)
+                        i->uid = uid;
                 else if ((p = getpwnam(user)))
                         i->uid = p->pw_uid;
                 else {
@@ -776,13 +776,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (group && !streq(group, "-")) {
-                unsigned long lu;
+                gid_t gid;
                 struct group *g;
 
                 if (streq(group, "root") || streq(group, "0"))
                         i->gid = 0;
-                else if (safe_atolu(group, &lu) >= 0)
-                        i->gid = (gid_t) lu;
+                else if (parse_gid(group, &gid) >= 0)
+                        i->gid = gid;
                 else if ((g = getgrnam(group)))
                         i->gid = g->gr_gid;
                 else {

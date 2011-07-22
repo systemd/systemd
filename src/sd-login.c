@@ -349,14 +349,10 @@ _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
         if (!s)
                 return -EIO;
 
-        r = safe_atolu(s, &ul);
+        r = parse_uid(s, uid);
         free(s);
 
-        if (r < 0)
-                return r;
-
-        *uid = (uid_t) ul;
-        return 0;
+        return r;
 }
 
 _public_ int sd_session_get_seat(const char *session, char **seat) {

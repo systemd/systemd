@@ -180,14 +180,14 @@ static int get_user_data(
                  * it probably contains a uid of the host system. */
 
                 if (read_one_line_file("/proc/self/loginuid", &s) >= 0) {
-                        uint32_t u;
+                        uid_t uid;
 
-                        r = safe_atou32(s, &u);
+                        r = parse_uid(s, &uid);
                         free(s);
 
-                        if (r >= 0 && u != (uint32_t) -1 && u > 0) {
+                        if (r >= 0 && uid != (uint32_t) -1) {
                                 have_loginuid = true;
-                                pw = pam_modutil_getpwuid(handle, u);
+                                pw = pam_modutil_getpwuid(handle, uid);
                         }
                 }
         }
@@ -239,10 +239,10 @@ static bool check_user_lists(
         }
 
         STRV_FOREACH(l, kill_exclude_users) {
-                uint32_t id;
+                uid_t u;
 
-                if (safe_atou32(*l, &id) >= 0)
-                        if ((uid_t) id == uid)
+                if (parse_uid(*l, &u) >= 0)
+                        if (u == uid)
                                 return false;
 
                 if (name && streq(name, *l))
@@ -253,10 +253,10 @@ static bool check_user_lists(
                 return true;
 
         STRV_FOREACH(l, kill_only_users) {
-                uint32_t id;
+                uid_t u;
 
-                if (safe_atou32(*l, &id) >= 0)
-                        if ((uid_t) id == uid)
+                if (parse_uid(*l, &u) >= 0)
+                        if (u == uid)
                                 return true;
 
                 if (name && streq(name, *l))

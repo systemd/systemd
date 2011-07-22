@@ -551,7 +551,7 @@ static int restore_confirm_stdio(const ExecContext *context,
 
 static int get_group_creds(const char *groupname, gid_t *gid) {
         struct group *g;
-        unsigned long lu;
+        gid_t id;
 
         assert(groupname);
         assert(gid);
@@ -564,9 +564,9 @@ static int get_group_creds(const char *groupname, gid_t *gid) {
                 return 0;
         }
 
-        if (safe_atolu(groupname, &lu) >= 0) {
+        if (parse_gid(groupname, &id) >= 0) {
                 errno = 0;
-                g = getgrgid((gid_t) lu);
+                g = getgrgid(id);
         } else {
                 errno = 0;
                 g = getgrnam(groupname);
