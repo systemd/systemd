@@ -53,6 +53,20 @@ int user_config_home(char **config_home) {
 }
 
 static char** user_dirs(void) {
+        const char * const config_unit_paths[] = {
+                "/run/systemd/user",
+                USER_CONFIG_UNIT_PATH,
+                "/etc/systemd/user"
+        };
+
+        const char * const data_unit_paths[] = {
+                "/usr/local/lib/systemd/user",
+                "/usr/local/share/systemd/user",
+                USER_DATA_UNIT_PATH,
+                "/usr/lib/systemd/user",
+                "/usr/share/systemd/user"
+        };
+
         const char *home, *e;
         char *config_home = NULL, *data_home = NULL;
         char **config_dirs = NULL, **data_dirs = NULL;
@@ -103,9 +117,7 @@ static char** user_dirs(void) {
                 data_dirs = strv_split(e, ":");
         else
                 data_dirs = strv_new("/usr/local/share",
-                                     "/usr/local/lib",
                                      "/usr/share",
-                                     "/usr/lib",
                                      NULL);
 
         if (!data_dirs)
@@ -119,12 +131,14 @@ static char** user_dirs(void) {
                 r = t;
         }
 
-        if (!(t = strv_merge_concat(r, config_dirs, "/systemd/user")))
-                goto finish;
-        strv_free(r);
-        r = t;
+        if (!strv_isempty(config_dirs)) {
+                if (!(t = strv_merge_concat(r, config_dirs, "/systemd/user")))
+                        goto finish;
+                strv_free(r);
+                r = t;
+        }
 
-        if (!(t = strv_append(r, USER_CONFIG_UNIT_PATH)))
+        if (!(t = strv_merge(r, (char**) config_unit_paths)))
                 goto fail;
         strv_free(r);
         r = t;
@@ -136,12 +150,14 @@ static char** user_dirs(void) {
                 r = t;
         }
 
-        if (!(t = strv_merge_concat(r, data_dirs, "/systemd/user")))
-                goto fail;
-        strv_free(r);
-        r = t;
+        if (!strv_isempty(data_dirs)) {
+                if (!(t = strv_merge_concat(r, data_dirs, "/systemd/user")))
+                        goto fail;
+                strv_free(r);
+                r = t;
+        }
 
-        if (!(t = strv_append(r, USER_DATA_UNIT_PATH)))
+        if (!(t = strv_merge(r, (char**) data_unit_paths)))
                 goto fail;
         strv_free(r);
         r = t;
