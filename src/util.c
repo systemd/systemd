@@ -4801,7 +4801,7 @@ static int file_is_conf(const struct dirent *d, const char *suffix) {
 
 static int files_add(Hashmap *h, const char *path, const char *suffix) {
         DIR *dir;
-        struct dirent *de;
+        struct dirent buffer, *de;
         int r = 0;
 
         dir = opendir(path);
@@ -4811,9 +4811,18 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
                 return -errno;
         }
 
-        for (de = readdir(dir); de; de = readdir(dir)) {
+        for (;;) {
+                int k;
                 char *p, *f;
-                const char *base;
+
+                k = readdir_r(dir, &buffer, &de);
+                if (k != 0) {
+                        r = -k;
+                        goto finish;
+                }
+
+                if (!de)
+                        break;
 
                 if (!file_is_conf(de, suffix))
                         continue;
@@ -4832,8 +4841,7 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
                 free(p);
 
                 log_debug("found: %s\n", f);
-                base = f + strlen(path) + 1;
-                if (hashmap_put(h, base, f) <= 0)
+                if (hashmap_put(h, file_name_from_path(f), f) <= 0)
                         free(f);
         }
 
