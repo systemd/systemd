@@ -56,7 +56,8 @@ static char** user_dirs(void) {
         const char * const config_unit_paths[] = {
                 "/run/systemd/user",
                 USER_CONFIG_UNIT_PATH,
-                "/etc/systemd/user"
+                "/etc/systemd/user",
+                NULL
         };
 
         const char * const data_unit_paths[] = {
@@ -64,7 +65,8 @@ static char** user_dirs(void) {
                 "/usr/local/share/systemd/user",
                 USER_DATA_UNIT_PATH,
                 "/usr/lib/systemd/user",
-                "/usr/share/systemd/user"
+                "/usr/share/systemd/user",
+                NULL
         };
 
         const char *home, *e;
