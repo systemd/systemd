@@ -1874,7 +1874,7 @@ int unit_file_get_list(
                         }
 
                         r = null_or_empty_path(f->path);
-                        if (r < 0) {
+                        if (r < 0 && r != -ENOENT) {
                                 free(f->path);
                                 free(f);
                                 goto finish;
