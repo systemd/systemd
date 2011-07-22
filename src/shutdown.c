@@ -276,9 +276,10 @@ static int pivot_to_new_root(void) {
                 log_error("Failed to open /dev/console: %m");
         else {
                 make_stdio(fd);
-		/* initialize the controlling terminal */
-		setsid();
-		ioctl(0, TIOCSCTTY, NULL);
+
+                /* Initialize the controlling terminal */
+                setsid();
+                ioctl(STDIN_FILENO, TIOCSCTTY, NULL);
         }
 
         return 0;
