@@ -549,36 +549,6 @@ static int restore_confirm_stdio(const ExecContext *context,
         return 0;
 }
 
-static int get_group_creds(const char *groupname, gid_t *gid) {
-        struct group *g;
-        gid_t id;
-
-        assert(groupname);
-        assert(gid);
-
-        /* We enforce some special rules for gid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
-
-        if (streq(groupname, "root") || streq(groupname, "0")) {
-                *gid = 0;
-                return 0;
-        }
-
-        if (parse_gid(groupname, &id) >= 0) {
-                errno = 0;
-                g = getgrgid(id);
-        } else {
-                errno = 0;
-                g = getgrnam(groupname);
-        }
-
-        if (!g)
-                return errno != 0 ? -errno : -ESRCH;
-
-        *gid = g->gr_gid;
-        return 0;
-}
-
 static int enforce_groups(const ExecContext *context, const char *username, gid_t gid) {
         bool keep_groups = false;
         int r;
@@ -590,9 +560,12 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
 
         if (context->group || username) {
 
-                if (context->group)
-                        if ((r = get_group_creds(context->group, &gid)) < 0)
+                if (context->group) {
+                        const char *g = context->group;
+
+                        if ((r = get_group_creds(&g, &gid)) < 0)
                                 return r;
+                }
 
                 /* First step, initialize groups from /etc/groups */
                 if (username && gid != 0) {
@@ -627,13 +600,16 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                         k = 0;
 
                 STRV_FOREACH(i, context->supplementary_groups) {
+                        const char *g;
 
                         if (k >= ngroups_max) {
                                 free(gids);
                                 return -E2BIG;
                         }
 
-                        if ((r = get_group_creds(*i, gids+k)) < 0) {
+                        g = *i;
+                        r = get_group_creds(&g, gids+k);
+                        if (r < 0) {
                                 free(gids);
                                 return r;
                         }

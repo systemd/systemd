@@ -239,17 +239,18 @@ int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **
 }
 
 int manager_add_user_by_name(Manager *m, const char *name, User **_user) {
-        struct passwd *p;
+        uid_t uid;
+        gid_t gid;
+        int r;
 
         assert(m);
         assert(name);
 
-        errno = 0;
-        p = getpwnam(name);
-        if (!p)
-                return errno ? -errno : -ENOENT;
+        r = get_user_creds(&name, &uid, &gid, NULL);
+        if (r < 0)
+                return r;
 
-        return manager_add_user(m, p->pw_uid, p->pw_gid, name, _user);
+        return manager_add_user(m, uid, gid, name, _user);
 }
 
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {

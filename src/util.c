@@ -54,6 +54,7 @@
 #include <sys/time.h>
 #include <linux/rtc.h>
 #include <glob.h>
+#include <grp.h>
 
 #include "macro.h"
 #include "util.h"
@@ -5266,18 +5267,21 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
 
         assert(username);
         assert(*username);
-        assert(uid);
-        assert(gid);
-        assert(home);
 
         /* We enforce some special rules for uid=0: in order to avoid
          * NSS lookups for root we hardcode its data. */
 
         if (streq(*username, "root") || streq(*username, "0")) {
                 *username = "root";
-                *uid = 0;
-                *gid = 0;
-                *home = "/root";
+
+                if (uid)
+                        *uid = 0;
+
+                if (gid)
+                        *gid = 0;
+
+                if (home)
+                        *home = "/root";
                 return 0;
         }
 
@@ -5300,9 +5304,53 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
         if (!p)
                 return errno != 0 ? -errno : -ESRCH;
 
-        *uid = p->pw_uid;
-        *gid = p->pw_gid;
-        *home = p->pw_dir;
+        if (uid)
+                *uid = p->pw_uid;
+
+        if (gid)
+                *gid = p->pw_gid;
+
+        if (home)
+                *home = p->pw_dir;
+
+        return 0;
+}
+
+int get_group_creds(const char **groupname, gid_t *gid) {
+        struct group *g;
+        gid_t id;
+
+        assert(groupname);
+
+        /* We enforce some special rules for gid=0: in order to avoid
+         * NSS lookups for root we hardcode its data. */
+
+        if (streq(*groupname, "root") || streq(*groupname, "0")) {
+                *groupname = "root";
+
+                if (gid)
+                        *gid = 0;
+
+                return 0;
+        }
+
+        if (parse_gid(*groupname, &id) >= 0) {
+                errno = 0;
+                g = getgrgid(id);
+
+                if (g)
+                        *groupname = g->gr_name;
+        } else {
+                errno = 0;
+                g = getgrnam(*groupname);
+        }
+
+        if (!g)
+                return errno != 0 ? -errno : -ESRCH;
+
+        if (gid)
+                *gid = g->gr_gid;
+
         return 0;
 }
 

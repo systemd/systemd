@@ -757,18 +757,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (user && !streq(user, "-")) {
-                uid_t uid;
-                struct passwd *p;
+                const char *u = user;
 
-                if (streq(user, "root") || streq(user, "0"))
-                        i->uid = 0;
-                else if (parse_uid(user, &uid) >= 0)
-                        i->uid = uid;
-                else if ((p = getpwnam(user)))
-                        i->uid = p->pw_uid;
-                else {
+                r = get_user_creds(&u, &i->uid, NULL, NULL);
+                if (r < 0) {
                         log_error("[%s:%u] Unknown user '%s'.", fname, line, user);
-                        r = -ENOENT;
                         goto finish;
                 }
 
@@ -776,18 +769,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (group && !streq(group, "-")) {
-                gid_t gid;
-                struct group *g;
+                const char *g = group;
 
-                if (streq(group, "root") || streq(group, "0"))
-                        i->gid = 0;
-                else if (parse_gid(group, &gid) >= 0)
-                        i->gid = gid;
-                else if ((g = getgrnam(group)))
-                        i->gid = g->gr_gid;
-                else {
+                r = get_group_creds(&g, &i->gid);
+                if (r < 0) {
                         log_error("[%s:%u] Unknown group '%s'.", fname, line, group);
-                        r = -ENOENT;
                         goto finish;
                 }
 
