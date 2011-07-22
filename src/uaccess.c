@@ -26,13 +26,13 @@
 #include "util.h"
 #include "log.h"
 #include "sd-daemon.h"
+#include "sd-login.h"
 
 int main(int argc, char *argv[]) {
         int r;
         const char *path = NULL, *seat;
-        char *p, *active_uid = NULL;
-        unsigned long ul;
         bool changed_acl = false;
+        uid_t uid;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -52,44 +52,23 @@ int main(int argc, char *argv[]) {
         path = argv[1];
         seat = argc < 3 || isempty(argv[2]) ? "seat0" : argv[2];
 
-        p = strappend("/run/systemd/seats/", seat);
-        if (!p) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+        r = sd_seat_get_active(seat, NULL, &uid);
+        if (r == -ENOENT) {
+                /* No active session on this seat */
+                r = 0;
+                goto finish;
+        } else if (r < 0) {
+                log_error("Failed to determine active user on seat %s.", seat);
                 goto finish;
         }
 
-        r = parse_env_file(p, NEWLINE,
-                           "ACTIVE_UID", &active_uid,
-                           NULL);
-        free(p);
-
+        r = devnode_acl(path, true, false, 0, true, uid);
         if (r < 0) {
-                if (errno == ENOENT) {
-                        r = 0;
-                        goto finish;
-                }
-
-                log_error("Failed to read seat data for %s: %s", seat, strerror(-r));
+                log_error("Failed to apply ACL on %s: %s", path, strerror(-r));
                 goto finish;
         }
 
-        if (active_uid) {
-                r = safe_atolu(active_uid, &ul);
-                if (r < 0) {
-                        log_error("Failed to parse active UID value %s: %s", active_uid, strerror(-r));
-                        goto finish;
-                }
-
-                r = devnode_acl(path, true, false, 0, true, (uid_t) ul);
-                if (r < 0) {
-                        log_error("Failed to apply ACL on %s: %s", path, strerror(-r));
-                        goto finish;
-                }
-
-                changed_acl = true;
-        }
-
+        changed_acl = true;
         r = 0;
 
 finish:
@@ -104,8 +83,6 @@ finish:
                                 r = k;
                 }
         }
-
-        free(active_uid);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
