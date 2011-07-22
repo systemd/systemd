@@ -1462,7 +1462,7 @@ int unit_file_disable(
 
         q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
         if (r == 0)
-                r = 1;
+                r = q;
 
 finish:
         install_context_done(&c);

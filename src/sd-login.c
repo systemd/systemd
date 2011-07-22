@@ -22,23 +22,22 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/inotify.h>
 
 #include "util.h"
 #include "cgroup-util.h"
 #include "macro.h"
 #include "sd-login.h"
+#include "strv.h"
 
-_public_ int sd_pid_get_session(pid_t pid, char **session) {
-        int r;
+static int pid_get_cgroup(pid_t pid, char **root, char **cgroup) {
         char *cg_process, *cg_init, *p;
+        int r;
 
         if (pid == 0)
                 pid = getpid();
 
         if (pid <= 0)
-                return -EINVAL;
-
-        if (!session)
                 return -EINVAL;
 
         r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &cg_process);
@@ -63,31 +62,110 @@ _public_ int sd_pid_get_session(pid_t pid, char **session) {
 
         free(cg_init);
 
-        if (!startswith(p, "/user/")) {
+        if (cgroup) {
+                char* c;
+
+                c = strdup(p);
+                if (!c) {
+                        free(cg_process);
+                        return -ENOMEM;
+                }
+
+                *cgroup = c;
+        }
+
+        if (root) {
+                cg_process[p-cg_process] = 0;
+                *root = cg_process;
+        } else
                 free(cg_process);
+
+        return 0;
+}
+
+_public_ int sd_pid_get_session(pid_t pid, char **session) {
+        int r;
+        char *cgroup, *p;
+
+        if (!session)
+                return -EINVAL;
+
+        r = pid_get_cgroup(pid, NULL, &cgroup);
+        if (r < 0)
+                return r;
+
+        if (!startswith(cgroup, "/user/")) {
+                free(cgroup);
                 return -ENOENT;
         }
 
-        p += 6;
-        if (startswith(p, "shared/") || streq(p, "shared")) {
-                free(cg_process);
-                return -ENOENT;
-        }
-
-        p = strchr(p, '/');
+        p = strchr(cgroup + 6, '/');
         if (!p) {
-                free(cg_process);
+                free(cgroup);
                 return -ENOENT;
         }
 
         p++;
+        if (startswith(p, "shared/") || streq(p, "shared")) {
+                free(cgroup);
+                return -ENOENT;
+        }
+
         p = strndup(p, strcspn(p, "/"));
-        free(cg_process);
+        free(cgroup);
 
         if (!p)
                 return -ENOMEM;
 
         *session = p;
+        return 0;
+}
+
+_public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
+        int r;
+        char *root, *cgroup, *p, *cc;
+        struct stat st;
+
+        if (!uid)
+                return -EINVAL;
+
+        r = pid_get_cgroup(pid, &root, &cgroup);
+        if (r < 0)
+                return r;
+
+        if (!startswith(cgroup, "/user/")) {
+                free(cgroup);
+                free(root);
+                return -ENOENT;
+        }
+
+        p = strchr(cgroup + 6, '/');
+        if (!p) {
+                free(cgroup);
+                return -ENOENT;
+        }
+
+        p++;
+        p += strcspn(p, "/");
+        *p = 0;
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, root, cgroup, &cc);
+        free(root);
+        free(cgroup);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        r = lstat(cc, &st);
+        free(cc);
+
+        if (r < 0)
+                return -errno;
+
+        if (!S_ISDIR(st.st_mode))
+                return -ENOTDIR;
+
+        *uid = st.st_uid;
         return 0;
 }
 
@@ -122,19 +200,22 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
         return 0;
 }
 
-static int uid_is_on_seat_internal(uid_t uid, const char *seat, const char *variable) {
+_public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) {
         char *p, *w, *t, *state, *s = NULL;
         size_t l;
         int r;
+        const char *variable;
 
         if (!seat)
                 return -EINVAL;
+
+        variable = require_active ? "ACTIVE_UID" : "UIDS";
 
         p = strappend("/run/systemd/seats/", seat);
         if (!p)
                 return -ENOMEM;
 
-        r = parse_env_file(p, NEWLINE, "UIDS", &s, NULL);
+        r = parse_env_file(p, NEWLINE, variable, &s, NULL);
         free(p);
 
         if (r < 0) {
@@ -165,12 +246,54 @@ static int uid_is_on_seat_internal(uid_t uid, const char *seat, const char *vari
         return 0;
 }
 
-_public_ int sd_uid_is_on_seat(uid_t uid, const char *seat) {
-        return uid_is_on_seat_internal(uid, seat, "UIDS");
+static int uid_get_array(uid_t uid, const char *variable, char ***array) {
+        char *p, *s = NULL;
+        char **a;
+        int r;
+
+        if (!array)
+                return -EINVAL;
+
+        if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) uid) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE,
+                           variable, &s,
+                           NULL);
+        free(p);
+
+        if (r < 0) {
+                free(s);
+
+                if (r == -ENOENT) {
+                        *array = NULL;
+                        return 0;
+                }
+
+                return r;
+        }
+
+        if (!s) {
+                *array = NULL;
+                return 0;
+        }
+
+        a = strv_split(s, " ");
+        free(s);
+
+        if (!a)
+                return -ENOMEM;
+
+        *array = a;
+        return 0;
 }
 
-_public_ int sd_uid_is_active_on_seat(uid_t uid, const char *seat) {
-        return uid_is_on_seat_internal(uid, seat, "ACTIVE_UID");
+_public_ int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions) {
+        return uid_get_array(uid, require_active ? "ACTIVE_SESSIONS" : "SESSIONS", sessions);
+}
+
+_public_ int sd_uid_get_seats(uid_t uid, int require_active, char ***seats) {
+        return uid_get_array(uid, require_active ? "ACTIVE_SEATS" : "SEATS", seats);
 }
 
 _public_ int sd_session_is_active(const char *session) {
@@ -291,25 +414,21 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
 
         if (session && !s)  {
                 free(t);
-                return -EIO;
+                return -ENOENT;
         }
 
         if (uid && !t) {
                 free(s);
-                return -EIO;
+                return -ENOENT;
         }
 
         if (uid && t) {
-                unsigned long ul;
-
-                r = safe_atolu(t, &ul);
+                r = parse_uid(t, uid);
                 if (r < 0) {
                         free(t);
                         free(s);
                         return r;
                 }
-
-                *uid = (uid_t) ul;
         }
 
         free(t);
@@ -320,4 +439,255 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
                 free(s);
 
         return 0;
+}
+
+_public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uids, unsigned *n_uids) {
+        char *p, *s = NULL, *t = NULL, **a = NULL;
+        uid_t *b = NULL;
+        unsigned n = 0;
+        int r;
+
+        if (!seat)
+                return -EINVAL;
+
+        if (!sessions && !uids)
+                return -EINVAL;
+
+        p = strappend("/run/systemd/seats/", seat);
+        if (!p)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE,
+                           "SESSIONS", &s,
+                           "ACTIVE_SESSIONS", &t,
+                           NULL);
+        free(p);
+
+        if (r < 0) {
+                free(s);
+                free(t);
+                return r;
+        }
+
+        if (sessions && s) {
+                a = strv_split(s, " ");
+                if (!a) {
+                        free(s);
+                        free(t);
+                        return -ENOMEM;
+                }
+        }
+
+        free(s);
+
+        if (uids && t) {
+                char *w, *state;
+                size_t l;
+                unsigned i = 0;
+
+                FOREACH_WORD(w, l, t, state)
+                        n++;
+
+                b = new(uid_t, n);
+                if (!b) {
+                        strv_free(a);
+                        return -ENOMEM;
+                }
+
+                FOREACH_WORD(w, l, t, state) {
+                        char *k;
+
+                        k = strndup(w, l);
+                        if (!k) {
+                                free(t);
+                                free(b);
+                                return -ENOMEM;
+                        }
+
+                        r = parse_uid(k, b + i);
+                        free(k);
+                        if (r < 0)
+                                continue;
+
+                        i++;
+                }
+        }
+
+        free(t);
+
+        if (sessions)
+                *sessions = a;
+
+        if (uids)
+                *uids = b;
+
+        if (n_uids)
+                *n_uids = n;
+
+        return 0;
+}
+
+_public_ int sd_get_seats(char ***seats) {
+
+        if (!seats)
+                return -EINVAL;
+
+        return get_files_in_directory("/run/systemd/seats/", seats);
+}
+
+_public_ int sd_get_sessions(char ***sessions) {
+
+        if (!sessions)
+                return -EINVAL;
+
+        return get_files_in_directory("/run/systemd/sessions/", sessions);
+}
+
+_public_ int sd_get_uids(uid_t **users) {
+        DIR *d;
+        int r = 0;
+        unsigned n = 0;
+        uid_t *l = NULL;
+
+        if (!users)
+                return -EINVAL;
+
+        d = opendir("/run/systemd/users/");
+        for (;;) {
+                struct dirent buffer, *de;
+                int k;
+                uid_t uid;
+
+                k = readdir_r(d, &buffer, &de);
+                if (k != 0) {
+                        r = -k;
+                        goto finish;
+                }
+
+                if (!de)
+                        break;
+
+                dirent_ensure_type(d, de);
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                k = parse_uid(de->d_name, &uid);
+                if (k < 0)
+                        continue;
+
+                if ((unsigned) r >= n) {
+                        uid_t *t;
+
+                        n = MAX(16, 2*r);
+                        t = realloc(l, sizeof(uid_t) * n);
+                        if (!t) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        l = t;
+                }
+
+                assert((unsigned) r < n);
+                l[r++] = uid;
+        }
+
+finish:
+        if (d)
+                closedir(d);
+
+        if (r >= 0)
+                *users = l;
+        else
+                free(l);
+
+        return r;
+}
+
+static inline int MONITOR_TO_FD(sd_login_monitor *m) {
+        return (int) (unsigned long) m - 1;
+}
+
+static inline sd_login_monitor* FD_TO_MONITOR(int fd) {
+        return (sd_login_monitor*) (unsigned long) (fd + 1);
+}
+
+_public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
+        const char *path;
+        int fd, k;
+        bool good = false;
+
+        if (!m)
+                return -EINVAL;
+
+        fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        if (fd < 0)
+                return errno;
+
+        if (!category || streq(category, "seat")) {
+                k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);
+                if (k < 0) {
+                        close_nointr_nofail(fd);
+                        return -errno;
+                }
+
+                good = true;
+        }
+
+        if (!category || streq(category, "session")) {
+                k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO|IN_DELETE);
+                if (k < 0) {
+                        close_nointr_nofail(fd);
+                        return -errno;
+                }
+
+                good = true;
+        }
+
+        if (!category || streq(category, "uid")) {
+                k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO|IN_DELETE);
+                if (k < 0) {
+                        close_nointr_nofail(fd);
+                        return -errno;
+                }
+
+                good = true;
+        }
+
+        if (!good) {
+                close_nointr(fd);
+                return -EINVAL;
+        }
+
+        *m = FD_TO_MONITOR(fd);
+        return 0;
+}
+
+_public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
+        int fd;
+
+        if (!m)
+                return NULL;
+
+        fd = MONITOR_TO_FD(m);
+        close_nointr(fd);
+
+        return NULL;
+}
+
+_public_ int sd_login_monitor_flush(sd_login_monitor *m) {
+
+        if (!m)
+                return -EINVAL;
+
+        return flush_fd(MONITOR_TO_FD(m));
+}
+
+_public_ int sd_login_monitor_get_fd(sd_login_monitor *m) {
+
+        if (!m)
+                return -EINVAL;
+
+        return MONITOR_TO_FD(m);
 }

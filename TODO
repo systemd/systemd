@@ -20,6 +20,8 @@ F15 External:
 
 Features:
 
+* move PAM code into its own binary
+
 * logind: ensure ACLs are updated on login and logout
 
 * warn if the user stops a service but not its associated socket

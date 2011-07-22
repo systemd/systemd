@@ -136,6 +136,8 @@ void close_many(const int fds[], unsigned n_fd);
 int parse_boolean(const char *v);
 int parse_usec(const char *t, usec_t *usec);
 int parse_pid(const char *s, pid_t* ret_pid);
+int parse_uid(const char *s, uid_t* ret_uid);
+#define parse_gid(s, ret_uid) parse_uid(s, ret_uid)
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
@@ -453,6 +455,7 @@ int glob_exists(const char *path);
 int dirent_ensure_type(DIR *d, struct dirent *de);
 
 int in_search_path(const char *path, char **search);
+int get_files_in_directory(const char *path, char ***list);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

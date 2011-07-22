@@ -317,6 +317,26 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         return 0;
 }
 
+int parse_uid(const char *s, uid_t* ret_uid) {
+        unsigned long ul = 0;
+        uid_t uid;
+        int r;
+
+        assert(s);
+        assert(ret_uid);
+
+        if ((r = safe_atolu(s, &ul)) < 0)
+                return r;
+
+        uid = (uid_t) ul;
+
+        if ((unsigned long) uid != ul)
+                return -ERANGE;
+
+        *ret_uid = uid;
+        return 0;
+}
+
 int safe_atou(const char *s, unsigned *ret_u) {
         char *x = NULL;
         unsigned long l;
@@ -5353,6 +5373,70 @@ int in_search_path(const char *path, char **search) {
         }
 
         free(parent);
+
+        return r;
+}
+
+int get_files_in_directory(const char *path, char ***list) {
+        DIR *d;
+        int r = 0;
+        unsigned n = 0;
+        char **l = NULL;
+
+        assert(path);
+        assert(list);
+
+        d = opendir(path);
+        for (;;) {
+                struct dirent buffer, *de;
+                int k;
+
+                k = readdir_r(d, &buffer, &de);
+                if (k != 0) {
+                        r = -k;
+                        goto finish;
+                }
+
+                if (!de)
+                        break;
+
+                dirent_ensure_type(d, de);
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                if ((unsigned) r >= n) {
+                        char **t;
+
+                        n = MAX(16, 2*r);
+                        t = realloc(l, sizeof(char*) * n);
+                        if (!t) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        l = t;
+                }
+
+                assert((unsigned) r < n);
+
+                l[r] = strdup(de->d_name);
+                if (!l[r]) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                l[++r] = NULL;
+        }
+
+finish:
+        if (d)
+                closedir(d);
+
+        if (r >= 0)
+                *list = l;
+        else
+                strv_free(l);
 
         return r;
 }

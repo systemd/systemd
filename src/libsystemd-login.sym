@@ -11,13 +11,23 @@
 
 LIBSYSTEMD_LOGIN_31 {
 global:
+        sd_get_seats;
+        sd_get_sessions;
+        sd_get_uids;
+        sd_login_monitor_flush;
+        sd_login_monitor_get_fd;
+        sd_login_monitor_new;
+        sd_login_monitor_unref;
+        sd_pid_get_owner_uid;
         sd_pid_get_session;
         sd_seat_get_active;
+        sd_seat_get_sessions;
         sd_session_get_seat;
         sd_session_get_uid;
         sd_session_is_active;
+        sd_uid_get_seats;
+        sd_uid_get_sessions;
         sd_uid_get_state;
-        sd_uid_is_active_on_seat;
         sd_uid_is_on_seat;
 local:
         *;

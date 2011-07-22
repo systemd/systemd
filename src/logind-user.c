@@ -134,6 +134,44 @@ int user_save(User *u) {
                         "DISPLAY=%s\n",
                         u->display->id);
 
+        if (u->sessions) {
+                Session *i;
+
+                fputs("SESSIONS=", f);
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        fprintf(f,
+                                "%s%c",
+                                i->id,
+                                i->sessions_by_seat_next ? ' ' : '\n');
+                }
+
+                fputs("SEATS=", f);
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        if (i->seat)
+                                fprintf(f,
+                                        "%s%c",
+                                        i->seat->id,
+                                        i->sessions_by_seat_next ? ' ' : '\n');
+                }
+
+                fputs("ACTIVE_SESSIONS=", f);
+                LIST_FOREACH(sessions_by_user, i, u->sessions)
+                        if (session_is_active(i))
+                                fprintf(f,
+                                        "%lu%c",
+                                        (unsigned long) i->user->uid,
+                                        i->sessions_by_seat_next ? ' ' : '\n');
+
+                fputs("ACTIVE_SEATS=", f);
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        if (session_is_active(i) && i->seat)
+                                fprintf(f,
+                                        "%s%c",
+                                        i->seat->id,
+                                        i->sessions_by_seat_next ? ' ' : '\n');
+                }
+        }
+
         fflush(f);
 
         if (ferror(f) || rename(temp_path, u->state_file) < 0) {
