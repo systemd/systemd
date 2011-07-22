@@ -210,7 +210,8 @@ noinst_PROGRAMS = \
 	test-cgroup \
 	test-env-replace \
 	test-strv \
-        test-login
+        test-login \
+        test-install
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -830,6 +831,19 @@ test_login_CFLAGS = \
 test_login_LDADD = \
 	libsystemd-basic.la \
         libsystemd-login.la
+
+test_install_SOURCES = \
+	src/test-install.c \
+        src/install.c \
+        src/path-lookup.c \
+        src/unit-name.c
+
+test_install_CFLAGS = \
+	$(AM_CFLAGS) \
+        $(DBUS_CFLAGS)
+
+test_install_LDADD = \
+	libsystemd-basic.la
 
 systemd_logger_SOURCES = \
 	src/logger.c \

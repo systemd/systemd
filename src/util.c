@@ -1157,6 +1157,29 @@ int readlink_and_make_absolute(const char *p, char **r) {
         return 0;
 }
 
+int readlink_and_canonicalize(const char *p, char **r) {
+        char *t, *s;
+        int j;
+
+        assert(p);
+        assert(r);
+
+        j = readlink_and_make_absolute(p, &t);
+        if (j < 0)
+                return j;
+
+        s = canonicalize_file_name(t);
+        if (s) {
+                free(t);
+                *r = s;
+        } else
+                *r = t;
+
+        path_kill_slashes(*r);
+
+        return 0;
+}
+
 int parent_of_path(const char *path, char **_r) {
         const char *e, *a = NULL, *b = NULL, *p;
         char *r;
@@ -3944,6 +3967,17 @@ bool null_or_empty(struct stat *st) {
         return false;
 }
 
+int null_or_empty_path(const char *fn) {
+        struct stat st;
+
+        assert(fn);
+
+        if (stat(fn, &st) < 0)
+                return -errno;
+
+        return null_or_empty(&st);
+}
+
 DIR *xopendirat(int fd, const char *name, int flags) {
         int nfd;
         DIR *d;
@@ -5264,6 +5298,53 @@ int glob_exists(const char *path) {
                 r = errno ? -errno : -EIO;
 
         globfree(&g);
+
+        return r;
+}
+
+int dirent_ensure_type(DIR *d, struct dirent *de) {
+        struct stat st;
+
+        assert(d);
+        assert(de);
+
+        if (de->d_type != DT_UNKNOWN)
+                return 0;
+
+        if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                return -errno;
+
+        de->d_type =
+                S_ISREG(st.st_mode)  ? DT_REG  :
+                S_ISDIR(st.st_mode)  ? DT_DIR  :
+                S_ISLNK(st.st_mode)  ? DT_LNK  :
+                S_ISFIFO(st.st_mode) ? DT_FIFO :
+                S_ISSOCK(st.st_mode) ? DT_SOCK :
+                S_ISCHR(st.st_mode)  ? DT_CHR  :
+                S_ISBLK(st.st_mode)  ? DT_BLK  :
+                                       DT_UNKNOWN;
+
+        return 0;
+}
+
+int in_search_path(const char *path, char **search) {
+        char **i, *parent;
+        int r;
+
+        r = parent_of_path(path, &parent);
+        if (r < 0)
+                return r;
+
+        r = 0;
+
+        STRV_FOREACH(i, search) {
+                if (path_equal(parent, *i)) {
+                        r = 1;
+                        break;
+                }
+        }
+
+        free(parent);
 
         return r;
 }

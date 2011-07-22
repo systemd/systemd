@@ -217,6 +217,7 @@ char **replace_env_argv(char **argv, char **env);
 
 int readlink_malloc(const char *p, char **r);
 int readlink_and_make_absolute(const char *p, char **r);
+int readlink_and_canonicalize(const char *p, char **r);
 
 char *file_name_from_path(const char *p);
 bool is_path(const char *p);
@@ -385,6 +386,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid);
 _noreturn_ void freeze(void);
 
 bool null_or_empty(struct stat *st);
+int null_or_empty_path(const char *fn);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
 
@@ -447,6 +449,10 @@ int socket_from_display(const char *display, char **path);
 int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home);
 
 int glob_exists(const char *path);
+
+int dirent_ensure_type(DIR *d, struct dirent *de);
+
+int in_search_path(const char *path, char **search);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
