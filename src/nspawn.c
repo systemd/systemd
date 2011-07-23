@@ -124,7 +124,7 @@ static int mount_all(const char *dest) {
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "/proc",     "/proc",     "bind",  NULL,       MS_BIND, true                       },
+                { "proc",      "/proc",     "proc",  NULL,       MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
                 { "/proc/sys", "/proc/sys", "bind",  NULL,       MS_BIND, true                       },   /* Bind mount first */
                 { "/proc/sys", "/proc/sys", "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
                 { "/sys",      "/sys",      "bind",  NULL,       MS_BIND,                      true  },   /* Bind mount first */
