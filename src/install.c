@@ -1942,3 +1942,10 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);
+
+static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX] = {
+        [UNIT_FILE_SYMLINK] = "symlink",
+        [UNIT_FILE_UNLINK] = "unlink",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, UnitFileChangeType);

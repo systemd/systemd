@@ -29,6 +29,7 @@
 #include "bus-errors.h"
 #include "build.h"
 #include "dbus-common.h"
+#include "install.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
@@ -132,6 +133,53 @@
         "  <method name=\"UnsetAndSetEnvironment\">\n"                  \
         "   <arg name=\"unset\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"set\" type=\"as\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"ListUnitFiles\">\n"                            \
+        "   <arg name=\"changes\" type=\"a(ss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetUnitFileState\">\n"                        \
+        "   <arg name=\"file\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"state\" type=\"s\" direction=\"out\"/>\n"       \
+        "  </method>\n"                                                 \
+        "  <method name=\"EnableUnitFiles\">\n"                         \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"DisableUnitFiles\">\n"                        \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReenableUnitFiles\">\n"                       \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"LinkUnitFiles\">\n"                           \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"PresetUnitFiles\">\n"                         \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"MaskUnitFiles\">\n"                           \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnmaskUnitFiles\">\n"                         \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"
 
 #define BUS_MANAGER_INTERFACE_SIGNALS                                   \
@@ -157,7 +205,8 @@
         "   <arg name=\"initrd\" type=\"t\"/>\n"                        \
         "   <arg name=\"userspace\" type=\"t\"/>\n"                     \
         "   <arg name=\"total\" type=\"t\"/>\n"                         \
-        "  </signal>"
+        "  </signal>"                                                   \
+        "  <signal name=\"UnitFilesChanged\"/>\n"
 
 #define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
@@ -373,6 +422,61 @@ static const char *message_get_sender_with_fallback(DBusMessage *m) {
         return ":no-sender";
 }
 
+static DBusMessage *message_from_file_changes(DBusMessage *m, UnitFileChange *changes, unsigned n_changes) {
+        DBusMessageIter iter, sub, sub2;
+        DBusMessage *reply;
+        unsigned i;
+
+        assert(changes);
+
+        reply = dbus_message_new_method_return(m);
+        if (!reply)
+                return NULL;
+
+        dbus_message_iter_init_append(reply, &iter);
+
+        if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sss)", &sub))
+                goto oom;
+
+        for (i = 0; i < n_changes; i++) {
+                const char *type, *path, *source;
+
+                type = unit_file_change_type_to_string(changes[i].type);
+                path = strempty(changes[i].path);
+                source = strempty(changes[i].source);
+
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &type) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &path) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &source) ||
+                    !dbus_message_iter_close_container(&sub, &sub2))
+                        goto oom;
+        }
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
+                goto oom;
+
+        return reply;
+
+oom:
+        dbus_message_unref(reply);
+        return NULL;
+}
+
+static int bus_manager_send_unit_files_changed(Manager *m) {
+        DBusMessage *s;
+        int r;
+
+        s = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitFilesChanged");
+        if (!s)
+                return -ENOMEM;
+
+        r = bus_broadcast(m, s);
+        dbus_message_unref(s);
+
+        return r;
+}
+
 static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection, DBusMessage *message, void *data) {
         Manager *m = data;
 
@@ -420,12 +524,15 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         char * path = NULL;
         JobType job_type = _JOB_TYPE_INVALID;
         bool reload_if_possible = false;
+        const char *member;
 
         assert(connection);
         assert(message);
         assert(m);
 
         dbus_error_init(&error);
+
+        member = dbus_message_get_member(message);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnit")) {
                 const char *name;
@@ -1063,7 +1170,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 DBusMessageIter iter;
 
                 if (!dbus_message_iter_init(message, &iter))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+                        goto oom;
 
                 r = bus_parse_strv_iter(&iter, &l_unset);
                 if (r < 0) {
@@ -1109,6 +1216,187 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 strv_free(m->environment);
                 m->environment = f;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnitFiles")) {
+                DBusMessageIter iter, sub, sub2;
+                Hashmap *h;
+                Iterator i;
+                UnitFileList *item;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                h = hashmap_new(string_hash_func, string_compare_func);
+                if (!h)
+                        goto oom;
+
+                r = unit_file_get_list(m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
+                if (r < 0) {
+                        unit_file_list_free(h);
+                        dbus_message_unref(reply);
+                        return bus_send_error_reply(connection, message, NULL, r);
+                }
+
+                dbus_message_iter_init_append(reply, &iter);
+
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ss)", &sub)) {
+                        unit_file_list_free(h);
+                        goto oom;
+                }
+
+                HASHMAP_FOREACH(item, h, i) {
+                        const char *state;
+
+                        state = unit_file_state_to_string(item->state);
+                        assert(state);
+
+                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &item->path) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &state) ||
+                            !dbus_message_iter_close_container(&sub, &sub2)) {
+                                unit_file_list_free(h);
+                                goto oom;
+                        }
+                }
+
+                unit_file_list_free(h);
+
+                if (!dbus_message_iter_close_container(&iter, &sub))
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitFileState")) {
+                const char *name;
+                UnitFileState state;
+                const char *s;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                state = unit_file_get_state(m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, name);
+                if (state < 0)
+                        return bus_send_error_reply(connection, message, NULL, state);
+
+                s = unit_file_state_to_string(state);
+                assert(s);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                if (!dbus_message_append_args(
+                                    reply,
+                                    DBUS_TYPE_STRING, &s,
+                                    DBUS_TYPE_INVALID))
+                        goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "EnableUnitFiles") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReenableUnitFiles") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "LinkUnitFiles") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PresetUnitFiles") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "MaskUnitFiles")) {
+
+                char **l = NULL;
+                DBusMessageIter iter;
+                UnitFileScope scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+                UnitFileChange *changes = NULL;
+                unsigned n_changes = 0;
+                dbus_bool_t runtime, force;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_parse_strv_iter(&iter, &l);
+                if (r < 0) {
+                        if (r == -ENOMEM)
+                                goto oom;
+
+                        return bus_send_error_reply(connection, message, NULL, r);
+                }
+
+                if (!dbus_message_iter_next(&iter) ||
+                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, true) < 0 ||
+                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &force, false) < 0) {
+                        strv_free(l);
+                        return bus_send_error_reply(connection, message, NULL, -EIO);
+                }
+
+                if (streq(member, "EnableUnitFiles"))
+                        r = unit_file_enable(scope, runtime, NULL, l, force, &changes, &n_changes);
+                else if (streq(member, "ReenableUnitFiles"))
+                        r = unit_file_reenable(scope, runtime, NULL, l, force, &changes, &n_changes);
+                else if (streq(member, "LinkUnitFiles"))
+                        r = unit_file_link(scope, runtime, NULL, l, force, &changes, &n_changes);
+                else if (streq(member, "PresetUnitFiles"))
+                        r = unit_file_preset(scope, runtime, NULL, l, force, &changes, &n_changes);
+                else if (streq(member, "MaskUnitFiles"))
+                        r = unit_file_mask(scope, runtime, NULL, l, force, &changes, &n_changes);
+                else
+                        assert_not_reached("Uh? Wrong method");
+
+                strv_free(l);
+                bus_manager_send_unit_files_changed(m);
+
+                if (r < 0) {
+                        unit_file_changes_free(changes, n_changes);
+                        return bus_send_error_reply(connection, message, NULL, r);
+                }
+
+                reply = message_from_file_changes(message, changes, n_changes);
+                unit_file_changes_free(changes, n_changes);
+
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "DisableUnitFiles") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnmaskUnitFiles")) {
+
+                char **l = NULL;
+                DBusMessageIter iter;
+                UnitFileScope scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+                UnitFileChange *changes = NULL;
+                unsigned n_changes = 0;
+                dbus_bool_t runtime;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_parse_strv_iter(&iter, &l);
+                if (r < 0) {
+                        if (r == -ENOMEM)
+                                goto oom;
+
+                        return bus_send_error_reply(connection, message, NULL, r);
+                }
+
+                if (!dbus_message_iter_next(&iter) ||
+                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, false) < 0) {
+                        strv_free(l);
+                        return bus_send_error_reply(connection, message, NULL, -EIO);
+                }
+
+                if (streq(member, "DisableUnitFiles"))
+                        r = unit_file_disable(scope, runtime, NULL, l, &changes, &n_changes);
+                else if (streq(member, "UnmaskUnitFiles"))
+                        r = unit_file_unmask(scope, runtime, NULL, l, &changes, &n_changes);
+                else
+                        assert_not_reached("Uh? Wrong method");
+
+                strv_free(l);
+                bus_manager_send_unit_files_changed(m);
+
+                if (r < 0) {
+                        unit_file_changes_free(changes, n_changes);
+                        return bus_send_error_reply(connection, message, NULL, r);
+                }
+
+                reply = message_from_file_changes(message, changes, n_changes);
+                unit_file_changes_free(changes, n_changes);
+
+                if (!reply)
+                        goto oom;
 
         } else
                 return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, properties);

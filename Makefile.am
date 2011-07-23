@@ -593,7 +593,8 @@ libsystemd_core_la_SOURCES = \
 	src/cgroup-util.c \
 	src/condition.c \
         src/dbus-common.c \
-        src/sd-daemon.c
+        src/sd-daemon.c \
+        src/install.c
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -991,6 +992,7 @@ systemd_uaccess_CFLAGS = \
 systemd_uaccess_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
+	libsystemd-login.la \
         $(UDEV_LIBS) \
         $(ACL_LIBS)
 
