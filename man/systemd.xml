@@ -826,7 +826,7 @@
                                 <literal>console</literal>
                                 (resp. <literal>kmsg</literal> on
                                 <literal>SIGRTMIN+28</literal>;
-                                resp.<literal>syslog-or-kmsg</literal>
+                                resp. <literal>syslog-or-kmsg</literal>
                                 on <literal>SIGRTMIN+29</literal>), as
                                 controlled via
                                 <varname>systemd.log_target=console</varname>
