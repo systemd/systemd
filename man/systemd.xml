@@ -800,6 +800,44 @@
                                 on the kernel command
                                 line.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+22</term>
+                                <term>SIGRTMIN+23</term>
+
+                                <listitem><para>Sets the log level to
+                                <literal>debug</literal>
+                                (resp. <literal>info</literal> on
+                                <literal>SIGRTMIN+32</literal>), as
+                                controlled via
+                                <varname>systemd.log_level=debug</varname>
+                                (resp. <varname>systemd.log_level=info</varname>
+                                on <literal>SIGRTMIN+23</literal>) on
+                                the kernel command
+                                line.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+27</term>
+                                <term>SIGRTMIN+28</term>
+                                <term>SIGRTMIN+29</term>
+
+                                <listitem><para>Sets the log level to
+                                <literal>console</literal>
+                                (resp. <literal>kmsg</literal> on
+                                <literal>SIGRTMIN+28</literal>;
+                                resp.<literal>syslog-or-kmsg</literal>
+                                on <literal>SIGRTMIN+29</literal>), as
+                                controlled via
+                                <varname>systemd.log_target=console</varname>
+                                (resp. <varname>systemd.log_target=kmsg</varname>
+                                on <literal>SIGRTMIN+28</literal>;
+                                resp
+                                <varname>systemd.log_target=syslog-or-kmsg</varname>
+                                on <literal>SIGRTMIN+29</literal>) on
+                                the kernel command
+                                line.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 

@@ -186,6 +186,11 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+16, /* systemd: Immediate kexec */
                         SIGRTMIN+20, /* systemd: enable status messages */
                         SIGRTMIN+21, /* systemd: disable status messages */
+                        SIGRTMIN+22, /* systemd: set log level to LOG_DEBUG */
+                        SIGRTMIN+23, /* systemd: set log level to LOG_INFO */
+                        SIGRTMIN+27, /* systemd: set log target to console */
+                        SIGRTMIN+28, /* systemd: set log target to kmsg */
+                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg */
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
@@ -2200,6 +2205,7 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 default: {
+
                         /* Starting SIGRTMIN+0 */
                         static const char * const target_table[] = {
                                 [0] = SPECIAL_DEFAULT_TARGET,
@@ -2242,6 +2248,31 @@ static int manager_process_signal_fd(Manager *m) {
                         case 21:
                                 log_debug("Disabling showing of status.");
                                 m->show_status = false;
+                                break;
+
+                        case 22:
+                                log_set_max_level(LOG_DEBUG);
+                                log_notice("Setting log level to debug.");
+                                break;
+
+                        case 23:
+                                log_set_max_level(LOG_INFO);
+                                log_notice("Setting log level to info.");
+                                break;
+
+                        case 27:
+                                log_set_target(LOG_TARGET_CONSOLE);
+                                log_notice("Setting log target to console.");
+                                break;
+
+                        case 28:
+                                log_set_target(LOG_TARGET_KMSG);
+                                log_notice("Setting log target to kmsg.");
+                                break;
+
+                        case 29:
+                                log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+                                log_notice("Setting log target to syslog-or-kmsg.");
                                 break;
 
                         default:

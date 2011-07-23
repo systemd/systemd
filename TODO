@@ -36,7 +36,7 @@ Features:
 
 * logind: non-local X11 server handling
 
-* logind: use sysfs path in device hash table instead of syname, as soon as fb driver is fixed
+* logind: use sysfs path in device hash table instead of sysname, as soon as fb driver is fixed
 
 * possibly apply systemd-sysctl per network device subtrees on hotplug
 
@@ -59,7 +59,9 @@ Features:
 
 * readahead: check whether a btrfs volume includes ssd by checking mount flag "ssd"
 
-* support sd_notify() style notificatio when reload is finished (RELOADED=1)
+* support sd_notify() style notification when reload is finished (RELOADED=1)
+
+* support sf_notify() style notification when shutting down, to make auto-exit bus services work
 
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
@@ -67,8 +69,6 @@ Features:
 
 * Make it possible to set the keymap independently from the font on
   the kernel cmdline. Right now setting one resets also the other.
-
-* add dbus call to convert snapshot into target
 
 * move nss-myhostname into systemd
 
@@ -84,13 +84,7 @@ Features:
 
 * allow list of paths in config_parse_condition_path()
 
-* introduce dbus calls for enabling/disabling a service
-
-* support notifications for services being enabled/disabled
-
 * show enablement status in systemctl status
-
-* consider services with any kind of link in /etc/systemd/system enabled
 
 * teach systemctl to enable unit files in arbitrary directories
 
@@ -100,6 +94,8 @@ Features:
     systemctl mask <unit>
     systemctl unmask <unit>
   Also support --temp to make this temporary by placing mask links in /run.
+
+* perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
 * add support for /bin/mount -s
 
@@ -120,8 +116,8 @@ Features:
 * write blog stories about:
   - enabling dbus services
   - status update
-  - /etc/sysconfig and /etc/default
   - how to make changes to sysctl and sysfs attributes
+  - remote access
 
 * allow port=0 in .socket units
 
@@ -189,11 +185,7 @@ Features:
 
 * make sure timeouts are applied to Type=oneshot services.
 
-* detect LXC environment
-
 * investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
-
-* perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
 * need a way to apply mount options of api vfs from systemd unit files
   (or some other modern source?) instead of fstab?
@@ -217,16 +209,6 @@ Features:
 
 * systemd --user
   - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
-
-* add VT tracking:
-  - provide CK functionality
-  - start getty only when actual vt switch happens (same model as
-    socket on-demand activation). allocate the next free tty and
-    start a getty there. this way, pressing alt-f[1-12] will switch
-    through running X and getty sessions, and any unallocated
-    activated tty will start a new getty. the hardcoding of
-    getty[1-6] will entirely go away.
-  - http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=fbc92a3455577ab17615cbcb91826399061bd789
 
 * implicitly import "defaults" settings file into all types
 
