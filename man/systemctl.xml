@@ -759,16 +759,6 @@
                                 IDs. If no job id is specified, cancel all pending jobs.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><command>monitor</command></term>
-
-                                <listitem><para>Monitor unit/job
-                                changes. This is mostly useful for
-                                debugging purposes and prints a line
-                                each time systemd loads or unloads a
-                                unit configuration file, or a unit
-                                property changes.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><command>dump</command></term>
 
                                 <listitem><para>Dump server
