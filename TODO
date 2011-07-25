@@ -47,8 +47,6 @@ Features:
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 
-* support presets
-
 * kernel: add /proc/sys file exposing CAP_LAST_CAP?
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
@@ -85,17 +83,6 @@ Features:
 * allow list of paths in config_parse_condition_path()
 
 * show enablement status in systemctl status
-
-* teach systemctl to enable unit files in arbitrary directories
-
-* In systemctl make sure both is-enabled and is-active print a string, or neither.
-
-* Implement:
-    systemctl mask <unit>
-    systemctl unmask <unit>
-  Also support --temp to make this temporary by placing mask links in /run.
-
-* perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
 * add support for /bin/mount -s
 

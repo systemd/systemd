@@ -352,26 +352,30 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--defaults</option></term>
-
-                                <listitem><para>When used with
-                                <command>disable</command>, ensures
-                                that only the symlinks created by
-                                <command>enable</command> are removed,
-                                not all symlinks pointing to the unit
-                                file that shall be
-                                disabled.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--root=</option></term>
 
                                 <listitem><para>When used with
-				<command>enable</command>/
-				<command>disable</command>/
-				<command>is-enabled</command>,
-				use alternative root path for systemd
-				install.</para></listitem>
+                                <command>enable</command>/<command>disable</command>/<command>is-enabled</command> (and
+                                related commands), use alternative
+                                root path when looking for unit
+                                files.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--runtime</option></term>
+
+                                <listitem><para>When used with
+                                <command>enable</command>/<command>disable</command>/<command>is-enabled</command> (and related commands), make
+                                changes only temporarily, so that they
+                                are dropped on the next reboot. This
+                                will have the effect that changes are
+                                not made in subdirectories of
+                                <filename>/etc</filename> but in
+                                <filename>/run</filename>, with
+                                identical immediate effects, however,
+                                since the latter is lost on reboot,
+                                the changes are lost
+                                too.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -674,14 +678,11 @@
                                 configuration directory, and hence
                                 undoes the changes made by
                                 <command>enable</command>. Note
-                                however that this by default removes
+                                however that this removes
                                 all symlinks to the unit files
                                 (i.e. including manual additions), not
                                 just those actually created by
-                                <command>enable</command>. If only the
-                                symlinks that are suggested by default
-                                shall be removed, pass
-                                <option>--defaults</option>. This
+                                <command>enable</command>. This call
                                 implicitly reloads the systemd daemon
                                 configuration after completing the
                                 disabling of the units. Note that this
@@ -713,8 +714,85 @@
                                 (as with
                                 <command>enable</command>). Returns an
                                 exit code of 0 if at least one is
-                                enabled, non-zero
-                                otherwise.</para></listitem>
+                                enabled, non-zero otherwise. Prints
+                                the current enable status. To suppress
+                                this output use
+                                <option>--quiet</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>reenable [NAME...]</command></term>
+
+                                <listitem><para>Reenable one or more
+                                unit files, as specified on the
+                                command line. This is a combination of
+                                <command>disable</command> and
+                                <command>enable</command> and is
+                                useful to reset the symlinks a unit is
+                                enabled with to the defaults
+                                configured in the
+                                <literal>[Install]</literal> section
+                                of the unit file.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>preset [NAME...]</command></term>
+
+                                <listitem><para>Reset one or more unit
+                                files, as specified on the command
+                                line, to the defaults configured in a
+                                preset file. This has the same effect
+                                as <command>disable</command> or
+                                <command>enable</command>, depending
+                                how the unit is listed in the preset
+                                files.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>mask [NAME...]</command></term>
+
+                                <listitem><para>Mask one or more unit
+                                files, as specified on the command
+                                line. This will link these units to
+                                <filename>/dev/null</filename>, making
+                                it impossible to start them. This is a stronger version
+                                of <command>disable</command>, since
+                                it prohibits all kinds of activation
+                                of the unit, including manual
+                                activation. Use this option with
+                                care.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>unmask [NAME...]</command></term>
+
+                                <listitem><para>Unmask one or more
+                                unit files, as specified on the
+                                command line. This will undo the
+                                effect of
+                                <command>mask</command>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>link [NAME...]</command></term>
+
+                                <listitem><para>Link a unit file that
+                                is not in the unit file search paths
+                                into the unit file search path. This
+                                requires an absolute path to a unit
+                                file. The effect of this can be undone
+                                with <command>disable</command>. The
+                                effect of this command is that a unit
+                                file is available for
+                                <command>start</command> and other
+                                commands although it isn't installed
+                                directly in the unit search
+                                path.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>

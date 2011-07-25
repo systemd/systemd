@@ -126,8 +126,6 @@ static int add_file_change(
         UnitFileChange *c;
         unsigned i;
 
-        assert(type >= 0);
-        assert(type < _UNIT_FILE_CHANGE_TYPE_MAX);
         assert(path);
         assert(!changes == !n_changes);
 
@@ -1414,6 +1412,10 @@ int unit_file_enable(
                         goto finish;
         }
 
+        /* This will return the number of symlink rules that were
+        supposed to be created, not the ones actually created. This is
+        useful to determine whether the passed files hat any
+        installation data at all. */
         r = install_context_apply(&c, &paths, config_path, root_dir, force, changes, n_changes);
 
 finish:
@@ -1514,6 +1516,7 @@ int unit_file_reenable(
 
         r = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
 
+        /* Returns number of symlinks that where supposed to be installed. */
         q = install_context_apply(&c, &paths, config_path, root_dir, force, changes, n_changes);
         if (r == 0)
                 r = q;
@@ -1763,6 +1766,7 @@ int unit_file_preset(
         if (r == 0)
                 r = q;
 
+        /* Returns number of symlinks that where supposed to be installed. */
         q = install_context_apply(&plus, &paths, config_path, root_dir, force, changes, n_changes);
         if (r == 0)
                 r = q;

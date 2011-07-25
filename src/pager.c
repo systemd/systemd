@@ -39,12 +39,12 @@ void pager_open(void) {
         if (pager_pid > 0)
                 return;
 
-        if (isatty(STDOUT_FILENO) <= 0)
-                return;
-
         if ((pager = getenv("SYSTEMD_PAGER")) || (pager = getenv("PAGER")))
                 if (!*pager || streq(pager, "cat"))
                         return;
+
+        if (isatty(STDOUT_FILENO) <= 0)
+                return;
 
         /* Determine and cache number of columns before we spawn the
          * pager so that we get the value from the actual tty */

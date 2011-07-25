@@ -145,6 +145,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
+        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"DisableUnitFiles\">\n"                        \
@@ -156,6 +157,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
+        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"LinkUnitFiles\">\n"                           \
@@ -168,6 +170,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
+        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"MaskUnitFiles\">\n"                           \
@@ -422,7 +425,12 @@ static const char *message_get_sender_with_fallback(DBusMessage *m) {
         return ":no-sender";
 }
 
-static DBusMessage *message_from_file_changes(DBusMessage *m, UnitFileChange *changes, unsigned n_changes) {
+static DBusMessage *message_from_file_changes(
+                DBusMessage *m,
+                UnitFileChange *changes,
+                unsigned n_changes,
+                int carries_install_info) {
+
         DBusMessageIter iter, sub, sub2;
         DBusMessage *reply;
         unsigned i;
@@ -435,6 +443,14 @@ static DBusMessage *message_from_file_changes(DBusMessage *m, UnitFileChange *ch
 
         dbus_message_iter_init_append(reply, &iter);
 
+        if (carries_install_info >= 0) {
+                dbus_bool_t b;
+
+                b = carries_install_info;
+                if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &b))
+                        goto oom;
+        }
+
         if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sss)", &sub))
                 goto oom;
 
@@ -446,9 +462,9 @@ static DBusMessage *message_from_file_changes(DBusMessage *m, UnitFileChange *ch
                 source = strempty(changes[i].source);
 
                 if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &type) ||
-                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &path) ||
-                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &source) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &type) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &path) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &source) ||
                     !dbus_message_iter_close_container(&sub, &sub2))
                         goto oom;
         }
@@ -1304,6 +1320,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 UnitFileChange *changes = NULL;
                 unsigned n_changes = 0;
                 dbus_bool_t runtime, force;
+                bool carries_install_info = -1;
 
                 if (!dbus_message_iter_init(message, &iter))
                         goto oom;
@@ -1323,15 +1340,18 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         return bus_send_error_reply(connection, message, NULL, -EIO);
                 }
 
-                if (streq(member, "EnableUnitFiles"))
+                if (streq(member, "EnableUnitFiles")) {
                         r = unit_file_enable(scope, runtime, NULL, l, force, &changes, &n_changes);
-                else if (streq(member, "ReenableUnitFiles"))
+                        carries_install_info = r;
+                } else if (streq(member, "ReenableUnitFiles")) {
                         r = unit_file_reenable(scope, runtime, NULL, l, force, &changes, &n_changes);
-                else if (streq(member, "LinkUnitFiles"))
+                        carries_install_info = r;
+                } else if (streq(member, "LinkUnitFiles"))
                         r = unit_file_link(scope, runtime, NULL, l, force, &changes, &n_changes);
-                else if (streq(member, "PresetUnitFiles"))
+                else if (streq(member, "PresetUnitFiles")) {
                         r = unit_file_preset(scope, runtime, NULL, l, force, &changes, &n_changes);
-                else if (streq(member, "MaskUnitFiles"))
+                        carries_install_info = r;
+                } else if (streq(member, "MaskUnitFiles"))
                         r = unit_file_mask(scope, runtime, NULL, l, force, &changes, &n_changes);
                 else
                         assert_not_reached("Uh? Wrong method");
@@ -1344,7 +1364,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         return bus_send_error_reply(connection, message, NULL, r);
                 }
 
-                reply = message_from_file_changes(message, changes, n_changes);
+                reply = message_from_file_changes(message, changes, n_changes, carries_install_info);
                 unit_file_changes_free(changes, n_changes);
 
                 if (!reply)
@@ -1392,7 +1412,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         return bus_send_error_reply(connection, message, NULL, r);
                 }
 
-                reply = message_from_file_changes(message, changes, n_changes);
+                reply = message_from_file_changes(message, changes, n_changes, -1);
                 unit_file_changes_free(changes, n_changes);
 
                 if (!reply)

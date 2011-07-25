@@ -596,16 +596,16 @@ Hashmap *hashmap_copy(Hashmap *h) {
 char **hashmap_get_strv(Hashmap *h) {
         char **sv;
         Iterator it;
-        char *path;
+        char *item;
         int n;
 
-        sv = malloc((h->n_entries+1) * sizeof(char *));
-        if (sv == NULL)
+        sv = new(char*, h->n_entries+1);
+        if (!sv)
                 return NULL;
 
         n = 0;
-        HASHMAP_FOREACH(path, h, it)
-                sv[n++] = path;
+        HASHMAP_FOREACH(item, h, it)
+                sv[n++] = item;
         sv[n] = NULL;
 
         return sv;

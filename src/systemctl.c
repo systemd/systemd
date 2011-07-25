@@ -56,13 +56,14 @@
 #include "build.h"
 #include "unit-name.h"
 #include "pager.h"
+#include "spawn-agent.h"
+#include "install.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
 static bool arg_all = false;
 static const char *arg_job_mode = "replace";
-static bool arg_user = false;
-static bool arg_global = false;
+static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_immediate = false;
 static bool arg_no_block = false;
 static bool arg_no_pager = false;
@@ -74,9 +75,9 @@ static bool arg_dry = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_force = false;
-static bool arg_defaults = false;
 static bool arg_ask_password = false;
 static bool arg_failed = false;
+static bool arg_runtime = false;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static const char *arg_kill_mode = NULL;
@@ -118,9 +119,7 @@ static const char *arg_host = NULL;
 
 static bool private_bus = false;
 
-static pid_t agent_pid = 0;
-
-static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
+static int daemon_reload(DBusConnection *bus, char **args);
 
 static bool on_tty(void) {
         static int t = -1;
@@ -140,84 +139,23 @@ static bool on_tty(void) {
 static void pager_open_if_enabled(void) {
         on_tty();
 
-        if (!arg_no_pager)
-                pager_open();
+        if (arg_no_pager)
+                return;
+
+        pager_open();
 }
 
-static void spawn_ask_password_agent(void) {
-        pid_t parent;
+static void agent_open_if_enabled(void) {
 
-        if (agent_pid > 0)
-                return;
-
-        /* We check STDIN here, not STDOUT, since this is about input,
-         * not output */
-        if (!isatty(STDIN_FILENO))
-                return;
+        /* Open the password agent as a child process if necessary */
 
         if (!arg_ask_password)
                 return;
 
-        if (arg_user)
+        if (arg_scope != UNIT_FILE_SYSTEM)
                 return;
 
-        parent = getpid();
-
-        /* Spawns a temporary TTY agent, making sure it goes away when
-         * we go away */
-
-        if ((agent_pid = fork()) < 0)
-                return;
-
-        if (agent_pid == 0) {
-                /* In the child */
-
-                int fd;
-                bool stdout_is_tty, stderr_is_tty;
-
-                /* Make sure the agent goes away when the parent dies */
-                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
-                        _exit(EXIT_FAILURE);
-
-                /* Check whether our parent died before we were able
-                 * to set the death signal */
-                if (getppid() != parent)
-                        _exit(EXIT_SUCCESS);
-
-                /* Don't leak fds to the agent */
-                close_all_fds(NULL, 0);
-
-                stdout_is_tty = isatty(STDOUT_FILENO);
-                stderr_is_tty = isatty(STDERR_FILENO);
-
-                if (!stdout_is_tty || !stderr_is_tty) {
-                        /* Detach from stdout/stderr. and reopen
-                         * /dev/tty for them. This is important to
-                         * ensure that when systemctl is started via
-                         * popen() or a similar call that expects to
-                         * read EOF we actually do generate EOF and
-                         * not delay this indefinitely by because we
-                         * keep an unused copy of stdin around. */
-                        if ((fd = open("/dev/tty", O_WRONLY)) < 0) {
-                                log_error("Failed to open /dev/tty: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (!stdout_is_tty)
-                                dup2(fd, STDOUT_FILENO);
-
-                        if (!stderr_is_tty)
-                                dup2(fd, STDERR_FILENO);
-
-                        if (fd > 2)
-                                close(fd);
-                }
-
-                execl(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, "--watch", NULL);
-
-                log_error("Unable to execute agent: %m");
-                _exit(EXIT_FAILURE);
-        }
+        agent_open();
 }
 
 static const char *ansi_highlight(bool b) {
@@ -313,6 +251,23 @@ static void warn_wall(enum action action) {
                 return;
 
         utmp_wall(table[action], NULL);
+}
+
+static bool avoid_bus(void) {
+
+        if (running_in_chroot() > 0)
+                return true;
+
+        if (sd_booted() <= 0)
+                return true;
+
+        if (!isempty(arg_root))
+                return true;
+
+        if (arg_scope == UNIT_FILE_GLOBAL)
+                return true;
+
+        return false;
 }
 
 struct unit_info {
@@ -452,7 +407,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         }
 }
 
-static int list_units(DBusConnection *bus, char **args, unsigned n) {
+static int list_units(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
@@ -553,6 +508,210 @@ finish:
                 dbus_message_unref(reply);
 
         free(unit_infos);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int compare_unit_file_list(const void *a, const void *b) {
+        const char *d1, *d2;
+        const UnitFileList *u = a, *v = b;
+
+        d1 = strrchr(u->path, '.');
+        d2 = strrchr(v->path, '.');
+
+        if (d1 && d2) {
+                int r;
+
+                r = strcasecmp(d1, d2);
+                if (r != 0)
+                        return r;
+        }
+
+        return strcasecmp(file_name_from_path(u->path), file_name_from_path(v->path));
+}
+
+static bool output_show_unit_file(const UnitFileList *u) {
+        const char *dot;
+
+        return !arg_type || ((dot = strrchr(u->path, '.')) && streq(dot+1, arg_type));
+}
+
+static void output_unit_file_list(const UnitFileList *units, unsigned c) {
+        unsigned n_shown = 0;
+        const UnitFileList *u;
+
+        if (on_tty())
+                printf("%-25s %-6s\n", "UNIT FILE", "STATE");
+
+        for (u = units; u < units + c; u++) {
+                char *e;
+                const char *on, *off;
+                const char *id;
+
+                if (!output_show_unit_file(u))
+                        continue;
+
+                n_shown++;
+
+                if (u->state == UNIT_FILE_MASKED ||
+                    u->state == UNIT_FILE_MASKED_RUNTIME ||
+                    u->state == UNIT_FILE_DISABLED) {
+                        on  = ansi_highlight(true);
+                        off = ansi_highlight(false);
+                } else if (u->state == UNIT_FILE_ENABLED) {
+                        on  = ansi_highlight_green(true);
+                        off = ansi_highlight_green(false);
+                } else
+                        on = off = "";
+
+                id = file_name_from_path(u->path);
+
+                e = arg_full ? NULL : ellipsize(id, 25, 33);
+
+                printf("%-25s %s%-6s%s\n",
+                       e ? e : id,
+                       on, unit_file_state_to_string(u->state), off);
+
+                free(e);
+        }
+
+        if (on_tty())
+                printf("\n%u unit files listed.\n", n_shown);
+}
+
+static int list_unit_files(DBusConnection *bus, char **args) {
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        int r;
+        DBusMessageIter iter, sub, sub2;
+        unsigned c = 0, n_units = 0;
+        UnitFileList *units = NULL;
+
+        dbus_error_init(&error);
+
+        assert(bus);
+
+        pager_open_if_enabled();
+
+        if (avoid_bus()) {
+                Hashmap *h;
+                UnitFileList *u;
+                Iterator i;
+
+                h = hashmap_new(string_hash_func, string_compare_func);
+                if (!h) {
+                        log_error("Out of memory");
+                        return -ENOMEM;
+                }
+
+                r = unit_file_get_list(arg_scope, arg_root, h);
+                if (r < 0) {
+                        log_error("Failed to get unit file list: %s", strerror(-r));
+                        return r;
+                }
+
+                n_units = hashmap_size(h);
+                units = new(UnitFileList, n_units);
+                if (!units) {
+                        unit_file_list_free(h);
+                        log_error("Out of memory");
+                        return -ENOMEM;
+                }
+
+                HASHMAP_FOREACH(u, h, i) {
+                        memcpy(units + c++, u, sizeof(UnitFileList));
+                        free(u);
+                }
+
+                hashmap_free(h);
+        } else {
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ListUnitFiles");
+                if (!m) {
+                        log_error("Could not allocate message.");
+                        return -ENOMEM;
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+                if (!reply) {
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (!dbus_message_iter_init(reply, &iter) ||
+                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+                    dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&iter, &sub);
+
+                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                        UnitFileList *u;
+                        const char *state;
+
+                        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
+                                log_error("Failed to parse reply.");
+                                r = -EIO;
+                                goto finish;
+                        }
+
+                        if (c >= n_units) {
+                                UnitFileList *w;
+
+                                n_units = MAX(2*c, 16);
+                                w = realloc(units, sizeof(struct UnitFileList) * n_units);
+
+                                if (!w) {
+                                        log_error("Failed to allocate unit array.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                units = w;
+                        }
+
+                        u = units+c;
+
+                        dbus_message_iter_recurse(&sub, &sub2);
+
+                        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->path, true) < 0 ||
+                            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &state, false) < 0) {
+                                log_error("Failed to parse reply.");
+                                r = -EIO;
+                                goto finish;
+                        }
+
+                        u->state = unit_file_state_from_string(state);
+
+                        dbus_message_iter_next(&sub);
+                        c++;
+                }
+        }
+
+        if (c > 0) {
+                qsort(units, c, sizeof(UnitFileList), compare_unit_file_list);
+                output_unit_file_list(units, c);
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        free(units);
 
         dbus_error_free(&error);
 
@@ -711,7 +870,7 @@ finish:
         return r;
 }
 
-static int dot(DBusConnection *bus, char **args, unsigned n) {
+static int dot(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
@@ -803,7 +962,7 @@ finish:
         return r;
 }
 
-static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
+static int list_jobs(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
@@ -894,18 +1053,18 @@ finish:
         return r;
 }
 
-static int load_unit(DBusConnection *bus, char **args, unsigned n) {
+static int load_unit(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
-        unsigned i;
+        char **name;
 
         dbus_error_init(&error);
 
         assert(bus);
         assert(args);
 
-        for (i = 1; i < n; i++) {
+        STRV_FOREACH(name, args+1) {
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -918,7 +1077,7 @@ static int load_unit(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_STRING, name,
                                               DBUS_TYPE_INVALID)) {
                         log_error("Could not append arguments to message.");
                         r = -ENOMEM;
@@ -951,21 +1110,21 @@ finish:
         return r;
 }
 
-static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
+static int cancel_job(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
-        unsigned i;
+        char **name;
 
         dbus_error_init(&error);
 
         assert(bus);
         assert(args);
 
-        if (n <= 1)
-                return daemon_reload(bus, args, n);
+        if (strv_length(args) <= 1)
+                return daemon_reload(bus, args);
 
-        for (i = 1; i < n; i++) {
+        STRV_FOREACH(name, args+1) {
                 unsigned id;
                 const char *path;
 
@@ -979,7 +1138,7 @@ static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                if ((r = safe_atou(args[i], &id)) < 0) {
+                if ((r = safe_atou(*name, &id)) < 0) {
                         log_error("Failed to parse job id: %s", strerror(-r));
                         goto finish;
                 }
@@ -1327,8 +1486,8 @@ static int start_unit_one(
         }
 
         if (need_daemon_reload(bus, name))
-                log_warning("Unit file of created job changed on disk, 'systemctl %s daemon-reload' recommended.",
-                            arg_user ? "--user" : "--system");
+                log_warning("Warning: Unit file of created job changed on disk, 'systemctl %s daemon-reload' recommended.",
+                            arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
 
         if (!arg_no_block) {
                 char *p;
@@ -1379,7 +1538,7 @@ static enum action verb_to_action(const char *verb) {
                 return ACTION_INVALID;
 }
 
-static int start_unit(DBusConnection *bus, char **args, unsigned n) {
+static int start_unit(DBusConnection *bus, char **args) {
 
         static const char * const table[_ACTION_MAX] = {
                 [ACTION_HALT] = SPECIAL_HALT_TARGET,
@@ -1397,16 +1556,16 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
         };
 
         int r, ret = 0;
-        unsigned i;
         const char *method, *mode, *one_name;
         Set *s = NULL;
         DBusError error;
+        char **name;
 
         dbus_error_init(&error);
 
         assert(bus);
 
-        spawn_ask_password_agent();
+        agent_open_if_enabled();
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 method =
@@ -1466,8 +1625,8 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 if ((ret = start_unit_one(bus, method, one_name, mode, &error, s)) <= 0)
                         goto finish;
         } else {
-                for (i = 1; i < n; i++)
-                        if ((r = start_unit_one(bus, method, args[i], mode, &error, s)) != 0) {
+                STRV_FOREACH(name, args+1)
+                        if ((r = start_unit_one(bus, method, *name, mode, &error, s)) != 0) {
                                 ret = translate_bus_error_to_exit_status(r, &error);
                                 dbus_error_free(&error);
                         }
@@ -1488,7 +1647,7 @@ finish:
         return ret;
 }
 
-static int start_special(DBusConnection *bus, char **args, unsigned n) {
+static int start_special(DBusConnection *bus, char **args) {
         int r;
 
         assert(bus);
@@ -1500,9 +1659,9 @@ static int start_special(DBusConnection *bus, char **args, unsigned n) {
              streq(args[0], "reboot") ||
              streq(args[0], "kexec") ||
              streq(args[0], "exit")))
-                return daemon_reload(bus, args, n);
+                return daemon_reload(bus, args);
 
-        r = start_unit(bus, args, n);
+        r = start_unit(bus, args);
 
         if (r >= 0)
                 warn_wall(verb_to_action(args[0]));
@@ -1510,21 +1669,21 @@ static int start_special(DBusConnection *bus, char **args, unsigned n) {
         return r;
 }
 
-static int check_unit(DBusConnection *bus, char **args, unsigned n) {
+static int check_unit(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         const char
                 *interface = "org.freedesktop.systemd1.Unit",
                 *property = "ActiveState";
         int r = 3; /* According to LSB: "program is not running" */
         DBusError error;
-        unsigned i;
+        char **name;
 
         assert(bus);
         assert(args);
 
         dbus_error_init(&error);
 
-        for (i = 1; i < n; i++) {
+        STRV_FOREACH(name, args+1) {
                 const char *path = NULL;
                 const char *state;
                 DBusMessageIter iter, sub;
@@ -1540,7 +1699,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_STRING, name,
                                               DBUS_TYPE_INVALID)) {
                         log_error("Could not append arguments to message.");
                         r = -ENOMEM;
@@ -1634,11 +1793,11 @@ finish:
         return r;
 }
 
-static int kill_unit(DBusConnection *bus, char **args, unsigned n) {
+static int kill_unit(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         int r = 0;
         DBusError error;
-        unsigned i;
+        char **name;
 
         assert(bus);
         assert(args);
@@ -1651,7 +1810,7 @@ static int kill_unit(DBusConnection *bus, char **args, unsigned n) {
         if (!arg_kill_mode)
                 arg_kill_mode = streq(arg_kill_who, "all") ? "control-group" : "process";
 
-        for (i = 1; i < n; i++) {
+        STRV_FOREACH(name, args+1) {
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -1664,7 +1823,7 @@ static int kill_unit(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_STRING, name,
                                               DBUS_TYPE_STRING, &arg_kill_who,
                                               DBUS_TYPE_STRING, &arg_kill_mode,
                                               DBUS_TYPE_INT32, &arg_signal,
@@ -2075,7 +2234,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",
                        ansi_highlight(true),
                        ansi_highlight(false),
-                       arg_user ? "--user" : "--system");
+                       arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
 }
 
 static int status_property(const char *name, DBusMessageIter *iter, UnitStatusInfo *i) {
@@ -2517,12 +2676,12 @@ finish:
         return r;
 }
 
-static int show(DBusConnection *bus, char **args, unsigned n) {
+static int show(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         int r, ret = 0;
         DBusError error;
-        unsigned i;
         bool show_properties, new_line = false;
+        char **name;
 
         assert(bus);
         assert(args);
@@ -2534,7 +2693,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
         if (show_properties)
                 pager_open_if_enabled();
 
-        if (show_properties && n <= 1) {
+        if (show_properties && strv_length(args) <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
 
@@ -2542,11 +2701,11 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 goto finish;
         }
 
-        for (i = 1; i < n; i++) {
+        STRV_FOREACH(name, args+1) {
                 const char *path = NULL;
                 uint32_t id;
 
-                if (safe_atou32(args[i], &id) < 0) {
+                if (safe_atou32(*name, &id) < 0) {
 
                         /* Interpret as unit name */
 
@@ -2561,7 +2720,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         }
 
                         if (!dbus_message_append_args(m,
-                                                      DBUS_TYPE_STRING, &args[i],
+                                                      DBUS_TYPE_STRING, name,
                                                       DBUS_TYPE_INVALID)) {
                                 log_error("Could not append arguments to message.");
                                 ret = -ENOMEM;
@@ -2590,7 +2749,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 }
 
                                 if (!dbus_message_append_args(m,
-                                                              DBUS_TYPE_STRING, &args[i],
+                                                              DBUS_TYPE_STRING, name,
                                                               DBUS_TYPE_INVALID)) {
                                         log_error("Could not append arguments to message.");
                                         ret = -ENOMEM;
@@ -2692,7 +2851,7 @@ finish:
         return ret;
 }
 
-static int dump(DBusConnection *bus, char **args, unsigned n) {
+static int dump(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
@@ -2741,7 +2900,7 @@ finish:
         return r;
 }
 
-static int snapshot(DBusConnection *bus, char **args, unsigned n) {
+static int snapshot(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
@@ -2763,7 +2922,7 @@ static int snapshot(DBusConnection *bus, char **args, unsigned n) {
                 return -ENOMEM;
         }
 
-        if (n > 1)
+        if (strv_length(args) > 1)
                 name = args[1];
 
         if (!dbus_message_append_args(m,
@@ -2848,18 +3007,18 @@ finish:
         return r;
 }
 
-static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
+static int delete_snapshot(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         int r;
         DBusError error;
-        unsigned i;
+        char **name;
 
         assert(bus);
         assert(args);
 
         dbus_error_init(&error);
 
-        for (i = 1; i < n; i++) {
+        STRV_FOREACH(name, args+1) {
                 const char *path = NULL;
 
                 if (!(m = dbus_message_new_method_call(
@@ -2873,7 +3032,7 @@ static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[i],
+                                              DBUS_TYPE_STRING, name,
                                               DBUS_TYPE_INVALID)) {
                         log_error("Could not append arguments to message.");
                         r = -ENOMEM;
@@ -2931,7 +3090,7 @@ finish:
         return r;
 }
 
-static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
+static int daemon_reload(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
@@ -3003,19 +3162,19 @@ finish:
         return r;
 }
 
-static int reset_failed(DBusConnection *bus, char **args, unsigned n) {
+static int reset_failed(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
-        unsigned i;
         int r;
         DBusError error;
+        char **name;
 
         assert(bus);
         dbus_error_init(&error);
 
-        if (n <= 1)
-                return daemon_reload(bus, args, n);
+        if (strv_length(args) <= 1)
+                return daemon_reload(bus, args);
 
-        for (i = 1; i < n; i++) {
+        STRV_FOREACH(name, args+1) {
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -3028,7 +3187,7 @@ static int reset_failed(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, args + i,
+                                              DBUS_TYPE_STRING, name,
                                               DBUS_TYPE_INVALID)) {
                         log_error("Could not append arguments to message.");
                         r = -ENOMEM;
@@ -3060,7 +3219,7 @@ finish:
         return r;
 }
 
-static int show_enviroment(DBusConnection *bus, char **args, unsigned n) {
+static int show_enviroment(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         DBusMessageIter iter, sub, sub2;
@@ -3144,13 +3303,13 @@ finish:
         return r;
 }
 
-static int set_environment(DBusConnection *bus, char **args, unsigned n) {
+static int set_environment(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
         const char *method;
         DBusMessageIter iter, sub;
-        unsigned i;
+        char **name;
 
         dbus_error_init(&error);
 
@@ -3176,8 +3335,8 @@ static int set_environment(DBusConnection *bus, char **args, unsigned n) {
                 goto finish;
         }
 
-        for (i = 1; i < n; i++)
-                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &args[i])) {
+        STRV_FOREACH(name, args+1)
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, name)) {
                         log_error("Could not append arguments to message.");
                         r = -ENOMEM;
                         goto finish;
@@ -3209,801 +3368,479 @@ finish:
         return r;
 }
 
-typedef struct {
-        char *name;
-        char *path;
-
-        char **aliases;
-        char **wanted_by;
-} InstallInfo;
-
-static Hashmap *will_install = NULL, *have_installed = NULL;
-static Set *remove_symlinks_to = NULL;
-static unsigned n_symlinks = 0;
-
-static void install_info_free(InstallInfo *i) {
-        assert(i);
-
-        free(i->name);
-        free(i->path);
-        strv_free(i->aliases);
-        strv_free(i->wanted_by);
-        free(i);
-}
-
-static void install_info_hashmap_free(Hashmap *m) {
-        InstallInfo *i;
-
-        while ((i = hashmap_steal_first(m)))
-                install_info_free(i);
-
-        hashmap_free(m);
-}
-
-static int install_info_add(const char *name) {
-        InstallInfo *i;
-        int r;
-
-        assert(will_install);
-
-        if (!unit_name_is_valid_no_type(name, true)) {
-                log_warning("Unit name %s is not a valid unit name.", name);
-                return -EINVAL;
-        }
-
-        if (hashmap_get(have_installed, name) ||
-            hashmap_get(will_install, name))
-                return 0;
-
-        if (!(i = new0(InstallInfo, 1))) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        if (!(i->name = strdup(name))) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        if ((r = hashmap_put(will_install, i->name, i)) < 0)
-                goto fail;
-
-        return 0;
-
-fail:
-        if (i)
-                install_info_free(i);
-
-        return r;
-}
-
-static int config_parse_also(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        char *w;
-        size_t l;
-        char *state;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *n;
-                int r;
-
-                if (!(n = strndup(w, l)))
-                        return -ENOMEM;
-
-                if ((r = install_info_add(n)) < 0) {
-                        log_warning("Cannot install unit %s: %s", n, strerror(-r));
-                        free(n);
-                        return r;
-                }
-
-                free(n);
-        }
-
-        return 0;
-}
-
-static int mark_symlink_for_removal(const char *p) {
-        char *n;
-        int r;
-
-        assert(p);
-        assert(path_is_absolute(p));
-
-        if (!remove_symlinks_to)
-                return 0;
-
-        if (!(n = strdup(p)))
-                return -ENOMEM;
-
-        path_kill_slashes(n);
-
-        if ((r = set_put(remove_symlinks_to, n)) < 0) {
-                free(n);
-                return r == -EEXIST ? 0 : r;
-        }
-
-        return 0;
-}
-
-static int remove_marked_symlinks_fd(int fd, const char *config_path, const char *root, bool *deleted) {
+static int enable_sysv_units(char **args) {
         int r = 0;
-        DIR *d;
-        struct dirent *de;
 
-        assert(fd >= 0);
-        assert(root);
-        assert(deleted);
-
-        if (!(d = fdopendir(fd))) {
-                close_nointr_nofail(fd);
-                return -errno;
-        }
-
-        rewinddir(d);
-
-        while ((de = readdir(d))) {
-                bool is_dir = false, is_link = false;
-
-                if (ignore_file(de->d_name))
-                        continue;
-
-                if (de->d_type == DT_LNK)
-                        is_link = true;
-                else if (de->d_type == DT_DIR)
-                        is_dir = true;
-                else if (de->d_type == DT_UNKNOWN) {
-                        struct stat st;
-
-                        if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                                log_error("Failed to stat %s/%s: %m", root, de->d_name);
-
-                                if (r == 0)
-                                        r = -errno;
-                                continue;
-                        }
-
-                        is_link = S_ISLNK(st.st_mode);
-                        is_dir = S_ISDIR(st.st_mode);
-                } else
-                        continue;
-
-                if (is_dir) {
-                        int nfd, q;
-                        char *p;
-
-                        if ((nfd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW)) < 0) {
-                                log_error("Failed to open %s/%s: %m", root, de->d_name);
-
-                                if (r == 0)
-                                        r = -errno;
-                                continue;
-                        }
-
-                        if (asprintf(&p, "%s/%s", root, de->d_name) < 0) {
-                                log_error("Failed to allocate directory string.");
-                                close_nointr_nofail(nfd);
-                                r = -ENOMEM;
-                                break;
-                        }
-
-                        /* This will close nfd, regardless whether it succeeds or not */
-                        q = remove_marked_symlinks_fd(nfd, config_path, p, deleted);
-                        free(p);
-
-                        if (r == 0)
-                                r = q;
-
-                } else if (is_link) {
-                        char *p, *dest, *c;
-                        int q;
-
-                        if (asprintf(&p, "%s/%s", root, de->d_name) < 0) {
-                                log_error("Failed to allocate symlink string.");
-                                r = -ENOMEM;
-                                break;
-                        }
-
-                        if ((q = readlink_and_make_absolute(p, &dest)) < 0) {
-                                log_error("Cannot read symlink %s: %s", p, strerror(-q));
-                                free(p);
-
-                                if (r == 0)
-                                        r = q;
-                                continue;
-                        }
-
-                        if ((c = canonicalize_file_name(dest))) {
-                                /* This might fail if the destination
-                                 * is already removed */
-
-                                free(dest);
-                                dest = c;
-                        }
-
-                        path_kill_slashes(dest);
-                        if (set_get(remove_symlinks_to, dest)) {
-
-                                if (!arg_quiet)
-                                        log_info("rm '%s'", p);
-
-                                if (unlink(p) < 0) {
-                                        log_error("Cannot unlink symlink %s: %m", p);
-
-                                        if (r == 0)
-                                                r = -errno;
-                                } else {
-                                        rmdir_parents(p, config_path);
-                                        path_kill_slashes(p);
-
-                                        if (!set_get(remove_symlinks_to, p)) {
-
-                                                if ((r = mark_symlink_for_removal(p)) < 0) {
-                                                        if (r == 0)
-                                                                r = q;
-                                                } else
-                                                        *deleted = true;
-                                        }
-                                }
-                        }
-
-                        free(p);
-                        free(dest);
-                }
-        }
-
-        closedir(d);
-
-        return r;
-}
-
-static int remove_marked_symlinks(const char *config_path) {
-        int fd, r = 0;
-        bool deleted;
-
-        assert(config_path);
-
-        if (set_size(remove_symlinks_to) <= 0)
-                return 0;
-
-        if ((fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW)) < 0)
-                return -errno;
-
-        do {
-                int q, cfd;
-                deleted = false;
-
-                if ((cfd = dup(fd)) < 0) {
-                        r = -errno;
-                        break;
-                }
-
-                /* This takes possession of cfd and closes it */
-                if ((q = remove_marked_symlinks_fd(cfd, config_path, config_path, &deleted)) < 0) {
-                        if (r == 0)
-                                r = q;
-                }
-        } while (deleted);
-
-        close_nointr_nofail(fd);
-
-        return r;
-}
-
-static int create_symlink(const char *verb, const char *orig_old_path, const char *new_path) {
-        int r;
-        const char *old_path;
-
-        if (arg_root)
-                old_path = orig_old_path+strlen(arg_root);
-        else
-                old_path = orig_old_path;
-
-        assert(old_path);
-        assert(new_path);
-        assert(verb);
-
-        if (streq(verb, "enable")) {
-                char *dest;
-
-                mkdir_parents(new_path, 0755);
-
-                if (symlink(old_path, new_path) >= 0) {
-
-                        if (!arg_quiet)
-                                log_info("ln -s '%s' '%s'", old_path, new_path);
-
-                        return 0;
-                }
-
-                if (errno != EEXIST) {
-                        log_error("Cannot link %s to %s: %m", old_path, new_path);
-                        return -errno;
-                }
-
-                if ((r = readlink_and_make_absolute(new_path, &dest)) < 0) {
-
-                        if (errno == EINVAL) {
-                                log_error("Cannot link %s to %s, file exists already and is not a symlink.", old_path, new_path);
-                                return -EEXIST;
-                        }
-
-                        log_error("readlink() failed: %s", strerror(-r));
-                        return r;
-                }
-
-                if (streq(dest, old_path)) {
-                        free(dest);
-                        return 0;
-                }
-
-                if (!arg_force) {
-                        log_error("Cannot link %s to %s, symlink exists already and points to %s.", old_path, new_path, dest);
-                        free(dest);
-                        return -EEXIST;
-                }
-
-                free(dest);
-                unlink(new_path);
-
-                if (!arg_quiet)
-                        log_info("ln -s '%s' '%s'", old_path, new_path);
-
-                if (symlink(old_path, new_path) >= 0)
-                        return 0;
-
-                log_error("Cannot link %s to %s: %m", old_path, new_path);
-                return -errno;
-
-        } else if (streq(verb, "disable")) {
-                char *dest;
-
-                if ((r = mark_symlink_for_removal(old_path)) < 0)
-                        return r;
-
-                if ((r = readlink_and_make_absolute(new_path, &dest)) < 0) {
-                        if (errno == ENOENT)
-                                return 0;
-
-                        if (errno == EINVAL) {
-                                log_warning("File %s not a symlink, ignoring.", old_path);
-                                return 0;
-                        }
-
-                        log_error("readlink() failed: %s", strerror(-r));
-                        return r;
-                }
-
-                if (!streq(dest, old_path)) {
-                        log_warning("File %s not a symlink to %s but points to %s, ignoring.", new_path, old_path, dest);
-                        free(dest);
-                        return 0;
-                }
-
-                free(dest);
-
-                if ((r = mark_symlink_for_removal(new_path)) < 0)
-                        return r;
-
-                if (!arg_quiet)
-                        log_info("rm '%s'", new_path);
-
-                if (unlink(new_path) >= 0)
-                        return 0;
-
-                log_error("Cannot unlink %s: %m", new_path);
-                return -errno;
-
-        } else if (streq(verb, "is-enabled")) {
-                char *dest;
-
-                if ((r = readlink_and_make_absolute(new_path, &dest)) < 0) {
-
-                        if (errno == ENOENT || errno == EINVAL)
-                                return 0;
-
-                        log_error("readlink() failed: %s", strerror(-r));
-                        return r;
-                }
-
-                if (streq(dest, old_path)) {
-                        free(dest);
-                        return 1;
-                }
-
-                free(dest);
-                return 0;
-        }
-
-        assert_not_reached("Unknown action.");
-}
-
-static int install_info_symlink_alias(const char *verb, InstallInfo *i, const char *config_path) {
-        char **s;
-        char *alias_path = NULL;
-        int r;
-
-        assert(verb);
-        assert(i);
-        assert(config_path);
-
-        STRV_FOREACH(s, i->aliases) {
-
-                free(alias_path);
-                if (!(alias_path = path_make_absolute(*s, config_path))) {
-                        log_error("Out of memory");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if ((r = create_symlink(verb, i->path, alias_path)) != 0)
-                        goto finish;
-
-                if (streq(verb, "disable"))
-                        rmdir_parents(alias_path, config_path);
-        }
-        r = 0;
-
-finish:
-        free(alias_path);
-
-        return r;
-}
-
-static int install_info_symlink_wants(const char *verb, InstallInfo *i, const char *config_path) {
-        char **s;
-        char *alias_path = NULL;
-        int r;
-
-        assert(verb);
-        assert(i);
-        assert(config_path);
-
-        STRV_FOREACH(s, i->wanted_by) {
-                if (!unit_name_is_valid_no_type(*s, true)) {
-                        log_error("Invalid name %s.", *s);
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                free(alias_path);
-                alias_path = NULL;
-
-                if (asprintf(&alias_path, "%s/%s.wants/%s", config_path, *s, i->name) < 0) {
-                        log_error("Out of memory");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if ((r = create_symlink(verb, i->path, alias_path)) != 0)
-                        goto finish;
-
-                if (streq(verb, "disable"))
-                        rmdir_parents(alias_path, config_path);
-        }
-
-        r = 0;
-
-finish:
-        free(alias_path);
-
-        return r;
-}
-
-static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo *i, const char *config_path) {
-
-        const ConfigItem items[] = {
-                { "Alias",    config_parse_strv, 0, &i->aliases,   "Install" },
-                { "WantedBy", config_parse_strv, 0, &i->wanted_by, "Install" },
-                { "Also",     config_parse_also, 0, NULL,          "Install" },
-
-                { NULL, NULL, 0, NULL, NULL }
-        };
-
-        char **p;
-        char *filename = NULL;
-        FILE *f = NULL;
-        int r;
-
-        assert(paths);
-        assert(i);
-
-        STRV_FOREACH(p, paths->unit_path) {
-                int fd;
-                char *path, *should_free;
-
-                if (arg_root)
-                        should_free = path = strappend(arg_root, *p);
-                else {
-                        should_free = NULL;
-                        path = *p;
-                }
-
-                if (!(filename = path_make_absolute(i->name, path))) {
-                        log_error("Out of memory");
-                        return -ENOMEM;
-                }
-
-                if (should_free)
-                        free(should_free);
-
-                /* Ensure that we don't follow symlinks */
-                if ((fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOCTTY)) >= 0)
-                        if ((f = fdopen(fd, "re")))
-                                break;
-
-                if (errno == ELOOP) {
-                        log_error("Refusing to operate on symlinks, please pass unit names or absolute paths to unit files.");
-                        free(filename);
-                        return -errno;
-                }
-
-                if (errno != ENOENT) {
-                        log_error("Failed to open %s: %m", filename);
-                        free(filename);
-                        return -errno;
-                }
-
-                free(filename);
-                filename = NULL;
-        }
-
-        if (!f) {
-#if (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_SUSE) || defined(TARGET_MEEGO) || defined(TARGET_ALTLINUX)) && defined (HAVE_SYSV_COMPAT)
-
-                if (endswith(i->name, ".service")) {
-                        char *sysv;
-                        bool exists;
-
-                        if (asprintf(&sysv, SYSTEM_SYSVINIT_PATH "/%s", i->name) < 0) {
-                                log_error("Out of memory");
-                                return -ENOMEM;
-                        }
-
-                        sysv[strlen(sysv) - sizeof(".service") + 1] = 0;
-                        if (arg_root) {
-                                char *tmp_path;
-
-                                tmp_path = strappend (arg_root, sysv);
-                                exists = access (tmp_path, F_OK) >= 0;
-                                free (tmp_path);
-                        } else
-                                exists = access(sysv, F_OK) >= 0;
-
-                        if (exists) {
-                                pid_t pid;
-                                siginfo_t status;
-
-                                const char *argv[] = {
-                                        "/sbin/chkconfig",
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        NULL
-                                };
-
-                                log_info("%s is not a native service, redirecting to /sbin/chkconfig.", i->name);
-
-                                argv[1] = file_name_from_path(sysv);
-                                argv[2] =
-                                        streq(verb, "enable") ? "on" :
-                                        streq(verb, "disable") ? "off" : "--level=5";
-                                if (arg_root)
-                                        argv[3] = strappend("--root=", arg_root);
-
-                                log_info("Executing %s %s %s %s", argv[0], argv[1], strempty(argv[2]), strempty(argv[3]));
-
-                                if ((pid = fork()) < 0) {
-                                        log_error("Failed to fork: %m");
-                                        free(sysv);
-                                        return -errno;
-                                } else if (pid == 0) {
-                                        execv(argv[0], (char**) argv);
-                                        _exit(EXIT_FAILURE);
-                                }
-
-                                free(sysv);
-
-                                if ((r = wait_for_terminate(pid, &status)) < 0)
-                                        return r;
-
-                                if (status.si_code == CLD_EXITED) {
-
-                                        if (streq(verb, "is-enabled"))
-                                                return status.si_status == 0 ? 1 : 0;
-
-                                        if (status.si_status == 0)
-                                                n_symlinks ++;
-
-                                        return status.si_status == 0 ? 0 : -EINVAL;
-
-                                } else
-                                        return -EPROTO;
-                        }
-
-                        free(sysv);
-                }
-
-#endif
-
-                log_error("Couldn't find %s.", i->name);
-                return -ENOENT;
-        }
-
-        i->path = filename;
-
-        if ((r = config_parse(filename, f, NULL, items, true, i)) < 0) {
-                fclose(f);
-                return r;
-        }
-
-        /* Consider unit files stored in /lib and /usr always enabled
-         * if they have no [Install] data. */
-        if (streq(verb, "is-enabled") &&
-            strv_isempty(i->aliases) &&
-            strv_isempty(i->wanted_by) &&
-            !path_startswith(filename, "/etc")) {
-                fclose(f);
-                return 1;
-        }
-
-        n_symlinks += strv_length(i->aliases);
-        n_symlinks += strv_length(i->wanted_by);
-
-        fclose(f);
-
-        if ((r = install_info_symlink_alias(verb, i, config_path)) != 0)
-                return r;
-
-        if ((r = install_info_symlink_wants(verb, i, config_path)) != 0)
-                return r;
-
-        if ((r = mark_symlink_for_removal(filename)) < 0)
-                return r;
-
-        if ((r = remove_marked_symlinks(config_path)) < 0)
-                return r;
-
-        return 0;
-}
-
-static char *get_config_path(void) {
-        char *ret;
-
-        if (arg_user && arg_global)
-                ret = strdup(USER_CONFIG_UNIT_PATH);
-
-        if (arg_user) {
-                if (user_config_home(&ret) < 0)
-                        return NULL;
-        }
-
-        ret = strdup(SYSTEM_CONFIG_UNIT_PATH);
-        if (arg_root) {
-                char *p;
-                p = strappend (arg_root, ret);
-                free (ret);
-                return p;
-        } else
-                return ret;
-}
-
-static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
-        DBusError error;
-        int r;
-        LookupPaths paths;
-        char *config_path = NULL;
-        unsigned j;
-        InstallInfo *i;
+#if defined (HAVE_SYSV_COMPAT) && (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_SUSE) || defined(TARGET_MEEGO) || defined(TARGET_ALTLINUX))
         const char *verb = args[0];
+        unsigned f = 1, t = 1;
+        LookupPaths paths;
 
-        dbus_error_init(&error);
+        if (arg_scope != UNIT_FILE_SYSTEM)
+                return 0;
+
+        if (!streq(verb, "enable") &&
+            !streq(verb, "disable") &&
+            !streq(verb, "is-enabled"))
+                return 0;
+
+        /* Processes all SysV units, and reshuffles the array so that
+         * afterwards only the native units remain */
 
         zero(paths);
-        if ((r = lookup_paths_init(&paths, arg_user ? MANAGER_USER : MANAGER_SYSTEM, true)) < 0) {
-                log_error("Failed to determine lookup paths: %s", strerror(-r));
-                goto finish;
-        }
-
-        if (!(config_path = get_config_path())) {
-                log_error("Failed to determine config path");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        will_install = hashmap_new(string_hash_func, string_compare_func);
-        have_installed = hashmap_new(string_hash_func, string_compare_func);
-
-        if (!will_install || !have_installed) {
-                log_error("Failed to allocate unit sets.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!arg_defaults && streq(verb, "disable"))
-                if (!(remove_symlinks_to = set_new(string_hash_func, string_compare_func))) {
-                        log_error("Failed to allocate symlink sets.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-        for (j = 1; j < n; j++)
-                if ((r = install_info_add(args[j])) < 0) {
-                        log_warning("Cannot install unit %s: %s", args[j], strerror(-r));
-                        goto finish;
-                }
+        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false);
+        if (r < 0)
+                return r;
 
         r = 0;
 
-        while ((i = hashmap_first(will_install))) {
-                int q;
+        for (f = 1; args[f]; f++) {
+                const char *name;
+                char *p;
+                bool found_native = false, found_sysv;
+                unsigned c = 1;
+                const char *argv[6] = { "/sbin/chkconfig", NULL, NULL, NULL, NULL };
+                char **k, *l, *q = NULL;
+                int j;
+                pid_t pid;
+                siginfo_t status;
 
-                assert_se(hashmap_move_one(have_installed, will_install, i->name) == 0);
+                name = args[f];
 
-                if ((q = install_info_apply(verb, &paths, i, config_path)) != 0) {
+                if (!endswith(name, ".service"))
+                        continue;
 
-                        if (q < 0) {
-                                if (r == 0)
-                                        r = q;
+                if (path_is_absolute(name))
+                        continue;
+
+                STRV_FOREACH(k, paths.unit_path) {
+                        p = NULL;
+
+                        if (!isempty(arg_root))
+                                asprintf(&p, "%s/%s/%s", arg_root, *k, name);
+                        else
+                                asprintf(&p, "%s/%s", *k, name);
+
+                        if (!p) {
+                                log_error("No memory");
+                                r = -ENOMEM;
                                 goto finish;
                         }
 
-                        /* In test mode and found something */
-                        r = 1;
-                        break;
+                        found_native = access(p, F_OK) >= 0;
+                        free(p);
+
+                        if (found_native)
+                                break;
                 }
-        }
 
-        if (streq(verb, "is-enabled"))
-                r = r > 0 ? 0 : -ENOENT;
-        else {
-                if (n_symlinks <= 0)
-                        log_warning("Unit files contain no applicable installation information. Ignoring.");
+                if (found_native)
+                        continue;
 
-                if (bus &&
-                    /* Don't try to reload anything if the user asked us to not do this */
-                    !arg_no_reload &&
-                    /* Don't try to reload anything when updating a unit globally */
-                    !arg_global &&
-                    /* Don't try to reload anything if we are called for system changes but the system wasn't booted with systemd */
-                    (arg_user || sd_booted() > 0) &&
-                    /* Don't try to reload anything if we are running in a chroot environment */
-                    (arg_user || running_in_chroot() <= 0 || arg_root) ) {
-                        int q;
+                p = NULL;
+                if (!isempty(arg_root))
+                        asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
+                else
+                        asprintf(&p, SYSTEM_SYSVINIT_PATH "/%s", name);
+                if (!p) {
+                        log_error("No memory");
+                        r = -ENOMEM;
+                        goto finish;
+                }
 
-                        if ((q = daemon_reload(bus, args, n)) < 0)
-                                r = q;
+                p[strlen(p) - sizeof(".service") + 1] = 0;
+                found_sysv = access(p, F_OK) >= 0;
+
+                if (!found_sysv) {
+                        free(p);
+                        continue;
+                }
+
+                /* Mark this entry, so that we don't try enabling it as native unit */
+                args[f] = (char*) "";
+
+                log_info("%s is not a native service, redirecting to /sbin/chkconfig.", name);
+
+                if (!isempty(arg_root))
+                        argv[c++] = q = strappend("--root=", arg_root);
+
+                argv[c++] = file_name_from_path(p);
+                argv[c++] =
+                        streq(verb, "enable") ? "on" :
+                        streq(verb, "disable") ? "off" : "--level=5";
+                argv[c] = NULL;
+
+                l = strv_join((char**)argv, " ");
+                if (!l) {
+                        log_error("No memory.");
+                        free(q);
+                        free(p);
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                log_info("Executing %s", l);
+                free(l);
+
+                pid = fork();
+                if (pid < 0) {
+                        log_error("Failed to fork: %m");
+                        free(p);
+                        free(q);
+                        r = -errno;
+                        goto finish;
+                } else if (pid == 0) {
+                        /* Child */
+
+                        execv(argv[0], (char**) argv);
+                        _exit(EXIT_FAILURE);
+                }
+
+                free(p);
+                free(q);
+
+                j = wait_for_terminate(pid, &status);
+                if (j < 0) {
+                        log_error("Failed to wait for child: %s", strerror(-r));
+                        r = j;
+                        goto finish;
+                }
+
+                if (status.si_code == CLD_EXITED) {
+                        if (streq(verb, "is-enabled")) {
+                                if (status.si_status == 0) {
+                                        if (!arg_quiet)
+                                                puts("enabled");
+                                        r = 1;
+                                } else {
+                                        if (!arg_quiet)
+                                                puts("disabled");
+                                }
+
+                        } else if (status.si_status != 0) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+                } else {
+                        r = -EPROTO;
+                        goto finish;
                 }
         }
 
 finish:
-        install_info_hashmap_free(will_install);
-        install_info_hashmap_free(have_installed);
-
-        set_free_free(remove_symlinks_to);
-
         lookup_paths_free(&paths);
 
-        free(config_path);
+        /* Drop all SysV units */
+        for (f = 1, t = 1; args[f]; f++) {
 
+                if (isempty(args[f]))
+                        continue;
+
+                args[t++] = args[f];
+        }
+
+        args[t] = NULL;
+
+#endif
+        return r;
+}
+
+static int enable_unit(DBusConnection *bus, char **args) {
+        const char *verb = args[0];
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0, i;
+        int carries_install_info = -1;
+        DBusMessage *m = NULL, *reply = NULL;
+        int r;
+        DBusError error;
+
+        dbus_error_init(&error);
+
+        r = enable_sysv_units(args);
+        if (r < 0)
+                return r;
+
+        if (!bus || avoid_bus()) {
+                if (streq(verb, "enable")) {
+                        r = unit_file_enable(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                        carries_install_info = r;
+                } else if (streq(verb, "disable"))
+                        r = unit_file_disable(arg_scope, arg_runtime, arg_root, args+1, &changes, &n_changes);
+                else if (streq(verb, "reenable")) {
+                        r = unit_file_reenable(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                        carries_install_info = r;
+                } else if (streq(verb, "link"))
+                        r = unit_file_link(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                else if (streq(verb, "preset")) {
+                        r = unit_file_preset(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                        carries_install_info = r;
+                } else if (streq(verb, "mask"))
+                        r = unit_file_mask(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                else if (streq(verb, "unmask"))
+                        r = unit_file_unmask(arg_scope, arg_runtime, arg_root, args+1, &changes, &n_changes);
+                else
+                        assert_not_reached("Unknown verb");
+
+                if (r < 0) {
+                        log_error("Operation failed: %s", strerror(-r));
+                        goto finish;
+                }
+
+                for (i = 0; i < n_changes; i++) {
+                        if (changes[i].type == UNIT_FILE_SYMLINK)
+                                log_info("ln -s '%s' '%s'", changes[i].source, changes[i].path);
+                        else
+                                log_info("rm '%s'", changes[i].path);
+                }
+
+        } else {
+                const char *method;
+                bool send_force = true, expect_carries_install_info = false;
+                dbus_bool_t a, b;
+                DBusMessageIter iter, sub, sub2;
+
+                if (streq(verb, "enable")) {
+                        method = "EnableUnitFiles";
+                        expect_carries_install_info = true;
+                } else if (streq(verb, "disable")) {
+                        method = "DisableUnitFiles";
+                        send_force = false;
+                } else if (streq(verb, "reenable")) {
+                        method = "ReenableUnitFiles";
+                        expect_carries_install_info = true;
+                } else if (streq(verb, "link"))
+                        method = "LinkUnitFiles";
+                else if (streq(verb, "preset")) {
+                        method = "PresetUnitFiles";
+                        expect_carries_install_info = true;
+                } else if (streq(verb, "mask"))
+                        method = "MaskUnitFiles";
+                else if (streq(verb, "unmask")) {
+                        method = "UnmaskUnitFiles";
+                        send_force = false;
+                } else
+                        assert_not_reached("Unknown verb");
+
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                method);
+                if (!m) {
+                        log_error("Out of memory");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                dbus_message_iter_init_append(m, &iter);
+
+                r = bus_append_strv_iter(&iter, args+1);
+                if (r < 0) {
+                        log_error("Failed to append unit files.");
+                        goto finish;
+                }
+
+                a = arg_runtime;
+                if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &a)) {
+                        log_error("Failed to append runtime boolean.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (send_force) {
+                        b = arg_force;
+
+                        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &b)) {
+                                log_error("Failed to append force boolean.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+                if (!reply) {
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (!dbus_message_iter_init(reply, &iter)) {
+                        log_error("Failed to initialize iterator.");
+                        goto finish;
+                }
+
+                if (expect_carries_install_info) {
+                        r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &b, true);
+                        if (r < 0) {
+                                log_error("Failed to parse reply.");
+                                goto finish;
+                        }
+
+                        carries_install_info = b;
+                }
+
+                if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+                    dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&iter, &sub);
+                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                        const char *type, *path, *source;
+
+                        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
+                                log_error("Failed to parse reply.");
+                                r = -EIO;
+                                goto finish;
+                        }
+
+                        dbus_message_iter_recurse(&sub, &sub2);
+
+                        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &type, true) < 0 ||
+                            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0 ||
+                            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &source, false) < 0) {
+                                log_error("Failed to parse reply.");
+                                r = -EIO;
+                                goto finish;
+                        }
+
+                        if (streq(type, "symlink"))
+                                log_info("ln -s '%s' '%s'", source, path);
+                        else
+                                log_info("rm '%s'", path);
+
+                        dbus_message_iter_next(&sub);
+                }
+
+                /* Try to reload if enabeld */
+                if (!arg_no_reload)
+                        r = daemon_reload(bus, args);
+        }
+
+        if (carries_install_info == 0)
+                log_warning("Warning: unit files do not carry install information. No operation executed.");
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        unit_file_changes_free(changes, n_changes);
+
+        dbus_error_free(&error);
+        return r;
+}
+
+static int unit_is_enabled(DBusConnection *bus, char **args) {
+        DBusError error;
+        int r;
+        DBusMessage *m = NULL, *reply = NULL;
+        bool enabled;
+        char **name;
+
+        dbus_error_init(&error);
+
+        r = enable_sysv_units(args);
+        if (r < 0)
+                return r;
+
+        enabled = r > 0;
+
+        if (!bus || avoid_bus()) {
+
+                STRV_FOREACH(name, args+1) {
+                        UnitFileState state;
+
+                        state = unit_file_get_state(arg_scope, arg_root, *name);
+                        if (state < 0) {
+                                r = state;
+                                goto finish;
+                        }
+
+                        if (state == UNIT_FILE_ENABLED ||
+                            state == UNIT_FILE_ENABLED_RUNTIME ||
+                            state == UNIT_FILE_STATIC)
+                                enabled = true;
+
+                        if (!arg_quiet)
+                                puts(unit_file_state_to_string(state));
+                }
+
+        } else {
+                STRV_FOREACH(name, args+1) {
+                        const char *s;
+
+                        m = dbus_message_new_method_call(
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "GetUnitFileState");
+                        if (!m) {
+                                log_error("Out of memory");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (!dbus_message_append_args(m,
+                                                      DBUS_TYPE_STRING, name,
+                                                      DBUS_TYPE_INVALID)) {
+                                log_error("Could not append arguments to message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+                        if (!reply) {
+                                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                                r = -EIO;
+                                goto finish;
+                        }
+
+                        if (!dbus_message_get_args(reply, &error,
+                                                   DBUS_TYPE_STRING, &s,
+                                                   DBUS_TYPE_INVALID)) {
+                                log_error("Failed to parse reply: %s", bus_error_message(&error));
+                                r = -EIO;
+                                goto finish;
+                        }
+
+                        dbus_message_unref(m);
+                        dbus_message_unref(reply);
+                        m = reply = NULL;
+
+                        if (streq(s, "enabled") ||
+                            streq(s, "enabled-runtime") ||
+                            streq(s, "static"))
+                                enabled = true;
+
+                        if (!arg_quiet)
+                                puts(s);
+                }
+        }
+
+        r = enabled ? 0 : 1;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
         return r;
 }
 
 static int systemctl_help(void) {
 
+        pager_open_if_enabled();
+
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to or query the systemd manager.\n\n"
+               "Query or send control commands to the systemd manager.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "  -t --type=TYPE      List only units of a particular type\n"
@@ -4030,15 +3867,15 @@ static int systemctl_help(void) {
                "                      Do not ask for system passwords\n"
                "     --order          When generating graph for dot, show only order\n"
                "     --require        When generating graph for dot, show only requirement\n"
-               "     --root=path      Use <root> as the root file system\n"
                "     --system         Connect to system manager\n"
                "     --user           Connect to user service manager\n"
                "     --global         Enable/disable unit files globally\n"
                "  -f --force          When enabling unit files, override existing symlinks\n"
                "                      When shutting down, execute action immediately\n"
-               "     --defaults       When disabling unit files, remove default symlinks only\n\n"
+               "     --root=PATH      Enable unit files in the specified root directory\n"
+               "     --runtime        Enable unit files only temporarily until next reboot\n\n"
                "Unit Commands:\n"
-               "  list-units                      List units\n"
+               "  list-units                      List loaded units\n"
                "  start [NAME...]                 Start (activate) one or more units\n"
                "  stop [NAME...]                  Stop (deactivate) one or more units\n"
                "  reload [NAME...]                Reload one or more units\n"
@@ -4058,8 +3895,16 @@ static int systemctl_help(void) {
                "                                  units\n"
                "  load [NAME...]                  Load one or more units\n\n"
                "Unit File Commands:\n"
+               "  list-unit-files                 List installed unit files\n"
                "  enable [NAME...]                Enable one or more unit files\n"
                "  disable [NAME...]               Disable one or more unit files\n"
+               "  reenable [NAME...]              Reenable one or more unit files\n"
+               "  preset [NAME...]                Enable/disable one or more unit files\n"
+               "                                  based on preset configuration\n"
+               "  mask [NAME...]                  Mask one or more units\n"
+               "  unmask [NAME...]                Unmask one or more units\n"
+               "  link [PATH...]                  Link one or more units files into\n"
+               "                                  the search path\n"
                "  is-enabled [NAME...]            Check whether unit files are enabled\n\n"
                "Job Commands:\n"
                "  list-jobs                       List jobs\n"
@@ -4174,11 +4019,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_FULL,
                 ARG_NO_RELOAD,
-                ARG_DEFAULTS,
                 ARG_KILL_MODE,
                 ARG_KILL_WHO,
                 ARG_NO_ASK_PASSWORD,
-                ARG_FAILED
+                ARG_FAILED,
+                ARG_RUNTIME
         };
 
         static const struct option options[] = {
@@ -4203,13 +4048,13 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "root",      required_argument, NULL, ARG_ROOT      },
                 { "force",     no_argument,       NULL, 'f'           },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
-                { "defaults",  no_argument,       NULL, ARG_DEFAULTS  },
                 { "kill-mode", required_argument, NULL, ARG_KILL_MODE }, /* undocumented on purpose */
                 { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
                 { "signal",    required_argument, NULL, 's'           },
                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
                 { "host",      required_argument, NULL, 'H'           },
                 { "privileged",no_argument,       NULL, 'P'           },
+                { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4268,11 +4113,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_USER:
-                        arg_user = true;
+                        arg_scope = UNIT_FILE_USER;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_user = false;
+                        arg_scope = UNIT_FILE_SYSTEM;
+                        break;
+
+                case ARG_GLOBAL:
+                        arg_scope = UNIT_FILE_GLOBAL;
                         break;
 
                 case ARG_NO_BLOCK:
@@ -4319,15 +4168,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_no_reload = true;
                         break;
 
-                case ARG_GLOBAL:
-                        arg_global = true;
-                        arg_user = true;
-                        break;
-
-                case ARG_DEFAULTS:
-                        arg_defaults = true;
-                        break;
-
                 case ARG_KILL_WHO:
                         arg_kill_who = optarg;
                         break;
@@ -4356,6 +4196,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_host = optarg;
                         break;
 
+                case ARG_RUNTIME:
+                        arg_runtime = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -4365,7 +4209,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_transport != TRANSPORT_NORMAL && arg_user) {
+        if (arg_transport != TRANSPORT_NORMAL && arg_scope != UNIT_FILE_SYSTEM) {
                 log_error("Cannot access user instance remotely.");
                 return -EINVAL;
         }
@@ -4955,9 +4799,10 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                         EQUAL
                 } argc_cmp;
                 const int argc;
-                int (* const dispatch)(DBusConnection *bus, char **args, unsigned n);
+                int (* const dispatch)(DBusConnection *bus, char **args);
         } verbs[] = {
                 { "list-units",            LESS,  1, list_units        },
+                { "list-unit-files",       EQUAL, 1, list_unit_files   },
                 { "list-jobs",             EQUAL, 1, list_jobs         },
                 { "clear-jobs",            EQUAL, 1, daemon_reload     },
                 { "load",                  MORE,  2, load_unit         },
@@ -4999,7 +4844,12 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "reset-failed",          MORE,  1, reset_failed      },
                 { "enable",                MORE,  2, enable_unit       },
                 { "disable",               MORE,  2, enable_unit       },
-                { "is-enabled",            MORE,  2, enable_unit       }
+                { "is-enabled",            MORE,  2, unit_is_enabled   },
+                { "reenable",              MORE,  2, enable_unit       },
+                { "preset",                MORE,  2, enable_unit       },
+                { "mask",                  MORE,  2, enable_unit       },
+                { "unmask",                MORE,  2, enable_unit       },
+                { "link",                  MORE,  2, enable_unit       }
         };
 
         int left;
@@ -5062,20 +4912,27 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 
         /* Require a bus connection for all operations but
          * enable/disable */
-        if (!streq(verbs[i].verb, "enable") && !streq(verbs[i].verb, "disable")) {
+        if (!streq(verbs[i].verb, "enable") &&
+            !streq(verbs[i].verb, "disable") &&
+            !streq(verbs[i].verb, "is-enable") &&
+            !streq(verbs[i].verb, "reenable") &&
+            !streq(verbs[i].verb, "preset") &&
+            !streq(verbs[i].verb, "mask") &&
+            !streq(verbs[i].verb, "unmask") &&
+            !streq(verbs[i].verb, "link")) {
 
                 if (running_in_chroot() > 0) {
                         log_info("Running in chroot, ignoring request.");
                         return 0;
                 }
 
-                if (!bus) {
+                if (!bus && !avoid_bus()) {
                         log_error("Failed to get D-Bus connection: %s", error->message);
                         return -EIO;
                 }
         }
 
-        return verbs[i].dispatch(bus, argv + optind, left);
+        return verbs[i].dispatch(bus, argv + optind);
 }
 
 static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
@@ -5126,7 +4983,7 @@ static int reload_with_fallback(DBusConnection *bus) {
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if (daemon_reload(bus, NULL, 0) > 0)
+                if (daemon_reload(bus, NULL) > 0)
                         return 0;
         }
 
@@ -5145,7 +5002,7 @@ static int start_with_fallback(DBusConnection *bus) {
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if (start_unit(bus, NULL, 0) >= 0)
+                if (start_unit(bus, NULL) >= 0)
                         goto done;
         }
 
@@ -5246,8 +5103,9 @@ static int halt_main(DBusConnection *bus) {
 static int runlevel_main(void) {
         int r, runlevel, previous;
 
-        if ((r = utmp_get_runlevel(&runlevel, &previous)) < 0) {
-                printf("unknown\n");
+        r = utmp_get_runlevel(&runlevel, &previous);
+        if (r < 0) {
+                puts("unknown");
                 return r;
         }
 
@@ -5256,19 +5114,6 @@ static int runlevel_main(void) {
                runlevel <= 0 ? 'N' : runlevel);
 
         return 0;
-}
-
-static void agent_close(void) {
-        siginfo_t dummy;
-
-        if (agent_pid <= 0)
-                return;
-
-        /* Inform agent that we are done */
-        kill(agent_pid, SIGTERM);
-        kill(agent_pid, SIGCONT);
-        wait_for_terminate(agent_pid, &dummy);
-        agent_pid = 0;
 }
 
 int main(int argc, char*argv[]) {
@@ -5302,16 +5147,18 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        if (arg_transport == TRANSPORT_NORMAL)
-                bus_connect(arg_user ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
-        else if (arg_transport == TRANSPORT_POLKIT) {
-                bus_connect_system_polkit(&bus, &error);
-                private_bus = false;
-        } else if (arg_transport == TRANSPORT_SSH) {
-                bus_connect_system_ssh(NULL, arg_host, &bus, &error);
-                private_bus = false;
-        } else
-                assert_not_reached("Uh, invalid transport...");
+        if (!avoid_bus()) {
+                if (arg_transport == TRANSPORT_NORMAL)
+                        bus_connect(arg_scope == UNIT_FILE_SYSTEM ? DBUS_BUS_SYSTEM : DBUS_BUS_SESSION, &bus, &private_bus, &error);
+                else if (arg_transport == TRANSPORT_POLKIT) {
+                        bus_connect_system_polkit(&bus, &error);
+                        private_bus = false;
+                } else if (arg_transport == TRANSPORT_SSH) {
+                        bus_connect_system_ssh(NULL, arg_host, &bus, &error);
+                        private_bus = false;
+                } else
+                        assert_not_reached("Uh, invalid transport...");
+        }
 
         switch (arg_action) {
 
@@ -5354,7 +5201,6 @@ int main(int argc, char*argv[]) {
         retval = r < 0 ? EXIT_FAILURE : r;
 
 finish:
-
         if (bus) {
                 dbus_connection_flush(bus);
                 dbus_connection_close(bus);

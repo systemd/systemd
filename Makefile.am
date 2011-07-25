@@ -1203,7 +1203,9 @@ systemctl_SOURCES = \
 	src/cgroup-util.c \
 	src/exit-status.c \
 	src/unit-name.c \
-        src/pager.c
+        src/pager.c \
+        src/install.c \
+        src/spawn-agent.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
