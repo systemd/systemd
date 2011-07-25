@@ -32,16 +32,28 @@
 #include "util.h"
 #include "log.h"
 
+static void make_v4_uuid(unsigned char *id) {
+        /* Stolen from generate_random_uuid() of drivers/char/random.c
+         * in the kernel sources */
+
+        /* Set UUID version to 4 --- truly random generation */
+        id[6] = (id[6] & 0x0F) | 0x40;
+
+        /* Set the UUID variant to DCE */
+        id[8] = (id[8] & 0x3F) | 0x80;
+}
+
 static int generate(char id[34]) {
         int fd;
-        char buf[16];
-        char *p, *q;
+        unsigned char buf[16], *p;
+        char *q;
         ssize_t k;
 
         assert(id);
 
         /* First, try reading the D-Bus machine id, unless it is a symlink */
-        if ((fd = open("/var/lib/dbus/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW)) >= 0) {
+        fd = open("/var/lib/dbus/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd >= 0) {
 
                 k = loop_read(fd, id, 33, false);
                 close_nointr_nofail(fd);
@@ -56,7 +68,8 @@ static int generate(char id[34]) {
         }
 
         /* If that didn't work, generate a random machine id */
-        if ((fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0) {
+        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0) {
                 log_error("Failed to open /dev/urandom: %m");
                 return -errno;
         }
@@ -68,6 +81,11 @@ static int generate(char id[34]) {
                 log_error("Failed to read /dev/urandom: %s", strerror(k < 0 ? -k : EIO));
                 return k < 0 ? (int) k : -EIO;
         }
+
+        /* Turn this into a valid v4 UUID, to be nice. Note that we
+         * only guarantee this for newly generated UUIDs, not for
+         * pre-existing ones.*/
+        make_v4_uuid(buf);
 
         for (p = buf, q = id; p < buf + sizeof(buf); p++, q += 2) {
                 q[0] = hexchar(*p >> 4);
@@ -96,10 +114,12 @@ int machine_id_setup(void) {
          * will be owned by root it doesn't matter much, but maybe
          * people look. */
 
-        if ((fd = open("/etc/machine-id", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444)) >= 0)
+        fd = open("/etc/machine-id", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+        if (fd >= 0)
                 writable = true;
         else {
-                if ((fd = open("/etc/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0) {
+                fd = open("/etc/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0) {
                         umask(m);
                         log_error("Cannot open /etc/machine-id: %m");
                         return -errno;
@@ -126,7 +146,8 @@ int machine_id_setup(void) {
         /* Hmm, so, the id currently stored is not useful, then let's
          * generate one */
 
-        if ((r = generate(id)) < 0)
+        r = generate(id);
+        if (r < 0)
                 goto finish;
 
         if (S_ISREG(st.st_mode) && writable) {
@@ -146,7 +167,8 @@ int machine_id_setup(void) {
 
         mkdir_p("/run/systemd", 0755);
 
-        if ((r = write_one_line_file("/run/systemd/machine-id", id)) < 0) {
+        r = write_one_line_file("/run/systemd/machine-id", id);
+        if (r < 0) {
                 log_error("Cannot write /run/systemd/machine-id: %s", strerror(-r));
 
                 unlink("/run/systemd/machine-id");

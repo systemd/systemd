@@ -55,10 +55,12 @@
                 <title>Description</title>
 
                 <para>The <filename>/etc/machine-id</filename> file
-                configures the unique machine id of the local system
-                that is set during installation. It should contain a
-                single newline-terminated, hexadecimal, lowercase 16
-                character machine ID string.</para>
+                contains the unique machine id of the local system
+                that is set during installation. The machine ID is a
+                single newline-terminated, hexadecimal, lowercase 32
+                character machine ID string. (When decoded from
+                hexadecimal this corresponds with a 16 byte/128 bit
+                string.)</para>
 
                 <para>The machine ID is usually generated from a
                 random source during system installation and stays
@@ -69,7 +71,7 @@
                 <para>The machine ID does not change based on user
                 configuration, or when hardware is replaced.</para>
 
-                <para>This machine id follows the same format and
+                <para>This machine ID adheres to the same format and
                 logic as the D-Bus machine ID.</para>
 
                 <para>Programs may use this ID to identify the host
@@ -82,13 +84,42 @@
         </refsect1>
 
         <refsect1>
+                <title>Relation to OSF UUIDs</title>
+
+                <para>Note that the machine ID historically is not an
+                OSF UUID as defined by <ulink
+                url="http://tools.ietf.org/html/rfc4122">RFC
+                4122</ulink>, nor a Microsoft GUID. Starting with
+                systemd v30 newly generated machine IDs however do
+                qualify as v4 UUIDs.</para>
+
+                <para>In order to maintain compatibility with existing
+                installations, an application requiring a UUID should
+                decode the machine ID, and then apply the following
+                operations to turn it into a valid OSF v4 UUID. With
+                <literal>id</literal> being an unsigned character
+                array:</para>
+
+                <programlisting>/* Set UUID version to 4 --- truly random generation */
+id[6] = (id[6] &amp; 0x0F) | 0x40;
+/* Set the UUID variant to DCE */
+id[8] = (id[8] &amp; 0x3F) | 0x80;</programlisting>
+
+                <para>(This code is inspired by
+                <literal>generate_random_uuid()</literal> of
+                <filename>drivers/char/random.c</filename> from the
+                kernel sources.)</para>
+
+        </refsect1>
+
+        <refsect1>
                 <title>History</title>
 
                 <para>The simple configuration file format of
                 <filename>/etc/machine-id</filename> originates in the
                 <filename>/var/lib/dbus/machine-id</filename> file
                 introduced by D-Bus. In fact this latter file might be a
-                symlink to the
+                symlink to
                 <varname>/etc/machine-id</varname>.</para>
         </refsect1>
 
