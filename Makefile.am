@@ -239,11 +239,11 @@ dist_dbussystemservice_DATA = \
 
 dist_udevrules_DATA = \
         src/70-uaccess.rules \
-        src/71-seat.rules \
-	src/99-systemd.rules
+        src/71-seat.rules
 
 nodist_udevrules_DATA = \
-        src/73-seat-late.rules
+        src/73-seat-late.rules \
+        src/99-systemd.rules
 
 dbusinterface_DATA = \
 	org.freedesktop.systemd1.Manager.xml \
@@ -434,7 +434,8 @@ EXTRA_DIST = \
 	src/libsystemd-daemon.sym \
 	src/libsystemd-login.sym \
 	introspect.awk \
-	src/73-seat-late.rules.in
+	src/73-seat-late.rules.in \
+        src/99-systemd.rules.in
 
 if ENABLE_BINFMT
 EXTRA_DIST += \
@@ -1487,7 +1488,8 @@ CLEANFILES = \
 	${XML_IN_FILES:.xml.in=.html} \
 	$(pkgconfigdata_DATA) \
 	$(nodist_polkitpolicy_DATA) \
-        src/73-seat-late.rules
+        src/73-seat-late.rules \
+        src/99-systemd.rules
 
 if HAVE_VALAC
 CLEANFILES += \
