@@ -13,7 +13,8 @@ SUBSYSTEM=="input", KERNEL=="input*", TAG+="seat"
 SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat"
 SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
 
-SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="0001", ENV{ID_AUTOSEAT}="1"
+# 'Plugable' USB hub, sound, network, graphics adapter
+SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="000[13]", ENV{ID_AUTOSEAT}="1"
 
 TAG=="seat", ENV{ID_PATH}=="", IMPORT{program}="path_id %p"
 TAG=="seat", ENV{ID_FOR_SEAT}=="", ENV{ID_PATH_TAG}!="", ENV{ID_FOR_SEAT}="$env{SUBSYSTEM}-$env{ID_PATH_TAG}"
