@@ -231,6 +231,12 @@ void log_set_target(LogTarget target) {
         log_target = target;
 }
 
+void log_close(void) {
+        log_close_console();
+        log_close_kmsg();
+        log_close_syslog();
+}
+
 void log_set_max_level(int level) {
         assert((level & LOG_PRIMASK) == level);
 

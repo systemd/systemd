@@ -1046,6 +1046,7 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
+                log_open();
 
                 /* This might actually not return, but cause a
                  * reexecution */
@@ -1064,9 +1065,11 @@ int main(int argc, char *argv[]) {
                         else
                                 log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
                 }
+
         } else {
                 arg_running_as = MANAGER_USER;
                 log_set_target(LOG_TARGET_AUTO);
+                log_open();
         }
 
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
@@ -1121,6 +1124,9 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(arg_action == ACTION_RUN || arg_action == ACTION_TEST);
+
+        /* Close logging fds, in order not to confuse fdset below */
+        log_close();
 
         /* Remember open file descriptors for later deserialization */
         if (serialization) {

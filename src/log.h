@@ -56,6 +56,7 @@ LogTarget log_get_target(void);
 int log_get_max_level(void);
 
 int log_open(void);
+void log_close(void);
 
 void log_close_syslog(void);
 void log_close_kmsg(void);
