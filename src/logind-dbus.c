@@ -72,6 +72,8 @@
         "   <arg name=\"path\" type=\"o\" direction=\"out\"/>\n"        \
         "   <arg name=\"runtime_path\" type=\"o\" direction=\"out\"/>\n" \
         "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
+        "   <arg name=\"seat\" type=\"s\" direction=\"out\"/>\n"        \
+        "   <arg name=\"vtnr\" type=\"u\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"ActivateSession\">\n"                         \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
@@ -519,12 +521,15 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
+        seat = s ? s->id : "";
         b = dbus_message_append_args(
                         reply,
                         DBUS_TYPE_STRING, &session->id,
                         DBUS_TYPE_OBJECT_PATH, &p,
                         DBUS_TYPE_STRING, &session->user->runtime_path,
                         DBUS_TYPE_UNIX_FD, &fifo_fd,
+                        DBUS_TYPE_STRING, &seat,
+                        DBUS_TYPE_UINT32, &vtnr,
                         DBUS_TYPE_INVALID);
         free(p);
 

@@ -445,8 +445,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         pam_get_item(handle, PAM_TTY, (const void**) &tty);
         pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
         pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
-        seat = pam_getenv(handle, "LOGIN_SEAT");
-        cvtnr = pam_getenv(handle, "LOGIN_VTNR");
+        seat = pam_getenv(handle, "XDG_SEAT");
+        cvtnr = pam_getenv(handle, "XDG_VTNR");
 
         service = strempty(service);
         tty = strempty(tty);
@@ -529,6 +529,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                    DBUS_TYPE_OBJECT_PATH, &object_path,
                                    DBUS_TYPE_STRING, &runtime_path,
                                    DBUS_TYPE_UNIX_FD, &session_fd,
+                                   DBUS_TYPE_STRING, &seat,
+                                   DBUS_TYPE_UINT32, &vtnr,
                                    DBUS_TYPE_INVALID)) {
                 pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", bus_error_message(&error));
                 r = PAM_SESSION_ERR;
@@ -545,6 +547,26 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
                 goto finish;
+        }
+
+        if (!isempty(seat)) {
+                r = pam_misc_setenv(handle, "XDG_SEAT", seat, 0);
+                if (r != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set seat.");
+                        goto finish;
+                }
+        }
+
+        if (vtnr > 0) {
+                char buf[11];
+                snprintf(buf, sizeof(buf), "%u", vtnr);
+                char_array_0(buf);
+
+                r = pam_misc_setenv(handle, "XDG_VTNR", buf, 0);
+                if (r != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set virtual terminal number.");
+                        goto finish;
+                }
         }
 
         if (session_fd >= 0) {
