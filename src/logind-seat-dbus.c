@@ -35,7 +35,7 @@
         "  </method>\n"                                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"ActiveSession\" type=\"so\" access=\"read\"/>\n" \
-        "  <property name=\"CanActivateSessions\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"CanMultiSession\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Sessions\" type=\"a(so)\" access=\"read\"/>\n" \
         "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
@@ -133,7 +133,7 @@ static int bus_seat_append_sessions(DBusMessageIter *i, const char *property, vo
         return 0;
 }
 
-static int bus_seat_append_can_activate(DBusMessageIter *i, const char *property, void *data) {
+static int bus_seat_append_multi_session(DBusMessageIter *i, const char *property, void *data) {
         Seat *s = data;
         dbus_bool_t b;
 
@@ -213,13 +213,13 @@ static DBusHandlerResult seat_message_dispatch(
                 DBusMessage *message) {
 
         const BusProperty properties[] = {
-                { "org.freedesktop.login1.Seat", "Id",                  bus_property_append_string,   "s",     s->id },
-                { "org.freedesktop.login1.Seat", "ActiveSession",       bus_seat_append_active,       "(so)",  s     },
-                { "org.freedesktop.login1.Seat", "CanActivateSessions", bus_seat_append_can_activate, "b",     s     },
-                { "org.freedesktop.login1.Seat", "Sessions",            bus_seat_append_sessions,     "a(so)", s     },
-                { "org.freedesktop.login1.Seat", "IdleHint",            bus_seat_append_idle_hint,    "b",     s     },
-                { "org.freedesktop.login1.Seat", "IdleSinceHint",          bus_seat_append_idle_hint_since, "t", s   },
-                { "org.freedesktop.login1.Seat", "IdleSinceHintMonotonic", bus_seat_append_idle_hint_since, "t", s   },
+                { "org.freedesktop.login1.Seat", "Id",                     bus_property_append_string,      "s",     s->id },
+                { "org.freedesktop.login1.Seat", "ActiveSession",          bus_seat_append_active,          "(so)",  s     },
+                { "org.freedesktop.login1.Seat", "CanMultiSession",        bus_seat_append_multi_session,   "b",     s     },
+                { "org.freedesktop.login1.Seat", "Sessions",               bus_seat_append_sessions,        "a(so)", s     },
+                { "org.freedesktop.login1.Seat", "IdleHint",               bus_seat_append_idle_hint,       "b",     s     },
+                { "org.freedesktop.login1.Seat", "IdleSinceHint",          bus_seat_append_idle_hint_since, "t",     s     },
+                { "org.freedesktop.login1.Seat", "IdleSinceHintMonotonic", bus_seat_append_idle_hint_since, "t",     s     },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

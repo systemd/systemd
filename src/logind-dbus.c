@@ -577,7 +577,6 @@ static int trigger_device(Manager *m, struct udev_device *d) {
                 }
         }
 
-
         if (udev_enumerate_scan_devices(e) < 0) {
                 r = -EIO;
                 goto finish;
