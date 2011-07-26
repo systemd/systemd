@@ -41,6 +41,6 @@ SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
 SUBSYSTEM=="usb", KERNEL=="lp*", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
 
-SUBSYSTEM=="net", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/%k --prefix=/proc/sys/net/ipv4/neigh/%k --prefix=/proc/sys/net/ipv6/conf/%k --prefix=/proc/sys/net/ipv4/conf/%k"
+SUBSYSTEM=="net", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/%k --prefix=/proc/sys/net/ipv4/neigh/%k --prefix=/proc/sys/net/ipv6/conf/%k --prefix=/proc/sys/net/ipv6/neigh/%k"
 
 LABEL="systemd_end"
