@@ -35,6 +35,7 @@ dbusinterfacedir=@dbusinterfacedir@
 udevrulesdir=@udevrulesdir@
 pamlibdir=@pamlibdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
+pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=$(sysconfdir)/bash_completion.d
 
@@ -496,7 +497,9 @@ dist_doc_DATA = \
 	src/sd-readahead.c
 
 pkgconfigdata_DATA = \
-	systemd.pc \
+	systemd.pc
+
+pkgconfiglib_DATA = \
         libsystemd-daemon.pc \
         libsystemd-login.pc
 
