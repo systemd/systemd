@@ -522,6 +522,36 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         return 0;
 }
 
+_public_ int sd_seat_can_multi_session(const char *seat) {
+        char *p, *s = NULL;
+        int r;
+
+        if (!seat)
+                return -EINVAL;
+
+        p = strappend("/run/systemd/seats/", seat);
+        if (!p)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE,
+                           "IS_VTCONSOLE", &s,
+                           NULL);
+        free(p);
+
+        if (r < 0) {
+                free(s);
+                return r;
+        }
+
+        if (s) {
+                r = parse_boolean(s);
+                free(s);
+        } else
+                r = 0;
+
+        return r;
+}
+
 _public_ int sd_get_seats(char ***seats) {
 
         if (!seats)

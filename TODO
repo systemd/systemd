@@ -225,8 +225,6 @@ Features:
 
 * readahead: btrfs/LVM SSD detection
 
-* add separate man page for [Install] settings
-
 * allow runtime changing of log level and target
 
 * drop cap bounding set in readahead and other services

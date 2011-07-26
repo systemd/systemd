@@ -71,6 +71,10 @@ int main(int argc, char* argv[]) {
         assert_se(sd_session_get_seat(session, &seat) >= 0);
         printf("seat = %s\n", seat);
 
+        r = sd_seat_can_multi_session(seat);
+        assert_se(r >= 0);
+        printf("can do multi session = %s\n", yes_no(r));
+
         assert_se(sd_uid_get_state(u, &state) >= 0);
         printf("state = %s\n", state);
 

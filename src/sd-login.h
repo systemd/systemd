@@ -82,6 +82,9 @@ int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 /* Return sessions and users on seat */
 int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsigned *n_uids);
 
+/* Return whether the seat is multi-session capable */
+int sd_seat_can_multi_session(const char *seat);
+
 /* Get all seats */
 int sd_get_seats(char ***seats);
 

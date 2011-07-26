@@ -20,6 +20,7 @@ global:
         sd_login_monitor_unref;
         sd_pid_get_owner_uid;
         sd_pid_get_session;
+        sd_seat_can_multi_session;
         sd_seat_get_active;
         sd_seat_get_sessions;
         sd_session_get_seat;
