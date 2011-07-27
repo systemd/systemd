@@ -652,7 +652,8 @@ EXTRA_DIST += \
         src/logind-session.h \
         src/logind-user.h \
         src/logind-acl.h \
-        src/dbus-loop.h
+        src/dbus-loop.h \
+        src/spawn-agent.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -1490,6 +1491,7 @@ CLEANFILES = \
 	$(nodist_man_MANS) \
 	${XML_IN_FILES:.xml.in=.html} \
 	$(pkgconfigdata_DATA) \
+	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA) \
         src/73-seat-late.rules \
         src/99-systemd.rules
