@@ -1435,6 +1435,19 @@ libsystemd_login_la_LDFLAGS = \
 libsystemd_login_la_LIBADD = \
 	libsystemd-basic.la
 
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-login-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-login.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-login.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-login.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+libsystemd-login-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
+
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
@@ -1849,9 +1862,9 @@ if HAVE_SYSV_COMPAT
 		$(LN_S) ../var-lock.mount var-lock.mount )
 endif
 
-install-exec-hook: libsystemd-daemon-install-hook
+install-exec-hook: libsystemd-daemon-install-hook libsystemd-login-install-hook
 
-uninstall-hook: libsystemd-daemon-uninstall-hook
+uninstall-hook: libsystemd-daemon-uninstall-hook libsystemd-login-uninstall-hook
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
