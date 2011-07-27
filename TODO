@@ -20,6 +20,10 @@ F15 External:
 
 Features:
 
+* add profiling to unit loading code
+
+* add gperf support for unit file parsing table
+
 * fix CUPS .path unit for globbing
 
 * move PAM code into its own binary
