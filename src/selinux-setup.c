@@ -72,7 +72,6 @@ int selinux_setup(char *const argv[]) {
                return -errno;
 
        } else {
-
                unlink("/dev/.systemd-relabel-run-dev");
 
                if (enforce > 0) {
