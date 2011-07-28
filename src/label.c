@@ -48,8 +48,8 @@ int label_init(void) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
-        usec_t n;
-        struct mallinfo before;
+        usec_t before_timestamp, after_timestamp;
+        struct mallinfo before_mallinfo, after_mallinfo;
 
         if (!use_selinux())
                 return 0;
@@ -57,8 +57,8 @@ int label_init(void) {
         if (label_hnd)
                 return 0;
 
-        before = mallinfo();
-        n = now(CLOCK_MONOTONIC);
+        before_mallinfo = mallinfo();
+        before_timestamp = now(CLOCK_MONOTONIC);
 
         label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
         if (!label_hnd) {
@@ -66,18 +66,17 @@ int label_init(void) {
                          "Failed to initialize SELinux context: %m");
                 r = security_getenforce() == 1 ? -errno : 0;
         } else  {
-                char buf[FORMAT_TIMESPAN_MAX];
-                struct mallinfo after;
+                char timespan[FORMAT_TIMESPAN_MAX];
                 int l;
 
-                n = now(CLOCK_MONOTONIC) - n;
-                after = mallinfo();
+                after_timestamp = now(CLOCK_MONOTONIC);
+                after_mallinfo = mallinfo();
 
-                l = after.uordblks > before.uordblks ? after.uordblks - before.uordblks : 0;
+                l = after_mallinfo.uordblks > before_mallinfo.uordblks ? after_mallinfo.uordblks - before_mallinfo.uordblks : 0;
 
                 log_info("Successfully loaded SELinux database in %s, size on heap is %iK.",
-                         format_timespan(buf, sizeof(buf), n),
-                         l/1024);
+                         format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp),
+                         (l+1023)/1024);
         }
 #endif
 
@@ -134,7 +133,7 @@ void label_finish(void) {
 #endif
 }
 
-int label_get_socket_label_from_exe(const char *exe, char **label) {
+int label_get_create_label_from_exe(const char *exe, char **label) {
 
         int r = 0;
 
