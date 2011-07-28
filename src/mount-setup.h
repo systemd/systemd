@@ -24,7 +24,7 @@
 
 #include <stdbool.h>
 
-int mount_setup(void);
+int mount_setup(bool loaded_policy);
 
 bool mount_point_is_api(const char *path);
 bool mount_point_ignore(const char *path);

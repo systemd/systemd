@@ -226,7 +226,7 @@ static int nftw_cb(
         return 0;
 };
 
-int mount_setup(void) {
+int mount_setup(bool loaded_policy) {
 
         const char symlinks[] =
                 "/proc/kcore\0"      "/dev/core\0"
@@ -247,9 +247,20 @@ int mount_setup(void) {
          * the appropriate labels, after mounting. The other virtual
          * API file systems like /sys and /proc do not need that, they
          * use the same label for all their files. */
-        if (unlink("/dev/.systemd-relabel-run-dev") >= 0) {
+        if (loaded_policy) {
+                usec_t before_relabel, after_relabel;
+                char timespan[FORMAT_TIMESPAN_MAX];
+
+                before_relabel = now(CLOCK_MONOTONIC);
+
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
                 nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
+
+                after_relabel = now(CLOCK_MONOTONIC);
+
+                log_info("Relabelled /dev and /run in %s.",
+                         format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel));
+
         }
 
         /* Create a few default symlinks, which are normally created

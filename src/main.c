@@ -1020,6 +1020,9 @@ int main(int argc, char *argv[]) {
         const char *shutdown_verb = NULL;
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
         char systemd[] = "systemd";
+        bool is_reexec = false;
+        int j;
+        bool loaded_policy = false;
 
 #ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
@@ -1032,6 +1035,16 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 #endif
+
+        /* Determine if this is a reexecution or normal bootup. We do
+         * the full command line parsing much later, so let's just
+         * have a quick peek here. */
+
+        for (j = 1; j < argc; j++)
+                if (streq(argv[j], "--deserialize")) {
+                        break;
+                        is_reexec = true;
+                }
 
         /* If we get started via the /sbin/init symlink then we are
            called 'init'. After a subsequent reexecution we are then
@@ -1050,25 +1063,26 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
-                log_open();
 
-                /* This might actually not return, but cause a
-                 * reexecution */
-                if (selinux_setup(argv) < 0)
-                        goto finish;
+                if (!is_reexec)
+                        if (selinux_setup(&loaded_policy) < 0)
+                                goto finish;
+
+                log_open();
 
                 if (label_init() < 0)
                         goto finish;
 
-                if (hwclock_is_localtime() > 0) {
-                        int err, min;
+                if (!is_reexec)
+                        if (hwclock_is_localtime() > 0) {
+                                int min;
 
-                        err = hwclock_apply_localtime_delta(&min);
-                        if (err < 0)
-                                log_error("Failed to apply local time delta: %s", strerror(-err));
-                        else
-                                log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
-                }
+                                r = hwclock_apply_localtime_delta(&min);
+                                if (r < 0)
+                                        log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
+                                else
+                                        log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
+                        }
 
         } else {
                 arg_running_as = MANAGER_USER;
@@ -1082,7 +1096,7 @@ int main(int argc, char *argv[]) {
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
         if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS"))
-                if (mount_setup() < 0)
+                if (mount_setup(loaded_policy) < 0)
                         goto finish;
 
         /* Reset all signal handlers. */
@@ -1179,7 +1193,7 @@ int main(int argc, char *argv[]) {
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
         if (arg_running_as == MANAGER_SYSTEM && arg_action == ACTION_RUN) {
-                console_setup(getpid() == 1 && !serialization);
+                console_setup(getpid() == 1 && !is_reexec);
                 make_null_stdio();
         }
 
@@ -1194,7 +1208,7 @@ int main(int argc, char *argv[]) {
         log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
                  PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
 
-        if (arg_running_as == MANAGER_SYSTEM && !serialization) {
+        if (arg_running_as == MANAGER_SYSTEM && !is_reexec) {
                 locale_setup();
 
                 if (arg_show_status || plymouth_running())

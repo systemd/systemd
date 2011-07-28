@@ -22,6 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int selinux_setup(char *const argv[]);
+#include <stdbool.h>
+
+int selinux_setup(bool *loaded_policy);
 
 #endif
