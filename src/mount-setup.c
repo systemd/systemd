@@ -48,6 +48,10 @@ typedef struct MountPoint {
         bool fatal;
 } MountPoint;
 
+/* The first three entries we might need before SELinux is up. The
+ * other ones we can delay until SELinux is loaded. */
+#define N_EARLY_MOUNT 3
+
 static const MountPoint mount_table[] = {
         { "proc",     "/proc",                  "proc",     NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "sysfs",    "/sys",                   "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
@@ -91,13 +95,14 @@ bool mount_point_ignore(const char *path) {
         return false;
 }
 
-static int mount_one(const MountPoint *p) {
+static int mount_one(const MountPoint *p, bool relabel) {
         int r;
 
         assert(p);
 
         /* Relabel first, just in case */
-        label_fix(p->where, true);
+        if (relabel)
+                label_fix(p->where, true);
 
         if ((r = path_is_mount_point(p->where)) < 0)
                 return r;
@@ -125,9 +130,29 @@ static int mount_one(const MountPoint *p) {
         }
 
         /* Relabel again, since we now mounted something fresh here */
-        label_fix(p->where, false);
+        if (relabel)
+                label_fix(p->where, false);
 
         return 0;
+}
+
+int mount_setup_early(void) {
+        unsigned i;
+        int r = 0;
+
+        assert_cc(N_EARLY_MOUNT <= ELEMENTSOF(mount_table));
+
+        /* Do a minimal mount of /proc and friends to enable the most
+         * basic stuff, such as SELinux */
+        for (i = 0; i < N_EARLY_MOUNT; i ++)  {
+                int j;
+
+                j = mount_one(mount_table + i, false);
+                if (r == 0)
+                        r = j;
+        }
+
+        return r;
 }
 
 static int mount_cgroup_controllers(void) {
@@ -179,7 +204,7 @@ static int mount_cgroup_controllers(void) {
                 p.flags = MS_NOSUID|MS_NOEXEC|MS_NODEV;
                 p.fatal = false;
 
-                r = mount_one(&p);
+                r = mount_one(&p, true);
                 free(controller);
                 free(where);
 
@@ -239,9 +264,12 @@ int mount_setup(bool loaded_policy) {
         unsigned i;
         const char *j, *k;
 
-        for (i = 0; i < ELEMENTSOF(mount_table); i ++)
-                if ((r = mount_one(mount_table+i)) < 0)
+        for (i = 0; i < ELEMENTSOF(mount_table); i ++) {
+                r = mount_one(mount_table + i, true);
+
+                if (r < 0)
                         return r;
+        }
 
         /* Nodes in devtmpfs and /run need to be manually updated for
          * the appropriate labels, after mounting. The other virtual

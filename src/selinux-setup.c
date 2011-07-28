@@ -30,6 +30,7 @@
 #endif
 
 #include "selinux-setup.h"
+#include "mount-setup.h"
 #include "macro.h"
 #include "util.h"
 #include "log.h"
@@ -44,6 +45,9 @@ int selinux_setup(bool *loaded_policy) {
        int r;
 
        assert(loaded_policy);
+
+       /* Make sure getcon() works, which needs /proc and /sys */
+       mount_setup_early();
 
        /* Already initialized by somebody else? */
        r = getcon_raw(&con);
@@ -71,7 +75,7 @@ int selinux_setup(bool *loaded_policy) {
 
                /* Transition to the new context */
                r = label_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
-               if (r < 0) {
+               if (r < 0 || label == NULL) {
                        log_open();
                        log_error("Failed to compute init label, ignoring.");
                } else {
