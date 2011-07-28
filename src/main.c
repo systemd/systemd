@@ -1021,6 +1021,7 @@ int main(int argc, char *argv[]) {
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
         char systemd[] = "systemd";
 
+#ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
                 /* This is compatibility support for SysV, where
                  * calling init as a user is identical to telinit. */
@@ -1030,6 +1031,7 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
                 return 1;
         }
+#endif
 
         /* If we get started via the /sbin/init symlink then we are
            called 'init'. After a subsequent reexecution we are then
