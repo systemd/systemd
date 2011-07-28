@@ -545,7 +545,8 @@ libsystemd_basic_la_CFLAGS = \
 	$(SELINUX_CFLAGS)
 
 libsystemd_basic_la_LIBADD = \
-	$(SELINUX_LIBS)
+	$(SELINUX_LIBS) \
+	$(CAP_LIBS)
 
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
@@ -614,7 +615,8 @@ libsystemd_core_la_LIBADD = \
 	$(UDEV_LIBS) \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
-	$(AUDIT_LIBS)
+	$(AUDIT_LIBS) \
+	$(CAP_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't

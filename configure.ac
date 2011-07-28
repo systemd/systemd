@@ -111,8 +111,14 @@ LT_INIT
 
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
+
+save_LIBS="$LIBS"
+LIBS=
 AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
+CAP_LIBS="$LIBS"
+LIBS="$save_LIBS"
+AC_SUBST(CAP_LIBS)
 
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
