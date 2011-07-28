@@ -1013,6 +1013,8 @@ static void test_cgroups(void) {
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
+        usec_t before_startup, after_startup;
+        char timespan[FORMAT_TIMESPAN_MAX];
         FDSet *fds = NULL;
         bool reexecute = false;
         const char *shutdown_verb = NULL;
@@ -1227,6 +1229,8 @@ int main(int argc, char *argv[]) {
         if (arg_default_controllers)
                 manager_set_default_controllers(m, arg_default_controllers);
 
+        before_startup = now(CLOCK_MONOTONIC);
+
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
 
@@ -1293,6 +1297,10 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         }
+
+        after_startup = now(CLOCK_MONOTONIC);
+        log_debug("Loaded units and determined initial transaction in %s.",
+                  format_timespan(timespan, sizeof(timespan), after_startup - before_startup));
 
         for (;;) {
                 if ((r = manager_loop(m)) < 0) {
