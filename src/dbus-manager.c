@@ -435,8 +435,6 @@ static DBusMessage *message_from_file_changes(
         DBusMessage *reply;
         unsigned i;
 
-        assert(changes);
-
         reply = dbus_message_new_method_return(m);
         if (!reply)
                 return NULL;
