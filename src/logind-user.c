@@ -142,7 +142,7 @@ int user_save(User *u) {
                         fprintf(f,
                                 "%s%c",
                                 i->id,
-                                i->sessions_by_seat_next ? ' ' : '\n');
+                                i->sessions_by_user_next ? ' ' : '\n');
                 }
 
                 fputs("SEATS=", f);
@@ -151,7 +151,7 @@ int user_save(User *u) {
                                 fprintf(f,
                                         "%s%c",
                                         i->seat->id,
-                                        i->sessions_by_seat_next ? ' ' : '\n');
+                                        i->sessions_by_user_next ? ' ' : '\n');
                 }
 
                 fputs("ACTIVE_SESSIONS=", f);
@@ -160,7 +160,7 @@ int user_save(User *u) {
                                 fprintf(f,
                                         "%lu%c",
                                         (unsigned long) i->user->uid,
-                                        i->sessions_by_seat_next ? ' ' : '\n');
+                                        i->sessions_by_user_next ? ' ' : '\n');
 
                 fputs("ACTIVE_SEATS=", f);
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
@@ -168,7 +168,7 @@ int user_save(User *u) {
                                 fprintf(f,
                                         "%s%c",
                                         i->seat->id,
-                                        i->sessions_by_seat_next ? ' ' : '\n');
+                                        i->sessions_by_user_next ? ' ' : '\n');
                 }
         }
 
