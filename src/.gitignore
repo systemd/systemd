@@ -1,3 +1,4 @@
+org.freedesktop.systemd1.policy.in
 99-systemd.rules
 org.freedesktop.hostname1.policy
 org.freedesktop.locale1.policy
