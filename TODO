@@ -200,7 +200,7 @@ Features:
     http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=99ee5315dac6211e972fa3f23bcc9a0343ff58c4
 
 * systemd --user
-  - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
+    PR_SET_CHILD_REAPER patch: https://lkml.org/lkml/2011/7/28/426
 
 * implicitly import "defaults" settings file into all types
 
