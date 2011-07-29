@@ -1,40 +1,34 @@
-* udev-kernel.socket + udev.control.socket seems not
-  to work, udevd is started but no fd is passed
-
-F15:
+Bugfixes:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-F15 External:
-
-* NFS, networkmanager ordering issue (PENDING)
-
 * NM should pull in network.target (PENDING)
   https://bugzilla.redhat.com/show_bug.cgi?id=692008
-
-* bluetooth should be possible to disable (PENDING)
 
 * make anaconda write timeout=0 for encrypted devices
 
 * fix broken Sockets=syslog-ng.socket packaging
 
-Features:
-
-* add profiling to unit loading code
-
-* add gperf support for unit file parsing table
+* logind: ensure ACLs are updated on login and logout
 
 * fix CUPS .path unit for globbing
 
+* service: pid file reading after reload doesn't work, since we don't reset the pid variable
+
+* make sure timeouts are applied to Type=oneshot services.
+
+Features:
+
+* rename systemd-logger to systemd-stdio-syslog-bridge
+
+* file bugs against sysklogd, syslog-ng because of StandardOuput=null
+* turn default stdout/stderr to syslog (after rsyslog got updated)
+
+* add gperf support for unit file parsing table
+
 * move PAM code into its own binary
 
-* logind: ensure ACLs are updated on login and logout
-
 * warn if the user stops a service but not its associated socket
-
-* ensure we always set the facility when logging to kmsg
-
-* service: pid file reading after reload doesn't work, since we don't reset the pid variable
 
 * logind: spawn user@..service on login
 
@@ -49,19 +43,13 @@ Features:
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 
-* kernel: add /proc/sys file exposing CAP_LAST_CAP?
-
-* kernel: add device_type = "fb", "fbcon" to class "graphics"
-
-* understand https://bugzilla.redhat.com/show_bug.cgi?id=672194
-
 * readahead: use BTRFS_IOC_DEFRAG_RANGE instead of BTRFS_IOC_DEFRAG ioctl, with START_IO
 
 * readahead: check whether a btrfs volume includes ssd by checking mount flag "ssd"
 
-* support sd_notify() style notification when reload is finished (RELOADED=1)
+* support sd_notify() style notification when reload begins (RELOADING=1), reload is finished (READY=1)
 
-* support sf_notify() style notification when shutting down, to make auto-exit bus services work
+* support sd_notify() style notification when shutting down, to make auto-exit bus services work (STOPPING=1)
 
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
@@ -72,17 +60,15 @@ Features:
 
 * move nss-myhostname into systemd
 
-* figure out a standard place to configure timezone name, inform myllynen@redhat.com
+* inform myllynen@redhat.com about standard place to configure timezone name,
 
-* add dbus call to convert snapshot into target, and a dbus call to generate target from current state
+* and a dbus call to generate target from current state
 
 * detect LXC with $container=lxc
 
 * drop /.readahead on bigger upgrades with yum
 
-* add inode stat() check to readahead to suppress preloading changed files
-
-* allow list of paths in config_parse_condition_path()
+* add inode nr check to readahead to suppress preloading changed files
 
 * show enablement status in systemctl status
 
@@ -98,8 +84,6 @@ Features:
 
 * cgroup_notify_empty(): recursively check groups up the tree, too
 
-* fix alsa mixer restore to not print error when no config is stored
-
 * when failing to start a service due to ratelimiting, try again later, if restart=always is set
 
 * write blog stories about:
@@ -113,82 +97,34 @@ Features:
 
 * allow port=0 in .socket units
 
-* rename systemd-logger to systemd-stdio-syslog-bridge
-
-* take BSD file lock on tty devices when using them?
-
-* avoid any flag files, or readahead files in /, we need to support r/o /
-  or / on tmpfs like Android setups.
-
 * move readahead files into /var, look for them with .path units
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
+* figure out what happened to bluez patch
 
 * get process transport into dbus for systemctl -P/-H
 
-* document default dependencies
-
-* support systemd.whitelist=/systemd.blacklist= on the kernel command
-  line.
-
-* Find a way to replace /var/run, /var/lock directories with
-  symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
-  (lua code to create symlinks right away for new installations is in filesytem.rpm now)
-  We soon want to get rid of var-run.mount var-lock.mount units:
-    if mountpoint /run ; then
-          umount /var/run || :
-    else
-          mount --move /var/run /run || mount --bind /var/run /run
-    fi
-    mv /var/run /var/.run.save
-    ln -s /run /var/run
-    echo "R /var/.run.save" > /etc/tmpfiles.d/remove-run-save.conf
+* support systemd.mask= on the kernel command line.
 
 * when key file cannot be found, read it from kbd in cryptsetup
-
-* add switch to systemctl to show enabled but not running services. Or
-  another switch that shows service that have been running since
-  booting but aren't running anymore.
 
 * reuse mkdtemp namespace dirs in /tmp?
 
 * recreate systemd's D-Bus private socket file on SIGUSR2
 
-* be more specific what failed:
-    ...
-    Unmounting file systems.
-    Not all file systems unmounted, 1 left.
-    Disabling swaps.
-    Detaching loop devices.
-    Detaching DM devices.
-    Cannot finalize remaining file systems and devices, trying to kill remaining processes.
-    Unmounting file systems.
-    Not all file systems unmounted, 1 left.
-    Cannot finalize remaining file systems and devices, giving up.
-    ...
-
-* check for compiled-in, but not active selinux, and don't print any warnings
-  about policy loading. Probably check for available selinux in /proc/filesystems,
-  and check for active selinux with getcon_raw() == "kernel"
-
 * Support --test based on current system state
 
 * show failure error string in "systemctl status"
 
-* make sure timeouts are applied to Type=oneshot services.
-
 * investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
 
-* need a way to apply mount options of api vfs from systemd unit files
-  (or some other modern source?) instead of fstab?
-
 * maybe introduce ExecRestartPre=
-
-* figure out what happened to bluez patch
 
 * Patch systemd-fsck to use -C and pass console fd to it
 
 * configurable jitter for timer events
+
+* timer evernts with system resume
 
 * Support ProcessNeededForShutdown=true to allow stuff like mdmon to
   be killed very late after the rootfs is read only? If implement pass
@@ -199,13 +135,11 @@ Features:
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
     http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=99ee5315dac6211e972fa3f23bcc9a0343ff58c4
 
-* systemd --user
-    PR_SET_CHILD_REAPER patch: https://lkml.org/lkml/2011/7/28/426
-
 * implicitly import "defaults" settings file into all types
+* exec settings override
+* writable cgroups dbus properties for live changes
 
 * port over to LISTEN_FDS/LISTEN_PID:
-   - uuidd    HAVEPATCH
    - rpcbind (/var/run/rpcbind.sock!) HAVEPATCH
    - cups     HAVEPATCH
    - postfix, saslauthd
@@ -214,29 +148,30 @@ Features:
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
    - distccd
 
-* fingerprint.target, wireless.target, gps.target, netdevice.target
+* auditd service files
 
-* set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
+* fingerprint.target, wireless.target, gps.target, netdevice.target
 
 * io priority during initialization
 
 * if a service fails too often, make the service enter failed mode, and the socket, too.
 
-* systemctl list-jobs - show dependencies
+* new deps "Triggers" and "TriggeredBy"
 
-* auditd service files
+* systemctl list-jobs - show dependencies
 
 * add systemctl switch to dump transaction without executing it
 
 * suspend, resume support?
 
-* readahead: btrfs/LVM SSD detection
-
-* allow runtime changing of log level and target
-
 * drop cap bounding set in readahead and other services
 
 External:
+
+* systemd --user
+    PR_SET_CHILD_REAPER patch: https://lkml.org/lkml/2011/7/28/426
+
+* fix alsa mixer restore to not print error when no config is stored
 
 * udisks should not use udisks-part-id, instead use blkid. also not probe /dev/loopxxx
 
@@ -252,26 +187,9 @@ External:
     http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match
   (Rafael J. Wysocki's sysdev rework is on the way. After that CPUs can be exported a proper bus.)
 
-* procps, psmisc, sysvinit-tools, hostname → util-linux-ng
+* kernel: add /proc/sys file exposing CAP_LAST_CAP? sysconf?
 
-https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
-https://bugzilla.redhat.com/show_bug.cgi?id=612789 -- umount /cgroup on halt
-https://bugzilla.redhat.com/show_bug.cgi?id=612728 -- /etc/rc.d/init.d/functions
-https://bugzilla.redhat.com/show_bug.cgi?id=612712 -- pam_systemd
-https://bugs.freedesktop.org/show_bug.cgi?id=29193 -- accountsservice
-https://bugs.freedesktop.org/show_bug.cgi?id=29194 -- ConsoleKit
-https://bugs.freedesktop.org/show_bug.cgi?id=29205 -- udisks
-http://article.gmane.org/gmane.linux.bluez.kernel/6479 -- bluez
-http://www.spinics.net/lists/linux-nfs/msg14371.html -- rpcbind
-https://bugzilla.redhat.com/show_bug.cgi?id=617328 -- ntp
-https://bugzilla.redhat.com/show_bug.cgi?id=617320 -- at
-https://bugzilla.redhat.com/show_bug.cgi?id=617326 -- fprintd
-https://bugzilla.redhat.com/show_bug.cgi?id=617333 -- yum
-https://bugzilla.redhat.com/show_bug.cgi?id=617317 -- acpid
-https://bugzilla.redhat.com/show_bug.cgi?id=617327 -- gpm
-https://bugzilla.redhat.com/show_bug.cgi?id=617330 -- pcsc-lite
-https://bugzilla.redhat.com/show_bug.cgi?id=617321 -- audit
-https://bugzilla.redhat.com/show_bug.cgi?id=617316 -- abrt
+* kernel: add device_type = "fb", "fbcon" to class "graphics"
 
 Regularly:
 
@@ -285,4 +203,4 @@ Regularly:
 
 * pahole
 
-* CFLAGS="-Wl,--gc-sections -Wl,--print-gc-sections -ffunction-sections -fdata-sections"
+* set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
