@@ -32,7 +32,8 @@
  *
  * Free the data we return with libc free().
  *
- * We return error codes as negative errno, kernel-style.
+ * We return error codes as negative errno, kernel-style. 0 or
+ * positive on success.
  *
  * These functions access data in /proc, /sys/fs/cgroup and /run. All
  * of these are virtual file systems, hence the accesses are
@@ -59,12 +60,14 @@ int sd_uid_get_state(uid_t uid, char**state);
  * look for active sessions only. */
 int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat);
 
-/* Return sessions of user. If require_active is true will look
- * for active sessions only. */
+/* Return sessions of user. If require_active is true will look for
+ * active sessions only. Returns number of sessions as return
+ * value. If sessions is NULL will just return number of sessions. */
 int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions);
 
 /* Return seats of user is on. If require_active is true will look for
- * active seats only.  */
+ * active seats only.  Returns number of seats. If seats is NULL will
+ * just return number of seats.*/
 int sd_uid_get_seats(uid_t uid, int require_active, char ***seats);
 
 /* Return 1 if the session is a active */
@@ -79,19 +82,24 @@ int sd_session_get_seat(const char *session, char **seat);
 /* Return active session and user of seat */
 int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 
-/* Return sessions and users on seat */
+/* Return sessions and users on seat. Returns number of sessions as
+ * return value. If sessions is NULL returs only the number of
+ * sessions. */
 int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsigned *n_uids);
 
 /* Return whether the seat is multi-session capable */
 int sd_seat_can_multi_session(const char *seat);
 
-/* Get all seats */
+/* Get all seats, store in *seats. Returns the number of seats. If
+ * seats is NULL only returns number of seats. */
 int sd_get_seats(char ***seats);
 
-/* Get all sessions */
+/* Get all sessions, store in *seessions. Returns the number of
+ * sessions. If sessions is NULL only returns number of sessions. */
 int sd_get_sessions(char ***sessions);
 
-/* Get all logged in users */
+/* Get all logged in users, store in *users. Returns the number of
+ * users. If users is NULL only returns the number of users. */
 int sd_get_uids(uid_t **users);
 
 /* Monitor object */

@@ -48,17 +48,23 @@ int main(int argc, char* argv[]) {
 
         r = sd_uid_get_sessions(u2, false, &sessions);
         assert_se(r >= 0);
+        assert_se(r == (int) strv_length(sessions));
         assert_se(t = strv_join(sessions, ", "));
         strv_free(sessions);
         printf("sessions = %s\n", t);
         free(t);
 
+        assert_se(r == sd_uid_get_sessions(u2, false, NULL));
+
         r = sd_uid_get_seats(u2, false, &seats);
         assert_se(r >= 0);
+        assert_se(r == (int) strv_length(seats));
         assert_se(t = strv_join(seats, ", "));
         strv_free(seats);
         printf("seats = %s\n", t);
         free(t);
+
+        assert_se(r == sd_uid_get_seats(u2, false, NULL));
 
         r = sd_session_is_active(session);
         assert_se(r >= 0);
@@ -88,7 +94,10 @@ int main(int argc, char* argv[]) {
         printf("session2 = %s\n", session2);
         printf("uid2 = %lu\n", (unsigned long) u2);
 
-        assert_se(sd_seat_get_sessions(seat, &sessions, &uids, &n) >= 0);
+        r = sd_seat_get_sessions(seat, &sessions, &uids, &n);
+        assert_se(r >= 0);
+        printf("n_sessions = %i\n", r);
+        assert_se(r == (int) strv_length(sessions));
         assert_se(t = strv_join(sessions, ", "));
         strv_free(sessions);
         printf("sessions = %s\n", t);
@@ -99,22 +108,34 @@ int main(int argc, char* argv[]) {
         printf("\n");
         free(uids);
 
+        assert_se(sd_seat_get_sessions(seat, NULL, NULL, NULL) == r);
+
         free(session);
         free(state);
         free(session2);
         free(seat);
 
-        assert_se(sd_get_seats(&seats) >= 0);
+        r = sd_get_seats(&seats);
+        assert_se(r >= 0);
+        assert_se(r == (int) strv_length(seats));
         assert_se(t = strv_join(seats, ", "));
         strv_free(seats);
+        printf("n_seats = %i\n", r);
         printf("seats = %s\n", t);
         free(t);
 
-        assert_se(sd_get_sessions(&sessions) >= 0);
+        assert_se(sd_get_seats(NULL) == r);
+
+        r = sd_get_sessions(&sessions);
+        assert_se(r >= 0);
+        assert_se(r == (int) strv_length(sessions));
         assert_se(t = strv_join(sessions, ", "));
         strv_free(sessions);
+        printf("n_sessions = %i\n", r);
         printf("sessions = %s\n", t);
         free(t);
+
+        assert_se(sd_get_sessions(NULL) == r);
 
         r = sd_get_uids(&uids);
         assert_se(r >= 0);
@@ -123,25 +144,27 @@ int main(int argc, char* argv[]) {
         for (k = 0; k < r; k++)
                 printf(" %lu", (unsigned long) uids[k]);
         printf("\n");
-
         free(uids);
 
-        r = sd_login_monitor_new("session", &m);
-        assert_se(r >= 0);
+        printf("n_uids = %i\n", r);
+        assert_se(sd_get_uids(NULL) == r);
 
-        zero(pollfd);
-        pollfd.fd = sd_login_monitor_get_fd(m);
-        pollfd.events = POLLIN;
+        /* r = sd_login_monitor_new("session", &m); */
+        /* assert_se(r >= 0); */
 
-        for (n = 0; n < 5; n++) {
-                r = poll(&pollfd, 1, -1);
-                assert_se(r >= 0);
+        /* zero(pollfd); */
+        /* pollfd.fd = sd_login_monitor_get_fd(m); */
+        /* pollfd.events = POLLIN; */
 
-                sd_login_monitor_flush(m);
-                printf("Wake!\n");
-        }
+        /* for (n = 0; n < 5; n++) { */
+        /*         r = poll(&pollfd, 1, -1); */
+        /*         assert_se(r >= 0); */
 
-        sd_login_monitor_unref(m);
+        /*         sd_login_monitor_flush(m); */
+        /*         printf("Wake!\n"); */
+        /* } */
+
+        /* sd_login_monitor_unref(m); */
 
         return 0;
 }

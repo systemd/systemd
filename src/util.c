@@ -5432,7 +5432,10 @@ int get_files_in_directory(const char *path, char ***list) {
         char **l = NULL;
 
         assert(path);
-        assert(list);
+
+        /* Returns all files in a directory in *list, and the number
+         * of files as return value. If list is NULL returns only the
+         * number */
 
         d = opendir(path);
         for (;;) {
@@ -5453,37 +5456,41 @@ int get_files_in_directory(const char *path, char ***list) {
                 if (!dirent_is_file(de))
                         continue;
 
-                if ((unsigned) r >= n) {
-                        char **t;
+                if (list) {
+                        if ((unsigned) r >= n) {
+                                char **t;
 
-                        n = MAX(16, 2*r);
-                        t = realloc(l, sizeof(char*) * n);
-                        if (!t) {
+                                n = MAX(16, 2*r);
+                                t = realloc(l, sizeof(char*) * n);
+                                if (!t) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                l = t;
+                        }
+
+                        assert((unsigned) r < n);
+
+                        l[r] = strdup(de->d_name);
+                        if (!l[r]) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
 
-                        l = t;
-                }
-
-                assert((unsigned) r < n);
-
-                l[r] = strdup(de->d_name);
-                if (!l[r]) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                l[++r] = NULL;
+                        l[++r] = NULL;
+                } else
+                        r++;
         }
 
 finish:
         if (d)
                 closedir(d);
 
-        if (r >= 0)
-                *list = l;
-        else
+        if (r >= 0) {
+                if (list)
+                        *list = l;
+        } else
                 strv_free(l);
 
         return r;

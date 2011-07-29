@@ -251,9 +251,6 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         char **a;
         int r;
 
-        if (!array)
-                return -EINVAL;
-
         if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) uid) < 0)
                 return -ENOMEM;
 
@@ -266,7 +263,8 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
                 free(s);
 
                 if (r == -ENOENT) {
-                        *array = NULL;
+                        if (array)
+                                *array = NULL;
                         return 0;
                 }
 
@@ -274,7 +272,8 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         }
 
         if (!s) {
-                *array = NULL;
+                if (array)
+                        *array = NULL;
                 return 0;
         }
 
@@ -284,8 +283,15 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         if (!a)
                 return -ENOMEM;
 
-        *array = a;
-        return 0;
+        strv_uniq(a);
+        r = strv_length(a);
+
+        if (array)
+                *array = a;
+        else
+                strv_free(a);
+
+        return r;
 }
 
 _public_ int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions) {
@@ -445,9 +451,6 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         if (!seat)
                 return -EINVAL;
 
-        if (!sessions && !uids)
-                return -EINVAL;
-
         p = strappend("/run/systemd/seats/", seat);
         if (!p)
                 return -ENOMEM;
@@ -464,7 +467,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
                 return r;
         }
 
-        if (sessions && s) {
+        if (s) {
                 a = strv_split(s, " ");
                 if (!a) {
                         free(s);
@@ -510,8 +513,12 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
 
         free(t);
 
+        r = strv_length(a);
+
         if (sessions)
                 *sessions = a;
+        else
+                strv_free(a);
 
         if (uids)
                 *uids = b;
@@ -519,7 +526,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         if (n_uids)
                 *n_uids = n;
 
-        return 0;
+        return r;
 }
 
 _public_ int sd_seat_can_multi_session(const char *seat) {
@@ -553,18 +560,10 @@ _public_ int sd_seat_can_multi_session(const char *seat) {
 }
 
 _public_ int sd_get_seats(char ***seats) {
-
-        if (!seats)
-                return -EINVAL;
-
         return get_files_in_directory("/run/systemd/seats/", seats);
 }
 
 _public_ int sd_get_sessions(char ***sessions) {
-
-        if (!sessions)
-                return -EINVAL;
-
         return get_files_in_directory("/run/systemd/sessions/", sessions);
 }
 
@@ -573,9 +572,6 @@ _public_ int sd_get_uids(uid_t **users) {
         int r = 0;
         unsigned n = 0;
         uid_t *l = NULL;
-
-        if (!users)
-                return -EINVAL;
 
         d = opendir("/run/systemd/users/");
         for (;;) {
@@ -601,30 +597,34 @@ _public_ int sd_get_uids(uid_t **users) {
                 if (k < 0)
                         continue;
 
-                if ((unsigned) r >= n) {
-                        uid_t *t;
+                if (users) {
+                        if ((unsigned) r >= n) {
+                                uid_t *t;
 
-                        n = MAX(16, 2*r);
-                        t = realloc(l, sizeof(uid_t) * n);
-                        if (!t) {
-                                r = -ENOMEM;
-                                goto finish;
+                                n = MAX(16, 2*r);
+                                t = realloc(l, sizeof(uid_t) * n);
+                                if (!t) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                l = t;
                         }
 
-                        l = t;
-                }
-
-                assert((unsigned) r < n);
-                l[r++] = uid;
+                        assert((unsigned) r < n);
+                        l[r++] = uid;
+                } else
+                        r++;
         }
 
 finish:
         if (d)
                 closedir(d);
 
-        if (r >= 0)
-                *users = l;
-        else
+        if (r >= 0) {
+                if (users)
+                        *users = l;
+        } else
                 free(l);
 
         return r;
