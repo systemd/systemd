@@ -133,8 +133,8 @@ static int mount_all(const char *dest) {
                 { "/dev/pts",  "/dev/pts",  "bind",  NULL,       MS_BIND,                      true  },
                 { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV,           true  },
 #ifdef HAVE_SELINUX
-                { "/selinux",  "/selinux",  "bind",  NULL,       MS_BIND,                      false },  /* Bind mount first */
-                { "/selinux",  "/selinux",  "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
+                { "/sys/fs/selinux", "/sys/fs/selinux", "bind", NULL, MS_BIND,                      false },  /* Bind mount first */
+                { "/sys/fs/selinux", "/sys/fs/selinux", "bind", NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
 #endif
         };
 
