@@ -2452,7 +2452,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                                 if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &ignore, false) >= 0)
-                                        printf("EnvironmentFile=%s (ignore=%s)\n", path, yes_no(ignore));
+                                        printf("EnvironmentFile=%s (ignore_errors=%s)\n", path, yes_no(ignore));
 
                                 dbus_message_iter_next(&sub);
                         }
@@ -2517,7 +2517,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                                         t = strv_join(info.argv, " ");
 
-                                        printf("%s={ path=%s ; argv[]=%s ; ignore=%s ; start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
+                                        printf("%s={ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
                                                name,
                                                strna(info.path),
                                                strna(t),
