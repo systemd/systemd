@@ -229,6 +229,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
 
 	switch (device_type) {
 	case TYPE_FAILED:
+		err(udev, "--type=failed is deprecated and will be removed from a future udev release.\n");
 		scan_failed(udev_enumerate);
 		exec_list(udev_enumerate, action);
 		goto exit;
