@@ -127,7 +127,7 @@
                 directories are removed and created according to the
                 configuration file:</para>
 
-                <programlisting>systemctl-tmpfiles --remove --create</programlisting>
+                <programlisting>systemd-tmpfiles --remove --create</programlisting>
 
         </refsect1>
 
