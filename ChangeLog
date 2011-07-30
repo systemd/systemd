@@ -1,3 +1,33 @@
+Summary of changes from v172 to v173
+============================================
+
+Allin Cottrell (1):
+      configure: allow to disable mtd_probe
+
+Kay Sievers (15):
+      make: fix 'make tar-sync'
+      udevd: use 'uptime' in debug timestamp
+      udevd: fix (recently) broken static node permission setting
+      rules: mount fuse filesystem only 'add'
+      udevadm: move udevadm command descriptions into their files
+      udev-acl: skip ACLs when systemd is running, disable by default
+      do not delete database when renaming netif, the db name does not change anymore
+      do not allow kernel properties to be set by udev rules
+      configure: reorder options
+      rules: input - do not create (broken) links for bluetooth devices
+      rules: serial - do not export ID_PORT, use ID_USB_INTERFACE_NUM
+      rules: sound - instead of ID_IFACE use standard ID_USB_INTERFACE_NUM
+      keymap: do not run usb_id for bluetooth devices
+      udevadm: trigger --type=failed - log deprecation warning
+      udevd: debug - put timestamp in []
+
+Martin Pitt (4):
+      gudev: Ship JavaScript examples
+      scsi_id: Ship README
+      Remove obsolete extras/scsi_id/scsi_id.config
+      keymap: Only run on key devices
+
+
 Summary of changes from v171 to v172
 ============================================
 

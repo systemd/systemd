@@ -1,3 +1,12 @@
+udev 173
+========
+Bugfixes.
+
+The udev-acl extra is no longer enabled by default now. To enable it,
+--enable-udev_acl needs to be given at ./configure time. On systemd
+systems, the udev-acl rules prevent it from running as the functionality
+has moved to systemd.
+
 udev 172
 ========
 Bugfixes.

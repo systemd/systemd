@@ -1,6 +1,6 @@
 AC_PREREQ(2.60)
 AC_INIT([udev],
-	[172],
+	[173],
 	[linux-hotplug@vger.kernel.org],
 	[udev],
 	[http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev.html])
