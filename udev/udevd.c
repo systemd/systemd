@@ -59,7 +59,7 @@ static void log_fn(struct udev *udev, int priority,
 
 		vsnprintf(buf, sizeof(buf), format, args);
 		clock_gettime(CLOCK_MONOTONIC, &ts);
-		fprintf(stderr, "%llu.%06u [%u] %s: %s",
+		fprintf(stderr, "[%llu.%06u] [%u] %s: %s",
 			(unsigned long long) ts.tv_sec, (unsigned int) ts.tv_nsec/1000,
 			(int) getpid(), fn, buf);
 	} else {
