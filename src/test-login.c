@@ -149,22 +149,22 @@ int main(int argc, char* argv[]) {
         printf("n_uids = %i\n", r);
         assert_se(sd_get_uids(NULL) == r);
 
-        /* r = sd_login_monitor_new("session", &m); */
-        /* assert_se(r >= 0); */
+        r = sd_login_monitor_new("session", &m);
+        assert_se(r >= 0);
 
-        /* zero(pollfd); */
-        /* pollfd.fd = sd_login_monitor_get_fd(m); */
-        /* pollfd.events = POLLIN; */
+        zero(pollfd);
+        pollfd.fd = sd_login_monitor_get_fd(m);
+        pollfd.events = POLLIN;
 
-        /* for (n = 0; n < 5; n++) { */
-        /*         r = poll(&pollfd, 1, -1); */
-        /*         assert_se(r >= 0); */
+        for (n = 0; n < 5; n++) {
+                r = poll(&pollfd, 1, -1);
+                assert_se(r >= 0);
 
-        /*         sd_login_monitor_flush(m); */
-        /*         printf("Wake!\n"); */
-        /* } */
+                sd_login_monitor_flush(m);
+                printf("Wake!\n");
+        }
 
-        /* sd_login_monitor_unref(m); */
+        sd_login_monitor_unref(m);
 
         return 0;
 }
