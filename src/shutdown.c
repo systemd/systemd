@@ -384,9 +384,12 @@ int main(int argc, char *argv[]) {
                                 log_error("Failed to detach DM devices: %s", strerror(-r));
                 }
 
-                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach)
+                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach) {
+                        if (retries > 0)
+                                log_info("All filesystems, swaps, loop devices, DM devices detached.");
                         /* Yay, done */
                         break;
+                }
 
                 /* If in this iteration we didn't manage to
                  * unmount/deactivate anything, we either kill more
