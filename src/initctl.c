@@ -165,7 +165,24 @@ static void request_process(Server *s, const struct init_request *req) {
                 if (!isprint(req->runlevel))
                         log_error("Got invalid runlevel. Ignoring.");
                 else
-                        change_runlevel(s, req->runlevel);
+                        switch (req->runlevel) {
+
+                        /* we are async anyway, so just use kill for reexec/reload */
+                        case 'u':
+                        case 'U':
+                                if (kill(1, SIGTERM) < 0)
+                                        log_error("kill() failed: %m");
+                                break;
+
+                        case 'q':
+                        case 'Q':
+                                if (kill(1, SIGHUP) < 0)
+                                        log_error("kill() failed: %m");
+                                break;
+
+                        default:
+                                change_runlevel(s, req->runlevel);
+                        }
                 return;
 
         case INIT_CMD_POWERFAIL:
