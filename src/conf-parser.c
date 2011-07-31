@@ -131,8 +131,12 @@ static int next_assignment(
         if (r < 0)
                 return r;
 
-        if (func)
-                return func(filename, line, section, lvalue, ltype, rvalue, data, userdata);
+        if (r > 0) {
+                if (func)
+                        return func(filename, line, section, lvalue, ltype, rvalue, data, userdata);
+
+                return 0;
+        }
 
         /* Warn about unknown non-extension fields. */
         if (!relaxed && !startswith(lvalue, "X-"))
