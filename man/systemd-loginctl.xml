@@ -226,8 +226,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>lock [ID...]</command></term>
-                                <term><command>unlock [ID...]</command></term>
+                                <term><command>lock-session [ID...]</command></term>
+                                <term><command>unlock-session [ID...]</command></term>
 
                                 <listitem><para>Activates/deactivates
                                 the screen lock on one or more
