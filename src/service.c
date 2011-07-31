@@ -2988,7 +2988,8 @@ static int service_enumerate(Manager *m) {
 
                         free(path);
                         path = NULL;
-                        if (asprintf(&path, "%s/%s", *p, rcnd_table[i].path) < 0) {
+                        path = join(*p, "/", rcnd_table[i].path, NULL);
+                        if (!path) {
                                 r = -ENOMEM;
                                 goto finish;
                         }

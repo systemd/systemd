@@ -482,12 +482,25 @@ finish:
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs) {
         const char *p;
-        char *mp;
-        int r;
+        char *t;
         static __thread bool good = false;
 
         assert(controller);
         assert(fs);
+
+        if (!good) {
+                int r;
+
+                r = path_is_mount_point("/sys/fs/cgroup");
+                if (r <= 0)
+                        return r < 0 ? r : -ENOENT;
+
+                /* Cache this to save a few stat()s */
+                good = true;
+        }
+
+        if (isempty(controller))
+                return -EINVAL;
 
         /* This is a very minimal lookup from controller names to
          * paths. Since we have mounted most hierarchies ourselves
@@ -502,34 +515,22 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         else
                 p = controller;
 
-        if (asprintf(&mp, "/sys/fs/cgroup/%s", p) < 0)
+        if (path && suffix)
+                t = join("/sys/fs/cgroup/", p, "/", path, "/", suffix, NULL);
+        else if (path)
+                t = join("/sys/fs/cgroup/", p, "/", path, NULL);
+        else if (suffix)
+                t = join("/sys/fs/cgroup/", p, "/", suffix, NULL);
+        else
+                t = join("/sys/fs/cgroup/", p, NULL);
+
+        if (!t)
                 return -ENOMEM;
 
-        if (!good) {
-                if ((r = path_is_mount_point(mp)) <= 0) {
-                        free(mp);
-                        return r < 0 ? r : -ENOENT;
-                }
+        path_kill_slashes(t);
 
-                /* Cache this to save a few stat()s */
-                good = true;
-        }
-
-        if (path && suffix)
-                r = asprintf(fs, "%s/%s/%s", mp, path, suffix);
-        else if (path)
-                r = asprintf(fs, "%s/%s", mp, path);
-        else if (suffix)
-                r = asprintf(fs, "%s/%s", mp, suffix);
-        else {
-                path_kill_slashes(mp);
-                *fs = mp;
-                return 0;
-        }
-
-        free(mp);
-        path_kill_slashes(*fs);
-        return r < 0 ? -ENOMEM : 0;
+        *fs = t;
+        return 0;
 }
 
 int cg_trim(const char *controller, const char *path, bool delete_root) {

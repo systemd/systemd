@@ -167,8 +167,6 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
 }
 
 char *unit_name_build(const char *prefix, const char *instance, const char *suffix) {
-        char *r;
-
         assert(prefix);
         assert(unit_prefix_is_valid(prefix));
         assert(!instance || unit_instance_is_valid(instance));
@@ -177,10 +175,7 @@ char *unit_name_build(const char *prefix, const char *instance, const char *suff
         if (!instance)
                 return strappend(prefix, suffix);
 
-        if (asprintf(&r, "%s@%s%s", prefix, instance, suffix) < 0)
-                return NULL;
-
-        return r;
+        return join(prefix, "@", instance, suffix, NULL);
 }
 
 static char* do_escape(const char *f, char *t) {
