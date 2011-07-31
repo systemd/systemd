@@ -78,7 +78,8 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
         assert(name);
         assert(suffix);
 
-        if (asprintf(&path, "%s/%s%s", unit_path, name, suffix) < 0)
+        path = join(unit_path, "/", name, suffix, NULL);
+        if (!path)
                 return -ENOMEM;
 
         if (u->meta.manager->unit_path_cache &&

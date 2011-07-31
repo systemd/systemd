@@ -105,7 +105,6 @@ char **strv_new_ap(const char *x, va_list ap) {
         unsigned n = 0, i = 0;
         va_list aq;
 
-
         if (x) {
                 n = 1;
 

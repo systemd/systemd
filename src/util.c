@@ -5493,6 +5493,54 @@ finish:
         return r;
 }
 
+char *join(const char *x, ...) {
+        va_list ap;
+        size_t l;
+        char *r, *p;
+
+        va_start(ap, x);
+
+        if (x) {
+                l = strlen(x);
+
+                for (;;) {
+                        const char *t;
+
+                        t = va_arg(ap, const char *);
+                        if (!t)
+                                break;
+
+                        l += strlen(t);
+                }
+        } else
+                l = 0;
+
+        va_end(ap);
+
+        r = new(char, l+1);
+        if (!r)
+                return NULL;
+
+        if (x) {
+                p = stpcpy(r, x);
+
+                va_start(ap, x);
+
+                for (;;) {
+                        const char *t;
+
+                        t = va_arg(ap, const char *);
+                        if (!t)
+                                break;
+
+                        p = stpcpy(p, t);
+                }
+        } else
+                r[0] = 0;
+
+        return r;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

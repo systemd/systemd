@@ -458,6 +458,8 @@ int dirent_ensure_type(DIR *d, struct dirent *de);
 int in_search_path(const char *path, char **search);
 int get_files_in_directory(const char *path, char ***list);
 
+char *join(const char *x, ...) _sentinel_;
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
