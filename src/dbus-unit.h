@@ -85,6 +85,7 @@
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SubState\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"FragmentPath\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"UnitFileState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InactiveExitTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"InactiveExitTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -144,6 +145,7 @@
         { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "SubState",             bus_unit_append_sub_state,      "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,     "s",    u->meta.fragment_path             }, \
+        { "org.freedesktop.systemd1.Unit", "UnitFileState",        bus_unit_append_file_state,     "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "InactiveExitTimestamp",bus_property_append_usec,       "t",    &u->meta.inactive_exit_timestamp.realtime }, \
         { "org.freedesktop.systemd1.Unit", "InactiveExitTimestampMonotonic",bus_property_append_usec, "t", &u->meta.inactive_exit_timestamp.monotonic }, \
         { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_usec,       "t",    &u->meta.active_enter_timestamp.realtime }, \
@@ -181,6 +183,7 @@ int bus_unit_append_description(DBusMessageIter *i, const char *property, void *
 int bus_unit_append_load_state(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_active_state(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_sub_state(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_file_state(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_can_start(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_can_stop(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_can_reload(DBusMessageIter *i, const char *property, void *data);

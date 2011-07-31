@@ -145,6 +145,22 @@ int bus_unit_append_sub_state(DBusMessageIter *i, const char *property, void *da
         return 0;
 }
 
+int bus_unit_append_file_state(DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *state;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        state = strempty(unit_file_state_to_string(unit_get_unit_file_state(u)));
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &state))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_unit_append_can_start(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;

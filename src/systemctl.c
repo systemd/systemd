@@ -1962,6 +1962,7 @@ typedef struct UnitStatusInfo {
         const char *load_state;
         const char *active_state;
         const char *sub_state;
+        const char *unit_file_state;
 
         const char *description;
         const char *following;
@@ -2043,6 +2044,8 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->load_error)
                 printf("\t  Loaded: %s%s%s (Reason: %s)\n", on, strna(i->load_state), off, i->load_error);
+        else if (i->path && i->unit_file_state)
+                printf("\t  Loaded: %s%s%s (%s; %s)\n", on, strna(i->load_state), off, i->path, i->unit_file_state);
         else if (i->path)
                 printf("\t  Loaded: %s%s%s (%s)\n", on, strna(i->load_state), off, i->path);
         else
@@ -2285,6 +2288,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->what = s;
                         else if (streq(name, "Following"))
                                 i->following = s;
+                        else if (streq(name, "UnitFileState"))
+                                i->unit_file_state = s;
                 }
 
                 break;

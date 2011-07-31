@@ -39,6 +39,7 @@ typedef enum UnitDependency UnitDependency;
 #include "socket-util.h"
 #include "execute.h"
 #include "condition.h"
+#include "install.h"
 
 enum UnitType {
         UNIT_SERVICE = 0,
@@ -191,6 +192,9 @@ struct Meta {
 
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
+
+        /* Cached unit file state */
+        UnitFileState unit_file_state;
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
@@ -522,6 +526,8 @@ bool unit_name_is_valid(const char *n, bool template_ok);
 void unit_trigger_on_failure(Unit *u);
 
 bool unit_condition_test(Unit *u);
+
+UnitFileState unit_get_unit_file_state(Unit *u);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

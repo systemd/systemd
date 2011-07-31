@@ -73,6 +73,7 @@ Unit *unit_new(Manager *m) {
         u->meta.type = _UNIT_TYPE_INVALID;
         u->meta.deserialized_job = _JOB_TYPE_INVALID;
         u->meta.default_dependencies = true;
+        u->meta.unit_file_state = _UNIT_FILE_STATE_INVALID;
 
         return u;
 }
@@ -2480,6 +2481,17 @@ int unit_following_set(Unit *u, Set **s) {
 
         *s = NULL;
         return 0;
+}
+
+UnitFileState unit_get_unit_file_state(Unit *u) {
+        assert(u);
+
+        if (u->meta.unit_file_state < 0 && u->meta.fragment_path)
+                u->meta.unit_file_state = unit_file_get_state(
+                                u->meta.manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                NULL, file_name_from_path(u->meta.fragment_path));
+
+        return u->meta.unit_file_state;
 }
 
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
