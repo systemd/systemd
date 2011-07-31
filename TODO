@@ -19,6 +19,12 @@ Bugfixes:
 
 Features:
 
+* generator dir is 666?
+
+* set access mode of /run/systemd/{private,notify} to 666, not 777
+
+* unify access mode of /run/systemd/readahead/{done,share}
+
 * rename systemd-logger to systemd-stdio-syslog-bridge
 
 * file bugs against sysklogd, syslog-ng because of StandardOuput=null
