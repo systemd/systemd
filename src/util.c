@@ -1411,21 +1411,18 @@ int reset_all_signal_handlers(void) {
 }
 
 char *strstrip(char *s) {
-        char *e, *l = NULL;
+        char *e;
 
         /* Drops trailing whitespace. Modifies the string in
          * place. Returns pointer to first non-space character */
 
         s += strspn(s, WHITESPACE);
 
-        for (e = s; *e; e++)
-                if (!strchr(WHITESPACE, *e))
-                        l = e;
+        for (e = strchr(s, 0); e > s; e --)
+                if (!strchr(WHITESPACE, e[-1]))
+                        break;
 
-        if (l)
-                *(l+1) = 0;
-        else
-                *s = 0;
+        *e = 0;
 
         return s;
 }
