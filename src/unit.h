@@ -263,6 +263,10 @@ union Unit {
 struct UnitVTable {
         const char *suffix;
 
+        /* Config file sections this unit type understands, separated
+         * by NUL chars */
+        const char *sections;
+
         /* This should reset all type-specific variables. This should
          * not allocate memory, and is called with zero-initialized
          * data. It should hence only initialize variables that need

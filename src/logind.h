@@ -122,4 +122,7 @@ DBusHandlerResult bus_message_filter(DBusConnection *c, DBusMessage *message, vo
 
 int manager_send_changed(Manager *manager, const char *properties);
 
+/* gperf lookup function */
+const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned length);
+
 #endif

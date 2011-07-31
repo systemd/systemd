@@ -1339,6 +1339,10 @@ DEFINE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand);
 
 const UnitVTable swap_vtable = {
         .suffix = ".swap",
+        .sections =
+                "Unit\0"
+                "Swap\0"
+                "Install\0",
 
         .no_alias = true,
         .no_instances = true,

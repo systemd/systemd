@@ -601,6 +601,10 @@ libsystemd_core_la_SOURCES = \
         src/sd-daemon.c \
         src/install.c
 
+nodist_libsystemd_core_la_SOURCES = \
+        src/load-fragment-gperf.c \
+        src/load-fragment-gperf-nulstr.c
+
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
@@ -966,6 +970,9 @@ systemd_logind_SOURCES = \
         src/dbus-loop.c \
         src/cgroup-util.c \
         src/polkit.c
+
+nodist_systemd_logind_SOURCES = \
+        src/logind-gperf.c
 
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1486,13 +1493,25 @@ src/%.policy.in: src/%.policy.in.in Makefile
 src/%.rules: src/%.rules.in Makefile
 	$(SED_PROCESS)
 
+src/%.c: src/%.gperf
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(GPERF) < $< > $@
+
+src/%: src/%.m4
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(M4) -P $(M4_DEFINES) < $< > $@ || rm $@
+
+src/load-fragment-gperf-nulstr.c: src/load-fragment-gperf.gperf
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+        $(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@ || rm $@
+
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@ || rm $@
 
 M4_PROCESS_USER = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_USER=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@ || rm $@
 
 units/%: units/%.m4 Makefile
 	$(M4_PROCESS_SYSTEM)

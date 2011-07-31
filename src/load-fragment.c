@@ -45,7 +45,7 @@
 #include "bus-errors.h"
 
 #ifndef HAVE_SYSV_COMPAT
-static int config_parse_warn_compat(
+int config_parse_warn_compat(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -60,7 +60,7 @@ static int config_parse_warn_compat(
 }
 #endif
 
-static int config_parse_deps(
+int config_parse_unit_deps(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -70,7 +70,7 @@ static int config_parse_deps(
                 void *data,
                 void *userdata) {
 
-        UnitDependency d = PTR_TO_UINT(data);
+        UnitDependency d = ltype;
         Unit *u = userdata;
         char *w;
         size_t l;
@@ -107,7 +107,7 @@ static int config_parse_deps(
         return 0;
 }
 
-static int config_parse_names(
+int config_parse_unit_names(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -154,7 +154,7 @@ static int config_parse_names(
         return 0;
 }
 
-static int config_parse_string_printf(
+int config_parse_unit_string_printf(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -188,7 +188,7 @@ static int config_parse_string_printf(
         return 0;
 }
 
-static int config_parse_strv_printf(
+int config_parse_unit_strv_printf(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -217,7 +217,7 @@ static int config_parse_strv_printf(
         return r;
 }
 
-static int config_parse_path_printf(
+int config_parse_unit_path_printf(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -254,7 +254,7 @@ static int config_parse_path_printf(
         return 0;
 }
 
-static int config_parse_listen(
+int config_parse_socket_listen(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -365,7 +365,7 @@ static int config_parse_listen(
         return 0;
 }
 
-static int config_parse_socket_bind(
+int config_parse_socket_bind(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -400,7 +400,7 @@ static int config_parse_socket_bind(
         return 0;
 }
 
-static int config_parse_nice(
+int config_parse_exec_nice(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -434,7 +434,7 @@ static int config_parse_nice(
         return 0;
 }
 
-static int config_parse_oom_score_adjust(
+int config_parse_exec_oom_score_adjust(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -468,42 +468,7 @@ static int config_parse_oom_score_adjust(
         return 0;
 }
 
-static int config_parse_mode(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        mode_t *m = data;
-        long l;
-        char *x = NULL;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        errno = 0;
-        l = strtol(rvalue, &x, 8);
-        if (!x || *x || errno) {
-                log_error("[%s:%u] Failed to parse mode value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (l < 0000 || l > 07777) {
-                log_error("[%s:%u] mode value out of range, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        *m = (mode_t) l;
-        return 0;
-}
-
-static int config_parse_exec(
+int config_parse_exec(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -525,6 +490,8 @@ static int config_parse_exec(
         /* We accept an absolute path as first argument, or
          * alternatively an absolute prefixed with @ to allow
          * overriding of argv[0]. */
+
+        e += ltype;
 
         for (;;) {
                 char *w;
@@ -621,35 +588,10 @@ fail:
         return -ENOMEM;
 }
 
-static int config_parse_usec(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
 
-        usec_t *usec = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (parse_usec(rvalue, usec) < 0) {
-                log_error("[%s:%u] Failed to parse time value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
-
-static int config_parse_bindtodevice(
+int config_parse_socket_bindtodevice(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -679,10 +621,10 @@ static int config_parse_bindtodevice(
         return 0;
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_input, exec_input, ExecInput, "Failed to parse input specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_input, exec_input, ExecInput, "Failed to parse input specifier");
 
-static int config_parse_facility(
+int config_parse_facility(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -710,7 +652,7 @@ static int config_parse_facility(
         return 0;
 }
 
-static int config_parse_level(
+int config_parse_level(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -737,7 +679,7 @@ static int config_parse_level(
         return 0;
 }
 
-static int config_parse_io_class(
+int config_parse_exec_io_class(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -766,7 +708,7 @@ static int config_parse_io_class(
         return 0;
 }
 
-static int config_parse_io_priority(
+int config_parse_exec_io_priority(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -795,7 +737,7 @@ static int config_parse_io_priority(
         return 0;
 }
 
-static int config_parse_cpu_sched_policy(
+int config_parse_exec_cpu_sched_policy(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -825,7 +767,7 @@ static int config_parse_cpu_sched_policy(
         return 0;
 }
 
-static int config_parse_cpu_sched_prio(
+int config_parse_exec_cpu_sched_prio(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -855,7 +797,7 @@ static int config_parse_cpu_sched_prio(
         return 0;
 }
 
-static int config_parse_cpu_affinity(
+int config_parse_exec_cpu_affinity(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -901,7 +843,7 @@ static int config_parse_cpu_affinity(
         return 0;
 }
 
-static int config_parse_capabilities(
+int config_parse_exec_capabilities(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -934,7 +876,7 @@ static int config_parse_capabilities(
         return 0;
 }
 
-static int config_parse_secure_bits(
+int config_parse_exec_secure_bits(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -976,7 +918,7 @@ static int config_parse_secure_bits(
         return 0;
 }
 
-static int config_parse_bounding_set(
+int config_parse_exec_bounding_set(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1035,7 +977,7 @@ static int config_parse_bounding_set(
         return 0;
 }
 
-static int config_parse_timer_slack_nsec(
+int config_parse_exec_timer_slack_nsec(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1063,7 +1005,7 @@ static int config_parse_timer_slack_nsec(
         return 0;
 }
 
-static int config_parse_limit(
+int config_parse_limit(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1081,6 +1023,8 @@ static int config_parse_limit(
         assert(rvalue);
         assert(data);
 
+        rl += ltype;
+
         if (streq(rvalue, "infinity"))
                 u = (unsigned long long) RLIM_INFINITY;
         else if (safe_atollu(rvalue, &u) < 0) {
@@ -1096,7 +1040,7 @@ static int config_parse_limit(
         return 0;
 }
 
-static int config_parse_cgroup(
+int config_parse_unit_cgroup(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1144,7 +1088,7 @@ static int config_parse_cgroup(
 }
 
 #ifdef HAVE_SYSV_COMPAT
-static int config_parse_sysv_priority(
+int config_parse_sysv_priority(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1172,7 +1116,7 @@ static int config_parse_sysv_priority(
 }
 #endif
 
-static int config_parse_fsck_passno(
+int config_parse_fsck_passno(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1199,9 +1143,9 @@ static int config_parse_fsck_passno(
         return 0;
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
-static int config_parse_kill_signal(
+int config_parse_kill_signal(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1228,7 +1172,7 @@ static int config_parse_kill_signal(
         return 0;
 }
 
-static int config_parse_mount_flags(
+int config_parse_exec_mount_flags(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1266,7 +1210,7 @@ static int config_parse_mount_flags(
         return 0;
 }
 
-static int config_parse_timer(
+int config_parse_timer(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1307,7 +1251,7 @@ static int config_parse_timer(
         return 0;
 }
 
-static int config_parse_timer_unit(
+int config_parse_timer_unit(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1342,7 +1286,7 @@ static int config_parse_timer_unit(
         return 0;
 }
 
-static int config_parse_path_spec(
+int config_parse_path_spec(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1389,7 +1333,7 @@ static int config_parse_path_spec(
         return 0;
 }
 
-static int config_parse_path_unit(
+int config_parse_path_unit(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1424,7 +1368,7 @@ static int config_parse_path_unit(
         return 0;
 }
 
-static int config_parse_socket_service(
+int config_parse_socket_service(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1459,7 +1403,7 @@ static int config_parse_socket_service(
         return 0;
 }
 
-static int config_parse_service_sockets(
+int config_parse_service_sockets(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1514,7 +1458,7 @@ static int config_parse_service_sockets(
         return 0;
 }
 
-static int config_parse_env_file(
+int config_parse_unit_env_file(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1554,7 +1498,7 @@ static int config_parse_env_file(
         return 0;
 }
 
-static int config_parse_ip_tos(
+int config_parse_ip_tos(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1581,7 +1525,7 @@ static int config_parse_ip_tos(
         return 0;
 }
 
-static int config_parse_condition_path(
+int config_parse_unit_condition_path(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1619,7 +1563,7 @@ static int config_parse_condition_path(
         return 0;
 }
 
-static int config_parse_condition_string(
+int config_parse_unit_condition_string(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1652,7 +1596,7 @@ static int config_parse_condition_string(
         return 0;
 }
 
-static int config_parse_condition_null(
+int config_parse_unit_condition_null(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1693,7 +1637,7 @@ static int config_parse_condition_null(
         return 0;
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
 
 #define FOLLOW_MAX 8
 
@@ -1807,313 +1751,7 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
         return 0;
 }
 
-static void dump_items(FILE *f, const ConfigItem *items) {
-        const ConfigItem *i;
-        const char *prev_section = NULL;
-        bool not_first = false;
-
-        struct {
-                ConfigParserCallback callback;
-                const char *rvalue;
-        } table[] = {
-                { config_parse_int,              "INTEGER" },
-                { config_parse_unsigned,         "UNSIGNED" },
-                { config_parse_size,             "SIZE" },
-                { config_parse_bool,             "BOOLEAN" },
-                { config_parse_string,           "STRING" },
-                { config_parse_path,             "PATH" },
-                { config_parse_path_printf,      "PATH" },
-                { config_parse_strv,             "STRING [...]" },
-                { config_parse_nice,             "NICE" },
-                { config_parse_oom_score_adjust, "OOMSCOREADJUST" },
-                { config_parse_io_class,         "IOCLASS" },
-                { config_parse_io_priority,      "IOPRIORITY" },
-                { config_parse_cpu_sched_policy, "CPUSCHEDPOLICY" },
-                { config_parse_cpu_sched_prio,   "CPUSCHEDPRIO" },
-                { config_parse_cpu_affinity,     "CPUAFFINITY" },
-                { config_parse_mode,             "MODE" },
-                { config_parse_env_file,         "FILE" },
-                { config_parse_output,           "OUTPUT" },
-                { config_parse_input,            "INPUT" },
-                { config_parse_facility,         "FACILITY" },
-                { config_parse_level,            "LEVEL" },
-                { config_parse_capabilities,     "CAPABILITIES" },
-                { config_parse_secure_bits,      "SECUREBITS" },
-                { config_parse_bounding_set,     "BOUNDINGSET" },
-                { config_parse_timer_slack_nsec, "TIMERSLACK" },
-                { config_parse_limit,            "LIMIT" },
-                { config_parse_cgroup,           "CGROUP [...]" },
-                { config_parse_deps,             "UNIT [...]" },
-                { config_parse_names,            "UNIT [...]" },
-                { config_parse_exec,             "PATH [ARGUMENT [...]]" },
-                { config_parse_service_type,     "SERVICETYPE" },
-                { config_parse_service_restart,  "SERVICERESTART" },
-#ifdef HAVE_SYSV_COMPAT
-                { config_parse_sysv_priority,    "SYSVPRIORITY" },
-#else
-                { config_parse_warn_compat,      "NOTSUPPORTED" },
-#endif
-                { config_parse_kill_mode,        "KILLMODE" },
-                { config_parse_kill_signal,      "SIGNAL" },
-                { config_parse_listen,           "SOCKET [...]" },
-                { config_parse_socket_bind,      "SOCKETBIND" },
-                { config_parse_bindtodevice,     "NETWORKINTERFACE" },
-                { config_parse_usec,             "SECONDS" },
-                { config_parse_path_strv,        "PATH [...]" },
-                { config_parse_mount_flags,      "MOUNTFLAG [...]" },
-                { config_parse_string_printf,    "STRING" },
-                { config_parse_timer,            "TIMER" },
-                { config_parse_timer_unit,       "NAME" },
-                { config_parse_path_spec,        "PATH" },
-                { config_parse_path_unit,        "UNIT" },
-                { config_parse_notify_access,    "ACCESS" },
-                { config_parse_ip_tos,           "TOS" },
-                { config_parse_condition_path,   "CONDITION" },
-                { config_parse_condition_string, "CONDITION" },
-                { config_parse_condition_null,   "CONDITION" },
-        };
-
-        assert(f);
-        assert(items);
-
-        for (i = items; i->lvalue; i++) {
-                unsigned j;
-                const char *rvalue = "OTHER";
-
-                if (!streq_ptr(i->section, prev_section)) {
-                        if (!not_first)
-                                not_first = true;
-                        else
-                                fputc('\n', f);
-
-                        fprintf(f, "[%s]\n", i->section);
-                        prev_section = i->section;
-                }
-
-                for (j = 0; j < ELEMENTSOF(table); j++)
-                        if (i->parse == table[j].callback) {
-                                rvalue = table[j].rvalue;
-                                break;
-                        }
-
-                fprintf(f, "%s=%s\n", i->lvalue, rvalue);
-        }
-}
-
 static int load_from_path(Unit *u, const char *path) {
-
-        static const char* const section_table[_UNIT_TYPE_MAX] = {
-                [UNIT_SERVICE]   = "Service",
-                [UNIT_TIMER]     = "Timer",
-                [UNIT_SOCKET]    = "Socket",
-                [UNIT_TARGET]    = "Target",
-                [UNIT_DEVICE]    = "Device",
-                [UNIT_MOUNT]     = "Mount",
-                [UNIT_AUTOMOUNT] = "Automount",
-                [UNIT_SNAPSHOT]  = "Snapshot",
-                [UNIT_SWAP]      = "Swap",
-                [UNIT_PATH]      = "Path"
-        };
-
-#define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
-                { "WorkingDirectory",       config_parse_path_printf,     0, &(context).working_directory,                    section   }, \
-                { "RootDirectory",          config_parse_path_printf,     0, &(context).root_directory,                       section   }, \
-                { "User",                   config_parse_string_printf,   0, &(context).user,                                 section   }, \
-                { "Group",                  config_parse_string_printf,   0, &(context).group,                                section   }, \
-                { "SupplementaryGroups",    config_parse_strv,            0, &(context).supplementary_groups,                 section   }, \
-                { "Nice",                   config_parse_nice,            0, &(context),                                      section   }, \
-                { "OOMScoreAdjust",         config_parse_oom_score_adjust,0, &(context),                                      section   }, \
-                { "IOSchedulingClass",      config_parse_io_class,        0, &(context),                                      section   }, \
-                { "IOSchedulingPriority",   config_parse_io_priority,     0, &(context),                                      section   }, \
-                { "CPUSchedulingPolicy",    config_parse_cpu_sched_policy,0, &(context),                                      section   }, \
-                { "CPUSchedulingPriority",  config_parse_cpu_sched_prio,  0, &(context),                                      section   }, \
-                { "CPUSchedulingResetOnFork", config_parse_bool,          0, &(context).cpu_sched_reset_on_fork,              section   }, \
-                { "CPUAffinity",            config_parse_cpu_affinity,    0, &(context),                                      section   }, \
-                { "UMask",                  config_parse_mode,            0, &(context).umask,                                section   }, \
-                { "Environment",            config_parse_strv_printf,     0, &(context).environment,                          section   }, \
-                { "EnvironmentFile",        config_parse_env_file,        0, &(context).environment_files,                    section   }, \
-                { "StandardInput",          config_parse_input,           0, &(context).std_input,                            section   }, \
-                { "StandardOutput",         config_parse_output,          0, &(context).std_output,                           section   }, \
-                { "StandardError",          config_parse_output,          0, &(context).std_error,                            section   }, \
-                { "TTYPath",                config_parse_path_printf,     0, &(context).tty_path,                             section   }, \
-                { "TTYReset",               config_parse_bool,            0, &(context).tty_reset,                            section   }, \
-                { "TTYVHangup",             config_parse_bool,            0, &(context).tty_vhangup,                          section   }, \
-                { "TTYVTDisallocate",       config_parse_bool,            0, &(context).tty_vt_disallocate,                   section   }, \
-                { "SyslogIdentifier",       config_parse_string_printf,   0, &(context).syslog_identifier,                    section   }, \
-                { "SyslogFacility",         config_parse_facility,        0, &(context).syslog_priority,                      section   }, \
-                { "SyslogLevel",            config_parse_level,           0, &(context).syslog_priority,                      section   }, \
-                { "SyslogLevelPrefix",      config_parse_bool,            0, &(context).syslog_level_prefix,                  section   }, \
-                { "Capabilities",           config_parse_capabilities,    0, &(context),                                      section   }, \
-                { "SecureBits",             config_parse_secure_bits,     0, &(context),                                      section   }, \
-                { "CapabilityBoundingSet",  config_parse_bounding_set,    0, &(context),                                      section   }, \
-                { "TimerSlackNSec",         config_parse_timer_slack_nsec,0, &(context),                                      section   }, \
-                { "LimitCPU",               config_parse_limit,           0, &(context).rlimit[RLIMIT_CPU],                   section   }, \
-                { "LimitFSIZE",             config_parse_limit,           0, &(context).rlimit[RLIMIT_FSIZE],                 section   }, \
-                { "LimitDATA",              config_parse_limit,           0, &(context).rlimit[RLIMIT_DATA],                  section   }, \
-                { "LimitSTACK",             config_parse_limit,           0, &(context).rlimit[RLIMIT_STACK],                 section   }, \
-                { "LimitCORE",              config_parse_limit,           0, &(context).rlimit[RLIMIT_CORE],                  section   }, \
-                { "LimitRSS",               config_parse_limit,           0, &(context).rlimit[RLIMIT_RSS],                   section   }, \
-                { "LimitNOFILE",            config_parse_limit,           0, &(context).rlimit[RLIMIT_NOFILE],                section   }, \
-                { "LimitAS",                config_parse_limit,           0, &(context).rlimit[RLIMIT_AS],                    section   }, \
-                { "LimitNPROC",             config_parse_limit,           0, &(context).rlimit[RLIMIT_NPROC],                 section   }, \
-                { "LimitMEMLOCK",           config_parse_limit,           0, &(context).rlimit[RLIMIT_MEMLOCK],               section   }, \
-                { "LimitLOCKS",             config_parse_limit,           0, &(context).rlimit[RLIMIT_LOCKS],                 section   }, \
-                { "LimitSIGPENDING",        config_parse_limit,           0, &(context).rlimit[RLIMIT_SIGPENDING],            section   }, \
-                { "LimitMSGQUEUE",          config_parse_limit,           0, &(context).rlimit[RLIMIT_MSGQUEUE],              section   }, \
-                { "LimitNICE",              config_parse_limit,           0, &(context).rlimit[RLIMIT_NICE],                  section   }, \
-                { "LimitRTPRIO",            config_parse_limit,           0, &(context).rlimit[RLIMIT_RTPRIO],                section   }, \
-                { "LimitRTTIME",            config_parse_limit,           0, &(context).rlimit[RLIMIT_RTTIME],                section   }, \
-                { "ControlGroup",           config_parse_cgroup,          0, u,                                               section   }, \
-                { "ReadWriteDirectories",   config_parse_path_strv,       0, &(context).read_write_dirs,                      section   }, \
-                { "ReadOnlyDirectories",    config_parse_path_strv,       0, &(context).read_only_dirs,                       section   }, \
-                { "InaccessibleDirectories",config_parse_path_strv,       0, &(context).inaccessible_dirs,                    section   }, \
-                { "PrivateTmp",             config_parse_bool,            0, &(context).private_tmp,                          section   }, \
-                { "MountFlags",             config_parse_mount_flags,     0, &(context),                                      section   }, \
-                { "TCPWrapName",            config_parse_string_printf,   0, &(context).tcpwrap_name,                         section   }, \
-                { "PAMName",                config_parse_string_printf,   0, &(context).pam_name,                             section   }, \
-                { "KillMode",               config_parse_kill_mode,       0, &(context).kill_mode,                            section   }, \
-                { "KillSignal",             config_parse_kill_signal,     0, &(context).kill_signal,                          section   }, \
-                { "SendSIGKILL",            config_parse_bool,            0, &(context).send_sigkill,                         section   }, \
-                { "UtmpIdentifier",         config_parse_string_printf,   0, &(context).utmp_id,                              section   }, \
-                { "ControlGroupModify",     config_parse_bool,            0, &(context).control_group_modify,                 section   }
-
-        const ConfigItem items[] = {
-                { "Names",                  config_parse_names,           0, u,                                               "Unit"    },
-                { "Description",            config_parse_string_printf,   0, &u->meta.description,                            "Unit"    },
-                { "Requires",               config_parse_deps,            0, UINT_TO_PTR(UNIT_REQUIRES),                      "Unit"    },
-                { "RequiresOverridable",    config_parse_deps,            0, UINT_TO_PTR(UNIT_REQUIRES_OVERRIDABLE),          "Unit"    },
-                { "Requisite",              config_parse_deps,            0, UINT_TO_PTR(UNIT_REQUISITE),                     "Unit"    },
-                { "RequisiteOverridable",   config_parse_deps,            0, UINT_TO_PTR(UNIT_REQUISITE_OVERRIDABLE),         "Unit"    },
-                { "Wants",                  config_parse_deps,            0, UINT_TO_PTR(UNIT_WANTS),                         "Unit"    },
-                { "BindTo",                 config_parse_deps,            0, UINT_TO_PTR(UNIT_BIND_TO),                       "Unit"    },
-                { "Conflicts",              config_parse_deps,            0, UINT_TO_PTR(UNIT_CONFLICTS),                     "Unit"    },
-                { "Before",                 config_parse_deps,            0, UINT_TO_PTR(UNIT_BEFORE),                        "Unit"    },
-                { "After",                  config_parse_deps,            0, UINT_TO_PTR(UNIT_AFTER),                         "Unit"    },
-                { "OnFailure",              config_parse_deps,            0, UINT_TO_PTR(UNIT_ON_FAILURE),                    "Unit"    },
-                { "StopWhenUnneeded",       config_parse_bool,            0, &u->meta.stop_when_unneeded,                     "Unit"    },
-                { "RefuseManualStart",      config_parse_bool,            0, &u->meta.refuse_manual_start,                    "Unit"    },
-                { "RefuseManualStop",       config_parse_bool,            0, &u->meta.refuse_manual_stop,                     "Unit"    },
-                { "AllowIsolate",           config_parse_bool,            0, &u->meta.allow_isolate,                          "Unit"    },
-                { "DefaultDependencies",    config_parse_bool,            0, &u->meta.default_dependencies,                   "Unit"    },
-                { "OnFailureIsolate",       config_parse_bool,            0, &u->meta.on_failure_isolate,                     "Unit"    },
-                { "IgnoreOnIsolate",        config_parse_bool,            0, &u->meta.ignore_on_isolate,                      "Unit"    },
-                { "IgnoreOnSnapshot",       config_parse_bool,            0, &u->meta.ignore_on_snapshot,                     "Unit"    },
-                { "JobTimeoutSec",          config_parse_usec,            0, &u->meta.job_timeout,                            "Unit"    },
-                { "ConditionPathExists",        config_parse_condition_path,   CONDITION_PATH_EXISTS,         u,              "Unit"    },
-                { "ConditionPathExistsGlob",    config_parse_condition_path,   CONDITION_PATH_EXISTS_GLOB,    u,              "Unit"    },
-                { "ConditionPathIsDirectory",   config_parse_condition_path,   CONDITION_PATH_IS_DIRECTORY,   u,              "Unit"    },
-                { "ConditionDirectoryNotEmpty", config_parse_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, u,              "Unit"    },
-                { "ConditionFileIsExecutable",  config_parse_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  u,              "Unit"    },
-                { "ConditionKernelCommandLine", config_parse_condition_string, CONDITION_KERNEL_COMMAND_LINE, u,              "Unit"    },
-                { "ConditionVirtualization",    config_parse_condition_string, CONDITION_VIRTUALIZATION,      u,              "Unit"    },
-                { "ConditionSecurity",          config_parse_condition_string, CONDITION_SECURITY,            u,              "Unit"    },
-                { "ConditionNull",          config_parse_condition_null,  0, u,                                               "Unit"    },
-
-                { "PIDFile",                config_parse_path_printf,     0, &u->service.pid_file,                            "Service" },
-                { "ExecStartPre",           config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
-                { "ExecStart",              config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_START,      "Service" },
-                { "ExecStartPost",          config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_START_POST, "Service" },
-                { "ExecReload",             config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_RELOAD,     "Service" },
-                { "ExecStop",               config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_STOP,       "Service" },
-                { "ExecStopPost",           config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_STOP_POST,  "Service" },
-                { "RestartSec",             config_parse_usec,            0, &u->service.restart_usec,                        "Service" },
-                { "TimeoutSec",             config_parse_usec,            0, &u->service.timeout_usec,                        "Service" },
-                { "Type",                   config_parse_service_type,    0, &u->service.type,                                "Service" },
-                { "Restart",                config_parse_service_restart, 0, &u->service.restart,                             "Service" },
-                { "PermissionsStartOnly",   config_parse_bool,            0, &u->service.permissions_start_only,              "Service" },
-                { "RootDirectoryStartOnly", config_parse_bool,            0, &u->service.root_directory_start_only,           "Service" },
-                { "RemainAfterExit",        config_parse_bool,            0, &u->service.remain_after_exit,                   "Service" },
-                { "GuessMainPID",           config_parse_bool,            0, &u->service.guess_main_pid,                      "Service" },
-#ifdef HAVE_SYSV_COMPAT
-                { "SysVStartPriority",      config_parse_sysv_priority,   0, &u->service.sysv_start_priority,                 "Service" },
-#else
-                { "SysVStartPriority",      config_parse_warn_compat,     0, NULL,                                            "Service" },
-#endif
-                { "NonBlocking",            config_parse_bool,            0, &u->service.exec_context.non_blocking,           "Service" },
-                { "BusName",                config_parse_string_printf,   0, &u->service.bus_name,                            "Service" },
-                { "NotifyAccess",           config_parse_notify_access,   0, &u->service.notify_access,                       "Service" },
-                { "Sockets",                config_parse_service_sockets, 0, &u->service,                                     "Service" },
-                { "FsckPassNo",             config_parse_fsck_passno,     0, &u->service.fsck_passno,                         "Service" },
-                EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
-
-                { "ListenStream",           config_parse_listen,          0, &u->socket,                                      "Socket"  },
-                { "ListenDatagram",         config_parse_listen,          0, &u->socket,                                      "Socket"  },
-                { "ListenSequentialPacket", config_parse_listen,          0, &u->socket,                                      "Socket"  },
-                { "ListenFIFO",             config_parse_listen,          0, &u->socket,                                      "Socket"  },
-                { "ListenNetlink",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
-                { "ListenSpecial",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
-                { "ListenMessageQueue",     config_parse_listen,          0, &u->socket,                                      "Socket"  },
-                { "BindIPv6Only",           config_parse_socket_bind,     0, &u->socket,                                      "Socket"  },
-                { "Backlog",                config_parse_unsigned,        0, &u->socket.backlog,                              "Socket"  },
-                { "BindToDevice",           config_parse_bindtodevice,    0, &u->socket,                                      "Socket"  },
-                { "ExecStartPre",           config_parse_exec,            0, u->socket.exec_command+SOCKET_EXEC_START_PRE,    "Socket"  },
-                { "ExecStartPost",          config_parse_exec,            0, u->socket.exec_command+SOCKET_EXEC_START_POST,   "Socket"  },
-                { "ExecStopPre",            config_parse_exec,            0, u->socket.exec_command+SOCKET_EXEC_STOP_PRE,     "Socket"  },
-                { "ExecStopPost",           config_parse_exec,            0, u->socket.exec_command+SOCKET_EXEC_STOP_POST,    "Socket"  },
-                { "TimeoutSec",             config_parse_usec,            0, &u->socket.timeout_usec,                         "Socket"  },
-                { "DirectoryMode",          config_parse_mode,            0, &u->socket.directory_mode,                       "Socket"  },
-                { "SocketMode",             config_parse_mode,            0, &u->socket.socket_mode,                          "Socket"  },
-                { "Accept",                 config_parse_bool,            0, &u->socket.accept,                               "Socket"  },
-                { "MaxConnections",         config_parse_unsigned,        0, &u->socket.max_connections,                      "Socket"  },
-                { "KeepAlive",              config_parse_bool,            0, &u->socket.keep_alive,                           "Socket"  },
-                { "Priority",               config_parse_int,             0, &u->socket.priority,                             "Socket"  },
-                { "ReceiveBuffer",          config_parse_size,            0, &u->socket.receive_buffer,                       "Socket"  },
-                { "SendBuffer",             config_parse_size,            0, &u->socket.send_buffer,                          "Socket"  },
-                { "IPTOS",                  config_parse_ip_tos,          0, &u->socket.ip_tos,                               "Socket"  },
-                { "IPTTL",                  config_parse_int,             0, &u->socket.ip_ttl,                               "Socket"  },
-                { "Mark",                   config_parse_int,             0, &u->socket.mark,                                 "Socket"  },
-                { "PipeSize",               config_parse_size,            0, &u->socket.pipe_size,                            "Socket"  },
-                { "FreeBind",               config_parse_bool,            0, &u->socket.free_bind,                            "Socket"  },
-                { "Transparent",            config_parse_bool,            0, &u->socket.transparent,                          "Socket"  },
-                { "Broadcast",              config_parse_bool,            0, &u->socket.broadcast,                            "Socket"  },
-                { "TCPCongestion",          config_parse_string,          0, &u->socket.tcp_congestion,                       "Socket"  },
-                { "MessageQueueMaxMessages", config_parse_long,           0, &u->socket.mq_maxmsg,                            "Socket"  },
-                { "MessageQueueMessageSize", config_parse_long,           0, &u->socket.mq_msgsize,                           "Socket"  },
-                { "Service",                config_parse_socket_service,  0, &u->socket,                                      "Socket"  },
-                EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
-
-                { "What",                   config_parse_string,          0, &u->mount.parameters_fragment.what,              "Mount"   },
-                { "Where",                  config_parse_path,            0, &u->mount.where,                                 "Mount"   },
-                { "Options",                config_parse_string,          0, &u->mount.parameters_fragment.options,           "Mount"   },
-                { "Type",                   config_parse_string,          0, &u->mount.parameters_fragment.fstype,            "Mount"   },
-                { "TimeoutSec",             config_parse_usec,            0, &u->mount.timeout_usec,                          "Mount"   },
-                { "DirectoryMode",          config_parse_mode,            0, &u->mount.directory_mode,                        "Mount"   },
-                EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
-
-                { "Where",                  config_parse_path,            0, &u->automount.where,                             "Automount" },
-                { "DirectoryMode",          config_parse_mode,            0, &u->automount.directory_mode,                    "Automount" },
-
-                { "What",                   config_parse_path,            0, &u->swap.parameters_fragment.what,               "Swap"    },
-                { "Priority",               config_parse_int,             0, &u->swap.parameters_fragment.priority,           "Swap"    },
-                { "TimeoutSec",             config_parse_usec,            0, &u->swap.timeout_usec,                           "Swap"    },
-                EXEC_CONTEXT_CONFIG_ITEMS(u->swap.exec_context, "Swap"),
-
-                { "OnActiveSec",            config_parse_timer,           0, &u->timer,                                       "Timer"   },
-                { "OnBootSec",              config_parse_timer,           0, &u->timer,                                       "Timer"   },
-                { "OnStartupSec",           config_parse_timer,           0, &u->timer,                                       "Timer"   },
-                { "OnUnitActiveSec",        config_parse_timer,           0, &u->timer,                                       "Timer"   },
-                { "OnUnitInactiveSec",      config_parse_timer,           0, &u->timer,                                       "Timer"   },
-                { "Unit",                   config_parse_timer_unit,      0, &u->timer,                                       "Timer"   },
-
-                { "PathExists",             config_parse_path_spec,       0, &u->path,                                        "Path"    },
-                { "PathExistsGlob",         config_parse_path_spec,       0, &u->path,                                        "Path"    },
-                { "PathChanged",            config_parse_path_spec,       0, &u->path,                                        "Path"    },
-                { "DirectoryNotEmpty",      config_parse_path_spec,       0, &u->path,                                        "Path"    },
-                { "Unit",                   config_parse_path_unit,       0, &u->path,                                        "Path"    },
-                { "MakeDirectory",          config_parse_bool,            0, &u->path.make_directory,                         "Path"    },
-                { "DirectoryMode",          config_parse_mode,            0, &u->path.directory_mode,                         "Path"    },
-
-                /* The [Install] section is ignored here. */
-                { "Alias",                  NULL,                         0, NULL,                                            "Install" },
-                { "WantedBy",               NULL,                         0, NULL,                                            "Install" },
-                { "Also",                   NULL,                         0, NULL,                                            "Install" },
-
-                { NULL, NULL, 0, NULL, NULL }
-        };
-
-#undef EXEC_CONTEXT_CONFIG_ITEMS
-
-        const char *sections[4];
         int r;
         Set *symlink_names;
         FILE *f = NULL;
@@ -2121,21 +1759,11 @@ static int load_from_path(Unit *u, const char *path) {
         Unit *merged;
         struct stat st;
 
-        if (!u) {
-                /* Dirty dirty hack. */
-                dump_items((FILE*) path, items);
-                return 0;
-        }
-
         assert(u);
         assert(path);
 
-        sections[0] = "Unit";
-        sections[1] = section_table[u->meta.type];
-        sections[2] = "Install";
-        sections[3] = NULL;
-
-        if (!(symlink_names = set_new(string_hash_func, string_compare_func)))
+        symlink_names = set_new(string_hash_func, string_compare_func);
+        if (!symlink_names)
                 return -ENOMEM;
 
         if (path_is_absolute(path)) {
@@ -2218,7 +1846,8 @@ static int load_from_path(Unit *u, const char *path) {
                 u->meta.load_state = UNIT_MASKED;
         else {
                 /* Now, parse the file contents */
-                if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
+                r = config_parse(filename, f, UNIT_VTABLE(u)->sections, config_item_perf_lookup, (void*) load_fragment_gperf_lookup, false, u);
+                if (r < 0)
                         goto finish;
 
                 u->meta.load_state = UNIT_LOADED;
@@ -2323,7 +1952,100 @@ int unit_load_fragment(Unit *u) {
 }
 
 void unit_dump_config_items(FILE *f) {
-        /* OK, this wins a prize for extreme ugliness. */
+        static const struct {
+                const ConfigParserCallback callback;
+                const char *rvalue;
+        } table[] = {
+                { config_parse_int,                   "INTEGER" },
+                { config_parse_unsigned,              "UNSIGNED" },
+                { config_parse_size,                  "SIZE" },
+                { config_parse_bool,                  "BOOLEAN" },
+                { config_parse_string,                "STRING" },
+                { config_parse_path,                  "PATH" },
+                { config_parse_unit_path_printf,      "PATH" },
+                { config_parse_strv,                  "STRING [...]" },
+                { config_parse_exec_nice,             "NICE" },
+                { config_parse_exec_oom_score_adjust, "OOMSCOREADJUST" },
+                { config_parse_exec_io_class,         "IOCLASS" },
+                { config_parse_exec_io_priority,      "IOPRIORITY" },
+                { config_parse_exec_cpu_sched_policy, "CPUSCHEDPOLICY" },
+                { config_parse_exec_cpu_sched_prio,   "CPUSCHEDPRIO" },
+                { config_parse_exec_cpu_affinity,     "CPUAFFINITY" },
+                { config_parse_mode,                  "MODE" },
+                { config_parse_unit_env_file,         "FILE" },
+                { config_parse_output,                "OUTPUT" },
+                { config_parse_input,                 "INPUT" },
+                { config_parse_facility,              "FACILITY" },
+                { config_parse_level,                 "LEVEL" },
+                { config_parse_exec_capabilities,     "CAPABILITIES" },
+                { config_parse_exec_secure_bits,      "SECUREBITS" },
+                { config_parse_exec_bounding_set,     "BOUNDINGSET" },
+                { config_parse_exec_timer_slack_nsec, "TIMERSLACK" },
+                { config_parse_limit,                 "LIMIT" },
+                { config_parse_unit_cgroup,           "CGROUP [...]" },
+                { config_parse_unit_deps,             "UNIT [...]" },
+                { config_parse_unit_names,            "UNIT [...]" },
+                { config_parse_exec,                  "PATH [ARGUMENT [...]]" },
+                { config_parse_service_type,          "SERVICETYPE" },
+                { config_parse_service_restart,       "SERVICERESTART" },
+#ifdef HAVE_SYSV_COMPAT
+                { config_parse_sysv_priority,         "SYSVPRIORITY" },
+#else
+                { config_parse_warn_compat,           "NOTSUPPORTED" },
+#endif
+                { config_parse_kill_mode,             "KILLMODE" },
+                { config_parse_kill_signal,           "SIGNAL" },
+                { config_parse_socket_listen,         "SOCKET [...]" },
+                { config_parse_socket_bind,           "SOCKETBIND" },
+                { config_parse_socket_bindtodevice,   "NETWORKINTERFACE" },
+                { config_parse_usec,                  "SECONDS" },
+                { config_parse_path_strv,             "PATH [...]" },
+                { config_parse_exec_mount_flags,      "MOUNTFLAG [...]" },
+                { config_parse_unit_string_printf,    "STRING" },
+                { config_parse_timer,                 "TIMER" },
+                { config_parse_timer_unit,            "NAME" },
+                { config_parse_path_spec,             "PATH" },
+                { config_parse_path_unit,             "UNIT" },
+                { config_parse_notify_access,         "ACCESS" },
+                { config_parse_ip_tos,                "TOS" },
+                { config_parse_unit_condition_path,   "CONDITION" },
+                { config_parse_unit_condition_string, "CONDITION" },
+                { config_parse_unit_condition_null,   "CONDITION" },
+        };
 
-        load_from_path(NULL, (const void*) f);
+        const char *prev = NULL;
+        const char *i;
+
+        assert(f);
+
+        NULSTR_FOREACH(i, load_fragment_gperf_nulstr) {
+                const char *rvalue = "OTHER", *lvalue;
+                unsigned j;
+                size_t prefix_len;
+                const char *dot;
+                const ConfigPerfItem *p;
+
+                assert_se(p = load_fragment_gperf_lookup(i, strlen(i)));
+
+                dot = strchr(i, '.');
+                lvalue = dot ? dot + 1 : i;
+                prefix_len = dot-i;
+
+                if (dot)
+                        if (!prev || strncmp(prev, i, prefix_len+1) != 0) {
+                                if (prev)
+                                        fputc('\n', f);
+
+                                fprintf(f, "[%.*s]\n", (int) prefix_len, i);
+                        }
+
+                for (j = 0; j < ELEMENTSOF(table); j++)
+                        if (p->parse == table[j].callback) {
+                                rvalue = table[j].rvalue;
+                                break;
+                        }
+
+                fprintf(f, "%s=%s\n", lvalue, rvalue);
+                prev = i;
+        }
 }

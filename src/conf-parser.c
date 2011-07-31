@@ -31,49 +31,134 @@
 #include "strv.h"
 #include "log.h"
 
+int config_item_table_lookup(
+                void *table,
+                const char *section,
+                const char *lvalue,
+                ConfigParserCallback *func,
+                int *ltype,
+                void **data,
+                void *userdata) {
+
+        ConfigTableItem *t;
+
+        assert(table);
+        assert(lvalue);
+        assert(func);
+        assert(ltype);
+        assert(data);
+
+        for (t = table; t->lvalue; t++) {
+
+                if (!streq(lvalue, t->lvalue))
+                        continue;
+
+                if (!streq_ptr(section, t->section))
+                        continue;
+
+                *func = t->parse;
+                *ltype = t->ltype;
+                *data = t->data;
+                return 1;
+        }
+
+        return 0;
+}
+
+int config_item_perf_lookup(
+                void *table,
+                const char *section,
+                const char *lvalue,
+                ConfigParserCallback *func,
+                int *ltype,
+                void **data,
+                void *userdata) {
+
+        ConfigPerfItemLookup lookup = (ConfigPerfItemLookup) table;
+        const ConfigPerfItem *p;
+
+        assert(table);
+        assert(lvalue);
+        assert(func);
+        assert(ltype);
+        assert(data);
+
+        if (!section)
+                p = lookup(lvalue, strlen(lvalue));
+        else {
+                char *key;
+
+                if (asprintf(&key, "%s.%s", section, lvalue) < 0)
+                        return -ENOMEM;
+
+                p = lookup(key, strlen(key));
+                free(key);
+        }
+
+        if (!p)
+                return 0;
+
+        *func = p->parse;
+        *ltype = p->ltype;
+        *data = (uint8_t*) userdata + p->offset;
+        return 1;
+}
+
 /* Run the user supplied parser for an assignment */
 static int next_assignment(
                 const char *filename,
                 unsigned line,
+                ConfigItemLookup lookup,
+                void *table,
                 const char *section,
-                const ConfigItem *t,
-                bool relaxed,
                 const char *lvalue,
                 const char *rvalue,
+                bool relaxed,
                 void *userdata) {
 
+        ConfigParserCallback func = NULL;
+        int ltype = 0;
+        void *data = NULL;
+        int r;
+
         assert(filename);
-        assert(t);
+        assert(line > 0);
+        assert(lookup);
         assert(lvalue);
         assert(rvalue);
 
-        for (; t->parse || t->lvalue; t++) {
+        r = lookup(table, section, lvalue, &func, &ltype, &data, userdata);
+        if (r < 0)
+                return r;
 
-                if (t->lvalue && !streq(lvalue, t->lvalue))
-                        continue;
-
-                if (t->section && !section)
-                        continue;
-
-                if (t->section && !streq(section, t->section))
-                        continue;
-
-                if (!t->parse)
-                        return 0;
-
-                return t->parse(filename, line, section, lvalue, t->ltype, rvalue, t->data, userdata);
-        }
+        if (func)
+                return func(filename, line, section, lvalue, ltype, rvalue, data, userdata);
 
         /* Warn about unknown non-extension fields. */
         if (!relaxed && !startswith(lvalue, "X-"))
-                log_info("[%s:%u] Unknown lvalue '%s' in section '%s'. Ignoring.", filename, line, lvalue, strna(section));
+                log_info("[%s:%u] Unknown lvalue '%s' in section '%s'. Ignoring.", filename, line, lvalue, section);
 
         return 0;
 }
 
 /* Parse a variable assignment line */
-static int parse_line(const char *filename, unsigned line, char **section, const char* const * sections, const ConfigItem *t, bool relaxed, char *l, void *userdata) {
+static int parse_line(
+                const char *filename,
+                unsigned line,
+                const char *sections,
+                ConfigItemLookup lookup,
+                void *table,
+                bool relaxed,
+                char **section,
+                char *l,
+                void *userdata) {
+
         char *e;
+
+        assert(filename);
+        assert(line > 0);
+        assert(lookup);
+        assert(l);
 
         l = strstrip(l);
 
@@ -87,10 +172,11 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                 char *fn;
                 int r;
 
-                if (!(fn = file_in_same_dir(filename, strstrip(l+9))))
+                fn = file_in_same_dir(filename, strstrip(l+9));
+                if (!fn)
                         return -ENOMEM;
 
-                r = config_parse(fn, NULL, sections, t, relaxed, userdata);
+                r = config_parse(fn, NULL, sections, lookup, table, relaxed, userdata);
                 free(fn);
 
                 return r;
@@ -108,22 +194,30 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                         return -EBADMSG;
                 }
 
-                if (!(n = strndup(l+1, k-2)))
+                n = strndup(l+1, k-2);
+                if (!n)
                         return -ENOMEM;
 
-                if (!relaxed && sections && !strv_contains((char**) sections, n))
-                        log_info("[%s:%u] Unknown section '%s'. Ignoring.", filename, line, n);
+                if (sections && !nulstr_contains(sections, n)) {
 
-                free(*section);
-                *section = n;
+                        if (!relaxed)
+                                log_info("[%s:%u] Unknown section '%s'. Ignoring.", filename, line, n);
+
+                        free(n);
+                        *section = NULL;
+                } else {
+                        free(*section);
+                        *section = n;
+                }
 
                 return 0;
         }
 
-        if (sections && (!*section || !strv_contains((char**) sections, *section)))
+        if (sections && !*section)
                 return 0;
 
-        if (!(e = strchr(l, '='))) {
+        e = strchr(l, '=');
+        if (!e) {
                 log_error("[%s:%u] Missing '='.", filename, line);
                 return -EBADMSG;
         }
@@ -131,11 +225,28 @@ static int parse_line(const char *filename, unsigned line, char **section, const
         *e = 0;
         e++;
 
-        return next_assignment(filename, line, *section, t, relaxed, strstrip(l), strstrip(e), userdata);
+        return next_assignment(
+                        filename,
+                        line,
+                        lookup,
+                        table,
+                        *section,
+                        strstrip(l),
+                        strstrip(e),
+                        relaxed,
+                        userdata);
 }
 
 /* Go through the file and parse each line */
-int config_parse(const char *filename, FILE *f, const char* const * sections, const ConfigItem *t, bool relaxed, void *userdata) {
+int config_parse(
+                const char *filename,
+                FILE *f,
+                const char *sections,
+                ConfigItemLookup lookup,
+                void *table,
+                bool relaxed,
+                void *userdata) {
+
         unsigned line = 0;
         char *section = NULL;
         int r;
@@ -143,10 +254,11 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
         char *continuation = NULL;
 
         assert(filename);
-        assert(t);
+        assert(lookup);
 
         if (!f) {
-                if (!(f = fopen(filename, "re"))) {
+                f = fopen(filename, "re");
+                if (!f) {
                         r = -errno;
                         log_error("Failed to open configuration file '%s': %s", filename, strerror(-r));
                         goto finish;
@@ -171,7 +283,8 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
                 truncate_nl(l);
 
                 if (continuation) {
-                        if (!(c = strappend(continuation, l))) {
+                        c = strappend(continuation, l);
+                        if (!c) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -194,15 +307,26 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
 
                         if (c)
                                 continuation = c;
-                        else if (!(continuation = strdup(l))) {
-                                r = -ENOMEM;
-                                goto finish;
+                        else {
+                                continuation = strdup(l);
+                                if (!c) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
                         }
 
                         continue;
                 }
 
-                r = parse_line(filename, ++line, &section, sections, t, relaxed, p, userdata);
+                r = parse_line(filename,
+                                ++line,
+                                sections,
+                                lookup,
+                                table,
+                                relaxed,
+                                &section,
+                                p,
+                                userdata);
                 free(c);
 
                 if (r < 0)
@@ -240,8 +364,8 @@ int config_parse_int(
         assert(data);
 
         if ((r = safe_atoi(rvalue, i)) < 0) {
-                log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse numeric value, ingoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         return 0;
@@ -266,8 +390,8 @@ int config_parse_long(
         assert(data);
 
         if ((r = safe_atoli(rvalue, i)) < 0) {
-                log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse numeric value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         return 0;
@@ -292,8 +416,8 @@ int config_parse_uint64(
         assert(data);
 
         if ((r = safe_atou64(rvalue, u)) < 0) {
-                log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse numeric value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         return 0;
@@ -345,8 +469,8 @@ int config_parse_size(
         assert(data);
 
         if ((r = safe_atou(rvalue, &u)) < 0) {
-                log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
-                return r;
+                log_error("[%s:%u] Failed to parse numeric value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         *sz = (size_t) u;
@@ -372,8 +496,8 @@ int config_parse_bool(
         assert(data);
 
         if ((k = parse_boolean(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse boolean value: %s", filename, line, rvalue);
-                return k;
+                log_error("[%s:%u] Failed to parse boolean value, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         *b = !!k;
@@ -429,8 +553,8 @@ int config_parse_path(
         assert(data);
 
         if (!path_is_absolute(rvalue)) {
-                log_error("[%s:%u] Not an absolute path: %s", filename, line, rvalue);
-                return -EINVAL;
+                log_error("[%s:%u] Not an absolute path, ignoring: %s", filename, line, rvalue);
+                return 0;
         }
 
         if (!(n = strdup(rvalue)))
@@ -539,9 +663,9 @@ int config_parse_path_strv(
                 }
 
                 if (!path_is_absolute(n[k])) {
-                        log_error("[%s:%u] Not an absolute path: %s", filename, line, rvalue);
-                        r = -EINVAL;
-                        goto fail;
+                        log_error("[%s:%u] Not an absolute path, ignoring: %s", filename, line, rvalue);
+                        free(n[k]);
+                        continue;
                 }
 
                 path_kill_slashes(n[k]);
@@ -562,4 +686,64 @@ fail:
         free(n);
 
         return r;
+}
+
+int config_parse_usec(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *usec = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (parse_usec(rvalue, usec) < 0) {
+                log_error("[%s:%u] Failed to parse time value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_mode(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        mode_t *m = data;
+        long l;
+        char *x = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        errno = 0;
+        l = strtol(rvalue, &x, 8);
+        if (!x || *x || errno) {
+                log_error("[%s:%u] Failed to parse mode value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        if (l < 0000 || l > 07777) {
+                log_error("[%s:%u] mode value out of range, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        *m = (mode_t) l;
+        return 0;
 }

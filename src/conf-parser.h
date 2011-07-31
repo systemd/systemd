@@ -28,21 +28,65 @@
 /* An abstract parser for simple, line based, shallow configuration
  * files consisting of variable assignments only. */
 
-typedef int (*ConfigParserCallback)(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+/* Prototype for a parser for a specific configuration setting */
+typedef int (*ConfigParserCallback)(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata);
 
-/* Wraps info for parsing a specific configuration variable */
-typedef struct ConfigItem {
-        const char *lvalue; /* name of the variable */
-        ConfigParserCallback parse; /* Function that is called to parse the variable's value */
-        int ltype; /* Distinguish differnt variables passed to the same callback */
-        void *data; /* Where to store the variable's data */
-        const char *section;
-} ConfigItem;
+/* Wraps information for parsing a specific configuration variable, to
+ * be stored in a simple array */
+typedef struct ConfigTableItem {
+        const char *section;            /* Section */
+        const char *lvalue;             /* Name of the variable */
+        ConfigParserCallback parse;     /* Function that is called to parse the variable's value */
+        int ltype;                      /* Distinguish different variables passed to the same callback */
+        void *data;                     /* Where to store the variable's data */
+} ConfigTableItem;
 
-/* The configuration file parsing routine. Expects a table of
- * config_items in *t that is terminated by an item where lvalue is
- * NULL */
-int config_parse(const char *filename, FILE *f, const char* const *sections, const ConfigItem *t, bool relaxed, void *userdata);
+/* Wraps information for parsing a specific configuration variable, to
+ * ve srored in a gperf perfect hashtable */
+typedef struct ConfigPerfItem {
+        const char *section_and_lvalue; /* Section + "." + name of the variable */
+        ConfigParserCallback parse;     /* Function that is called to parse the variable's value */
+        int ltype;                      /* Distinguish different variables passed to the same callback */
+        size_t offset;                  /* Offset where to store data, from the beginning of userdata */
+} ConfigPerfItem;
+
+/* Prototype for a low-level gperf lookup function */
+typedef const ConfigPerfItem* (*ConfigPerfItemLookup)(const char *section_and_lvalue, unsigned length);
+
+/* Prototype for a generic high-level lookup function */
+typedef int (*ConfigItemLookup)(
+                void *table,
+                const char *section,
+                const char *lvalue,
+                ConfigParserCallback *func,
+                int *ltype,
+                void **data,
+                void *userdata);
+
+/* Linear table search implementation of ConfigItemLookup, based on
+ * ConfigTableItem arrays */
+int config_item_table_lookup(void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+
+/* gperf implementation of ConfigItemLookup, based on gperf
+ * ConfigPerfItem tables */
+int config_item_perf_lookup(void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+
+int config_parse(
+                const char *filename,
+                FILE *f,
+                const char *sections,  /* nulstr */
+                ConfigItemLookup lookup,
+                void *table,
+                bool relaxed,
+                void *userdata);
 
 /* Generic parsers */
 int config_parse_int(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
@@ -55,6 +99,8 @@ int config_parse_string(const char *filename, unsigned line, const char *section
 int config_parse_path(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_strv(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_path_strv(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_usec(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_mode(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
         int function(                                                   \

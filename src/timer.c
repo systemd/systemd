@@ -478,6 +478,10 @@ DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
 
 const UnitVTable timer_vtable = {
         .suffix = ".timer",
+        .sections =
+                "Unit\0"
+                "Timer\0"
+                "Install\0",
 
         .init = timer_init,
         .done = timer_done,

@@ -250,13 +250,13 @@ static int parse_password(const char *filename, char **wall) {
         int socket_fd = -1;
         bool accept_cached = false;
 
-        const ConfigItem items[] = {
-                { "Socket",       config_parse_string,   0, &socket_name,   "Ask" },
-                { "NotAfter",     config_parse_uint64,   0, &not_after,     "Ask" },
-                { "Message",      config_parse_string,   0, &message,       "Ask" },
-                { "PID",          config_parse_unsigned, 0, &pid,           "Ask" },
-                { "AcceptCached", config_parse_bool,     0, &accept_cached, "Ask" },
-                { NULL, NULL, 0, NULL, NULL }
+        const ConfigTableItem items[] = {
+                { "Ask", "Socket",       config_parse_string,   0, &socket_name   },
+                { "Ask", "NotAfter",     config_parse_uint64,   0, &not_after     },
+                { "Ask", "Message",      config_parse_string,   0, &message       },
+                { "Ask", "PID",          config_parse_unsigned, 0, &pid           },
+                { "Ask", "AcceptCached", config_parse_bool,     0, &accept_cached },
+                { NULL, NULL, NULL, 0, NULL }
         };
 
         FILE *f;
@@ -264,8 +264,8 @@ static int parse_password(const char *filename, char **wall) {
 
         assert(filename);
 
-        if (!(f = fopen(filename, "re"))) {
-
+        f = fopen(filename, "re");
+        if (!f) {
                 if (errno == ENOENT)
                         return 0;
 
@@ -273,7 +273,8 @@ static int parse_password(const char *filename, char **wall) {
                 return -errno;
         }
 
-        if ((r = config_parse(filename, f, NULL, items, true, NULL)) < 0) {
+        r = config_parse(filename, f, NULL, config_item_table_lookup, (void*) items, true, NULL);
+        if (r < 0) {
                 log_error("Failed to parse password file %s: %s", filename, strerror(-r));
                 goto finish;
         }

@@ -52,6 +52,7 @@ AC_SUBST(GETTEXT_PACKAGE)
 AC_PROG_MKDIR_P
 AC_PROG_LN_S
 AC_PROG_SED
+AC_PROG_AWK
 
 AC_PROG_CC
 AC_PROG_CC_C99
@@ -60,6 +61,7 @@ AC_PROG_GCC_TRADITIONAL
 
 AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
+AC_CHECK_TOOL(GPERF, gperf)
 
 CC_CHECK_CFLAGS_APPEND([ \
         -pipe \
@@ -360,77 +362,77 @@ AC_DEFINE_UNQUOTED(DISTRIBUTION, ["${with_distro}"], [Target Distribution])
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
 
-M4_DISTRO_FLAG=
+M4_DEFINES=
 have_plymouth=no
 
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
-                M4_DISTRO_FLAG=-DTARGET_FEDORA=1
+                M4_DEFINES=-DTARGET_FEDORA=1
                 have_plymouth=yes
                 ;;
         suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
-                M4_DISTRO_FLAG=-DTARGET_SUSE=1
+                M4_DEFINES=-DTARGET_SUSE=1
                 have_plymouth=yes
                 ;;
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian])
-                M4_DISTRO_FLAG=-DTARGET_DEBIAN=1
+                M4_DEFINES=-DTARGET_DEBIAN=1
                 ;;
         ubuntu)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_UBUNTU, [], [Target is Ubuntu])
-                M4_DISTRO_FLAG=-DTARGET_UBUNTU=1
+                M4_DEFINES=-DTARGET_UBUNTU=1
                 ;;
         arch)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
-                M4_DISTRO_FLAG=-DTARGET_ARCH=1
+                M4_DEFINES=-DTARGET_ARCH=1
                 ;;
         gentoo)
                 SYSTEM_SYSVINIT_PATH=
                 SYSTEM_SYSVRCND_PATH=
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
-                M4_DISTRO_FLAG=-DTARGET_GENTOO=1
+                M4_DEFINES=-DTARGET_GENTOO=1
                 ;;
         slackware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
-                M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
+                M4_DEFINES=-DTARGET_SLACKWARE=1
                 ;;
         frugalware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
-                M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
+                M4_DEFINES=-DTARGET_FRUGALWARE=1
                 have_plymouth=yes
                 ;;
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
-                M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
+                M4_DEFINES=-DTARGET_ALTLINUX=1
                 have_plymouth=yes
                 ;;
         mandriva)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_MANDRIVA, [], [Target is Mandriva])
-                M4_DISTRO_FLAG=-DTARGET_MANDRIVA=1
+                M4_DEFINES=-DTARGET_MANDRIVA=1
                 have_plymouth=yes
                 ;;
         meego)
                 SYSTEM_SYSVINIT_PATH=
                 SYSTEM_SYSVRCND_PATH=
                 AC_DEFINE(TARGET_MEEGO, [], [Target is MeeGo])
-                M4_DISTRO_FLAG=-DTARGET_MEEGO=1
+                M4_DEFINES=-DTARGET_MEEGO=1
 		;;
         angstrom)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
-                M4_DISTRO_FLAG=-DTARGET_ANGSTROM=1
+                M4_DEFINES=-DTARGET_ANGSTROM=1
                 ;;
         other)
                 ;;
@@ -453,11 +455,12 @@ AC_ARG_WITH([sysvrcd-path],
 
 AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
-AC_SUBST(M4_DISTRO_FLAG)
+AC_SUBST(M4_DEFINES)
 
 if test "x${SYSTEM_SYSVINIT_PATH}" != "x" -a "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
         AC_DEFINE(HAVE_SYSV_COMPAT, [], [SysV init scripts and rcN.d links are supported.])
         SYSTEM_SYSV_COMPAT="yes"
+        M4_DEFINES="$M4_DEFINES -DHAVE_SYSV_COMPAT"
 elif test "x${SYSTEM_SYSVINIT_PATH}" != "x" -o "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
         AC_MSG_ERROR([*** You need both --with-sysvinit-path=PATH and --with-sysvrcd-path=PATH to enable SysV compatibility support, or both empty to disable it.])
 else

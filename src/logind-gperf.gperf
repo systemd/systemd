@@ -1,0 +1,22 @@
+%{
+#include <stddef.h>
+#include "conf-parser.h"
+#include "logind.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name logind_gperf_hash
+%define lookup-function-name logind_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Login.NAutoVTs,          config_parse_unsigned, 0, offsetof(Manager, n_autovts)
+Login.KillUserProcesses, config_parse_bool,     0, offsetof(Manager, kill_user_processes)
+Login.KillOnlyUsers,     config_parse_strv,     0, offsetof(Manager, kill_only_users)
+Login.KillExcludeUsers,  config_parse_strv,     0, offsetof(Manager, kill_exclude_users)
+Login.Controllers,       config_parse_strv,     0, offsetof(Manager, controllers)
+Login.ResetControllers,  config_parse_strv,     0, offsetof(Manager, reset_controllers)

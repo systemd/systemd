@@ -1835,6 +1835,10 @@ DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);
 
 const UnitVTable mount_vtable = {
         .suffix = ".mount",
+        .sections =
+                "Unit\0"
+                "Mount\0"
+                "Install\0",
 
         .no_alias = true,
         .no_instances = true,

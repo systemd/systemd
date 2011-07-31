@@ -1160,22 +1160,6 @@ int manager_run(Manager *m) {
 }
 
 static int manager_parse_config_file(Manager *m) {
-
-        const ConfigItem items[] = {
-                { "NAutoVTs",          config_parse_unsigned, 0, &m->n_autovts,           "Login" },
-                { "KillUserProcesses", config_parse_bool,     0, &m->kill_user_processes, "Login" },
-                { "KillOnlyUsers",     config_parse_strv,     0, &m->kill_only_users,     "Login" },
-                { "KillExcludeUsers",  config_parse_strv,     0, &m->kill_exclude_users,  "Login" },
-                { "Controllers",       config_parse_strv,     0, &m->controllers,         "Login" },
-                { "ResetControllers",  config_parse_strv,     0, &m->reset_controllers,   "Login" },
-                { NULL, NULL, 0, NULL, NULL }
-        };
-
-        static const char * const sections[] = {
-                "Login",
-                NULL
-        };
-
         FILE *f;
         const char *fn;
         int r;
@@ -1192,7 +1176,7 @@ static int manager_parse_config_file(Manager *m) {
                 return -errno;
         }
 
-        r = config_parse(fn, f, sections, items, false, NULL);
+        r = config_parse(fn, f, "Login\0", config_item_perf_lookup, (void*) logind_gperf_lookup, false, m);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 

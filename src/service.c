@@ -3372,6 +3372,10 @@ DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 const UnitVTable service_vtable = {
         .suffix = ".service",
+        .sections =
+                "Unit\0"
+                "Service\0"
+                "Install\0",
         .show_status = true,
 
         .init = service_init,

@@ -368,7 +368,7 @@ static int parse_proc_cmdline_word(const char *word) {
         return 0;
 }
 
-static int config_parse_level(
+static int config_parse_level2(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -440,7 +440,7 @@ static int config_parse_location(
         return 0;
 }
 
-static int config_parse_cpu_affinity(
+static int config_parse_cpu_affinity2(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -494,34 +494,27 @@ static int config_parse_cpu_affinity(
         return 0;
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
-
 static int parse_config_file(void) {
 
-        const ConfigItem items[] = {
-                { "LogLevel",              config_parse_level,        0, NULL,                     "Manager" },
-                { "LogTarget",             config_parse_target,       0, NULL,                     "Manager" },
-                { "LogColor",              config_parse_color,        0, NULL,                     "Manager" },
-                { "LogLocation",           config_parse_location,     0, NULL,                     "Manager" },
-                { "DumpCore",              config_parse_bool,         0, &arg_dump_core,           "Manager" },
-                { "CrashShell",            config_parse_bool,         0, &arg_crash_shell,         "Manager" },
-                { "ShowStatus",            config_parse_bool,         0, &arg_show_status,         "Manager" },
+        const ConfigTableItem items[] = {
+                { "Manager", "LogLevel",              config_parse_level2,       0, NULL                     },
+                { "Manager", "LogTarget",             config_parse_target,       0, NULL                     },
+                { "Manager", "LogColor",              config_parse_color,        0, NULL                     },
+                { "Manager", "LogLocation",           config_parse_location,     0, NULL                     },
+                { "Manager", "DumpCore",              config_parse_bool,         0, &arg_dump_core           },
+                { "Manager", "CrashShell",            config_parse_bool,         0, &arg_crash_shell         },
+                { "Manager", "ShowStatus",            config_parse_bool,         0, &arg_show_status         },
 #ifdef HAVE_SYSV_COMPAT
-                { "SysVConsole",           config_parse_bool,         0, &arg_sysv_console,        "Manager" },
+                { "Manager", "SysVConsole",           config_parse_bool,         0, &arg_sysv_console        },
 #endif
-                { "CrashChVT",             config_parse_int,          0, &arg_crash_chvt,          "Manager" },
-                { "CPUAffinity",           config_parse_cpu_affinity, 0, NULL,                     "Manager" },
-                { "MountAuto",             config_parse_bool,         0, &arg_mount_auto,          "Manager" },
-                { "SwapAuto",              config_parse_bool,         0, &arg_swap_auto,           "Manager" },
-                { "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers, "Manager" },
-                { "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output,  "Manager" },
-                { "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error,   "Manager" },
-                { NULL, NULL, 0, NULL, NULL }
-        };
-
-        static const char * const sections[] = {
-                "Manager",
-                NULL
+                { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
+                { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
+                { "Manager", "MountAuto",             config_parse_bool,         0, &arg_mount_auto          },
+                { "Manager", "SwapAuto",              config_parse_bool,         0, &arg_swap_auto           },
+                { "Manager", "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers },
+                { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
+                { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
+                { NULL, NULL, NULL, 0, NULL }
         };
 
         FILE *f;
@@ -529,8 +522,8 @@ static int parse_config_file(void) {
         int r;
 
         fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : USER_CONFIG_FILE;
-
-        if (!(f = fopen(fn, "re"))) {
+        f = fopen(fn, "re");
+        if (!f) {
                 if (errno == ENOENT)
                         return 0;
 
@@ -538,7 +531,8 @@ static int parse_config_file(void) {
                 return 0;
         }
 
-        if ((r = config_parse(fn, f, sections, items, false, NULL)) < 0)
+        r = config_parse(fn, f, "Manager\0", config_item_table_lookup, (void*) items, false, NULL);
+        if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 
         fclose(f);

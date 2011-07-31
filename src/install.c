@@ -1019,11 +1019,11 @@ static int unit_file_load(
                 const char *path,
                 bool allow_symlink) {
 
-        const ConfigItem items[] = {
-                { "Alias",    config_parse_strv, 0, &info->aliases,   "Install" },
-                { "WantedBy", config_parse_strv, 0, &info->wanted_by, "Install" },
-                { "Also",     config_parse_also, 0, c,                "Install" },
-                { NULL, NULL, 0, NULL, NULL }
+        const ConfigTableItem items[] = {
+                { "Install", "Alias",    config_parse_strv, 0, &info->aliases   },
+                { "Install", "WantedBy", config_parse_strv, 0, &info->wanted_by },
+                { "Install", "Also",     config_parse_also, 0, c                },
+                { NULL, NULL, NULL, 0, NULL }
         };
 
         int fd;
@@ -1044,7 +1044,7 @@ static int unit_file_load(
                 return -ENOMEM;
         }
 
-        r = config_parse(path, f, NULL, items, true, info);
+        r = config_parse(path, f, NULL, config_item_table_lookup, (void*) items, true, info);
         fclose(f);
         if (r < 0)
                 return r;

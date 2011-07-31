@@ -199,6 +199,10 @@ DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
 
 const UnitVTable target_vtable = {
         .suffix = ".target",
+        .sections =
+                "Unit\0"
+                "Target\0"
+                "Install\0",
 
         .load = target_load,
         .coldplug = target_coldplug,

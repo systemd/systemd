@@ -2091,6 +2091,10 @@ DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
 
 const UnitVTable socket_vtable = {
         .suffix = ".socket",
+        .sections =
+                "Unit\0"
+                "Socket\0"
+                "Install\0",
 
         .init = socket_init,
         .done = socket_done,
