@@ -1306,6 +1306,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
+                after_startup = now(CLOCK_MONOTONIC);
+                log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
+                         "Loaded units and determined initial transaction in %s.",
+                          format_timespan(timespan, sizeof(timespan), after_startup - before_startup));
+
                 if (arg_action == ACTION_TEST) {
                         printf("-> By jobs:\n");
                         manager_dump_jobs(m, stdout, "\t");
@@ -1313,10 +1318,6 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         }
-
-        after_startup = now(CLOCK_MONOTONIC);
-        log_debug("Loaded units and determined initial transaction in %s.",
-                  format_timespan(timespan, sizeof(timespan), after_startup - before_startup));
 
         for (;;) {
                 if ((r = manager_loop(m)) < 0) {
