@@ -2469,11 +2469,13 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                 } else if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING && streq(name, "LoadError")) {
                         const char *a = NULL, *b = NULL;
 
-                        if (bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &a, true) > 0)
+                        if (bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &a, true) >= 0)
                                 bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &b, false);
 
                         if (arg_all || !isempty(a) || !isempty(b))
                                 printf("%s=%s \"%s\"\n", name, strempty(a), strempty(b));
+
+                        return 0;
                 }
 
                 break;
