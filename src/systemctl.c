@@ -1969,6 +1969,8 @@ typedef struct UnitStatusInfo {
         const char *path;
         const char *default_control_group;
 
+        const char *load_error;
+
         usec_t inactive_exit_timestamp;
         usec_t active_enter_timestamp;
         usec_t active_exit_timestamp;
@@ -2039,7 +2041,9 @@ static void print_status_info(UnitStatusInfo *i) {
         } else
                 on = off = "";
 
-        if (i->path)
+        if (i->load_error)
+                printf("\t  Loaded: %s%s%s (Reason: %s)\n", on, strna(i->load_state), off, i->load_error);
+        else if (i->path)
                 printf("\t  Loaded: %s%s%s (%s)\n", on, strna(i->load_state), off, i->path);
         else
                 printf("\t  Loaded: %s%s%s\n", on, strna(i->load_state), off);
@@ -2392,6 +2396,30 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                 break;
         }
+
+        case DBUS_TYPE_STRUCT: {
+
+                if (streq(name, "LoadError")) {
+                        DBusMessageIter sub;
+                        const char *n, *message;
+                        int r;
+
+                        dbus_message_iter_recurse(iter, &sub);
+
+                        r = bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &n, true);
+                        if (r < 0)
+                                return r;
+
+                        r = bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &message, false);
+                        if (r < 0)
+                                return r;
+
+                        if (!isempty(message))
+                                i->load_error = message;
+                }
+
+                break;
+        }
         }
 
         return 0;
@@ -2433,6 +2461,14 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 printf("%s=%s\n", name, s);
 
                         return 0;
+                } else if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING && streq(name, "LoadError")) {
+                        const char *a = NULL, *b = NULL;
+
+                        if (bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &a, true) > 0)
+                                bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &b, false);
+
+                        if (arg_all || !isempty(a) || !isempty(b))
+                                printf("%s=%s \"%s\"\n", name, strempty(a), strempty(b));
                 }
 
                 break;

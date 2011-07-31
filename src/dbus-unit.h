@@ -113,6 +113,7 @@
         "  <property name=\"ConditionTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionResult\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"LoadError\" type=\"(ss)\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define BUS_UNIT_INTERFACES_LIST                \
@@ -170,7 +171,8 @@
         { "org.freedesktop.systemd1.Unit", "JobTimeoutUSec",       bus_property_append_usec,       "t",    &u->meta.job_timeout              }, \
         { "org.freedesktop.systemd1.Unit", "ConditionTimestamp",   bus_property_append_usec,       "t",    &u->meta.condition_timestamp.realtime }, \
         { "org.freedesktop.systemd1.Unit", "ConditionTimestampMonotonic", bus_property_append_usec,"t",    &u->meta.condition_timestamp.monotonic }, \
-        { "org.freedesktop.systemd1.Unit", "ConditionResult",      bus_property_append_bool,       "b",    &u->meta.condition_result         }
+        { "org.freedesktop.systemd1.Unit", "ConditionResult",      bus_property_append_bool,       "b",    &u->meta.condition_result         }, \
+        { "org.freedesktop.systemd1.Unit", "LoadError",            bus_unit_append_load_error,     "(ss)", u                                 }
 
 int bus_unit_append_names(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_following(DBusMessageIter *i, const char *property, void *data);
@@ -187,6 +189,7 @@ int bus_unit_append_job(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_default_cgroup(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *data);
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);

@@ -330,6 +330,30 @@ int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property,
         return 0;
 }
 
+int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *name, *message;
+        DBusMessageIter sub;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        if (u->meta.load_error != 0) {
+                name = bus_errno_to_dbus(u->meta.load_error);
+                message = strempty(strerror(-u->meta.load_error));
+        } else
+                name = message = "";
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_STRUCT, NULL, &sub) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &name) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &message) ||
+            !dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *connection, DBusMessage *message) {
         DBusMessage *reply = NULL;
         Manager *m = u->meta.manager;
