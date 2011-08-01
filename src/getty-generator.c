@@ -119,6 +119,14 @@ int main(int argc, char *argv[]) {
 
                 if (add_symlink("serial-getty@.service", "serial-getty@hvc0.service") < 0)
                         r = EXIT_FAILURE;
+
+        }
+
+        if (access("/sys/class/tty/xvc0", F_OK) == 0) {
+                log_debug("Automatic adding serial getty for xvc0.");
+
+                if (add_symlink("serial-getty@.service", "serial-getty@xvc0.service") < 0)
+                        r = EXIT_FAILURE;
         }
 
 finish:
