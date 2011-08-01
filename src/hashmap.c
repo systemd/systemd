@@ -43,9 +43,85 @@ struct Hashmap {
 
         struct hashmap_entry *iterate_list_head, *iterate_list_tail;
         unsigned n_entries;
+
+        bool from_pool;
 };
 
 #define BY_HASH(h) ((struct hashmap_entry**) ((uint8_t*) (h) + ALIGN(sizeof(Hashmap))))
+
+struct pool {
+        struct pool *next;
+        unsigned n_tiles;
+        unsigned n_used;
+};
+
+struct pool *first_hashmap_pool = NULL;
+static void *first_hashmap_tile = NULL;
+
+struct pool *first_entry_pool = NULL;
+static void *first_entry_tile = NULL;
+
+static void* allocate_tile(struct pool **first_pool, void **first_tile, size_t tile_size) {
+        unsigned i;
+
+        if (*first_tile) {
+                void *r;
+
+                r = *first_tile;
+                *first_tile = * (void**) (*first_tile);
+                return r;
+        }
+
+        if (_unlikely_(!*first_pool) || _unlikely_((*first_pool)->n_used >= (*first_pool)->n_tiles)) {
+                unsigned n;
+                size_t size;
+                struct pool *p;
+
+                n = *first_pool ? (*first_pool)->n_tiles : 0;
+                n = MAX(512U, n * 2);
+                size = PAGE_ALIGN(ALIGN(sizeof(struct pool)) + n*tile_size);
+                n = (size - ALIGN(sizeof(struct pool))) / tile_size;
+
+                p = malloc(size);
+                if (!p)
+                        return NULL;
+
+                p->next = *first_pool;
+                p->n_tiles = n;
+                p->n_used = 0;
+
+                *first_pool = p;
+        }
+
+        i = (*first_pool)->n_used++;
+
+        return ((uint8_t*) (*first_pool)) + ALIGN(sizeof(struct pool)) + i*tile_size;
+}
+
+static void deallocate_tile(void **first_tile, void *p) {
+        * (void**) p = *first_tile;
+        *first_tile = p;
+}
+
+#ifndef __OPTIMIZE__
+
+static void drop_pool(struct pool *p) {
+        while (p) {
+                struct pool *n;
+                n = p->next;
+                free(p);
+                p = n;
+        }
+}
+
+__attribute__((destructor)) static void cleanup_pool(void) {
+        /* Be nice to valgrind */
+
+        drop_pool(first_hashmap_pool);
+        drop_pool(first_entry_pool);
+}
+
+#endif
 
 unsigned string_hash_func(const void *p) {
         unsigned hash = 0;
@@ -70,16 +146,34 @@ int trivial_compare_func(const void *a, const void *b) {
 }
 
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
+        bool b;
         Hashmap *h;
+        size_t size;
 
-        if (!(h = malloc0(ALIGN(sizeof(Hashmap)) + NBUCKETS * ALIGN(sizeof(struct hashmap_entry*)))))
-                return NULL;
+        b = is_main_thread();
+
+        size = ALIGN(sizeof(Hashmap)) + NBUCKETS * sizeof(struct hashmap_entry*);
+
+        if (b) {
+                h = allocate_tile(&first_hashmap_pool, &first_hashmap_tile, size);
+                if (!h)
+                        return NULL;
+
+                memset(h, 0, size);
+        } else {
+                h = malloc0(size);
+
+                if (!h)
+                        return NULL;
+        }
 
         h->hash_func = hash_func ? hash_func : trivial_hash_func;
         h->compare_func = compare_func ? compare_func : trivial_compare_func;
 
         h->n_entries = 0;
         h->iterate_list_head = h->iterate_list_tail = NULL;
+
+        h->from_pool = b;
 
         return h;
 }
@@ -160,7 +254,11 @@ static void remove_entry(Hashmap *h, struct hashmap_entry *e) {
         hash = h->hash_func(e->key) % NBUCKETS;
 
         unlink_entry(h, e, hash);
-        free(e);
+
+        if (h->from_pool)
+                deallocate_tile(&first_entry_tile, e);
+        else
+                free(e);
 }
 
 void hashmap_free(Hashmap*h) {
@@ -170,7 +268,10 @@ void hashmap_free(Hashmap*h) {
 
         hashmap_clear(h);
 
-        free(h);
+        if (h->from_pool)
+                deallocate_tile(&first_hashmap_tile, h);
+        else
+                free(h);
 }
 
 void hashmap_free_free(Hashmap *h) {
@@ -218,7 +319,12 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
                 return -EEXIST;
         }
 
-        if (!(e = new(struct hashmap_entry, 1)))
+        if (h->from_pool)
+                e = allocate_tile(&first_entry_pool, &first_entry_tile, sizeof(struct hashmap_entry));
+        else
+                e = new(struct hashmap_entry, 1);
+
+        if (!e)
                 return -ENOMEM;
 
         e->key = key;
