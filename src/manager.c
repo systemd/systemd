@@ -2985,6 +2985,7 @@ void manager_run_generators(Manager *m) {
         DIR *d = NULL;
         const char *generator_path;
         const char *argv[3];
+        mode_t u;
 
         assert(m);
 
@@ -3027,7 +3028,9 @@ void manager_run_generators(Manager *m) {
         argv[1] = m->generator_unit_path;
         argv[2] = NULL;
 
+        u = umask(0022);
         execute_directory(generator_path, d, (char**) argv);
+        umask(u);
 
         if (rmdir(m->generator_unit_path) >= 0) {
                 /* Uh? we were able to remove this dir? I guess that
