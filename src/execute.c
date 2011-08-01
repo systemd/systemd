@@ -1402,7 +1402,7 @@ fail_parent:
 void exec_context_init(ExecContext *c) {
         assert(c);
 
-        c->umask = 0002;
+        c->umask = 0022;
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;

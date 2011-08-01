@@ -241,6 +241,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (streq(argv[1], "attach")) {
                 uint32_t flags = 0;
                 int k;

@@ -314,7 +314,6 @@ static int copy_devnodes(const char *dest, const char *console) {
         }
 
 finish:
-
         umask(u);
 
         return r;
@@ -776,7 +775,7 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
                 }
 
-                umask(0002);
+                umask(0022);
 
                 if (drop_capabilities() < 0)
                         goto child_fail;

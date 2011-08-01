@@ -38,6 +38,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (argc < 2 || argc > 3) {
                 log_error("This program expects one or two arguments.");
                 r = -EINVAL;

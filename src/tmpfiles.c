@@ -972,6 +972,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         label_init();
 
         items = hashmap_new(string_hash_func, string_compare_func);

@@ -73,6 +73,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (detect_container(NULL) > 0) {
                 log_debug("Automatic adding console shell.");
 

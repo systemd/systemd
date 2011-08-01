@@ -1193,13 +1193,13 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (argc != 1) {
                 log_error("This program takes no arguments.");
                 r = -EINVAL;
                 goto finish;
         }
-
-        umask(0022);
 
         m = manager_new();
         if (!m) {

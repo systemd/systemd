@@ -578,6 +578,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (argc == 2 && streq(argv[1], "--introspect")) {
                 fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
                       "<node>\n", stdout);
@@ -591,8 +593,6 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
                 goto finish;
         }
-
-        umask(0022);
 
         r = read_data();
         if (r < 0) {

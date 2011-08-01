@@ -228,6 +228,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (argc > optind)
                 r = apply_file(argv[optind], false);
         else {

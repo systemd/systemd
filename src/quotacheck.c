@@ -90,6 +90,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         parse_proc_cmdline();
         test_files();
 

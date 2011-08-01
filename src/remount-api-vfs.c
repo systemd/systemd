@@ -52,6 +52,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (!(f = setmntent("/etc/fstab", "r"))) {
                 log_error("Failed to open /etc/fstab: %m");
                 goto finish;

@@ -246,6 +246,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (!(f = fopen("/etc/crypttab", "re"))) {
 
                 if (errno == ENOENT)

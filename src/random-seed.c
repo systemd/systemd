@@ -47,6 +47,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         /* Read pool size, if possible */
         if ((f = fopen("/proc/sys/kernel/random/poolsize", "re"))) {
                 fscanf(f, "%zu", &buf_size);

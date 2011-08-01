@@ -373,6 +373,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
 #ifdef HAVE_AUDIT
         if ((c.audit_fd = audit_open()) < 0)
                 log_error("Failed to connect to audit log: %m");

@@ -167,7 +167,10 @@ int machine_id_setup(void) {
 
         mkdir_p("/run/systemd", 0755);
 
+        m = umask(0022);
         r = write_one_line_file("/run/systemd/machine-id", id);
+        umask(m);
+
         if (r < 0) {
                 log_error("Cannot write /run/systemd/machine-id: %s", strerror(-r));
 
