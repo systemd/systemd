@@ -488,7 +488,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         assert(controller);
         assert(fs);
 
-        if (!good) {
+        if (_unlikely_(!good)) {
                 int r;
 
                 r = path_is_mount_point("/sys/fs/cgroup");

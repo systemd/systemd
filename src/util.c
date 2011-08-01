@@ -73,7 +73,7 @@ size_t page_size(void) {
         static __thread size_t pgsz = 0;
         long r;
 
-        if (pgsz)
+        if (_likely_(pgsz))
                 return pgsz;
 
         assert_se((r = sysconf(_SC_PAGESIZE)) > 0);
@@ -3768,7 +3768,7 @@ int columns(void) {
         static __thread int parsed_columns = 0;
         const char *e;
 
-        if (parsed_columns > 0)
+        if (_likely_(parsed_columns > 0))
                 return parsed_columns;
 
         if ((e = getenv("COLUMNS")))
@@ -4364,7 +4364,7 @@ int detect_virtualization(const char **id) {
         const char *_id;
         int r;
 
-        if (cached_id) {
+        if (_likely_(cached_id)) {
 
                 if (cached_id == (const char*) -1)
                         return 0;
