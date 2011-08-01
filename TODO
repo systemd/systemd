@@ -37,6 +37,8 @@ Features:
 
 * logind: use sysfs path in device hash table instead of sysname, as soon as fb driver is fixed
 
+* timedated: implement NTP calls
+
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
 
