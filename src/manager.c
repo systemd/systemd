@@ -76,7 +76,8 @@ static int manager_setup_notify(Manager *m) {
                 struct sockaddr_un un;
         } sa;
         struct epoll_event ev;
-        int one = 1;
+        int one = 1, r;
+        mode_t u;
 
         assert(m);
 
@@ -99,7 +100,11 @@ static int manager_setup_notify(Manager *m) {
         if (sa.un.sun_path[0] == '@')
                 sa.un.sun_path[0] = 0;
 
-        if (bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+        u = umask(0111);
+        r = bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
+        umask(u);
+
+        if (r < 0) {
                 log_error("bind() failed: %m");
                 return -errno;
         }

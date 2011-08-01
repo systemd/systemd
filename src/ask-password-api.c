@@ -250,6 +250,7 @@ static int create_socket(char **name) {
         } sa;
         int one = 1, r;
         char *c;
+        mode_t u;
 
         assert(name);
 
@@ -262,7 +263,11 @@ static int create_socket(char **name) {
         sa.un.sun_family = AF_UNIX;
         snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%llu", random_ull());
 
-        if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+        u = umask(0177);
+        r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+        umask(u);
+
+        if (r < 0) {
                 r = -errno;
                 log_error("bind() failed: %m");
                 goto fail;
@@ -310,6 +315,7 @@ int ask_password_agent(
         int socket_fd = -1, signal_fd = -1;
         sigset_t mask, oldmask;
         struct pollfd pollfd[_FD_MAX];
+        mode_t u;
 
         assert(_passphrases);
 
@@ -319,7 +325,11 @@ int ask_password_agent(
 
         mkdir_p("/run/systemd/ask-password", 0755);
 
-        if ((fd = mkostemp(temp, O_CLOEXEC|O_CREAT|O_WRONLY)) < 0) {
+        u = umask(0022);
+        fd = mkostemp(temp, O_CLOEXEC|O_CREAT|O_WRONLY);
+        umask(u);
+
+        if (fd < 0) {
                 log_error("Failed to create password file: %m");
                 r = -errno;
                 goto finish;
