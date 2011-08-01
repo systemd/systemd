@@ -19,6 +19,10 @@ Bugfixes:
 
 Features:
 
+* make arbitrary cgroups attributes settable
+
+* when we automatically restart a service, ensure we retsart its rdeps, too.
+
 * allow Type=simple with PIDFile=
   https://bugzilla.redhat.com/show_bug.cgi?id=723942
 
