@@ -300,6 +300,13 @@ if test "x$enable_binfmt" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
 
+have_hostnamed=no
+AC_ARG_ENABLE(hostnamed, AS_HELP_STRING([--disable-hostnamed], [disable hostname daemon]))
+if test "x$enable_hostnamed" != "xno"; then
+	have_hostnamed=yes
+fi
+AM_CONDITIONAL(ENABLE_HOSTNAMED, [test "$have_hostnamed" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -561,6 +568,7 @@ AC_MSG_RESULT([
         SELinux:                 ${have_selinux}
         ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
+        hostnamed:               ${have_hostnamed}
         plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}

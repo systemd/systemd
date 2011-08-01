@@ -171,7 +171,6 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-        systemd-hostnamed \
         systemd-localed \
         systemd-timedated \
         systemd-logind \
@@ -180,6 +179,11 @@ rootlibexec_PROGRAMS = \
 if ENABLE_BINFMT
 rootlibexec_PROGRAMS += \
 	systemd-binfmt
+endif
+
+if ENABLE_HOSTNAMED
+rootlibexec_PROGRAMS += \
+	systemd-hostnamed
 endif
 
 systemgenerator_PROGRAMS = \
@@ -226,17 +230,25 @@ dist_pkgsysconf_DATA = \
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \
-        src/org.freedesktop.hostname1.conf \
         src/org.freedesktop.locale1.conf \
         src/org.freedesktop.timedate1.conf \
         src/org.freedesktop.login1.conf
 
+if ENABLE_HOSTNAMED
+dist_dbuspolicy_DATA += \
+	src/org.freedesktop.hostname1.conf
+endif
+
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service \
-        src/org.freedesktop.hostname1.service \
         src/org.freedesktop.locale1.service \
         src/org.freedesktop.timedate1.service \
         src/org.freedesktop.login1.service
+
+if ENABLE_HOSTNAMED
+dist_dbussystemservice_DATA += \
+	src/org.freedesktop.hostname1.service
+endif
 
 dist_udevrules_DATA = \
         src/70-uaccess.rules \
@@ -260,9 +272,13 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Snapshot.xml \
 	org.freedesktop.systemd1.Swap.xml \
 	org.freedesktop.systemd1.Path.xml \
-        org.freedesktop.hostname1.xml \
         org.freedesktop.locale1.xml \
         org.freedesktop.timedate1.xml
+
+if ENABLE_HOSTNAMED
+dbusinterface_DATA += \
+	org.freedesktop.hostname1.xml
+endif
 
 dist_bashcompletion_DATA = \
 	src/systemctl-bash-completion.sh
@@ -348,7 +364,6 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
-	units/systemd-hostnamed.service \
 	units/systemd-localed.service \
 	units/systemd-timedated.service \
 	units/systemd-logind.service \
@@ -384,6 +399,11 @@ nodist_systemunit_DATA += \
 	units/systemd-binfmt.service
 endif
 
+if ENABLE_HOSTNAMED
+nodist_systemunit_DATA += \
+	units/systemd-hostnamed.service
+endif
+
 dist_userunit_DATA = \
 	units/user/default.target \
 	units/user/exit.target
@@ -399,7 +419,6 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
-	units/systemd-hostnamed.service.in \
 	units/systemd-localed.service.in \
 	units/systemd-timedated.service.in \
 	units/systemd-logind.service.in \
@@ -441,6 +460,11 @@ EXTRA_DIST = \
 if ENABLE_BINFMT
 EXTRA_DIST += \
 	units/systemd-binfmt.service.in
+endif
+
+if ENABLE_HOSTNAMED
+EXTRA_DIST += \
+	units/systemd-hostnamed.service.in
 endif
 
 if TARGET_FEDORA
@@ -505,10 +529,14 @@ pkgconfiglib_DATA = \
 
 # Passed through intltool only
 polkitpolicy_in_files = \
-        src/org.freedesktop.hostname1.policy.in \
         src/org.freedesktop.locale1.policy.in \
         src/org.freedesktop.timedate1.policy.in \
         src/org.freedesktop.login1.policy.in
+
+if ENABLE_HOSTNAMED
+polkitpolicy_in_files += \
+	src/org.freedesktop.hostname1.policy.in
+endif
 
 # First passed through sed, followed by intltool
 polkitpolicy_in_in_files = \
@@ -1732,10 +1760,9 @@ endif
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service dbus-org.freedesktop.locale1.service dbus-org.freedesktop.timedate1.service dbus-org.freedesktop.login1.service autovt@.service && \
+		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.locale1.service dbus-org.freedesktop.timedate1.service dbus-org.freedesktop.login1.service autovt@.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
-                $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service && \
                 $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service && \
                 $(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service && \
                 $(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service && \
@@ -1783,6 +1810,11 @@ if ENABLE_BINFMT
 			proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount )
+endif
+if ENABLE_HOSTNAMED
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.hostname1.service && \
+		$(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
 endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
