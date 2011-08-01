@@ -605,6 +605,9 @@ nodist_libsystemd_core_la_SOURCES = \
         src/load-fragment-gperf.c \
         src/load-fragment-gperf-nulstr.c
 
+EXTRA_DIST += \
+        src/load-fragment-gperf.gperf.m4
+
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
@@ -973,6 +976,9 @@ systemd_logind_SOURCES = \
 
 nodist_systemd_logind_SOURCES = \
         src/logind-gperf.c
+
+EXTRA_DIST += \
+        src/logind-gperf.gperf
 
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1528,7 +1534,11 @@ CLEANFILES = \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA) \
         src/73-seat-late.rules \
-        src/99-systemd.rules
+        src/99-systemd.rules \
+        src/load-fragment-gperf.gperf \
+        src/load-fragment-gperf.c \
+        src/load-fragment-gperf-nulstr.c \
+        src/logind-gperf.c
 
 if HAVE_VALAC
 CLEANFILES += \
