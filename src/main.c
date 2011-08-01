@@ -1036,8 +1036,8 @@ int main(int argc, char *argv[]) {
 
         for (j = 1; j < argc; j++)
                 if (streq(argv[j], "--deserialize")) {
-                        break;
                         is_reexec = true;
+                        break;
                 }
 
         /* If we get started via the /sbin/init symlink then we are
