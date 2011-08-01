@@ -1193,7 +1193,7 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (apply_permissions)
-                        if (enforce_groups(context, username, uid) < 0) {
+                        if (enforce_groups(context, username, gid) < 0) {
                                 r = EXIT_GROUP;
                                 goto fail_child;
                         }
