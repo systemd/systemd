@@ -176,4 +176,8 @@ struct btrfs_ioctl_vol_args {
 #define MS_PRIVATE  (1 << 18)
 #endif
 
+static inline pid_t gettid(void) {
+        return (pid_t) syscall(SYS_gettid);
+}
+
 #endif
