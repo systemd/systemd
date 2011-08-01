@@ -1318,7 +1318,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 UnitFileChange *changes = NULL;
                 unsigned n_changes = 0;
                 dbus_bool_t runtime, force;
-                bool carries_install_info = -1;
+                int carries_install_info = -1;
 
                 if (!dbus_message_iter_init(message, &iter))
                         goto oom;
