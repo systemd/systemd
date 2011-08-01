@@ -5536,6 +5536,15 @@ char *join(const char *x, ...) {
         return r;
 }
 
+bool is_main_thread(void) {
+        static __thread int cached = 0;
+
+        if (_unlikely_(cached == 0))
+                cached = getpid() == gettid() ? 1 : -1;
+
+        return cached > 0;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

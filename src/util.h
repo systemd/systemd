@@ -460,6 +460,8 @@ int get_files_in_directory(const char *path, char ***list);
 
 char *join(const char *x, ...) _sentinel_;
 
+bool is_main_thread(void);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
