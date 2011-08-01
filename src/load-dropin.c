@@ -100,10 +100,10 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
                 if (!(template = unit_name_template(name)))
                         return -ENOMEM;
 
-                r = asprintf(&path, "%s/%s%s", unit_path, template, suffix);
+                path = join(unit_path, "/", template, suffix, NULL);
                 free(template);
 
-                if (r < 0)
+                if (!path)
                         return -ENOMEM;
 
                 if (u->meta.manager->unit_path_cache &&

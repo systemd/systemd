@@ -1772,22 +1772,22 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 
 static char *default_cgroup_path(Unit *u) {
         char *p;
-        int r;
 
         assert(u);
 
         if (u->meta.instance) {
                 char *t;
 
-                if (!(t = unit_name_template(u->meta.id)))
+                t = unit_name_template(u->meta.id);
+                if (!t)
                         return NULL;
 
-                r = asprintf(&p, "%s/%s/%s", u->meta.manager->cgroup_hierarchy, t, u->meta.instance);
+                p = join(u->meta.manager->cgroup_hierarchy, "/", t, "/", u->meta.instance, NULL);
                 free(t);
         } else
-                r = asprintf(&p, "%s/%s", u->meta.manager->cgroup_hierarchy, u->meta.id);
+                p = join(u->meta.manager->cgroup_hierarchy, "/", u->meta.id, NULL);
 
-        return r < 0 ? NULL : p;
+        return p;
 }
 
 int unit_add_cgroup_from_text(Unit *u, const char *name) {
