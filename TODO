@@ -22,18 +22,10 @@ Features:
 * allow Type=simple with PIDFile=
   https://bugzilla.redhat.com/show_bug.cgi?id=723942
 
-* generator dir is 666?
-
-* set access mode of /run/systemd/{private,notify} to 666, not 777
-
-* unify access mode of /run/systemd/readahead/{done,share}
-
 * rename systemd-logger to systemd-stdio-syslog-bridge
 
 * file bugs against sysklogd, syslog-ng because of StandardOuput=null
 * turn default stdout/stderr to syslog (after rsyslog got updated)
-
-* add gperf support for unit file parsing table
 
 * move PAM code into its own binary
 
@@ -69,8 +61,6 @@ Features:
 
 * move nss-myhostname into systemd
 
-* inform myllynen@redhat.com about standard place to configure timezone name,
-
 * and a dbus call to generate target from current state
 
 * detect LXC with $container=lxc
@@ -78,8 +68,6 @@ Features:
 * drop /.readahead on bigger upgrades with yum
 
 * add inode nr check to readahead to suppress preloading changed files
-
-* show enablement status in systemctl status
 
 * add support for /bin/mount -s
 
@@ -111,8 +99,6 @@ Features:
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 * figure out what happened to bluez patch
 
-* get process transport into dbus for systemctl -P/-H
-
 * support systemd.mask= on the kernel command line.
 
 * when key file cannot be found, read it from kbd in cryptsetup
@@ -123,8 +109,6 @@ Features:
 
 * Support --test based on current system state
 
-* show failure error string in "systemctl status"
-
 * investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
 
 * maybe introduce ExecRestartPre=
@@ -133,7 +117,9 @@ Features:
 
 * configurable jitter for timer events
 
-* timer evernts with system resume
+* timer events with system resume
+
+* timer events on calendar time
 
 * Support ProcessNeededForShutdown=true to allow stuff like mdmon to
   be killed very late after the rootfs is read only? If implement pass
@@ -176,6 +162,13 @@ Features:
 * drop cap bounding set in readahead and other services
 
 External:
+
+* dbus:
+   - get process transport into dbus for systemctl -P/-H
+   - dbus --user
+   - natively watch for dbus-*.service symlinks
+   - allow specification of socket mode/umask when allocating DBusServer
+   - allow disabling of fd passing when connecting a AF_UNIX connection
 
 * systemd --user
     PR_SET_CHILD_REAPER patch: https://lkml.org/lkml/2011/7/28/426
