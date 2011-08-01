@@ -88,7 +88,8 @@ int config_item_perf_lookup(
         else {
                 char *key;
 
-                if (asprintf(&key, "%s.%s", section, lvalue) < 0)
+                key = join(section, ".", lvalue, NULL);
+                if (!key)
                         return -ENOMEM;
 
                 p = lookup(key, strlen(key));

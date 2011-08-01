@@ -635,7 +635,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 char *d = NULL;
 
                                 if (chkconfig_description)
-                                        asprintf(&d, "%s %s", chkconfig_description, j);
+                                        d = join(chkconfig_description, " ", j, NULL);
                                 else
                                         d = strdup(j);
 
@@ -805,7 +805,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 char *d = NULL;
 
                                                 if (long_description)
-                                                        asprintf(&d, "%s %s", long_description, t);
+                                                        d = join(long_description, " ", t, NULL);
                                                 else
                                                         d = strdup(j);
 
@@ -921,7 +921,8 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 char *path;
                 int r;
 
-                if (asprintf(&path, "%s/%s", *p, name) < 0)
+                path = join(*p, "/", name, NULL);
+                if (!path)
                         return -ENOMEM;
 
                 assert(endswith(path, ".service"));
@@ -942,7 +943,8 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
                         /* Try SUSE style boot.* init scripts */
 
-                        if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
+                        path = join(*p, "/boot.", name, NULL);
+                        if (!path)
                                 return -ENOMEM;
 
                         /* Drop .service suffix */
@@ -956,7 +958,8 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
                         /* Try Frugalware style rc.* init scripts */
 
-                        if (asprintf(&path, "%s/rc.%s", *p, name) < 0)
+                        path = join(*p, "/rc.", name, NULL);
+                        if (!path)
                                 return -ENOMEM;
 
                         /* Drop .service suffix */
@@ -2987,7 +2990,6 @@ static int service_enumerate(Manager *m) {
                         struct dirent *de;
 
                         free(path);
-                        path = NULL;
                         path = join(*p, "/", rcnd_table[i].path, NULL);
                         if (!path) {
                                 r = -ENOMEM;
@@ -3023,8 +3025,8 @@ static int service_enumerate(Manager *m) {
                                         continue;
 
                                 free(fpath);
-                                fpath = NULL;
-                                if (asprintf(&fpath, "%s/%s/%s", *p, rcnd_table[i].path, de->d_name) < 0) {
+                                fpath = join(path, "/", de->d_name, NULL);
+                                if (!path) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }

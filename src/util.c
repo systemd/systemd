@@ -809,7 +809,7 @@ int parse_env_file(
                 const char *separator, ...) {
 
         int r = 0;
-        char *contents, *p;
+        char *contents = NULL, *p;
 
         assert(fname);
         assert(separator);
@@ -1266,8 +1266,6 @@ bool is_path(const char *p) {
 }
 
 char *path_make_absolute(const char *p, const char *prefix) {
-        char *r;
-
         assert(p);
 
         /* Makes every item in the list an absolute path by prepending
@@ -1276,10 +1274,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
         if (path_is_absolute(p) || !prefix)
                 return strdup(p);
 
-        if (asprintf(&r, "%s/%s", prefix, p) < 0)
-                return NULL;
-
-        return r;
+        return join(prefix, "/", p, NULL);
 }
 
 char *path_make_absolute_cwd(const char *p) {

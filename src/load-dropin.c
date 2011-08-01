@@ -50,7 +50,8 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
                 if (ignore_file(de->d_name))
                         continue;
 
-                if (asprintf(&f, "%s/%s", path, de->d_name) < 0) {
+                f = join(path, "/", de->d_name, NULL);
+                if (!f) {
                         r = -ENOMEM;
                         goto finish;
                 }

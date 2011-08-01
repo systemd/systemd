@@ -560,7 +560,8 @@ static void manager_build_unit_path_cache(Manager *m) {
                         if (ignore_file(de->d_name))
                                 continue;
 
-                        if (asprintf(&p, "%s/%s", streq(*i, "/") ? "" : *i, de->d_name) < 0) {
+                        p = join(streq(*i, "/") ? "" : *i, "/", de->d_name, NULL);
+                        if (!p) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
