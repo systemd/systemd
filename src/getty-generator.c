@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
         /* Automatically add in a serial getty on the first
          * virtualizer console */
         if (access("/sys/class/tty/hvc0", F_OK) == 0) {
-                log_debug("Automatic adding serial getty for hvc0.");
+                log_debug("Automatically adding serial getty for hvc0.");
 
                 if (add_symlink("serial-getty@.service", "serial-getty@hvc0.service") < 0)
                         r = EXIT_FAILURE;
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (access("/sys/class/tty/xvc0", F_OK) == 0) {
-                log_debug("Automatic adding serial getty for xvc0.");
+                log_debug("Automatically adding serial getty for xvc0.");
 
                 if (add_symlink("serial-getty@.service", "serial-getty@xvc0.service") < 0)
                         r = EXIT_FAILURE;
