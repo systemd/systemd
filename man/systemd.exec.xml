@@ -251,7 +251,7 @@
                                 octal notation. See
                                 <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details. Defaults to
-                                0002.</para></listitem>
+                                0022.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
