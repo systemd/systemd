@@ -155,7 +155,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--no-net</option></term>
+                                <term><option>--private-network</option></term>
 
                                 <listitem><para>Turn off networking in
                                 the container. This makes all network

@@ -92,7 +92,8 @@
         "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"UtmpIdentifier\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupModify\" type=\"b\" access=\"read\"/>\n"
+        "  <property name=\"ControlGroupModify\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"PrivateNetwork\" type=\"b\" access=\"read\"/>\n"
 
 #define BUS_EXEC_COMMAND_INTERFACE(name)                             \
         "  <property name=\"" name "\" type=\"a(sasbttuii)\" access=\"read\"/>\n"
@@ -151,6 +152,7 @@
         { interface, "InaccessibleDirectories",       bus_property_append_strv,   "as",    (context).inaccessible_dirs             }, \
         { interface, "MountFlags",                    bus_property_append_ul,     "t",     &(context).mount_flags                  }, \
         { interface, "PrivateTmp",                    bus_property_append_bool,   "b",     &(context).private_tmp                  }, \
+        { interface, "PrivateNetwork",                bus_property_append_bool,   "b",     &(context).private_network              }, \
         { interface, "SameProcessGroup",              bus_property_append_bool,   "b",     &(context).same_pgrp                    }, \
         { interface, "KillMode",                      bus_execute_append_kill_mode, "s",   &(context).kill_mode                    }, \
         { interface, "KillSignal",                    bus_property_append_int,    "i",     &(context).kill_signal                  }, \

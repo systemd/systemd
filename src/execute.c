@@ -56,6 +56,7 @@
 #include "missing.h"
 #include "utmp-wtmp.h"
 #include "def.h"
+#include "loopback-setup.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -1208,6 +1209,14 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 #endif
+                if (context->private_network) {
+                        if (unshare(CLONE_NEWNET) < 0) {
+                                r = EXIT_NETWORK;
+                                goto fail_child;
+                        }
+
+                        loopback_setup();
+                }
 
                 if (strv_length(context->read_write_dirs) > 0 ||
                     strv_length(context->read_only_dirs) > 0 ||
@@ -1594,13 +1603,15 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
-                "%sControlGroupModify: %s\n",
+                "%sControlGroupModify: %s\n"
+                "%sPrivateNetwork: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
-                prefix, yes_no(c->control_group_modify));
+                prefix, yes_no(c->control_group_modify),
+                prefix, yes_no(c->private_network));
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

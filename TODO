@@ -19,6 +19,8 @@ Bugfixes:
 
 Features:
 
+* hide PAM/TCPWrap options in fragment parser when compile time disabled
+
 * make arbitrary cgroups attributes settable
 
 * when we automatically restart a service, ensure we retsart its rdeps, too.

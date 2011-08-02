@@ -783,9 +783,9 @@
                                 <term><varname>PrivateTmp=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true sets up a new
-                                namespace for the executed processes
-                                and mounts a private
+                                argument. If true sets up a new file
+                                system namespace for the executed
+                                processes and mounts a private
                                 <filename>/tmp</filename> directory
                                 inside it, that is not shared by
                                 processes outside of the
@@ -794,7 +794,25 @@
                                 process, but makes sharing between
                                 processes via
                                 <filename>/tmp</filename>
-                                impossible. Defaults to false.</para></listitem>
+                                impossible. Defaults to
+                                false.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PrivateNetwork=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true sets up a new
+                                network namespace for the executed
+                                processes and configures only the
+                                loopback network device
+                                <literal>lo</literal> inside it. No
+                                other network devices will be
+                                available to the executed process.
+                                This is useful to securely turn off
+                                network access by the executed
+                                process. Defaults to
+                                false.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

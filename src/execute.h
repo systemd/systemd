@@ -159,6 +159,7 @@ struct ExecContext {
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
         bool private_tmp;
+        bool private_network;
 
         bool control_group_modify;
 
