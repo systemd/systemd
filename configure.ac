@@ -310,6 +310,13 @@ if test "x$enable_hostnamed" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_HOSTNAMED, [test "$have_hostnamed" = "yes"])
 
+have_timedated=no
+AC_ARG_ENABLE(timedated, AS_HELP_STRING([--disable-timedated], [disable timedate daemon]))
+if test "x$enable_timedated" != "xno"; then
+	have_timedated=yes
+fi
+AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -572,6 +579,7 @@ AC_MSG_RESULT([
         ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
         hostnamed:               ${have_hostnamed}
+        timedated:               ${have_timedated}
         plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
