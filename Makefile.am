@@ -1341,7 +1341,8 @@ systemd_cgls_LDADD = \
 
 systemd_nspawn_SOURCES = \
 	src/nspawn.c \
-	src/cgroup-util.c
+	src/cgroup-util.c \
+        src/loopback-setup.c
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS)

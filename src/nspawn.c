@@ -44,9 +44,11 @@
 #include "cgroup-util.h"
 #include "sd-daemon.h"
 #include "strv.h"
+#include "loopback-setup.h"
 
 static char *arg_directory = NULL;
 static char *arg_user = NULL;
+static bool arg_no_net = false;
 
 static int help(void) {
 
@@ -54,7 +56,8 @@ static int help(void) {
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help            Show this help\n"
                "  -D --directory=NAME  Root directory for the container\n"
-               "  -u --user=USER       Run the command under specified user or uid\n",
+               "  -u --user=USER       Run the command under specified user or uid\n"
+               "     --no-net          Disable network  in container\n",
                program_invocation_short_name);
 
         return 0;
@@ -62,11 +65,16 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
 
+        enum {
+                ARG_NO_NET = 0x100
+        };
+
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h' },
-                { "directory", required_argument, NULL, 'D' },
-                { "user",      optional_argument, NULL, 'u' },
-                { NULL,        0,                 NULL, 0   }
+                { "help",      no_argument,       NULL, 'h'        },
+                { "directory", required_argument, NULL, 'D'        },
+                { "user",      required_argument, NULL, 'u'        },
+                { "no-net",    no_argument,       NULL, ARG_NO_NET },
+                { NULL,        0,                 NULL, 0          }
         };
 
         int c;
@@ -98,6 +106,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -ENOMEM;
                         }
 
+                        break;
+
+                case ARG_NO_NET:
+                        arg_no_net = true;
                         break;
 
                 case '?':
@@ -698,7 +710,7 @@ int main(int argc, char *argv[]) {
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
-        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS, NULL)) < 0) {
+        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_no_net ? CLONE_NEWNET : 0), NULL)) < 0) {
                 log_error("clone() failed: %m");
                 goto finish;
         }
@@ -776,6 +788,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 umask(0022);
+
+                loopback_setup();
 
                 if (drop_capabilities() < 0)
                         goto child_fail;

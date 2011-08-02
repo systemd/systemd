@@ -123,6 +123,7 @@
                 <variablelist>
                         <varlistentry>
                                 <term><option>--help</option></term>
+                                <term><option>-h</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
@@ -150,6 +151,16 @@
                                 the security feature and limits
                                 against accidental changes only.
                                 </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-net</option></term>
+
+                                <listitem><para>Turn off networking in
+                                the container. This makes all network
+                                interfaces unavailable in the
+                                container, with the exception of the
+                                loopback device.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
