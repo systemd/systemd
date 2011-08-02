@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include "conf-parser.h"
 #include "load-fragment.h"
+#include "missing.h"
 %}
 struct ConfigPerfItem;
 %null_strings
