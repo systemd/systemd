@@ -69,11 +69,12 @@
                 to various kernel interfaces in the container to
                 read-only, such as <filename>/sys</filename>,
                 <filename>/proc/sys</filename> or
-                <filename>/selinux</filename>. Network interfaces and
-                the system clock may not be changed from within the
-                container. Device nodes may not be created. The host
-                system cannot be rebooted and kernel modules may not
-                be loaded from within the container.</para>
+                <filename>/sys/fs/selinux</filename>. Network
+                interfaces and the system clock may not be changed
+                from within the container. Device nodes may not be
+                created. The host system cannot be rebooted and kernel
+                modules may not be loaded from within the
+                container.</para>
 
                 <para>Note that even though these security precautions
                 are taken <command>systemd-nspawn</command> is not
@@ -142,7 +143,7 @@
 
                         <varlistentry>
                                 <term><option>--user=</option></term>
-                                <term><option>--u</option></term>
+                                <term><option>-u</option></term>
 
                                 <listitem><para>Run the command
                                 under specified user, create home
