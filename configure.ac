@@ -62,6 +62,9 @@ AC_PROG_GCC_TRADITIONAL
 AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
 AC_CHECK_TOOL(GPERF, gperf)
+if test -z "$GPERF" ; then
+        AC_MSG_ERROR([*** gperf not found])
+fi
 
 CC_CHECK_CFLAGS_APPEND([ \
         -pipe \

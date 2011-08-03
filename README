@@ -50,6 +50,7 @@ REQUIREMENTS:
         automake
         autoconf
         libtool
+        gperf
         make, gcc, and similar tools
 
         During runtime you need the following dependencies:
