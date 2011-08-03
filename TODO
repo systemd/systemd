@@ -18,6 +18,7 @@ Bugfixes:
 * make sure timeouts are applied to Type=oneshot services.
 
 Features:
+* remove hacks in vala code and require libnotify 0.7
 
 * hide PAM/TCPWrap options in fragment parser when compile time disabled
 
