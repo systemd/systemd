@@ -112,7 +112,8 @@ static int create_disk(
                 "DefaultDependencies=no\n"
                 "BindTo=%s dev-mapper-%%i.device\n"
                 "After=systemd-readahead-collect.service systemd-readahead-replay.service %s\n"
-                "Before=umount.target\n",
+                "Before=umount.target\n"
+                "Before=local-fs.target\n",
                 d, d);
 
         if (!nofail)
