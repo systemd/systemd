@@ -72,8 +72,8 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
 	bool prop = false;
 	bool print_kernel = false;
 	bool print_udev = false;
-	struct udev_list_node subsystem_match_list;
-	struct udev_list_node tag_match_list;
+	struct udev_list subsystem_match_list;
+	struct udev_list tag_match_list;
 	struct udev_monitor *udev_monitor = NULL;
 	struct udev_monitor *kernel_monitor = NULL;
 	int fd_ep = -1;
@@ -92,8 +92,8 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
 		{}
 	};
 
-	udev_list_init(&subsystem_match_list);
-	udev_list_init(&tag_match_list);
+	udev_list_init(udev, &subsystem_match_list, true);
+	udev_list_init(udev, &tag_match_list, true);
 
 	for (;;) {
 		option = getopt_long(argc, argv, "pekus:t:h", options, NULL);
@@ -122,11 +122,11 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
 					devtype[0] = '\0';
 					devtype++;
 				}
-				udev_list_entry_add(udev, &subsystem_match_list, subsys, devtype, 0);
+				udev_list_entry_add(&subsystem_match_list, subsys, devtype);
 				break;
 			}
 		case 't':
-			udev_list_entry_add(udev, &tag_match_list, optarg, NULL, 0);
+			udev_list_entry_add(&tag_match_list, optarg, NULL);
 			break;
 		case 'h':
 			printf("Usage: udevadm monitor [--property] [--kernel] [--udev] [--help]\n"
@@ -285,8 +285,8 @@ out:
 		close(fd_ep);
 	udev_monitor_unref(udev_monitor);
 	udev_monitor_unref(kernel_monitor);
-	udev_list_cleanup_entries(udev, &subsystem_match_list);
-	udev_list_cleanup_entries(udev, &tag_match_list);
+	udev_list_cleanup(&subsystem_match_list);
+	udev_list_cleanup(&tag_match_list);
 	return rc;
 }
 

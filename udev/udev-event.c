@@ -38,14 +38,15 @@
 
 struct udev_event *udev_event_new(struct udev_device *dev)
 {
+	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_event *event;
 
 	event = calloc(1, sizeof(struct udev_event));
 	if (event == NULL)
 		return NULL;
 	event->dev = dev;
-	event->udev = udev_device_get_udev(dev);
-	udev_list_init(&event->run_list);
+	event->udev = udev;
+	udev_list_init(udev, &event->run_list, false);
 	event->fd_signal = -1;
 	event->birth_usec = now_usec();
 	event->timeout_usec = 60 * 1000 * 1000;
@@ -57,7 +58,7 @@ void udev_event_unref(struct udev_event *event)
 {
 	if (event == NULL)
 		return;
-	udev_list_cleanup_entries(event->udev, &event->run_list);
+	udev_list_cleanup(&event->run_list);
 	free(event->tmp_node);
 	free(event->program_result);
 	free(event->name);

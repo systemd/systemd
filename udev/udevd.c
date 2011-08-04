@@ -1574,8 +1574,8 @@ int main(int argc, char *argv[])
 
 	udev_rules_apply_static_dev_perms(rules);
 
-	udev_list_init(&event_list);
-	udev_list_init(&worker_list);
+	udev_list_node_init(&event_list);
+	udev_list_node_init(&worker_list);
 
 	for (;;) {
 		struct epoll_event ev[8];
@@ -1606,12 +1606,12 @@ int main(int argc, char *argv[])
 			worker_kill(udev, 0);
 
 			/* exit after all has cleaned up */
-			if (udev_list_is_empty(&event_list) && udev_list_is_empty(&worker_list))
+			if (udev_list_node_is_empty(&event_list) && udev_list_node_is_empty(&worker_list))
 				break;
 
 			/* timeout at exit for workers to finish */
 			timeout = 60 * 1000;
-		} else if (udev_list_is_empty(&event_list) && children > 2) {
+		} else if (udev_list_node_is_empty(&event_list) && children > 2) {
 			/* set timeout to kill idle workers */
 			timeout = 3 * 1000;
 		} else {
@@ -1659,7 +1659,7 @@ int main(int argc, char *argv[])
 		}
 
 		/* start new events */
-		if (!udev_list_is_empty(&event_list) && !udev_exit && !stop_exec_queue)
+		if (!udev_list_node_is_empty(&event_list) && !udev_exit && !stop_exec_queue)
 			event_queue_start(udev);
 
 		if (is_signal) {

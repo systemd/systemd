@@ -115,17 +115,20 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd);
 
 /* libudev-list.c */
-enum udev_list_flags {
-	UDEV_LIST_NONE =        0,
-	UDEV_LIST_UNIQUE =      1,
-	UDEV_LIST_SORT =        1 << 1,
-};
 struct udev_list_node {
 	struct udev_list_node *next, *prev;
 };
+struct udev_list {
+	struct udev *udev;
+	struct udev_list_node node;
+	struct udev_list_entry **entries;
+	unsigned int entries_cur;
+	unsigned int entries_max;
+	bool unique;
+};
 #define UDEV_LIST(list) struct udev_list_node list = { &(list), &(list) }
-void udev_list_init(struct udev_list_node *list);
-int udev_list_is_empty(struct udev_list_node *list);
+void udev_list_node_init(struct udev_list_node *list);
+int udev_list_node_is_empty(struct udev_list_node *list);
 void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list);
 void udev_list_node_remove(struct udev_list_node *entry);
 #define udev_list_node_foreach(node, list) \
@@ -136,14 +139,13 @@ void udev_list_node_remove(struct udev_list_node *entry);
 	for (node = (list)->next, tmp = (node)->next; \
 	     node != list; \
 	     node = tmp, tmp = (tmp)->next)
-struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
-						   const char *name, const char *value, unsigned int flags);
+void udev_list_init(struct udev *udev, struct udev_list *list, bool unique);
+void udev_list_cleanup(struct udev_list *list);
+struct udev_list_entry *udev_list_get_entry(struct udev_list *list);
+struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value);
 void udev_list_entry_delete(struct udev_list_entry *entry);
-void udev_list_entry_remove(struct udev_list_entry *entry);
 void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry);
-void udev_list_entry_append(struct udev_list_entry *new, struct udev_list_node *list);
-void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *name_list);
-struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
+void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list);
 int udev_list_entry_get_num(struct udev_list_entry *list_entry);
 void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \

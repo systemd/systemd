@@ -39,7 +39,7 @@ struct udev_event {
 	mode_t mode;
 	uid_t uid;
 	gid_t gid;
-	struct udev_list_node run_list;
+	struct udev_list run_list;
 	int exec_delay;
 	unsigned long long birth_usec;
 	unsigned long long timeout_usec;

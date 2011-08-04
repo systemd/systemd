@@ -400,7 +400,7 @@ int main(int argc, char **argv)
 		goto exit;
 	}
 
-	udev_list_init(&bunch);
+	udev_list_node_init(&bunch);
 
 	if (debug)
 		fprintf(stderr, "Using checkpoint '%s'\n", checkpoint);

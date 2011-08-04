@@ -45,7 +45,7 @@ struct udev {
 	char *rules_path;
 	char *run_config_path;
 	char *run_path;
-	struct udev_list_node properties_list;
+	struct udev_list properties_list;
 	int log_priority;
 };
 
@@ -130,14 +130,14 @@ UDEV_EXPORT struct udev *udev_new(void)
 	udev->refcount = 1;
 	udev->log_fn = log_stderr;
 	udev->log_priority = LOG_ERR;
-	udev_list_init(&udev->properties_list);
+	udev_list_init(udev, &udev->properties_list, true);
 
 	/* custom config file */
 	env = getenv("UDEV_CONFIG_FILE");
 	if (env != NULL) {
-		udev_add_property(udev, "UDEV_CONFIG_FILE", udev->dev_path);
 		if (set_value(&config_file, env) == NULL)
 			goto err;
+		udev_add_property(udev, "UDEV_CONFIG_FILE", config_file);
 	}
 
 	/* default config file */
@@ -307,7 +307,7 @@ UDEV_EXPORT void udev_unref(struct udev *udev)
 	udev->refcount--;
 	if (udev->refcount > 0)
 		return;
-	udev_list_cleanup_entries(udev, &udev->properties_list);
+	udev_list_cleanup(&udev->properties_list);
 	free(udev->dev_path);
 	free(udev->sys_path);
 	free(udev->rules_path);
@@ -458,7 +458,7 @@ struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, co
 			udev_list_entry_delete(list_entry);
 		return NULL;
 	}
-	return udev_list_entry_add(udev, &udev->properties_list, key, value, UDEV_LIST_UNIQUE);
+	return udev_list_entry_add(&udev->properties_list, key, value);
 }
 
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev)

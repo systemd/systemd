@@ -1749,7 +1749,7 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
 	return 0;
 }
 
-static int add_matching_files(struct udev *udev, struct udev_list_node *file_list, const char *dirname, const char *suffix)
+static int add_matching_files(struct udev *udev, struct udev_list *file_list, const char *dirname, const char *suffix)
 {
 	DIR *dir;
 	struct dirent *dent;
@@ -1783,7 +1783,7 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 		 * identical basenames from different directories overwrite each other
 		 * entries are sorted after basename
 		 */
-		udev_list_entry_add(udev, file_list, dent->d_name, filename, UDEV_LIST_UNIQUE|UDEV_LIST_SORT);
+		udev_list_entry_add(file_list, dent->d_name, filename);
 	}
 
 	closedir(dir);
@@ -1793,7 +1793,7 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 {
 	struct udev_rules *rules;
-	struct udev_list_node file_list;
+	struct udev_list file_list;
 	struct udev_list_entry *file_loop;
 	struct token end_token;
 
@@ -1802,7 +1802,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		return NULL;
 	rules->udev = udev;
 	rules->resolve_names = resolve_names;
-	udev_list_init(&file_list);
+	udev_list_init(udev, &file_list, true);
 
 	/* init token array and string buffer */
 	rules->tokens = malloc(PREALLOC_TOKEN * sizeof(struct token));
@@ -1885,7 +1885,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		}
 		parse_file(rules, filename, filename_off);
 	}
-	udev_list_cleanup_entries(udev, &file_list);
+	udev_list_cleanup(&file_list);
 
 	memset(&end_token, 0x00, sizeof(struct token));
 	end_token.type = TK_END;
@@ -2663,13 +2663,12 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			struct udev_list_entry *list_entry;
 
 			if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
-				udev_list_cleanup_entries(event->udev, &event->run_list);
+				udev_list_cleanup(&event->run_list);
 			info(event->udev, "RUN '%s' %s:%u\n",
 			     &rules->buf[cur->key.value_off],
 			     &rules->buf[rule->rule.filename_off],
 			     rule->rule.filename_line);
-			list_entry = udev_list_entry_add(event->udev, &event->run_list,
-							 &rules->buf[cur->key.value_off], NULL, UDEV_LIST_UNIQUE);
+			list_entry = udev_list_entry_add(&event->run_list, &rules->buf[cur->key.value_off], NULL);
 			if (cur->key.fail_on_error)
 				udev_list_entry_set_num(list_entry, true);
 			break;

@@ -42,8 +42,8 @@
 struct udev_queue {
 	struct udev *udev;
 	int refcount;
-	struct udev_list_node queue_list;
-	struct udev_list_node failed_list;
+	struct udev_list queue_list;
+	struct udev_list failed_list;
 };
 
 /**
@@ -67,8 +67,8 @@ UDEV_EXPORT struct udev_queue *udev_queue_new(struct udev *udev)
 		return NULL;
 	udev_queue->refcount = 1;
 	udev_queue->udev = udev;
-	udev_list_init(&udev_queue->queue_list);
-	udev_list_init(&udev_queue->failed_list);
+	udev_list_init(udev, &udev_queue->queue_list, false);
+	udev_list_init(udev, &udev_queue->failed_list, false);
 	return udev_queue;
 }
 
@@ -102,8 +102,8 @@ UDEV_EXPORT void udev_queue_unref(struct udev_queue *udev_queue)
 	udev_queue->refcount--;
 	if (udev_queue->refcount > 0)
 		return;
-	udev_list_cleanup_entries(udev_queue->udev, &udev_queue->queue_list);
-	udev_list_cleanup_entries(udev_queue->udev, &udev_queue->failed_list);
+	udev_list_cleanup(&udev_queue->queue_list);
+	udev_list_cleanup(&udev_queue->failed_list);
 	free(udev_queue);
 }
 
@@ -429,7 +429,7 @@ UDEV_EXPORT struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev
 
 	if (udev_queue == NULL)
 		return NULL;
-	udev_list_cleanup_entries(udev_queue->udev, &udev_queue->queue_list);
+	udev_list_cleanup(&udev_queue->queue_list);
 
 	queue_file = open_queue_file(udev_queue, &seqnum);
 	if (queue_file == NULL)
@@ -454,7 +454,7 @@ UDEV_EXPORT struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev
 			break;
 
 		if (len > 0) {
-			udev_list_entry_add(udev_queue->udev, &udev_queue->queue_list, syspath, seqnum_str, 0);
+			udev_list_entry_add(&udev_queue->queue_list, syspath, seqnum_str);
 		} else {
 			udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_queue->queue_list)) {
 				if (strcmp(seqnum_str, udev_list_entry_get_value(list_entry)) == 0) {
@@ -483,7 +483,7 @@ UDEV_EXPORT struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev
 
 	if (udev_queue == NULL)
 		return NULL;
-	udev_list_cleanup_entries(udev_queue->udev, &udev_queue->failed_list);
+	udev_list_cleanup(&udev_queue->failed_list);
 	util_strscpyl(path, sizeof(path), udev_get_run_path(udev_queue->udev), "/failed", NULL);
 	dir = opendir(path);
 	if (dir == NULL)
@@ -508,7 +508,7 @@ UDEV_EXPORT struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev
 		util_strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
 		if (stat(filename, &statbuf) != 0)
 			continue;
-		udev_list_entry_add(udev_queue->udev, &udev_queue->failed_list, syspath, NULL, 0);
+		udev_list_entry_add(&udev_queue->failed_list, syspath, NULL);
 	}
 	closedir(dir);
 	return udev_list_get_entry(&udev_queue->failed_list);

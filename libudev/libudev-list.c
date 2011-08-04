@@ -34,21 +34,20 @@
  */
 struct udev_list_entry {
 	struct udev_list_node node;
-	struct udev *udev;
-	struct udev_list_node *list;
+	struct udev_list *list;
 	char *name;
 	char *value;
 	int num;
 };
 
 /* the list's head points to itself if empty */
-void udev_list_init(struct udev_list_node *list)
+void udev_list_node_init(struct udev_list_node *list)
 {
 	list->next = list;
 	list->prev = list;
 }
 
-int udev_list_is_empty(struct udev_list_node *list)
+int udev_list_node_is_empty(struct udev_list_node *list)
 {
 	return list->next == list;
 }
@@ -90,19 +89,20 @@ static struct udev_list_entry *list_node_to_entry(struct udev_list_node *node)
 	return (struct udev_list_entry *)list;
 }
 
-/* insert entry into a list as the last element  */
-void udev_list_entry_append(struct udev_list_entry *new, struct udev_list_node *list)
+void udev_list_init(struct udev *udev, struct udev_list *list, bool unique)
 {
-	/* inserting before the list head make the node the last node in the list */
-	udev_list_node_insert_between(&new->node, list->prev, list);
-	new->list = list;
+	memset(list, 0x00, sizeof(struct udev_list));
+	list->udev = udev;
+	list->unique = unique;
+	udev_list_node_init(&list->node);
 }
 
-/* remove entry from a list */
-void udev_list_entry_remove(struct udev_list_entry *entry)
+/* insert entry into a list as the last element  */
+void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
 {
-	udev_list_node_remove(&entry->node);
-	entry->list = NULL;
+	/* inserting before the list head make the node the last node in the list */
+	udev_list_node_insert_between(&new->node, list->node.prev, &list->node);
+	new->list = list;
 }
 
 /* insert entry into a list, before a given existing entry */
@@ -112,90 +112,144 @@ void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list
 	new->list = entry->list;
 }
 
-struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
-					    const char *name, const char *value,
-					    unsigned int flags)
+/* binary search in sorted array */
+static int list_search(struct udev_list *list, const char *name)
 {
-	struct udev_list_entry *entry_loop = NULL;
-	struct udev_list_entry *entry_new;
+	unsigned int first, last;
 
-	if (flags & UDEV_LIST_UNIQUE) {
-		udev_list_entry_foreach(entry_loop, udev_list_get_entry(list)) {
-			if (strcmp(entry_loop->name, name) == 0) {
-				dbg(udev, "'%s' is already in the list\n", name);
-				free(entry_loop->value);
-				if (value == NULL) {
-					entry_loop->value = NULL;
-					dbg(udev, "'%s' value unset\n", name);
-					return entry_loop;
-				}
-				entry_loop->value = strdup(value);
-				if (entry_loop->value == NULL)
-					return NULL;
-				dbg(udev, "'%s' value replaced with '%s'\n", name, value);
-				return entry_loop;
+	first = 0;
+	last = list->entries_cur;
+	while (first < last) {
+		unsigned int i;
+		int cmp;
+
+		i = (first + last)/2;
+		cmp = strcmp(name, list->entries[i]->name);
+		if (cmp < 0)
+			last = i;
+		else if (cmp > 0)
+			first = i+1;
+		else
+			return i;
+	}
+
+	/* not found, return negative insertion-index+1 */
+	return -(first+1);
+}
+
+struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value)
+{
+	struct udev_list_entry *entry;
+	int i = 0;
+
+	if (list->unique) {
+		/* lookup existing name or insertion-index */
+		i = list_search(list, name);
+		if (i >= 0) {
+			entry = list->entries[i];
+
+			dbg(list->udev, "'%s' is already in the list\n", name);
+			free(entry->value);
+			if (value == NULL) {
+				entry->value = NULL;
+				dbg(list->udev, "'%s' value unset\n", name);
+				return entry;
 			}
+			entry->value = strdup(value);
+			if (entry->value == NULL)
+				return NULL;
+			dbg(list->udev, "'%s' value replaced with '%s'\n", name, value);
+			return entry;
 		}
 	}
 
-	if (flags & UDEV_LIST_SORT) {
-		udev_list_entry_foreach(entry_loop, udev_list_get_entry(list)) {
-			if (strcmp(entry_loop->name, name) > 0)
-				break;
-		}
-	}
-
-	entry_new = malloc(sizeof(struct udev_list_entry));
-	if (entry_new == NULL)
+	/* add new name */
+	entry = calloc(1, sizeof(struct udev_list_entry));
+	if (entry == NULL)
 		return NULL;
-	memset(entry_new, 0x00, sizeof(struct udev_list_entry));
-	entry_new->udev = udev;
-	entry_new->name = strdup(name);
-	if (entry_new->name == NULL) {
-		free(entry_new);
+	entry->name = strdup(name);
+	if (entry->name == NULL) {
+		free(entry);
 		return NULL;
 	}
-
 	if (value != NULL) {
-		entry_new->value = strdup(value);
-		if (entry_new->value == NULL) {
-			free(entry_new->name);
-			free(entry_new);
+		entry->value = strdup(value);
+		if (entry->value == NULL) {
+			free(entry->name);
+			free(entry);
 			return NULL;
 		}
 	}
+	udev_list_entry_append(entry, list);
 
-	if (entry_loop != NULL)
-		udev_list_entry_insert_before(entry_new, entry_loop);
-	else
-		udev_list_entry_append(entry_new, list);
+	if (list->unique) {
+		/* allocate or enlarge sorted array if needed */
+		if (list->entries_cur >= list->entries_max) {
+			unsigned int add;
 
-	dbg(udev, "'%s=%s' added\n", entry_new->name, entry_new->value);
-	return entry_new;
+			add = list->entries_max;
+			if (add < 1)
+				add = 64;
+			list->entries = realloc(list->entries, (list->entries_max + add) * sizeof(struct udev_list_entry *));
+			if (list->entries == NULL) {
+				free(entry->name);
+				free(entry->value);
+				return NULL;
+			}
+			list->entries_max += add;
+		}
+
+		/* insert into sorted array */
+		i = (-i)-1;
+		memmove(&list->entries[i+1], &list->entries[i],
+		        (list->entries_cur - i) * sizeof(struct udev_list_entry *));
+		list->entries[i] = entry;
+		list->entries_cur++;
+	}
+
+	dbg(list->udev, "'%s=%s' added\n", entry->name, entry->value);
+	return entry;
 }
 
 void udev_list_entry_delete(struct udev_list_entry *entry)
 {
+	if (entry->list->entries != NULL) {
+		int i;
+		struct udev_list *list = entry->list;
+
+		/* remove entry from sorted array */
+		i = list_search(list, entry->name);
+		if (i >= 0) {
+			memmove(&list->entries[i], &list->entries[i+1],
+			        ((list->entries_cur-1) - i) * sizeof(struct udev_list_entry *));
+			list->entries_cur--;
+		}
+	}
+
 	udev_list_node_remove(&entry->node);
 	free(entry->name);
 	free(entry->value);
 	free(entry);
 }
 
-void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *list)
+void udev_list_cleanup(struct udev_list *list)
 {
 	struct udev_list_entry *entry_loop;
 	struct udev_list_entry *entry_tmp;
 
+	free(list->entries);
+	list->entries = NULL;
+	list->entries_cur = 0;
+	list->entries_max = 0;
 	udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list))
 		udev_list_entry_delete(entry_loop);
 }
 
-struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list)
+struct udev_list_entry *udev_list_get_entry(struct udev_list *list)
 {
-	if (udev_list_is_empty(list))
+	if (udev_list_node_is_empty(&list->node))
 		return NULL;
-	return list_node_to_entry(list->next);
+	return list_node_to_entry(list->node.next);
 }
 
 /**
@@ -212,7 +266,7 @@ UDEV_EXPORT struct udev_list_entry *udev_list_entry_get_next(struct udev_list_en
 		return NULL;
 	next = list_entry->node.next;
 	/* empty list or no more entries */
-	if (next == list_entry->list)
+	if (next == &list_entry->list->node)
 		return NULL;
 	return list_node_to_entry(next);
 }
@@ -226,15 +280,18 @@ UDEV_EXPORT struct udev_list_entry *udev_list_entry_get_next(struct udev_list_en
  */
 UDEV_EXPORT struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name)
 {
-	struct udev_list_entry *entry;
+	int i;
 
-	udev_list_entry_foreach(entry, list_entry) {
-		if (strcmp(udev_list_entry_get_name(entry), name) == 0) {
-			dbg(entry->udev, "found '%s=%s'\n", entry->name, entry->value);
-			return entry;
-		}
-	}
-	return NULL;
+	if (list_entry == NULL)
+		return NULL;
+
+	if (!list_entry->list->unique)
+		return NULL;
+
+	i = list_search(list_entry->list, name);
+	if (i < 0)
+		return NULL;
+	return list_entry->list->entries[i];
 }
 
 /**

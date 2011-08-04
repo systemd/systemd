@@ -1,4 +1,4 @@
- - bluetooth input
+ - sticky bit for 'dead' pre-created devnodes
 
  - have a $attrs{} ?
 

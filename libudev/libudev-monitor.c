@@ -48,8 +48,8 @@ struct udev_monitor {
 	struct sockaddr_nl snl_destination;
 	struct sockaddr_un sun;
 	socklen_t addrlen;
-	struct udev_list_node filter_subsystem_list;
-	struct udev_list_node filter_tag_list;
+	struct udev_list filter_subsystem_list;
+	struct udev_list filter_tag_list;
 	bool bound;
 };
 
@@ -92,8 +92,8 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
 		return NULL;
 	udev_monitor->refcount = 1;
 	udev_monitor->udev = udev;
-	udev_list_init(&udev_monitor->filter_subsystem_list);
-	udev_list_init(&udev_monitor->filter_tag_list);
+	udev_list_init(udev, &udev_monitor->filter_subsystem_list, false);
+	udev_list_init(udev, &udev_monitor->filter_tag_list, true);
 	return udev_monitor;
 }
 
@@ -483,8 +483,8 @@ UDEV_EXPORT void udev_monitor_unref(struct udev_monitor *udev_monitor)
 		return;
 	if (udev_monitor->sock >= 0)
 		close(udev_monitor->sock);
-	udev_list_cleanup_entries(udev_monitor->udev, &udev_monitor->filter_subsystem_list);
-	udev_list_cleanup_entries(udev_monitor->udev, &udev_monitor->filter_tag_list);
+	udev_list_cleanup(&udev_monitor->filter_subsystem_list);
+	udev_list_cleanup(&udev_monitor->filter_tag_list);
 	dbg(udev_monitor->udev, "monitor %p released\n", udev_monitor);
 	free(udev_monitor);
 }
@@ -647,7 +647,7 @@ retry:
 		/* udev message needs proper version magic */
 		nlh = (struct udev_monitor_netlink_header *) buf;
 		if (nlh->magic != htonl(UDEV_MONITOR_MAGIC)) {
-			err(udev_monitor->udev, "ignored a message from an invalid release of udevadm (%x != %x)\n",
+			err(udev_monitor->udev, "unrecognized message signature (%x != %x)\n",
 			    nlh->magic, htonl(UDEV_MONITOR_MAGIC));
 			return NULL;
 		}
@@ -830,8 +830,7 @@ UDEV_EXPORT int udev_monitor_filter_add_match_subsystem_devtype(struct udev_moni
 		return -EINVAL;
 	if (subsystem == NULL)
 		return -EINVAL;
-	if (udev_list_entry_add(udev_monitor->udev,
-				&udev_monitor->filter_subsystem_list, subsystem, devtype, 0) == NULL)
+	if (udev_list_entry_add(&udev_monitor->filter_subsystem_list, subsystem, devtype) == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -854,8 +853,7 @@ UDEV_EXPORT int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_moni
 		return -EINVAL;
 	if (tag == NULL)
 		return -EINVAL;
-	if (udev_list_entry_add(udev_monitor->udev,
-				&udev_monitor->filter_tag_list, tag, NULL, 0) == NULL)
+	if (udev_list_entry_add(&udev_monitor->filter_tag_list, tag, NULL) == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -872,6 +870,6 @@ UDEV_EXPORT int udev_monitor_filter_remove(struct udev_monitor *udev_monitor)
 {
 	static struct sock_fprog filter = { 0, NULL };
 
-	udev_list_cleanup_entries(udev_monitor->udev, &udev_monitor->filter_subsystem_list);
+	udev_list_cleanup(&udev_monitor->filter_subsystem_list);
 	return setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
 }
