@@ -20,6 +20,7 @@ KERNEL=="null|zero|full|random|urandom", MODE="0666"
 KERNEL=="mem|kmem|port|nvram",	GROUP="kmem", MODE="0640"
 
 # input
+SUBSYSTEM=="input", ENV{ID_INPUT}=="", IMPORT{program}="input_id %p"
 KERNEL=="mouse*|mice|event*",	MODE="0640"
 KERNEL=="ts[0-9]*|uinput",	MODE="0640"
 KERNEL=="js[0-9]*",		MODE="0644"
@@ -50,7 +51,7 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*", GROUP="video"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", GROUP="video"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
 
-# libusb device nodes
+# 'libusb' device nodes
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="", IMPORT{program}="usb_id --export %p"
 
