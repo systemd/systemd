@@ -110,7 +110,7 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-        } else
+        } else if (!streq(option, "none"))
                 log_error("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
