@@ -1,3 +1,11 @@
+udev 174
+========
+Bugfixes.
+
+The path_id, usb_id, input_id tools are built-in commands now
+and the stand-alone tools do not exist anymore. For testing,
+the commands can be run with 'udevadm test-builtin <cmd>'.
+
 udev 173
 ========
 Bugfixes.

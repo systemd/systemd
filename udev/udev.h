@@ -44,6 +44,8 @@ struct udev_event {
 	unsigned long long birth_usec;
 	unsigned long long timeout_usec;
 	int fd_signal;
+	unsigned int builtin_run;
+	unsigned int builtin_ret;
 	bool sigterm;
 	bool inotify_watch;
 	bool inotify_watch_final;
@@ -141,4 +143,27 @@ extern const struct udevadm_cmd udevadm_control;
 extern const struct udevadm_cmd udevadm_trigger;
 extern const struct udevadm_cmd udevadm_settle;
 extern const struct udevadm_cmd udevadm_test;
+extern const struct udevadm_cmd udevadm_test_builtin;
+
+/* built-in commands */
+enum udev_builtin_cmd {
+	UDEV_BUILTIN_PATH_ID,
+	UDEV_BUILTIN_USB_ID,
+	UDEV_BUILTIN_INPUT_ID,
+	UDEV_BUILTIN_MODALIAS_MATCH,
+	UDEV_BUILTIN_MAX
+};
+struct udev_builtin {
+	const char *name;
+	int (*cmd)(struct udev_device *dev, bool test);
+	const char *help;
+};
+extern const struct udev_builtin udev_builtin_path_id;
+extern const struct udev_builtin udev_builtin_usb_id;
+extern const struct udev_builtin udev_builtin_input_id;
+enum udev_builtin_cmd udev_builtin_lookup(const char *name);
+const char *udev_builtin_name(enum udev_builtin_cmd cmd);
+int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, bool test);
+int udev_builtin_list(struct udev *udev);
+int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val, ...);
 #endif

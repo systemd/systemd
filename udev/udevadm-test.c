@@ -165,6 +165,6 @@ out:
 const struct udevadm_cmd udevadm_test = {
 	.name = "test",
 	.cmd = adm_test,
-	.help = "simulation run",
+	.help = "test an event run",
 	.debug = true,
 };

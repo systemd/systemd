@@ -6,11 +6,11 @@ KERNEL!="ttyUSB[0-9]*|ttyACM[0-9]*", GOTO="persistent_serial_end"
 
 SUBSYSTEMS=="usb-serial", ENV{.ID_PORT}="$attr{port_number}"
 
-IMPORT="path_id %p"
+IMPORT{builtin}="path_id"
 ENV{ID_PATH}=="?*", ENV{.ID_PORT}=="", SYMLINK+="serial/by-path/$env{ID_PATH}"
 ENV{ID_PATH}=="?*", ENV{.ID_PORT}=="?*", SYMLINK+="serial/by-path/$env{ID_PATH}-port$env{.ID_PORT}"
 
-IMPORT="usb_id --export %p"
+IMPORT{builtin}="usb_id"
 ENV{ID_SERIAL}=="", GOTO="persistent_serial_end"
 SUBSYSTEMS=="usb", ENV{ID_USB_INTERFACE_NUM}="$attr{bInterfaceNumber}"
 ENV{ID_USB_INTERFACE_NUM}=="", GOTO="persistent_serial_end"

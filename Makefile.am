@@ -160,7 +160,11 @@ udev_common_sources =\
 	udev/udev-watch.c \
 	udev/udev-node.c \
 	udev/udev-rules.c \
-	udev/udev-ctrl.c
+	udev/udev-ctrl.c \
+	udev/udev-builtin.c \
+	udev/udev-builtin-path_id.c \
+	udev/udev-builtin-usb_id.c \
+	udev/udev-builtin-input_id.c
 
 udev_udevd_SOURCES = \
 	$(udev_common_sources) \
@@ -174,10 +178,11 @@ udev_udevadm_SOURCES = \
 	udev/udevadm.c \
 	udev/udevadm-info.c \
 	udev/udevadm-control.c \
-	udev/udevadm-test.c \
 	udev/udevadm-monitor.c \
 	udev/udevadm-settle.c \
-	udev/udevadm-trigger.c
+	udev/udevadm-trigger.c \
+	udev/udevadm-test.c \
+	udev/udevadm-test-builtin.c
 udev_udevadm_LDADD = libudev/libudev-private.la
 
 # ------------------------------------------------------------------------------
@@ -253,20 +258,6 @@ extras_collect_collect_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/collect/collect
 
 # ------------------------------------------------------------------------------
-# input_id - import input device class
-# ------------------------------------------------------------------------------
-extras_input_id_input_id_SOURCES = extras/input_id/input_id.c
-extras_input_id_input_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/input_id/input_id
-
-# ------------------------------------------------------------------------------
-# path_id - compose identifier of persistent elements of the parent buses
-# ------------------------------------------------------------------------------
-extras_path_id_path_id_SOURCES = extras/path_id/path_id.c
-extras_path_id_path_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/path_id/path_id
-
-# ------------------------------------------------------------------------------
 # scsi_id - SCSI inquiry to get various serial numbers
 # ------------------------------------------------------------------------------
 extras_scsi_id_scsi_id_SOURCES =\
@@ -278,13 +269,6 @@ extras_scsi_id_scsi_id_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/scsi_id/scsi_id
 dist_man_MANS += extras/scsi_id/scsi_id.8
 EXTRA_DIST += extras/scsi_id/README
-
-# ------------------------------------------------------------------------------
-# usb_id - USB device property import
-# ------------------------------------------------------------------------------
-extras_usb_id_usb_id_SOURCES = extras/usb_id/usb_id.c
-extras_usb_id_usb_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/usb_id/usb_id
 
 # ------------------------------------------------------------------------------
 # v4l_id - video4linux capabilities

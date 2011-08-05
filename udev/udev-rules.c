@@ -144,6 +144,7 @@ enum token_type {
 	TK_M_PROGRAM,			/* val */
 	TK_M_IMPORT_FILE,		/* val */
 	TK_M_IMPORT_PROG,		/* val */
+	TK_M_IMPORT_BUILTIN,		/* val */
 	TK_M_IMPORT_DB,			/* val */
 	TK_M_IMPORT_CMDLINE,		/* val */
 	TK_M_IMPORT_PARENT,		/* val */
@@ -205,6 +206,7 @@ struct token {
 				int devlink_prio;
 				int event_timeout;
 				int watch;
+				enum udev_builtin_cmd builtin_cmd;
 			};
 		} key;
 	};
@@ -280,6 +282,7 @@ static const char *token_str(enum token_type type)
 		[TK_M_PROGRAM] =		"M PROGRAM",
 		[TK_M_IMPORT_FILE] =		"M IMPORT_FILE",
 		[TK_M_IMPORT_PROG] =		"M IMPORT_PROG",
+		[TK_M_IMPORT_BUILTIN] =		"M IMPORT_BUILTIN",
 		[TK_M_IMPORT_DB] =		"M IMPORT_DB",
 		[TK_M_IMPORT_CMDLINE] =		"M IMPORT_CMDLINE",
 		[TK_M_IMPORT_PARENT] =		"M IMPORT_PARENT",
@@ -360,6 +363,9 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_A_RUN:
 		dbg(rules->udev, "%s %s '%s'(%s)\n",
 		    token_str(type), operation_str(op), value, string_glob_str(glob));
+		break;
+	case TK_M_IMPORT_BUILTIN:
+		dbg(rules->udev, "%s %i\n", token_str(type), token->key.builtin_cmd);
 		break;
 	case TK_M_ATTR:
 	case TK_M_ATTRS:
@@ -1033,6 +1039,9 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_A_TAG:
 		token->key.value_off = add_string(rule_tmp->rules, value);
 		break;
+	case TK_M_IMPORT_BUILTIN:
+		token->key.builtin_cmd = *(enum udev_builtin_cmd *)data;
+		break;
 	case TK_M_ENV:
 	case TK_M_ATTR:
 	case TK_M_ATTRS:
@@ -1435,43 +1444,50 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 		if (strncmp(key, "IMPORT", sizeof("IMPORT")-1) == 0) {
 			attr = get_key_attribute(rules->udev, key + sizeof("IMPORT")-1);
-			if (attr != NULL && strstr(attr, "program")) {
+			if (attr == NULL) {
+				err(rules->udev, "IMPORT{} type missing, ignoring IMPORT %s:%u\n", filename, lineno);
+				continue;
+			}
+			if (strstr(attr, "program")) {
+				/* find known built-in command */
+				if (value[0] != '/') {
+					char file[UTIL_PATH_SIZE];
+					char *pos;
+					enum udev_builtin_cmd cmd;
+
+					util_strscpy(file, sizeof(file), value);
+					pos = strchr(file, ' ');
+					if (pos)
+						pos[0] = '\0';
+					cmd = udev_builtin_lookup(file);
+					if (cmd < UDEV_BUILTIN_MAX) {
+						info(rules->udev, "IMPORT found builtin '%s', replacing %s:%u\n", file, filename, lineno);
+						rule_add_key(&rule_tmp, TK_M_IMPORT_BUILTIN, op, NULL, &cmd);
+						continue;
+					}
+				}
 				dbg(rules->udev, "IMPORT will be executed\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
-			} else if (attr != NULL && strstr(attr, "file")) {
+			} else if (strstr(attr, "builtin")) {
+				enum udev_builtin_cmd cmd = udev_builtin_lookup(value);
+
+				dbg(rules->udev, "IMPORT execute builtin\n");
+				if (cmd < UDEV_BUILTIN_MAX)
+					rule_add_key(&rule_tmp, TK_M_IMPORT_BUILTIN, op, NULL, &cmd);
+				else
+					err(rules->udev, "IMPORT{builtin}: '%s' unknown %s:%u\n", value, filename, lineno);
+			} else if (strstr(attr, "file")) {
 				dbg(rules->udev, "IMPORT will be included as file\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
-			} else if (attr != NULL && strstr(attr, "db")) {
+			} else if (strstr(attr, "db")) {
 				dbg(rules->udev, "IMPORT will include db values\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_DB, op, value, NULL);
-			} else if (attr != NULL && strstr(attr, "cmdline")) {
+			} else if (strstr(attr, "cmdline")) {
 				dbg(rules->udev, "IMPORT will include db values\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_CMDLINE, op, value, NULL);
-			} else if (attr != NULL && strstr(attr, "parent")) {
+			} else if (strstr(attr, "parent")) {
 				dbg(rules->udev, "IMPORT will include the parent values\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_PARENT, op, value, NULL);
-			} else {
-				/* figure it out if it is executable */
-				char file[UTIL_PATH_SIZE];
-				char *pos;
-				struct stat statbuf;
-
-				/* allow programs in /lib/udev called without the path */
-				if (value[0] != '/')
-					util_strscpyl(file, sizeof(file), LIBEXECDIR "/", value, NULL);
-				else
-					util_strscpy(file, sizeof(file), value);
-				pos = strchr(file, ' ');
-				if (pos)
-					pos[0] = '\0';
-				dbg(rules->udev, "IMPORT auto mode for '%s'\n", file);
-				if (stat(file, &statbuf) == 0 && (statbuf.st_mode & S_IXUSR)) {
-					dbg(rules->udev, "IMPORT will be executed (autotype)\n");
-					rule_add_key(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
-				} else {
-					dbg(rules->udev, "IMPORT will be included as file (autotype)\n");
-					rule_add_key(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
-				}
 			}
 			continue;
 		}
@@ -2347,6 +2363,35 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (import_program_into_properties(event, import, sigmask) != 0)
 				if (cur->key.op != OP_NOMATCH)
 					goto nomatch;
+			break;
+		}
+		case TK_M_IMPORT_BUILTIN: {
+			/* check if we ran already */
+			if (event->builtin_run & (1 << cur->key.builtin_cmd)) {
+				info(event->udev, "IMPORT builtin skip '%s' %s:%u\n",
+				     udev_builtin_name(cur->key.builtin_cmd),
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
+				/* return the result from earlier run */
+				if (event->builtin_ret & (1 << cur->key.builtin_cmd))
+					if (cur->key.op != OP_NOMATCH)
+						goto nomatch;
+				break;
+			}
+			/* mark as ran */
+			event->builtin_run |= (1 << cur->key.builtin_cmd);
+			info(event->udev, "IMPORT builtin '%s' %s:%u\n",
+			     udev_builtin_name(cur->key.builtin_cmd),
+			     &rules->buf[rule->rule.filename_off],
+			     rule->rule.filename_line);
+			if (udev_builtin_run(event->dev, cur->key.builtin_cmd, false) != 0) {
+				/* remember failure */
+				info(rules->udev, "IMPORT builtin '%s' returned non-zero\n",
+				     udev_builtin_name(cur->key.builtin_cmd));
+				event->builtin_ret |= (1 << cur->key.builtin_cmd);
+				if (cur->key.op != OP_NOMATCH)
+					goto nomatch;
+			}
 			break;
 		}
 		case TK_M_IMPORT_DB: {

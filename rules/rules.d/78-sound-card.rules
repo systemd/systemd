@@ -37,7 +37,7 @@ KERNEL!="card*", GOTO="sound_end"
 
 ENV{SOUND_INITIALIZED}="1"
 
-SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{program}="usb_id --export %p"
+SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
 SUBSYSTEMS=="usb", ENV{ID_VENDOR_FROM_DATABASE}=="", IMPORT{program}="usb-db %p"
 SUBSYSTEMS=="usb", GOTO="skip_pci"
 
@@ -49,7 +49,7 @@ LABEL="skip_pci"
 ENV{ID_SERIAL}=="?*", ENV{ID_USB_INTERFACE_NUM}=="?*", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_USB_INTERFACE_NUM}-$attr{id}"
 ENV{ID_SERIAL}=="?*", ENV{ID_USB_INTERFACE_NUM}=="", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$attr{id}"
 
-ENV{ID_PATH}=="", IMPORT{program}="path_id %p/controlC%n"
+IMPORT{builtin}="path_id"
 
 # The values used here for $SOUND_FORM_FACTOR and $SOUND_CLASS should be kept
 # in sync with those defined for PulseAudio's src/pulse/proplist.h

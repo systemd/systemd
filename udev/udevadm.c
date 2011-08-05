@@ -67,6 +67,7 @@ static const struct udevadm_cmd *udevadm_cmds[] = {
 	&udevadm_control,
 	&udevadm_monitor,
 	&udevadm_test,
+	&udevadm_test_builtin,
 	&udevadm_version,
 	&udevadm_help,
 };
@@ -75,11 +76,11 @@ static int adm_help(struct udev *udev, int argc, char *argv[])
 {
 	unsigned int i;
 
-	printf("Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
+	fprintf(stderr, "Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
 	for (i = 0; i < ARRAY_SIZE(udevadm_cmds); i++)
 		if (udevadm_cmds[i]->help != NULL)
 			printf("  %-12s %s\n", udevadm_cmds[i]->name, udevadm_cmds[i]->help);
-	printf("\n");
+	fprintf(stderr, "\n");
 	return 0;
 }
 

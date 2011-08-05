@@ -292,7 +292,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "node12345678",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", IMPORT="/bin/echo -e \' TEST_KEY=12345678\\n  TEST_key2=98765\'", SYMLINK+="node\$env{TEST_KEY}"
+SUBSYSTEMS=="scsi", IMPORT{program}="/bin/echo -e \' TEST_KEY=12345678\\n  TEST_key2=98765\'", SYMLINK+="node\$env{TEST_KEY}"
 KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
 	},
@@ -1330,7 +1330,7 @@ EOF
 		exp_name	=> "parent",
 		option		=> "keep",
 		rules		=> <<EOF
-KERNEL=="sda", IMPORT="/bin/echo -e \'PARENT_KEY=parent_right\\nWRONG_PARENT_KEY=parent_wrong'"
+KERNEL=="sda", IMPORT{program}="/bin/echo -e \'PARENT_KEY=parent_right\\nWRONG_PARENT_KEY=parent_wrong'"
 KERNEL=="sda", SYMLINK+="parent"
 EOF
 	},
@@ -1504,6 +1504,16 @@ EOF
 KERNEL=="sda", PROGRAM="/bin/true create-envp"
 KERNEL=="sda", ENV{TESTENV}="change-envp"
 KERNEL=="sda", SYMLINK+="%k-%s{[dmi/id]product_name}-end", RUN+="socket:@/org/kernel/udev/monitor"
+EOF
+	},
+	{
+		desc		=> "builtin path_id",
+		subsys		=> "block",
+		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+		exp_name	=> "disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0",
+		rules		=> <<EOF
+KERNEL=="sda", IMPORT{builtin}="path_id"
+KERNEL=="sda", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/\$env{ID_PATH}"
 EOF
 	},
 );

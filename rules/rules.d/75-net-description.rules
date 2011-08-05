@@ -3,7 +3,7 @@
 ACTION=="remove", GOTO="net_end"
 SUBSYSTEM!="net", GOTO="net_end"
 
-SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{program}="usb_id --export %p"
+SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{builtin}="usb_id"
 SUBSYSTEMS=="usb", ENV{ID_MODEL_FROM_DATABASE}=="", IMPORT{program}="usb-db %p"
 SUBSYSTEMS=="usb", ATTRS{idVendor}!="", ATTRS{idProduct}!="", ENV{ID_VENDOR_ID}="$attr{idVendor}", ENV{ID_MODEL_ID}="$attr{idProduct}"
 SUBSYSTEMS=="usb", GOTO="net_end"

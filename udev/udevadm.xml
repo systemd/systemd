@@ -44,6 +44,9 @@
     <cmdsynopsis>
       <command>udevadm test <optional>options</optional> <replaceable>devpath</replaceable></command>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>udevadm test-builtin <optional>options</optional> <replaceable>command</replaceable> <replaceable>devpath</replaceable></command>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
@@ -432,6 +435,18 @@
             <para>The subsystem string.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>--help</option></term>
+          <listitem>
+            <para>Print help text.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2><title>udevadm test-builtin <optional>options</optional> <replaceable>command</replaceable> <replaceable>devpath</replaceable></title>
+      <para>Run a built-in command for the given device, and print debug output.</para>
+      <variablelist>
         <varlistentry>
           <term><option>--help</option></term>
           <listitem>

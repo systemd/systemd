@@ -4,6 +4,8 @@
 
  - test (now fixed) /dev/tape/ links
 
+ - warn about fallback of IMPORT{program} for built-in commands
+
  - /run/udev/control socket
    (add ConditionVirtualization=!pidns)
 

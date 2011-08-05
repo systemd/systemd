@@ -36,7 +36,7 @@ KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", ATTRS{type}==
 # Run ata_id on non-removable USB Mass Storage (SATA/PATA disks in enclosures)
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", ATTR{removable}=="0", SUBSYSTEMS=="usb", IMPORT{program}="ata_id --export $tempnode"
 # Otherwise fall back to using usb_id for USB devices
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
 
 # scsi devices
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --export --whitelisted -d $tempnode", ENV{ID_BUS}="scsi"
@@ -58,7 +58,7 @@ KERNEL=="mspblk[0-9]", SUBSYSTEMS=="memstick", ATTRS{name}=="?*", ATTRS{serial}=
 KERNEL=="mspblk[0-9]p[0-9]", ENV{ID_NAME}=="?*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/memstick-$env{ID_NAME}_$env{ID_SERIAL}-part%n"
 
 # by-path (parent device path)
-ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="", DEVPATH!="*/virtual/*", IMPORT{program}="path_id %p"
+ENV{DEVTYPE}=="disk", DEVPATH!="*/virtual/*", IMPORT{builtin}="path_id"
 ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
 ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 

@@ -463,9 +463,6 @@
                 </listitem>
               </varlistentry>
             </variablelist>
-            <para>If no option is given, udev chooses between <option>program</option>
-            and <option>file</option> based on the executable bit of the file
-            permissions.</para>
           </listitem>
         </varlistentry>
 
