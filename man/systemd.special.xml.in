@@ -68,7 +68,6 @@
                 <filename>remote-fs.target</filename>,
                 <filename>rescue.target</filename>,
                 <filename>rpcbind.target</filename>,
-                <filename>time-sync.target</filename>,
                 <filename>runlevel2.target</filename>,
                 <filename>runlevel3.target</filename>,
                 <filename>runlevel4.target</filename>,
@@ -83,6 +82,7 @@
                 <filename>systemd-initctl.socket</filename>,
                 <filename>systemd-logger.service</filename>,
                 <filename>systemd-logger.socket</filename>,
+                <filename>time-sync.target</filename>,
                 <filename>umount.target</filename></para>
         </refsynopsisdiv>
 
@@ -399,19 +399,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>time-sync.target</filename></term>
-                                <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
-                                        <literal>$time</literal>
-                                        facility.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>runlevel2.target</filename></term>
                                 <listitem>
                                         <para>This is a target that is
@@ -620,6 +607,19 @@
                                         <para>Socket activation unit
                                         for
                                         <filename>system-shutdownd.service</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>time-sync.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After for this target unit to
+                                        all SysV init script service
+                                        units with an LSB header
+                                        referring to the
+                                        <literal>$time</literal>
+                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
