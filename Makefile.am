@@ -301,6 +301,7 @@ dist_bashcompletion_DATA = \
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
+	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf
 
 if HAVE_SYSV_COMPAT
