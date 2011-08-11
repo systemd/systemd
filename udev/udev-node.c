@@ -425,6 +425,11 @@ int udev_node_remove(struct udev_device *dev)
 		goto out;
 	}
 
+	if (stats.st_mode & 01000) {
+		info(udev, "device node '%s' has sticky bit set, skip removal\n", devnode);
+		goto out;
+	}
+
 	dev_check = udev_device_new_from_syspath(udev, udev_device_get_syspath(dev));
 	if (dev_check != NULL) {
 		/* do not remove device node if the same sys-device is re-created in the meantime */

@@ -2572,6 +2572,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			     rule->rule.filename_line);
 			break;
 		case TK_A_STATIC_NODE:
+			event->static_node = true;
 			break;
 		case TK_A_ENV: {
 			const char *name = &rules->buf[cur->key.attr_off];
@@ -2793,10 +2794,15 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
 				goto next;
 			if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))
 				goto next;
-
-			if (mode == 0 && gid > 0)
-				mode = 0660;
-			if (mode != (stats.st_mode & 0777)) {
+			if (mode == 0) {
+				if (gid > 0)
+					mode = 0660;
+				else
+					mode = 0600;
+			}
+			/* set sticky bit, so we do not remove the node on module unload */
+			mode |= 01000;
+			if (mode != (stats.st_mode & 01777)) {
 				chmod(filename, mode);
 				info(rules->udev, "chmod '%s' %#o\n", filename, mode);
 			}

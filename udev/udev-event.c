@@ -1030,6 +1030,10 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
 				}
 			}
 
+			/* set sticky bit, so we do not remove the node on module unload */
+			if (event->static_node)
+				event->mode |= 01000;
+
 			err = udev_node_add(dev, event->mode, event->uid, event->gid);
 		}
 

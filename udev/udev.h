@@ -53,6 +53,7 @@ struct udev_event {
 	bool owner_final;
 	bool mode_set;
 	bool mode_final;
+	bool static_node;
 	bool name_final;
 	bool devlink_final;
 	bool run_final;
