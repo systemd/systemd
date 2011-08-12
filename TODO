@@ -1,25 +1,13 @@
- - sticky bit for 'dead' pre-created devnodes
-
- - have a $attrs{} ?
-
  - test (now fixed) /dev/tape/ links
-
- - warn about fallback of IMPORT{program} for built-in commands
 
  - /run/udev/control socket
    (add ConditionVirtualization=!pidns)
 
  - move udevd -> --libexecdir
 
- - allow path_id, usb_id, usb_db, pci_db as built-in?
+ - have a $attrs{} ?
 
- - kill rules_generator:
-   - no longer rename netifs in kernel namespace
-   - drop persistent optical names
-   - do not create rules on-the-fly, require explicit configuration
-     for netifs and optical drives
-   - properly document what system management needs to put
-     into rules files
+ - kill rules_generator
 
  - move udevadm -> --bindir
 
@@ -27,8 +15,10 @@
 
  - remove deprecated BUS=, SYSFS{}=, ID= keys
 
- - remove RUN+="socket:"
-
  - kill tabs?
 
- - libudev: return proper errno or set errno
+ - warn about RUN+="socket:"
+
+ - libudev.so.1 with symbol versioning:
+     - return object with *_unref()
+     - udev_monitor_from_socket()
