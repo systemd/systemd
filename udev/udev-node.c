@@ -52,7 +52,9 @@ int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_
 	if (lstat(file, &stats) == 0) {
 		if (((stats.st_mode & S_IFMT) == (mode & S_IFMT)) && (stats.st_rdev == devnum)) {
 			info(udev, "preserve file '%s', because it has correct dev_t\n", file);
-			if (stats.st_mode != mode || stats.st_uid != uid || stats.st_gid != gid) {
+			if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
+				/* preserve 'sticky' bit, if already set */
+				mode |= stats.st_mode & 01000;
 				info(udev, "set permissions %s, %#o, uid=%u, gid=%u\n", file, mode, uid, gid);
 				chmod(file, mode);
 				chown(file, uid, gid);
