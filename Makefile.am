@@ -7,7 +7,7 @@ SUBDIRS = .
 
 EXTRA_DIST = autogen.sh
 
-ACLOCAL_AMFLAGS = -I m4
+ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
 AM_MAKEFLAGS = --no-print-directory
 
