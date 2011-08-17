@@ -1373,27 +1373,32 @@ UDEV_EXPORT const char *udev_device_get_sysattr_value(struct udev_device *udev_d
 	}
 
 	if (S_ISLNK(statbuf.st_mode)) {
-		char target[UTIL_NAME_SIZE];
-		int len;
-		char *pos;
+		struct udev_device *dev;
 
-		/* some core links return the last element of the target path */
-		if (strcmp(sysattr, "driver") != 0 &&
-		    strcmp(sysattr, "subsystem") != 0 &&
-		    strcmp(sysattr, "module") != 0)
-			goto out;
-
-		len = readlink(path, target, sizeof(target));
-		if (len <= 0 || len == sizeof(target))
-			goto out;
-		target[len] = '\0';
-
-		pos = strrchr(target, '/');
-		if (pos != NULL) {
-			pos = &pos[1];
-			dbg(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, pos);
-			list_entry = udev_list_entry_add(&udev_device->sysattr_value_list, sysattr, pos);
+		/*
+		 * Some core links return only the last element of the target path,
+		 * these are just values, the paths should not be exposed.
+		 */
+		if (strcmp(sysattr, "driver") == 0 ||
+		    strcmp(sysattr, "subsystem") == 0 ||
+		    strcmp(sysattr, "module") == 0) {
+			if (util_get_sys_core_link_value(udev_device->udev, sysattr,
+							 udev_device->syspath, value, sizeof(value)) < 0)
+				return NULL;
+			dbg(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, value);
+			list_entry = udev_list_entry_add(&udev_device->sysattr_value_list, sysattr, value);
 			val = udev_list_entry_get_value(list_entry);
+			goto out;
+		}
+
+		/* resolve link to a device and return its syspath */
+		util_strscpyl(path, sizeof(path), udev_device->syspath, "/", sysattr, NULL);
+		dev = udev_device_new_from_syspath(udev_device->udev, path);
+		if (dev != NULL) {
+			list_entry = udev_list_entry_add(&udev_device->sysattr_value_list, sysattr,
+							 udev_device_get_syspath(dev));
+			val = udev_list_entry_get_value(list_entry);
+			udev_device_unref(dev);
 		}
 
 		goto out;

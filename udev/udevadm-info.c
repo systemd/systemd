@@ -52,10 +52,10 @@ static bool skip_attribute(const char *name)
 
 static void print_all_attributes(struct udev_device *device, const char *key)
 {
+	struct udev *udev = udev_device_get_udev(device);
 	struct udev_list_entry *sysattr;
 
 	udev_list_entry_foreach(sysattr, udev_device_get_sysattr_list_entry(device)) {
-		struct udev *udev = udev_device_get_udev(device);
 		const char *name;
 		const char *value;
 		size_t len;
@@ -68,6 +68,10 @@ static void print_all_attributes(struct udev_device *device, const char *key)
 		if (value == NULL)
 			continue;
 		dbg(udev, "attr '%s'='%s'\n", name, value);
+
+		/* skip any values that look like a path */
+		if (value[0] == '/')
+			continue;
 
 		/* skip nonprintable attributes */
 		len = strlen(value);
