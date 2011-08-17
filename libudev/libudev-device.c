@@ -437,6 +437,8 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
 				udev_device_add_tag(udev_device, tag);
 			}
 		}
+	} else if (strncmp(property, "USEC_INITIALIZED=", 19) == 0) {
+		udev_device_set_usec_initialized(udev_device, strtoull(&property[19], NULL, 10));
 	} else if (strncmp(property, "DRIVER=", 7) == 0) {
 		udev_device_set_driver(udev_device, &property[7]);
 	} else if (strncmp(property, "ACTION=", 7) == 0) {
@@ -1322,7 +1324,11 @@ unsigned long long udev_device_get_usec_initialized(struct udev_device *udev_dev
 
 void udev_device_set_usec_initialized(struct udev_device *udev_device, unsigned long long usec_initialized)
 {
+	char num[32];
+
 	udev_device->usec_initialized = usec_initialized;
+	snprintf(num, sizeof(num), "%llu", usec_initialized);
+	udev_device_add_property(udev_device, "USEC_INITIALIZED", num);
 }
 
 /**

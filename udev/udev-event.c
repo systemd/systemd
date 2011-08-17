@@ -1040,7 +1040,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
 		/* preserve old, or get new initialization timestamp */
 		if (event->dev_db != NULL && udev_device_get_usec_initialized(event->dev_db) > 0)
 			udev_device_set_usec_initialized(event->dev, udev_device_get_usec_initialized(event->dev_db));
-		else
+		else if (udev_device_get_usec_initialized(event->dev) == 0)
 			udev_device_set_usec_initialized(event->dev, now_usec());
 
 		/* (re)write database file */
