@@ -24,7 +24,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size)
+ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size)
 {
 	char path[UTIL_PATH_SIZE];
 	char target[UTIL_PATH_SIZE];
@@ -42,16 +42,6 @@ static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *sy
 	pos = &pos[1];
 	dbg(udev, "resolved link to: '%s'\n", pos);
 	return util_strscpy(value, size, pos);
-}
-
-ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size)
-{
-	return get_sys_link(udev, "subsystem", syspath, subsystem, size);
-}
-
-ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size)
-{
-	return get_sys_link(udev, "driver", syspath, driver, size);
 }
 
 int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)

@@ -229,7 +229,7 @@ UDEV_EXPORT const char *udev_device_get_driver(struct udev_device *udev_device)
 		return NULL;
 	if (!udev_device->driver_set) {
 		udev_device->driver_set = true;
-		if (util_get_sys_driver(udev_device->udev, udev_device->syspath, driver, sizeof(driver)) > 0)
+		if (util_get_sys_core_link_value(udev_device->udev, "driver", udev_device->syspath, driver, sizeof(driver)) > 0)
 			udev_device->driver = strdup(driver);
 	}
 	return udev_device->driver;
@@ -305,7 +305,7 @@ UDEV_EXPORT const char *udev_device_get_subsystem(struct udev_device *udev_devic
 	if (!udev_device->subsystem_set) {
 		udev_device->subsystem_set = true;
 		/* read "subsystem" link */
-		if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
+		if (util_get_sys_core_link_value(udev_device->udev, "subsystem", udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
 			udev_device_set_subsystem(udev_device, subsystem);
 			return udev_device->subsystem;
 		}
