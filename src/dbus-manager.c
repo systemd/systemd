@@ -444,7 +444,7 @@ static DBusMessage *message_from_file_changes(
         if (carries_install_info >= 0) {
                 dbus_bool_t b;
 
-                b = carries_install_info;
+                b = !!carries_install_info;
                 if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &b))
                         goto oom;
         }
