@@ -37,6 +37,7 @@
 #include <termios.h>
 #include <sys/signalfd.h>
 #include <grp.h>
+#include <linux/fs.h>
 
 #include "log.h"
 #include "util.h"
