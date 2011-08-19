@@ -330,6 +330,40 @@ int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data
         return 0;
 }
 
+int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        CGroupAttribute *a;
+        DBusMessageIter sub, sub2;
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sss)", &sub))
+                return -ENOMEM;
+
+        LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes) {
+                char *v = NULL;
+                bool success;
+
+                if (a->map_callback)
+                        a->map_callback(a->controller, a->name, a->value, &v);
+
+                success =
+                        dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &a->controller) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &a->name) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, v ? &v : &a->value) &&
+                        dbus_message_iter_close_container(&sub, &sub2);
+
+                free(v);
+
+                if (!success)
+                        return -ENOMEM;
+        }
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;

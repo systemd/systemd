@@ -686,9 +686,17 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         fprintf(f, "%s\tControlGroup: %s:%s\n",
                                 prefix, b->controller, b->path);
 
-                LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes)
+                LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes) {
+                        char *v = NULL;
+
+                        if (a->map_callback)
+                                a->map_callback(a->controller, a->name, a->value, &v);
+
                         fprintf(f, "%s\tControlGroupAttribute: %s %s \"%s\"\n",
-                                prefix, a->controller, a->name, a->value);
+                                prefix, a->controller, a->name, v ? v : a->value);
+
+                        free(v);
+                }
 
                 if (UNIT_VTABLE(u)->dump)
                         UNIT_VTABLE(u)->dump(u, f, prefix2);

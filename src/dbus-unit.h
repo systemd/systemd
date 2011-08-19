@@ -109,6 +109,7 @@
         "  <property name=\"IgnoreOnSnapshot\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroup\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"ControlGroupAttributes\" type=\"a(sss)\" access=\"read\"/>\n" \
         "  <property name=\"NeedDaemonReload\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"JobTimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -169,6 +170,7 @@
         { "org.freedesktop.systemd1.Unit", "IgnoreOnSnapshot",     bus_property_append_bool,       "b",    &u->meta.ignore_on_snapshot       }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "ControlGroup",         bus_unit_append_cgroups,        "as",   u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "ControlGroupAttributes", bus_unit_append_cgroup_attrs, "a(sss)", u                               }, \
         { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }, \
         { "org.freedesktop.systemd1.Unit", "JobTimeoutUSec",       bus_property_append_usec,       "t",    &u->meta.job_timeout              }, \
         { "org.freedesktop.systemd1.Unit", "ConditionTimestamp",   bus_property_append_usec,       "t",    &u->meta.condition_timestamp.realtime }, \
@@ -191,6 +193,7 @@ int bus_unit_append_can_isolate(DBusMessageIter *i, const char *property, void *
 int bus_unit_append_job(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_default_cgroup(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *data);
 
