@@ -135,6 +135,7 @@ void close_many(const int fds[], unsigned n_fd);
 
 int parse_boolean(const char *v);
 int parse_usec(const char *t, usec_t *usec);
+int parse_bytes(const char *t, off_t *bytes);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);
 #define parse_gid(s, ret_uid) parse_uid(s, ret_uid)
@@ -461,6 +462,8 @@ int get_files_in_directory(const char *path, char ***list);
 char *join(const char *x, ...) _sentinel_;
 
 bool is_main_thread(void);
+
+bool in_charset(const char *s, const char* charset);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

@@ -130,6 +130,7 @@ enum UnitDependency {
 #include "manager.h"
 #include "job.h"
 #include "cgroup.h"
+#include "cgroup-attr.h"
 
 struct Meta {
         Manager *manager;
@@ -167,6 +168,7 @@ struct Meta {
 
         /* Counterparts in the cgroup filesystem */
         CGroupBonding *cgroup_bondings;
+        CGroupAttribute *cgroup_attributes;
 
         /* Per type list */
         LIST_FIELDS(Meta, units_by_type);
@@ -432,6 +434,7 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b);
 int unit_add_cgroup_from_text(Unit *u, const char *name);
 int unit_add_default_cgroups(Unit *u);
 CGroupBonding* unit_get_default_cgroup(Unit *u);
+int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name, const char *value, CGroupAttributeMapCallback map_callback);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);

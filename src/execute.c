@@ -930,6 +930,7 @@ int exec_spawn(ExecCommand *command,
                bool apply_tty_stdin,
                bool confirm_spawn,
                CGroupBonding *cgroup_bondings,
+               CGroupAttribute *cgroup_attributes,
                pid_t *ret) {
 
         pid_t pid;
@@ -973,9 +974,11 @@ int exec_spawn(ExecCommand *command,
         log_debug("About to execute: %s", line);
         free(line);
 
-        if (cgroup_bondings)
-                if ((r = cgroup_bonding_realize_list(cgroup_bondings)))
-                        goto fail_parent;
+        r = cgroup_bonding_realize_list(cgroup_bondings);
+        if (r < 0)
+                goto fail_parent;
+
+        cgroup_attribute_apply_list(cgroup_attributes, cgroup_bondings);
 
         if ((pid = fork()) < 0) {
                 r = -errno;

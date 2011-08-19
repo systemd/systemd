@@ -630,18 +630,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>ControlGroupModify=</varname></term>
-                                <listitem><para>Takes a boolean
-                                argument. If true, the control groups
-                                created for this unit will be owned by
-                                ther user specified with
-                                <varname>User=</varname> (and the
-                                configured group), and he can create
-                                subgroups as well as add processes to
-                                the group.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>CapabilityBoundingSet=</varname></term>
 
                                 <listitem><para>Controls which
@@ -718,9 +706,9 @@
                                 where "cpu" identifies the kernel
                                 control group controller used, and
                                 <filename>/foo/bar</filename> is the
-                                control group path. The controller name
-                                and ":" may be omitted in which case
-                                the named systemd control group
+                                control group path. The controller
+                                name and ":" may be omitted in which
+                                case the named systemd control group
                                 hierarchy is implied. Alternatively,
                                 the path and ":" may be omitted, in
                                 which case the default control group
@@ -728,18 +716,136 @@
                                 option may be used to place executed
                                 processes in arbitrary groups in
                                 arbitrary hierarchies -- which can be
-                                configured externally with additional execution limits. By default
-                                systemd will place all executed
-                                processes in separate per-unit control
-                                groups (named after the unit) in the
-                                systemd named hierarchy. Since every
-                                process can be in one group per
-                                hierarchy only overriding the control group
-                                path in the named systemd hierarchy
-                                will disable automatic placement in
-                                the default group. For details about control
-                                groups see <ulink
+                                configured externally with additional
+                                execution limits. By default systemd
+                                will place all executed processes in
+                                separate per-unit control groups
+                                (named after the unit) in the systemd
+                                named hierarchy. Since every process
+                                can be in one group per hierarchy only
+                                overriding the control group path in
+                                the named systemd hierarchy will
+                                disable automatic placement in the
+                                default group. This option is
+                                primarily intended to place executed
+                                processes in specific paths in
+                                specific kernel controller
+                                hierarchies. It is however not
+                                recommended to manipulate the service
+                                control group path in the systemd
+                                named hierarchy. For details about
+                                control groups see <ulink
                                 url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ControlGroupModify=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. If true, the control groups
+                                created for this unit will be owned by
+                                the user specified with
+                                <varname>User=</varname> (and the
+                                appropriate group), and he/she can create
+                                subgroups as well as add processes to
+                                the group.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ControlGroupAttribute=</varname></term>
+
+                                <listitem><para>Set a specific control
+                                group attribute for executed
+                                processes, and (if needed) add the the
+                                executed processes to a cgroup in the
+                                hierarchy of the controller the
+                                attribute belongs to. Takes two
+                                space-separated arguments: the
+                                attribute name (syntax is
+                                <literal>cpu.shares</literal> where
+                                <literal>cpu</literal> refers to a
+                                specific controller and
+                                <literal>shares</literal> to the
+                                attribute name), and the attribute
+                                value. Example:
+                                <literal>ControlGroupAttribute=cpu.shares
+                                512</literal>. If this option is used
+                                for an attribute that belongs to a
+                                kernel controller hierarchy the unit
+                                is not already configured to be added
+                                to (for example via the
+                                <literal>ControlGroup=</literal>
+                                option) then the unit will be added to
+                                the controller and the default unit
+                                cgroup path is implied. Thus, using
+                                <varname>ControlGroupAttribute=</varname>
+                                is in most case sufficient to make use
+                                of control group enforcements,
+                                explicit
+                                <varname>ControlGroup=</varname> are
+                                only necessary in case the implied
+                                default control group path for a
+                                service is not desirable. For details
+                                about control group attributes see
+                                <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>. This
+                                option may appear more than once, in
+                                order to set multiple control group
+                                attributes.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CPUShares=</varname></term>
+
+                                <listitem><para>Assign the specified
+                                overall CPU time shares to the processes executed. Takes
+                                an integer value. This controls the
+                                <literal>cpu.shares</literal> control
+                                group attribute. For details about
+                                this control group attribute see <ulink
+                                url="http://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>MemoryLimit=</varname></term>
+                                <term><varname>MemorySoftLimit=</varname></term>
+
+                                <listitem><para>Limit the overall memory usage
+                                of the executed processes to a certain
+                                size. Takes a memory size in bytes. If
+                                the value is suffixed with K, M, G or
+                                T the specified memory size is parsed
+                                as Kilobytes, Megabytes, Gigabytes
+                                resp. Terabytes (to the base
+                                1024). This controls the
+                                <literal>memory.limit_in_bytes</literal>
+                                and
+                                <literal>memory.soft_limit_in_bytes</literal>
+                                control group attributes. For details
+                                about these control group attributes
+                                see <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/memory.txt">memory.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DeviceAllow=</varname></term>
+                                <term><varname>DeviceDeny=</varname></term>
+
+                                <listitem><para>Control access to
+                                specific device nodes by the executed processes. Takes two
+                                space separated strings: a device node
+                                path (such as
+                                <filename>/dev/null</filename>)
+                                followed by a combination of r, w, m
+                                to control reading, writing resp.
+                                creating of the specific device node
+                                by the unit. This controls the
+                                <literal>devices.allow</literal>
+                                and
+                                <literal>devices.deny</literal>
+                                control group attributes. For details
+                                about these control group attributes
+                                see <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/devices.txt">devices.txt</ulink>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

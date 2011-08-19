@@ -1439,6 +1439,19 @@ char *delete_chars(char *s, const char *bad) {
         return s;
 }
 
+bool in_charset(const char *s, const char* charset) {
+        const char *i;
+
+        assert(s);
+        assert(charset);
+
+        for (i = s; *i; i++)
+                if (!strchr(charset, *i))
+                        return false;
+
+        return true;
+}
+
 char *file_in_same_dir(const char *path, const char *filename) {
         char *e, *r;
         size_t k;
@@ -2965,6 +2978,62 @@ int parse_usec(const char *t, usec_t *usec) {
         } while (*p != 0);
 
         *usec = r;
+
+        return 0;
+}
+
+int parse_bytes(const char *t, off_t *bytes) {
+        static const struct {
+                const char *suffix;
+                off_t factor;
+        } table[] = {
+                { "B", 1 },
+                { "K", 1024ULL },
+                { "M", 1024ULL*1024ULL },
+                { "G", 1024ULL*1024ULL*1024ULL },
+                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
+                { "", 1 },
+        };
+
+        const char *p;
+        off_t r = 0;
+
+        assert(t);
+        assert(bytes);
+
+        p = t;
+        do {
+                long long l;
+                char *e;
+                unsigned i;
+
+                errno = 0;
+                l = strtoll(p, &e, 10);
+
+                if (errno != 0)
+                        return -errno;
+
+                if (l < 0)
+                        return -ERANGE;
+
+                if (e == p)
+                        return -EINVAL;
+
+                e += strspn(e, WHITESPACE);
+
+                for (i = 0; i < ELEMENTSOF(table); i++)
+                        if (startswith(e, table[i].suffix)) {
+                                r += (off_t) l * table[i].factor;
+                                p = e + strlen(table[i].suffix);
+                                break;
+                        }
+
+                if (i >= ELEMENTSOF(table))
+                        return -EINVAL;
+
+        } while (*p != 0);
+
+        *bytes = r;
 
         return 0;
 }

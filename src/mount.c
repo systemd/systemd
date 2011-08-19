@@ -791,6 +791,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             true,
                             m->meta.manager->confirm_spawn,
                             m->meta.cgroup_bondings,
+                            m->meta.cgroup_attributes,
                             &pid)) < 0)
                 goto fail;
 

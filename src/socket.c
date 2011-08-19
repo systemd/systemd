@@ -1112,6 +1112,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        true,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
+                       s->meta.cgroup_attributes,
                        &pid);
 
         strv_free(argv);

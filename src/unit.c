@@ -42,6 +42,7 @@
 #include "special.h"
 #include "cgroup-util.h"
 #include "missing.h"
+#include "cgroup-attr.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -372,6 +373,7 @@ void unit_free(Unit *u) {
         }
 
         cgroup_bonding_free_list(u->meta.cgroup_bondings, u->meta.manager->n_reloading <= 0);
+        cgroup_attribute_free_list(u->meta.cgroup_attributes);
 
         free(u->meta.description);
         free(u->meta.fragment_path);
@@ -592,7 +594,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         Iterator i;
         char *p2;
         const char *prefix2;
-        CGroupBonding *b;
         char
                 timestamp1[FORMAT_TIMESTAMP_MAX],
                 timestamp2[FORMAT_TIMESTAMP_MAX],
@@ -662,6 +663,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         }
 
         if (u->meta.load_state == UNIT_LOADED) {
+                CGroupBonding *b;
+                CGroupAttribute *a;
+
                 fprintf(f,
                         "%s\tStopWhenUnneeded: %s\n"
                         "%s\tRefuseManualStart: %s\n"
@@ -681,6 +685,10 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",
                                 prefix, b->controller, b->path);
+
+                LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes)
+                        fprintf(f, "%s\tControlGroupAttribute: %s %s \"%s\"\n",
+                                prefix, a->controller, a->name, a->value);
 
                 if (UNIT_VTABLE(u)->dump)
                         UNIT_VTABLE(u)->dump(u, f, prefix2);
@@ -1885,8 +1893,10 @@ fail:
 }
 
 int unit_add_default_cgroups(Unit *u) {
+        CGroupAttribute *a;
         char **c;
         int r;
+
         assert(u);
 
         /* Adds in the default cgroups, if they weren't specified
@@ -1899,8 +1909,10 @@ int unit_add_default_cgroups(Unit *u) {
                 return r;
 
         STRV_FOREACH(c, u->meta.manager->default_controllers)
-                if ((r = unit_add_one_default_cgroup(u, *c)) < 0)
-                        return r;
+                unit_add_one_default_cgroup(u, *c);
+
+        LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes)
+                unit_add_one_default_cgroup(u, a->controller);
 
         return 0;
 }
@@ -1909,6 +1921,69 @@ CGroupBonding* unit_get_default_cgroup(Unit *u) {
         assert(u);
 
         return cgroup_bonding_find_list(u->meta.cgroup_bondings, SYSTEMD_CGROUP_CONTROLLER);
+}
+
+int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name, const char *value, CGroupAttributeMapCallback map_callback) {
+        int r;
+        char *c = NULL;
+        CGroupAttribute *a;
+
+        assert(u);
+        assert(name);
+        assert(value);
+
+        if (!controller) {
+                const char *dot;
+
+                dot = strchr(name, '.');
+                if (!dot)
+                        return -EINVAL;
+
+                c = strndup(name, dot - name);
+                if (!c)
+                        return -ENOMEM;
+
+                controller = c;
+        }
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        a = new0(CGroupAttribute, 1);
+        if (!a) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (c) {
+                a->controller = c;
+                c = NULL;
+        } else
+                a->controller = strdup(controller);
+
+        a->name = strdup(name);
+        a->value = strdup(value);
+
+        if (!a->controller || !a->name || !a->value) {
+                free(a->controller);
+                free(a->name);
+                free(a->value);
+                free(a);
+
+                return -ENOMEM;
+        }
+
+        a->map_callback = map_callback;
+
+        LIST_PREPEND(CGroupAttribute, by_unit, u->meta.cgroup_attributes, a);
+
+        r = 0;
+
+finish:
+        free(c);
+        return r;
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {

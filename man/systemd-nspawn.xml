@@ -132,7 +132,7 @@
 
                         <varlistentry>
                                 <term><option>--directory=</option></term>
-                                <term><option>--D</option></term>
+                                <term><option>-D</option></term>
 
                                 <listitem><para>Directory to use as
                                 file system root for the namespace
@@ -207,7 +207,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>mock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>

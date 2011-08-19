@@ -1639,6 +1639,201 @@ int config_parse_unit_condition_null(
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
 
+int config_parse_unit_cgroup_attr(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = data;
+        char **l;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        l = strv_split_quoted(rvalue);
+        if (!l)
+                return -ENOMEM;
+
+        if (strv_length(l) != 2) {
+                log_error("[%s:%u] Failed to parse cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        r = unit_add_cgroup_attribute(u, NULL, l[0], l[1], NULL);
+        strv_free(l);
+
+        if (r < 0) {
+                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_unit_cpu_shares(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        Unit *u = data;
+        int r;
+        unsigned long ul;
+        char *t;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (safe_atolu(rvalue, &ul) < 0 || ul < 1) {
+                log_error("[%s:%u] Failed to parse CPU shares value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        if (asprintf(&t, "%lu", ul) < 0)
+                return -ENOMEM;
+
+        r = unit_add_cgroup_attribute(u, "cpu", "cpu.shares", t, NULL);
+        free(t);
+
+        if (r < 0) {
+                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_unit_memory_limit(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        Unit *u = data;
+        int r;
+        off_t sz;
+        char *t;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (parse_bytes(rvalue, &sz) < 0 || sz <= 0) {
+                log_error("[%s:%u] Failed to parse memory limit value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        if (asprintf(&t, "%llu", (unsigned long long) sz) < 0)
+                return -ENOMEM;
+
+        r = unit_add_cgroup_attribute(u,
+                                      "memory",
+                                      streq(lvalue, "MemorySoftLimit") ? "memory.soft_limit_in_bytes" : "memory.limit_in_bytes",
+                                      t, NULL);
+        free(t);
+
+        if (r < 0) {
+                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+static int device_map(const char *controller, const char *name, const char *value, char **ret) {
+        struct stat st;
+        char **l;
+
+        l = strv_split_quoted(value);
+        if (!l)
+                return -ENOMEM;
+
+        assert(strv_length(l) >= 1);
+
+        if (streq(l[0], "*")) {
+
+                if (asprintf(ret, "a *:*%s%s",
+                             isempty(l[1]) ? "" : " ", strempty(l[1])) < 0) {
+                        strv_free(l);
+                        return -ENOMEM;
+                }
+
+        } else {
+                if (lstat(l[0], &st) < 0) {
+                        log_warning("Couldn't stat device %s", l[0]);
+                        strv_free(l);
+                        return -errno;
+                }
+
+                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
+                        log_warning("%s is not a device.", l[0]);
+                        strv_free(l);
+                        return -ENODEV;
+                }
+
+                if (asprintf(ret, "%c %u:%u%s%s",
+                             S_ISCHR(st.st_mode) ? 'c' : 'b',
+                             major(st.st_rdev), minor(st.st_rdev),
+                             isempty(l[1]) ? "" : " ", strempty(l[1])) < 0) {
+
+                        strv_free(l);
+                        return -ENOMEM;
+                }
+        }
+
+        strv_free(l);
+        return 0;
+}
+
+int config_parse_unit_device_allow(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        Unit *u = data;
+        char **l;
+        int r;
+        unsigned k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        l = strv_split_quoted(rvalue);
+        if (!l)
+                return -ENOMEM;
+
+        k = strv_length(l);
+        if (k < 1 || k > 2) {
+                log_error("[%s:%u] Failed to parse device value, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        if (!streq(l[0], "*") && !path_startswith(l[0], "/dev")) {
+                log_error("[%s:%u] Device node path not absolute, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        if (!isempty(l[1]) && !in_charset(l[1], "rwm")) {
+                log_error("[%s:%u] Device access string invalid, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+        strv_free(l);
+
+        r = unit_add_cgroup_attribute(u, "devices",
+                                      streq(lvalue, "DeviceAllow") ? "devices.allow" : "devices.deny",
+                                      rvalue, device_map);
+
+        if (r < 0) {
+                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {

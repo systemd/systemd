@@ -64,7 +64,13 @@ $1.LimitMSGQUEUE,                config_parse_limit,                 RLIMIT_MSGQ
 $1.LimitNICE,                    config_parse_limit,                 RLIMIT_NICE,                   offsetof($1, exec_context.rlimit)
 $1.LimitRTPRIO,                  config_parse_limit,                 RLIMIT_RTPRIO,                 offsetof($1, exec_context.rlimit)
 $1.LimitRTTIME,                  config_parse_limit,                 RLIMIT_RTTIME,                 offsetof($1, exec_context.rlimit)
-$1.ControlGroup,                 config_parse_unit_cgroup,           0,                             offsetof($1, exec_context)
+$1.ControlGroup,                 config_parse_unit_cgroup,           0,                             0
+$1.ControlGroupAttribute,        config_parse_unit_cgroup_attr,      0,                             0
+$1.CPUShares,                    config_parse_unit_cpu_shares,       0,                             0
+$1.MemoryLimit,                  config_parse_unit_memory_limit,     0,                             0
+$1.MemorySoftLimit,              config_parse_unit_memory_limit,     0,                             0
+$1.DeviceAllow,                  config_parse_unit_device_allow,     0,                             0
+$1.DeviceDeny,                   config_parse_unit_device_allow,     0,                             0
 $1.ReadWriteDirectories,         config_parse_path_strv,             0,                             offsetof($1, exec_context.read_write_dirs)
 $1.ReadOnlyDirectories,          config_parse_path_strv,             0,                             offsetof($1, exec_context.read_only_dirs)
 $1.InaccessibleDirectories,      config_parse_path_strv,             0,                             offsetof($1, exec_context.inaccessible_dirs)

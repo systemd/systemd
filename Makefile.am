@@ -627,7 +627,8 @@ libsystemd_core_la_SOURCES = \
 	src/condition.c \
         src/dbus-common.c \
         src/sd-daemon.c \
-        src/install.c
+        src/install.c \
+        src/cgroup-attr.c
 
 nodist_libsystemd_core_la_SOURCES = \
         src/load-fragment-gperf.c \

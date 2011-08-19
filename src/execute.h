@@ -35,6 +35,7 @@ typedef struct ExecContext ExecContext;
 #include <sched.h>
 
 struct CGroupBonding;
+struct CGroupAttribute;
 
 #include "list.h"
 #include "util.h"
@@ -187,6 +188,7 @@ int exec_spawn(ExecCommand *command,
                bool apply_tty_stdin,
                bool confirm_spawn,
                struct CGroupBonding *cgroup_bondings,
+               struct CGroupAttribute *cgroup_attributes,
                pid_t *ret);
 
 void exec_command_done(ExecCommand *c);

@@ -1728,6 +1728,7 @@ static int service_spawn(
                        apply_tty_stdin,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
+                       s->meta.cgroup_attributes,
                        &pid);
 
         if (r < 0)
