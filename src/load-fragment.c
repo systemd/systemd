@@ -1743,8 +1743,12 @@ int config_parse_unit_memory_limit(const char *filename, unsigned line, const ch
 }
 
 static int device_map(const char *controller, const char *name, const char *value, char **ret) {
-        struct stat st;
         char **l;
+
+        assert(controller);
+        assert(name);
+        assert(value);
+        assert(ret);
 
         l = strv_split_quoted(value);
         if (!l)
@@ -1761,7 +1765,9 @@ static int device_map(const char *controller, const char *name, const char *valu
                 }
 
         } else {
-                if (lstat(l[0], &st) < 0) {
+                struct stat st;
+
+                if (stat(l[0], &st) < 0) {
                         log_warning("Couldn't stat device %s", l[0]);
                         strv_free(l);
                         return -errno;
@@ -1833,6 +1839,163 @@ int config_parse_unit_device_allow(const char *filename, unsigned line, const ch
 
         return 0;
 }
+
+static int blkio_map(const char *controller, const char *name, const char *value, char **ret) {
+        struct stat st;
+        char **l;
+
+        assert(controller);
+        assert(name);
+        assert(value);
+        assert(ret);
+
+        l = strv_split_quoted(value);
+        if (!l)
+                return -ENOMEM;
+
+        assert(strv_length(l) == 2);
+
+        if (stat(l[0], &st) < 0) {
+                log_warning("Couldn't stat device %s", l[0]);
+                strv_free(l);
+                return -errno;
+        }
+
+        if (!S_ISBLK(st.st_mode)) {
+                log_warning("%s is not a block device.", l[0]);
+                strv_free(l);
+                return -ENODEV;
+        }
+
+        if (asprintf(ret, "%u:%u %s", major(st.st_rdev), minor(st.st_rdev), l[1]) < 0) {
+                strv_free(l);
+                return -ENOMEM;
+        }
+
+        strv_free(l);
+        return 0;
+}
+
+int config_parse_unit_blkio_weight(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        Unit *u = data;
+        int r;
+        unsigned long ul;
+        const char *device = NULL, *weight;
+        unsigned k;
+        char *t, **l;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        l = strv_split_quoted(rvalue);
+        if (!l)
+                return -ENOMEM;
+
+        k = strv_length(l);
+        if (k < 1 || k > 2) {
+                log_error("[%s:%u] Failed to parse weight value, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        if (k == 1)
+                weight = l[0];
+        else {
+                device = l[0];
+                weight = l[1];
+        }
+
+        if (device && !path_startswith(device, "/dev/")) {
+                log_error("[%s:%u] Failed to parse block device node value, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        if (safe_atolu(weight, &ul) < 0 || ul < 10 || ul > 1000) {
+                log_error("[%s:%u] Failed to parse block IO weight value, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        if (device)
+                r = asprintf(&t, "%s %lu", device, ul);
+        else
+                r = asprintf(&t, "%lu", ul);
+        strv_free(l);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        if (device)
+                r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight_device", t, blkio_map);
+        else
+                r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight", t, NULL);
+        free(t);
+
+        if (r < 0) {
+                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_unit_blkio_bandwidth(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        Unit *u = data;
+        int r;
+        off_t bytes;
+        unsigned k;
+        char *t, **l;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        l = strv_split_quoted(rvalue);
+        if (!l)
+                return -ENOMEM;
+
+        k = strv_length(l);
+        if (k != 2) {
+                log_error("[%s:%u] Failed to parse bandwidth value, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        if (!path_startswith(l[0], "/dev/")) {
+                log_error("[%s:%u] Failed to parse block device node value, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        if (parse_bytes(l[1], &bytes) < 0 || bytes <= 0) {
+                log_error("[%s:%u] Failed to parse block IO bandwith value, ignoring: %s", filename, line, rvalue);
+                strv_free(l);
+                return 0;
+        }
+
+        r = asprintf(&t, "%s %llu", l[0], (unsigned long long) bytes);
+        strv_free(l);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        r = unit_add_cgroup_attribute(u, "blkio",
+                                      streq(lvalue, "BlockIOReadBandwidth") ? "blkio.read_bps_device" : "blkio.write_bps_device",
+                                      t, blkio_map);
+        free(t);
+
+        if (r < 0) {
+                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
 
 #define FOLLOW_MAX 8
 

@@ -797,11 +797,13 @@
                                 <term><varname>CPUShares=</varname></term>
 
                                 <listitem><para>Assign the specified
-                                overall CPU time shares to the processes executed. Takes
-                                an integer value. This controls the
+                                overall CPU time shares to the
+                                processes executed. Takes an integer
+                                value. This controls the
                                 <literal>cpu.shares</literal> control
-                                group attribute. For details about
-                                this control group attribute see <ulink
+                                group attribute, which defaults to
+                                1024. For details about this control
+                                group attribute see <ulink
                                 url="http://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para></listitem>
                         </varlistentry>
 
@@ -814,7 +816,7 @@
                                 size. Takes a memory size in bytes. If
                                 the value is suffixed with K, M, G or
                                 T the specified memory size is parsed
-                                as Kilobytes, Megabytes, Gigabytes
+                                as Kilobytes, Megabytes, Gigabytes,
                                 resp. Terabytes (to the base
                                 1024). This controls the
                                 <literal>memory.limit_in_bytes</literal>
@@ -846,6 +848,57 @@
                                 about these control group attributes
                                 see <ulink
                                 url="http://www.kernel.org/doc/Documentation/cgroups/devices.txt">devices.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BlockIOWeight=</varname></term>
+
+                                <listitem><para>Set the default or
+                                per-device overall block IO weight
+                                value for the executed
+                                processes. Takes either a single
+                                weight value (between 10 and 1000) to
+                                set the default block IO weight, or a
+                                space separated pair of a device node
+                                path and a weight value to specify the
+                                device specific weight value (Example:
+                                "/dev/sda 500"). This controls the
+                                <literal>blkio.weight</literal> and
+                                <literal>blkio.weight_device</literal>
+                                control group attributes, which
+                                default to 1000. Use this option
+                                multiple times to set weights for
+                                multiple devices. For details about
+                                these control group attributes see
+                                <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BlockIOReadBandwidth=</varname></term>
+                                <term><varname>BlockIOWriteBandwidth=</varname></term>
+
+                                <listitem><para>Set the per-device
+                                overall block IO bandwith limit for the
+                                executed processes. Takes a space
+                                separated pair of a device node path
+                                and a bandwith value (in bytes per
+                                second) to specify the device specific
+                                bandwidth. If the bandwith is suffixed
+                                with K, M, G, or T the specified
+                                bandwith is parsed as Kilobytes,
+                                Megabytes, Gigabytes, resp. Terabytes
+                                (Example: "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
+                                controls the
+                                <literal>blkio.read_bps_device</literal>
+                                and
+                                <literal>blkio.write_bps_device</literal>
+                                control group attributes. Use this
+                                option multiple times to set bandwith
+                                limits for multiple devices. For
+                                details about these control group
+                                attributes see <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

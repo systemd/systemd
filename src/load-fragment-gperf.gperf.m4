@@ -71,6 +71,9 @@ $1.MemoryLimit,                  config_parse_unit_memory_limit,     0,         
 $1.MemorySoftLimit,              config_parse_unit_memory_limit,     0,                             0
 $1.DeviceAllow,                  config_parse_unit_device_allow,     0,                             0
 $1.DeviceDeny,                   config_parse_unit_device_allow,     0,                             0
+$1.BlockIOWeight,                config_parse_unit_blkio_weight,     0,                             0
+$1.BlockIOReadBandwidth,         config_parse_unit_blkio_bandwidth,  0,                             0
+$1.BlockIOWriteBandwidth,        config_parse_unit_blkio_bandwidth,  0,                             0
 $1.ReadWriteDirectories,         config_parse_path_strv,             0,                             offsetof($1, exec_context.read_write_dirs)
 $1.ReadOnlyDirectories,          config_parse_path_strv,             0,                             offsetof($1, exec_context.read_only_dirs)
 $1.InaccessibleDirectories,      config_parse_path_strv,             0,                             offsetof($1, exec_context.inaccessible_dirs)
