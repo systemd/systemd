@@ -859,10 +859,15 @@
                                 processes. Takes either a single
                                 weight value (between 10 and 1000) to
                                 set the default block IO weight, or a
-                                space separated pair of a device node
-                                path and a weight value to specify the
+                                space separated pair of a file path
+                                and a weight value to specify the
                                 device specific weight value (Example:
-                                "/dev/sda 500"). This controls the
+                                "/dev/sda 500"). The file path may be
+                                specified as path to a block device
+                                node or as any other file in which
+                                case the backing block device of the
+                                file system of the file is
+                                determined. This controls the
                                 <literal>blkio.weight</literal> and
                                 <literal>blkio.weight_device</literal>
                                 control group attributes, which
@@ -879,17 +884,22 @@
                                 <term><varname>BlockIOWriteBandwidth=</varname></term>
 
                                 <listitem><para>Set the per-device
-                                overall block IO bandwith limit for the
-                                executed processes. Takes a space
-                                separated pair of a device node path
-                                and a bandwith value (in bytes per
-                                second) to specify the device specific
-                                bandwidth. If the bandwith is suffixed
-                                with K, M, G, or T the specified
-                                bandwith is parsed as Kilobytes,
-                                Megabytes, Gigabytes, resp. Terabytes
-                                (Example: "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
-                                controls the
+                                overall block IO bandwith limit for
+                                the executed processes. Takes a space
+                                separated pair of a file path and a
+                                bandwith value (in bytes per second)
+                                to specify the device specific
+                                bandwidth. The file path may be
+                                specified as path to a block device
+                                node or as any other file in which
+                                case the backing block device of the
+                                file system of the file is determined.
+                                If the bandwith is suffixed with K, M,
+                                G, or T the specified bandwith is
+                                parsed as Kilobytes, Megabytes,
+                                Gigabytes, resp. Terabytes (Example:
+                                "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0
+                                5M"). This controls the
                                 <literal>blkio.read_bps_device</literal>
                                 and
                                 <literal>blkio.write_bps_device</literal>

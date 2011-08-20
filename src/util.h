@@ -465,6 +465,8 @@ bool is_main_thread(void);
 
 bool in_charset(const char *s, const char* charset);
 
+int block_get_whole_disk(dev_t d, dev_t *ret);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 

@@ -5614,6 +5614,67 @@ bool is_main_thread(void) {
         return cached > 0;
 }
 
+int block_get_whole_disk(dev_t d, dev_t *ret) {
+        char *p, *s;
+        int r;
+        unsigned n, m;
+
+        assert(ret);
+
+        /* If it has a queue this is good enough for us */
+        if (asprintf(&p, "/sys/dev/block/%u:%u/queue", major(d), minor(d)) < 0)
+                return -ENOMEM;
+
+        r = access(p, F_OK);
+        free(p);
+
+        if (r >= 0) {
+                *ret = d;
+                return 0;
+        }
+
+        /* If it is a partition find the originating device */
+        if (asprintf(&p, "/sys/dev/block/%u:%u/partition", major(d), minor(d)) < 0)
+                return -ENOMEM;
+
+        r = access(p, F_OK);
+        free(p);
+
+        if (r < 0)
+                return -ENOENT;
+
+        /* Get parent dev_t */
+        if (asprintf(&p, "/sys/dev/block/%u:%u/../dev", major(d), minor(d)) < 0)
+                return -ENOMEM;
+
+        r = read_one_line_file(p, &s);
+        free(p);
+
+        if (r < 0)
+                return r;
+
+        r = sscanf(s, "%u:%u", &m, &n);
+        free(s);
+
+        if (r != 2)
+                return -EINVAL;
+
+        /* Only return this if it is really good enough for us. */
+        if (asprintf(&p, "/sys/dev/block/%u:%u/queue", m, n) < 0)
+                return -ENOMEM;
+
+        r = access(p, F_OK);
+        free(p);
+
+        if (r >= 0) {
+                *ret = makedev(m, n);
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

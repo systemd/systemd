@@ -1843,6 +1843,7 @@ int config_parse_unit_device_allow(const char *filename, unsigned line, const ch
 static int blkio_map(const char *controller, const char *name, const char *value, char **ret) {
         struct stat st;
         char **l;
+        dev_t d;
 
         assert(controller);
         assert(name);
@@ -1861,13 +1862,23 @@ static int blkio_map(const char *controller, const char *name, const char *value
                 return -errno;
         }
 
-        if (!S_ISBLK(st.st_mode)) {
-                log_warning("%s is not a block device.", l[0]);
+        if (S_ISBLK(st.st_mode))
+                d = st.st_rdev;
+        else if (major(st.st_dev) != 0) {
+                /* If this is not a device node then find the block
+                 * device this file is stored on */
+                d = st.st_dev;
+
+                /* If this is a partition, try to get the originating
+                 * block device */
+                block_get_whole_disk(d, &d);
+        } else {
+                log_warning("%s is not a block device and file system block device cannot be determined or is not local.", l[0]);
                 strv_free(l);
                 return -ENODEV;
         }
 
-        if (asprintf(ret, "%u:%u %s", major(st.st_rdev), minor(st.st_rdev), l[1]) < 0) {
+        if (asprintf(ret, "%u:%u %s", major(d), minor(d), l[1]) < 0) {
                 strv_free(l);
                 return -ENOMEM;
         }
@@ -1907,7 +1918,7 @@ int config_parse_unit_blkio_weight(const char *filename, unsigned line, const ch
                 weight = l[1];
         }
 
-        if (device && !path_startswith(device, "/dev/")) {
+        if (device && !path_is_absolute(device)) {
                 log_error("[%s:%u] Failed to parse block device node value, ignoring: %s", filename, line, rvalue);
                 strv_free(l);
                 return 0;
@@ -1965,7 +1976,7 @@ int config_parse_unit_blkio_bandwidth(const char *filename, unsigned line, const
                 return 0;
         }
 
-        if (!path_startswith(l[0], "/dev/")) {
+        if (!path_is_absolute(l[0])) {
                 log_error("[%s:%u] Failed to parse block device node value, ignoring: %s", filename, line, rvalue);
                 strv_free(l);
                 return 0;
