@@ -362,7 +362,7 @@ int get_ctty(pid_t, dev_t *_devnr, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
-int rm_rf(const char *path, bool only_dirs, bool delete_root);
+int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky);
 
 int pipe_eof(int fd);
 
@@ -466,6 +466,8 @@ bool is_main_thread(void);
 bool in_charset(const char *s, const char* charset);
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
+
+int file_is_sticky(const char *p);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

@@ -586,7 +586,7 @@ static int remove_item(Item *i, const char *instance) {
 
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                if ((r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH)) < 0 &&
+                if ((r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH, false)) < 0 &&
                     r != -ENOENT) {
                         log_error("rm_rf(%s): %s", instance, strerror(-r));
                         return r;

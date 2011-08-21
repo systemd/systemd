@@ -409,7 +409,7 @@ static int user_remove_runtime_path(User *u) {
         if (!u->runtime_path)
                 return 0;
 
-        r = rm_rf(u->runtime_path, false, true);
+        r = rm_rf(u->runtime_path, false, true, false);
         if (r < 0)
                 log_error("Failed to remove runtime directory %s: %s", u->runtime_path, strerror(-r));
 

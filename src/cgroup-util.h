@@ -52,7 +52,7 @@ int cg_get_by_pid(const char *controller, pid_t pid, char **path);
 
 int cg_trim(const char *controller, const char *path, bool delete_root);
 
-int cg_rmdir(const char *controller, const char *path);
+int cg_rmdir(const char *controller, const char *path, bool honour_sticky);
 int cg_delete(const char *controller, const char *path);
 
 int cg_create(const char *controller, const char *path);

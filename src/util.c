@@ -3354,7 +3354,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         return 0;
 }
 
-static int rm_rf_children(int fd, bool only_dirs) {
+static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
         DIR *d;
         int ret = 0;
 
@@ -3371,7 +3371,7 @@ static int rm_rf_children(int fd, bool only_dirs) {
 
         for (;;) {
                 struct dirent buf, *de;
-                bool is_dir;
+                bool is_dir, keep_around = false;
                 int r;
 
                 if ((r = readdir_r(d, &buf, &de)) != 0) {
@@ -3395,9 +3395,26 @@ static int rm_rf_children(int fd, bool only_dirs) {
                                 continue;
                         }
 
+                        if (honour_sticky)
+                                keep_around = st.st_uid == 0 && (st.st_mode & S_ISVTX);
+
                         is_dir = S_ISDIR(st.st_mode);
-                } else
+
+                } else {
+                        if (honour_sticky) {
+                                struct stat st;
+
+                                if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                        if (ret == 0 && errno != ENOENT)
+                                                ret = -errno;
+                                        continue;
+                                }
+
+                                keep_around = st.st_uid == 0 && (st.st_mode & S_ISVTX);
+                        }
+
                         is_dir = de->d_type == DT_DIR;
+                }
 
                 if (is_dir) {
                         int subdir_fd;
@@ -3408,16 +3425,18 @@ static int rm_rf_children(int fd, bool only_dirs) {
                                 continue;
                         }
 
-                        if ((r = rm_rf_children(subdir_fd, only_dirs)) < 0) {
+                        if ((r = rm_rf_children(subdir_fd, only_dirs, honour_sticky)) < 0) {
                                 if (ret == 0)
                                         ret = r;
                         }
 
-                        if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
-                                if (ret == 0 && errno != ENOENT)
-                                        ret = -errno;
-                        }
-                } else  if (!only_dirs) {
+                        if (!keep_around)
+                                if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
+                                        if (ret == 0 && errno != ENOENT)
+                                                ret = -errno;
+                                }
+
+                } else if (!only_dirs && !keep_around) {
 
                         if (unlinkat(fd, de->d_name, 0) < 0) {
                                 if (ret == 0 && errno != ENOENT)
@@ -3431,7 +3450,7 @@ static int rm_rf_children(int fd, bool only_dirs) {
         return ret;
 }
 
-int rm_rf(const char *path, bool only_dirs, bool delete_root) {
+int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky) {
         int fd;
         int r;
 
@@ -3449,13 +3468,18 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root) {
                 return 0;
         }
 
-        r = rm_rf_children(fd, only_dirs);
+        r = rm_rf_children(fd, only_dirs, honour_sticky);
 
-        if (delete_root)
+        if (delete_root) {
+
+                if (honour_sticky && file_is_sticky(path) > 0)
+                        return r;
+
                 if (rmdir(path) < 0) {
                         if (r == 0)
                                 r = -errno;
                 }
+        }
 
         return r;
 }
@@ -5674,6 +5698,18 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         return -ENOENT;
 }
 
+int file_is_sticky(const char *p) {
+        struct stat st;
+
+        assert(p);
+
+        if (lstat(p, &st) < 0)
+                return -errno;
+
+        return
+                st.st_uid == 0 &&
+                (st.st_mode & S_ISVTX);
+}
 
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",

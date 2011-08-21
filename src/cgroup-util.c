@@ -153,17 +153,38 @@ int cg_read_subgroup(DIR *d, char **fn) {
         return 0;
 }
 
-int cg_rmdir(const char *controller, const char *path) {
+int cg_rmdir(const char *controller, const char *path, bool honour_sticky) {
         char *p;
         int r;
 
-        if ((r = cg_get_path(controller, path, NULL, &p)) < 0)
+        r = cg_get_path(controller, path, NULL, &p);
+        if (r < 0)
                 return r;
+
+        if (honour_sticky) {
+                char *tasks;
+
+                /* If the sticky bit is set don't remove the directory */
+
+                tasks = strappend(p, "/tasks");
+                if (!tasks) {
+                        free(p);
+                        return -ENOMEM;
+                }
+
+                r = file_is_sticky(tasks);
+                free(tasks);
+
+                if (r > 0) {
+                        free(p);
+                        return 0;
+                }
+        }
 
         r = rmdir(p);
         free(p);
 
-        return r < 0 ? -errno : 0;
+        return (r < 0 && errno != ENOENT) ? -errno : 0;
 }
 
 int cg_kill(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, Set *s) {
@@ -302,7 +323,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
                 ret = r;
 
         if (rem)
-                if ((r = cg_rmdir(controller, path)) < 0) {
+                if ((r = cg_rmdir(controller, path, true)) < 0) {
                         if (ret >= 0 &&
                             r != -ENOENT &&
                             r != -EBUSY)
@@ -466,7 +487,7 @@ int cg_migrate_recursive(const char *controller, const char *from, const char *t
                 ret = r;
 
         if (rem)
-                if ((r = cg_rmdir(controller, from)) < 0) {
+                if ((r = cg_rmdir(controller, from, true)) < 0) {
                         if (ret >= 0 &&
                             r != -ENOENT &&
                             r != -EBUSY)
@@ -543,7 +564,7 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
                 return r;
 
-        r = rm_rf(fs, true, delete_root);
+        r = rm_rf(fs, true, delete_root, true);
         free(fs);
 
         return r == -ENOENT ? 0 : r;

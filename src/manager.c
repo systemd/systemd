@@ -3073,7 +3073,7 @@ void manager_undo_generators(Manager *m) {
                 return;
 
         strv_remove(m->lookup_paths.unit_path, m->generator_unit_path);
-        rm_rf(m->generator_unit_path, false, true);
+        rm_rf(m->generator_unit_path, false, true, false);
 
         free(m->generator_unit_path);
         m->generator_unit_path = NULL;
