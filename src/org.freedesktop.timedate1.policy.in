@@ -47,4 +47,15 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.timedate1.set-ntp">
+                <_description>Turn network time synchronization on or off</_description>
+                <_message>Authentication is required to control whether
+                network time synchronization shall be enabled.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>

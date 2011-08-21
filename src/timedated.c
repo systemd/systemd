@@ -37,6 +37,7 @@
         " <interface name=\"org.freedesktop.timedate1\">\n"             \
         "  <property name=\"Timezone\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"LocalRTC\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"NTP\" type=\"b\" access=\"read\"/>\n"       \
         "  <method name=\"SetTime\">\n"                                 \
         "   <arg name=\"usec_utc\" type=\"x\" direction=\"in\"/>\n"     \
         "   <arg name=\"relative\" type=\"b\" direction=\"in\"/>\n"     \
@@ -49,6 +50,10 @@
         "  <method name=\"SetLocalRTC\">\n"                             \
         "   <arg name=\"local_rtc\" type=\"b\" direction=\"in\"/>\n"    \
         "   <arg name=\"fix_system\" type=\"b\" direction=\"in\"/>\n"   \
+        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetNTP\">\n"                                  \
+        "   <arg name=\"use_ntp\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
         " </interface>\n"
@@ -70,6 +75,7 @@ const char timedate_interface[] _introspect_("timedate1") = INTERFACE;
 
 static char *zone = NULL;
 static bool local_rtc = false;
+static int use_ntp = -1;
 
 static void free_data(void) {
         free(zone);
@@ -271,6 +277,213 @@ static int write_data_local_rtc(void) {
         return r;
 }
 
+static int read_ntp(DBusConnection *bus) {
+        DBusMessage *m = NULL, *reply = NULL;
+        const char *name = "ntpd.service", *s;
+        DBusError error;
+        int r;
+
+        assert(bus);
+
+        dbus_error_init(&error);
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetUnitFileState");
+
+        if (!m) {
+                log_error("Out of memory");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &name,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                r = -EIO;
+                goto finish;
+        }
+
+        if (!dbus_message_get_args(reply, &error,
+                                   DBUS_TYPE_STRING, &s,
+                                   DBUS_TYPE_INVALID)) {
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
+                r = -EIO;
+                goto finish;
+        }
+
+        use_ntp =
+                streq(s, "enabled") ||
+                streq(s, "enabled-runtime");
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+static int start_ntp(DBusConnection *bus, DBusError *error) {
+        DBusMessage *m = NULL, *reply = NULL;
+        const char *name = "ntpd.service", *mode = "replace";
+        int r;
+
+        assert(bus);
+        assert(error);
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        use_ntp ? "StartUnit" : "StopUnit");
+        if (!m) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &name,
+                                      DBUS_TYPE_STRING, &mode,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(error));
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        return r;
+}
+
+static int enable_ntp(DBusConnection *bus, DBusError *error) {
+        DBusMessage *m = NULL, *reply = NULL;
+        const char * const names[] = { "ntpd.service", NULL };
+        int r;
+        DBusMessageIter iter;
+        dbus_bool_t f = FALSE, t = TRUE;
+
+        assert(bus);
+        assert(error);
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        use_ntp ? "EnableUnitFiles" : "DisableUnitFiles");
+
+        if (!m) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        dbus_message_iter_init_append(m, &iter);
+
+        r = bus_append_strv_iter(&iter, (char**) names);
+        if (r < 0) {
+                log_error("Failed to append unit files.");
+                goto finish;
+        }
+        /* send runtime bool */
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &f)) {
+                log_error("Failed to append runtime boolean.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (use_ntp) {
+                /* send force bool */
+                if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &t)) {
+                        log_error("Failed to append force boolean.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(error));
+                r = -EIO;
+                goto finish;
+        }
+
+        dbus_message_unref(m);
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Reload");
+        if (!m) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        dbus_message_unref(reply);
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(error));
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        return r;
+}
+
+static int property_append_ntp(DBusMessageIter *i, const char *property, void *data) {
+        dbus_bool_t db;
+
+        assert(i);
+        assert(property);
+
+        db = use_ntp > 0;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &db))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusHandlerResult timedate_message_handler(
                 DBusConnection *connection,
                 DBusMessage *message,
@@ -279,6 +492,7 @@ static DBusHandlerResult timedate_message_handler(
         const BusProperty properties[] = {
                 { "org.freedesktop.timedate1", "Timezone", bus_property_append_string, "s", zone       },
                 { "org.freedesktop.timedate1", "LocalRTC", bus_property_append_bool,   "b", &local_rtc },
+                { "org.freedesktop.timedate1", "NTP",      property_append_ntp,        "b", NULL       },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
@@ -427,7 +641,7 @@ static DBusHandlerResult timedate_message_handler(
                                 hwclock_set_time(tm);
                         }
 
-                        log_error("RTC configured to %s time.", local_rtc ? "local" : "UTC");
+                        log_info("RTC configured to %s time.", local_rtc ? "local" : "UTC");
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/timedate1",
@@ -482,6 +696,43 @@ static DBusHandlerResult timedate_message_handler(
                         hwclock_set_time(tm);
 
                         log_info("Changed local time to %s", ctime(&ts.tv_sec));
+                }
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.timedate1", "SetNTP")) {
+                dbus_bool_t ntp;
+                dbus_bool_t interactive;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_BOOLEAN, &ntp,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (ntp != !!use_ntp) {
+
+                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-ntp", interactive, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+
+                        use_ntp = !!ntp;
+
+                        r = enable_ntp(connection, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+
+                        r = start_ntp(connection, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+
+                        log_info("Set NTP to %s", use_ntp ? "enabled" : "disabled");
+
+                        changed = bus_properties_changed_new(
+                                        "/org/freedesktop/timedate1",
+                                        "org.freedesktop.timedate1",
+                                        "NTP\0");
+                        if (!changed)
+                                goto oom;
                 }
 
         } else
@@ -603,6 +854,12 @@ int main(int argc, char *argv[]) {
         r = connect_bus(&bus);
         if (r < 0)
                 goto finish;
+
+        r = read_ntp(bus);
+        if (r < 0) {
+                log_error("Failed to determine whether NTP is enabled: %s", strerror(-r));
+                goto finish;
+        }
 
         while (dbus_connection_read_write_dispatch(bus, -1))
                 ;
