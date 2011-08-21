@@ -3475,7 +3475,7 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky
                 if (honour_sticky && file_is_sticky(path) > 0)
                         return r;
 
-                if (rmdir(path) < 0) {
+                if (rmdir(path) < 0 && errno != ENOENT) {
                         if (r == 0)
                                 r = -errno;
                 }

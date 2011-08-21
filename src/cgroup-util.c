@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <ftw.h>
 
 #include "cgroup-util.h"
 #include "log.h"
@@ -554,20 +555,70 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         return 0;
 }
 
+static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+        char *p;
+        bool is_sticky;
+
+        if (typeflag != FTW_DP)
+                return 0;
+
+        if (ftwbuf->level < 1)
+                return 0;
+
+        p = strappend(path, "/tasks");
+        if (!p) {
+                errno = ENOMEM;
+                return 1;
+        }
+
+        is_sticky = file_is_sticky(p) > 0;
+        free(p);
+
+        if (is_sticky)
+                return 0;
+
+        rmdir(path);
+        return 0;
+}
+
 int cg_trim(const char *controller, const char *path, bool delete_root) {
         char *fs;
-        int r;
+        int r = 0;
 
         assert(controller);
         assert(path);
 
-        if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
                 return r;
 
-        r = rm_rf(fs, true, delete_root, true);
+        errno = 0;
+        if (nftw(fs, trim_cb, 64, FTW_DEPTH|FTW_MOUNT|FTW_PHYS) < 0)
+                r = errno ? -errno : -EIO;
+
+        if (delete_root) {
+                bool is_sticky;
+                char *p;
+
+                p = strappend(fs, "/tasks");
+                if (!p) {
+                        free(fs);
+                        return -ENOMEM;
+                }
+
+                is_sticky = file_is_sticky(p) > 0;
+                free(p);
+
+                if (!is_sticky)
+                        if (rmdir(fs) < 0 && errno != ENOENT) {
+                                if (r == 0)
+                                        r = -errno;
+                        }
+        }
+
         free(fs);
 
-        return r == -ENOENT ? 0 : r;
+        return r;
 }
 
 int cg_delete(const char *controller, const char *path) {
