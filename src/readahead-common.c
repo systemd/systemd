@@ -212,12 +212,10 @@ finish:
 
 int bump_request_nr(const char *p) {
         struct stat st;
-        struct udev *udev = NULL;
-        struct udev_device *udev_device = NULL, *look_at = NULL;
-        const char *nr_requests;
         uint64_t u;
-        char nr[64], *ap = NULL;
+        char *ap = NULL, *line = NULL;
         int r;
+        dev_t d;
 
         assert(p);
 
@@ -227,54 +225,45 @@ int bump_request_nr(const char *p) {
         if (major(st.st_dev) == 0)
                 return 0;
 
-        if (!(udev = udev_new()))
-                return -ENOMEM;
+        d = st.st_dev;
+        block_get_whole_disk(d, &d);
 
-        if (!(udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev))) {
-                r = -ENOENT;
+        if (asprintf(&ap, "/sys/dev/block/%u:%u/queue/nr_requests", major(d), minor(d)) < 0) {
+                r= -ENOMEM;
                 goto finish;
         }
 
-        look_at = udev_device;
-        if (!(nr_requests = udev_device_get_sysattr_value(look_at, "queue/nr_requests"))) {
-
-                /* Hmm, if the block device doesn't have a queue
-                 * subdir, the let's look in the parent */
-                look_at = udev_device_get_parent(udev_device);
-                nr_requests = udev_device_get_sysattr_value(look_at, "queue/nr_requests");
-        }
-
-        if (!nr_requests) {
-                r = -ENOENT;
+        r = read_one_line_file(ap, &line);
+        if (r < 0) {
+                if (r == -ENOENT)
+                        r = 0;
                 goto finish;
         }
 
-        if (safe_atou64(nr_requests, &u) >= 0 && u >= BUMP_REQUEST_NR) {
+        r = safe_atou64(line, &u);
+        if (r >= 0 && u >= BUMP_REQUEST_NR) {
                 r = 0;
                 goto finish;
         }
 
-        if (asprintf(&ap, "%s/queue/nr_requests", udev_device_get_syspath(look_at)) < 0) {
+        free(line);
+        line = NULL;
+
+        if (asprintf(&line, "%lu", (unsigned long) BUMP_REQUEST_NR) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
 
-        snprintf(nr, sizeof(nr), "%lu", (unsigned long) BUMP_REQUEST_NR);
-
-        if ((r = write_one_line_file(ap, nr)) < 0)
+        r = write_one_line_file(ap, line);
+        if (r < 0)
                 goto finish;
 
-        log_info("Bumped block_nr parameter of %s to %lu. This is a temporary hack and should be removed one day.", udev_device_get_devnode(look_at), (unsigned long) BUMP_REQUEST_NR);
+        log_info("Bumped block_nr parameter of %u:%u to %lu. This is a temporary hack and should be removed one day.", major(d), minor(d), (unsigned long) BUMP_REQUEST_NR);
         r = 1;
 
 finish:
-        if (udev_device)
-                udev_device_unref(udev_device);
-
-        if (udev)
-                udev_unref(udev);
-
         free(ap);
+        free(line);
 
         return r;
 }
