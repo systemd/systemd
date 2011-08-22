@@ -184,16 +184,9 @@ static void set_key(int fd, const char* scancode_str, const char* keyname)
 			scancode, k->id);
 }
 
-static int merge_table(int fd, const char *filename) {
+static int merge_table(int fd, FILE *f) {
 	int r = 0;
 	int line = 0;
-	FILE* f;
-
-	f = fopen(filename, "r");
-	if (!f) {
-		perror(filename);
-		return -1;
-	}
 
 	while (!feof(f)) {
 		char s[256], *p;
@@ -246,17 +239,6 @@ fail:
 	return r;
 }
 
-static const char* default_keymap_path(const char* path)
-{
-	static char result[PATH_MAX];
-
-	/* If keymap file is given without a path, assume udev directory; must end with '/' * */
-	if (!strchr(path, '/')) {
-		snprintf(result, sizeof(result), "%s%s", LIBEXECDIR "/keymaps/", path);
-		return result;
-	}
-	return path;
-}
 
 /* read one event; return 1 if valid */
 static int read_event(int fd, struct input_event* ev)
@@ -424,7 +406,31 @@ int main(int argc, char **argv)
 
 	/* two arguments (device, mapfile): set map file */
 	if (argc == optind+2) {
-		merge_table(fd, default_keymap_path(argv[optind+1]));
+		const char *filearg = argv[optind+1];
+		if (strchr(filearg, '/')) {
+			/* Keymap file argument is a path */
+			FILE *f = fopen(filearg, "r");
+			if (f)
+				merge_table(fd, f);
+			else
+				perror(filearg);
+		} else {
+			/* Keymap file argument is a filename */
+			/* Open override file if present, otherwise default file */
+			char keymap_path[PATH_MAX];
+			snprintf(keymap_path, sizeof(keymap_path), "%s%s", SYSCONFDIR "/udev/keymaps/", filearg);
+			FILE *f = fopen(keymap_path, "r");
+			if (f) {
+				merge_table(fd, f);
+			} else {
+				snprintf(keymap_path, sizeof(keymap_path), "%s%s", LIBEXECDIR "/keymaps/", filearg);
+				f = fopen(keymap_path, "r");
+				if (f)
+					merge_table(fd, f);
+				else
+					perror(keymap_path);
+			}
+		}
 		return 0;
 	}
 
