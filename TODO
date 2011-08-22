@@ -24,8 +24,6 @@ Features:
 
 * hide PAM/TCPWrap options in fragment parser when compile time disabled
 
-* make arbitrary cgroups attributes settable
-
 * when we automatically restart a service, ensure we retsart its rdeps, too.
 
 * allow Type=simple with PIDFile=
@@ -45,8 +43,6 @@ Features:
 * logind: non-local X11 server handling
 
 * logind: use sysfs path in device hash table instead of sysname, as soon as fb driver is fixed
-
-* timedated: implement NTP calls
 
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
@@ -84,10 +80,6 @@ Features:
 
 * GC unreferenced jobs (such as .device jobs)
 
-* add JoinControllers= to system.conf to mount certain cgroup
-  controllers together in order to guarantee atomic creation/addition
-  of cgroups
-
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
 * cgroup_notify_empty(): recursively check groups up the tree, too
@@ -102,6 +94,7 @@ Features:
   - cgroup best pratices to avoid stepping on each others toes
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
+  - security properties
 
 * allow port=0 in .socket units
 

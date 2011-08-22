@@ -341,7 +341,7 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 
-int path_is_mount_point(const char *path);
+int path_is_mount_point(const char *path, bool allow_symlink);
 
 bool is_device_path(const char *path);
 

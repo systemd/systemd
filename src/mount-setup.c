@@ -34,6 +34,8 @@
 #include "macro.h"
 #include "util.h"
 #include "label.h"
+#include "set.h"
+#include "strv.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5
@@ -104,7 +106,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (relabel)
                 label_fix(p->where, true);
 
-        if ((r = path_is_mount_point(p->where)) < 0)
+        if ((r = path_is_mount_point(p->where, true)) < 0)
                 return r;
 
         if (r > 0)
@@ -133,7 +135,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (relabel)
                 label_fix(p->where, false);
 
-        return 0;
+        return 1;
 }
 
 int mount_setup_early(void) {
@@ -155,25 +157,33 @@ int mount_setup_early(void) {
         return r;
 }
 
-static int mount_cgroup_controllers(void) {
+int mount_cgroup_controllers(char ***join_controllers) {
         int r;
         FILE *f;
         char buf[LINE_MAX];
+        Set *controllers;
 
         /* Mount all available cgroup controllers that are built into the kernel. */
 
-        if (!(f = fopen("/proc/cgroups", "re"))) {
+        f = fopen("/proc/cgroups", "re");
+        if (!f) {
                 log_error("Failed to enumerate cgroup controllers: %m");
                 return 0;
+        }
+
+        controllers = set_new(string_hash_func, string_compare_func);
+        if (!controllers) {
+                r = -ENOMEM;
+                log_error("Failed to allocate controller set.");
+                goto finish;
         }
 
         /* Ignore the header line */
         (void) fgets(buf, sizeof(buf), f);
 
         for (;;) {
-                MountPoint p;
-                char *controller, *where;
-                int enabled = false;
+                char *controller;
+                int enabled = 0;
 
                 if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
 
@@ -190,8 +200,66 @@ static int mount_cgroup_controllers(void) {
                         continue;
                 }
 
-                if (asprintf(&where, "/sys/fs/cgroup/%s", controller) < 0) {
+                r = set_put(controllers, controller);
+                if (r < 0) {
+                        log_error("Failed to add controller to set.");
                         free(controller);
+                        goto finish;
+                }
+        }
+
+        for (;;) {
+                MountPoint p;
+                char *controller, *where, *options;
+                char ***k = NULL;
+
+                controller = set_steal_first(controllers);
+                if (!controller)
+                        break;
+
+                if (join_controllers)
+                        for (k = join_controllers; *k; k++)
+                                if (strv_find(*k, controller))
+                                        break;
+
+                if (k && *k) {
+                        char **i, **j;
+
+                        for (i = *k, j = *k; *i; i++) {
+
+                                if (!streq(*i, controller)) {
+                                        char *t;
+
+                                        t = set_remove(controllers, *i);
+                                        if (!t) {
+                                                free(*i);
+                                                continue;
+                                        }
+                                        free(t);
+                                }
+
+                                *(j++) = *i;
+                        }
+
+                        *j = NULL;
+
+                        options = strv_join(*k, ",");
+                        if (!options) {
+                                log_error("Failed to join options");
+                                free(controller);
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                } else {
+                        options = controller;
+                        controller = NULL;
+                }
+
+                where = strappend("/sys/fs/cgroup/", options);
+                if (!where) {
+                        log_error("Failed to build path");
+                        free(options);
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -200,7 +268,7 @@ static int mount_cgroup_controllers(void) {
                 p.what = "cgroup";
                 p.where = where;
                 p.type = "cgroup";
-                p.options = controller;
+                p.options = options;
                 p.flags = MS_NOSUID|MS_NOEXEC|MS_NODEV;
                 p.fatal = false;
 
@@ -208,13 +276,45 @@ static int mount_cgroup_controllers(void) {
                 free(controller);
                 free(where);
 
-                if (r < 0)
+                if (r < 0) {
+                        free(options);
                         goto finish;
+                }
+
+                if (r > 0 && k && *k) {
+                        char **i;
+
+                        for (i = *k; *i; i++) {
+                                char *t;
+
+                                t = strappend("/sys/fs/cgroup/", *i);
+                                if (!t) {
+                                        log_error("Failed to build path");
+                                        r = -ENOMEM;
+                                        free(options);
+                                        goto finish;
+                                }
+
+                                r = symlink(options, t);
+                                free(t);
+
+                                if (r < 0 && errno != EEXIST) {
+                                        log_error("Failed to create symlink: %m");
+                                        r = -errno;
+                                        free(options);
+                                        goto finish;
+                                }
+                        }
+                }
+
+                free(options);
         }
 
         r = 0;
 
 finish:
+        set_free_free(controllers);
+
         fclose(f);
 
         return r;
@@ -301,5 +401,5 @@ int mount_setup(bool loaded_policy) {
         mkdir("/run/systemd", 0755);
         mkdir("/run/systemd/system", 0755);
 
-        return mount_cgroup_controllers();
+        return 0;
 }

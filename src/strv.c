@@ -660,3 +660,16 @@ char **strv_parse_nulstr(const char *s, size_t l) {
 
         return v;
 }
+
+bool strv_overlap(char **a, char **b) {
+        char **i, **j;
+
+        STRV_FOREACH(i, a) {
+                STRV_FOREACH(j, b) {
+                        if (streq(*i, *j))
+                                return true;
+                }
+        }
+
+        return false;
+}

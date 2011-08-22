@@ -75,6 +75,7 @@ static bool arg_sysv_console = true;
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char **arg_default_controllers = NULL;
+static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_INHERIT;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 
@@ -494,6 +495,124 @@ static int config_parse_cpu_affinity2(
         return 0;
 }
 
+static void strv_free_free(char ***l) {
+        char ***i;
+
+        if (!l)
+                return;
+
+        for (i = l; *i; i++)
+                strv_free(*i);
+
+        free(l);
+}
+
+static void free_join_controllers(void) {
+        if (!arg_join_controllers)
+                return;
+
+        strv_free_free(arg_join_controllers);
+        arg_join_controllers = NULL;
+}
+
+static int config_parse_join_controllers(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned n = 0;
+        char *state, *w;
+        size_t length;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        free_join_controllers();
+
+        FOREACH_WORD_QUOTED(w, length, rvalue, state) {
+                char *s, **l;
+
+                s = strndup(w, length);
+                if (!s)
+                        return -ENOMEM;
+
+                l = strv_split(s, ",");
+                free(s);
+
+                strv_uniq(l);
+
+                if (strv_length(l) <= 1) {
+                        strv_free(l);
+                        continue;
+                }
+
+                if (!arg_join_controllers) {
+                        arg_join_controllers = new(char**, 2);
+                        if (!arg_join_controllers) {
+                                strv_free(l);
+                                return -ENOMEM;
+                        }
+
+                        arg_join_controllers[0] = l;
+                        arg_join_controllers[1] = NULL;
+
+                        n = 1;
+                } else {
+                        char ***a;
+                        char ***t;
+
+                        t = new0(char**, n+2);
+                        if (!t) {
+                                strv_free(l);
+                                return -ENOMEM;
+                        }
+
+                        n = 0;
+
+                        for (a = arg_join_controllers; *a; a++) {
+
+                                if (strv_overlap(*a, l)) {
+                                        char **c;
+
+                                        c = strv_merge(*a, l);
+                                        if (!c) {
+                                                strv_free(l);
+                                                strv_free_free(t);
+                                                return -ENOMEM;
+                                        }
+
+                                        strv_free(l);
+                                        l = c;
+                                } else {
+                                        char **c;
+
+                                        c = strv_copy(*a);
+                                        if (!c) {
+                                                strv_free(l);
+                                                strv_free_free(t);
+                                                return -ENOMEM;
+                                        }
+
+                                        t[n++] = c;
+                                }
+                        }
+
+                        t[n++] = strv_uniq(l);
+
+                        strv_free_free(arg_join_controllers);
+                        arg_join_controllers = t;
+                }
+        }
+
+        return 0;
+}
+
 static int parse_config_file(void) {
 
         const ConfigTableItem items[] = {
@@ -514,6 +633,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers },
                 { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
                 { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
+                { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
                 { NULL, NULL, NULL, 0, NULL }
         };
 
@@ -1084,14 +1204,28 @@ int main(int argc, char *argv[]) {
                 log_open();
         }
 
+        /* Initialize default unit */
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
+                goto finish;
+
+        /* By default, mount "cpu" and "cpuacct" together */
+        arg_join_controllers = new(char**, 2);
+        if (!arg_join_controllers)
+                goto finish;
+
+        arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
+        arg_join_controllers[1] = NULL;
+
+        if (!arg_join_controllers[0])
                 goto finish;
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
-        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS"))
-                if (mount_setup(loaded_policy) < 0)
+        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS")) {
+                r = mount_setup(loaded_policy);
+                if (r < 0)
                         goto finish;
+        }
 
         /* Reset all signal handlers. */
         assert_se(reset_all_signal_handlers() == 0);
@@ -1198,6 +1332,12 @@ int main(int argc, char *argv[]) {
          * kernel. */
         if (getpid() == 1)
                 install_crash_handler();
+
+        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS")) {
+                r = mount_cgroup_controllers(arg_join_controllers);
+                if (r < 0)
+                        goto finish;
+        }
 
         log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
                  PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
@@ -1368,6 +1508,7 @@ finish:
 
         free(arg_default_unit);
         strv_free(arg_default_controllers);
+        free_join_controllers();
 
         dbus_shutdown();
 

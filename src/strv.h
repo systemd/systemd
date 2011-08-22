@@ -68,6 +68,8 @@ char **strv_env_clean(char **l);
 
 char **strv_parse_nulstr(const char *s, size_t l);
 
+bool strv_overlap(char **a, char **b);
+
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)
 

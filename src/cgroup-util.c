@@ -513,7 +513,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (_unlikely_(!good)) {
                 int r;
 
-                r = path_is_mount_point("/sys/fs/cgroup");
+                r = path_is_mount_point("/sys/fs/cgroup", false);
                 if (r <= 0)
                         return r < 0 ? r : -ENOENT;
 

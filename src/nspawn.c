@@ -167,7 +167,7 @@ static int mount_all(const char *dest) {
                         break;
                 }
 
-                if ((t = path_is_mount_point(where)) < 0) {
+                if ((t = path_is_mount_point(where, false)) < 0) {
                         log_error("Failed to detect whether %s is a mount point: %s", where, strerror(-t));
                         free(where);
 
