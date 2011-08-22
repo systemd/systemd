@@ -1,0 +1,166 @@
+# translation of pl.po to Polish
+# Piotr Drąg <piotrdrag@gmail.com>, 2011.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2011-08-22 15:43+0200\n"
+"PO-Revision-Date: 2011-08-22 15:45+0200\n"
+"Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
+"Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
+"Language: pl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../src/org.freedesktop.hostname1.policy.in.h:1
+msgid "Authentication is required to set local machine information."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
+
+#: ../src/org.freedesktop.hostname1.policy.in.h:2
+msgid "Authentication is required to set the local host name."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić nazwę lokalnego komputera."
+
+#: ../src/org.freedesktop.hostname1.policy.in.h:3
+msgid ""
+"Authentication is required to set the statically configured local host name, "
+"as well as the pretty host name."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ustawić statycznie skonfigurowaną nazwę "
+"lokalnego komputera, a także jego ładną nazwę."
+
+#: ../src/org.freedesktop.hostname1.policy.in.h:4
+msgid "Set host name"
+msgstr "Ustawienie nazwy komputera"
+
+#: ../src/org.freedesktop.hostname1.policy.in.h:5
+msgid "Set machine information"
+msgstr "Ustawienie informacji o komputerze"
+
+#: ../src/org.freedesktop.hostname1.policy.in.h:6
+msgid "Set static host name"
+msgstr "Ustawienie statycznej nazwy komputera"
+
+#: ../src/org.freedesktop.locale1.policy.in.h:1
+msgid "Authentication is required to set the system locale."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić lokalizację systemu."
+
+#: ../src/org.freedesktop.locale1.policy.in.h:2
+msgid "Set system locale"
+msgstr "Ustawienie lokalizacji systemu"
+
+#: ../src/org.freedesktop.login1.policy.in.h:1
+msgid "Allow attaching devices to seats"
+msgstr "Zezwolenie na podłączanie urządzeń do siedzeń"
+
+#: ../src/org.freedesktop.login1.policy.in.h:2
+msgid "Allow non-logged-in users to run programs"
+msgstr "Zezwolenie niezalogowanym użytkownikom na uruchamianie programów"
+
+#: ../src/org.freedesktop.login1.policy.in.h:3
+msgid ""
+"Authentication is required to allow a non-logged-in user to run programs"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ustawić zezwolić niezalogowanym "
+"użytkownikom na uruchamianie programów"
+
+#: ../src/org.freedesktop.login1.policy.in.h:4
+msgid "Authentication is required to allow attaching a device to a seat"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić na podłączanie urządzeń do "
+"siedzeń"
+
+#: ../src/org.freedesktop.login1.policy.in.h:5
+msgid "Authentication is required to allow powering off the system"
+msgstr "Wymagane jest uwierzytelnienie, aby zezwolić na wyłączanie systemu"
+
+#: ../src/org.freedesktop.login1.policy.in.h:6
+msgid ""
+"Authentication is required to allow powering off the system while other "
+"users are logged in"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić na wyłączanie systemu, kiedy są "
+"zalogowani inni użytkownicy"
+
+#: ../src/org.freedesktop.login1.policy.in.h:7
+msgid "Authentication is required to allow rebooting the system"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić na ponowne uruchamianie systemu"
+
+#: ../src/org.freedesktop.login1.policy.in.h:8
+msgid ""
+"Authentication is required to allow rebooting the system while other users "
+"are logged in"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić na ponowne uruchamianie "
+"systemu, kiedy są zalogowani inni użytkownicy"
+
+#: ../src/org.freedesktop.login1.policy.in.h:9
+msgid ""
+"Authentication is required to allow resetting how devices are attached to "
+"seats"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić na ponowne ustawianie sposobu "
+"podłączenia urządzeń do siedzeń"
+
+#: ../src/org.freedesktop.login1.policy.in.h:10
+msgid "Flush device to seat attachments"
+msgstr "Czyszczenie podłączeń urządzeń do siedzeń"
+
+#: ../src/org.freedesktop.login1.policy.in.h:11
+msgid "Power off the system"
+msgstr "Wyłączenie systemu"
+
+#: ../src/org.freedesktop.login1.policy.in.h:12
+msgid "Power off the system when other users are logged in"
+msgstr "Wyłączenie systemu, kiedy są zalogowani inni użytkownicy"
+
+#: ../src/org.freedesktop.login1.policy.in.h:13
+msgid "Reboot the system"
+msgstr "Ponowne uruchomienie systemu"
+
+#: ../src/org.freedesktop.login1.policy.in.h:14
+msgid "Reboot the system when other users are logged in"
+msgstr "Ponowne uruchomienie systemu, kiedy są zalogowani inni użytkownicy"
+
+#: ../src/org.freedesktop.timedate1.policy.in.h:1
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
+"czasu przez sieć."
+
+#: ../src/org.freedesktop.timedate1.policy.in.h:2
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby kontrolować, czy RTC przechowuje czas "
+"lokalny lub czas UTC."
+
+#: ../src/org.freedesktop.timedate1.policy.in.h:3
+msgid "Authentication is required to set the system time."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić czas systemu."
+
+#: ../src/org.freedesktop.timedate1.policy.in.h:4
+msgid "Authentication is required to set the system timezone."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić strefę czasową systemu."
+
+#: ../src/org.freedesktop.timedate1.policy.in.h:5
+msgid "Set RTC to local timezone or UTC"
+msgstr "Ustawienie RTC na lokalną strefę czasową lub strefę UTC"
+
+#: ../src/org.freedesktop.timedate1.policy.in.h:6
+msgid "Set system time"
+msgstr "Ustawienie czasu systemu"
+
+#: ../src/org.freedesktop.timedate1.policy.in.h:7
+msgid "Set system timezone"
+msgstr "Ustawienie strefy czasowej systemu"
+
+#: ../src/org.freedesktop.timedate1.policy.in.h:8
+msgid "Turn network time synchronization on or off"
+msgstr "Włączenie lub wyłączenie synchronizacji czasu przez sieć"
