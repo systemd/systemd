@@ -20,6 +20,7 @@ GOTO="keyboard_modulecheck"
 
 LABEL="keyboard_usbcheck"
 
+ENV{ID_VENDOR}=="Genius", ENV{ID_MODEL_ID}=="0708", ENV{ID_USB_INTERFACE_NUM}=="01", RUN+="keymap $name genius-slimstar-320"
 ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Multimedia Keyboard", RUN+="keymap $name logitech-wave"
 ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Receiver", RUN+="keymap $name logitech-wave-cordless"
 # Logitech Cordless Wave Pro looks slightly weird; some hotkeys are coming through the mouse interface

@@ -1,0 +1,35 @@
+# Genius SlimStar 320
+#
+# Only buttons which are not properly mapped yet are configured below
+
+# "Scroll wheel", a circular up/down/left/right button. Aimed for scolling,
+# but since there are no scrollleft/scrollright, let's map to back/forward.
+0x900f0 scrollup
+0x900f1 scrolldown
+0x900f3 back
+0x900f2 forward
+
+# Multimedia buttons, left side (from left to right)
+# [W]
+0x900f5 wordprocessor
+# [Ex]
+0x900f6 spreadsheet
+# [P]
+0x900f4 presentation
+# Other five (calculator, playpause, stop, mute and eject) are OK
+
+# Right side, from left to right
+# [e]
+0xc0223 www
+# "man"
+0x900f7 chat
+# "Y"
+0x900fb prog1
+# [X]
+0x900f8 close
+# "picture"
+0x900f9 graphicseditor
+# "two windows"
+0x900fd scale
+# "lock"
+0x900fc screenlock
