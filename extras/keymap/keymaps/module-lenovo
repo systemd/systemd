@@ -14,3 +14,4 @@
 0x15 volumedown
 0x16 mute
 0x17 prog1 # ThinkPad/ThinkVantage button (high keycode: "vendor")
+0x1A prog2 # Microphone mute
