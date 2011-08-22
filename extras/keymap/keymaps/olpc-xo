@@ -2,18 +2,32 @@
 0x81 fn_esc
 0xF9 camera
 0xF8 sound # Fn-CAMERA = Mic
-0xBB fn_f1
-0xBC fn_f2
-0xBD fn_f3
-0xBE fn_f4
-0xBF fn_f5
-0xC0 fn_f6
-0xC1 fn_f7
-0xC2 fn_f8
-0xC3 fn_f9
-0xC4 fn_f10
-0xD7 fn_f11
-0xD8 fn_f12
+
+
+# Function key mappings, as per
+#    http://dev.laptop.org/ticket/10213#comment:20
+#
+# Unmodified F1-F8 produce F1-F8, so no remap necessary.
+# Unmodified F9-F12 control brightness and volume.
+0x43 brightnessdown
+0x44 brightnessup
+0x57 volumedown
+0x58 volumeup
+
+# fn-modified fkeys all produce the unmodified version of the key.
+0xBB f1
+0xBC f2
+0xBD f3
+0xBE f4
+0xBF f5
+0xC0 f6
+0xC1 f7
+0xC2 f8
+0xC3 f9
+0xC4 f10
+0xD7 f11
+0xD8 f12
+
 
 # Using F13-F21 for the .5 F keys right now.
 0xF7 f13
