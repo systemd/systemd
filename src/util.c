@@ -5852,3 +5852,15 @@ static const char *const signal_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(signal, int);
+
+bool kexec_loaded(void) {
+       bool loaded = false;
+       char *s;
+
+       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) >= 0) {
+               if (s[0] == '1')
+                       loaded = true;
+               free(s);
+       }
+       return loaded;
+}

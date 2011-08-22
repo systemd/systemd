@@ -93,6 +93,8 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
         for (i = 0; i < ELEMENTSOF(table); i++)
                 if (table[i].runlevel == runlevel) {
                         *isolate = table[i].isolate;
+                        if (runlevel == '6' && kexec_loaded())
+                                return SPECIAL_KEXEC_TARGET;
                         return table[i].special;
                 }
 

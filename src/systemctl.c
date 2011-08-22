@@ -4427,18 +4427,6 @@ static int parse_time_spec(const char *t, usec_t *_u) {
         return 0;
 }
 
-static bool kexec_loaded(void) {
-       bool loaded = false;
-       char *s;
-
-       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) >= 0) {
-               if (s[0] == '1')
-                       loaded = true;
-               free(s);
-       }
-       return loaded;
-}
-
 static int shutdown_parse_argv(int argc, char *argv[]) {
 
         enum {
