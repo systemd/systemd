@@ -65,7 +65,7 @@ static const struct {
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_FRUGALWARE) || defined(TARGET_ANGSTROM)
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
         /* Debian style rcS.d */
         { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
