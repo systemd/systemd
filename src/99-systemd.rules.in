@@ -30,8 +30,8 @@ SUBSYSTEM=="block", KERNEL!="ram*|loop*", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_T
 #
 # http://git.kernel.org/?p=linux/hotplug/udev.git;a=blob;f=libudev/libudev-enumerate.c;h=da831449dcaf5e936a14409e8e68ab12d30a98e2;hb=HEAD#l742
 
-SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/%k"
-SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/bluetooth/devices/%k"
+SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/$name"
+SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/bluetooth/devices/$name"
 
 SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}="bluetooth.target"
 ENV{ID_SMARTCARD_READER}=="*?", TAG+="systemd", ENV{SYSTEMD_WANTS}="smartcard.target"
@@ -41,6 +41,6 @@ SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
 SUBSYSTEM=="usb", KERNEL=="lp*", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
 
-SUBSYSTEM=="net", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/%k --prefix=/proc/sys/net/ipv4/neigh/%k --prefix=/proc/sys/net/ipv6/conf/%k --prefix=/proc/sys/net/ipv6/neigh/%k"
+SUBSYSTEM=="net", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/$name --prefix=/proc/sys/net/ipv4/neigh/$name --prefix=/proc/sys/net/ipv6/conf/$name --prefix=/proc/sys/net/ipv6/neigh/$name"
 
 LABEL="systemd_end"
