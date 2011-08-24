@@ -145,7 +145,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
+        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"DisableUnitFiles\">\n"                        \
@@ -157,7 +157,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
+        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"LinkUnitFiles\">\n"                           \
@@ -170,7 +170,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
+        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"MaskUnitFiles\">\n"                           \
