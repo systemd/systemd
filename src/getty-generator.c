@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         if (detect_container(NULL) > 0) {
-                log_debug("Automatic adding console shell.");
+                log_debug("Automatically adding console shell.");
 
                 if (add_symlink("console-shell.service", "console-shell.service") < 0)
                         r = EXIT_FAILURE;

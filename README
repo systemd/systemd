@@ -68,6 +68,11 @@ REQUIREMENTS:
         add a dependency on nss-myhostname to the package that
         includes systemd-hostnamed.
 
+        Note that D-Bus can link against libsystemd-login.so, which
+        results in a cyclic build dependency. To accomodate for this
+        please build D-Bus without systemd first, then build systemd,
+        then rebuild D-Bus with systemd support.
+
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
         symlink to /proc/mounts. Please ensure that /etc/mtab is a
