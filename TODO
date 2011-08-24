@@ -19,6 +19,8 @@ Bugfixes:
 
 Features:
 
+* something like ConditionExec= or ExecStartPre= without failure state
+
 * service restart retry configuration
 
 * tmpfiles: apply "x" on "D" too (see patch from William Douglas
