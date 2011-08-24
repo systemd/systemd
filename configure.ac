@@ -317,6 +317,13 @@ if test "x$enable_timedated" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
 
+have_localed=no
+AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
+if test "x$enable_localed" != "xno"; then
+	have_localed=yes
+fi
+AM_CONDITIONAL(ENABLE_LOCALED, [test "$have_localed" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -580,6 +587,7 @@ AC_MSG_RESULT([
         binfmt:                  ${have_binfmt}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
+        localed:                 ${have_localed}
         plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}

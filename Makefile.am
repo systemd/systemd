@@ -171,7 +171,6 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-        systemd-localed \
         systemd-logind \
         systemd-uaccess
 
@@ -188,6 +187,11 @@ endif
 if ENABLE_TIMEDATED
 rootlibexec_PROGRAMS += \
 	systemd-timedated
+endif
+
+if ENABLE_LOCALED
+rootlibexec_PROGRAMS += \
+	systemd-localed
 endif
 
 systemgenerator_PROGRAMS = \
@@ -234,7 +238,6 @@ dist_pkgsysconf_DATA = \
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \
-        src/org.freedesktop.locale1.conf \
         src/org.freedesktop.login1.conf
 
 if ENABLE_HOSTNAMED
@@ -247,9 +250,13 @@ dist_dbuspolicy_DATA += \
 	src/org.freedesktop.timedate1.conf
 endif
 
+if ENABLE_LOCALED
+dist_dbuspolicy_DATA += \
+	src/org.freedesktop.locale1.conf
+endif
+
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service \
-        src/org.freedesktop.locale1.service \
         src/org.freedesktop.login1.service
 
 if ENABLE_HOSTNAMED
@@ -260,6 +267,11 @@ endif
 if ENABLE_TIMEDATED
 dist_dbussystemservice_DATA += \
 	src/org.freedesktop.timedate1.service
+endif
+
+if ENABLE_LOCALED
+dist_dbussystemservice_DATA += \
+        src/org.freedesktop.locale1.service
 endif
 
 dist_udevrules_DATA = \
@@ -283,8 +295,7 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Automount.xml \
 	org.freedesktop.systemd1.Snapshot.xml \
 	org.freedesktop.systemd1.Swap.xml \
-	org.freedesktop.systemd1.Path.xml \
-        org.freedesktop.locale1.xml
+	org.freedesktop.systemd1.Path.xml
 
 if ENABLE_HOSTNAMED
 dbusinterface_DATA += \
@@ -294,6 +305,11 @@ endif
 if ENABLE_TIMEDATED
 dbusinterface_DATA += \
 	org.freedesktop.timedate1.xml
+endif
+
+if ENABLE_LOCALED
+dbusinterface_DATA += \
+	org.freedesktop.locale1.xml
 endif
 
 dist_bashcompletion_DATA = \
@@ -381,7 +397,6 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
-	units/systemd-localed.service \
 	units/systemd-logind.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
@@ -425,6 +440,11 @@ nodist_systemunit_DATA += \
 	units/systemd-timedated.service
 endif
 
+if ENABLE_LOCALED
+nodist_systemunit_DATA += \
+	units/systemd-localed.service
+endif
+
 dist_userunit_DATA = \
 	units/user/default.target \
 	units/user/exit.target
@@ -440,7 +460,6 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
-	units/systemd-localed.service.in \
 	units/systemd-logind.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
@@ -490,6 +509,11 @@ endif
 if ENABLE_TIMEDATED
 EXTRA_DIST += \
 	units/systemd-timedated.service.in
+endif
+
+if ENABLE_LOCALED
+EXTRA_DIST += \
+	units/systemd-localed.service.in
 endif
 
 if TARGET_FEDORA
@@ -554,7 +578,6 @@ pkgconfiglib_DATA = \
 
 # Passed through intltool only
 polkitpolicy_in_files = \
-        src/org.freedesktop.locale1.policy.in \
         src/org.freedesktop.login1.policy.in
 
 if ENABLE_HOSTNAMED
@@ -565,6 +588,11 @@ endif
 if ENABLE_TIMEDATED
 polkitpolicy_in_files += \
 	src/org.freedesktop.timedate1.policy.in
+endif
+
+if ENABLE_LOCALED
+polkitpolicy_in_files += \
+        src/org.freedesktop.locale1.policy.in
 endif
 
 # First passed through sed, followed by intltool
@@ -1791,10 +1819,9 @@ endif
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.locale1.service dbus-org.freedesktop.login1.service autovt@.service && \
+		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.login1.service autovt@.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
-                $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service && \
                 $(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service && \
                 $(LN_S) getty@.service autovt@.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
@@ -1850,6 +1877,11 @@ if ENABLE_TIMEDATED
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.timedate1.service  && \
                 $(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
+endif
+if ENABLE_LOCALED
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.locale1.service && \
+                $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service )
 endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
