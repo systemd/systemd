@@ -18,6 +18,14 @@ Bugfixes:
 * make sure timeouts are applied to Type=oneshot services.
 
 Features:
+
+* service restart retry configuration
+
+* tmpfiles: apply "x" on "D" too (see patch from William Douglas
+* tmpfiles: support generation of char/block devices, symlinks and one-line files (think sysfs)
+
+* Introduce ControlGroupPersistant=yes to set +t on the tasks file when creating the cgroup
+
 * don't set $HOME in services unless requested
 
 * remove hacks in vala code and require libnotify 0.7
