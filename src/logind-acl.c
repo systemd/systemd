@@ -265,9 +265,9 @@ int devnode_acl_all(struct udev *udev,
 
                 node = udev_device_get_devnode(d);
                 if (!node) {
+                        /* In case people mistag devices with nodes, we need to ignore this */
                         udev_device_unref(d);
-                        r = -ENOMEM;
-                        goto finish;
+                        continue;
                 }
 
                 log_debug("Fixing up %s for seat %s...", node, sn);
