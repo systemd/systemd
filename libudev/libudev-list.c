@@ -180,7 +180,6 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
 			return NULL;
 		}
 	}
-	udev_list_entry_append(entry, list);
 
 	if (list->unique) {
 		/* allocate or enlarge sorted array if needed */
@@ -199,12 +198,22 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
 			list->entries_max += add;
 		}
 
-		/* insert into sorted array */
+		/* the negative i returned the insertion index */
 		i = (-i)-1;
+
+		/* insert into sorted list */
+		if ((unsigned int)i < list->entries_cur)
+			udev_list_entry_insert_before(entry, list->entries[i]);
+		else
+			udev_list_entry_append(entry, list);
+
+		/* insert into sorted array */
 		memmove(&list->entries[i+1], &list->entries[i],
 		        (list->entries_cur - i) * sizeof(struct udev_list_entry *));
 		list->entries[i] = entry;
 		list->entries_cur++;
+	} else {
+		udev_list_entry_append(entry, list);
 	}
 
 	dbg(list->udev, "'%s=%s' added\n", entry->name, entry->value);
