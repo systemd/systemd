@@ -178,11 +178,12 @@ Features:
 External:
 
 * dbus:
-   - get process transport into dbus for systemctl -P/-H
+   - get process transport into dbus for systemctl -P/-H (PENDING)
    - dbus --user
-   - natively watch for dbus-*.service symlinks
+   - natively watch for dbus-*.service symlinks (PENDING)
    - allow specification of socket mode/umask when allocating DBusServer
    - allow disabling of fd passing when connecting a AF_UNIX connection
+   - allow disabling of UID passing for AUTH EXTERNAL
 
 * systemd --user
     PR_SET_CHILD_REAPER patch: https://lkml.org/lkml/2011/7/28/426

@@ -670,8 +670,8 @@
                                 <option>keep-caps-locked</option>,
                                 <option>no-setuid-fixup</option>,
                                 <option>no-setuid-fixup-locked</option>,
-                                <option>no-setuid-noroot</option> and/or
-                                <option>no-setuid-noroot-locked</option>.
+                                <option>noroot</option> and/or
+                                <option>noroot-locked</option>.
                                 </para></listitem>
                         </varlistentry>
 
