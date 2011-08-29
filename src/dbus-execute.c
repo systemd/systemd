@@ -308,13 +308,14 @@ int bus_execute_append_command(DBusMessageIter *i, const char *property, void *d
         assert(i);
         assert(property);
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sasbttuii)", &sub))
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sasbttttuii)", &sub))
                 return -ENOMEM;
 
         LIST_FOREACH(command, c, c) {
                 char **l;
                 uint32_t pid;
                 int32_t code, status;
+                dbus_bool_t b;
 
                 if (!c->path)
                         continue;
@@ -332,8 +333,10 @@ int bus_execute_append_command(DBusMessageIter *i, const char *property, void *d
                 code = (int32_t) c->exec_status.code;
                 status = (int32_t) c->exec_status.status;
 
+                b = !!c->ignore;
+
                 if (!dbus_message_iter_close_container(&sub2, &sub3) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_BOOLEAN, &c->ignore) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_BOOLEAN, &b) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.start_timestamp.realtime) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.start_timestamp.monotonic) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.exit_timestamp.realtime) ||
