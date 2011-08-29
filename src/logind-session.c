@@ -536,7 +536,8 @@ int session_start(Session *s) {
         if (r < 0)
                 return r;
 
-        log_info("New session %s of user %s.", s->id, s->user->name);
+        log_full(s->display || s->tty ? LOG_INFO : LOG_DEBUG,
+                 "New session %s of user %s.", s->id, s->user->name);
 
         /* Create cgroup */
         r = session_create_cgroup(s);
@@ -658,7 +659,8 @@ int session_stop(Session *s) {
         assert(s);
 
         if (s->started)
-                log_info("Removed session %s.", s->id);
+                log_full(s->display || s->tty ? LOG_INFO : LOG_DEBUG,
+                         "Removed session %s.", s->id);
 
         /* Kill cgroup */
         k = session_terminate_cgroup(s);
