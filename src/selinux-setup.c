@@ -73,6 +73,8 @@ int selinux_setup(bool *loaded_policy) {
                char timespan[FORMAT_TIMESPAN_MAX];
                char *label;
 
+               label_retest_selinux();
+
                /* Transition to the new context */
                r = label_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
                if (r < 0 || label == NULL) {

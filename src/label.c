@@ -33,13 +33,18 @@
 
 static struct selabel_handle *label_hnd = NULL;
 
+static int use_selinux_cached = -1;
+
 static inline bool use_selinux(void) {
-        static int use_selinux_cached = -1;
 
         if (use_selinux_cached < 0)
                 use_selinux_cached = is_selinux_enabled() > 0;
 
         return use_selinux_cached;
+}
+
+void label_retest_selinux(void) {
+        use_selinux_cached = -1;
 }
 
 #endif
