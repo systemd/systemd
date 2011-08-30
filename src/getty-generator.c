@@ -44,9 +44,15 @@ static int add_symlink(const char *fservice, const char *tservice) {
 
         mkdir_parents(to, 0755);
 
-        if ((r = symlink(from, to)) < 0) {
-                log_error("Failed to create symlink from %s to %s: %m", from, to);
-                r = -errno;
+        r = symlink(from, to);
+        if (r < 0) {
+                if (errno == EEXIST)
+                        /* In case console=hvc is passed this will very likely result in EEXIST */
+                        r = 0;
+                else {
+                        log_error("Failed to create symlink from %s to %s: %m", from, to);
+                        r = -errno;
+                }
         }
 
 finish:
@@ -88,7 +94,8 @@ int main(int argc, char *argv[]) {
         if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
                 const char *tty;
 
-                if ((tty = strrchr(active, ' ')))
+                tty = strrchr(active, ' ');
+                if (tty)
                         tty ++;
                 else
                         tty = active;
@@ -104,8 +111,8 @@ int main(int argc, char *argv[]) {
 
                         log_debug("Automatically adding serial getty for /dev/%s.", tty);
 
-                        if (!(n = unit_name_replace_instance("serial-getty@.service", tty)) ||
-                            add_symlink("serial-getty@.service", n) < 0)
+                        n = unit_name_replace_instance("serial-getty@.service", tty);
+                        if (!n || add_symlink("serial-getty@.service", n) < 0)
                                 r = EXIT_FAILURE;
 
                         free(n);
