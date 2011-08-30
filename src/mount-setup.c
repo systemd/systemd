@@ -347,25 +347,30 @@ static int nftw_cb(
         if (_unlikely_(ftwbuf->level == 0))
                 return FTW_CONTINUE;
 
+        label_fix(fpath, true);
+
         /* /run/initramfs is static data and big, no need to
-         * dynamically relabel it at boot... */
+         * dynamically relabel its contents at boot... */
         if (_unlikely_(ftwbuf->level == 1 &&
                       tflag == FTW_D &&
                       streq(fpath, "/run/initramfs")))
                 return FTW_SKIP_SUBTREE;
 
-        label_fix(fpath, true);
         return FTW_CONTINUE;
 };
 
 int mount_setup(bool loaded_policy) {
 
-        const char symlinks[] =
+        static const char symlinks[] =
                 "/proc/kcore\0"      "/dev/core\0"
                 "/proc/self/fd\0"    "/dev/fd\0"
                 "/proc/self/fd/0\0"  "/dev/stdin\0"
                 "/proc/self/fd/1\0"  "/dev/stdout\0"
                 "/proc/self/fd/2\0"  "/dev/stderr\0";
+
+        static const char relabel[] =
+                "/run/initramfs/root-fsck\0"
+                "/run/initramfs/shutdown\0";
 
         int r;
         unsigned i;
@@ -391,11 +396,14 @@ int mount_setup(bool loaded_policy) {
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
                 nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
+                /* Explicitly relabel these */
+                NULSTR_FOREACH(j, relabel)
+                        label_fix(j, true);
+
                 after_relabel = now(CLOCK_MONOTONIC);
 
                 log_info("Relabelled /dev and /run in %s.",
                          format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel));
-
         }
 
         /* Create a few default symlinks, which are normally created
@@ -405,8 +413,8 @@ int mount_setup(bool loaded_policy) {
                 symlink_and_label(j, k);
 
         /* Create a few directories we always want around */
-        mkdir("/run/systemd", 0755);
-        mkdir("/run/systemd/system", 0755);
+        label_mkdir("/run/systemd", 0755);
+        label_mkdir("/run/systemd/system", 0755);
 
         return 0;
 }
