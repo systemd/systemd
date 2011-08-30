@@ -396,8 +396,13 @@
                                 socket activation, semantics are
                                 similar to the respective option of
                                 <varname>StandardInput=</varname>.
-                                This setting defaults to
-                                <option>inherit</option>.</para></listitem>
+                                This setting defaults to the value set
+                                with
+                                <option>DefaultStandardOutput=</option>
+                                in
+                                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                                which defaults to
+                                <option>syslog</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><varname>StandardError=</varname></term>
@@ -411,7 +416,11 @@
                                 <option>inherit</option> the file
                                 descriptor used for standard output is
                                 duplicated for standard error. This
-                                setting defaults to
+                                setting defaults to the value set with
+                                <option>DefaultStandardError=</option>
+                                in
+                                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                                which defaults to
                                 <option>inherit</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>

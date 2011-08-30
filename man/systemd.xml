@@ -270,7 +270,12 @@
                                 <option>syslog+console</option>,
                                 <option>kmsg</option>,
                                 <option>kmsg+console</option>.  If the
-                                argument is omitted it defaults to
+                                argument is omitted
+                                <option>--default-standard-output=</option>
+                                defaults to <option>syslog</option>
+                                and
+                                <option>--default-standard-error=</option>
+                                to
                                 <option>inherit</option>.</para></listitem>
                         </varlistentry>
                 </variablelist>
