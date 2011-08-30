@@ -104,7 +104,5 @@ char *specifier_printf(const char *text, const Specifier table[], void *userdata
 /* Generic handler for simple string replacements */
 
 char* specifier_string(char specifier, void *data, void *userdata) {
-        assert(data);
-
         return strdup(strempty(data));
 }
