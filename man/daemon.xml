@@ -705,24 +705,6 @@
                                 operating
                                 system-independent.</para></listitem>
 
-                                <listitem><para>Since not all syslog
-                                implementations are socket-activatable
-                                yet, it is recommended to place an
-                                <varname>After=syslog.target</varname>
-                                dependency in service files for
-                                daemons that can log to
-                                syslog. <filename>syslog.target</filename>
-                                then either pulls in the syslog daemon
-                                itself or simply the activation
-                                socket. A <varname>Wants=</varname> or
-                                even <varname>Requires=</varname>
-                                dependency should generally not be
-                                added, since it should be up to the
-                                administrator whether he wants to
-                                enable logging or not, and most syslog
-                                clients work fine if no log daemon is
-                                running.</para></listitem>
-
                                 <listitem><para>Make sure to include
                                 an <literal>[Install]</literal>
                                 section including installation

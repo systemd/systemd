@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Display Manager
-After=syslog.target livesys-late.service rc-local.service systemd-user-sessions.service
+After=livesys-late.service rc-local.service systemd-user-sessions.service
 After=network.target acpid.service fs.service haldaemon.service
 
 # Do not stop plymouth, it is done in prefdm if required

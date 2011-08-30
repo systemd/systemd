@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Display Manager
-After=syslog.target local.service systemd-user-sessions.service
+After=local.service systemd-user-sessions.service
 
 [Service]
 EnvironmentFile=/etc/sysconfig/desktop
