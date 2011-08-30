@@ -23,6 +23,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <malloc.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "label.h"
 #include "util.h"
@@ -273,9 +275,7 @@ void label_free(const char *label) {
 #endif
 }
 
-int label_mkdir(
-        const char *path,
-        mode_t mode) {
+int label_mkdir(const char *path, mode_t mode) {
 
         /* Creates a directory and labels it according to the SELinux policy */
 
@@ -283,43 +283,123 @@ int label_mkdir(
         int r;
         security_context_t fcon = NULL;
 
-        if (use_selinux() && label_hnd) {
+        if (!use_selinux() || label_hnd)
+                goto skipped;
 
-                if (path_is_absolute(path))
-                        r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
-                else {
-                        char *newpath = NULL;
+        if (path_is_absolute(path))
+                r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
+        else {
+                char *newpath;
 
-                        if (!(newpath = path_make_absolute_cwd(path)))
-                                return -ENOMEM;
+                newpath = path_make_absolute_cwd(path);
+                if (!newpath)
+                        return -ENOMEM;
 
-                        r = selabel_lookup_raw(label_hnd, &fcon, newpath, mode);
-                        free(newpath);
-                }
+                r = selabel_lookup_raw(label_hnd, &fcon, newpath, mode);
+                free(newpath);
+        }
 
-                if (r == 0)
-                        r = setfscreatecon(fcon);
+        if (r == 0)
+                r = setfscreatecon(fcon);
 
-                if (r < 0 && errno != ENOENT) {
-                        log_error("Failed to set security context %s for %s: %m", fcon, path);
+        if (r < 0 && errno != ENOENT) {
+                log_error("Failed to set security context %s for %s: %m", fcon, path);
+
+                if (security_getenforce() == 1) {
                         r = -errno;
-
-                        if (security_getenforce() == 1)
-                                goto finish;
+                        goto finish;
                 }
         }
 
-        if ((r = mkdir(path, mode)) < 0)
+        r = mkdir(path, mode);
+        if (r < 0)
                 r = -errno;
 
 finish:
-        if (use_selinux() && label_hnd) {
-                setfscreatecon(NULL);
-                freecon(fcon);
-        }
+        setfscreatecon(NULL);
+        freecon(fcon);
 
         return r;
-#else
-        return mkdir(path, mode);
+
+skipped:
 #endif
+        return mkdir(path, mode) < 0 ? -errno : 0;
+}
+
+int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
+
+        /* Binds a socket and label its file system object according to the SELinux policy */
+
+#ifdef HAVE_SELINUX
+        int r;
+        security_context_t fcon = NULL;
+        const struct sockaddr_un *un;
+        char *path = NULL;
+
+        assert(fd >= 0);
+        assert(addr);
+        assert(addrlen >= sizeof(sa_family_t));
+
+        if (!use_selinux() || !label_hnd)
+                goto skipped;
+
+        /* Filter out non-local sockets */
+        if (addr->sa_family != AF_UNIX)
+                goto skipped;
+
+        /* Filter out anonymous sockets */
+        if (addrlen < sizeof(sa_family_t) + 1)
+                goto skipped;
+
+        /* Filter out abstract namespace sockets */
+        un = (const struct sockaddr_un*) addr;
+        if (un->sun_path[0] == 0)
+                goto skipped;
+
+        path = strndup(un->sun_path, addrlen - offsetof(struct sockaddr_un, sun_path));
+        if (!path)
+                return -ENOMEM;
+
+        if (path_is_absolute(path))
+                r = selabel_lookup_raw(label_hnd, &fcon, path, 0777);
+        else {
+                char *newpath;
+
+                newpath = path_make_absolute_cwd(path);
+
+                if (!newpath) {
+                        free(path);
+                        return -ENOMEM;
+                }
+
+                r = selabel_lookup_raw(label_hnd, &fcon, newpath, 0777);
+                free(newpath);
+        }
+
+        if (r == 0)
+                r = setfscreatecon(fcon);
+
+        if (r < 0 && errno != ENOENT) {
+                log_error("Failed to set security context %s for %s: %m", fcon, path);
+
+                if (security_getenforce() == 1) {
+                        r = -errno;
+                        goto finish;
+                }
+        }
+
+        r = bind(fd, addr, addrlen);
+        if (r < 0)
+                r = -errno;
+
+finish:
+        setfscreatecon(NULL);
+        freecon(fcon);
+        free(path);
+
+        return r;
+
+skipped:
+#endif
+        return bind(fd, addr, addrlen) < 0 ? -errno : 0;
 }

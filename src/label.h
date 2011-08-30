@@ -24,6 +24,7 @@
 
 #include <sys/types.h>
 #include <stdbool.h>
+#include <sys/socket.h>
 
 int label_init(void);
 void label_finish(void);
@@ -44,5 +45,7 @@ int label_get_create_label_from_exe(const char *exe, char **label);
 int label_mkdir(const char *path, mode_t mode);
 
 void label_retest_selinux(void);
+
+int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
 
 #endif

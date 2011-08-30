@@ -458,7 +458,7 @@ int socket_address_listen(
                 /* Include the original umask in our mask */
                 umask(~socket_mode | old_mask);
 
-                r = bind(fd, &a->sockaddr.sa, a->size);
+                r = label_bind(fd, &a->sockaddr.sa, a->size);
 
                 if (r < 0 && errno == EADDRINUSE) {
                         /* Unlink and try again */
