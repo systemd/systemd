@@ -323,7 +323,7 @@
 
                                 <listitem><para>Instead of using the
                                 <function>syslog()</function> call to log directly to the
-                                system logger, a new-style daemon may
+                                system syslog service, a new-style daemon may
                                 choose to simply log to STDERR via
                                 <function>fprintf()</function>, which is then forwarded to
                                 syslog by the init system. If log

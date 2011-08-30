@@ -409,7 +409,7 @@ static int stream_new(Server *s, int server_fd) {
                 return 0;
         }
 
-        if (!socket_tcpwrap(fd, "systemd-logger")) {
+        if (!socket_tcpwrap(fd, "systemd-stdout-syslog-bridge")) {
                 close_nointr_nofail(fd);
                 return 0;
         }
@@ -652,7 +652,7 @@ int main(int argc, char *argv[]) {
         if (server_init(&server, (unsigned) n) < 0)
                 return EXIT_FAILURE;
 
-        log_debug("systemd-logger running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-stdout-syslog-bridge running as pid %lu", (unsigned long) getpid());
 
         sd_notify(false,
                   "READY=1\n"
@@ -682,7 +682,7 @@ int main(int argc, char *argv[]) {
 
         r = EXIT_SUCCESS;
 
-        log_debug("systemd-logger stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-stdout-syslog-bridge stopped as pid %lu", (unsigned long) getpid());
 
 fail:
         sd_notify(false,

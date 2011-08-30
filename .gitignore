@@ -58,7 +58,7 @@ systemd-initctl
 systemd
 test-engine
 test-job-type
-systemd-logger
+systemd-stdout-syslog-bridge
 systemctl
 systemadm
 .dirstamp

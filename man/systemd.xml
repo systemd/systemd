@@ -1074,10 +1074,10 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>/run/systemd/logger</filename></term>
+                                <term><filename>/run/systemd/stdout-syslog-bridge</filename></term>
 
                                 <listitem><para>Used internally by the
-                                <filename>systemd-logger.service</filename>
+                                <filename>systemd-stdout-syslog-bridge.service</filename>
                                 unit to connect STDOUT and/or STDERR
                                 of spawned processes to
                                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>

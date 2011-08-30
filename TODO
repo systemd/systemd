@@ -39,8 +39,6 @@ Features:
 * allow Type=simple with PIDFile=
   https://bugzilla.redhat.com/show_bug.cgi?id=723942
 
-* rename systemd-logger to systemd-stdio-syslog-bridge
-
 * file bugs against sysklogd, syslog-ng because of StandardOuput=null
 * turn default stdout/stderr to syslog (after rsyslog got updated)
 

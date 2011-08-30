@@ -383,7 +383,8 @@
                                 terminal. <option>syslog</option>
                                 connects standard output to the
                                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                system logger. <option>kmsg</option>
+                                system syslog
+                                service. <option>kmsg</option>
                                 connects it with the kernel log buffer
                                 which is accessible via
                                 <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>syslog+console</option>

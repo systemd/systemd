@@ -8,13 +8,14 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Stdio Syslog Bridge
+Description=Stdio Syslog Bridge Socket
 DefaultDependencies=no
-Requires=syslog.socket
-After=syslog.socket
+Before=sockets.target
 
-[Service]
-ExecStart=@rootlibexecdir@/systemd-logger
-NotifyAccess=all
-StandardOutput=null
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID
+# Mount and swap units need this. If this socket unit is removed by an
+# isolate request the mount and and swap units would be removed too,
+# hence let's exclude this from isolate requests.
+IgnoreOnIsolate=yes
+
+[Socket]
+ListenStream=/run/systemd/stdout-syslog-bridge

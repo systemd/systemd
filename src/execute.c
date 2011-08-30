@@ -188,9 +188,9 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
 
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path, LOGGER_SOCKET, sizeof(sa.un.sun_path));
+        strncpy(sa.un.sun_path, STDOUT_SYSLOG_BRIDGE_SOCKET, sizeof(sa.un.sun_path));
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(LOGGER_SOCKET) - 1) < 0) {
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(STDOUT_SYSLOG_BRIDGE_SOCKET) - 1) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }

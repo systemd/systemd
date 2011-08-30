@@ -80,8 +80,8 @@
                 <filename>syslog.target</filename>,
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
-                <filename>systemd-logger.service</filename>,
-                <filename>systemd-logger.socket</filename>,
+                <filename>systemd-stdout-syslog-bridge.service</filename>,
+                <filename>systemd-stdout-syslog-bridge.socket</filename>,
                 <filename>time-sync.target</filename>,
                 <filename>umount.target</filename></para>
         </refsynopsisdiv>
@@ -563,7 +563,7 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>systemd-logger.service</filename></term>
+                                <term><filename>systemd-stdout-syslog-bridge.service</filename></term>
                                 <listitem>
                                         <para>This is internally used
                                         by systemd to provide syslog
@@ -571,15 +571,15 @@
                                         maintains.</para>
                                         <para>This is a
                                         socket-activated service, see
-                                        <filename>system-logger.socket</filename>.</para>
+                                        <filename>system-stdout-syslog-bridge.socket</filename>.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>systemd-logger.socket</filename></term>
+                                <term><filename>systemd-stdout-syslog-bridge.socket</filename></term>
                                 <listitem>
                                         <para>Socket activation unit
                                         for
-                                        <filename>system-logger.service</filename>. systemd
+                                        <filename>system-stdout-syslog-bridge.service</filename>. systemd
                                         will automatically add
                                         dependencies of types Requires
                                         and After to all units that

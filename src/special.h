@@ -68,7 +68,7 @@
 /* Services systemd relies on */
 #define SPECIAL_DBUS_SERVICE "dbus.service"
 #define SPECIAL_DBUS_SOCKET "dbus.socket"
-#define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
+#define SPECIAL_STDOUT_SYSLOG_BRIDGE_SOCKET "systemd-stdout-syslog-bridge.socket"
 #define SPECIAL_SYSLOG_SOCKET "syslog.socket"
 
 /* Magic init signals */
