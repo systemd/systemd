@@ -1474,7 +1474,7 @@ static int mount_find_pri(char *options) {
         char *end, *pri;
         unsigned long r;
 
-        if (!(pri = mount_test_option(options, "pri=")))
+        if (!(pri = mount_test_option(options, "pri")))
                 return 0;
 
         pri += 4;
