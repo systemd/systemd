@@ -186,8 +186,12 @@ int label_fifofile_set(const char *path) {
         if (!use_selinux() || !label_hnd)
                 return 0;
 
-        if ((r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFIFO)) == 0) {
-                if ((r = setfscreatecon(filecon)) < 0) {
+        r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFIFO);
+        if (r < 0)
+                r = -errno;
+        else if (r == 0) {
+                r = setfscreatecon(filecon);
+                if (r < 0) {
                         log_error("Failed to set SELinux file context on %s: %m", path);
                         r = -errno;
                 }
@@ -211,8 +215,12 @@ int label_symlinkfile_set(const char *path) {
         if (!use_selinux() || !label_hnd)
                 return 0;
 
-        if ((r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFLNK)) == 0) {
-                if ((r = setfscreatecon(filecon)) < 0) {
+        r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFLNK);
+        if (r < 0)
+                r = -errno;
+        else if (r == 0) {
+                r = setfscreatecon(filecon);
+                if (r < 0) {
                         log_error("Failed to set SELinux file context on %s: %m", path);
                         r = -errno;
                 }
@@ -287,7 +295,7 @@ int label_mkdir(const char *path, mode_t mode) {
                 goto skipped;
 
         if (path_is_absolute(path))
-                r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
+                r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFDIR);
         else {
                 char *newpath;
 
@@ -295,7 +303,7 @@ int label_mkdir(const char *path, mode_t mode) {
                 if (!newpath)
                         return -ENOMEM;
 
-                r = selabel_lookup_raw(label_hnd, &fcon, newpath, mode);
+                r = selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFDIR);
                 free(newpath);
         }
 
@@ -361,7 +369,7 @@ int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                 return -ENOMEM;
 
         if (path_is_absolute(path))
-                r = selabel_lookup_raw(label_hnd, &fcon, path, 0777);
+                r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);
         else {
                 char *newpath;
 
@@ -372,7 +380,7 @@ int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                         return -ENOMEM;
                 }
 
-                r = selabel_lookup_raw(label_hnd, &fcon, newpath, 0777);
+                r = selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFSOCK);
                 free(newpath);
         }
 
