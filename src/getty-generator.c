@@ -33,6 +33,9 @@ static int add_symlink(const char *fservice, const char *tservice) {
         char *from = NULL, *to = NULL;
         int r;
 
+        assert(fservice);
+        assert(tservice);
+
         asprintf(&from, SYSTEM_DATA_UNIT_PATH "/%s", fservice);
         asprintf(&to, "%s/getty.target.wants/%s", arg_dest, tservice);
 
@@ -59,6 +62,26 @@ finish:
 
         free(from);
         free(to);
+
+        return r;
+}
+
+static int add_serial_getty(const char *tty) {
+        char *n;
+        int r;
+
+        assert(tty);
+
+        log_debug("Automatically adding serial getty for /dev/%s.", tty);
+
+        n = unit_name_replace_instance("serial-getty@.service", tty);
+        if (!n) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        r = add_symlink("serial-getty@.service", n);
+        free(n);
 
         return r;
 }
@@ -112,26 +135,14 @@ int main(int argc, char *argv[]) {
                 if (tty_is_vc(tty))
                         free(active);
                 else {
-                        char *n;
                         int k;
 
                         /* We assume that gettys on virtual terminals are
                          * started via manual configuration and do this magic
                          * only for non-VC terminals. */
 
-                        log_debug("Automatically adding serial getty for /dev/%s.", tty);
-
-                        n = unit_name_replace_instance("serial-getty@.service", tty);
+                        k = add_serial_getty(tty);
                         free(active);
-
-                        if (!n) {
-                                log_error("Out of memory");
-                                r = EXIT_FAILURE;
-                                goto finish;
-                        }
-
-                        k = add_symlink("serial-getty@.service", n);
-                        free(n);
 
                         if (k < 0) {
                                 r = EXIT_FAILURE;
@@ -143,7 +154,7 @@ int main(int argc, char *argv[]) {
         /* Automatically add in a serial getty on the first
          * virtualizer console */
         NULSTR_FOREACH(j, virtualization_consoles) {
-                char *n, *p;
+                char *p;
                 int k;
 
                 if (asprintf(&p, "/sys/class/tty/%s", j) < 0) {
@@ -158,18 +169,7 @@ int main(int argc, char *argv[]) {
                 if (k < 0)
                         continue;
 
-                log_debug("Automatically adding serial getty for /dev/%s.", j);
-
-                n = unit_name_replace_instance("serial-getty@.service", j);
-                if (!n) {
-                        log_error("Out of memory");
-                        r = EXIT_FAILURE;
-                        goto finish;
-                }
-
-                k = add_symlink("serial-getty@.service", n);
-                free(n);
-
+                k = add_serial_getty(j);
                 if (k < 0) {
                         r = EXIT_FAILURE;
                         goto finish;
