@@ -5038,7 +5038,7 @@ static int reload_with_fallback(DBusConnection *bus) {
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if (daemon_reload(bus, NULL) > 0)
+                if (daemon_reload(bus, NULL) >= 0)
                         return 0;
         }
 
