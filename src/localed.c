@@ -59,6 +59,7 @@ enum {
          * using LANG instead. */
 
         PROP_LANG,
+        PROP_LANGUAGE,
         PROP_LC_CTYPE,
         PROP_LC_NUMERIC,
         PROP_LC_TIME,
@@ -76,6 +77,7 @@ enum {
 
 static const char * const names[_PROP_MAX] = {
         [PROP_LANG] = "LANG",
+        [PROP_LANGUAGE] = "LANGUAGE",
         [PROP_LC_CTYPE] = "LC_CTYPE",
         [PROP_LC_NUMERIC] = "LC_NUMERIC",
         [PROP_LC_TIME] = "LC_TIME",
@@ -132,6 +134,7 @@ static int read_data(void) {
 
         r = parse_env_file("/etc/locale.conf", NEWLINE,
                            "LANG",              &data[PROP_LANG],
+                           "LANGUAGE",          &data[PROP_LANGUAGE],
                            "LC_CTYPE",          &data[PROP_LC_CTYPE],
                            "LC_NUMERIC",        &data[PROP_LC_NUMERIC],
                            "LC_TIME",           &data[PROP_LC_TIME],

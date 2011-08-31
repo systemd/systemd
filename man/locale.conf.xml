@@ -69,6 +69,7 @@
 
                 <para>Note that the kernel command line options
                 <varname>locale.LANG=</varname>,
+                <varname>locale.LANGUAGE=</varname>,
                 <varname>locale.LC_CTYPE=</varname>,
                 <varname>locale.LC_NUMERIC=</varname>,
                 <varname>locale.LC_TIME=</varname>,
@@ -101,6 +102,7 @@
                 <para>The following locale settings may be set using
                 <filename>/etc/locale.conf</filename>:
                 <varname>LANG=</varname>,
+                <varname>LANGUAGE=</varname>,
                 <varname>LC_CTYPE=</varname>,
                 <varname>LC_NUMERIC=</varname>,
                 <varname>LC_TIME=</varname>,
