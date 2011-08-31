@@ -47,7 +47,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
         r = symlink(from, to);
         if (r < 0) {
                 if (errno == EEXIST)
-                        /* In case console=hvc is passed this will very likely result in EEXIST */
+                        /* In case console=hvc0 is passed this will very likely result in EEXIST */
                         r = 0;
                 else {
                         log_error("Failed to create symlink from %s to %s: %m", from, to);
@@ -64,22 +64,29 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
+
+        static const char virtualization_consoles[] =
+                "hvc0\0"
+                "xvc0\0"
+                "hvsi0\0";
+
         int r = EXIT_SUCCESS;
         char *active;
+        const char *j;
 
         if (argc > 2) {
                 log_error("This program takes one or no arguments.");
                 return EXIT_FAILURE;
         }
 
-        if (argc > 1)
-            arg_dest = argv[1];
-
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
 
         umask(0022);
+
+        if (argc > 1)
+            arg_dest = argv[1];
 
         if (detect_container(NULL) > 0) {
                 log_debug("Automatically adding console shell.");
@@ -102,8 +109,11 @@ int main(int argc, char *argv[]) {
 
                 /* Automatically add in a serial getty on the kernel
                  * console */
-                if (!tty_is_vc(tty)) {
+                if (tty_is_vc(tty))
+                        free(active);
+                else {
                         char *n;
+                        int k;
 
                         /* We assume that gettys on virtual terminals are
                          * started via manual configuration and do this magic
@@ -112,30 +122,58 @@ int main(int argc, char *argv[]) {
                         log_debug("Automatically adding serial getty for /dev/%s.", tty);
 
                         n = unit_name_replace_instance("serial-getty@.service", tty);
-                        if (!n || add_symlink("serial-getty@.service", n) < 0)
+                        free(active);
+
+                        if (!n) {
+                                log_error("Out of memory");
                                 r = EXIT_FAILURE;
+                                goto finish;
+                        }
 
+                        k = add_symlink("serial-getty@.service", n);
                         free(n);
-                }
 
-                free(active);
+                        if (k < 0) {
+                                r = EXIT_FAILURE;
+                                goto finish;
+                        }
+                }
         }
 
         /* Automatically add in a serial getty on the first
          * virtualizer console */
-        if (access("/sys/class/tty/hvc0", F_OK) == 0) {
-                log_debug("Automatically adding serial getty for hvc0.");
+        NULSTR_FOREACH(j, virtualization_consoles) {
+                char *n, *p;
+                int k;
 
-                if (add_symlink("serial-getty@.service", "serial-getty@hvc0.service") < 0)
+                if (asprintf(&p, "/sys/class/tty/%s", j) < 0) {
+                        log_error("Out of memory");
                         r = EXIT_FAILURE;
+                        goto finish;
+                }
 
-        }
+                k = access(p, F_OK);
+                free(p);
 
-        if (access("/sys/class/tty/xvc0", F_OK) == 0) {
-                log_debug("Automatically adding serial getty for xvc0.");
+                if (k < 0)
+                        continue;
 
-                if (add_symlink("serial-getty@.service", "serial-getty@xvc0.service") < 0)
+                log_debug("Automatically adding serial getty for /dev/%s.", j);
+
+                n = unit_name_replace_instance("serial-getty@.service", j);
+                if (!n) {
+                        log_error("Out of memory");
                         r = EXIT_FAILURE;
+                        goto finish;
+                }
+
+                k = add_symlink("serial-getty@.service", n);
+                free(n);
+
+                if (k < 0) {
+                        r = EXIT_FAILURE;
+                        goto finish;
+                }
         }
 
 finish:
