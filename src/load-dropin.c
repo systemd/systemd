@@ -36,7 +36,8 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
         assert(u);
         assert(path);
 
-        if (!(d = opendir(path))) {
+        d = opendir(path);
+        if (!d) {
 
                 if (errno == ENOENT)
                         return 0;
@@ -60,7 +61,7 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
                 free(f);
 
                 if (r < 0)
-                        goto finish;
+                        log_error("Cannot add dependency %s to %s, ignoring: %s", de->d_name, u->meta.id, strerror(-r));
         }
 
         r = 0;
@@ -97,7 +98,8 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
                 char *template;
                 /* Also try the template dir */
 
-                if (!(template = unit_name_template(name)))
+                template = unit_name_template(name);
+                if (!template)
                         return -ENOMEM;
 
                 path = join(unit_path, "/", template, suffix, NULL);
@@ -134,10 +136,12 @@ int unit_load_dropin(Unit *u) {
                 STRV_FOREACH(p, u->meta.manager->lookup_paths.unit_path) {
                         int r;
 
-                        if ((r = process_dir(u, *p, t, ".wants", UNIT_WANTS)) < 0)
+                        r = process_dir(u, *p, t, ".wants", UNIT_WANTS);
+                        if (r < 0)
                                 return r;
 
-                        if ((r = process_dir(u, *p, t, ".requires", UNIT_REQUIRES)) < 0)
+                        r = process_dir(u, *p, t, ".requires", UNIT_REQUIRES);
+                        if (r < 0)
                                 return r;
                 }
         }
