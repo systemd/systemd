@@ -1,0 +1,90 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="timezone">
+        <refentryinfo>
+                <title>/etc/timezone</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>timezone</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>timezone</refname>
+                <refpurpose>Local time zone configuration file</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/timezone</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>The <filename>/etc/timezone</filename> file
+                configures the system-wide time zone of the local
+                system that is used by applications for presentation
+                to the user. It should contain a single
+                newline-terminated line consisting of a time zone
+                identifier such as
+                <literal>Europe/Berlin</literal>. The file
+                <filename>/etc/localtime</filename> corresponds with
+                <filename>/etc/timezone</filename> and contains the
+                binary time zone data for the time zone. These files
+                should always be changed simultaneously and kept in
+                sync.</para>
+
+                <para>The time zone may be overridden for individual
+                programs by using the TZ environment variable. See
+                <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>History</title>
+
+                <para>The simple configuration file format of
+                <filename>/etc/timezone</filename> originates from
+                Debian GNU/Linux.</para>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>
