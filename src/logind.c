@@ -274,8 +274,7 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
 
         if (streq_ptr(udev_device_get_action(d), "remove")) {
 
-                /* FIXME: use syspath instead of sysname here, as soon as fb driver is fixed */
-                device = hashmap_get(m->devices, udev_device_get_sysname(d));
+                device = hashmap_get(m->devices, udev_device_get_syspath(d));
                 if (!device)
                         return 0;
 
@@ -295,7 +294,7 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
                         return 0;
                 }
 
-                r = manager_add_device(m, udev_device_get_sysname(d), &device);
+                r = manager_add_device(m, udev_device_get_syspath(d), &device);
                 if (r < 0)
                         return r;
 
