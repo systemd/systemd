@@ -2431,13 +2431,7 @@ void unit_status_printf(Unit *u, const char *format, ...) {
         if (!UNIT_VTABLE(u)->show_status)
                 return;
 
-        if (u->meta.manager->running_as != MANAGER_SYSTEM)
-                return;
-
-        /* If Plymouth is running make sure we show the status, so
-         * that there's something nice to see when people press Esc */
-
-        if (!u->meta.manager->show_status && !plymouth_running())
+        if (!manager_get_show_status(u->meta.manager))
                 return;
 
         if (!manager_is_booting_or_shutting_down(u->meta.manager))

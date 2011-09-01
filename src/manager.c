@@ -2248,12 +2248,12 @@ static int manager_process_signal_fd(Manager *m) {
 
                         case 20:
                                 log_debug("Enabling showing of status.");
-                                m->show_status = true;
+                                manager_set_show_status(m, true);
                                 break;
 
                         case 21:
                                 log_debug("Disabling showing of status.");
-                                m->show_status = false;
+                                manager_set_show_status(m, false);
                                 break;
 
                         case 22:
@@ -2904,7 +2904,8 @@ bool manager_is_booting_or_shutting_down(Manager *m) {
                 return true;
 
         /* Is there a job for the shutdown target? */
-        if (((u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET))))
+        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
+        if (u)
                 return !!u->meta.job;
 
         return false;
@@ -3132,6 +3133,35 @@ void manager_recheck_syslog(Manager *m) {
         /* Hmm, OK, so the socket is either fully up, or fully down,
          * and the target is up, then let's make use of the socket */
         log_open();
+}
+
+void manager_set_show_status(Manager *m, bool b) {
+        assert(m);
+
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
+        m->show_status = b;
+
+        if (b)
+                touch("/run/systemd/show-status");
+        else
+                unlink("/run/systemd/show-status");
+}
+
+bool manager_get_show_status(Manager *m) {
+        assert(m);
+
+        if (m->running_as != MANAGER_SYSTEM)
+                return false;
+
+        if (m->show_status)
+                return true;
+
+        /* If Plymouth is running make sure we show the status, so
+         * that there's something nice to see when people press Esc */
+
+        return plymouth_running();
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

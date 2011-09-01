@@ -290,6 +290,9 @@ void manager_undo_generators(Manager *m);
 
 void manager_recheck_syslog(Manager *m);
 
+void manager_set_show_status(Manager *m, bool b);
+bool manager_get_show_status(Manager *m);
+
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);
 

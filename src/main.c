@@ -1364,7 +1364,6 @@ int main(int argc, char *argv[]) {
         }
 
         m->confirm_spawn = arg_confirm_spawn;
-        m->show_status = arg_show_status;
 #ifdef HAVE_SYSV_COMPAT
         m->sysv_console = arg_sysv_console;
 #endif
@@ -1378,6 +1377,8 @@ int main(int argc, char *argv[]) {
 
         if (arg_default_controllers)
                 manager_set_default_controllers(m, arg_default_controllers);
+
+        manager_set_show_status(m, arg_show_status);
 
         before_startup = now(CLOCK_MONOTONIC);
 
