@@ -111,9 +111,9 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
         if (*p == 0)
                 return 0;
 
-        /* Patch in LOG_USER facility if necessary */
+        /* Patch in configured facility if necessary */
         if ((priority & LOG_FACMASK) == 0)
-                priority = LOG_USER | LOG_PRI(priority);
+                priority = (s->priority & LOG_FACMASK) | priority;
 
         /*
          * The format glibc uses to talk to the syslog daemon is:
