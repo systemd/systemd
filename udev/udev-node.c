@@ -107,7 +107,7 @@ int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_
 				err = -errno;
 			udev_selinux_resetfscreatecon(udev);
 		} while (err == -ENOENT);
-		if (err != 0)
+		if (err != 0 && err != -EEXIST)
 			err(udev, "mknod '%s' %u:%u %#o' failed: %m\n", file, major(devnum), minor(devnum), mode);
 		info(udev, "set permissions '%s' %#o uid=%u gid=%u\n", file, mode, uid, gid);
 		chmod(file, mode);
