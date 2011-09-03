@@ -167,4 +167,8 @@ int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, boo
 
 int generic_print_property(const char *name, DBusMessageIter *iter, bool all);
 
+void bus_async_unregister_and_exit(DBusConnection *bus, const char *name);
+
+DBusHandlerResult bus_exit_idle_filter(DBusConnection *bus, DBusMessage *m, void *userdata);
+
 #endif

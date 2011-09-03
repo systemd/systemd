@@ -971,3 +971,77 @@ int generic_print_property(const char *name, DBusMessageIter *iter, bool all) {
 
         return 0;
 }
+
+static void release_name_pending_cb(DBusPendingCall *pending, void *userdata) {
+        DBusMessage *reply;
+        DBusConnection *bus = userdata;
+
+        assert_se(reply = dbus_pending_call_steal_reply(pending));
+        dbus_message_unref(reply);
+
+        dbus_connection_close(bus);
+}
+
+void bus_async_unregister_and_exit(DBusConnection *bus, const char *name) {
+        DBusMessage *m = NULL;
+        DBusPendingCall *pending = NULL;
+
+        assert(bus);
+
+        /* We unregister the name here, but we continue to process
+         * requests, until we get the response for it, so that all
+         * requests are guaranteed to be processed. */
+
+        m = dbus_message_new_method_call(
+                        DBUS_SERVICE_DBUS,
+                        DBUS_PATH_DBUS,
+                        DBUS_INTERFACE_DBUS,
+                        "ReleaseName");
+        if (!m)
+                goto oom;
+
+        if (!dbus_message_append_args(
+                            m,
+                            DBUS_TYPE_STRING,
+                            &name,
+                            DBUS_TYPE_INVALID))
+                goto oom;
+
+        if (!dbus_connection_send_with_reply(bus, m, &pending, -1))
+                goto oom;
+
+        if (!dbus_pending_call_set_notify(pending, release_name_pending_cb, bus, NULL))
+                goto oom;
+
+        dbus_message_unref(m);
+        dbus_pending_call_unref(pending);
+
+        return;
+
+oom:
+        log_error("Out of memory");
+
+        if (pending) {
+                dbus_pending_call_cancel(pending);
+                dbus_pending_call_unref(pending);
+        }
+
+        if (m)
+                dbus_message_unref(m);
+}
+
+DBusHandlerResult bus_exit_idle_filter(DBusConnection *bus, DBusMessage *m, void *userdata) {
+        usec_t *remain_until = userdata;
+
+        assert(bus);
+        assert(m);
+        assert(remain_until);
+
+        /* Everytime we get a new message we reset out timeout */
+        *remain_until = now(CLOCK_MONOTONIC) + DEFAULT_EXIT_USEC;
+
+        if (dbus_message_is_signal(m, DBUS_INTERFACE_LOCAL, "Disconnected"))
+                dbus_connection_close(bus);
+
+        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}

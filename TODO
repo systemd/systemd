@@ -7,17 +7,13 @@ Bugfixes:
 
 * make anaconda write timeout=0 for encrypted devices
 
-* fix broken Sockets=syslog-ng.socket packaging
-
-* logind: ensure ACLs are updated on login and logout
-
-* fix CUPS .path unit for globbing
-
 * service: pid file reading after reload doesn't work, since we don't reset the pid variable
 
 * make sure timeouts are applied to Type=oneshot services.
 
 Features:
+
+* when a bus name of a service disappears from the bus make sure to queue further activation requests
 
 * something like ConditionExec= or ExecStartPre= without failure state
 
@@ -106,7 +102,6 @@ Features:
 * move readahead files into /var, look for them with .path units
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
-* figure out what happened to bluez patch
 
 * support systemd.mask= on the kernel command line.
 
@@ -121,8 +116,6 @@ Features:
 * investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
 
 * maybe introduce ExecRestartPre=
-
-* Patch systemd-fsck to use -C and pass console fd to it
 
 * configurable jitter for timer events
 
