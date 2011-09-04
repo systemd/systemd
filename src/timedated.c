@@ -70,7 +70,7 @@
 
 #define INTERFACES_LIST                         \
         BUS_GENERIC_INTERFACES_LIST             \
-        "org.freedesktop.locale1\0"
+        "org.freedesktop.timedate1\0"
 
 const char timedate_interface[] _introspect_("timedate1") = INTERFACE;
 
