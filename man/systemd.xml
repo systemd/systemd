@@ -259,7 +259,7 @@
                                 services and sockets, i.e. controls
                                 the default for
                                 <option>StandardOutput=</option>
-                                resp. <option>StandardExecute=</option>
+                                resp. <option>StandardError=</option>
                                 (see
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details). Takes one of
