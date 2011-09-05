@@ -180,30 +180,86 @@
                 and no file by that name is found, systemd will look
                 for <filename>getty@.service</filename> and
                 instantiate a service from that configuration file if
-                it is found. To refer to the instance string from
+                it is found.</para>
+
+                <para>To refer to the instance string from
                 within the configuration file you may use the special
                 <literal>%i</literal> specifier in many of the
-                configuration options. Other specifiers that may be
-                used are <literal>%n</literal>, <literal>%N</literal>,
-                <literal>%p</literal>, <literal>%P</literal>,
-                <literal>%I</literal>, <literal>%f</literal>,
-                <literal>%c</literal>, <literal>%r</literal>,
-                <literal>%R</literal> and <literal>%t</literal> for
-                the full unit name, the unescaped unit name, the
-                prefix name, the unescaped prefix name, the unescaped
-                instance name, the unescaped filename, the control
-                group path of the unit, the root control group path of
-                systemd, and the parent directory of the root control
-                cgroup path of systemd and the runtime socket dir,
-                respectively. The unescaped filename is either the
-                unescaped instance name (if set) with / prepended (if
-                necessary), or the prefix name similarly prepended
-                with /. The prefix name here refers to the string
-                before the @, i.e. "getty" in the example above, where
-                "tty3" is the instance name. The runtime socket
-                directory is either <filename>/run</filename> (for the
-                system manager) or <literal>$XDG_RUNTIME_DIR</literal>
-                (for user managers).</para>
+                configuration options. Other specifiers exist, the
+                full list is:</para>
+
+                <table>
+                  <title>Specifiers available in unit files</title>
+                  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+                    <colspec colname="spec" />
+                    <colspec colname="mean" />
+                    <colspec colname="detail" />
+                    <thead>
+                      <row>
+                        <entry>Specifier</entry>
+                        <entry>Meaning</entry>
+                        <entry>Details</entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row>
+                        <entry><literal>%n</literal></entry>
+                        <entry>Full unit name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%N</literal></entry>
+                        <entry>Unescaped full unit name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%p</literal></entry>
+                        <entry>Prefix name</entry>
+                        <entry>This refers to the string before the @, i.e. "getty" in the example above, where "tty3" is the instance name.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%P</literal></entry>
+                        <entry>Unescaped prefix name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%i</literal></entry>
+                        <entry>Instance name</entry>
+                        <entry>This is the string between the @ character and the suffix.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%I</literal></entry>
+                        <entry>Unescaped instance name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%f</literal></entry>
+                        <entry>Unescaped file name</entry>
+                        <entry>This is either the unescaped instance name (if set) with / prepended (if necessary), or the prefix name similarly prepended with /.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%c</literal></entry>
+                        <entry>Control group path of the unit</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%r</literal></entry>
+                        <entry>Root control group path of systemd</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%R</literal></entry>
+                        <entry>Parent directory of the root control group path of systemd</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%t</literal></entry>
+                        <entry>Runtime socket dir</entry>
+                        <entry>This is either /run (for the system manager) or $XDG_RUNTIME_DIR (for user managers).</entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
 
                 <para>If a unit file is empty (i.e. has the file size
                 0) or is symlinked to <filename>/dev/null</filename>
