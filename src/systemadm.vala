@@ -494,7 +494,7 @@ public class MainWindow : Window {
                                 r += first ? "\n" : ",";
 
                         if (first) {
-                                r += word;
+                                r += "<b>" + word + ":</b>";
                                 first = false;
                         }
 
