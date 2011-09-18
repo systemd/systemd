@@ -396,7 +396,7 @@ static DBusHandlerResult hostname_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
-                        log_info("Changed static host name to '%s'", strempty(data[PROP_HOSTNAME]));
+                        log_info("Changed static host name to '%s'", strempty(data[PROP_STATIC_HOSTNAME]));
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/hostname1",
