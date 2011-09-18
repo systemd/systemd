@@ -96,7 +96,6 @@ public class MainWindow : Window {
         private Manager manager;
 
         private RightLabel unit_id_label;
-        private RightLabel unit_aliases_label;
         private RightLabel unit_dependency_label;
         private RightLabel unit_description_label;
         private RightLabel unit_load_state_label;
@@ -220,7 +219,6 @@ public class MainWindow : Window {
                 job_vbox.pack_start(scroll, true, true, 0);
 
                 unit_id_label = new RightLabel();
-                unit_aliases_label = new RightLabel();
                 unit_dependency_label = new RightLabel();
                 unit_description_label = new RightLabel();
                 unit_load_state_label = new RightLabel();
@@ -255,8 +253,6 @@ public class MainWindow : Window {
 
                 unit_table.attach(new LeftLabel("Id:"),                     0, 1, 0, 1, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(unit_id_label,                            1, 6, 0, 1, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Aliases:"),                0, 1, 1, 2, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_aliases_label,                       1, 6, 1, 2, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(new LeftLabel("Description:"),            0, 1, 2, 3, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(unit_description_label,                   1, 6, 2, 3, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(new LeftLabel("Dependencies:"),           0, 1, 3, 4, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
@@ -443,7 +439,6 @@ public class MainWindow : Window {
                 restart_button.set_sensitive(false);
 
                 unit_id_label.set_text_or_na();
-                unit_aliases_label.set_text_or_na();
                 unit_description_label.set_text_or_na();
                 unit_description_label.set_text_or_na();
                 unit_load_state_label.set_text_or_na();
@@ -507,20 +502,23 @@ public class MainWindow : Window {
         public void show_unit(Unit unit) {
                 current_unit_id = unit.id;
 
-                unit_id_label.set_text_or_na(current_unit_id);
-
-                string a = "";
+                string id_display = current_unit_id;
+                bool has_alias = false;
                 foreach (string i in unit.names) {
                         if (i == current_unit_id)
                                 continue;
 
-                        if (a == "")
-                                a = i;
-                        else
-                                a += "\n" + i;
-                }
+                        if (!has_alias) {
+                                id_display += " (aliases:";
+                                has_alias = true;
+                        }
 
-                unit_aliases_label.set_text_or_na(a);
+                        id_display += " " + i;
+                }
+                if(has_alias)
+                        id_display += ")";
+
+                unit_id_label.set_text_or_na(id_display);
 
                 string[]
                         requires = unit.requires,
