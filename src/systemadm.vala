@@ -238,7 +238,7 @@ public class MainWindow : Window {
                 job_type_label = new RightLabel();
 
                 unit_dependency_label.set_track_visited_links(false);
-                unit_dependency_label.set_selectable(false);
+                unit_dependency_label.set_selectable(true);
                 unit_dependency_label.activate_link.connect(on_activate_link);
 
                 unit_fragment_path_label.set_track_visited_links(false);
