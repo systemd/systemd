@@ -13,7 +13,7 @@ Tools and rules shipped by udev are not public API and may change at any time.
 Never call any private tool in /lib/udev from any external application; it might
 just go away in the next release. Access to udev information is only offered
 by udevadm and libudev. Tools and rules in /lib/udev and the entire contents of
-the /dev/.udev directory are private to udev and do change whenever needed.
+the /run/udev directory are private to udev and do change whenever needed.
 
 Requirements:
   - Version 2.6.34 of the Linux kernel with sysfs, procfs, signalfd, inotify,
@@ -59,21 +59,21 @@ Requirements:
     available.
 
   - Some udev extras have external dependencies like:
-      libacl, libglib2, libusb, usbutils, pciutils, and gperf.
+      libacl, libglib2, usbutils, pciutils, and gperf.
     All these extras can be disabled with configure options.
 
 Setup:
   - At bootup, the /dev directory should get the 'devtmpfs' filesystem
     mounted. Udev manages the permissions and ownership of the kernel-created
     device nodes, and udev possibly creates additional symlinks. If needed, udev also
-    works on an empty 'tmpfs' filesystem, but some static device nodes like
-    /dev/null, /dev/console, /dev/kmsg are needed to be able to start udev itself.
+    works on an empty 'tmpfs' filesystem, but some device nodes like
+    /dev/null, /dev/console, /dev/kmsg should be created before udevd is started.
 
   - The udev daemon should be started to handle device events sent by the kernel.
-    During bootup, the kernel can be asked to send events for all already existing
-    devices so that they too can be configured by udev. This is usually done by:
-      /sbin/udevadm trigger --type=subsystems
-      /sbin/udevadm trigger --type=devices
+    During bootup, the events for already existing devices can be replayed, so
+    that they are configured by udev. This is usually done by:
+      /sbin/udevadm trigger --action=add --type=subsystems
+      /sbin/udevadm trigger --action=add --type=devices
 
   - Restarting the daemon never applies any rules to existing devices.
 
@@ -82,13 +82,13 @@ Setup:
 
 Operation:
   - Based on events the kernel sends out on device creation/removal, udev
-    creates/removes device nodes in the /dev directory.
+    creates/removes device nodes and symlinks in the /dev directory.
 
   - All kernel events are matched against a set of specified rules, which
     possibly hook into the event processing and load required kernel
     modules to set up devices. For all devices, the kernel exports a major/minor
     number; if needed, udev creates a device node with the default kernel
-    name. If specified, udev applies permissions/ownership to the device
+    device name. If specified, udev applies permissions/ownership to the device
     node, creates additional symlinks pointing to the node, and executes
     programs to handle the device.
 
