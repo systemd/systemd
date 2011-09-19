@@ -452,7 +452,7 @@ public class MainWindow : Window {
                 unit_cgroup_label.set_text_or_na();
         }
 
-        public string format_unit_link(string i) {
+        public string format_unit_link(string i, bool link) {
                 Unit? u = get_unit(i);
                 if(u == null)
                         return "<span color='grey'>" + i + "</span";
@@ -467,7 +467,10 @@ public class MainWindow : Window {
                 string span = "<span underline='none' color='" + color + "'>"
                               + i + "(" +
                               u.sub_state + ")" + "</span>";
-                return  " <a href='" + i + "'>" + span + "</a>";
+                if(link)
+                        return  " <a href='" + i + "'>" + span + "</a>";
+                else
+                        return span;
         }
 
 
@@ -493,7 +496,7 @@ public class MainWindow : Window {
                                 first = false;
                         }
 
-                        r += format_unit_link(i);
+                        r += format_unit_link(i, true);
                 }
 
                 return r;
@@ -502,7 +505,7 @@ public class MainWindow : Window {
         public void show_unit(Unit unit) {
                 current_unit_id = unit.id;
 
-                string id_display = current_unit_id;
+                string id_display = format_unit_link(current_unit_id, false);
                 bool has_alias = false;
                 foreach (string i in unit.names) {
                         if (i == current_unit_id)
@@ -518,7 +521,7 @@ public class MainWindow : Window {
                 if(has_alias)
                         id_display += ")";
 
-                unit_id_label.set_text_or_na(id_display);
+                unit_id_label.set_markup_or_na(id_display);
 
                 string[]
                         requires = unit.requires,
@@ -564,7 +567,9 @@ public class MainWindow : Window {
 
                 string fp = unit.fragment_path;
                 if (fp != "")
-                        unit_fragment_path_label.set_markup_or_na("<a href=\"file://" + fp +"\">" + fp + "</a>" );
+                        unit_fragment_path_label.set_markup_or_na(
+                                "<a href=\"file://" + fp +"\">" +
+                                "<span underline='none' color='black'>" + fp + "</span></a>");
                 else
                         unit_fragment_path_label.set_text_or_na();
 
