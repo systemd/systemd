@@ -171,7 +171,7 @@ bool condition_test(Condition *c) {
         case CONDITION_FILE_IS_EXECUTABLE: {
                 struct stat st;
 
-                if (lstat(c->parameter, &st) < 0)
+                if (stat(c->parameter, &st) < 0)
                         return !c->negate;
 
                 return (S_ISREG(st.st_mode) && (st.st_mode & 0111)) == !c->negate;
