@@ -75,7 +75,7 @@ static bool test_kernel_command_line(const char *parameter) {
 
         assert(parameter);
 
-        if (detect_virtualization(NULL) > 0)
+        if (detect_container(NULL) > 0)
                 return false;
 
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
