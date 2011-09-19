@@ -253,31 +253,31 @@ public class MainWindow : Window {
 
                 unit_table.attach(new LeftLabel("Id:"),                     0, 1, 0, 1, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(unit_id_label,                            1, 6, 0, 1, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Description:"),            0, 1, 2, 3, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_description_label,                   1, 6, 2, 3, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Dependencies:"),           0, 1, 3, 4, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_dependency_label,                    1, 6, 3, 4, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Fragment Path:"),          0, 1, 4, 5, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_fragment_path_label,                 1, 6, 4, 5, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Control Group:"),          0, 1, 5, 6, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_cgroup_label,                        1, 6, 5, 6, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Description:"),            0, 1, 1, 2, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_description_label,                   1, 6, 1, 2, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Dependencies:"),           0, 1, 2, 3, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_dependency_label,                    1, 6, 2, 3, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Fragment Path:"),          0, 1, 3, 4, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_fragment_path_label,                 1, 6, 3, 4, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Control Group:"),          0, 1, 4, 5, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_cgroup_label,                        1, 6, 4, 5, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Load State:"),             0, 1, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_load_state_label,                    1, 2, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Active State:"),           0, 1, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_state_label,                  1, 2, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Unit State:"),             0, 1, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_sub_state_label,                     1, 2, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Load State:"),             0, 1, 5, 6, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_load_state_label,                    1, 2, 5, 6, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Active State:"),           0, 1, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_state_label,                  1, 2, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Unit State:"),             0, 1, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_sub_state_label,                     1, 2, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Active Enter Timestamp:"), 2, 3, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_enter_timestamp_label,        3, 4, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Active Exit Timestamp:"),  2, 3, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_exit_timestamp_label,         3, 4, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Activated:"),              2, 3, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_enter_timestamp_label,        3, 4, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Deactivated:"),            2, 3, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_exit_timestamp_label,         3, 4, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Can Start/Stop:"),         4, 5, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_can_start_label,                     5, 6, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Can Reload:"),             4, 5, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_can_reload_label,                    5, 6, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Can Start/Stop:"),         4, 5, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_can_start_label,                     5, 6, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Can Reload:"),             4, 5, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_can_reload_label,                    5, 6, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
                 job_table.attach(new LeftLabel("Id:"),                      0, 1, 0, 1, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 job_table.attach(job_id_label,                              1, 2, 0, 1, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
