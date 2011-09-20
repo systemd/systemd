@@ -96,6 +96,7 @@ Features:
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
   - security properties
+  - inetd conversion
 
 * allow port=0 in .socket units
 
