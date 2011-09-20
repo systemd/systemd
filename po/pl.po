@@ -53,7 +53,7 @@ msgstr "Ustawienie lokalizacji systemu"
 
 #: ../src/org.freedesktop.login1.policy.in.h:1
 msgid "Allow attaching devices to seats"
-msgstr "Zezwolenie na podłączanie urządzeń do siedzeń"
+msgstr "Zezwolenie na podłączanie urządzeń do stanowisk"
 
 #: ../src/org.freedesktop.login1.policy.in.h:2
 msgid "Allow non-logged-in users to run programs"
@@ -69,8 +69,8 @@ msgstr ""
 #: ../src/org.freedesktop.login1.policy.in.h:4
 msgid "Authentication is required to allow attaching a device to a seat"
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić na podłączanie urządzeń do "
-"siedzeń"
+"Wymagane jest uwierzytelnienie, aby zezwolić na podłączenie urządzenia do "
+"stanowiska"
 
 #: ../src/org.freedesktop.login1.policy.in.h:5
 msgid "Authentication is required to allow powering off the system"
@@ -103,11 +103,11 @@ msgid ""
 "seats"
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zezwolić na ponowne ustawianie sposobu "
-"podłączenia urządzeń do siedzeń"
+"podłączenia urządzeń do stanowisk"
 
 #: ../src/org.freedesktop.login1.policy.in.h:10
 msgid "Flush device to seat attachments"
-msgstr "Czyszczenie podłączeń urządzeń do siedzeń"
+msgstr "Usunięcie podłączenia urządzeń do stanowisk"
 
 #: ../src/org.freedesktop.login1.policy.in.h:11
 msgid "Power off the system"
