@@ -36,18 +36,21 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
 
         assert(type < _CONDITION_TYPE_MAX);
 
-        if (!(c = new0(Condition, 1)))
+        c = new0(Condition, 1);
+        if (!c)
                 return NULL;
 
         c->type = type;
         c->trigger = trigger;
         c->negate = negate;
 
-        if (parameter)
-                if (!(c->parameter = strdup(parameter))) {
+        if (parameter) {
+                c->parameter = strdup(parameter);
+                if (!c->parameter) {
                         free(c);
                         return NULL;
                 }
+        }
 
         return c;
 }
@@ -78,7 +81,8 @@ static bool test_kernel_command_line(const char *parameter) {
         if (detect_container(NULL) > 0)
                 return false;
 
-        if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return false;
         }
@@ -89,7 +93,8 @@ static bool test_kernel_command_line(const char *parameter) {
         FOREACH_WORD_QUOTED(w, l, line, state) {
 
                 free(word);
-                if (!(word = strndup(w, l)))
+                word = strndup(w, l);
+                if (!word)
                         break;
 
                 if (equal) {
@@ -118,7 +123,8 @@ static bool test_virtualization(const char *parameter) {
 
         assert(parameter);
 
-        if ((r = detect_virtualization(&id)) < 0) {
+        r = detect_virtualization(&id);
+        if (r < 0) {
                 log_warning("Failed to detect virtualization, ignoring: %s", strerror(-r));
                 return false;
         }
@@ -160,6 +166,9 @@ bool condition_test(Condition *c) {
                         return !c->negate;
                 return S_ISDIR(st.st_mode) == !c->negate;
         }
+
+        case CONDITION_PATH_IS_MOUNT_POINT:
+                return (path_is_mount_point(c->parameter, true) > 0) == !c->negate;
 
         case CONDITION_DIRECTORY_NOT_EMPTY: {
                 int k;
@@ -247,6 +256,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_EXISTS] = "ConditionPathExists",
         [CONDITION_PATH_EXISTS_GLOB] = "ConditionPathExistsGlob",
         [CONDITION_PATH_IS_DIRECTORY] = "ConditionPathIsDirectory",
+        [CONDITION_PATH_IS_MOUNT_POINT] = "ConditionPathIsMountPoint",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",

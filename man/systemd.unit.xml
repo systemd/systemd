@@ -665,6 +665,7 @@
                                 <term><varname>ConditionPathExists=</varname></term>
                                 <term><varname>ConditionPathExistsGlob=</varname></term>
                                 <term><varname>ConditionPathIsDirectory=</varname></term>
+                                <term><varname>ConditionPathIsMountPoint=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionFileIsExecutable=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
@@ -695,16 +696,24 @@
                                 works in a similar way, but checks for
                                 the existence of at least one file or
                                 directory matching the specified
-                                globbing pattern.
-                                <varname>ConditionPathIsDirectory=</varname>
-                                is similar to <varname>ConditionPathExists=</varname>
-                                but verifies whether a certain path exists and
-                                is a directory. It does not follow symlinks.
-                                <varname>ConditionFileIsExecutable=</varname>
-                                is similar to <varname>ConditionPathExists=</varname>
-                                but verifies whether a certain path exists,
-                                is a regular file and marked executable.
-                                It follows symlinks.
+                                globbing
+                                pattern. <varname>ConditionPathIsDirectory=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists and is a directory. It does not
+                                follow
+                                symlinks. <varname>ConditionPathIsMountPoint=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists and is a mount
+                                point. <varname>ConditionFileIsExecutable=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists, is a regular file and marked
+                                executable. It follows symlinks.
                                 <varname>ConditionDirectoryNotEmpty=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
