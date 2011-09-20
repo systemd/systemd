@@ -31,6 +31,8 @@ m4_ifdef(`TARGET_MEEGO',
 ExecStart=-/bin/bash -c "exec ${SINGLE}"',)))
 ExecStopPost=-/bin/systemctl --fail --no-block default
 StandardInput=tty-force
+StandardOutput=inherit
+StandardError=inherit
 KillMode=process
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
