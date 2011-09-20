@@ -679,7 +679,7 @@
                                 a file existence condition can be
                                 checked before a unit is started. If
                                 the specified absolute path name does
-                                not exist startup of a unit will not
+                                not exist, startup of a unit will not
                                 actually happen, however the unit is
                                 still useful for ordering purposes in
                                 this case. The condition is checked at
@@ -689,23 +689,22 @@
                                 <varname>ConditionPathExists=</varname>
                                 is prefixed with an exclamation mark
                                 (!), the test is negated, and the unit
-                                only started if the path does not
-                                exist. <varname>ConditionPathExistsGlob=</varname>
-                                work in a similar way, but checks for
-                                the existance of at least one file or
+                                is only started if the path does not
+                                exist. The test follows symlinks.
+                                <varname>ConditionPathExistsGlob=</varname>
+                                works in a similar way, but checks for
+                                the existence of at least one file or
                                 directory matching the specified
-                                globbing
-                                pattern. <varname>ConditionPathIsDirectory=</varname>
-                                is similar to
-                                <varname>ConditionPathExists=</varname>
-                                but verifies whether a certain path
-                                exists and is a
-                                directory. <varname>ConditionFileIsExecutable=</varname>
-                                is similar to
-                                <varname>ConditionPathExists=</varname>
-                                but verifies whether a certain path
-                                exists, is a regular file and marked
-                                executable.
+                                globbing pattern.
+                                <varname>ConditionPathIsDirectory=</varname>
+                                is similar to <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path exists and
+                                is a directory. It does not follow symlinks.
+                                <varname>ConditionFileIsExecutable=</varname>
+                                is similar to <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path exists,
+                                is a regular file and marked executable.
+                                It follows symlinks.
                                 <varname>ConditionDirectoryNotEmpty=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
