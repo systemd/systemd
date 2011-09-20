@@ -162,7 +162,7 @@ bool condition_test(Condition *c) {
         case CONDITION_PATH_IS_DIRECTORY: {
                 struct stat st;
 
-                if (lstat(c->parameter, &st) < 0)
+                if (stat(c->parameter, &st) < 0)
                         return !c->negate;
                 return S_ISDIR(st.st_mode) == !c->negate;
         }

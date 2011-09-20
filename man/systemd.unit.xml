@@ -691,7 +691,7 @@
                                 is prefixed with an exclamation mark
                                 (!), the test is negated, and the unit
                                 is only started if the path does not
-                                exist. The test follows symlinks.
+                                exist.
                                 <varname>ConditionPathExistsGlob=</varname>
                                 works in a similar way, but checks for
                                 the existence of at least one file or
@@ -701,9 +701,8 @@
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
-                                exists and is a directory. It does not
-                                follow
-                                symlinks. <varname>ConditionPathIsMountPoint=</varname>
+                                exists and is a
+                                directory. <varname>ConditionPathIsMountPoint=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
@@ -713,7 +712,7 @@
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists, is a regular file and marked
-                                executable. It follows symlinks.
+                                executable.
                                 <varname>ConditionDirectoryNotEmpty=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
@@ -781,7 +780,8 @@
                                 prefix an argument with the pipe
                                 symbol and an exclamation mark the
                                 pipe symbol must be passed first, the
-                                exclamation second.</para></listitem>
+                                exclamation second. All path checks
+                                follow symlinks.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
