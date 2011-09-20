@@ -1269,9 +1269,6 @@ static int service_load_pid_file(Service *s) {
 
         assert(s);
 
-        if (s->main_pid_known)
-                return 0;
-
         if (!s->pid_file)
                 return 0;
 
@@ -1288,6 +1285,16 @@ static int service_load_pid_file(Service *s) {
                 log_warning("PID %lu read from file %s does not exist. Your service or init script might be broken.",
                             (unsigned long) pid, s->pid_file);
                 return -ESRCH;
+        }
+
+        if (s->main_pid_known) {
+                if (pid == s->main_pid)
+                        return 0;
+
+                log_debug("Main PID changing: %lu -> %lu",
+                          (unsigned long) s->main_pid, (unsigned long) pid);
+                service_unwatch_main_pid(s);
+                s->main_pid_known = false;
         }
 
         if ((r = service_set_main_pid(s, pid)) < 0)
@@ -2575,6 +2582,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 success = is_clean_exit(code, status);
 
         if (s->main_pid == pid) {
+                /* Forking services may occasionally move to a new PID.
+                 * As long as they update the PID file before exiting the old
+                 * PID, they're fine. */
+                if (s->pid_file && service_load_pid_file(s) == 0)
+                        return;
 
                 s->main_pid = 0;
                 exec_status_exit(&s->main_exec_status, &s->exec_context, pid, code, status);
