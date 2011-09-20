@@ -88,7 +88,7 @@ struct Stream {
         bool prefix:1;
         bool tee_console:1;
 
-        char buffer[LINE_MAX];
+        char buffer[LINE_MAX+1];
         size_t length;
 
         LIST_FIELDS(Stream, stream);
@@ -321,16 +321,25 @@ static int stream_scan(Stream *s, usec_t ts) {
         p = s->buffer;
         remaining = s->length;
         for (;;) {
-                char *newline;
+                char *end;
+                size_t skip;
 
-                if (!(newline = memchr(p, '\n', remaining)))
-                        break;
+                end = memchr(p, '\n', remaining);
+                if (!end) {
+                        if (remaining >= LINE_MAX) {
+                                end = p + LINE_MAX;
+                                skip = LINE_MAX;
+                        } else
+                                break;
+                } else
+                        skip = end - p + 1;
 
-                *newline = 0;
+                *end = 0;
 
-                if ((r = stream_line(s, p, ts)) >= 0) {
-                        remaining -= newline-p+1;
-                        p = newline+1;
+                r = stream_line(s, p, ts);
+                if (r >= 0) {
+                        remaining -= skip;
+                        p += skip;
                 }
         }
 
@@ -347,7 +356,8 @@ static int stream_process(Stream *s, usec_t ts) {
         int r;
         assert(s);
 
-        if ((l = read(s->fd, s->buffer+s->length, LINE_MAX-s->length)) < 0) {
+        l = read(s->fd, s->buffer+s->length, LINE_MAX-s->length);
+        if (l < 0) {
 
                 if (errno == EAGAIN)
                         return 0;
