@@ -10,6 +10,7 @@ Description=Security File System Automount Point
 DefaultDependencies=no
 Before=sysinit.target
 ConditionPathExists=/sys/kernel/security
+ConditionPathIsMountPoint=!/sys/kernel/security
 
 [Automount]
 Where=/sys/kernel/security
