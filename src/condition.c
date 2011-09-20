@@ -167,6 +167,14 @@ bool condition_test(Condition *c) {
                 return S_ISDIR(st.st_mode) == !c->negate;
         }
 
+        case CONDITION_PATH_IS_SYMBOLIC_LINK: {
+                struct stat st;
+
+                if (lstat(c->parameter, &st) < 0)
+                        return !c->negate;
+                return S_ISLNK(st.st_mode) == !c->negate;
+        }
+
         case CONDITION_PATH_IS_MOUNT_POINT:
                 return (path_is_mount_point(c->parameter, true) > 0) == !c->negate;
 
@@ -256,6 +264,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_EXISTS] = "ConditionPathExists",
         [CONDITION_PATH_EXISTS_GLOB] = "ConditionPathExistsGlob",
         [CONDITION_PATH_IS_DIRECTORY] = "ConditionPathIsDirectory",
+        [CONDITION_PATH_IS_SYMBOLIC_LINK] = "ConditionPathIsSymbolicLink",
         [CONDITION_PATH_IS_MOUNT_POINT] = "ConditionPathIsMountPoint",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",

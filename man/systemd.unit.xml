@@ -665,6 +665,7 @@
                                 <term><varname>ConditionPathExists=</varname></term>
                                 <term><varname>ConditionPathExistsGlob=</varname></term>
                                 <term><varname>ConditionPathIsDirectory=</varname></term>
+                                <term><varname>ConditionPathIsSymbolicLink=</varname></term>
                                 <term><varname>ConditionPathIsMountPoint=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionFileIsExecutable=</varname></term>
@@ -702,7 +703,12 @@
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists and is a
-                                directory. <varname>ConditionPathIsMountPoint=</varname>
+                                directory. <varname>ConditionPathIsSymbolicLink=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists and is a
+                                symbolic link. <varname>ConditionPathIsMountPoint=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
@@ -780,8 +786,9 @@
                                 prefix an argument with the pipe
                                 symbol and an exclamation mark the
                                 pipe symbol must be passed first, the
-                                exclamation second. All path checks
-                                follow symlinks.</para></listitem>
+                                exclamation second. Except for
+                                <varname>ConditionPathIsSymbolicLink=</varname>,
+                                all path checks follow symlinks.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

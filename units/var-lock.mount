@@ -10,6 +10,7 @@ Description=Lock Directory
 Before=local-fs.target
 # skip mounting if the directory does not exist or is a symlink
 ConditionPathIsDirectory=/var/lock
+ConditionPathIsSymbolicLink=!/var/lock
 
 [Mount]
 What=/run/lock
