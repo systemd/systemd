@@ -11,7 +11,18 @@ Bugfixes:
 
 * make sure timeouts are applied to Type=oneshot services.
 
+* Dangling symlinks of .automount unit files in .wants/ directories, set up
+  automount points even when the original .automount file did not exist
+  anymore. Only the .mount unit was still around.
+
 Features:
+
+* internal restart counter for units (focus on auto-respawn)
+
+* finer-grained auto-respawn settings (rate-limit)
+
+* be able to specify a forced restart of service A where service B depends on, in case B
+  needs to be auto-respawned?
 
 * Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
 
@@ -100,7 +111,8 @@ Features:
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
   - security properties
-  - inetd conversion
+  - xinetd conversion
+  - details of instantiated @.service setups
 
 * allow port=0 in .socket units
 
