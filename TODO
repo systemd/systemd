@@ -16,11 +16,11 @@ Features:
 * File systems:
 
   mqueue         -       boot
-  configfs       module  boot (order after module load)
+  configfs       module  boot (order after module load)  GOOD
   securityfs     -       boot
-  binfmt_misc    module  autofs
-  fuse           module  udev
-  debug          -       boot
+  binfmt_misc    module  autofs                          GOOD
+  fuse           module  udev                            GOOD
+  debug          -       boot                            GOOD
   hugepages      -       boot
 
 * introduce sd_log_open() to create a connection to the syslog bridge via sd-daemon.h

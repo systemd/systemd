@@ -8,6 +8,8 @@
 [Unit]
 Description=Debug File System
 DefaultDependencies=no
+ConditionPathExists=/sys/kernel/debug
+Before=sysinit.target
 
 [Mount]
 What=debugfs

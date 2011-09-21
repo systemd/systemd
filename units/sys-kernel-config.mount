@@ -10,6 +10,7 @@ Description=Configuration File System
 DefaultDependencies=no
 ConditionPathExists=/sys/kernel/config
 After=systemd-modules-load.service
+Before=sysinit.target
 
 [Mount]
 What=configfs

@@ -362,7 +362,6 @@ dist_systemunit_DATA = \
 	units/dev-mqueue.automount \
 	units/dev-mqueue.mount \
 	units/sys-kernel-config.mount \
-	units/sys-kernel-debug.automount \
 	units/sys-kernel-debug.mount \
 	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
@@ -1842,7 +1841,7 @@ endif
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \
                         sys-kernel-config.mount \
-			sys-kernel-debug.automount \
+			sys-kernel-debug.mount \
 			sys-kernel-security.automount \
 			systemd-vconsole-setup.service \
 			systemd-modules-load.service \
@@ -1855,7 +1854,7 @@ endif
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
                 $(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
-		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
+		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
 		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
 		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
