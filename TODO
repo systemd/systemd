@@ -13,6 +13,8 @@ Bugfixes:
 
 Features:
 
+* Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
+
 * introduce sd_log_open() to create a connection to the syslog bridge via sd-daemon.h
 
 * when a bus name of a service disappears from the bus make sure to queue further activation requests
