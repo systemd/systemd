@@ -361,7 +361,6 @@ dist_systemunit_DATA = \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.automount \
 	units/dev-mqueue.mount \
-	units/sys-kernel-config.automount \
 	units/sys-kernel-config.mount \
 	units/sys-kernel-debug.automount \
 	units/sys-kernel-debug.mount \
@@ -1842,7 +1841,7 @@ endif
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \
-			sys-kernel-config.automount \
+                        sys-kernel-config.mount \
 			sys-kernel-debug.automount \
 			sys-kernel-security.automount \
 			systemd-vconsole-setup.service \
@@ -1855,7 +1854,7 @@ endif
 			cryptsetup.target && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
-		$(LN_S) ../sys-kernel-config.automount sys-kernel-config.automount && \
+                $(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
 		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
 		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
 		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \

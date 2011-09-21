@@ -6,8 +6,10 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Config File System
+Description=Configuration File System
 DefaultDependencies=no
+ConditionPathExists=/sys/kernel/config
+After=systemd-modules-load.service
 
 [Mount]
 What=configfs

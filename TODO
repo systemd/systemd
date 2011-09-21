@@ -13,6 +13,16 @@ Bugfixes:
 
 Features:
 
+* File systems:
+
+  mqueue         -       boot
+  configfs       module  boot (order after module load)
+  securityfs     -       boot
+  binfmt_misc    module  autofs
+  fuse           module  udev
+  debug          -       boot
+  hugepages      -       boot
+
 * introduce sd_log_open() to create a connection to the syslog bridge via sd-daemon.h
 
 * when a bus name of a service disappears from the bus make sure to queue further activation requests
