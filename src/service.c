@@ -1270,7 +1270,7 @@ static int service_load_pid_file(Service *s) {
         assert(s);
 
         if (!s->pid_file)
-                return 0;
+                return -ENOENT;
 
         if ((r = read_one_line_file(s->pid_file, &k)) < 0)
                 return r;
@@ -2585,7 +2585,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
-                if (s->pid_file && service_load_pid_file(s) == 0)
+                if (service_load_pid_file(s) == 0)
                         return;
 
                 s->main_pid = 0;
