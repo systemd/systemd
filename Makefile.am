@@ -357,7 +357,6 @@ dist_systemunit_DATA = \
 	units/systemd-stdout-syslog-bridge.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
-	units/dev-hugepages.automount \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.mount \
 	units/sys-kernel-config.mount \
@@ -1836,7 +1835,7 @@ endif
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f dev-hugepages.automount \
+		rm -f dev-hugepages.mount \
 			dev-mqueue.mount \
                         sys-kernel-config.mount \
 			sys-kernel-debug.mount \
@@ -1849,7 +1848,7 @@ endif
 			systemd-ask-password-console.path \
 			systemd-kmsg-syslogd.service \
 			cryptsetup.target && \
-		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
+		$(LN_S) ../dev-hugepages.mount dev-hugepages.mount && \
 		$(LN_S) ../dev-mqueue.mount dev-mqueue.mount && \
                 $(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
 		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \

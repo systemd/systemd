@@ -8,6 +8,8 @@
 [Unit]
 Description=Huge Pages File System
 DefaultDependencies=no
+Before=sysinit.target
+ConditionPathExists=/sys/kernel/mm/hugepages
 
 [Mount]
 What=hugetlbfs
