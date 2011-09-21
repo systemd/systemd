@@ -8,6 +8,8 @@
 [Unit]
 Description=POSIX Message Queue File System
 DefaultDependencies=no
+Before=sysinit.target
+ConditionPathExists=/proc/sys/fs/mqueue
 
 [Mount]
 What=mqueue

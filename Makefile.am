@@ -359,7 +359,6 @@ dist_systemunit_DATA = \
 	units/syslog.socket \
 	units/dev-hugepages.automount \
 	units/dev-hugepages.mount \
-	units/dev-mqueue.automount \
 	units/dev-mqueue.mount \
 	units/sys-kernel-config.mount \
 	units/sys-kernel-debug.mount \
@@ -1838,7 +1837,7 @@ endif
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.automount \
-			dev-mqueue.automount \
+			dev-mqueue.mount \
                         sys-kernel-config.mount \
 			sys-kernel-debug.mount \
 			sys-kernel-security.mount \
@@ -1851,7 +1850,7 @@ endif
 			systemd-kmsg-syslogd.service \
 			cryptsetup.target && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
-		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
+		$(LN_S) ../dev-mqueue.mount dev-mqueue.mount && \
                 $(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
 		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
 		$(LN_S) ../sys-kernel-security.mount sys-kernel-security.mount && \

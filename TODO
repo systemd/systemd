@@ -15,9 +15,9 @@ Features:
 
 * File systems:
 
-  mqueue         -       boot
+  mqueue         -       boot                            GOOD
   configfs       module  boot (order after module load)  GOOD
-  securityfs     -       boot
+  securityfs     -       boot                            GOOD
   binfmt_misc    module  autofs                          GOOD
   fuse           module  udev                            GOOD
   debug          -       boot                            GOOD
