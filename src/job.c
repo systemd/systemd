@@ -544,7 +544,9 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
                 j->type = JOB_START;
 
                 job_add_to_run_queue(j);
-                return 0;
+
+                u = j->unit;
+                goto finish;
         }
 
         j->result = result;
@@ -613,6 +615,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
                 unit_trigger_on_failure(u);
         }
 
+finish:
         /* Try to start the next jobs that can be started */
         SET_FOREACH(other, u->meta.dependencies[UNIT_AFTER], i)
                 if (other->meta.job)
