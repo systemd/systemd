@@ -8,6 +8,9 @@
 [Unit]
 Description=Security File System
 DefaultDependencies=no
+ConditionPathExists=/sys/kernel/security
+ConditionPathIsMountPoint=!/sys/kernel/security
+Before=sysinit.target
 
 [Mount]
 What=securityfs
