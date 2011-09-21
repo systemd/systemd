@@ -320,7 +320,10 @@ static bool needs_quota(MountParameters *p) {
                 return false;
 
         return mount_test_option(p->options, "usrquota") ||
-                mount_test_option(p->options, "grpquota");
+                mount_test_option(p->options, "grpquota") ||
+                mount_test_option(p->options, "quota") ||
+                mount_test_option(p->options, "usrjquota") ||
+                mount_test_option(p->options, "grpjquota");
 }
 
 static int mount_add_fstab_links(Mount *m) {

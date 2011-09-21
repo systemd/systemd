@@ -17,6 +17,8 @@ Bugfixes:
 
 Features:
 
+* for socket units don't inherit global stdout setting.
+
 * internal restart counter for units (focus on auto-respawn)
 
 * finer-grained auto-respawn settings (rate-limit)
