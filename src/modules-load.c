@@ -131,6 +131,7 @@ finish:
 
         if (n_arguments > 3) {
                 arguments[n_arguments] = NULL;
+                strv_uniq(arguments);
                 execv("/sbin/modprobe", arguments);
 
                 log_error("Failed to execute /sbin/modprobe: %m");
