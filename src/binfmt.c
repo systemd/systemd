@@ -33,7 +33,7 @@
 #include "util.h"
 
 static int delete_rule(const char *rule) {
-        char *x, *fn, *e;
+        char *x, *fn = NULL, *e;
         int r;
 
         assert(rule[0]);

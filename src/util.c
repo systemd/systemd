@@ -5529,6 +5529,9 @@ int get_files_in_directory(const char *path, char ***list) {
          * number */
 
         d = opendir(path);
+        if (!d)
+                return -errno;
+
         for (;;) {
                 struct dirent buffer, *de;
                 int k;
@@ -5629,6 +5632,8 @@ char *join(const char *x, ...) {
 
                         p = stpcpy(p, t);
                 }
+
+                va_end(ap);
         } else
                 r[0] = 0;
 

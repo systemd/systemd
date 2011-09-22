@@ -479,7 +479,6 @@ static int find_symlinks_fd(
                                 t = path_make_absolute(name, config_path);
                                 if (!t) {
                                         free(p);
-                                        free(dest);
                                         r = -ENOMEM;
                                         break;
                                 }

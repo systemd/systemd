@@ -554,6 +554,7 @@ int config_parse_exec(
                 if (!n[0]) {
                         log_error("[%s:%u] Invalid command line, ignoring: %s", filename, line, rvalue);
                         strv_free(n);
+                        free(path);
                         return 0;
                 }
 

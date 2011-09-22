@@ -201,12 +201,19 @@ char **strv_merge_concat(char **a, char **b, const char *suffix) {
         if (!(r = new(char*, strv_length(a)+strv_length(b)+1)))
                 return NULL;
 
-        for (k = r; *a; k++, a++)
-                if (!(*k = strdup(*a)))
+        k = r;
+        if (a)
+                for (; *a; k++, a++) {
+                        *k = strdup(*a);
+                        if (!*k)
+                                goto fail;
+                }
+
+        for (; *b; k++, b++) {
+                *k = strappend(*b, suffix);
+                if (!*k)
                         goto fail;
-        for (; *b; k++, b++)
-                if (!(*k = strappend(*b, suffix)))
-                        goto fail;
+        }
 
         *k = NULL;
         return r;

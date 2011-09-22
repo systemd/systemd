@@ -608,6 +608,7 @@ static int list_unit_files(DBusConnection *bus, char **args) {
 
                 r = unit_file_get_list(arg_scope, arg_root, h);
                 if (r < 0) {
+                        unit_file_list_free(h);
                         log_error("Failed to get unit file list: %s", strerror(-r));
                         return r;
                 }

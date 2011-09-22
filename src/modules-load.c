@@ -77,7 +77,6 @@ int main(int argc, char *argv[]) {
                                 continue;
 
                         log_error("Failed to open %s: %m", *fn);
-                        free(fn);
                         r = EXIT_FAILURE;
                         continue;
                 }

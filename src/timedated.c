@@ -246,7 +246,7 @@ static int write_data_local_rtc(void) {
 
                 p++;
                 e = strchr(p, '\n');
-                if (!p) {
+                if (!e) {
                         free(s);
                         return -EIO;
                 }

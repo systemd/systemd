@@ -215,6 +215,7 @@ static int write_data(void) {
         }
 
         if (strv_isempty(l)) {
+                strv_free(l);
 
                 if (unlink("/etc/locale.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
@@ -458,6 +459,8 @@ static DBusHandlerResult locale_message_handler(
                                         }
                                 }
                         }
+
+                        strv_free(l);
 
                         for (p = 0; p < _PROP_MAX; p++) {
                                 if (passed[p])

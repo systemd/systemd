@@ -314,7 +314,7 @@ int config_parse(
                                 continuation = c;
                         else {
                                 continuation = strdup(l);
-                                if (!c) {
+                                if (!continuation) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }

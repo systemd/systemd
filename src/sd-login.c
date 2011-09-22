@@ -499,6 +499,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
                         if (!k) {
                                 free(t);
                                 free(b);
+                                strv_free(a);
                                 return -ENOMEM;
                         }
 
@@ -574,6 +575,9 @@ _public_ int sd_get_uids(uid_t **users) {
         uid_t *l = NULL;
 
         d = opendir("/run/systemd/users/");
+        if (!d)
+                return -errno;
+
         for (;;) {
                 struct dirent buffer, *de;
                 int k;

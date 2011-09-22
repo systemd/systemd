@@ -381,6 +381,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 session = hashmap_get(m->sessions, id);
 
                 if (session) {
+                        free(id);
 
                         fifo_fd = session_create_fifo(session);
                         if (fifo_fd < 0) {
@@ -420,6 +421,9 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
                         close_nointr_nofail(fifo_fd);
                         *_reply = reply;
+
+                        strv_free(controllers);
+                        strv_free(reset_controllers);
 
                         return 0;
                 }

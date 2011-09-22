@@ -844,7 +844,7 @@ static int mq_address_create(
         fd = mq_open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_CREAT, mq_mode, attr);
         umask(old_mask);
 
-        if (fd < 0 && errno != EEXIST) {
+        if (fd < 0) {
                 r = -errno;
                 goto fail;
         }

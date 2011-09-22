@@ -3115,7 +3115,7 @@ static int service_enumerate(Manager *m) {
 
                                 free(fpath);
                                 fpath = join(path, "/", de->d_name, NULL);
-                                if (!path) {
+                                if (!fpath) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }

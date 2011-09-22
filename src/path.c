@@ -563,7 +563,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         assert(l > 0);
 
         if (!(buf = malloc(l))) {
-                log_error("Failed to allocate buffer: %s", strerror(-ENOMEM));
+                log_error("Failed to allocate buffer: %s", strerror(ENOMEM));
                 goto fail;
         }
 
