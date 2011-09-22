@@ -1281,7 +1281,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         free(p2);
 }
 
-static int service_load_pid_file(Service *s) {
+static int service_load_pid_file(Service *s, bool warn_if_missing) {
         char *k;
         int r;
         pid_t pid;
@@ -1291,8 +1291,12 @@ static int service_load_pid_file(Service *s) {
         if (!s->pid_file)
                 return -ENOENT;
 
-        if ((r = read_one_line_file(s->pid_file, &k)) < 0)
+        if ((r = read_one_line_file(s->pid_file, &k)) < 0) {
+                if (warn_if_missing)
+                        log_warning("Failed to read PID file %s after %s. The service might be broken.",
+                                    s->pid_file, service_state_to_string(s->state));
                 return r;
+        }
 
         r = parse_pid(k, &pid);
         free(k);
@@ -2604,7 +2608,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
-                if (service_load_pid_file(s) == 0)
+                if (service_load_pid_file(s, false) == 0)
                         return;
 
                 s->main_pid = 0;
@@ -2736,7 +2740,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                  * START_POST script */
 
                                 if (success) {
-                                        service_load_pid_file(s);
+                                        service_load_pid_file(s, !s->exec_command[SERVICE_EXEC_START_POST]);
                                         service_search_main_pid(s);
 
                                         service_enter_start_post(s);
@@ -2747,7 +2751,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_START_POST:
                                 if (success) {
-                                        service_load_pid_file(s);
+                                        service_load_pid_file(s, true);
                                         service_search_main_pid(s);
                                 }
 
@@ -2757,7 +2761,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_RELOAD:
                                 if (success) {
-                                        service_load_pid_file(s);
+                                        service_load_pid_file(s, true);
                                         service_search_main_pid(s);
                                 }
 
