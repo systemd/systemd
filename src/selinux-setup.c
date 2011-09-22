@@ -98,11 +98,13 @@ int selinux_setup(bool *loaded_policy) {
                *loaded_policy = true;
 
        } else {
+               log_open();
+
                if (enforce > 0) {
-                       log_error("Failed to load SELinux policy.");
+                       log_error("Failed to load SELinux policy. Freezing.");
                        return -EIO;
                } else
-                       log_debug("Unable to load SELinux policy.");
+                       log_debug("Unable to load SELinux policy. Ignoring.");
        }
 #endif
 
