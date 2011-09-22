@@ -21,8 +21,6 @@ Features:
 
 * https://bugzilla.redhat.com/show_bug.cgi?id=727068
 
-* for socket units don't inherit global stdout setting.
-
 * internal restart counter for units (focus on auto-respawn)
 
 * finer-grained auto-respawn settings (rate-limit)
@@ -101,8 +99,6 @@ Features:
 * add support for /bin/mount -s
 
 * GC unreferenced jobs (such as .device jobs)
-
-* avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
 * cgroup_notify_empty(): recursively check groups up the tree, too
 

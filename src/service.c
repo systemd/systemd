@@ -121,8 +121,6 @@ static void service_init(Unit *u) {
         s->guess_main_pid = true;
 
         exec_context_init(&s->exec_context);
-        s->exec_context.std_output = u->meta.manager->default_std_output;
-        s->exec_context.std_error = u->meta.manager->default_std_error;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 
@@ -832,9 +830,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->type = SERVICE_FORKING;
         s->remain_after_exit = !s->pid_file;
         s->restart = SERVICE_RESTART_NO;
-        s->exec_context.std_output =
-                (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
-                ? EXEC_OUTPUT_TTY : s->meta.manager->default_std_output;
+
+        if (s->meta.manager->sysv_console)
+                s->exec_context.std_output = EXEC_OUTPUT_TTY;
+
         s->exec_context.kill_mode = KILL_PROCESS;
 
         /* We use the long description only if
@@ -1100,6 +1099,24 @@ static int service_add_default_dependencies(Service *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
+static void service_fix_output(Service *s) {
+        assert(s);
+
+        /* If nothing has been explicitly configured, patch default
+         * output in. If input is socket/tty we avoid this however,
+         * since in that case we want output to default to the same
+         * place as we read input from. */
+
+        if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
+            s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
+            s->exec_context.std_input == EXEC_INPUT_NULL)
+                s->exec_context.std_error = s->meta.manager->default_std_error;
+
+        if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
+            s->exec_context.std_input == EXEC_INPUT_NULL)
+                s->exec_context.std_output = s->meta.manager->default_std_output;
+}
+
 static int service_load(Unit *u) {
         int r;
         Service *s = SERVICE(u);
@@ -1156,6 +1173,8 @@ static int service_load(Unit *u) {
                 if (s->meta.default_dependencies)
                         if ((r = service_add_default_dependencies(s)) < 0)
                                 return r;
+
+                service_fix_output(s);
         }
 
         return service_verify(s);
