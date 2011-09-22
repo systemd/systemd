@@ -17,6 +17,10 @@ Bugfixes:
 
 Features:
 
+* add an option to make mounts private/shareable and so on, enable this for root by default
+
+* https://bugzilla.redhat.com/show_bug.cgi?id=727068
+
 * for socket units don't inherit global stdout setting.
 
 * internal restart counter for units (focus on auto-respawn)

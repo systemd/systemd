@@ -362,6 +362,7 @@ dist_systemunit_DATA = \
 	units/sys-kernel-config.mount \
 	units/sys-kernel-debug.mount \
 	units/sys-kernel-security.mount \
+	units/sys-fs-fuse-connections.mount \
 	units/var-run.mount \
 	units/media.mount \
 	units/remount-rootfs.service \
@@ -1840,6 +1841,7 @@ endif
                         sys-kernel-config.mount \
 			sys-kernel-debug.mount \
 			sys-kernel-security.mount \
+			sys-fs-fuse-connections.mount \
 			systemd-vconsole-setup.service \
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
@@ -1853,6 +1855,7 @@ endif
                 $(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
 		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
 		$(LN_S) ../sys-kernel-security.mount sys-kernel-security.mount && \
+		$(LN_S) ../sys-fs-fuse-connections.mount sys-fs-fuse-connections.mount && \
 		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
