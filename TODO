@@ -19,8 +19,6 @@ Features:
 
 * add an option to make mounts private/shareable and so on, enable this for root by default
 
-* https://bugzilla.redhat.com/show_bug.cgi?id=727068
-
 * internal restart counter for units (focus on auto-respawn)
 
 * finer-grained auto-respawn settings (rate-limit)
@@ -61,8 +59,6 @@ Features:
 * logind: spawn user@..service on login
 
 * logind: non-local X11 server handling
-
-* logind: use sysfs path in device hash table instead of sysname, as soon as fb driver is fixed
 
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
@@ -154,6 +150,8 @@ Features:
 * implicitly import "defaults" settings file into all types
 * exec settings override
 * writable cgroups dbus properties for live changes
+
+* read config fragments for all units from /lib/systemd/system/foobar.service.d/ to override/extend specific settings
 
 * port over to LISTEN_FDS/LISTEN_PID:
    - rpcbind (/var/run/rpcbind.sock!) HAVEPATCH
