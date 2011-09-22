@@ -154,7 +154,11 @@
                                 activated, then the configured unit is
                                 immediately activated as
                                 well. Something similar does not apply
-                                to <varname>PathChanged=</varname>.
+                                to
+                                <varname>PathChanged=</varname>. The
+                                latter is not activated on simple
+                                writes but only if files with were
+                                opened for writing are closed.
                                 </para></listitem>
                         </varlistentry>
                         <varlistentry>
