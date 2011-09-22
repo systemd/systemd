@@ -52,6 +52,11 @@
                 <funcsynopsis>
                         <funcsynopsisinfo>#include "sd-daemon.h"</funcsynopsisinfo>
                 </funcsynopsis>
+
+                <cmdsynopsis>
+                        <command>pkg-config --cflags --libs libsystemd-daemon</command>
+                </cmdsynopsis>
+
         </refsynopsisdiv>
 
         <refsect1>
@@ -159,7 +164,8 @@
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>fprintf</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
