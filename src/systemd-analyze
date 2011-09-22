@@ -147,7 +147,7 @@ elif sys.argv[1] == 'plot':
         context.set_line_width(1)
         context.set_source_rgb(0.7, 0.7, 0.7)
 
-        for x in range(0, (finish_time - start_time)/10000, 100):
+        for x in range(0, max((finish_time - start_time)/10000,110), 100):
                 context.move_to(x, 0)
                 context.line_to(x, height-border*2)
 
@@ -163,7 +163,7 @@ elif sys.argv[1] == 'plot':
         banner = "Running on %s (%s %s) %s" % (os.uname()[1], os.uname()[2], os.uname()[3], os.uname()[4])
         draw_text(context, 0, -15, banner, hcenter = 0, vcenter = 1)
 
-        for x in range(0, (finish_time - start_time)/10000, 100):
+        for x in range(0, max((finish_time - start_time)/10000,110), 100):
                 draw_text(context, x, -5, "%lus" % (x/100), vcenter = 0, hcenter = 0)
 
         y = 0
