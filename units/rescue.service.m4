@@ -11,7 +11,7 @@
 Description=Rescue Shell
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=basic.target
+After=basic.target plymouth-start.service
 Before=shutdown.target
 
 [Service]
