@@ -134,17 +134,23 @@
                 url="http://cgit.freedesktop.org/systemd/tree/src/sd-readahead.h"/></para>
 
                 <para><function>sd_readahead()</function> is
-                implemented in the reference implementation's drop-in
+                implemented in the reference implementation's
                 <filename>sd-readahead.c</filename> and
-                <filename>sd-readahead.h</filename> files. It is
-                recommended that applications consuming this API copy
-                the implementation into their source tree. For more
-                details about the reference implementation see
-                <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+                <filename>sd-readahead.h</filename> files. These
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
+                <literal>libsystemd-daemon</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file. Alternatively, applications consuming this API
+                may copy the implementation into their source
+                tree. For more details about the reference
+                implementation see
+                <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-                <para>If -DDISABLE_SYSTEMD is set during compilation
-                this function will always return 0 and otherwise
-                become a NOP.</para>
+                <para>If the reference implementation is used as
+                drop-in files and -DDISABLE_SYSTEMD is set during
+                compilation this function will always return 0 and
+                otherwise become a NOP.</para>
         </refsect1>
 
         <refsect1>

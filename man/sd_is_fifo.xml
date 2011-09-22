@@ -178,7 +178,7 @@
                 <filename>getsockname()</filename> to check the file
                 descriptor type and where it is bound to.</para>
 
-                <para>For details about the algorithm check the
+                <para>For details about the algorithms check the
                 liberally licensed reference implementation sources:
                 <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.c"/>
                 resp. <ulink
@@ -186,13 +186,17 @@
 
                 <para><function>sd_is_fifo()</function> and the
                 related functions are implemented in the reference
-                implementation's drop-in
-                <filename>sd-daemon.c</filename> and
-                <filename>sd-daemon.h</filename> files. It is
-                recommended that applications consuming these APIs
-                copy the implementation into their source tree. For
-                more details about the reference implementation see
-                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+                implementation's <filename>sd-daemon.c</filename> and
+                <filename>sd-daemon.h</filename> files. These
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
+                <literal>libsystemd-daemon</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file. Alternatively, applications consuming these APIs
+                may copy the implementation into their source
+                tree. For more details about the reference
+                implementation see
+                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                 <para>These functions continue to work as described,
                 even if -DDISABLE_SYSTEMD is set during

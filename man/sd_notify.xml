@@ -206,7 +206,7 @@
                 datagram is accompanied by the process credentials of
                 the sending daemon, using SCM_CREDENTIALS.</para>
 
-                <para>For details about the algorithm check the
+                <para>For details about the algorithms check the
                 liberally licensed reference implementation sources:
                 <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.c"/>
                 resp. <ulink
@@ -214,17 +214,22 @@
 
                 <para><function>sd_notify()</function> and
                 <function>sd_notifyf()</function> are implemented in
-                the reference implementation's drop-in
+                the reference implementation's
                 <filename>sd-daemon.c</filename> and
-                <filename>sd-daemon.h</filename> files. It is
-                recommended that applications consuming these APIs
-                copy the implementation into their source tree. For
+                <filename>sd-daemon.h</filename> files. These
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
+                <literal>libsystemd-daemon</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file. Alternatively, applications consuming these APIs
+                may copy the implementation into their source tree. For
                 more details about the reference implementation see
-                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-                <para>If -DDISABLE_SYSTEMD is set during compilation
-                this function will always return 0 and otherwise
-                become a NOP.</para>
+                <para>If the reference implementation is used as
+                drop-in files and -DDISABLE_SYSTEMD is set during
+                compilation these functions will always return 0 and
+                otherwise become a NOP.</para>
         </refsect1>
 
         <refsect1>
