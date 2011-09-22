@@ -888,16 +888,20 @@ int unit_start(Unit *u) {
         if (u->meta.load_state != UNIT_LOADED)
                 return -EINVAL;
 
-        /* If this is already (being) started, then this will
-         * succeed. Note that this will even succeed if this unit is
-         * not startable by the user. This is relied on to detect when
-         * we need to wait for units and when waiting is finished. */
+        /* If this is already started, then this will succeed. Note
+         * that this will even succeed if this unit is not startable
+         * by the user. This is relied on to detect when we need to
+         * wait for units and when waiting is finished. */
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
 
-        /* If the conditions failed, don't do anything at all */
-        if (!unit_condition_test(u)) {
+        /* If the conditions failed, don't do anything at all. If we
+         * already are activating this call might still be useful to
+         * speed up activation in case there is some hold-off time,
+         * but we don't want to recheck the condition in that case. */
+        if (state != UNIT_ACTIVATING &&
+            !unit_condition_test(u)) {
                 log_debug("Starting of %s requested but condition failed. Ignoring.", u->meta.id);
                 return -EALREADY;
         }
