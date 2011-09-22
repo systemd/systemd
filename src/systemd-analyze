@@ -221,6 +221,18 @@ elif sys.argv[1] == 'plot':
 
         draw_text(context, 0, height-border*2, "Legend: Red = Activating; Pink = Active; Dark Pink = Deactivating", hcenter = 0, vcenter = -1)
 
+        if initrd_time > 0:
+                draw_text(context, 0, height-border*2 + bar_height, "Startup finished in %lums (kernel) + %lums (initrd) + %lums (userspace) = %lums" % ( \
+                        initrd_time/1000, \
+                        (start_time - initrd_time)/1000, \
+                        (finish_time - start_time)/1000, \
+                        finish_time/1000), hcenter = 0, vcenter = -1)
+        else:
+                draw_text(context, 0, height-border*2 + bar_height, "Startup finished in %lums (kernel) + %lums (userspace) = %lums" % ( \
+                        start_time/1000, \
+                        (finish_time - start_time)/1000, \
+                        finish_time/1000), hcenter = 0, vcenter = -1)
+
         surface.finish()
 elif sys.argv[1] in ("help", "--help", "-h"):
         help()
