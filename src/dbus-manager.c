@@ -300,7 +300,7 @@ static int bus_manager_append_tainted(DBusMessageIter *i, const char *property, 
                 free(p);
 
         if (access("/proc/cgroups", F_OK) < 0)
-                e = stpcpy(e, "cgroups-missing ");
+                stpcpy(e, "cgroups-missing ");
 
         t = strstrip(buf);
 

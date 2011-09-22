@@ -233,7 +233,7 @@ static int write_data_other(void) {
                 assert(name[p]);
 
                 if (isempty(data[p]))  {
-                        l = strv_env_unset(l, name[p]);
+                        strv_env_unset(l, name[p]);
                         continue;
                 }
 

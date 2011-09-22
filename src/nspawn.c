@@ -197,8 +197,10 @@ static int mount_all(const char *dest) {
 
         /* Fix the timezone, if possible */
         if (asprintf(&where, "%s/%s", dest, "/etc/localtime") >= 0) {
-                mount("/etc/localtime", where, "bind", MS_BIND, NULL);
-                mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
+                if (mount("/etc/localtime", where, "bind", MS_BIND, NULL) >= 0)
+                        mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
                 free(where);
         }
 

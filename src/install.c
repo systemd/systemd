@@ -1904,7 +1904,7 @@ int unit_file_get_list(
                         } else if (r > 0) {
                                 f->state = UNIT_FILE_DISABLED;
                                 goto found;
-                        } else if (r == 0) {
+                        } else {
                                 f->state = UNIT_FILE_STATIC;
                                 goto found;
                         }

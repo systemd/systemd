@@ -137,6 +137,8 @@ static bool on_tty(void) {
 }
 
 static void pager_open_if_enabled(void) {
+
+        /* Cache result before we open the pager */
         on_tty();
 
         if (arg_no_pager)
@@ -1055,7 +1057,7 @@ finish:
 }
 
 static int load_unit(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         DBusError error;
         int r;
         char **name;
@@ -1066,6 +1068,7 @@ static int load_unit(DBusConnection *bus, char **args) {
         assert(args);
 
         STRV_FOREACH(name, args+1) {
+                DBusMessage *reply;
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -1102,9 +1105,6 @@ static int load_unit(DBusConnection *bus, char **args) {
 finish:
         if (m)
                 dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         dbus_error_free(&error);
 
@@ -1795,7 +1795,7 @@ finish:
 }
 
 static int kill_unit(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int r = 0;
         DBusError error;
         char **name;
@@ -1812,6 +1812,7 @@ static int kill_unit(DBusConnection *bus, char **args) {
                 arg_kill_mode = streq(arg_kill_who, "all") ? "control-group" : "process";
 
         STRV_FOREACH(name, args+1) {
+                DBusMessage *reply;
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -1850,9 +1851,6 @@ static int kill_unit(DBusConnection *bus, char **args) {
 finish:
         if (m)
                 dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         dbus_error_free(&error);
 
@@ -3231,7 +3229,7 @@ finish:
 }
 
 static int reset_failed(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int r;
         DBusError error;
         char **name;
@@ -3243,6 +3241,7 @@ static int reset_failed(DBusConnection *bus, char **args) {
                 return daemon_reload(bus, args);
 
         STRV_FOREACH(name, args+1) {
+                DBusMessage *reply;
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -3278,9 +3277,6 @@ static int reset_failed(DBusConnection *bus, char **args) {
 finish:
         if (m)
                 dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         dbus_error_free(&error);
 

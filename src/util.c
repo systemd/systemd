@@ -782,13 +782,7 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
                 }
         }
 
-        if (buf)
-                buf[l] = 0;
-        else if (!(buf = calloc(1, 1))) {
-                r = -errno;
-                goto finish;
-        }
-
+        buf[l] = 0;
         *contents = buf;
         buf = NULL;
 

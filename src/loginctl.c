@@ -64,6 +64,8 @@ static bool on_tty(void) {
 }
 
 static void pager_open_if_enabled(void) {
+
+        /* Cache result before we open the pager */
         on_tty();
 
         if (!arg_no_pager)
@@ -1146,7 +1148,7 @@ finish:
 }
 
 static int activate(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int ret = 0;
         DBusError error;
         unsigned i;
@@ -1157,6 +1159,8 @@ static int activate(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         for (i = 1; i < n; i++) {
+                DBusMessage *reply;
+
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
@@ -1195,16 +1199,13 @@ finish:
         if (m)
                 dbus_message_unref(m);
 
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return ret;
 }
 
 static int kill_session(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int ret = 0;
         DBusError error;
         unsigned i;
@@ -1218,6 +1219,8 @@ static int kill_session(DBusConnection *bus, char **args, unsigned n) {
                 arg_kill_who = "all";
 
         for (i = 1; i < n; i++) {
+                DBusMessage *reply;
+
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
@@ -1255,16 +1258,13 @@ finish:
         if (m)
                 dbus_message_unref(m);
 
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return ret;
 }
 
 static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int ret = 0;
         DBusError error;
         unsigned i;
@@ -1278,6 +1278,7 @@ static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
         b = streq(args[0], "enable-linger");
 
         for (i = 1; i < n; i++) {
+                DBusMessage *reply;
                 uint32_t u;
                 uid_t uid;
 
@@ -1327,16 +1328,13 @@ finish:
         if (m)
                 dbus_message_unref(m);
 
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return ret;
 }
 
 static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int ret = 0;
         DBusError error;
         unsigned i;
@@ -1349,6 +1347,7 @@ static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
         for (i = 1; i < n; i++) {
                 uint32_t u;
                 uid_t uid;
+                DBusMessage *reply;
 
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.login1",
@@ -1394,16 +1393,13 @@ finish:
         if (m)
                 dbus_message_unref(m);
 
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return ret;
 }
 
 static int kill_user(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int ret = 0;
         DBusError error;
         unsigned i;
@@ -1417,6 +1413,7 @@ static int kill_user(DBusConnection *bus, char **args, unsigned n) {
                 arg_kill_who = "all";
 
         for (i = 1; i < n; i++) {
+                DBusMessage *reply;
                 uid_t uid;
                 uint32_t u;
 
@@ -1465,16 +1462,13 @@ finish:
         if (m)
                 dbus_message_unref(m);
 
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return ret;
 }
 
 static int attach(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int ret = 0;
         DBusError error;
         unsigned i;
@@ -1486,6 +1480,8 @@ static int attach(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         for (i = 2; i < n; i++) {
+                DBusMessage *reply;
+
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
@@ -1522,9 +1518,6 @@ static int attach(DBusConnection *bus, char **args, unsigned n) {
 finish:
         if (m)
                 dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         dbus_error_free(&error);
 
@@ -1581,7 +1574,7 @@ finish:
 }
 
 static int terminate_seat(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int ret = 0;
         DBusError error;
         unsigned i;
@@ -1592,6 +1585,8 @@ static int terminate_seat(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         for (i = 1; i < n; i++) {
+                DBusMessage *reply;
+
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
@@ -1626,9 +1621,6 @@ static int terminate_seat(DBusConnection *bus, char **args, unsigned n) {
 finish:
         if (m)
                 dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         dbus_error_free(&error);
 
