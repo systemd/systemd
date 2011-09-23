@@ -727,6 +727,7 @@ int main(int argc, char *argv[]) {
                 gid_t gid = (gid_t) -1;
                 const char *envp[] = {
                         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
                         NULL, /* TERM */
                         NULL, /* HOME */
                         NULL, /* USER */
@@ -734,7 +735,7 @@ int main(int argc, char *argv[]) {
                         NULL
                 };
 
-                envp[1] = strv_find_prefix(environ, "TERM=");
+                envp[2] = strv_find_prefix(environ, "TERM=");
 
                 close_nointr_nofail(master);
 
@@ -830,9 +831,9 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                if ((asprintf((char**)(envp + 2), "HOME=%s", home? home: "/root") < 0) ||
-                    (asprintf((char**)(envp + 3), "USER=%s", arg_user? arg_user : "root") < 0) ||
-                    (asprintf((char**)(envp + 4), "LOGNAME=%s", arg_user? arg_user : "root") < 0)) {
+                if ((asprintf((char**)(envp + 3), "HOME=%s", home? home: "/root") < 0) ||
+                    (asprintf((char**)(envp + 4), "USER=%s", arg_user? arg_user : "root") < 0) ||
+                    (asprintf((char**)(envp + 5), "LOGNAME=%s", arg_user? arg_user : "root") < 0)) {
                     log_error("Out of memory");
                     goto child_fail;
                 }
