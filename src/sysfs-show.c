@@ -165,6 +165,9 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
         else
                 r = udev_enumerate_add_match_tag(e, "seat");
 
+        if (r < 0)
+                goto finish;
+
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
                 goto finish;

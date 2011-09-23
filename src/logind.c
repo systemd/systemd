@@ -413,6 +413,7 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
         int r = 0;
         char *name;
         DIR *d;
+        int k;
 
         r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, &d);
         if (r < 0) {
@@ -423,9 +424,8 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
                 return r;
         }
 
-        while ((r = cg_read_subgroup(d, &name)) > 0) {
+        while ((k = cg_read_subgroup(d, &name)) > 0) {
                 User *user;
-                int k;
 
                 k = manager_add_user_by_name(m, name, &user);
                 if (k < 0) {
@@ -445,6 +445,9 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
 
                 free(name);
         }
+
+        if (r >= 0 && k < 0)
+                r = k;
 
         closedir(d);
 

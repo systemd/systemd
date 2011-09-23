@@ -565,10 +565,13 @@ int umount_all(bool *changed) {
         /* retry umount, until nothing can be umounted anymore */
         do {
                 umount_changed = false;
-                r = mount_points_list_umount(&mp_list_head, &umount_changed, false);
+
+                mount_points_list_umount(&mp_list_head, &umount_changed, false);
                 if (umount_changed)
                         *changed = true;
-        } while(umount_changed);
+
+        } while (umount_changed);
+
         /* umount one more time with logging enabled */
         r = mount_points_list_umount(&mp_list_head, &umount_changed, true);
         if (r <= 0)

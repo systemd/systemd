@@ -2154,8 +2154,6 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 printf(")%s\n", off);
 
-                on = off = NULL;
-
                 if (i->main_pid == p->pid &&
                     i->start_timestamp == p->start_timestamp &&
                     i->exit_timestamp == p->start_timestamp)
