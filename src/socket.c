@@ -1962,6 +1962,12 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
                 if (p->fd >= 0)
                         rn_fds++;
 
+        if (rn_fds <= 0) {
+                *fds = NULL;
+                *n_fds = 0;
+                return 0;
+        }
+
         if (!(rfds = new(int, rn_fds)))
                 return -ENOMEM;
 

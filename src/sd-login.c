@@ -481,34 +481,39 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         if (uids && t) {
                 char *w, *state;
                 size_t l;
-                unsigned i = 0;
 
                 FOREACH_WORD(w, l, t, state)
                         n++;
 
-                b = new(uid_t, n);
-                if (!b) {
-                        strv_free(a);
-                        return -ENOMEM;
-                }
+                if (n == 0)
+                        b = NULL;
+                else {
+                        unsigned i = 0;
 
-                FOREACH_WORD(w, l, t, state) {
-                        char *k;
-
-                        k = strndup(w, l);
-                        if (!k) {
-                                free(t);
-                                free(b);
+                        b = new(uid_t, n);
+                        if (!b) {
                                 strv_free(a);
                                 return -ENOMEM;
                         }
 
-                        r = parse_uid(k, b + i);
-                        free(k);
-                        if (r < 0)
-                                continue;
+                        FOREACH_WORD(w, l, t, state) {
+                                char *k;
 
-                        i++;
+                                k = strndup(w, l);
+                                if (!k) {
+                                        free(t);
+                                        free(b);
+                                        strv_free(a);
+                                        return -ENOMEM;
+                                }
+
+                                r = parse_uid(k, b + i);
+                                free(k);
+                                if (r < 0)
+                                        continue;
+
+                                i++;
+                        }
                 }
         }
 
