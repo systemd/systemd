@@ -774,7 +774,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
         /* If either side wants no automatic dependencies, then let's
          * skip this */
         if (!u->meta.default_dependencies ||
-            target->meta.default_dependencies)
+            !target->meta.default_dependencies)
                 return 0;
 
         /* Don't create loops */
