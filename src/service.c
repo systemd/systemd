@@ -1145,6 +1145,8 @@ static int service_load(Unit *u) {
 
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
+                service_fix_output(s);
+
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                         return r;
 
@@ -1173,8 +1175,6 @@ static int service_load(Unit *u) {
                 if (s->meta.default_dependencies)
                         if ((r = service_add_default_dependencies(s)) < 0)
                                 return r;
-
-                service_fix_output(s);
         }
 
         return service_verify(s);
