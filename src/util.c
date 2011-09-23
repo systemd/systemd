@@ -4445,17 +4445,23 @@ int detect_container(const char **id) {
 
                         if (streq(line, "container=lxc")) {
                                 fclose(f);
-                                *id = "lxc";
+
+                                if (id)
+                                        *id = "lxc";
                                 return 1;
 
                         } else if (streq(line, "container=systemd-nspawn")) {
                                 fclose(f);
-                                *id = "systemd-nspawn";
+
+                                if (id)
+                                        *id = "systemd-nspawn";
                                 return 1;
 
                         } else if (startswith(line, "container=")) {
                                 fclose(f);
-                                *id = "other-container";
+
+                                if (id)
+                                        *id = "other-container";
                                 return 1;
                         }
 
