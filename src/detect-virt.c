@@ -34,7 +34,8 @@ int main(int argc, char *argv[]) {
          * to detect whether we are being run in a virtualized
          * environment or not */
 
-        if ((r = detect_virtualization(&id)) < 0) {
+        r = detect_virtualization(&id);
+        if (r < 0) {
                 log_error("Failed to check for virtualization: %s", strerror(-r));
                 return EXIT_FAILURE;
         }

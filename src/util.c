@@ -4384,7 +4384,7 @@ int detect_vm(const char **id) {
 
         if (hypervisor) {
                 if (id)
-                        *id = "other";
+                        *id = "other-vm";
 
                 return 1;
         }
@@ -4421,7 +4421,51 @@ int detect_container(const char **id) {
                 return 1;
         }
 
-        if ((f = fopen("/proc/self/cgroup", "re"))) {
+        f = fopen("/proc/1/environ", "re");
+        if (f) {
+                bool done = false;
+
+                do {
+                        char line[LINE_MAX];
+                        unsigned i;
+
+                        for (i = 0; i < sizeof(line)-1; i++) {
+                                int c;
+
+                                c = getc(f);
+                                if (_unlikely_(c == EOF)) {
+                                        done = true;
+                                        break;
+                                } else if (c == 0)
+                                        break;
+
+                                line[i] = c;
+                        }
+                        line[i] = 0;
+
+                        if (streq(line, "container=lxc")) {
+                                fclose(f);
+                                *id = "lxc";
+                                return 1;
+
+                        } else if (streq(line, "container=systemd-nspawn")) {
+                                fclose(f);
+                                *id = "systemd-nspawn";
+                                return 1;
+
+                        } else if (startswith(line, "container=")) {
+                                fclose(f);
+                                *id = "other-container";
+                                return 1;
+                        }
+
+                } while (!done);
+
+                fclose(f);
+        }
+
+        f = fopen("/proc/self/cgroup", "re");
+        if (f) {
 
                 for (;;) {
                         char line[LINE_MAX], *p;
@@ -4429,7 +4473,8 @@ int detect_container(const char **id) {
                         if (!fgets(line, sizeof(line), f))
                                 break;
 
-                        if (!(p = strchr(strstrip(line), ':')))
+                        p = strchr(strstrip(line), ':');
+                        if (!p)
                                 continue;
 
                         if (strncmp(p, ":ns:", 4))

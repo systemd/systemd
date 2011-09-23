@@ -746,18 +746,22 @@
                                 whether it is a specific
                                 implementation. Takes either boolean
                                 value to check if being executed in
-                                any virtual environment or one of the
+                                any virtual environment or one of
                                 <varname>qemu</varname>,
                                 <varname>kvm</varname>,
                                 <varname>vmware</varname>,
                                 <varname>microsoft</varname>,
                                 <varname>oracle</varname>,
                                 <varname>xen</varname>,
-                                <varname>pidns</varname>,
-                                <varname>openvz</varname> to test
-                                against a specific implementation. The
-                                test may be negated by prepending an
-                                exclamation mark.
+                                <varname>openvz</varname>,
+                                <varname>lxc</varname>,
+                                <varname>systemd-nspawn</varname>,
+                                <varname>pidns</varname> to test
+                                against a specific implementation. If
+                                multiple virtualization technologies
+                                are nested only the innermost is
+                                considered. The test may be negated by
+                                prepending an exclamation mark.
                                 <varname>ConditionSecurity=</varname>
                                 may be used to check whether the given
                                 security module is enabled on the
@@ -788,7 +792,8 @@
                                 pipe symbol must be passed first, the
                                 exclamation second. Except for
                                 <varname>ConditionPathIsSymbolicLink=</varname>,
-                                all path checks follow symlinks.</para></listitem>
+                                all path checks follow
+                                symlinks.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
