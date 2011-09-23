@@ -41,6 +41,7 @@
 #include "sd-daemon.h"
 #include "ioprio.h"
 #include "readahead-common.h"
+#include "virt.h"
 
 static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
 

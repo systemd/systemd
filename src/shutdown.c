@@ -41,6 +41,7 @@
 #include "log.h"
 #include "umount.h"
 #include "util.h"
+#include "virt.h"
 
 #define TIMEOUT_USEC (5 * USEC_PER_SEC)
 #define FINALIZE_ATTEMPTS 50

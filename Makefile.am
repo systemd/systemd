@@ -613,6 +613,7 @@ noinst_LTLIBRARIES = \
 
 libsystemd_basic_la_SOURCES = \
 	src/util.c \
+        src/virt.c \
 	src/label.c \
 	src/hashmap.c \
 	src/set.c \

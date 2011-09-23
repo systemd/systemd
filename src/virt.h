@@ -1,9 +1,12 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#ifndef foovirthfoo
+#define foovirthfoo
+
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -19,30 +22,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <string.h>
+int detect_vm(const char **id);
+int detect_container(const char **id);
 
-#include "util.h"
-#include "virt.h"
+typedef enum Virtualization {
+        VIRTUALIZATION_NONE = 0,
+        VIRTUALIZATION_VM,
+        VIRTUALIZATION_CONTAINER,
+        _VIRTUALIZATION_MAX,
+        _VIRTUALIZATION_INVALID = -1
+} Virtualization;
 
-int main(int argc, char *argv[]) {
-        Virtualization r;
-        const char *id;
+Virtualization detect_virtualization(const char **id);
 
-        /* This is mostly intended to be used for scripts which want
-         * to detect whether we are being run in a virtualized
-         * environment or not */
-
-        r = detect_virtualization(&id);
-        if (r < 0) {
-                log_error("Failed to check for virtualization: %s", strerror(-r));
-                return EXIT_FAILURE;
-        }
-
-        if (r > 0)
-                puts(id);
-
-        return r > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-}
+#endif

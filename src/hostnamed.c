@@ -31,6 +31,7 @@
 #include "dbus-common.h"
 #include "polkit.h"
 #include "def.h"
+#include "virt.h"
 
 #define INTERFACE \
         " <interface name=\"org.freedesktop.hostname1\">\n"             \

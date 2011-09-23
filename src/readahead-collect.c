@@ -49,6 +49,7 @@
 #include "sd-daemon.h"
 #include "ioprio.h"
 #include "readahead-common.h"
+#include "virt.h"
 
 /* fixme:
  *

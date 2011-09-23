@@ -52,6 +52,7 @@
 #include "build.h"
 #include "strv.h"
 #include "def.h"
+#include "virt.h"
 
 static enum {
         ACTION_RUN,
