@@ -26,6 +26,7 @@
 #include "locale-setup.h"
 #include "util.h"
 #include "macro.h"
+#include "virt.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be

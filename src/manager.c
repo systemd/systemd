@@ -59,6 +59,7 @@
 #include "bus-errors.h"
 #include "exit-status.h"
 #include "sd-daemon.h"
+#include "virt.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16

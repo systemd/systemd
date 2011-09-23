@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "util.h"
+#include "virt.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;

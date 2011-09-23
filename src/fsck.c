@@ -34,6 +34,7 @@
 #include "dbus-common.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "virt.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
