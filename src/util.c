@@ -5814,7 +5814,7 @@ static const char* const ip_tos_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);
 
-static const char *const signal_table[] = {
+static const char *const __signal_table[] = {
         [SIGHUP] = "HUP",
         [SIGINT] = "INT",
         [SIGQUIT] = "QUIT",
@@ -5850,7 +5850,44 @@ static const char *const signal_table[] = {
         [SIGSYS] = "SYS"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(signal, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(__signal, int);
+
+const char *signal_to_string(int signo) {
+        static __thread char buf[12];
+        const char *name;
+
+        name = __signal_to_string(signo);
+        if (name)
+                return name;
+
+        if (signo >= SIGRTMIN && signo <= SIGRTMAX)
+                snprintf(buf, sizeof(buf) - 1, "RTMIN+%d", signo - SIGRTMIN);
+        else
+                snprintf(buf, sizeof(buf) - 1, "%d", signo);
+        char_array_0(buf);
+        return buf;
+}
+
+int signal_from_string(const char *s) {
+        int signo;
+        int offset = 0;
+        unsigned u;
+
+        signo =__signal_from_string(s);
+        if (signo > 0)
+                return signo;
+
+        if (startswith(s, "RTMIN+")) {
+                s += 6;
+                offset = SIGRTMIN;
+        }
+        if (safe_atou(s, &u) >= 0) {
+                signo = (int) u + offset;
+                if (signo > 0 && signo < _NSIG)
+                        return signo;
+        }
+        return -1;
+}
 
 bool kexec_loaded(void) {
        bool loaded = false;

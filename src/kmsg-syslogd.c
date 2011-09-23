@@ -379,7 +379,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         return -errno;
                 }
 
-                log_debug("Received SIG%s", strna(signal_to_string(sfsi.ssi_signo)));
+                log_debug("Received SIG%s", signal_to_string(sfsi.ssi_signo));
                 return 0;
 
         } else {

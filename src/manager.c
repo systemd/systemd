@@ -2111,11 +2111,11 @@ static int manager_process_signal_fd(Manager *m) {
                         get_process_name(sfsi.ssi_pid, &p);
 
                         log_debug("Received SIG%s from PID %lu (%s).",
-                                  strna(signal_to_string(sfsi.ssi_signo)),
+                                  signal_to_string(sfsi.ssi_signo),
                                   (unsigned long) sfsi.ssi_pid, strna(p));
                         free(p);
                 } else
-                        log_debug("Received SIG%s.", strna(signal_to_string(sfsi.ssi_signo)));
+                        log_debug("Received SIG%s.", signal_to_string(sfsi.ssi_signo));
 
                 switch (sfsi.ssi_signo) {
 
@@ -2283,7 +2283,7 @@ static int manager_process_signal_fd(Manager *m) {
                                 break;
 
                         default:
-                                log_warning("Got unhandled signal <%s>.", strna(signal_to_string(sfsi.ssi_signo)));
+                                log_warning("Got unhandled signal <%s>.", signal_to_string(sfsi.ssi_signo));
                         }
                 }
                 }
