@@ -163,7 +163,7 @@ bool condition_test(Condition *c) {
                 struct stat st;
 
                 if (stat(c->parameter, &st) < 0)
-                        return !c->negate;
+                        return c->negate;
                 return S_ISDIR(st.st_mode) == !c->negate;
         }
 
@@ -171,7 +171,7 @@ bool condition_test(Condition *c) {
                 struct stat st;
 
                 if (lstat(c->parameter, &st) < 0)
-                        return !c->negate;
+                        return c->negate;
                 return S_ISLNK(st.st_mode) == !c->negate;
         }
 
@@ -189,7 +189,7 @@ bool condition_test(Condition *c) {
                 struct stat st;
 
                 if (stat(c->parameter, &st) < 0)
-                        return !c->negate;
+                        return c->negate;
 
                 return (S_ISREG(st.st_mode) && (st.st_mode & 0111)) == !c->negate;
         }
