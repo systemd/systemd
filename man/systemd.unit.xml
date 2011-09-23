@@ -707,8 +707,8 @@
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
-                                exists and is a
-                                symbolic link. <varname>ConditionPathIsMountPoint=</varname>
+                                exists and is a symbolic
+                                link. <varname>ConditionPathIsMountPoint=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
@@ -746,13 +746,19 @@
                                 whether it is a specific
                                 implementation. Takes either boolean
                                 value to check if being executed in
-                                any virtual environment or one of
+                                any virtualized environment, or one of
+                                <varname>vm</varname> and
+                                <varname>container</varname> to test against
+                                a specific type of virtualization
+                                solution, or one of
                                 <varname>qemu</varname>,
                                 <varname>kvm</varname>,
                                 <varname>vmware</varname>,
                                 <varname>microsoft</varname>,
                                 <varname>oracle</varname>,
                                 <varname>xen</varname>,
+                                <varname>bochs</varname>,
+                                <varname>chroot</varname>,
                                 <varname>openvz</varname>,
                                 <varname>lxc</varname>,
                                 <varname>systemd-nspawn</varname>,

@@ -30,6 +30,7 @@
 
 #include "util.h"
 #include "condition.h"
+#include "virt.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
@@ -118,25 +119,35 @@ static bool test_kernel_command_line(const char *parameter) {
 }
 
 static bool test_virtualization(const char *parameter) {
-        int r, b;
+        int b;
+        Virtualization v;
         const char *id;
 
         assert(parameter);
 
-        r = detect_virtualization(&id);
-        if (r < 0) {
-                log_warning("Failed to detect virtualization, ignoring: %s", strerror(-r));
+        v = detect_virtualization(&id);
+        if (v < 0) {
+                log_warning("Failed to detect virtualization, ignoring: %s", strerror(-v));
                 return false;
         }
 
+        /* First, compare with yes/no */
         b = parse_boolean(parameter);
 
-        if (r > 0 && b > 0)
+        if (v > 0 && b > 0)
                 return true;
 
-        if (r == 0 && b == 0)
+        if (v == 0 && b == 0)
                 return true;
 
+        /* Then, compare categorization */
+        if (v == VIRTUALIZATION_VM && streq(parameter, "vm"))
+                return true;
+
+        if (v == VIRTUALIZATION_CONTAINER && streq(parameter, "container"))
+                return true;
+
+        /* Finally compare id */
         return streq(parameter, id);
 }
 
