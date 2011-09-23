@@ -16,6 +16,7 @@ ConditionPathExists=/.readahead
 Type=notify
 ExecStart=@rootlibexecdir@/systemd-readahead-replay
 RemainAfterExit=yes
+StandardOutput=null
 
 [Install]
 WantedBy=default.target
