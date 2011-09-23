@@ -2233,8 +2233,9 @@ static int manager_process_signal_fd(Manager *m) {
 
                         if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
                             (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
-                                manager_start_target(m, target_table[sfsi.ssi_signo - SIGRTMIN],
-                                                     (sfsi.ssi_signo == 1 || sfsi.ssi_signo == 2) ? JOB_ISOLATE : JOB_REPLACE);
+                                int idx = (int) sfsi.ssi_signo - SIGRTMIN;
+                                manager_start_target(m, target_table[idx],
+                                                     (idx == 1 || idx == 2) ? JOB_ISOLATE : JOB_REPLACE);
                                 break;
                         }
 
