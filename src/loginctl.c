@@ -1064,7 +1064,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         uint32_t u;
 
                         ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL);
-                        if (r < 0) {
+                        if (ret < 0) {
                                 log_error("User %s unknown.", args[i]);
                                 goto finish;
                         }
