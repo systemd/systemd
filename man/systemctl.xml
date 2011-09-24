@@ -603,6 +603,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><command>list-unit-files</command></term>
+
+                                <listitem><para>List installed unit files.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><command>enable [NAME...]</command></term>
 
                                 <listitem><para>Enable one or more
