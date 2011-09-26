@@ -92,7 +92,7 @@ struct udev_device {
 };
 
 /**
- * udev_device_get_devnum:
+ * udev_device_get_seqnum:
  * @udev_device: udev device
  *
  * This is only valid if the device was received through a monitor. Devices read from
