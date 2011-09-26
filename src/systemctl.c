@@ -66,6 +66,7 @@ static const char *arg_job_mode = "replace";
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_immediate = false;
 static bool arg_no_block = false;
+static bool arg_no_legend = false;
 static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_sync = false;
@@ -331,7 +332,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         job_len = MAX(job_len, strlen(u->job_type));
         }
 
-        if (on_tty()) {
+        if (!arg_no_legend) {
                 printf("%-25s %-6s %-*s %-*s %-*s", "UNIT", "LOAD",
                        active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
                 if (columns() >= 80+12 || arg_full || !arg_no_pager)
@@ -396,7 +397,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 fputs("\n", stdout);
         }
 
-        if (on_tty()) {
+        if (!arg_no_legend) {
                 printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
                        "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
                        "SUB    = The low-level unit activation state, values depend on unit type.\n"
@@ -3924,6 +3925,7 @@ static int systemctl_help(void) {
                "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
                "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
                "                      configuration\n"
+               "     --no-legend      Do not print a legend (column headers and hints)\n"
                "     --no-pager       Do not pipe output into a pager\n"
                "     --no-ask-password\n"
                "                      Do not ask for system passwords\n"
@@ -4074,6 +4076,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_NO_BLOCK,
+                ARG_NO_LEGEND,
                 ARG_NO_PAGER,
                 ARG_NO_WALL,
                 ARG_ORDER,
@@ -4102,6 +4105,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "global",    no_argument,       NULL, ARG_GLOBAL    },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
+                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL   },
                 { "quiet",     no_argument,       NULL, 'q'           },
@@ -4188,6 +4192,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_BLOCK:
                         arg_no_block = true;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_no_legend = true;
                         break;
 
                 case ARG_NO_PAGER:
