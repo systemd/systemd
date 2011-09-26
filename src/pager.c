@@ -20,6 +20,7 @@
 ***/
 
 #include <sys/types.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -30,6 +31,18 @@
 #include "macro.h"
 
 static pid_t pager_pid = 0;
+
+static void pager_fallback(void) {
+        ssize_t n;
+        do {
+                n = splice(STDIN_FILENO, NULL, STDOUT_FILENO, NULL, 64*1024, 0);
+        } while (n > 0);
+        if (n < 0) {
+                log_error("Internal pager failed: %m");
+                _exit(EXIT_FAILURE);
+        }
+        _exit(EXIT_SUCCESS);
+}
 
 void pager_open(void) {
         int fd[2];
@@ -96,10 +109,9 @@ void pager_open(void) {
 
                 execlp("less", "less", NULL);
                 execlp("more", "more", NULL);
-                execlp("cat", "cat", NULL);
 
-                log_error("Unable to execute pager: %m");
-                _exit(EXIT_FAILURE);
+                pager_fallback();
+                /* not reached */
         }
 
         /* Return in the parent */
