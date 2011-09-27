@@ -315,35 +315,59 @@ static bool output_show_unit(const struct unit_info *u) {
 }
 
 static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
-        unsigned active_len, sub_len, job_len, n_shown = 0;
+        unsigned id_len, max_id_len, active_len, sub_len, job_len, desc_len, n_shown = 0;
         const struct unit_info *u;
 
+        max_id_len = sizeof("UNIT")-1;
         active_len = sizeof("ACTIVE")-1;
         sub_len = sizeof("SUB")-1;
         job_len = sizeof("JOB")-1;
+        desc_len = 0;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 if (!output_show_unit(u))
                         continue;
 
+                max_id_len = MAX(max_id_len, strlen(u->id));
                 active_len = MAX(active_len, strlen(u->active_state));
                 sub_len = MAX(sub_len, strlen(u->sub_state));
                 if (u->job_id != 0)
                         job_len = MAX(job_len, strlen(u->job_type));
         }
 
-        if (!arg_no_legend) {
-                printf("%-25s %-6s %-*s %-*s %-*s", "UNIT", "LOAD",
-                       active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
-                if (columns() >= 80+12 || arg_full || !arg_no_pager)
-                        printf(" %s\n", "DESCRIPTION");
-                else
-                        printf("\n");
-        }
+        if (!arg_full) {
+                unsigned basic_len;
+                id_len = MIN(max_id_len, 25);
+                basic_len = 5 + id_len + 6 + active_len + sub_len + job_len;
+                if (basic_len < (unsigned) columns()) {
+                        unsigned extra_len, incr;
+                        extra_len = columns() - basic_len;
+                        /* Either UNIT already got 25, or is fully satisfied.
+                         * Grant up to 25 to DESC now. */
+                        incr = MIN(extra_len, 25);
+                        desc_len += incr;
+                        extra_len -= incr;
+                        /* split the remaining space between UNIT and DESC,
+                         * but do not give UNIT more than it needs. */
+                        if (extra_len > 0) {
+                                incr = MIN(extra_len / 2, max_id_len - id_len);
+                                id_len += incr;
+                                desc_len += extra_len - incr;
+                        }
+                }
+        } else
+                id_len = max_id_len;
+
+        if (arg_full || !arg_no_pager)
+                desc_len = INT_MAX;
+
+        if (!arg_no_legend)
+                printf("%-*s %-6s %-*s %-*s %-*s %.*s\n", id_len, "UNIT", "LOAD",
+                       active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB",
+                       desc_len, "DESCRIPTION");
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 char *e;
-                int a = 0, b = 0;
                 const char *on_loaded, *off_loaded;
                 const char *on_active, *off_active;
 
@@ -365,36 +389,17 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 } else
                         on_active = off_active = "";
 
-                e = arg_full ? NULL : ellipsize(u->id, 25, 33);
+                e = arg_full ? NULL : ellipsize(u->id, id_len, 33);
 
-                printf("%-25s %s%-6s%s %s%-*s %-*s%s%n",
-                       e ? e : u->id,
+                printf("%-*s %s%-6s%s %s%-*s %-*s%s %-*s %.*s\n",
+                       id_len, e ? e : u->id,
                        on_loaded, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
-                       &a);
+                       job_len, u->job_id ? u->job_type : "",
+                       desc_len, u->description);
 
                 free(e);
-
-                a -= strlen(on_loaded) + strlen(off_loaded);
-                a -= strlen(on_active) + strlen(off_active);
-
-                if (u->job_id != 0)
-                        printf(" %-*s", job_len, u->job_type);
-                else
-                        b = 1 + job_len;
-
-                if (a + b + 1 < columns()) {
-                        if (u->job_id == 0)
-                                printf(" %-*s", job_len, "");
-
-                        if (arg_full || !arg_no_pager)
-                                printf(" %s", u->description);
-                        else
-                                printf(" %.*s", columns() - a - b - 1, u->description);
-                }
-
-                fputs("\n", stdout);
         }
 
         if (!arg_no_legend) {
