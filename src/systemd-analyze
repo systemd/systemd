@@ -82,7 +82,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == 'time':
         initrd_time, start_time, finish_time = acquire_start_time()
 
         if initrd_time > 0:
-                print "Startup finished in %lums (kernel) + %lums (initrd) + %lums (userspace) = %lums" % ( \
+                print "Startup finished in %lums (kernel) + %lums (initramfs) + %lums (userspace) = %lums" % ( \
                         initrd_time/1000, \
                         (start_time - initrd_time)/1000, \
                         (finish_time - start_time)/1000, \
@@ -116,7 +116,11 @@ elif sys.argv[1] == 'plot':
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[1])
 
-        count = 0
+        # Account for kernel and initramfs bars if they exist
+        if initrd_time > 0:
+                count = 3
+        else:
+                count = 2
 
         for name, ixt, aet, axt, iet in s:
 
@@ -130,7 +134,7 @@ elif sys.argv[1] == 'plot':
         bar_space = bar_height * 0.1
 
         # 1000px = 10s, 1px = 10ms
-        width = (finish_time - start_time)/10000 + border*2
+        width = finish_time/10000 + border*2
         height = count * (bar_height + bar_space) + border * 2
 
         if width < 1000:
@@ -147,7 +151,7 @@ elif sys.argv[1] == 'plot':
         context.set_line_width(1)
         context.set_source_rgb(0.7, 0.7, 0.7)
 
-        for x in range(0, max((finish_time - start_time)/10000,110), 100):
+        for x in range(0, finish_time/10000 + 100, 100):
                 context.move_to(x, 0)
                 context.line_to(x, height-border*2)
 
@@ -163,10 +167,29 @@ elif sys.argv[1] == 'plot':
         banner = "Running on %s (%s %s) %s" % (os.uname()[1], os.uname()[2], os.uname()[3], os.uname()[4])
         draw_text(context, 0, -15, banner, hcenter = 0, vcenter = 1)
 
-        for x in range(0, max((finish_time - start_time)/10000,110), 100):
+        for x in range(0, finish_time/10000 + 100, 100):
                 draw_text(context, x, -5, "%lus" % (x/100), vcenter = 0, hcenter = 0)
 
         y = 0
+
+        # draw boxes for kernel and initramfs boot time
+        if initrd_time > 0:
+                draw_box(context, 0, y, initrd_time/10000, bar_height, 0.7, 0.7, 0.7)
+                draw_text(context, 10, y + bar_height/2, "kernel", hcenter = 0)
+                y += bar_height + bar_space
+
+                draw_box(context, initrd_time/10000, y, start_time/10000-initrd_time/10000, bar_height, 0.7, 0.7, 0.7)
+                draw_text(context, initrd_time/10000 + 10, y + bar_height/2, "initramfs", hcenter = 0)
+                y += bar_height + bar_space
+
+        else:
+                draw_box(context, 0, y, start_time/10000, bar_height, 0.6, 0.6, 0.6)
+                draw_text(context, 10, y + bar_height/2, "kernel", hcenter = 0)
+                y += bar_height + bar_space
+
+        draw_box(context, start_time/10000, y, finish_time/10000-start_time/10000, bar_height, 0.7, 0.7, 0.7)
+        draw_text(context, start_time/10000 + 10, y + bar_height/2, "userspace", hcenter = 0)
+        y += bar_height + bar_space
 
         for name, ixt, aet, axt, iet in s:
 
@@ -176,7 +199,7 @@ elif sys.argv[1] == 'plot':
                 if ixt >= start_time and ixt <= finish_time:
 
                         # Activating
-                        a = ixt - start_time
+                        a = ixt
                         b = min(filter(lambda x: x >= ixt, (aet, axt, iet, finish_time))) - ixt
 
                         draw_box(context, a/10000, y, b/10000, bar_height, 1, 0, 0)
@@ -188,7 +211,7 @@ elif sys.argv[1] == 'plot':
                 if aet >= start_time and aet <= finish_time:
 
                         # Active
-                        a = aet - start_time
+                        a = aet
                         b = min(filter(lambda x: x >= aet, (axt, iet, finish_time))) - aet
 
                         draw_box(context, a/10000, y, b/10000, bar_height, .8, .6, .6)
@@ -200,7 +223,7 @@ elif sys.argv[1] == 'plot':
                 if axt >= start_time and axt <= finish_time:
 
                         # Deactivating
-                        a = axt - start_time
+                        a = axt
                         b = min(filter(lambda x: x >= axt, (iet, finish_time))) - axt
 
                         draw_box(context, a/10000, y, b/10000, bar_height, .6, .4, .4)
@@ -222,7 +245,7 @@ elif sys.argv[1] == 'plot':
         draw_text(context, 0, height-border*2, "Legend: Red = Activating; Pink = Active; Dark Pink = Deactivating", hcenter = 0, vcenter = -1)
 
         if initrd_time > 0:
-                draw_text(context, 0, height-border*2 + bar_height, "Startup finished in %lums (kernel) + %lums (initrd) + %lums (userspace) = %lums" % ( \
+                draw_text(context, 0, height-border*2 + bar_height, "Startup finished in %lums (kernel) + %lums (initramfs) + %lums (userspace) = %lums" % ( \
                         initrd_time/1000, \
                         (start_time - initrd_time)/1000, \
                         (finish_time - start_time)/1000, \
