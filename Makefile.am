@@ -76,6 +76,7 @@ AM_CPPFLAGS = \
 	-DSYSTEM_GENERATOR_PATH=\"$(systemgeneratordir)\" \
 	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
+        -DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\"
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
@@ -1030,6 +1031,12 @@ systemd_localed_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
+
+dist_pkgdata_DATA = \
+        src/kbd-model-map
+
+dist_noinst_SCRIPT = \
+        src/generate-kbd-model-map
 
 systemd_timedated_SOURCES = \
 	src/timedated.c \
@@ -2016,3 +2023,6 @@ upload: all distcheck
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
+
+update-kbd-model-map:
+	src/generate-kbd-model-map > src/kbd-model-map

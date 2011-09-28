@@ -34,8 +34,28 @@
 #define INTERFACE                                                       \
         " <interface name=\"org.freedesktop.locale1\">\n"               \
         "  <property name=\"Locale\" type=\"as\" access=\"read\"/>\n"   \
+        "  <property name=\"VConsoleKeymap\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"VConsoleKeymapToggle\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"X11Layout\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"X11Model\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"X11Variant\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"X11Options\" type=\"s\" access=\"read\"/>\n" \
         "  <method name=\"SetLocale\">\n"                               \
         "   <arg name=\"locale\" type=\"as\" direction=\"in\"/>\n"      \
+        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetVConsoleKeyboard\">\n"                      \
+        "   <arg name=\"keymap\" type=\"s\" direction=\"in\"/>\n"       \
+        "   <arg name=\"keymap_toggle\" type=\"s\" direction=\"in\"/>\n" \
+        "   <arg name=\"convert\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetX11Keyboard\">\n"                          \
+        "   <arg name=\"layout\" type=\"s\" direction=\"in\"/>\n"       \
+        "   <arg name=\"model\" type=\"s\" direction=\"in\"/>\n"        \
+        "   <arg name=\"variant\" type=\"s\" direction=\"in\"/>\n"      \
+        "   <arg name=\"options\" type=\"s\" direction=\"in\"/>\n"      \
+        "   <arg name=\"convert\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
         " </interface>\n"
@@ -109,15 +129,50 @@ static char *data[_PROP_MAX] = {
         NULL
 };
 
+static char *x11_layout = NULL, *x11_model = NULL, *x11_variant = NULL, *x11_options = NULL;
+static char *vc_keymap = NULL, *vc_keymap_toggle = NULL;
+
 static usec_t remain_until = 0;
 
-static void free_data(void) {
+static int free_and_set(char **s, const char *v) {
+        int r;
+        char *t;
+
+        assert(s);
+
+        r = strdup_or_null(isempty(v) ? NULL : v, &t);
+        if (r < 0)
+                return r;
+
+        free(*s);
+        *s = t;
+
+        return 0;
+}
+
+static void free_data_locale(void) {
         int p;
 
         for (p = 0; p < _PROP_MAX; p++) {
                 free(data[p]);
                 data[p] = NULL;
         }
+}
+
+static void free_data_x11(void) {
+        free(x11_layout);
+        free(x11_model);
+        free(x11_variant);
+        free(x11_options);
+
+        x11_layout = x11_model = x11_variant = x11_options = NULL;
+}
+
+static void free_data_vconsole(void) {
+        free(vc_keymap);
+        free(vc_keymap_toggle);
+
+        vc_keymap = vc_keymap_toggle = NULL;
 }
 
 static void simplify(void) {
@@ -130,10 +185,10 @@ static void simplify(void) {
                 }
 }
 
-static int read_data(void) {
+static int read_data_locale(void) {
         int r;
 
-        free_data();
+        free_data_locale();
 
         r = parse_env_file("/etc/locale.conf", NEWLINE,
                            "LANG",              &data[PROP_LANG],
@@ -181,7 +236,129 @@ static int read_data(void) {
         return r;
 }
 
-static int write_data(void) {
+static void free_data(void) {
+        free_data_locale();
+        free_data_vconsole();
+        free_data_x11();
+}
+
+static int read_data_vconsole(void) {
+        int r;
+
+        free_data_vconsole();
+
+        r = parse_env_file("/etc/vconsole.conf", NEWLINE,
+                           "KEYMAP",        &vc_keymap,
+                           "KEYMAP_TOGGLE", &vc_keymap_toggle,
+                           NULL);
+
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        return 0;
+}
+
+static int read_data_x11(void) {
+        FILE *f;
+        char line[LINE_MAX];
+        bool in_section = false;
+
+        free_data_x11();
+
+        f = fopen("/etc/X11/xorg.conf.d/00-keyboard.conf", "re");
+        if (!f) {
+                if (errno == ENOENT) {
+
+#ifdef TARGET_FEDORA
+                        f = fopen("/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf", "re");
+                        if (!f) {
+                                if (errno == ENOENT)
+                                        return 0;
+                                else
+                                        return -errno;
+                        }
+#else
+                        return 0;
+#endif
+
+                } else
+                          return -errno;
+        }
+
+        while (fgets(line, sizeof(line), f)) {
+                char *l;
+
+                char_array_0(line);
+                l = strstrip(line);
+
+                if (l[0] == 0 || l[0] == '#')
+                        continue;
+
+                if (in_section && first_word(l, "Option")) {
+                        char **a;
+
+                        a = strv_split_quoted(l);
+                        if (!a) {
+                                fclose(f);
+                                return -ENOMEM;
+                        }
+
+                        if (strv_length(a) == 3) {
+
+                                if (streq(a[1], "XkbLayout")) {
+                                        free(x11_layout);
+                                        x11_layout = a[2];
+                                        a[2] = NULL;
+                                } else if (streq(a[1], "XkbModel")) {
+                                        free(x11_model);
+                                        x11_model = a[2];
+                                        a[2] = NULL;
+                                } else if (streq(a[1], "XkbVariant")) {
+                                        free(x11_variant);
+                                        x11_variant = a[2];
+                                        a[2] = NULL;
+                                } else if (streq(a[1], "XkbOptions")) {
+                                        free(x11_options);
+                                        x11_options = a[2];
+                                        a[2] = NULL;
+                                }
+                        }
+
+                        strv_free(a);
+
+                } else if (!in_section && first_word(l, "Section")) {
+                        char **a;
+
+                        a = strv_split_quoted(l);
+                        if (!a) {
+                                fclose(f);
+                                return -ENOMEM;
+                        }
+
+                        if (strv_length(a) == 2 && streq(a[1], "InputClass"))
+                                in_section = true;
+
+                        strv_free(a);
+                } else if (in_section && first_word(l, "EndSection"))
+                        in_section = false;
+        }
+
+        fclose(f);
+
+        return 0;
+}
+
+static int read_data(void) {
+        int r, q, p;
+
+        r = read_data_locale();
+        q = read_data_vconsole();
+        p = read_data_x11();
+
+        return r < 0 ? r : q < 0 ? q : p;
+}
+
+static int write_data_locale(void) {
         int r, p;
         char **l = NULL;
 
@@ -320,6 +497,446 @@ finish:
         free(l_unset);
 }
 
+static int write_data_vconsole(void) {
+        int r;
+        char **l = NULL;
+
+        r = load_env_file("/etc/vconsole.conf", &l);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        if (isempty(vc_keymap))
+                l = strv_env_unset(l, "KEYMAP");
+        else {
+                char *s, **u;
+
+                s = strappend("KEYMAP=", vc_keymap);
+                if (!s) {
+                        strv_free(l);
+                        return -ENOMEM;
+                }
+
+                u = strv_env_set(l, s);
+                free(s);
+                strv_free(l);
+
+                if (!u)
+                        return -ENOMEM;
+
+                l = u;
+        }
+
+        if (isempty(vc_keymap_toggle))
+                l = strv_env_unset(l, "KEYMAP_TOGGLE");
+        else  {
+                char *s, **u;
+
+                s = strappend("KEYMAP_TOGGLE=", vc_keymap_toggle);
+                if (!s) {
+                        strv_free(l);
+                        return -ENOMEM;
+                }
+
+                u = strv_env_set(l, s);
+                free(s);
+                strv_free(l);
+
+                if (!u)
+                        return -ENOMEM;
+
+                l = u;
+        }
+
+        if (strv_isempty(l)) {
+                strv_free(l);
+
+                if (unlink("/etc/vconsole.conf") < 0)
+                        return errno == ENOENT ? 0 : -errno;
+
+                return 0;
+        }
+
+        r = write_env_file("/etc/vconsole.conf", l);
+        strv_free(l);
+
+        return r;
+}
+
+static int write_data_x11(void) {
+        FILE *f;
+        char *temp_path;
+        int r;
+
+        if (isempty(x11_layout) &&
+            isempty(x11_model) &&
+            isempty(x11_variant) &&
+            isempty(x11_options)) {
+
+#ifdef TARGET_FEDORA
+                unlink("/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
+#endif
+
+                if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
+                        return errno == ENOENT ? 0 : -errno;
+
+                return 0;
+        }
+
+        mkdir_parents("/etc/X11/xorg.conf.d", 0755);
+
+        r = fopen_temporary("/etc/X11/xorg.conf.d/00-keyboard.conf", &f, &temp_path);
+        if (r < 0)
+                return r;
+
+        fchmod(fileno(f), 0644);
+
+        fputs("# Read and parsed by systemd-localed. It's probably wise not to edit this file\n"
+              "# manually too freely.\n"
+              "Section \"InputClass\"\n"
+              "        Identifier \"system-keyboard\"\n"
+              "        MatchIsKeyboard \"on\"\n", f);
+
+        if (!isempty(x11_layout))
+                fprintf(f, "        Option \"XkbLayout\" \"%s\"\n", x11_layout);
+
+        if (!isempty(x11_model))
+                fprintf(f, "        Option \"XkbModel\" \"%s\"\n", x11_model);
+
+        if (!isempty(x11_variant))
+                fprintf(f, "        Option \"XkbVariant\" \"%s\"\n", x11_variant);
+
+        if (!isempty(x11_options))
+                fprintf(f, "        Option \"XkbOptions\" \"%s\"\n", x11_options);
+
+        fputs("EndSection\n", f);
+        fflush(f);
+
+        if (ferror(f) || rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0) {
+                r = -errno;
+                unlink("/etc/X11/xorg.conf.d/00-keyboard.conf");
+                unlink(temp_path);
+        } else {
+
+#ifdef TARGET_FEDORA
+                unlink("/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
+#endif
+
+                r = 0;
+        }
+
+        fclose(f);
+        free(temp_path);
+
+        return r;
+}
+
+static int load_vconsole_keymap(DBusConnection *bus, DBusError *error) {
+        DBusMessage *m = NULL, *reply = NULL;
+        const char *name = "systemd-vconsole-setup.service", *mode = "replace";
+        int r;
+        DBusError _error;
+
+        assert(bus);
+
+        if (!error) {
+                dbus_error_init(&_error);
+                error = &_error;
+        }
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "RestartUnit");
+        if (!m) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &name,
+                                      DBUS_TYPE_STRING, &mode,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(error));
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        if (error == &_error)
+                dbus_error_free(error);
+
+        return r;
+}
+
+static char *strnulldash(const char *s) {
+        return s == NULL || *s == 0 || (s[0] == '-' && s[1] == 0) ? NULL : (char*) s;
+}
+
+static int read_next_mapping(FILE *f, unsigned *n, char ***a) {
+        assert(f);
+        assert(n);
+        assert(a);
+
+        for (;;) {
+                char line[LINE_MAX];
+                char *l, **b;
+
+                errno = 0;
+                if (!fgets(line, sizeof(line), f)) {
+
+                        if (ferror(f))
+                                return errno ? -errno : -EIO;
+
+                        return 0;
+                }
+
+                (*n) ++;
+
+                l = strstrip(line);
+                if (l[0] == 0 || l[0] == '#')
+                        continue;
+
+                b = strv_split_quoted(l);
+                if (!b)
+                        return -ENOMEM;
+
+                if (strv_length(b) < 5) {
+                        log_error("Invalid line "SYSTEMD_KBD_MODEL_MAP":%u, ignoring.", *n);
+                        strv_free(b);
+                        continue;
+
+                }
+
+                *a = b;
+                return 1;
+        }
+}
+
+static int convert_vconsole_to_x11(DBusConnection *connection) {
+        bool modified = false;
+
+        assert(connection);
+
+        if (isempty(vc_keymap)) {
+
+                modified =
+                        !isempty(x11_layout) ||
+                        !isempty(x11_model) ||
+                        !isempty(x11_variant) ||
+                        !isempty(x11_options);
+
+                free_data_x11();
+        } else {
+                FILE *f;
+                unsigned n = 0;
+
+                f = fopen(SYSTEMD_KBD_MODEL_MAP, "re");
+                if (!f)
+                        return -errno;
+
+                for (;;) {
+                        char **a;
+                        int r;
+
+                        r = read_next_mapping(f, &n, &a);
+                        if (r < 0) {
+                                fclose(f);
+                                return r;
+                        }
+
+                        if (r == 0)
+                                break;
+
+                        if (!streq(vc_keymap, a[0])) {
+                                strv_free(a);
+                                continue;
+                        }
+
+                        if (!streq_ptr(x11_layout, strnulldash(a[1])) ||
+                            !streq_ptr(x11_model, strnulldash(a[2])) ||
+                            !streq_ptr(x11_variant, strnulldash(a[3])) ||
+                            !streq_ptr(x11_options, strnulldash(a[4]))) {
+
+                                if (free_and_set(&x11_layout, strnulldash(a[1])) < 0 ||
+                                    free_and_set(&x11_model, strnulldash(a[2])) < 0 ||
+                                    free_and_set(&x11_variant, strnulldash(a[3])) < 0 ||
+                                    free_and_set(&x11_options, strnulldash(a[4])) < 0) {
+                                        strv_free(a);
+                                        fclose(f);
+                                        return -ENOMEM;
+                                }
+
+                                modified = true;
+                        }
+
+                        strv_free(a);
+                        break;
+                }
+
+                fclose(f);
+        }
+
+        if (modified) {
+                dbus_bool_t b;
+                DBusMessage *changed;
+                int r;
+
+                r = write_data_x11();
+                if (r < 0)
+                        log_error("Failed to set X11 keyboard layout: %s", strerror(-r));
+
+                changed = bus_properties_changed_new(
+                                "/org/freedesktop/locale1",
+                                "org.freedesktop.locale1",
+                                "X11Layout\0"
+                                "X11Model\0"
+                                "X11Variant\0"
+                                "X11Options\0");
+
+                if (!changed)
+                        return -ENOMEM;
+
+                b = dbus_connection_send(connection, changed, NULL);
+                dbus_message_unref(changed);
+
+                if (!b)
+                        return -ENOMEM;
+        }
+
+        return 0;
+}
+
+static int convert_x11_to_vconsole(DBusConnection *connection) {
+        bool modified = false;
+
+        assert(connection);
+
+        if (isempty(x11_layout)) {
+
+                modified =
+                        !isempty(vc_keymap) ||
+                        !isempty(vc_keymap_toggle);
+
+                free_data_x11();
+        } else {
+                FILE *f;
+                unsigned n = 0;
+                unsigned best_matching = 0;
+                char *new_keymap = NULL;
+
+                f = fopen(SYSTEMD_KBD_MODEL_MAP, "re");
+                if (!f)
+                        return -errno;
+
+                for (;;) {
+                        char **a;
+                        unsigned matching = 0;
+                        int r;
+
+                        r = read_next_mapping(f, &n, &a);
+                        if (r < 0) {
+                                fclose(f);
+                                return r;
+                        }
+
+                        if (r == 0)
+                                break;
+
+                        /* Determine how well matching this entry is */
+                        if (streq_ptr(x11_layout, a[1])) {
+                                matching ++;
+
+                                if (streq_ptr(x11_model, a[2])) {
+                                        matching++;
+
+                                        if (streq_ptr(x11_variant, a[3])) {
+                                                matching++;
+
+                                                if (streq_ptr(x11_options, a[4]))
+                                                        matching++;
+                                        }
+                                }
+                        }
+
+                        /* The best matching entry so far, then let's
+                         * save that */
+                        if (matching > best_matching) {
+                                best_matching = matching;
+
+                                free(new_keymap);
+                                new_keymap = strdup(a[0]);
+
+                                if (!new_keymap) {
+                                        strv_free(a);
+                                        fclose(f);
+                                        return -ENOMEM;
+                                }
+                        }
+
+                        strv_free(a);
+                }
+
+                fclose(f);
+
+                if (!streq_ptr(vc_keymap, new_keymap)) {
+                        free(vc_keymap);
+                        vc_keymap = new_keymap;
+
+                        free(vc_keymap_toggle);
+                        vc_keymap_toggle = NULL;
+
+                        modified = true;
+                } else
+                        free(new_keymap);
+        }
+
+        if (modified) {
+                dbus_bool_t b;
+                DBusMessage *changed;
+                int r;
+
+                r = write_data_vconsole();
+                if (r < 0)
+                        log_error("Failed to set virtual console keymap: %s", strerror(-r));
+
+                changed = bus_properties_changed_new(
+                                "/org/freedesktop/locale1",
+                                "org.freedesktop.locale1",
+                                "VConsoleKeymap\0"
+                                "VConsoleKeymapToggle\0");
+
+                if (!changed)
+                        return -ENOMEM;
+
+                b = dbus_connection_send(connection, changed, NULL);
+                dbus_message_unref(changed);
+
+                if (!b)
+                        return -ENOMEM;
+
+                return load_vconsole_keymap(connection, NULL);
+        }
+
+        return 0;
+}
+
 static int append_locale(DBusMessageIter *i, const char *property, void *userdata) {
         int r, c = 0, p;
         char **l;
@@ -354,7 +971,13 @@ static DBusHandlerResult locale_message_handler(
                 void *userdata) {
 
         const BusProperty properties[] = {
-                { "org.freedesktop.locale1", "Locale", append_locale, "as", NULL},
+                { "org.freedesktop.locale1", "Locale",               append_locale,              "as", NULL                   },
+                { "org.freedesktop.locale1", "X11Layout",            bus_property_append_string, "s",  x11_layout             },
+                { "org.freedesktop.locale1", "X11Model",             bus_property_append_string, "s",  x11_model              },
+                { "org.freedesktop.locale1", "X11Variant",           bus_property_append_string, "s",  x11_variant            },
+                { "org.freedesktop.locale1", "X11Options",           bus_property_append_string, "s",  x11_options            },
+                { "org.freedesktop.locale1", "VConsoleKeymap",       bus_property_append_string, "s",  vc_keymap              },
+                { "org.freedesktop.locale1", "VConsoleKeymapToggle", bus_property_append_string, "s",  vc_keymap_toggle       },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
@@ -472,7 +1095,7 @@ static DBusHandlerResult locale_message_handler(
 
                         simplify();
 
-                        r = write_data();
+                        r = write_data_locale();
                         if (r < 0) {
                                 log_error("Failed to set locale: %s", strerror(-r));
                                 return bus_send_error_reply(connection, message, NULL, r);
@@ -489,9 +1112,138 @@ static DBusHandlerResult locale_message_handler(
                         if (!changed)
                                 goto oom;
                 }
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.locale1", "SetVConsoleKeyboard")) {
 
+                const char *keymap, *keymap_toggle;
+                dbus_bool_t convert, interactive;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &keymap,
+                                    DBUS_TYPE_STRING, &keymap_toggle,
+                                    DBUS_TYPE_BOOLEAN, &convert,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (isempty(keymap))
+                        keymap = NULL;
+
+                if (isempty(keymap_toggle))
+                        keymap_toggle = NULL;
+
+                if (!streq_ptr(keymap, vc_keymap) ||
+                    !streq_ptr(keymap_toggle, vc_keymap_toggle)) {
+
+                        r = verify_polkit(connection, message, "org.freedesktop.locale1.set-keyboard", interactive, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+
+                        if (free_and_set(&vc_keymap, keymap) < 0 ||
+                            free_and_set(&vc_keymap_toggle, keymap_toggle) < 0)
+                                goto oom;
+
+                        r = write_data_vconsole();
+                        if (r < 0) {
+                                log_error("Failed to set virtual console keymap: %s", strerror(-r));
+                                return bus_send_error_reply(connection, message, NULL, r);
+                        }
+
+                        log_info("Changed virtual console keymap to '%s'", strempty(vc_keymap));
+
+                        r = load_vconsole_keymap(connection, NULL);
+                        if (r < 0)
+                                log_error("Failed to request keymap reload: %s", strerror(-r));
+
+                        changed = bus_properties_changed_new(
+                                        "/org/freedesktop/locale1",
+                                        "org.freedesktop.locale1",
+                                        "VConsoleKeymap\0"
+                                        "VConsoleKeymapToggle\0");
+                        if (!changed)
+                                goto oom;
+
+                        if (convert) {
+                                r = convert_vconsole_to_x11(connection);
+
+                                if (r < 0)
+                                        log_error("Failed to convert keymap data: %s", strerror(-r));
+                        }
+                }
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.locale1", "SetX11Keyboard")) {
+
+                const char *layout, *model, *variant, *options;
+                dbus_bool_t convert, interactive;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &layout,
+                                    DBUS_TYPE_STRING, &model,
+                                    DBUS_TYPE_STRING, &variant,
+                                    DBUS_TYPE_STRING, &options,
+                                    DBUS_TYPE_BOOLEAN, &convert,
+                                    DBUS_TYPE_BOOLEAN, &interactive,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (isempty(layout))
+                        layout = NULL;
+
+                if (isempty(model))
+                        model = NULL;
+
+                if (isempty(variant))
+                        variant = NULL;
+
+                if (isempty(options))
+                        options = NULL;
+
+                if (!streq_ptr(layout, x11_layout) ||
+                    !streq_ptr(model, x11_model) ||
+                    !streq_ptr(variant, x11_variant) ||
+                    !streq_ptr(options, x11_options)) {
+
+                        r = verify_polkit(connection, message, "org.freedesktop.locale1.set-keyboard", interactive, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
+
+                        if (free_and_set(&x11_layout, layout) < 0 ||
+                            free_and_set(&x11_model, model) < 0 ||
+                            free_and_set(&x11_variant, variant) < 0 ||
+                            free_and_set(&x11_options, options) < 0)
+                                goto oom;
+
+                        r = write_data_x11();
+                        if (r < 0) {
+                                log_error("Failed to set X11 keyboard layout: %s", strerror(-r));
+                                return bus_send_error_reply(connection, message, NULL, r);
+                        }
+
+                        log_info("Changed X11 keyboard layout to '%s'", strempty(x11_layout));
+
+                        changed = bus_properties_changed_new(
+                                        "/org/freedesktop/locale1",
+                                        "org.freedesktop.locale1",
+                                        "X11Layout\0"
+                                        "X11Model\0"
+                                        "X11Variant\0"
+                                        "X11Options\0");
+                        if (!changed)
+                                goto oom;
+
+                        if (convert) {
+                                r = convert_x11_to_vconsole(connection);
+
+                                if (r < 0)
+                                        log_error("Failed to convert keymap data: %s", strerror(-r));
+                        }
+                }
         } else
                 return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+
 
         if (!(reply = dbus_message_new_method_return(message)))
                 goto oom;
