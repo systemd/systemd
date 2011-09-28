@@ -203,10 +203,6 @@ int main(int argc, char **argv) {
 
         if (detect_container(NULL) <= 0)
                 if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
-#if defined(TARGET_FEDORA) || defined(TARGET_MEEGO)
-                                        "SYSFONT", &vc_font,
-                                        "KEYTABLE", &vc_keymap,
-#endif
                                         "vconsole.keymap", &vc_keymap,
                                         "vconsole.keymap.toggle", &vc_keymap_toggle,
                                         "vconsole.font", &vc_font,
