@@ -358,13 +358,14 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         } else
                 id_len = max_id_len;
 
-        if (arg_full || !arg_no_pager)
-                desc_len = INT_MAX;
-
-        if (!arg_no_legend)
-                printf("%-*s %-6s %-*s %-*s %-*s %.*s\n", id_len, "UNIT", "LOAD",
-                       active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB",
-                       desc_len, "DESCRIPTION");
+        if (!arg_no_legend) {
+                printf("%-*s %-6s %-*s %-*s %-*s ", id_len, "UNIT", "LOAD",
+                       active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
+                if (!arg_full && arg_no_pager)
+                        printf("%.*s\n", desc_len, "DESCRIPTION");
+                else
+                        printf("%s\n", "DESCRIPTION");
+        }
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 char *e;
@@ -391,13 +392,16 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 e = arg_full ? NULL : ellipsize(u->id, id_len, 33);
 
-                printf("%-*s %s%-6s%s %s%-*s %-*s%s %-*s %.*s\n",
+                printf("%-*s %s%-6s%s %s%-*s %-*s%s %-*s ",
                        id_len, e ? e : u->id,
                        on_loaded, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
-                       job_len, u->job_id ? u->job_type : "",
-                       desc_len, u->description);
+                       job_len, u->job_id ? u->job_type : "");
+                if (!arg_full && arg_no_pager)
+                        printf("%.*s\n", desc_len, u->description);
+                else
+                        printf("%s\n", u->description);
 
                 free(e);
         }
