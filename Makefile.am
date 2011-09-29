@@ -76,7 +76,7 @@ AM_CPPFLAGS = \
 	-DSYSTEM_GENERATOR_PATH=\"$(systemgeneratordir)\" \
 	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
-        -DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\"
+        -DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
