@@ -4990,14 +4990,16 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 }
 
                 if (!bus) {
-                        log_error("Failed to get D-Bus connection: %s", error->message);
+                        log_error("Failed to get D-Bus connection: %s",
+                                  dbus_error_is_set(error) ? error->message : "No connection to service manager.");
                         return -EIO;
                 }
 
         } else {
 
                 if (!bus && !avoid_bus()) {
-                        log_error("Failed to get D-Bus connection: %s", error->message);
+                        log_error("Failed to get D-Bus connection: %s",
+                                  dbus_error_is_set(error) ? error->message : "No connection to service manager.");
                         return -EIO;
                 }
         }
