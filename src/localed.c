@@ -860,18 +860,46 @@ static int convert_x11_to_vconsole(DBusConnection *connection) {
                                 break;
 
                         /* Determine how well matching this entry is */
-                        if (streq_ptr(x11_layout, a[1])) {
-                                matching ++;
+                        if (streq_ptr(x11_layout, a[1]))
+                                /* If we got an exact match, this is best */
+                                matching = 10;
+                        else {
+                                size_t x;
 
-                                if (streq_ptr(x11_model, a[2])) {
+                                x = strcspn(x11_layout, ",");
+
+                                /* We have multiple X layouts, look
+                                 * for an entry that matches our key
+                                 * with the everything but the first
+                                 * layout stripped off. */
+                                if (x > 0 &&
+                                    strlen(a[1]) == x &&
+                                    strncmp(x11_layout, a[1], x) == 0)
+                                        matching = 5;
+                                else  {
+                                        size_t w;
+
+                                        /* If that didn't work, strip
+                                         * off the other layouts from
+                                         * the entry, too */
+
+                                        w = strcspn(a[1], ",");
+
+                                        if (x > 0 && x == w &&
+                                            memcmp(x11_layout, a[1], x) == 0)
+                                                matching = 1;
+                                }
+                        }
+
+                        if (matching > 0 &&
+                            streq_ptr(x11_model, a[2])) {
+                                matching++;
+
+                                if (streq_ptr(x11_variant, a[3])) {
                                         matching++;
 
-                                        if (streq_ptr(x11_variant, a[3])) {
+                                        if (streq_ptr(x11_options, a[4]))
                                                 matching++;
-
-                                                if (streq_ptr(x11_options, a[4]))
-                                                        matching++;
-                                        }
                                 }
                         }
 
