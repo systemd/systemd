@@ -4989,6 +4989,13 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                         return 0;
                 }
 
+                if (!bus) {
+                        log_error("Failed to get D-Bus connection: %s", error->message);
+                        return -EIO;
+                }
+
+        } else {
+
                 if (!bus && !avoid_bus()) {
                         log_error("Failed to get D-Bus connection: %s", error->message);
                         return -EIO;
