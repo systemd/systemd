@@ -496,6 +496,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/fujitsu-amilo_si_1520 \
 	extras/keymap/keymaps/fujitsu-esprimo_mobile_v5 \
 	extras/keymap/keymaps/fujitsu-esprimo_mobile_v6 \
+	extras/keymap/keymaps/genius-slimstar-320 \
 	extras/keymap/keymaps/hewlett-packard \
 	extras/keymap/keymaps/hewlett-packard-2510p_2530p \
 	extras/keymap/keymaps/hewlett-packard-compaq_elitebook \
