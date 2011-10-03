@@ -311,20 +311,28 @@
                                 main process of the daemon. The
                                 command line accepts % specifiers as
                                 described in
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. On
-                                top of that basic environment variable
-                                substitution is supported, where
-                                <literal>${FOO}</literal> is replaced
-                                by the string value of the environment
-                                variable of the same name. Also
-                                <literal>$FOO</literal> may appear as
-                                separate word on the command line in
-                                which case the variable is replaced by
-                                its value split at whitespaces. Note
-                                that the first argument (i.e. the
-                                binary to execute) may not be a
-                                variable, and must be a literal and
-                                absolute path name.</para></listitem>
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                                <para>On top of that basic environment
+                                variable substitution is
+                                supported. Use
+                                <literal>${FOO}</literal> as part of a
+                                word, or as word of its own on the
+                                command line, in which case it will be
+                                replaced by the value of the
+                                environment variable including all
+                                whitespace it contains, resulting in a
+                                single argument.  Use
+                                <literal>$FOO</literal> as a separate
+                                word on the command line, in which
+                                case it will be replaced by the value
+                                of the environment variable split up
+                                at whitespace, resulting in no or more
+                                arguments. Note that the first
+                                argument (i.e. the program to execute)
+                                may not be a variable, and must be a
+                                literal and absolute path
+                                name.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
