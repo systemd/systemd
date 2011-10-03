@@ -6,6 +6,11 @@ The path_id, usb_id, input_id tools are built-in commands now
 and the stand-alone tools do not exist anymore. For testing,
 the commands can be run with 'udevadm test-builtin <cmd>'.
 
+The fusectl filesystem is no longer mounted directly from udev.
+Systemd systems will take care of mounting fusectl and configfs
+now. Non-systemd systems need to ship their own rule if they
+need these filesystems auto-mounted.
+
 udev 173
 ========
 Bugfixes.
