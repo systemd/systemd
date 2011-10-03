@@ -405,12 +405,16 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                                 goto fail;
                         }
 
+                        seat = session->seat ? session->seat->id : "";
+                        vtnr = session->vtnr;
                         b = dbus_message_append_args(
                                         reply,
                                         DBUS_TYPE_STRING, &session->id,
                                         DBUS_TYPE_OBJECT_PATH, &p,
                                         DBUS_TYPE_STRING, &session->user->runtime_path,
                                         DBUS_TYPE_UNIX_FD, &fifo_fd,
+                                        DBUS_TYPE_STRING, &seat,
+                                        DBUS_TYPE_UINT32, &vtnr,
                                         DBUS_TYPE_INVALID);
                         free(p);
 
