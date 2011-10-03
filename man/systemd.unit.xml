@@ -121,8 +121,9 @@
 
                 <para>If a line starts with <option>.include</option>
                 followed by a file name, the specified file will be
-                read as if its contents were listed in place of the
-                <option>.include</option> directive.</para>
+                parsed at this point. Make sure that the file that is
+                included has the appropiate section headers before
+                any directives.</para>
 
                 <para>Along with a unit file
                 <filename>foo.service</filename> a directory
