@@ -96,7 +96,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
 			       "  --exit-if-exists=<file> stop waiting if file exists\n"
 			       "  --quiet                 do not print list after timeout\n"
 			       "  --help\n\n");
-			exit(0);
+			exit(EXIT_SUCCESS);
+		default:
+			exit(EXIT_FAILURE);
 		}
 	}
 
