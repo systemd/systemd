@@ -157,6 +157,7 @@ static void load_unix_sockets(void) {
                 }
         }
 
+        fclose(f);
         return;
 
 fail:
