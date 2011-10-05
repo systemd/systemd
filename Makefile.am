@@ -41,9 +41,9 @@ dist_libexec_SCRIPTS =
 # ------------------------------------------------------------------------------
 # libudev
 # ------------------------------------------------------------------------------
-LIBUDEV_CURRENT=12
-LIBUDEV_REVISION=2
-LIBUDEV_AGE=12
+LIBUDEV_CURRENT=13
+LIBUDEV_REVISION=0
+LIBUDEV_AGE=13
 
 SUBDIRS += libudev/docs
 

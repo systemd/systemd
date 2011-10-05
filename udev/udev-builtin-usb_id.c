@@ -350,8 +350,8 @@ static int builtin_usb_id(struct udev_device *dev, bool test)
 			goto fallback;
 		}
 		udev_util_encode_string(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
-		udev_util_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
-		udev_util_replace_chars(vendor_str, NULL);
+		util_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
+		util_replace_chars(vendor_str, NULL);
 
 		scsi_model = udev_device_get_sysattr_value(dev_scsi, "model");
 		if (!scsi_model) {
@@ -360,8 +360,8 @@ static int builtin_usb_id(struct udev_device *dev, bool test)
 			goto fallback;
 		}
 		udev_util_encode_string(scsi_model, model_str_enc, sizeof(model_str_enc));
-		udev_util_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
-		udev_util_replace_chars(model_str, NULL);
+		util_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
+		util_replace_chars(model_str, NULL);
 
 		scsi_type = udev_device_get_sysattr_value(dev_scsi, "type");
 		if (!scsi_type) {
@@ -377,8 +377,8 @@ static int builtin_usb_id(struct udev_device *dev, bool test)
 			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
-		udev_util_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
-		udev_util_replace_chars(revision_str, NULL);
+		util_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
+		util_replace_chars(revision_str, NULL);
 
 		/*
 		 * some broken devices have the same identifiers
@@ -403,8 +403,8 @@ fallback:
 			return EXIT_FAILURE;
 		}
 		udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
-		udev_util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
-		udev_util_replace_chars(vendor_str, NULL);
+		util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
+		util_replace_chars(vendor_str, NULL);
 	}
 
 	if (model_str[0] == '\0') {
@@ -418,8 +418,8 @@ fallback:
 			return EXIT_FAILURE;
 		}
 		udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
-		udev_util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
-		udev_util_replace_chars(model_str, NULL);
+		util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
+		util_replace_chars(model_str, NULL);
 	}
 
 	if (revision_str[0] == '\0') {
@@ -427,8 +427,8 @@ fallback:
 
 		usb_rev = udev_device_get_sysattr_value(dev_usb, "bcdDevice");
 		if (usb_rev) {
-			udev_util_replace_whitespace(usb_rev, revision_str, sizeof(revision_str)-1);
-			udev_util_replace_chars(revision_str, NULL);
+			util_replace_whitespace(usb_rev, revision_str, sizeof(revision_str)-1);
+			util_replace_chars(revision_str, NULL);
 		}
 	}
 
@@ -437,8 +437,8 @@ fallback:
 
 		usb_serial = udev_device_get_sysattr_value(dev_usb, "serial");
 		if (usb_serial) {
-			udev_util_replace_whitespace(usb_serial, serial_str, sizeof(serial_str)-1);
-			udev_util_replace_chars(serial_str, NULL);
+			util_replace_whitespace(usb_serial, serial_str, sizeof(serial_str)-1);
+			util_replace_chars(serial_str, NULL);
 		}
 	}
 

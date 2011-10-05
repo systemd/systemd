@@ -181,9 +181,8 @@ size_t util_strpcpy(char **dest, size_t size, const char *src);
 size_t util_strpcpyl(char **dest, size_t size, const char *src, ...) __attribute__((sentinel));
 size_t util_strscpy(char *dest, size_t size, const char *src);
 size_t util_strscpyl(char *dest, size_t size, const char *src, ...) __attribute__((sentinel));
-int udev_util_replace_whitespace(const char *str, char *to, size_t len);
-int udev_util_replace_chars(char *str, const char *white);
-int udev_util_encode_string(const char *str, char *str_enc, size_t len);
+int util_replace_whitespace(const char *str, char *to, size_t len);
+int util_replace_chars(char *str, const char *white);
 unsigned int util_string_hash32(const char *key);
 uint64_t util_string_bloom64(const char *str);
 

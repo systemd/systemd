@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2011 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -173,6 +173,14 @@ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned lo
 int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 					       unsigned long long int start, unsigned long long int end);
 struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue);
+
+/*
+ * udev_util
+ *
+ * udev specific utilities
+ */
+int udev_util_encode_string(const char *str, char *str_enc, size_t len);
+
 
 #ifdef __cplusplus
 } /* extern "C" */

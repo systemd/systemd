@@ -2271,7 +2271,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				util_remove_trailing_chars(result, '\n');
 				if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
-					count = udev_util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
+					count = util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
 					if (count > 0)
 						info(event->udev, "%i character(s) replaced\n" , count);
 				}
@@ -2562,7 +2562,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				event->name_final = true;
 			udev_event_apply_format(event, name, name_str, sizeof(name_str));
 			if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
-				count = udev_util_replace_chars(name_str, "/");
+				count = util_replace_chars(name_str, "/");
 				if (count > 0)
 					info(event->udev, "%i character(s) replaced\n", count);
 			}
@@ -2592,9 +2592,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			/* allow  multiple symlinks separated by spaces */
 			udev_event_apply_format(event, &rules->buf[cur->key.value_off], temp, sizeof(temp));
 			if (esc == ESCAPE_UNSET)
-				count = udev_util_replace_chars(temp, "/ ");
+				count = util_replace_chars(temp, "/ ");
 			else if (esc == ESCAPE_REPLACE)
-				count = udev_util_replace_chars(temp, "/");
+				count = util_replace_chars(temp, "/");
 			if (count > 0)
 				info(event->udev, "%i character(s) replaced\n" , count);
 			dbg(event->udev, "rule applied, added symlink(s) '%s'\n", temp);

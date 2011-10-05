@@ -120,3 +120,8 @@ udev_queue_get_kernel_seqnum
 udev_queue_get_udev_seqnum
 </SECTION>
 
+<SECTION>
+<FILE>libudev-util</FILE>
+<TITLE>udev_util</TITLE>
+udev_util_encode_string
+</SECTION>

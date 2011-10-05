@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2011 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,6 +23,11 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
+
+/**
+ * SECTION:libudev-util
+ * @short_description: utils
+ */
 
 ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size)
 {
@@ -342,7 +347,7 @@ static int utf8_encoded_valid_unichar(const char *str)
 	return len;
 }
 
-int udev_util_replace_whitespace(const char *str, char *to, size_t len)
+int util_replace_whitespace(const char *str, char *to, size_t len)
 {
 	size_t i, j;
 
@@ -382,7 +387,7 @@ static int is_whitelisted(char c, const char *white)
 }
 
 /* allow chars in whitelist, plain ascii, hex-escaping and valid utf8 */
-int udev_util_replace_chars(char *str, const char *white)
+int util_replace_chars(char *str, const char *white)
 {
 	size_t i = 0;
 	int replaced = 0;
@@ -425,18 +430,18 @@ int udev_util_replace_chars(char *str, const char *white)
 }
 
 /**
- * util_encode_string:
+ * udev_util_encode_string:
  * @str: input string to be encoded
  * @str_enc: output string to store the encoded input string
  * @len: maximum size of the output string, which may be
  *       four times as long as the input string
  *
  * Encode all potentially unsafe characters of a string to the
- * corresponding hex value prefixed by '\x'.
+ * corresponding 2 char hex value prefixed by '\x'.
  *
  * Returns: 0 if the entire string was copied, non-zero otherwise.
  **/
-int udev_util_encode_string(const char *str, char *str_enc, size_t len)
+UDEV_EXPORT int udev_util_encode_string(const char *str, char *str_enc, size_t len)
 {
 	size_t i, j;
 

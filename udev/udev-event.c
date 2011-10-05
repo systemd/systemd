@@ -318,7 +318,7 @@ subst:
 			len = strlen(vbuf);
 			while (len > 0 && isspace(vbuf[--len]))
 				vbuf[len] = '\0';
-			count = udev_util_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
+			count = util_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
 			if (count > 0)
 				info(event->udev, "%i character(s) replaced\n" , count);
 			l = util_strpcpy(&s, l, vbuf);
