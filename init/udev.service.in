@@ -4,6 +4,7 @@ Wants=udev-control.socket udev-kernel.socket
 After=udev-control.socket udev-kernel.socket
 Before=basic.target
 DefaultDependencies=no
+ConditionVirtualization=!container
 
 [Service]
 Type=notify
