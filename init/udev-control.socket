@@ -1,6 +1,7 @@
 [Unit]
 Description=udev Control Socket
 DefaultDependencies=no
+ConditionVirtualization=!container
 
 [Socket]
 Service=udev.service
