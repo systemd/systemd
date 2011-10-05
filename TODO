@@ -1,5 +1,3 @@
- - validate the two hex chars in replace_chars \x
-
  - test (now fixed) /dev/tape/ links
 
  - /run/udev/control socket
@@ -17,6 +15,8 @@
 
  - warn about RUN+="socket:"
 
- - libudev.so.1 with symbol versioning:
+ - libudev.so.1
+     - symbol versioning:
      - return object with *_unref()
      - udev_monitor_from_socket()
+     - udev_queue_get_failed_list_entry()
