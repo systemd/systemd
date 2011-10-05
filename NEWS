@@ -11,6 +11,11 @@ Systemd systems will take care of mounting fusectl and configfs
 now. Non-systemd systems need to ship their own rule if they
 need these filesystems auto-mounted.
 
+The long deprecated keys: SYSFS, ID, BUS have been removed.
+
+The support for 'udevadm trigger --type=failed, and the
+RUN{fail_event_on_error} attribute was removed.
+
 udev 173
 ========
 Bugfixes.

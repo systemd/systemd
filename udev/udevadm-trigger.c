@@ -61,20 +61,6 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
 	}
 }
 
-static int scan_failed(struct udev_enumerate *udev_enumerate)
-{
-	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
-	struct udev_queue *udev_queue;
-	struct udev_list_entry *list_entry;
-
-	udev_queue = udev_queue_new(udev);
-	if (udev_queue == NULL)
-		return -1;
-	udev_list_entry_foreach(list_entry, udev_queue_get_failed_list_entry(udev_queue))
-		udev_enumerate_add_syspath(udev_enumerate, udev_list_entry_get_name(list_entry));
-	return 0;
-}
-
 static const char *keyval(const char *str, const char **val, char *buf, size_t size)
 {
 	char *pos;
@@ -110,7 +96,6 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
 	enum {
 		TYPE_DEVICES,
 		TYPE_SUBSYSTEMS,
-		TYPE_FAILED,
 	} device_type = TYPE_DEVICES;
 	const char *action = "change";
 	struct udev_enumerate *udev_enumerate;
@@ -145,8 +130,6 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
 				device_type = TYPE_DEVICES;
 			} else if (strcmp(optarg, "subsystems") == 0) {
 				device_type = TYPE_SUBSYSTEMS;
-			} else if (strcmp(optarg, "failed") == 0) {
-				device_type = TYPE_FAILED;
 			} else {
 				err(udev, "unknown type --type=%s\n", optarg);
 				rc = 2;
@@ -208,8 +191,6 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
 			       "  --type=                         type of events to trigger\n"
 			       "      devices                       sys devices (default)\n"
 			       "      subsystems                    sys subsystems and drivers\n"
-			       "      failed                        trigger only the events which have been\n"
-			       "                                    marked as failed during a previous run\n"
 			       "  --action=<action>               event action value, default is \"change\"\n"
 			       "  --subsystem-match=<subsystem>   trigger devices from a matching subsystem\n"
 			       "  --subsystem-nomatch=<subsystem> exclude devices from a matching subsystem\n"
@@ -228,11 +209,6 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
 	}
 
 	switch (device_type) {
-	case TYPE_FAILED:
-		err(udev, "--type=failed is deprecated and will be removed from a future udev release.\n");
-		scan_failed(udev_enumerate);
-		exec_list(udev_enumerate, action);
-		goto exit;
 	case TYPE_SUBSYSTEMS:
 		udev_enumerate_scan_subsystems(udev_enumerate);
 		exec_list(udev_enumerate, action);

@@ -43,7 +43,6 @@ struct udev_queue {
 	struct udev *udev;
 	int refcount;
 	struct udev_list queue_list;
-	struct udev_list failed_list;
 };
 
 /**
@@ -68,7 +67,6 @@ UDEV_EXPORT struct udev_queue *udev_queue_new(struct udev *udev)
 	udev_queue->refcount = 1;
 	udev_queue->udev = udev;
 	udev_list_init(udev, &udev_queue->queue_list, false);
-	udev_list_init(udev, &udev_queue->failed_list, false);
 	return udev_queue;
 }
 
@@ -103,7 +101,6 @@ UDEV_EXPORT void udev_queue_unref(struct udev_queue *udev_queue)
 	if (udev_queue->refcount > 0)
 		return;
 	udev_list_cleanup(&udev_queue->queue_list);
-	udev_list_cleanup(&udev_queue->failed_list);
 	free(udev_queue);
 }
 
@@ -469,47 +466,9 @@ UDEV_EXPORT struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev
 	return udev_list_get_entry(&udev_queue->queue_list);
 }
 
-/**
- * udev_queue_get_failed_list_entry:
- * @udev_queue: udev queue context
- *
- * Returns: the first entry of the list of recorded failed events.
- **/
+struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue);
 UDEV_EXPORT struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue)
 {
-	char path[UTIL_PATH_SIZE];
-	DIR *dir;
-	struct dirent *dent;
-
-	if (udev_queue == NULL)
-		return NULL;
-	udev_list_cleanup(&udev_queue->failed_list);
-	util_strscpyl(path, sizeof(path), udev_get_run_path(udev_queue->udev), "/failed", NULL);
-	dir = opendir(path);
-	if (dir == NULL)
-		return NULL;
-	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		char filename[UTIL_PATH_SIZE];
-		char syspath[UTIL_PATH_SIZE];
-		char *s;
-		size_t l;
-		ssize_t len;
-		struct stat statbuf;
-
-		if (dent->d_name[0] == '.')
-			continue;
-		s = syspath;
-		l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev_queue->udev), NULL);
-		len = readlinkat(dirfd(dir), dent->d_name, s, l);
-		if (len <= 0 || (size_t)len == l)
-			continue;
-		s[len] = '\0';
-		dbg(udev_queue->udev, "found '%s' [%s]\n", syspath, dent->d_name);
-		util_strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
-		if (stat(filename, &statbuf) != 0)
-			continue;
-		udev_list_entry_add(&udev_queue->failed_list, syspath, NULL);
-	}
-	closedir(dir);
-	return udev_list_get_entry(&udev_queue->failed_list);
+	errno = ENOSYS;
+	return NULL;
 }

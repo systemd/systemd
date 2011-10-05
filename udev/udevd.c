@@ -155,11 +155,7 @@ static void event_queue_delete(struct event *event, bool export)
 	udev_list_node_remove(&event->node);
 
 	if (export) {
-		/* mark as failed, if "add" event returns non-zero */
-		if (event->exitcode != 0 && strcmp(udev_device_get_action(event->dev), "remove") != 0)
-			udev_queue_export_device_failed(udev_queue_export, event->dev);
-		else
-			udev_queue_export_device_finished(udev_queue_export, event->dev);
+		udev_queue_export_device_finished(udev_queue_export, event->dev);
 		info(event->udev, "seq %llu done with %i\n", udev_device_get_seqnum(event->dev), event->exitcode);
 	}
 	udev_device_unref(event->dev);
@@ -284,7 +280,6 @@ static void worker_new(struct event *event)
 		for (;;) {
 			struct udev_event *udev_event;
 			struct worker_message msg;
-			int failed = 0;
 			int err;
 
 			info(udev, "seq %llu running\n", udev_device_get_seqnum(dev));
@@ -304,7 +299,7 @@ static void worker_new(struct event *event)
 			err = udev_event_execute_rules(udev_event, rules, &sigmask_orig);
 
 			if (err == 0)
-				failed = udev_event_execute_run(udev_event, &sigmask_orig);
+				udev_event_execute_run(udev_event, &sigmask_orig);
 
 			/* apply/restore inotify watch */
 			if (err == 0 && udev_event->inotify_watch) {
@@ -319,8 +314,6 @@ static void worker_new(struct event *event)
 			memset(&msg, 0, sizeof(struct worker_message));
 			if (err != 0)
 				msg.exitcode = err;
-			else if (failed != 0)
-				msg.exitcode = failed;
 			msg.pid = getpid();
 			send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
 

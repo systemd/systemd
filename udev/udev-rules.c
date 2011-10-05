@@ -198,7 +198,6 @@ struct token {
 			union {
 				unsigned int attr_off;
 				int devlink_unique;
-				int fail_on_error;
 				unsigned int rule_goto;
 				mode_t  mode;
 				uid_t uid;
@@ -1066,7 +1065,6 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		break;
 	case TK_A_RUN:
 		token->key.value_off = add_string(rule_tmp->rules, value);
-		token->key.fail_on_error = *(int *)data;
 		break;
 	case TK_A_INOTIFY_WATCH:
 	case TK_A_DEVLINK_PRIO:
@@ -1191,9 +1189,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 	char *linepos;
 	char *attr;
 	struct rule_tmp rule_tmp;
-	bool bus_warn = false;
-	bool sysfs_warn = false;
-	bool id_warn = false;
 
 	memset(&rule_tmp, 0x00, sizeof(struct rule_tmp));
 	rule_tmp.rules = rules;
@@ -1287,37 +1282,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcmp(key, "ID") == 0) {
-			if (!id_warn) {
-				id_warn = true;
-				err(rules->udev, "ID= will be removed in a future udev version, "
-				    "please use KERNEL= to match the event device, or KERNELS= "
-				    "to match a parent device, in %s:%u\n", filename, lineno);
-			}
-			if (op > OP_MATCH_MAX) {
-				err(rules->udev, "invalid KERNELS operation\n");
-				goto invalid;
-			}
-			rule_add_key(&rule_tmp, TK_M_KERNELS, op, value, NULL);
-			continue;
-		}
-
 		if (strcmp(key, "SUBSYSTEMS") == 0) {
-			if (op > OP_MATCH_MAX) {
-				err(rules->udev, "invalid SUBSYSTEMS operation\n");
-				goto invalid;
-			}
-			rule_add_key(&rule_tmp, TK_M_SUBSYSTEMS, op, value, NULL);
-			continue;
-		}
-
-		if (strcmp(key, "BUS") == 0) {
-			if (!bus_warn) {
-				bus_warn = true;
-				err(rules->udev, "BUS= will be removed in a future udev version, "
-				    "please use SUBSYSTEM= to match the event device, or SUBSYSTEMS= "
-				    "to match a parent device, in %s:%u\n", filename, lineno);
-			}
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid SUBSYSTEMS operation\n");
 				goto invalid;
@@ -1361,26 +1326,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 				goto invalid;
 			}
 			rule_add_key(&rule_tmp, TK_M_TAGS, op, value, NULL);
-			continue;
-		}
-
-		if (strncmp(key, "SYSFS{", sizeof("SYSFS{")-1) == 0) {
-			if (!sysfs_warn) {
-				sysfs_warn = true;
-				err(rules->udev, "SYSFS{}= will be removed in a future udev version, "
-				    "please use ATTR{}= to match the event device, or ATTRS{}= "
-				    "to match a parent device, in %s:%u\n", filename, lineno);
-			}
-			if (op > OP_MATCH_MAX) {
-				err(rules->udev, "invalid ATTRS operation\n");
-				goto invalid;
-			}
-			attr = get_key_attribute(rules->udev, key + sizeof("ATTRS")-1);
-			if (attr == NULL) {
-				err(rules->udev, "error parsing ATTRS attribute\n");
-				goto invalid;
-			}
-			rule_add_key(&rule_tmp, TK_M_ATTRS, op, value, attr);
 			continue;
 		}
 
@@ -1509,13 +1454,8 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strncmp(key, "RUN", sizeof("RUN")-1) == 0) {
-			int flag = 0;
-
-			attr = get_key_attribute(rules->udev, key + sizeof("RUN")-1);
-			if (attr != NULL && strstr(attr, "fail_event_on_error"))
-				flag = 1;
-			rule_add_key(&rule_tmp, TK_A_RUN, op, value, &flag);
+		if (strcmp(key, "RUN") == 0) {
+			rule_add_key(&rule_tmp, TK_A_RUN, op, value, NULL);
 			continue;
 		}
 
@@ -2706,17 +2646,13 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			break;
 		}
 		case TK_A_RUN: {
-			struct udev_list_entry *list_entry;
-
 			if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
 				udev_list_cleanup(&event->run_list);
 			info(event->udev, "RUN '%s' %s:%u\n",
 			     &rules->buf[cur->key.value_off],
 			     &rules->buf[rule->rule.filename_off],
 			     rule->rule.filename_line);
-			list_entry = udev_list_entry_add(&event->run_list, &rules->buf[cur->key.value_off], NULL);
-			if (cur->key.fail_on_error)
-				udev_list_entry_set_num(list_entry, true);
+			udev_list_entry_add(&event->run_list, &rules->buf[cur->key.value_off], NULL);
 			break;
 		}
 		case TK_A_GOTO:

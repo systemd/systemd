@@ -323,10 +323,6 @@ static int test_queue(struct udev *udev)
 	udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
 		printf("queued: '%s' [%s]\n", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
 	printf("\n");
-	printf("get failed list\n");
-	udev_list_entry_foreach(list_entry, udev_queue_get_failed_list_entry(udev_queue))
-		printf("failed: '%s'\n", udev_list_entry_get_name(list_entry));
-	printf("\n");
 
 	list_entry = udev_queue_get_queued_list_entry(udev_queue);
 	if (list_entry != NULL) {

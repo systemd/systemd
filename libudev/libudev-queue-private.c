@@ -56,7 +56,6 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export);
 
 struct udev_queue_export {
 	struct udev *udev;
-	int failed_count;	/* number of failed events exported */
 	int queued_count;	/* number of unfinished events exported in queue file */
 	FILE *queue_file;
 	unsigned long long int seqnum_max;	/* earliest sequence number in queue file */
@@ -328,7 +327,6 @@ write_error:
 enum device_state {
 	DEVICE_QUEUED,
 	DEVICE_FINISHED,
-	DEVICE_FAILED,
 };
 
 static inline size_t queue_record_size(size_t devpath_len)
@@ -394,47 +392,9 @@ static int update_queue(struct udev_queue_export *udev_queue_export,
 	return err;
 }
 
-static void update_failed(struct udev_queue_export *udev_queue_export,
-			  struct udev_device *udev_device, enum device_state state)
-{
-	struct udev *udev = udev_device_get_udev(udev_device);
-	char filename[UTIL_PATH_SIZE];
-
-	if (state != DEVICE_FAILED && udev_queue_export->failed_count == 0)
-		return;
-
-	/* location of failed file */
-	util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/failed/",
-		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
-
-	switch (state) {
-	case DEVICE_FAILED:
-		/* record event in the failed directory */
-		udev_queue_export->failed_count++;
-		util_create_path(udev, filename);
-		symlink(udev_device_get_devpath(udev_device), filename);
-		break;
-
-	case DEVICE_QUEUED:
-		/* delete failed file */
-		if (unlink(filename) == 0) {
-			util_delete_path(udev, filename);
-			udev_queue_export->failed_count--;
-		}
-		break;
-
-	case DEVICE_FINISHED:
-		break;
-	}
-
-	return;
-}
-
 static int update(struct udev_queue_export *udev_queue_export,
 		  struct udev_device *udev_device, enum device_state state)
 {
-	update_failed(udev_queue_export, udev_device, state);
-
 	if (update_queue(udev_queue_export, udev_device, state) != 0)
 		return -1;
 
@@ -449,9 +409,4 @@ int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export,
 int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device)
 {
 	return update(udev_queue_export, udev_device, DEVICE_FINISHED);
-}
-
-int udev_queue_export_device_failed(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device)
-{
-	return update(udev_queue_export, udev_device, DEVICE_FAILED);
 }

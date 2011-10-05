@@ -116,7 +116,6 @@ udev_queue_get_queue_is_empty
 udev_queue_get_seqnum_is_finished
 udev_queue_get_seqnum_sequence_is_finished
 udev_queue_get_queued_list_entry
-udev_queue_get_failed_list_entry
 udev_queue_get_kernel_seqnum
 udev_queue_get_udev_seqnum
 </SECTION>

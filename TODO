@@ -1,3 +1,5 @@
+ - validate the two hex chars in replace_chars \x
+
  - test (now fixed) /dev/tape/ links
 
  - /run/udev/control socket
@@ -10,10 +12,6 @@
  - kill rules_generator
 
  - move udevadm -> --bindir
-
- - remove deprecated trigger --type=failed logic
-
- - remove deprecated BUS=, SYSFS{}=, ID= keys
 
  - kill tabs?
 
