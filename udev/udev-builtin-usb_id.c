@@ -31,20 +31,6 @@
 
 #include "udev.h"
 
-static char vendor_str[64];
-static char vendor_str_enc[256];
-static const char *vendor_id = "";
-static char model_str[64];
-static char model_str_enc[256];
-static const char *product_id = "";
-static char serial_str[UTIL_NAME_SIZE];
-static char packed_if_str[UTIL_NAME_SIZE];
-static char revision_str[64];
-static char type_str[64];
-static char instance_str[64];
-static const char *ifnum;
-static const char *driver;
-
 static void set_usb_iftype(char *to, int if_class_num, size_t len)
 {
 	char *type = "generic";
@@ -253,14 +239,39 @@ out:
  * 6.) If the device supplies a serial number, this number
  *     is concatenated with the identification with an underscore '_'.
  */
-static int usb_id(struct udev_device *dev)
+static int builtin_usb_id(struct udev_device *dev, bool test)
 {
+	char vendor_str[64];
+	char vendor_str_enc[256];
+	const char *vendor_id;
+	char model_str[64];
+	char model_str_enc[256];
+	const char *product_id;
+	char serial_str[UTIL_NAME_SIZE];
+	char packed_if_str[UTIL_NAME_SIZE];
+	char revision_str[64];
+	char type_str[64];
+	char instance_str[64];
+	const char *ifnum = NULL;
+	const char *driver = NULL;
+	char serial[256];
+
 	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_device *dev_interface = NULL;
 	struct udev_device *dev_usb = NULL;
 	const char *if_class, *if_subclass;
 	int if_class_num;
 	int protocol = 0;
+	size_t l;
+	char *s;
+
+	vendor_str[0] = '\0';
+	model_str[0] = '\0';
+	serial_str[0] = '\0';
+	packed_if_str[0] = '\0';
+	revision_str[0] = '\0';
+	type_str[0] = '\0';
+	instance_str[0] = '\0';
 
 	dbg(udev, "syspath %s\n", udev_device_get_syspath(dev));
 
@@ -276,7 +287,7 @@ static int usb_id(struct udev_device *dev)
 	if (dev_interface == NULL) {
 		info(udev, "unable to access usb_interface device of '%s'\n",
 		     udev_device_get_syspath(dev));
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	ifnum = udev_device_get_sysattr_value(dev_interface, "bInterfaceNumber");
@@ -286,7 +297,7 @@ static int usb_id(struct udev_device *dev)
 	if (!if_class) {
 		info(udev, "%s: cannot get bInterfaceClass attribute\n",
 		     udev_device_get_sysname(dev));
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	if_class_num = strtoul(if_class, NULL, 16);
@@ -307,7 +318,7 @@ static int usb_id(struct udev_device *dev)
 	if (!dev_usb) {
 		info(udev, "unable to find parent 'usb' device of '%s'\n",
 		     udev_device_get_syspath(dev));
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	/* all interfaces of the device in a single string */
@@ -389,7 +400,7 @@ fallback:
 			usb_vendor = vendor_id;
 		if (!usb_vendor) {
 			info(udev, "No USB vendor information available\n");
-			return 1;
+			return EXIT_FAILURE;
 		}
 		udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
 		udev_util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
@@ -404,7 +415,7 @@ fallback:
 			usb_model = product_id;
 		if (!usb_model) {
 			dbg(udev, "No USB model information available\n");
-			return 1;
+			return EXIT_FAILURE;
 		}
 		udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
 		udev_util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
@@ -430,24 +441,12 @@ fallback:
 			udev_util_replace_chars(serial_str, NULL);
 		}
 	}
-	return 0;
-}
-
-static int builtin_usb_id(struct udev_device *dev, bool test)
-{
-	char serial[256];
-	size_t l;
-	char *s;
-	int err;
-
-	err = usb_id(dev);
-	if (err)
-		return EXIT_FAILURE;
 
 	s = serial;
 	l = util_strpcpyl(&s, sizeof(serial), vendor_str, "_", model_str, NULL);
 	if (serial_str[0] != '\0')
 		l = util_strpcpyl(&s, l, "_", serial_str, NULL);
+
 	if (instance_str[0] != '\0')
 		util_strpcpyl(&s, l, "-", instance_str, NULL);
 
