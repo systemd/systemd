@@ -133,7 +133,7 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
                 for (i = 0; i < n; i++) {
                         char *t = NULL;
 
-                        get_process_cmdline(pids[i], n_columns, &t);
+                        get_process_cmdline(pids[i], n_columns, true, &t);
 
                         printf("%s%s %*lu %s\n",
                                prefix,

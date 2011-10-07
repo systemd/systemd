@@ -2182,7 +2182,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
                         if (i->running) {
                                 char *t = NULL;
-                                get_process_name(i->main_pid, &t);
+                                get_process_comm(i->main_pid, &t);
                                 if (t) {
                                         printf(" (%s)", t);
                                         free(t);
@@ -2216,7 +2216,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
                         printf(" Control: %u", (unsigned) i->control_pid);
 
-                        get_process_name(i->control_pid, &t);
+                        get_process_comm(i->control_pid, &t);
                         if (t) {
                                 printf(" (%s)", t);
                                 free(t);

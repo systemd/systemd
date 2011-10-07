@@ -65,45 +65,53 @@ static void server_done(Server *s) {
                 fdset_free(s->syslog_fds);
 }
 
-static int server_init(Server *s, unsigned n_sockets) {
-        int r;
-        unsigned i;
+static int server_init(Server *s) {
+        int i, r, n;
         struct epoll_event ev;
         sigset_t mask;
 
         assert(s);
-        assert(n_sockets > 0);
 
         zero(*s);
-
         s->kmsg_fd = s->signal_fd = -1;
 
-        if ((s->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0) {
-                r = -errno;
-                log_error("Failed to create epoll object: %s", strerror(errno));
-                goto fail;
+        s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+        if (s->epoll_fd < 0) {
+                log_error("Failed to create epoll object: %m");
+                return -errno;
         }
 
-        if (!(s->syslog_fds = fdset_new())) {
-                r = -ENOMEM;
-                log_error("Failed to allocate file descriptor set: %s", strerror(errno));
-                goto fail;
+        s->syslog_fds = fdset_new();
+        if (!s->syslog_fds) {
+                log_error("Failed to allocate file descriptor set: %s", strerror(ENOMEM));
+                return -ENOMEM;
         }
 
-        for (i = 0; i < n_sockets; i++) {
+        n = sd_listen_fds(true);
+        if (n < 0) {
+                log_error("Failed to read listening file descriptors from environment: %s", strerror(-n));
+                return n;
+        }
+
+        if (n <= 0 || n > SERVER_FD_MAX) {
+                log_error("No or too many file descriptors passed.");
+                return -EINVAL;
+        }
+
+        for (i = 0; i < n; i++) {
                 int fd, one = 1;
 
                 fd = SD_LISTEN_FDS_START+i;
 
-                if ((r = sd_is_socket(fd, AF_UNSPEC, SOCK_DGRAM, -1)) < 0) {
+                r = sd_is_socket(fd, AF_UNSPEC, SOCK_DGRAM, -1);
+                if (r < 0) {
                         log_error("Failed to determine file descriptor type: %s", strerror(-r));
-                        goto fail;
+                        return r;
                 }
 
                 if (!r) {
                         log_error("Wrong file descriptor type.");
-                        r = -EINVAL;
-                        goto fail;
+                        return -EINVAL;
                 }
 
                 if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
@@ -113,18 +121,19 @@ static int server_init(Server *s, unsigned n_sockets) {
                 ev.events = EPOLLIN;
                 ev.data.fd = fd;
                 if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-                        r = -errno;
-                        log_error("Failed to add server fd to epoll object: %s", strerror(errno));
-                        goto fail;
+                        log_error("Failed to add server fd to epoll object: %m");
+                        return -errno;
                 }
 
-                if ((r = fdset_put(s->syslog_fds, fd)) < 0) {
+                r = fdset_put(s->syslog_fds, fd);
+                if (r < 0) {
                         log_error("Failed to store file descriptor in set: %s", strerror(-r));
-                        goto fail;
+                        return r;
                 }
         }
 
-        if ((s->kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
+        s->kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (s->kmsg_fd < 0) {
                 log_error("Failed to open /dev/kmsg for logging: %m");
                 return -errno;
         }
@@ -133,7 +142,8 @@ static int server_init(Server *s, unsigned n_sockets) {
         sigset_add_many(&mask, SIGINT, SIGTERM, -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
-        if ((s->signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0) {
+        s->signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (s->signal_fd < 0) {
                 log_error("signalfd(): %m");
                 return -errno;
         }
@@ -148,80 +158,6 @@ static int server_init(Server *s, unsigned n_sockets) {
         }
 
         return 0;
-
-fail:
-        server_done(s);
-        return r;
-}
-
-static void skip_date(const char **buf) {
-        enum {
-                LETTER,
-                SPACE,
-                NUMBER,
-                SPACE_OR_NUMBER,
-                COLON
-        } sequence[] = {
-                LETTER, LETTER, LETTER,
-                SPACE,
-                SPACE_OR_NUMBER, NUMBER,
-                SPACE,
-                SPACE_OR_NUMBER, NUMBER,
-                COLON,
-                SPACE_OR_NUMBER, NUMBER,
-                COLON,
-                SPACE_OR_NUMBER, NUMBER,
-                SPACE
-        };
-
-        const char *p;
-        unsigned i;
-
-        assert(buf);
-        assert(*buf);
-
-        p = *buf;
-
-        for (i = 0; i < ELEMENTSOF(sequence); i++, p++) {
-
-                if (!*p)
-                        return;
-
-                switch (sequence[i]) {
-
-                case SPACE:
-                        if (*p != ' ')
-                                return;
-                        break;
-
-                case SPACE_OR_NUMBER:
-                        if (*p == ' ')
-                                break;
-
-                        /* fall through */
-
-                case NUMBER:
-                        if (*p < '0' || *p > '9')
-                                return;
-
-                        break;
-
-                case LETTER:
-                        if (!(*p >= 'A' && *p <= 'Z') &&
-                            !(*p >= 'a' && *p <= 'z'))
-                                return;
-
-                        break;
-
-                case COLON:
-                        if (*p != ':')
-                                return;
-                        break;
-
-                }
-        }
-
-        *buf = p;
 }
 
 static int read_process(const char **buf, struct iovec *iovec) {
@@ -266,28 +202,6 @@ static int read_process(const char **buf, struct iovec *iovec) {
         return 1;
 }
 
-static void skip_pid(const char **buf) {
-        const char *p;
-
-        assert(buf);
-        assert(*buf);
-
-        p = *buf;
-
-        if (*p != '[')
-                return;
-
-        p++;
-        p += strspn(p, "0123456789");
-
-        if (*p != ']')
-                return;
-
-        p++;
-
-        *buf = p;
-}
-
 static int write_message(Server *s, const char *buf, struct ucred *ucred) {
         ssize_t k;
         char priority[6], pid[16];
@@ -314,14 +228,14 @@ static int write_message(Server *s, const char *buf, struct ucred *ucred) {
         IOVEC_SET_STRING(iovec[i++], priority);
 
         /* Second, skip date */
-        skip_date(&buf);
+        skip_syslog_date((char**) &buf);
 
         /* Then, add process if set */
         if (read_process(&buf, &iovec[i]) > 0)
                 i++;
         else if (ucred &&
                  ucred->pid > 0 &&
-                 get_process_name(ucred->pid, &process) >= 0)
+                 get_process_comm(ucred->pid, &process) >= 0)
                 IOVEC_SET_STRING(iovec[i++], process);
 
         /* Skip the stored PID if we have a better one */
@@ -330,7 +244,7 @@ static int write_message(Server *s, const char *buf, struct ucred *ucred) {
                 char_array_0(pid);
                 IOVEC_SET_STRING(iovec[i++], pid);
 
-                skip_pid(&buf);
+                skip_syslog_pid((char**) &buf);
 
                 if (*buf == ':')
                         buf++;
@@ -368,7 +282,8 @@ static int process_event(Server *s, struct epoll_event *ev) {
                 struct signalfd_siginfo sfsi;
                 ssize_t n;
 
-                if ((n = read(s->signal_fd, &sfsi, sizeof(sfsi))) != sizeof(sfsi)) {
+                n = read(s->signal_fd, &sfsi, sizeof(sfsi));
+                if (n != sizeof(sfsi)) {
 
                         if (n >= 0)
                                 return -EIO;
@@ -407,7 +322,8 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         msghdr.msg_control = &control;
                         msghdr.msg_controllen = sizeof(control);
 
-                        if ((n = recvmsg(ev->data.fd, &msghdr, MSG_DONTWAIT)) < 0) {
+                        n = recvmsg(ev->data.fd, &msghdr, MSG_DONTWAIT);
+                        if (n < 0) {
 
                                 if (errno == EINTR || errno == EAGAIN)
                                         return 1;
@@ -424,12 +340,14 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         else
                                 ucred = NULL;
 
-                        if ((e = memchr(buf, '\n', n)))
+                        e = memchr(buf, '\n', n);
+                        if (e)
                                 *e = 0;
                         else
                                 buf[n] = 0;
 
-                        if ((k = write_message(s, strstrip(buf), ucred)) < 0)
+                        k = write_message(s, strstrip(buf), ucred);
+                        if (k < 0)
                                 return k;
                 }
         }
@@ -439,7 +357,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
 int main(int argc, char *argv[]) {
         Server server;
-        int r = EXIT_FAILURE, n;
+        int r;
 
         if (getppid() != 1) {
                 log_error("This program should be invoked by init only.");
@@ -457,18 +375,9 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if ((n = sd_listen_fds(true)) < 0) {
-                log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
-                return EXIT_FAILURE;
-        }
-
-        if (n <= 0 || n > SERVER_FD_MAX) {
-                log_error("No or too many file descriptors passed.");
-                return EXIT_FAILURE;
-        }
-
-        if (server_init(&server, (unsigned) n) < 0)
-                return EXIT_FAILURE;
+        r = server_init(&server);
+        if (r < 0)
+                goto finish;
 
         log_debug("systemd-kmsg-syslogd running as pid %lu", (unsigned long) getpid());
 
@@ -478,36 +387,33 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 struct epoll_event event;
-                int k;
 
-                if ((k = epoll_wait(server.epoll_fd, &event, 1, -1)) < 0) {
+                r = epoll_wait(server.epoll_fd, &event, 1, -1);
+                if (r < 0) {
 
                         if (errno == EINTR)
                                 continue;
 
                         log_error("epoll_wait() failed: %m");
-                        goto fail;
-                }
-
-                if (k <= 0)
+                        r = -errno;
+                        goto finish;
+                } else if (r == 0)
                         break;
 
-                if ((k = process_event(&server, &event)) < 0)
-                        goto fail;
-
-                if (k == 0)
+                r = process_event(&server, &event);
+                if (r < 0)
+                        goto finish;
+                else if (r == 0)
                         break;
         }
 
-        r = EXIT_SUCCESS;
-
         log_debug("systemd-kmsg-syslogd stopped as pid %lu", (unsigned long) getpid());
 
-fail:
+finish:
         sd_notify(false,
                   "STATUS=Shutting down...");
 
         server_done(&server);
 
-        return r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

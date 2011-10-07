@@ -134,7 +134,8 @@ rootbin_PROGRAMS = \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
 	systemd-tmpfiles \
-	systemd-machine-id-setup
+	systemd-machine-id-setup \
+        systemd-journalctl
 
 bin_PROGRAMS = \
 	systemd-cgls \
@@ -173,7 +174,8 @@ rootlibexec_PROGRAMS = \
 	systemd-detect-virt \
 	systemd-sysctl \
         systemd-logind \
-        systemd-uaccess
+        systemd-uaccess \
+        systemd-journald
 
 if ENABLE_BINFMT
 rootlibexec_PROGRAMS += \
@@ -225,7 +227,9 @@ noinst_PROGRAMS = \
 	test-env-replace \
 	test-strv \
         test-login \
-        test-install
+        test-install \
+        test-id128 \
+        test-journal
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -685,7 +689,8 @@ libsystemd_core_la_SOURCES = \
         src/dbus-common.c \
         src/sd-daemon.c \
         src/install.c \
-        src/cgroup-attr.c
+        src/cgroup-attr.c \
+        src/sd-id128.c
 
 nodist_libsystemd_core_la_SOURCES = \
         src/load-fragment-gperf.c \
@@ -947,6 +952,53 @@ test_install_CFLAGS = \
 test_install_LDADD = \
 	libsystemd-basic.la
 
+test_id128_SOURCES = \
+	src/test-id128.c \
+        src/sd-id128.c
+
+test_id128_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_id128_LDADD = \
+	libsystemd-basic.la
+
+test_journal_SOURCES = \
+	src/journal/test-journal.c \
+	src/journal/sd-journal.c \
+        src/journal/lookup3.c \
+        src/sd-id128.c
+
+test_journal_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_journal_LDADD = \
+	libsystemd-basic.la
+
+systemd_journald_SOURCES = \
+	src/journal/journald.c \
+	src/journal/sd-journal.c \
+        src/journal/lookup3.c \
+        src/sd-id128.c
+
+systemd_journald_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_journald_LDADD = \
+	libsystemd-basic.la \
+        libsystemd-daemon.la
+
+systemd_journalctl_SOURCES = \
+	src/journal/journalctl.c \
+	src/journal/sd-journal.c \
+        src/journal/lookup3.c \
+        src/sd-id128.c
+
+systemd_journalctl_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_journalctl_LDADD = \
+	libsystemd-basic.la
+
 systemd_stdout_syslog_bridge_SOURCES = \
 	src/stdout-syslog-bridge.c \
 	src/tcpwrap.c
@@ -1142,7 +1194,8 @@ systemd_tmpfiles_LDADD = \
 
 systemd_machine_id_setup_SOURCES = \
 	src/machine-id-setup.c \
-	src/machine-id-main.c
+	src/machine-id-main.c \
+        src/sd-id128.c
 
 systemd_machine_id_setup_CFLAGS = \
 	$(AM_CFLAGS)

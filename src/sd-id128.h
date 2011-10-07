@@ -1,0 +1,56 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#ifndef fooid128hfoo
+#define fooid128hfoo
+
+/***
+  This file is part of systemd.
+
+  Copyright 2011 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <inttypes.h>
+#include <stdbool.h>
+#include <string.h>
+
+typedef union sd_id128 sd_id128_t;
+
+union sd_id128 {
+        uint8_t bytes[16];
+        uint64_t qwords[2];
+};
+
+char *sd_id128_to_string(sd_id128_t id, char s[33]);
+
+int sd_id128_from_string(const char s[33], sd_id128_t *ret);
+
+int sd_id128_randomize(sd_id128_t *ret);
+
+sd_id128_t sd_id128_make_v4_uuid(sd_id128_t id);
+
+int sd_id128_get_machine(sd_id128_t *ret);
+
+int sd_id128_get_boot(sd_id128_t *ret);
+
+#define SD_ID128_MAKE(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) \
+        ((sd_id128_t) { .bytes = { 0x##v0, 0x##v1, 0x##v2, 0x##v3, 0x##v4, 0x##v5, 0x##v6, 0x##v7, \
+                                   0x##v8, 0x##v9, 0x##v10, 0x##v11, 0x##v12, 0x##v13, 0x##v14, 0x##v15 }})
+
+static inline bool sd_id128_equal(sd_id128_t a, sd_id128_t b) {
+        return memcmp(&a, &b, 16) == 0;
+}
+
+#endif

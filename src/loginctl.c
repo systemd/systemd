@@ -393,7 +393,7 @@ static void print_session_status_info(SessionStatusInfo *i) {
 
                 printf("\t  Leader: %u", (unsigned) i->leader);
 
-                get_process_name(i->leader, &t);
+                get_process_comm(i->leader, &t);
                 if (t) {
                         printf(" (%s)", t);
                         free(t);

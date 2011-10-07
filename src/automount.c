@@ -770,7 +770,7 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 if (packet.v5_packet.pid > 0) {
                         char *p = NULL;
 
-                        get_process_name(packet.v5_packet.pid, &p);
+                        get_process_comm(packet.v5_packet.pid, &p);
                         log_debug("Got direct mount request for %s, triggered by %lu (%s)", packet.v5_packet.name, (unsigned long) packet.v5_packet.pid, strna(p));
                         free(p);
 

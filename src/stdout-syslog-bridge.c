@@ -649,7 +649,8 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if ((n = sd_listen_fds(true)) < 0) {
+        n = sd_listen_fds(true);
+        if (n < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
                 return EXIT_FAILURE;
         }

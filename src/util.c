@@ -55,6 +55,7 @@
 #include <linux/rtc.h>
 #include <glob.h>
 #include <grp.h>
+#include <sys/mman.h>
 
 #include "macro.h"
 #include "util.h"
@@ -73,7 +74,7 @@ size_t page_size(void) {
         static __thread size_t pgsz = 0;
         long r;
 
-        if (_likely_(pgsz))
+        if (_likely_(pgsz > 0))
                 return pgsz;
 
         assert_se((r = sysconf(_SC_PAGESIZE)) > 0);
@@ -993,46 +994,51 @@ char *truncate_nl(char *s) {
         return s;
 }
 
-int get_process_name(pid_t pid, char **name) {
-        char *p;
+int get_process_comm(pid_t pid, char **name) {
         int r;
 
-        assert(pid >= 1);
         assert(name);
 
-        if (asprintf(&p, "/proc/%lu/comm", (unsigned long) pid) < 0)
-                return -ENOMEM;
+        if (pid == 0)
+                r = read_one_line_file("/proc/self/comm", name);
+        else {
+                char *p;
+                if (asprintf(&p, "/proc/%lu/comm", (unsigned long) pid) < 0)
+                        return -ENOMEM;
 
-        r = read_one_line_file(p, name);
-        free(p);
+                r = read_one_line_file(p, name);
+                free(p);
+        }
 
-        if (r < 0)
-                return r;
-
-        return 0;
+        return r;
 }
 
-int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
-        char *p, *r, *k;
+int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
+        char *r, *k;
         int c;
         bool space = false;
         size_t left;
         FILE *f;
 
-        assert(pid >= 1);
         assert(max_length > 0);
         assert(line);
 
-        if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
-                return -ENOMEM;
+        if (pid == 0)
+                f = fopen("/proc/self/cmdline", "re");
+        else {
+                char *p;
+                if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
+                        return -ENOMEM;
 
-        f = fopen(p, "re");
-        free(p);
+                f = fopen(p, "re");
+                free(p);
+        }
 
         if (!f)
                 return -errno;
 
-        if (!(r = new(char, max_length))) {
+        r = new(char, max_length);
+        if (!r) {
                 fclose(f);
                 return -ENOMEM;
         }
@@ -1076,18 +1082,41 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
 
                 free(r);
 
-                if ((h = get_process_name(pid, &t)) < 0)
+                if (!comm_fallback)
+                        return -ENOENT;
+
+                h = get_process_comm(pid, &t);
+                if (h < 0)
                         return h;
 
-                h = asprintf(&r, "[%s]", t);
+                r = join("[", t, "]", NULL);
                 free(t);
 
-                if (h < 0)
+                if (!r)
                         return -ENOMEM;
         }
 
         *line = r;
         return 0;
+}
+
+int get_process_exe(pid_t pid, char **name) {
+        int r;
+
+        assert(name);
+
+        if (pid == 0)
+                r = readlink_malloc("/proc/self/exe", name);
+        else {
+                char *p;
+                if (asprintf(&p, "/proc/%lu/exe", (unsigned long) pid) < 0)
+                        return -ENOMEM;
+
+                r = readlink_malloc(p, name);
+                free(p);
+        }
+
+        return r;
 }
 
 char *strnappend(const char *s, const char *suffix, size_t b) {
@@ -4267,7 +4296,7 @@ const char *default_term_for_tty(const char *tty) {
         return term;
 }
 
-bool dirent_is_file(struct dirent *de) {
+bool dirent_is_file(const struct dirent *de) {
         assert(de);
 
         if (ignore_file(de->d_name))
@@ -4279,6 +4308,15 @@ bool dirent_is_file(struct dirent *de) {
                 return false;
 
         return true;
+}
+
+bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
+        assert(de);
+
+        if (!dirent_is_file(de))
+                return false;
+
+        return endswith(de->d_name, suffix);
 }
 
 void execute_directory(const char *directory, DIR *d, char *argv[]) {
@@ -4451,6 +4489,98 @@ void parse_syslog_priority(char **p, int *priority) {
 
         *priority = a*100+b*10+c;
         *p += k;
+}
+
+void skip_syslog_pid(char **buf) {
+        char *p;
+
+        assert(buf);
+        assert(*buf);
+
+        p = *buf;
+
+        if (*p != '[')
+                return;
+
+        p++;
+        p += strspn(p, "0123456789");
+
+        if (*p != ']')
+                return;
+
+        p++;
+
+        *buf = p;
+}
+
+void skip_syslog_date(char **buf) {
+        enum {
+                LETTER,
+                SPACE,
+                NUMBER,
+                SPACE_OR_NUMBER,
+                COLON
+        } sequence[] = {
+                LETTER, LETTER, LETTER,
+                SPACE,
+                SPACE_OR_NUMBER, NUMBER,
+                SPACE,
+                SPACE_OR_NUMBER, NUMBER,
+                COLON,
+                SPACE_OR_NUMBER, NUMBER,
+                COLON,
+                SPACE_OR_NUMBER, NUMBER,
+                SPACE
+        };
+
+        char *p;
+        unsigned i;
+
+        assert(buf);
+        assert(*buf);
+
+        p = *buf;
+
+        for (i = 0; i < ELEMENTSOF(sequence); i++, p++) {
+
+                if (!*p)
+                        return;
+
+                switch (sequence[i]) {
+
+                case SPACE:
+                        if (*p != ' ')
+                                return;
+                        break;
+
+                case SPACE_OR_NUMBER:
+                        if (*p == ' ')
+                                break;
+
+                        /* fall through */
+
+                case NUMBER:
+                        if (*p < '0' || *p > '9')
+                                return;
+
+                        break;
+
+                case LETTER:
+                        if (!(*p >= 'A' && *p <= 'Z') &&
+                            !(*p >= 'a' && *p <= 'z'))
+                                return;
+
+                        break;
+
+                case COLON:
+                        if (*p != ':')
+                                return;
+                        break;
+
+                }
+        }
+
+        *buf = p;
 }
 
 int have_effective_cap(int value) {
@@ -4672,21 +4802,6 @@ int vt_disallocate(const char *name) {
         return 0;
 }
 
-
-static int file_is_conf(const struct dirent *d, const char *suffix) {
-        assert(d);
-
-        if (ignore_file(d->d_name))
-                return 0;
-
-        if (d->d_type != DT_REG &&
-            d->d_type != DT_LNK &&
-            d->d_type != DT_UNKNOWN)
-                return 0;
-
-        return endswith(d->d_name, suffix);
-}
-
 static int files_add(Hashmap *h, const char *path, const char *suffix) {
         DIR *dir;
         struct dirent buffer, *de;
@@ -4712,7 +4827,7 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
                 if (!de)
                         break;
 
-                if (!file_is_conf(de, suffix))
+                if (!dirent_is_file_with_suffix(de, suffix))
                         continue;
 
                 if (asprintf(&p, "%s/%s", path, de->d_name) < 0) {
@@ -5063,21 +5178,27 @@ int symlink_or_copy_atomic(const char *from, const char *to) {
 }
 
 int audit_session_from_pid(pid_t pid, uint32_t *id) {
-        char *p, *s;
+        char *s;
         uint32_t u;
         int r;
 
-        assert(pid >= 1);
         assert(id);
 
         if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
                 return -ENOENT;
 
-        if (asprintf(&p, "/proc/%lu/sessionid", (unsigned long) pid) < 0)
-                return -ENOMEM;
+        if (pid == 0)
+                r = read_one_line_file("/proc/self/sessionid", &s);
+        else {
+                char *p;
 
-        r = read_one_line_file(p, &s);
-        free(p);
+                if (asprintf(&p, "/proc/%lu/sessionid", (unsigned long) pid) < 0)
+                        return -ENOMEM;
+
+                r = read_one_line_file(p, &s);
+                free(p);
+        }
+
         if (r < 0)
                 return r;
 
@@ -5091,6 +5212,51 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
                 return -ENOENT;
 
         *id = u;
+        return 0;
+}
+
+int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
+        char *s;
+        uid_t u;
+        int r;
+
+        assert(uid);
+
+        /* Only use audit login uid if we are executed with sufficient
+         * capabilities so that pam_loginuid could do its job. If we
+         * are lacking the CAP_AUDIT_CONTROL capabality we most likely
+         * are being run in a container and /proc/self/loginuid is
+         * useless since it probably contains a uid of the host
+         * system. */
+
+        if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
+                return -ENOENT;
+
+        if (pid == 0)
+                r = read_one_line_file("/proc/self/loginuid", &s);
+        else {
+                char *p;
+
+                if (asprintf(&p, "/proc/%lu/loginuid", (unsigned long) pid) < 0)
+                        return -ENOMEM;
+
+                r = read_one_line_file(p, &s);
+                free(p);
+        }
+
+        if (r < 0)
+                return r;
+
+        r = parse_uid(s, &u);
+        free(s);
+
+        if (r < 0)
+                return r;
+
+        if (u == (uid_t) -1)
+                return -ENOENT;
+
+        *uid = (uid_t) u;
         return 0;
 }
 
@@ -5699,4 +5865,22 @@ int strdup_or_null(const char *a, char **b) {
 
         *b = c;
         return 0;
+}
+
+int prot_from_flags(int flags) {
+
+        switch (flags & O_ACCMODE) {
+
+        case O_RDONLY:
+                return PROT_READ;
+
+        case O_WRONLY:
+                return PROT_WRITE;
+
+        case O_RDWR:
+                return PROT_READ|PROT_WRITE;
+
+        default:
+                return -EINVAL;
+        }
 }
