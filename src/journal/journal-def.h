@@ -74,6 +74,7 @@ _packed_ struct EntryObject {
         uint64_t seqnum;
         uint64_t realtime;
         uint64_t monotonic;
+        uint64_t xor_hash;
         uint64_t prev_entry_offset;
         uint64_t next_entry_offset;
         EntryItem items[];

@@ -758,7 +758,12 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         return 0;
 }
 
-static int journal_file_append_entry_internal(JournalFile *f, const dual_timestamp *ts, const EntryItem items[], unsigned n_items, Object **ret, uint64_t *offset) {
+static int journal_file_append_entry_internal(
+                JournalFile *f,
+                const dual_timestamp *ts,
+                uint64_t xor_hash,
+                const EntryItem items[], unsigned n_items,
+                Object **ret, uint64_t *offset) {
         uint64_t np;
         uint64_t osize;
         Object *o;
@@ -776,8 +781,9 @@ static int journal_file_append_entry_internal(JournalFile *f, const dual_timesta
         o->object.type = htole64(OBJECT_ENTRY);
         o->entry.seqnum = htole64(journal_file_seqnum(f));
         memcpy(o->entry.items, items, n_items * sizeof(EntryItem));
-        o->entry.realtime = htole64(ts->realtime);
-        o->entry.monotonic = htole64(ts->monotonic);
+        o->entry.realtime = ts ? htole64(ts->realtime) : 0;
+        o->entry.monotonic = ts ? htole64(ts->monotonic) : 0;
+        o->entry.xor_hash = htole64(xor_hash);
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
@@ -796,8 +802,10 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         unsigned i;
         EntryItem *items;
         int r;
+        uint64_t xor_hash = 0;
 
         assert(f);
+        assert(iovec || n_iovec == 0);
 
         items = new(EntryItem, n_iovec);
         if (!items)
@@ -805,15 +813,17 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
         for (i = 0; i < n_iovec; i++) {
                 uint64_t p;
+                Object *o;
 
-                r = journal_file_append_data(f, iovec[i].iov_base, iovec[i].iov_len, NULL, &p);
+                r = journal_file_append_data(f, iovec[i].iov_base, iovec[i].iov_len, &o, &p);
                 if (r < 0)
                         goto finish;
 
+                xor_hash ^= le64toh(o->data.hash);
                 items[i].object_offset = htole64(p);
         }
 
-        r = journal_file_append_entry_internal(f, ts, items, n_iovec, ret, offset);
+        r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, ret, offset);
 
 finish:
         free(items);
