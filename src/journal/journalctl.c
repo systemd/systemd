@@ -33,9 +33,9 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        r = journal_file_open(NULL, "/var/log/journal/system.journal", O_RDONLY, 0644, &f);
+        r = journal_file_open("/var/log/journal/system.journal", O_RDONLY, 0644, &f);
         if (r == -ENOENT)
-                r = journal_file_open(NULL, "/run/log/journal/system.journal", O_RDONLY, 0644, &f);
+                r = journal_file_open("/run/log/journal/system.journal", O_RDONLY, 0644, &f);
 
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));

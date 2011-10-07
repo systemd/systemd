@@ -257,11 +257,11 @@ static int process_event(Server *s, struct epoll_event *ev) {
 static int open_system_journal(JournalFile **f) {
         int r;
 
-        r = journal_file_open(NULL, "/var/log/journal/system.journal", O_RDWR|O_CREAT, 0644, f);
+        r = journal_file_open("/var/log/journal/system.journal", O_RDWR|O_CREAT, 0644, f);
         if (r == -ENOENT) {
                 mkdir_p("/run/log/journal", 0755);
 
-                r = journal_file_open(NULL, "/run/log/journal/system.journal", O_RDWR|O_CREAT, 0644, f);
+                r = journal_file_open("/run/log/journal/system.journal", O_RDWR|O_CREAT, 0644, f);
         }
 
         return r;

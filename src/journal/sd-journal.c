@@ -32,6 +32,7 @@
 #include "journal-private.h"
 #include "lookup3.h"
 #include "list.h"
+#include "hashmap.h"
 
 #define DEFAULT_ARENA_MAX_SIZE (16ULL*1024ULL*1024ULL*1024ULL)
 #define DEFAULT_ARENA_MIN_SIZE (256ULL*1024ULL)
@@ -43,8 +44,6 @@
 #define DEFAULT_WINDOW_SIZE (128ULL*1024ULL*1024ULL)
 
 struct JournalFile {
-        sd_journal *journal;
-
         int fd;
         char *path;
         struct stat last_stat;
@@ -72,7 +71,7 @@ struct JournalFile {
 };
 
 struct sd_journal {
-        LIST_HEAD(JournalFile, files);
+        Hashmap *files;
 };
 
 static const char signature[] = { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' };
@@ -81,9 +80,6 @@ static const char signature[] = { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' };
 
 void journal_file_close(JournalFile *f) {
         assert(f);
-
-        if (f->journal)
-                LIST_REMOVE(JournalFile, files, f->journal->files, f);
 
         if (f->fd >= 0)
                 close_nointr_nofail(f->fd);
@@ -1146,7 +1142,6 @@ fail:
 }
 
 int journal_file_open(
-                sd_journal *j,
                 const char *fname,
                 int flags,
                 mode_t mode,
@@ -1242,11 +1237,6 @@ int journal_file_open(
         if (r < 0)
                 goto fail;
 
-        if (j) {
-                LIST_PREPEND(JournalFile, files, j->files, f);
-                f->journal = j;
-        }
-
         if (ret)
                 *ret = f;
 
@@ -1273,6 +1263,10 @@ int sd_journal_open(sd_journal **ret) {
         if (!j)
                 return -ENOMEM;
 
+        j->files = hashmap_new(string_hash_func, string_compare_func);
+        if (!j->files)
+                goto fail;
+
         NULSTR_FOREACH(p, search_paths) {
                 DIR *d;
 
@@ -1287,6 +1281,7 @@ int sd_journal_open(sd_journal **ret) {
                 for (;;) {
                         struct dirent buf, *de;
                         int k;
+                        JournalFile *f;
 
                         k = readdir_r(d, &buf, &de);
                         if (k != 0) {
@@ -1309,19 +1304,24 @@ int sd_journal_open(sd_journal **ret) {
                                 goto fail;
                         }
 
-                        k = journal_file_open(j, fn, O_RDONLY, 0, NULL);
-                        if (k < 0 && r == 0)
-                                r = -k;
-
+                        k = journal_file_open(fn, O_RDONLY, 0, &f);
                         free(fn);
+
+                        if (k < 0) {
+
+                                if (r == 0)
+                                        r = -k;
+                        } else {
+                                k = hashmap_put(j->files, f->path, f);
+                                if (k < 0) {
+                                        journal_file_close(f);
+                                        closedir(d);
+
+                                        r = k;
+                                        goto fail;
+                                }
+                        }
                 }
-        }
-
-        if (!j->files) {
-                if (r >= 0)
-                        r = -ENOENT;
-
-                goto fail;
         }
 
         *ret = j;
@@ -1336,8 +1336,14 @@ fail:
 void sd_journal_close(sd_journal *j) {
         assert(j);
 
-        while (j->files)
-                journal_file_close(j->files);
+        if (j->files) {
+                JournalFile *f;
+
+                while ((f = hashmap_steal_first(j->files)))
+                        journal_file_close(f);
+
+                hashmap_free(j->files);
+        }
 
         free(j);
 }

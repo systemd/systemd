@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        assert_se(journal_file_open(NULL, "test", O_RDWR|O_CREAT, 0666, &f) == 0);
+        assert_se(journal_file_open("test", O_RDWR|O_CREAT, 0666, &f) == 0);
 
         dual_timestamp_get(&ts);
 

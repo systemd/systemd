@@ -27,10 +27,20 @@
 #include "sd-journal.h"
 #include "journal-def.h"
 #include "util.h"
+#include "sd-id128.h"
+
+typedef struct JournalCoursor {
+        sd_id128_t file_id;
+        sd_id128_t boot_id;
+        uint64_t seqnum;
+        uint64_t monotonic;
+        uint64_t realtime;
+        uint64_t xor_hash;
+} JournalCoursor;
 
 typedef struct JournalFile JournalFile;
 
-int journal_file_open(sd_journal *j, const char *fname, int flags, mode_t mode, JournalFile **ret);
+int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile **ret);
 
 void journal_file_close(JournalFile *j);
 
