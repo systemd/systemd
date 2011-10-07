@@ -124,11 +124,13 @@ __attribute__((destructor)) static void cleanup_pool(void) {
 #endif
 
 unsigned string_hash_func(const void *p) {
-        unsigned hash = 0;
-        const char *c;
+        unsigned hash = 5381;
+        const signed char *c;
+
+        /* DJB's hash function */
 
         for (c = p; *c; c++)
-                hash = 31 * hash + (unsigned) *c;
+                hash = (hash << 5) + hash + (unsigned) *c;
 
         return hash;
 }
