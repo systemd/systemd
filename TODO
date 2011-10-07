@@ -17,6 +17,8 @@ Bugfixes:
 
 Features:
 
+* bind mounts should be ordered after remount-root-fs.service
+
 * add an option to make mounts private/shareable and so on, enable this for root by default
 
 * internal restart counter for units (focus on auto-respawn)
