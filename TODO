@@ -15,6 +15,8 @@ Bugfixes:
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
 
+* make polkit checks async
+
 Features:
 
 * bind mounts should be ordered after remount-root-fs.service
