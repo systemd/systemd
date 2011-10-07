@@ -29,6 +29,31 @@
 #include "util.h"
 #include "sd-id128.h"
 
+typedef struct JournalFile {
+        int fd;
+        char *path;
+        struct stat last_stat;
+        int prot;
+        bool writable;
+
+        Header *header;
+
+        HashItem *hash_table;
+        void *hash_table_window;
+        uint64_t hash_table_window_size;
+
+        uint64_t *bisect_table;
+        void *bisect_table_window;
+        uint64_t bisect_table_window_size;
+
+        void *window;
+        uint64_t window_offset;
+        uint64_t window_size;
+
+        Object *current;
+        uint64_t current_offset;
+} JournalFile;
+
 typedef struct JournalCoursor {
         sd_id128_t file_id;
         sd_id128_t boot_id;
@@ -37,8 +62,6 @@ typedef struct JournalCoursor {
         uint64_t realtime;
         uint64_t xor_hash;
 } JournalCoursor;
-
-typedef struct JournalFile JournalFile;
 
 int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile **ret);
 

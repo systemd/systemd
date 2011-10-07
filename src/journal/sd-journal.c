@@ -43,33 +43,6 @@
 
 #define DEFAULT_WINDOW_SIZE (128ULL*1024ULL*1024ULL)
 
-struct JournalFile {
-        int fd;
-        char *path;
-        struct stat last_stat;
-        int prot;
-        bool writable;
-
-        Header *header;
-
-        HashItem *hash_table;
-        void *hash_table_window;
-        uint64_t hash_table_window_size;
-
-        uint64_t *bisect_table;
-        void *bisect_table_window;
-        uint64_t bisect_table_window_size;
-
-        void *window;
-        uint64_t window_offset;
-        uint64_t window_size;
-
-        Object *current;
-        uint64_t current_offset;
-
-        LIST_FIELDS(JournalFile, files);
-};
-
 struct sd_journal {
         Hashmap *files;
 };

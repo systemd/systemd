@@ -27,46 +27,7 @@
 
 #include "logind-acl.h"
 #include "util.h"
-
-static int find_acl(acl_t acl, uid_t uid, acl_entry_t *entry) {
-        acl_entry_t i;
-        int found;
-
-        assert(acl);
-        assert(entry);
-
-        for (found = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
-             found > 0;
-             found = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
-
-                acl_tag_t tag;
-                uid_t *u;
-                bool b;
-
-                if (acl_get_tag_type(i, &tag) < 0)
-                        return -errno;
-
-                if (tag != ACL_USER)
-                        continue;
-
-                u = acl_get_qualifier(i);
-                if (!u)
-                        return -errno;
-
-                b = *u == uid;
-                acl_free(u);
-
-                if (b) {
-                        *entry = i;
-                        return 1;
-                }
-        }
-
-        if (found < 0)
-                return -errno;
-
-        return 0;
-}
+#include "acl-util.h"
 
 static int flush_acl(acl_t acl) {
         acl_entry_t i;
@@ -125,7 +86,7 @@ int devnode_acl(const char *path,
         } else if (del && old_uid > 0) {
                 acl_entry_t entry;
 
-                r = find_acl(acl, old_uid, &entry);
+                r = acl_find_uid(acl, old_uid, &entry);
                 if (r < 0)
                         goto finish;
 
@@ -144,7 +105,7 @@ int devnode_acl(const char *path,
                 acl_permset_t permset;
                 int rd, wt;
 
-                r = find_acl(acl, new_uid, &entry);
+                r = acl_find_uid(acl, new_uid, &entry);
                 if (r < 0)
                         goto finish;
 

@@ -25,20 +25,108 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/acl.h>
+#include <acl/libacl.h>
 
 #include "hashmap.h"
 #include "journal-private.h"
 #include "sd-daemon.h"
 #include "socket-util.h"
+#include "acl-util.h"
 
 typedef struct Server {
         int syslog_fd;
         int epoll_fd;
         int signal_fd;
 
+        JournalFile *runtime_journal;
         JournalFile *system_journal;
         Hashmap *user_journals;
 } Server;
+
+static void fix_perms(JournalFile *f, uid_t uid) {
+        acl_t acl;
+        acl_entry_t entry;
+        acl_permset_t permset;
+        int r;
+
+        assert(f);
+
+        r = fchmod_and_fchown(f->fd, 0640, 0, 0);
+        if (r < 0)
+                log_warning("Failed to fix access mode/rights on %s, ignoring: %s", f->path, strerror(-r));
+
+        if (uid <= 0)
+                return;
+
+        acl = acl_get_fd(f->fd);
+        if (!acl) {
+                log_warning("Failed to read ACL on %s, ignoring: %m", f->path);
+                return;
+        }
+
+        r = acl_find_uid(acl, uid, &entry);
+        if (r <= 0) {
+
+                if (acl_create_entry(&acl, &entry) < 0 ||
+                    acl_set_tag_type(entry, ACL_USER) < 0 ||
+                    acl_set_qualifier(entry, &uid) < 0) {
+                        log_warning("Failed to patch ACL on %s, ignoring: %m", f->path);
+                        goto finish;
+                }
+        }
+
+        if (acl_get_permset(entry, &permset) < 0 ||
+            acl_add_perm(permset, ACL_READ) < 0 ||
+            acl_calc_mask(&acl) < 0) {
+                log_warning("Failed to patch ACL on %s, ignoring: %m", f->path);
+                goto finish;
+        }
+
+        if (acl_set_fd(f->fd, acl) < 0)
+                log_warning("Failed to set ACL on %s, ignoring: %m", f->path);
+
+finish:
+        acl_free(acl);
+}
+
+static JournalFile* find_journal(Server *s, uid_t uid) {
+        char *p;
+        int r;
+        JournalFile *f;
+
+        assert(s);
+
+        /* We split up user logs only on /var, not on /run */
+        if (!s->system_journal)
+                return s->runtime_journal;
+
+        if (uid <= 0)
+                return s->system_journal;
+
+        f = hashmap_get(s->user_journals, UINT32_TO_PTR(uid));
+        if (f)
+                return f;
+
+        if (asprintf(&p, "/var/log/journal/%lu.journal", (unsigned long) uid) < 0)
+                return s->system_journal;
+
+        r = journal_file_open(p, O_RDWR|O_CREAT, 0640, &f);
+        free(p);
+
+        if (r < 0)
+                return s->system_journal;
+
+        fix_perms(f, uid);
+
+        r = hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
+        if (r < 0) {
+                journal_file_close(f);
+                return s->system_journal;
+        }
+
+        return f;
+}
 
 static void process_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv) {
         char *message = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
@@ -47,7 +135,6 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
                 *audit_session = NULL, *audit_loginuid = NULL,
                 *syslog_priority = NULL, *syslog_facility = NULL,
                 *exe = NULL;
-        dual_timestamp ts;
         struct iovec iovec[15];
         unsigned n = 0;
         char idbuf[33];
@@ -55,8 +142,8 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
         int r;
         char *t;
         int priority = LOG_USER | LOG_INFO;
-
-        dual_timestamp_get(&ts);
+        uid_t loginuid = 0;
+        JournalFile *f;
 
         parse_syslog_priority((char**) &buf, &priority);
         skip_syslog_date((char**) &buf);
@@ -73,7 +160,6 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
 
         if (ucred) {
                 uint32_t session;
-                uid_t loginuid;
 
                 if (asprintf(&pid, "PID=%lu", (unsigned long) ucred->pid) >= 0)
                         IOVEC_SET_STRING(iovec[n++], pid);
@@ -143,10 +229,15 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
                 free(t);
         }
 
-        r = journal_file_append_entry(s->system_journal, &ts, iovec, n, NULL, NULL);
-        if (r < 0)
-                log_error("Failed to write entry: %s", strerror(-r));
+        f = find_journal(s, loginuid);
+        if (!f)
+                log_warning("Dropping message, as we can't find a place to store the data.");
+        else {
+                r = journal_file_append_entry(f, NULL, iovec, n, NULL, NULL);
 
+                if (r < 0)
+                        log_error("Failed to write entry, ignoring: %s", strerror(-r));
+        }
 
         free(message);
         free(pid);
@@ -253,20 +344,6 @@ static int process_event(Server *s, struct epoll_event *ev) {
         return 1;
 }
 
-
-static int open_system_journal(JournalFile **f) {
-        int r;
-
-        r = journal_file_open("/var/log/journal/system.journal", O_RDWR|O_CREAT, 0644, f);
-        if (r == -ENOENT) {
-                mkdir_p("/run/log/journal", 0755);
-
-                r = journal_file_open("/run/log/journal/system.journal", O_RDWR|O_CREAT, 0644, f);
-        }
-
-        return r;
-}
-
 static int server_init(Server *s) {
         int n, one, r;
         struct epoll_event ev;
@@ -348,8 +425,18 @@ static int server_init(Server *s) {
                 return -ENOMEM;
         }
 
-        r = open_system_journal(&s->system_journal);
-        if (r < 0) {
+        r = journal_file_open("/var/log/journal/system.journal", O_RDWR|O_CREAT, 0640, &s->system_journal);
+        if (r >= 0)
+                fix_perms(s->system_journal, 0);
+        else if (r == -ENOENT) {
+                mkdir_p("/run/log/journal", 0755);
+
+                r = journal_file_open("/run/log/journal/system.journal", O_RDWR|O_CREAT, 0640, &s->runtime_journal);
+                if (r >= 0)
+                        fix_perms(s->runtime_journal, 0);
+        }
+
+        if (r < 0 && r != -ENOENT) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 return r;
         }
@@ -383,6 +470,9 @@ static void server_done(Server *s) {
         if (s->system_journal)
                 journal_file_close(s->system_journal);
 
+        if (s->runtime_journal)
+                journal_file_close(s->runtime_journal);
+
         while ((f = hashmap_steal_first(s->user_journals)))
                 journal_file_close(f);
 
@@ -412,7 +502,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_AUTO);
+        log_set_target(LOG_TARGET_CONSOLE);
         log_parse_environment();
         log_open();
 

@@ -978,14 +978,17 @@ systemd_journald_SOURCES = \
 	src/journal/journald.c \
 	src/journal/sd-journal.c \
         src/journal/lookup3.c \
-        src/sd-id128.c
+        src/sd-id128.c \
+        src/acl-util.c
 
 systemd_journald_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+        $(ACL_CFLAGS)
 
 systemd_journald_LDADD = \
 	libsystemd-basic.la \
-        libsystemd-daemon.la
+        libsystemd-daemon.la \
+        $(ACL_LIBS)
 
 systemd_journalctl_SOURCES = \
 	src/journal/journalctl.c \
@@ -1143,10 +1146,12 @@ systemd_uaccess_SOURCES = \
 
 if HAVE_ACL
 systemd_logind_SOURCES += \
-	src/logind-acl.c
+	src/logind-acl.c \
+        src/acl-util.c
 
 systemd_uaccess_SOURCES += \
-	src/logind-acl.c
+	src/logind-acl.c \
+        src/acl-util.c
 endif
 
 systemd_uaccess_CFLAGS = \
