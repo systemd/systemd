@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foojournalprivatehfoo
-#define foojournalprivatehfoo
+#ifndef foojournalfilehfoo
+#define foojournalfilehfoo
 
 /***
   This file is part of systemd.
@@ -24,7 +24,6 @@
 
 #include <inttypes.h>
 
-#include "sd-journal.h"
 #include "journal-def.h"
 #include "util.h"
 #include "sd-id128.h"
@@ -50,24 +49,25 @@ typedef struct JournalFile {
         uint64_t window_offset;
         uint64_t window_size;
 
-        Object *current;
         uint64_t current_offset;
 } JournalFile;
 
-typedef struct JournalCoursor {
-        sd_id128_t file_id;
-        sd_id128_t boot_id;
+typedef struct JournalCursor {
+        uint8_t version;
+        uint8_t reserved[7];
         uint64_t seqnum;
+        sd_id128_t seqnum_id;
+        sd_id128_t boot_id;
         uint64_t monotonic;
         uint64_t realtime;
         uint64_t xor_hash;
-} JournalCoursor;
+} JournalCursor;
 
 int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile **ret);
 
 void journal_file_close(JournalFile *j);
 
-int journal_file_move_to_object(JournalFile *f, uint64_t offset, Object **ret);
+int journal_file_move_to_object(JournalFile *f, uint64_t offset, int type, Object **ret);
 
 uint64_t journal_file_entry_n_items(Object *o);
 

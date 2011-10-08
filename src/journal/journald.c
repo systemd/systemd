@@ -29,7 +29,7 @@
 #include <acl/libacl.h>
 
 #include "hashmap.h"
-#include "journal-private.h"
+#include "journal-file.h"
 #include "sd-daemon.h"
 #include "socket-util.h"
 #include "acl-util.h"
@@ -282,7 +282,9 @@ static int process_event(Server *s, struct epoll_event *ev) {
                 log_debug("Received SIG%s", signal_to_string(sfsi.ssi_signo));
                 return 0;
 
-        } else {
+        }
+
+        if (ev->data.fd == s->syslog_fd) {
                 for (;;) {
                         char buf[LINE_MAX+1];
                         struct msghdr msghdr;
@@ -339,9 +341,12 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
                         process_message(s, strstrip(buf), ucred, tv);
                 }
+
+                return 1;
         }
 
-        return 1;
+        log_error("Unknown event.");
+        return 0;
 }
 
 static int server_init(Server *s) {

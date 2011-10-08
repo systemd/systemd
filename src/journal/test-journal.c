@@ -21,7 +21,7 @@
 
 #include <fcntl.h>
 
-#include "journal-private.h"
+#include "journal-file.h"
 #include "log.h"
 
 int main(int argc, char *argv[]) {

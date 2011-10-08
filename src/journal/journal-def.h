@@ -48,7 +48,7 @@ enum {
 
 _packed_ struct ObjectHeader {
         uint8_t type;
-        uint8_t reserved[3];
+        uint8_t reserved[7];
         uint64_t size;
         uint8_t payload[];
 };
@@ -74,6 +74,7 @@ _packed_ struct EntryObject {
         uint64_t seqnum;
         uint64_t realtime;
         uint64_t monotonic;
+        sd_id128_t boot_id;
         uint64_t xor_hash;
         uint64_t prev_entry_offset;
         uint64_t next_entry_offset;
@@ -118,6 +119,7 @@ _packed_ struct Header {
         sd_id128_t file_id;
         sd_id128_t machine_id;
         sd_id128_t boot_id;
+        sd_id128_t seqnum_id;
         uint64_t arena_offset;
         uint64_t arena_size;
         uint64_t arena_max_size;
@@ -133,7 +135,6 @@ _packed_ struct Header {
         uint64_t tail_entry_offset;
         uint64_t last_bisect_offset;
         uint64_t n_objects;
-        uint64_t seqnum_base;
         uint64_t seqnum;
 };
 

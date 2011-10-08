@@ -965,6 +965,7 @@ test_id128_LDADD = \
 test_journal_SOURCES = \
 	src/journal/test-journal.c \
 	src/journal/sd-journal.c \
+        src/journal/journal-file.c \
         src/journal/lookup3.c \
         src/sd-id128.c
 
@@ -977,6 +978,7 @@ test_journal_LDADD = \
 systemd_journald_SOURCES = \
 	src/journal/journald.c \
 	src/journal/sd-journal.c \
+        src/journal/journal-file.c \
         src/journal/lookup3.c \
         src/sd-id128.c \
         src/acl-util.c
@@ -993,6 +995,7 @@ systemd_journald_LDADD = \
 systemd_journalctl_SOURCES = \
 	src/journal/journalctl.c \
 	src/journal/sd-journal.c \
+        src/journal/journal-file.c \
         src/journal/lookup3.c \
         src/sd-id128.c
 

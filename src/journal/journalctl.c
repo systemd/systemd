@@ -23,7 +23,7 @@
 #include <errno.h>
 #include <stddef.h>
 
-#include "journal-private.h"
+#include "journal-file.h"
 
 int main(int argc, char *argv[]) {
         int r;
@@ -62,21 +62,16 @@ int main(int argc, char *argv[]) {
                         uint64_t p, l;
 
                         p = le64toh(o->entry.items[i].object_offset);
-                        r = journal_file_move_to_object(f, p, &o);
+                        r = journal_file_move_to_object(f, p, OBJECT_DATA, &o);
                         if (r < 0) {
                                 log_error("Failed to move to data: %s", strerror(-r));
-                                goto finish;
-                        }
-
-                        if (le64toh(o->object.type) != OBJECT_DATA) {
-                                log_error("Invalid file");
                                 goto finish;
                         }
 
                         l = o->object.size - offsetof(Object, data.payload);
                         printf("\t[%.*s]\n", (int) l, o->data.payload);
 
-                        r = journal_file_move_to_object(f, offset, &o);
+                        r = journal_file_move_to_object(f, offset, OBJECT_ENTRY, &o);
                         if (r < 0) {
                                 log_error("Failed to move back to entry: %s", strerror(-r));
                                 goto finish;
