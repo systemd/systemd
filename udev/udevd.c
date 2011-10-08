@@ -347,6 +347,7 @@ static void worker_new(struct event *event)
 				for (i = 0; i < fdcount; i++) {
 					if (ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN) {
 						dev = udev_monitor_receive_device(worker_monitor);
+						break;
 					} else if (ev[i].data.fd == fd_signal && ev[i].events & EPOLLIN) {
 						struct signalfd_siginfo fdsi;
 						ssize_t size;
