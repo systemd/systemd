@@ -148,7 +148,7 @@ static bool test_virtualization(const char *parameter) {
                 return true;
 
         /* Finally compare id */
-        return streq(parameter, id);
+        return v > 0 && streq(parameter, id);
 }
 
 static bool test_security(const char *parameter) {
