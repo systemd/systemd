@@ -5,4 +5,4 @@ ConditionVirtualization=!container
 
 [Socket]
 Service=udev.service
-ListenSequentialPacket=@/org/kernel/udev/udevd
+ListenSequentialPacket=/run/udev/control

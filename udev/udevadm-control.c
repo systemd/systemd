@@ -66,7 +66,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[])
 		return 1;
 	}
 
-	uctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
+	uctrl = udev_ctrl_new(udev);
 	if (uctrl == NULL)
 		return 2;
 
@@ -157,6 +157,11 @@ static int adm_control(struct udev *udev, int argc, char *argv[])
 			break;
 		}
 	}
+
+	if (argv[optind] != NULL)
+		fprintf(stderr, "unknown option\n");
+	else if (optind == 1)
+		fprintf(stderr, "missing option\n");
 out:
 	udev_ctrl_unref(uctrl);
 	return rc;

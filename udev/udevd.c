@@ -1349,7 +1349,7 @@ int main(int argc, char *argv[])
 
 	if (systemd_fds(udev, &fd_ctrl, &fd_netlink) >= 0) {
 		/* get control and netlink socket from from systemd */
-		udev_ctrl = udev_ctrl_new_from_socket_fd(udev, UDEV_CTRL_SOCK_PATH, fd_ctrl);
+		udev_ctrl = udev_ctrl_new_from_fd(udev, fd_ctrl);
 		if (udev_ctrl == NULL) {
 			err(udev, "error taking over udev control socket");
 			rc = 1;
@@ -1364,7 +1364,7 @@ int main(int argc, char *argv[])
 		}
 	} else {
 		/* open control and netlink socket */
-		udev_ctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
+		udev_ctrl = udev_ctrl_new(udev);
 		if (udev_ctrl == NULL) {
 			fprintf(stderr, "error initializing udev control socket");
 			err(udev, "error initializing udev control socket");

@@ -138,7 +138,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
 	if (getuid() == 0) {
 		struct udev_ctrl *uctrl;
 
-		uctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
+		uctrl = udev_ctrl_new(udev);
 		if (uctrl != NULL) {
 			if (udev_ctrl_send_ping(uctrl, timeout) < 0) {
 				info(udev, "no connection to daemon\n");

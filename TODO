@@ -1,8 +1,5 @@
  - test (now fixed) /dev/tape/ links
 
- - /run/udev/control socket
-   (add ConditionVirtualization=!pidns)
-
  - move udevd -> --libexecdir
 
  - have a $attrs{} ?

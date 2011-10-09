@@ -60,6 +60,7 @@ struct udev_ctrl {
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	bool bound;
+	bool cleanup_socket;
 	bool connected;
 };
 
@@ -69,7 +70,7 @@ struct udev_ctrl_connection {
 	int sock;
 };
 
-static struct udev_ctrl *udev_ctrl_new(struct udev *udev)
+struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
 {
 	struct udev_ctrl *uctrl;
 
@@ -78,16 +79,6 @@ static struct udev_ctrl *udev_ctrl_new(struct udev *udev)
 		return NULL;
 	uctrl->refcount = 1;
 	uctrl->udev = udev;
-	return uctrl;
-}
-
-struct udev_ctrl *udev_ctrl_new_from_socket_fd(struct udev *udev, const char *socket_path, int fd)
-{
-	struct udev_ctrl *uctrl;
-
-	uctrl = udev_ctrl_new(udev);
-	if (uctrl == NULL)
-		return NULL;
 
 	if (fd < 0) {
 		uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
@@ -102,17 +93,15 @@ struct udev_ctrl *udev_ctrl_new_from_socket_fd(struct udev *udev, const char *so
 	}
 
 	uctrl->saddr.sun_family = AF_LOCAL;
-	strcpy(uctrl->saddr.sun_path, socket_path);
+	util_strscpyl(uctrl->saddr.sun_path, sizeof(uctrl->saddr.sun_path),
+                      udev_get_run_path(udev), "/control", NULL);
 	uctrl->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(uctrl->saddr.sun_path);
-	/* translate leading '@' to abstract namespace */
-	if (uctrl->saddr.sun_path[0] == '@')
-		uctrl->saddr.sun_path[0] = '\0';
 	return uctrl;
 }
 
-struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path)
+struct udev_ctrl *udev_ctrl_new(struct udev *udev)
 {
-	return udev_ctrl_new_from_socket_fd(udev, socket_path, -1);
+	return udev_ctrl_new_from_fd(udev, -1);
 }
 
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
@@ -121,6 +110,11 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
 
 	if (!uctrl->bound) {
 		err = bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
+		if (err < 0 && errno == EADDRINUSE) {
+			unlink(uctrl->saddr.sun_path);
+			err = bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
+		}
+
 		if (err < 0) {
 			err = -errno;
 			err(uctrl->udev, "bind failed: %m\n");
@@ -135,6 +129,7 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
 		}
 
 		uctrl->bound = true;
+		uctrl->cleanup_socket = true;
 	}
 	return 0;
 }
@@ -161,6 +156,8 @@ struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl)
 		return uctrl;
 	if (uctrl->sock >= 0)
 		close(uctrl->sock);
+	if (uctrl->cleanup_socket)
+		unlink(uctrl->saddr.sun_path);
 	free(uctrl);
 	return NULL;
 }
