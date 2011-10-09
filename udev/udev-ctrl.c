@@ -156,10 +156,15 @@ struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl)
 		return uctrl;
 	if (uctrl->sock >= 0)
 		close(uctrl->sock);
-	if (uctrl->cleanup_socket)
-		unlink(uctrl->saddr.sun_path);
 	free(uctrl);
 	return NULL;
+}
+
+int udev_ctrl_cleanup(struct udev_ctrl *uctrl)
+{
+	if (uctrl->cleanup_socket)
+		unlink(uctrl->saddr.sun_path);
+	return 0;
 }
 
 int udev_ctrl_get_fd(struct udev_ctrl *uctrl)

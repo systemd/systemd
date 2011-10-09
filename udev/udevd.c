@@ -1420,7 +1420,7 @@ int main(int argc, char *argv[])
 			goto exit;
 		default:
 			rc = EXIT_SUCCESS;
-			goto exit_keep_queue;
+			goto exit_daemonize;
 		}
 
 		setsid();
@@ -1704,7 +1704,8 @@ int main(int argc, char *argv[])
 	rc = EXIT_SUCCESS;
 exit:
 	udev_queue_export_cleanup(udev_queue_export);
-exit_keep_queue:
+	udev_ctrl_cleanup(udev_ctrl);
+exit_daemonize:
 	if (fd_ep >= 0)
 		close(fd_ep);
 	worker_list_cleanup(udev);

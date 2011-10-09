@@ -102,6 +102,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd);
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl);
+int udev_ctrl_cleanup(struct udev_ctrl *uctrl);
 struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl);
 int udev_ctrl_get_fd(struct udev_ctrl *uctrl);
 int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, int timeout);
