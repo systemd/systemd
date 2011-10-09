@@ -18,6 +18,8 @@ Bugfixes:
 * make polkit checks async
 
 Features:
+* if we can not get user quota for tmpfs, mount a separate tmpfs instance
+  for every user in /run/user/$USER with a configured maximum size
 
 * bind mounts should be ordered after remount-root-fs.service
 
