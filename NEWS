@@ -1,4 +1,4 @@
-udev 174
+udev 173+
 ========
 Bugfixes.
 
@@ -15,6 +15,9 @@ The long deprecated keys: SYSFS, ID, BUS have been removed.
 
 The support for 'udevadm trigger --type=failed, and the
 RUN{fail_event_on_error} attribute was removed.
+
+The udev control socket is now created in /run/udev/control
+and no longer as an abstract namespace one.
 
 udev 173
 ========

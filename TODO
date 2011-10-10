@@ -1,19 +1,19 @@
  - test (now fixed) /dev/tape/ links
 
  - move udevd -> --libexecdir
+ - move udevadm -> --bindir
 
  - have a $attrs{} ?
 
  - kill rules_generator
 
- - move udevadm -> --bindir
-
  - kill tabs?
 
- - warn about RUN+="socket:"
+ - deprecate and warn about RUN+="socket:"
 
  - libudev.so.1
-     - symbol versioning:
+     - symbol versioning
      - return object with *_unref()
      - udev_monitor_from_socket()
      - udev_queue_get_failed_list_entry()
+
