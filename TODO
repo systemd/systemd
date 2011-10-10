@@ -17,11 +17,17 @@ Bugfixes:
 
 * make polkit checks async
 
+* logind is leaking fifos?
+
 Features:
 * if we can not get user quota for tmpfs, mount a separate tmpfs instance
   for every user in /run/user/$USER with a configured maximum size
 
 * bind mounts should be ordered after remount-root-fs.service
+
+* default to actual 32bit PIDs, via /proc/sys/kernel/pid_max
+
+* increase RLIMIT_NOFILE for logind, logger by default
 
 * add an option to make mounts private/shareable and so on, enable this for root by default
 
