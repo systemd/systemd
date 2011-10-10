@@ -162,6 +162,8 @@ struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl)
 
 int udev_ctrl_cleanup(struct udev_ctrl *uctrl)
 {
+	if (uctrl == NULL)
+		return 0;
 	if (uctrl->cleanup_socket)
 		unlink(uctrl->saddr.sun_path);
 	return 0;
@@ -170,7 +172,7 @@ int udev_ctrl_cleanup(struct udev_ctrl *uctrl)
 int udev_ctrl_get_fd(struct udev_ctrl *uctrl)
 {
 	if (uctrl == NULL)
-		return -1;
+		return -EINVAL;
 	return uctrl->sock;
 }
 
