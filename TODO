@@ -1,6 +1,5 @@
  - test (now fixed) /dev/tape/ links
 
- - move udevd -> --libexecdir
  - move udevadm -> --bindir
 
  - have a $attrs{} ?

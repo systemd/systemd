@@ -151,8 +151,10 @@ INSTALL_DATA_HOOKS += systemd-install-hook
 endif
 
 sbin_PROGRAMS = \
-	udev/udevd \
 	udev/udevadm
+
+libexec_PROGRAMS = \
+	udev/udevd
 
 udev_common_sources =\
 	udev/udev.h \
@@ -233,7 +235,7 @@ extras_firmware_firmware_SOURCES = extras/firmware/firmware.c
 extras_firmware_firmware_LDADD = libudev/libudev-private.la
 extras_firmware_firmware_CPPFLAGS = $(AM_CPPFLAGS) -DFIRMWARE_PATH="$(FIRMWARE_PATH)"
 dist_udevrules_DATA += extras/firmware/50-firmware.rules
-libexec_PROGRAMS = extras/firmware/firmware
+libexec_PROGRAMS += extras/firmware/firmware
 
 # ------------------------------------------------------------------------------
 # ata_id - ATA identify
