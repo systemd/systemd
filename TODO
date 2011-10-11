@@ -19,7 +19,7 @@ Bugfixes:
 
 Features:
 
-* ConditionCapability=
+* unset container= in PID1?
 
 * if we can not get user quota for tmpfs, mount a separate tmpfs instance
   for every user in /run/user/$USER with a configured maximum size

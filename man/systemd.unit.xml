@@ -673,6 +673,7 @@
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
                                 <term><varname>ConditionVirtualization=</varname></term>
                                 <term><varname>ConditionSecurity=</varname></term>
+                                <term><varname>ConditionCapability=</varname></term>
                                 <term><varname>ConditionNull=</varname></term>
 
                                 <listitem><para>Before starting a unit
@@ -749,9 +750,9 @@
                                 value to check if being executed in
                                 any virtualized environment, or one of
                                 <varname>vm</varname> and
-                                <varname>container</varname> to test against
-                                a specific type of virtualization
-                                solution, or one of
+                                <varname>container</varname> to test
+                                against a specific type of
+                                virtualization solution, or one of
                                 <varname>qemu</varname>,
                                 <varname>kvm</varname>,
                                 <varname>vmware</varname>,
@@ -775,7 +776,19 @@
                                 system.  Currently the only recognized
                                 value is <varname>selinux</varname>.
                                 The test may be negated by prepending
-                                an exclamation mark. Finally,
+                                an exclamation
+                                mark. <varname>ConditionCapability=</varname>
+                                may be used to check whether the given
+                                capability exists in the capability
+                                bounding set of the service manager
+                                (i.e. this does not check whether
+                                capability is actually available in
+                                the permitted or effective sets, see
+                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details). Pass a capability name
+                                such as <literal>CAP_MKNOD</literal>,
+                                possibly prefixed with an exclamation
+                                mark to negate the check. Finally,
                                 <varname>ConditionNull=</varname> may
                                 be used to add a constant condition
                                 check value to the unit. It takes a
@@ -932,7 +945,8 @@
                         <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
