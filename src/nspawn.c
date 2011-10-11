@@ -361,7 +361,7 @@ static int drop_capabilities(void) {
 
         unsigned long l;
 
-        for (l = 0; l <= MAX(63LU, (unsigned long) CAP_LAST_CAP); l++) {
+        for (l = 0; l <= cap_last_cap(); l++) {
                 unsigned i;
 
                 for (i = 0; i < ELEMENTSOF(retain); i++)
@@ -372,12 +372,6 @@ static int drop_capabilities(void) {
                         continue;
 
                 if (prctl(PR_CAPBSET_DROP, l) < 0) {
-
-                        /* If this capability is not known, EINVAL
-                         * will be returned, let's ignore this. */
-                        if (errno == EINVAL)
-                                break;
-
                         log_error("PR_CAPBSET_DROP failed: %m");
                         return -errno;
                 }

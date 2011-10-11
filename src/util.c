@@ -5703,3 +5703,36 @@ int strdup_or_null(const char *a, char **b) {
         *b = c;
         return 0;
 }
+
+unsigned long cap_last_cap(void) {
+        static __thread unsigned long saved;
+        static __thread bool valid = false;
+        unsigned long p;
+
+        if (valid)
+                return saved;
+
+        p = (unsigned long) CAP_LAST_CAP;
+
+        if (prctl(PR_CAPBSET_READ, p) < 0) {
+
+                /* Hmm, look downwards, until we find one that
+                 * works */
+                for (p--; p > 0; p --)
+                        if (prctl(PR_CAPBSET_READ, p) >= 0)
+                                break;
+
+        } else {
+
+                /* Hmm, look upwards, until we find one that doesn't
+                 * work */
+                for (;; p++)
+                        if (prctl(PR_CAPBSET_READ, p+1) < 0)
+                                break;
+        }
+
+        saved = p;
+        valid = true;
+
+        return p;
+}

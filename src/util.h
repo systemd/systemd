@@ -506,4 +506,6 @@ extern char **saved_argv;
 
 bool kexec_loaded(void);
 
+unsigned long cap_last_cap(void);
+
 #endif
