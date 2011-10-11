@@ -337,7 +337,9 @@ dist_systemunit_DATA = \
 	units/halt.target \
 	units/kexec.target \
 	units/local-fs.target \
+        units/local-fs-pre.target \
 	units/remote-fs.target \
+        units/remote-fs-pre.target \
 	units/cryptsetup.target \
 	units/network.target \
 	units/nss-lookup.target \

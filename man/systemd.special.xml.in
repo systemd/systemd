@@ -59,6 +59,7 @@
                 <filename>halt.target</filename>,
                 <filename>kbrequest.target</filename>,
                 <filename>local-fs.target</filename>,
+                <filename>local-fs-pre.target</filename>,
                 <filename>mail-transfer-agent.target</filename>,
                 <filename>multi-user.target</filename>,
                 <filename>network.target</filename>,
@@ -66,6 +67,7 @@
                 <filename>poweroff.target</filename>,
                 <filename>reboot.target</filename>,
                 <filename>remote-fs.target</filename>,
+                <filename>remote-fs-pre.target</filename>,
                 <filename>rescue.target</filename>,
                 <filename>rpcbind.target</filename>,
                 <filename>runlevel2.target</filename>,
@@ -261,6 +263,18 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>local-fs-pre.target</filename></term>
+                                <listitem>
+                                        <para>This target unit is
+                                        automatically ordered before
+                                        all local mount points marked
+                                        with <option>auto</option>
+                                        (see above). It can be used to
+                                        execute certain units before
+                                        all local mounts.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>mail-transfer-agent.target</filename></term>
                                 <listitem>
                                         <para>The mail transfer agent
@@ -371,6 +385,18 @@
                                         referring to the
                                         <literal>$remote_fs</literal>
                                         facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>remote-fs-pre.target</filename></term>
+                                <listitem>
+                                        <para>This target unit is
+                                        automatically ordered before
+                                        all remote mount points marked
+                                        with <option>auto</option>
+                                        (see above). It can be used to
+                                        execute certain units before
+                                        all remote mounts.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
