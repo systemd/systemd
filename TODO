@@ -17,13 +17,9 @@ Bugfixes:
 
 * make polkit checks async
 
-* fail gracefully if logind reaches it RLIMIT_NFILES for fifos
-
 Features:
 
 * ConditionCapability=
-
-* read fedora style timezone name config for compat
 
 * if we can not get user quota for tmpfs, mount a separate tmpfs instance
   for every user in /run/user/$USER with a configured maximum size

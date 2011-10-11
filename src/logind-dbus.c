@@ -973,8 +973,11 @@ static DBusHandlerResult manager_message_handler(
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CreateSession")) {
 
                 r = bus_manager_create_session(m, message, &reply);
-                if (r == -ENOMEM)
-                        goto oom;
+
+                /* Don't delay the work on OOM here, since it might be
+                 * triggered by a low RLIMIT_NOFILE here (since we
+                 * send a dupped fd to the client), and we'd rather
+                 * see this fail quickly then be retried later */
 
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
