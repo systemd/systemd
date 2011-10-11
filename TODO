@@ -17,20 +17,16 @@ Bugfixes:
 
 * make polkit checks async
 
-* logind is leaking fifos?
+* fail gracefully if logind reaches it RLIMIT_NFILES for fifos
 
 Features:
 
 * ConditionCapability=
 
-* order network mounts after network-fs-ready.target or so
-
 * read fedora style timezone name config for compat
 
 * if we can not get user quota for tmpfs, mount a separate tmpfs instance
   for every user in /run/user/$USER with a configured maximum size
-
-* bind mounts should be ordered after remount-root-fs.service
 
 * default to actual 32bit PIDs, via /proc/sys/kernel/pid_max
 
