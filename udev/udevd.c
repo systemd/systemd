@@ -1648,10 +1648,11 @@ int main(int argc, char *argv[])
 			struct udev_device *dev;
 
 			dev = udev_monitor_receive_device(monitor);
-			if (dev != NULL)
+			if (dev != NULL) {
 				udev_device_set_usec_initialized(dev, now_usec());
 				if (event_queue_insert(dev) < 0)
 					udev_device_unref(dev);
+			}
 		}
 
 		/* start new events */
