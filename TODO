@@ -26,8 +26,6 @@ Features:
 
 * default to actual 32bit PIDs, via /proc/sys/kernel/pid_max
 
-* increase RLIMIT_NOFILE for logind, logger by default
-
 * add an option to make mounts private/shareable and so on, enable this for root by default
 
 * internal restart counter for units (focus on auto-respawn)

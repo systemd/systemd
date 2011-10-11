@@ -16,3 +16,7 @@ Type=dbus
 BusName=org.freedesktop.login1
 CapabilityBoundingSet=CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER
 StandardOutput=syslog
+
+# Increase the default a bit in order to allow many simultaneous
+# logins since we keep one fd open per session.
+LimitNOFILE=16384
