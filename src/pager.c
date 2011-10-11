@@ -32,7 +32,7 @@
 
 static pid_t pager_pid = 0;
 
-static void pager_fallback(void) {
+_noreturn_ static void pager_fallback(void) {
         ssize_t n;
         do {
                 n = splice(STDIN_FILENO, NULL, STDOUT_FILENO, NULL, 64*1024, 0);
