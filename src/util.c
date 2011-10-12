@@ -5902,6 +5902,7 @@ int prot_from_flags(int flags) {
         default:
                 return -EINVAL;
         }
+}
 
 unsigned long cap_last_cap(void) {
         static __thread unsigned long saved;
