@@ -15,6 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+__systemctl() {
+        systemctl --no-legend "$@"
+}
+
 __contains_word () {
         local word=$1; shift
         for w in $*; do [[ $w = $word ]] && return 0; done
@@ -24,7 +28,7 @@ __contains_word () {
 __filter_units_by_property () {
         local property=$1 value=$2 ; shift ; shift
         local -a units=( $* )
-        local -a props=( $(systemctl show --property "$property" -- ${units[*]} | grep -v ^$) )
+        local -a props=( $(__systemctl show --property "$property" -- ${units[*]} | grep -v ^$) )
         for ((i=0; $i < ${#units[*]}; i++)); do
                 if [[ "${props[i]}" = "$property=$value" ]]; then
                         echo "${units[i]}"
@@ -32,10 +36,10 @@ __filter_units_by_property () {
         done
 }
 
-__get_all_units      () { systemctl list-units --full --all | awk '                 {print $1}' ; }
-__get_active_units   () { systemctl list-units --full       | awk '                 {print $1}' ; }
-__get_inactive_units () { systemctl list-units --full --all | awk '$3 == "inactive" {print $1}' ; }
-__get_failed_units   () { systemctl list-units --full       | awk '$3 == "failed"   {print $1}' ; }
+__get_all_units      () { __systemctl list-units --full --all | awk '                 {print $1}' ; }
+__get_active_units   () { __systemctl list-units --full       | awk '                 {print $1}' ; }
+__get_inactive_units () { __systemctl list-units --full --all | awk '$3 == "inactive" {print $1}' ; }
+__get_failed_units   () { __systemctl list-units --full       | awk '$3 == "failed"   {print $1}' ; }
 
 _systemctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -134,13 +138,13 @@ _systemctl () {
                 comps=''
 
         elif __contains_word "$verb" ${VERBS[JOBS]}; then
-                comps=$( systemctl list-jobs | awk '{print $1}' )
+                comps=$( __systemctl list-jobs | awk '{print $1}' )
 
         elif __contains_word "$verb" ${VERBS[SNAPSHOTS]}; then
-                comps=$( systemctl list-units --type snapshot --full --all | awk '{print $1}' )
+                comps=$( __systemctl list-units --type snapshot --full --all | awk '{print $1}' )
 
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
-                comps=$( systemctl show-environment | sed 's_\([^=]\+=\).*_\1_' )
+                comps=$( __systemctl show-environment | sed 's_\([^=]\+=\).*_\1_' )
                 compopt -o nospace
         fi
 
