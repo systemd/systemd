@@ -279,6 +279,11 @@
                                 assignments. Empty lines and lines
                                 starting with ; or # will be ignored,
                                 which may be used for commenting. The
+                                parser strips leading and
+                                trailing whitespace from the values
+                                of assignments, unless you use
+                                double quotes (").
+                                The
                                 argument passed should be an absolute
                                 file name, optionally prefixed with
                                 "-", which indicates that if the file

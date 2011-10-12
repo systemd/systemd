@@ -357,9 +357,11 @@ static int mount_add_fstab_links(Mount *m) {
 
         if (mount_is_network(p)) {
                 target = SPECIAL_REMOTE_FS_TARGET;
-                after = SPECIAL_NETWORK_TARGET;
-        } else
+                after = SPECIAL_REMOTE_FS_PRE_TARGET;
+        } else {
                 target = SPECIAL_LOCAL_FS_TARGET;
+                after = SPECIAL_LOCAL_FS_PRE_TARGET;
+        }
 
         if (!path_equal(m->where, "/"))
                 if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)

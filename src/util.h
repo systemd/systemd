@@ -515,4 +515,6 @@ bool kexec_loaded(void);
 
 int prot_from_flags(int flags);
 
+unsigned long cap_last_cap(void);
+
 #endif

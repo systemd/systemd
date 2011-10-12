@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/capability.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -148,7 +149,7 @@ static bool test_virtualization(const char *parameter) {
                 return true;
 
         /* Finally compare id */
-        return streq(parameter, id);
+        return v > 0 && streq(parameter, id);
 }
 
 static bool test_security(const char *parameter) {
@@ -157,6 +158,36 @@ static bool test_security(const char *parameter) {
                 return is_selinux_enabled() > 0;
 #endif
         return false;
+}
+
+static bool test_capability(const char *parameter) {
+        cap_value_t value;
+        FILE *f;
+        char line[LINE_MAX];
+        unsigned long long capabilities = (unsigned long long) -1;
+
+        /* If it's an invalid capability, we don't have it */
+
+        if (cap_from_name(parameter, &value) < 0)
+                return false;
+
+        /* If it's a valid capability we default to assume
+         * that we have it */
+
+        f = fopen("/proc/self/status", "re");
+        if (!f)
+                return true;
+
+        while (fgets(line, sizeof(line), f)) {
+                truncate_nl(line);
+
+                if (startswith(line, "CapBnd:")) {
+                        (void) sscanf(line+7, "%llx", &capabilities);
+                        break;
+                }
+        }
+
+        return !!(capabilities & (1ULL << value));
 }
 
 bool condition_test(Condition *c) {
@@ -213,6 +244,9 @@ bool condition_test(Condition *c) {
 
         case CONDITION_SECURITY:
                 return test_security(c->parameter) == !c->negate;
+
+        case CONDITION_CAPABILITY:
+                return test_capability(c->parameter) == !c->negate;
 
         case CONDITION_NULL:
                 return !c->negate;

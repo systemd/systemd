@@ -829,6 +829,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
         s->remain_after_exit = !s->pid_file;
+        s->guess_main_pid = false;
         s->restart = SERVICE_RESTART_NO;
 
         if (s->meta.manager->sysv_console)

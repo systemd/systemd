@@ -895,12 +895,9 @@ static int do_capability_bounding_set_drop(uint64_t drop) {
                 }
         }
 
-        for (i = 0; i <= MAX(63LU, (unsigned long) CAP_LAST_CAP); i++)
+        for (i = 0; i <= cap_last_cap(); i++)
                 if (drop & ((uint64_t) 1ULL << (uint64_t) i)) {
                         if (prctl(PR_CAPBSET_DROP, i) < 0) {
-                                if (errno == EINVAL)
-                                        break;
-
                                 r = -errno;
                                 goto finish;
                         }
@@ -1720,7 +1717,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 unsigned long l;
                 fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
-                for (l = 0; l <= (unsigned long) CAP_LAST_CAP; l++)
+                for (l = 0; l <= cap_last_cap(); l++)
                         if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l))) {
                                 char *t;
 

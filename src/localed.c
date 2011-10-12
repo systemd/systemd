@@ -574,6 +574,10 @@ static int write_data_x11(void) {
 
 #ifdef TARGET_FEDORA
                 unlink("/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
+
+                /* Symlink this to /dev/null, so that s-s-k (if it is
+                 * still running) doesn't recreate this. */
+                symlink("/dev/null", "/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
 #endif
 
                 if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
@@ -619,6 +623,10 @@ static int write_data_x11(void) {
 
 #ifdef TARGET_FEDORA
                 unlink("/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
+
+                /* Symlink this to /dev/null, so that s-s-k (if it is
+                 * still running) doesn't recreate this. */
+                symlink("/dev/null", "/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
 #endif
 
                 r = 0;

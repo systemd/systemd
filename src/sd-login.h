@@ -83,7 +83,7 @@ int sd_session_get_seat(const char *session, char **seat);
 int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 
 /* Return sessions and users on seat. Returns number of sessions as
- * return value. If sessions is NULL returs only the number of
+ * return value. If sessions is NULL returns only the number of
  * sessions. */
 int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsigned *n_uids);
 
@@ -94,7 +94,7 @@ int sd_seat_can_multi_session(const char *seat);
  * seats is NULL only returns number of seats. */
 int sd_get_seats(char ***seats);
 
-/* Get all sessions, store in *seessions. Returns the number of
+/* Get all sessions, store in *sessions. Returns the number of
  * sessions. If sessions is NULL only returns number of sessions. */
 int sd_get_sessions(char ***sessions);
 

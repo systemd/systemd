@@ -119,6 +119,7 @@ Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_F
 Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, 0
 Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      0
 Unit.ConditionSecurity,          config_parse_unit_condition_string, CONDITION_SECURITY,            0
+Unit.ConditionCapability,        config_parse_unit_condition_string, CONDITION_CAPABILITY,          0
 Unit.ConditionNull,              config_parse_unit_condition_null,   0,                             0
 m4_dnl
 Service.PIDFile,                 config_parse_unit_path_printf,      0,                             offsetof(Service, pid_file)

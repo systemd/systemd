@@ -19,7 +19,12 @@ Bugfixes:
 
 Features:
 
-* bind mounts should be ordered after remount-root-fs.service
+* unset container= in PID1?
+
+* if we can not get user quota for tmpfs, mount a separate tmpfs instance
+  for every user in /run/user/$USER with a configured maximum size
+
+* default to actual 32bit PIDs, via /proc/sys/kernel/pid_max
 
 * add an option to make mounts private/shareable and so on, enable this for root by default
 

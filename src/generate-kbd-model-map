@@ -1,49 +1,33 @@
 #!/usr/bin/python
 
-import system_config_keyboard.keyboard_models, sys
+import sys
+import system_config_keyboard.keyboard_models
 
 def strdash(s):
-        r = s.strip()
+        return s.strip() or '-'
 
-        if r == "":
-                return "-"
-
-        return r
-
-def tab_extend(s, n = 1):
-
+def tab_extend(s, n=1):
         s = strdash(s)
-        k = len(s) / 8
+        k = len(s) // 8
 
         if k >= n:
                 f = 1
         else:
                 f = n - k
 
-        for x in range(0, f):
-                s = s + "\t"
-
-        return s
-
+        return s + '\t'*f
 
 
 models = system_config_keyboard.keyboard_models.KeyboardModels().get_models()
 
 print "# Generated from system-config-keyboard's model list"
-
 print "# consolelayout\t\txlayout\txmodel\t\txvariant\txoptions"
 
-k = models.keys()
+for key, value in reversed(models.items()):
+        options = "terminate:ctrl_alt_bksp"
+        if value[4]:
+                options += ',' + value[4]
 
-k.reverse()
-
-for key in k:
-        value = models[key]
-
-        options = value[4]
-        if len(options) > 0:
-                options = "terminate:ctrl_alt_bksp," + options
-        else:
-                options = "terminate:ctrl_alt_bksp"
-
-        print "%s%s%s%s%s" % (tab_extend(key, 3), tab_extend(value[1]), tab_extend(value[2], 2), tab_extend(value[3], 2), options)
+        print ''.join((tab_extend(key, 3), tab_extend(value[1]),
+                       tab_extend(value[2], 2), tab_extend(value[3], 2),
+                       options))

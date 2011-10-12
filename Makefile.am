@@ -20,7 +20,7 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = po
 
 LIBSYSTEMD_LOGIN_CURRENT=0
-LIBSYSTEMD_LOGIN_REVISION=5
+LIBSYSTEMD_LOGIN_REVISION=6
 LIBSYSTEMD_LOGIN_AGE=0
 
 LIBSYSTEMD_DAEMON_CURRENT=0
@@ -341,7 +341,9 @@ dist_systemunit_DATA = \
 	units/halt.target \
 	units/kexec.target \
 	units/local-fs.target \
+        units/local-fs-pre.target \
 	units/remote-fs.target \
+        units/remote-fs-pre.target \
 	units/cryptsetup.target \
 	units/network.target \
 	units/nss-lookup.target \

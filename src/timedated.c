@@ -170,8 +170,24 @@ static int read_data(void) {
         free_data();
 
         r = read_one_line_file("/etc/timezone", &zone);
-        if (r < 0 && r != -ENOENT)
-                return r;
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/timezone: %s", strerror(-r));
+
+#ifdef TARGET_FEDORA
+                r = parse_env_file("/etc/sysconfig/clock", NEWLINE,
+                                   "ZONE", &zone,
+                                   NULL);
+
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/clock: %s", strerror(-r));
+#endif
+        }
+
+        if (isempty(zone)) {
+                free(zone);
+                zone = NULL;
+        }
 
         verify_timezone();
 
