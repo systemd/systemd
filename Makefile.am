@@ -983,7 +983,8 @@ systemd_journald_SOURCES = \
         src/journal/journal-file.c \
         src/journal/lookup3.c \
         src/sd-id128.c \
-        src/acl-util.c
+        src/acl-util.c \
+        src/cgroup-util.c
 
 systemd_journald_CFLAGS = \
 	$(AM_CFLAGS) \

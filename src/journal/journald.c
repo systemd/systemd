@@ -33,6 +33,7 @@
 #include "sd-daemon.h"
 #include "socket-util.h"
 #include "acl-util.h"
+#include "cgroup-util.h"
 
 typedef struct Server {
         int syslog_fd;
@@ -134,8 +135,8 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
                 *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *audit_session = NULL, *audit_loginuid = NULL,
                 *syslog_priority = NULL, *syslog_facility = NULL,
-                *exe = NULL;
-        struct iovec iovec[15];
+                *exe = NULL, *cgroup = NULL;
+        struct iovec iovec[16];
         unsigned n = 0;
         char idbuf[33];
         sd_id128_t id;
@@ -160,6 +161,7 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
 
         if (ucred) {
                 uint32_t session;
+                char *path;
 
                 if (asprintf(&pid, "PID=%lu", (unsigned long) ucred->pid) >= 0)
                         IOVEC_SET_STRING(iovec[n++], pid);
@@ -203,6 +205,14 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
                 if (r >= 0)
                         if (asprintf(&audit_loginuid, "AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_loginuid);
+
+                r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, ucred->pid, &path);
+                if (r >= 0) {
+                        cgroup = strappend("SYSTEMD_CGROUP=", path);
+                        if (cgroup)
+                                IOVEC_SET_STRING(iovec[n++], cgroup);
+                        free(path);
+                }
         }
 
         if (tv) {
@@ -247,6 +257,7 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
         free(uid);
         free(gid);
         free(comm);
+        free(exe);
         free(cmdline);
         free(source_time);
         free(boot_id);
@@ -256,6 +267,7 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
         free(audit_loginuid);
         free(syslog_facility);
         free(syslog_priority);
+        free(cgroup);
 }
 
 static int process_event(Server *s, struct epoll_event *ev) {
