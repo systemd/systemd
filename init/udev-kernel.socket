@@ -1,7 +1,7 @@
 [Unit]
 Description=udev Kernel Socket
 DefaultDependencies=no
-ConditionVirtualization=!container
+ConditionCapability=CAP_MKNOD
 
 [Socket]
 Service=udev.service

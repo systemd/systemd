@@ -4,7 +4,7 @@ Wants=udev-control.socket udev-kernel.socket
 After=udev-control.socket udev-kernel.socket
 Before=basic.target
 DefaultDependencies=no
-ConditionVirtualization=!container
+ConditionCapability=CAP_MKNOD
 
 [Service]
 Type=notify
