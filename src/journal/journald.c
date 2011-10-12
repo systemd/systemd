@@ -375,7 +375,7 @@ static int system_journal_open(Server *s) {
                 return r;
 
         /* First try to create the machine path, but not the prefix */
-        fn = join("/var/log/journal/", sd_id128_to_string(machine, ids), NULL);
+        fn = strappend("/var/log/journal/", sd_id128_to_string(machine, ids));
         if (!fn)
                 return -ENOMEM;
         (void) mkdir(fn, 0755);
@@ -389,35 +389,38 @@ static int system_journal_open(Server *s) {
         r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, &s->system_journal);
         free(fn);
 
-        if (r >= 0)
+        if (r >= 0) {
                 fix_perms(s->system_journal, 0);
-        else if (r == -ENOENT) {
-
-                /* /var didn't work, so try /run, but this time we
-                 * create the prefix too */
-                fn = join("/run/log/journal/", ids, NULL);
-                if (!fn)
-                        return -ENOMEM;
-                (void) mkdir_p(fn, 0755);
-                free(fn);
-
-                /* Then create the runtime journal file */
-                fn = join("/run/log/journal/", ids, "/system.journal", NULL);
-                if (!fn)
-                        return -ENOMEM;
-                r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, &s->runtime_journal);
-                free(fn);
-
-                if (r >= 0)
-                        fix_perms(s->runtime_journal, 0);
-        }
-
-        if (r < 0 && r != -ENOENT) {
-                log_error("Failed to open journal: %s", strerror(-r));
                 return r;
         }
 
-        return 0;
+        if (r < 0 && r != -ENOENT) {
+                log_error("Failed to open system journal: %s", strerror(-r));
+                return r;
+        }
+
+        /* /var didn't work, so try /run, but this time we
+         * create the prefix too */
+        fn = strappend("/run/log/journal/", ids);
+        if (!fn)
+                return -ENOMEM;
+        (void) mkdir_p(fn, 0755);
+        free(fn);
+
+        /* Then create the runtime journal file */
+        fn = join("/run/log/journal/", ids, "/system.journal", NULL);
+        if (!fn)
+                return -ENOMEM;
+        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, &s->runtime_journal);
+        free(fn);
+
+        if (r < 0) {
+                log_error("Failed to open runtime journal: %s", strerror(-r));
+                return r;
+        }
+
+        fix_perms(s->runtime_journal, 0);
+        return r;
 }
 
 static int server_init(Server *s) {

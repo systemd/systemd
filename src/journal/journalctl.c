@@ -25,6 +25,48 @@
 
 #include "journal-file.h"
 
+static int system_journal_open(JournalFile **f) {
+        int r;
+        char *fn;
+        sd_id128_t machine;
+        char ids[33];
+
+        assert(f);
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return r;
+
+        fn = join("/var/log/journal/", sd_id128_to_string(machine, ids), "/system.journal", NULL);
+        if (!fn)
+                return -ENOMEM;
+
+        r = journal_file_open(fn, O_RDONLY, 0640, f);
+        free(fn);
+
+        if (r >= 0)
+                return r;
+
+        if (r < 0 && r != -ENOENT) {
+                log_error("Failed to open system journal: %s", strerror(-r));
+                return r;
+        }
+
+        fn = join("/run/log/journal/", ids, "/system.journal", NULL);
+        if (!fn)
+                return -ENOMEM;
+
+        r = journal_file_open(fn, O_RDONLY, 0640, f);
+        free(fn);
+
+        if (r < 0) {
+                log_error("Failed to open system journal: %s", strerror(-r));
+                return r;
+        }
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         JournalFile *f;
@@ -33,10 +75,7 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        r = journal_file_open("/var/log/journal/system.journal", O_RDONLY, 0644, &f);
-        if (r == -ENOENT)
-                r = journal_file_open("/run/log/journal/system.journal", O_RDONLY, 0644, &f);
-
+        r = system_journal_open(&f);
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 return EXIT_FAILURE;
