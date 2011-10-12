@@ -162,7 +162,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         new_size = PAGE_ALIGN(offset + size);
 
         /* We assume that this file is not sparse, and we know that
-         * for sure, since we alway call posix_fallocate()
+         * for sure, since we always call posix_fallocate()
          * ourselves */
 
         old_size =
@@ -195,7 +195,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (asize > le64toh(f->header->arena_max_size))
                 return -E2BIG;
 
-        if (posix_fallocate(f->fd, 0, new_size) < 0)
+        if (posix_fallocate(f->fd, old_size, new_size - old_size) < 0)
                 return -errno;
 
         if (fstat(f->fd, &f->last_stat) < 0)
