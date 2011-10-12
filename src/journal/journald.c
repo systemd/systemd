@@ -211,6 +211,9 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
                         IOVEC_SET_STRING(iovec[n++], source_time);
         }
 
+        /* Note that strictly speaking storing the boot id here is
+         * redundant since the entry includes this in-line
+         * anyway. However, we need this indexed, too. */
         r = sd_id128_get_boot(&id);
         if (r >= 0)
                 if (asprintf(&boot_id, "BOOT_ID=%s", sd_id128_to_string(id, idbuf)) >= 0)
@@ -349,6 +352,62 @@ static int process_event(Server *s, struct epoll_event *ev) {
         return 0;
 }
 
+static int system_journal_open(Server *s) {
+        int r;
+        char *fn;
+        sd_id128_t machine;
+        char ids[33];
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return r;
+
+        /* First try to create the machine path, but not the prefix */
+        fn = join("/var/log/journal/", sd_id128_to_string(machine, ids), NULL);
+        if (!fn)
+                return -ENOMEM;
+        (void) mkdir(fn, 0755);
+        free(fn);
+
+        /* The create the system journal file */
+        fn = join("/var/log/journal/", ids, "/system.journal", NULL);
+        if (!fn)
+                return -ENOMEM;
+
+        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, &s->system_journal);
+        free(fn);
+
+        if (r >= 0)
+                fix_perms(s->system_journal, 0);
+        else if (r == -ENOENT) {
+
+                /* /var didn't work, so try /run, but this time we
+                 * create the prefix too */
+                fn = join("/run/log/journal/", ids, NULL);
+                if (!fn)
+                        return -ENOMEM;
+                (void) mkdir_p(fn, 0755);
+                free(fn);
+
+                /* Then create the runtime journal file */
+                fn = join("/run/log/journal/", ids, "/system.journal", NULL);
+                if (!fn)
+                        return -ENOMEM;
+                r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, &s->runtime_journal);
+                free(fn);
+
+                if (r >= 0)
+                        fix_perms(s->runtime_journal, 0);
+        }
+
+        if (r < 0 && r != -ENOENT) {
+                log_error("Failed to open journal: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
 static int server_init(Server *s) {
         int n, one, r;
         struct epoll_event ev;
@@ -430,21 +489,9 @@ static int server_init(Server *s) {
                 return -ENOMEM;
         }
 
-        r = journal_file_open("/var/log/journal/system.journal", O_RDWR|O_CREAT, 0640, &s->system_journal);
-        if (r >= 0)
-                fix_perms(s->system_journal, 0);
-        else if (r == -ENOENT) {
-                mkdir_p("/run/log/journal", 0755);
-
-                r = journal_file_open("/run/log/journal/system.journal", O_RDWR|O_CREAT, 0640, &s->runtime_journal);
-                if (r >= 0)
-                        fix_perms(s->runtime_journal, 0);
-        }
-
-        if (r < 0 && r != -ENOENT) {
-                log_error("Failed to open journal: %s", strerror(-r));
+        r = system_journal_open(s);
+        if (r < 0)
                 return r;
-        }
 
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask, SIGINT, SIGTERM, -1);
