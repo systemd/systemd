@@ -294,7 +294,7 @@ int sd_journal_open(sd_journal **ret) {
                                 goto fail;
                         }
 
-                        k = journal_file_open(fn, O_RDONLY, 0, &f);
+                        k = journal_file_open(fn, O_RDONLY, 0, NULL, &f);
                         free(fn);
 
                         if (k < 0) {

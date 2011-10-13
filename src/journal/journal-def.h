@@ -136,6 +136,8 @@ _packed_ struct Header {
         uint64_t last_bisect_offset;
         uint64_t n_objects;
         uint64_t seqnum;
+        uint64_t head_entry_realtime;
+        uint64_t tail_entry_realtime;
 };
 
 #endif

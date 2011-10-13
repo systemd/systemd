@@ -109,10 +109,10 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (f)
                 return f;
 
-        if (asprintf(&p, "/var/log/journal/%lu.journal", (unsigned long) uid) < 0)
+        if (asprintf(&p, "/var/log/journal/user-%lu.journal", (unsigned long) uid) < 0)
                 return s->system_journal;
 
-        r = journal_file_open(p, O_RDWR|O_CREAT, 0640, &f);
+        r = journal_file_open(p, O_RDWR|O_CREAT, 0640, NULL, &f);
         free(p);
 
         if (r < 0)
@@ -386,7 +386,7 @@ static int system_journal_open(Server *s) {
         if (!fn)
                 return -ENOMEM;
 
-        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, &s->system_journal);
+        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->system_journal);
         free(fn);
 
         if (r >= 0) {
@@ -411,7 +411,7 @@ static int system_journal_open(Server *s) {
         fn = join("/run/log/journal/", ids, "/system.journal", NULL);
         if (!fn)
                 return -ENOMEM;
-        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, &s->runtime_journal);
+        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
         free(fn);
 
         if (r < 0) {
@@ -584,7 +584,7 @@ int main(int argc, char *argv[]) {
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing messages...");
-
+#
         for (;;) {
                 struct epoll_event event;
 

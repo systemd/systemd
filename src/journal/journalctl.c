@@ -41,7 +41,7 @@ static int system_journal_open(JournalFile **f) {
         if (!fn)
                 return -ENOMEM;
 
-        r = journal_file_open(fn, O_RDONLY, 0640, f);
+        r = journal_file_open(fn, O_RDONLY, 0640, NULL, f);
         free(fn);
 
         if (r >= 0)
@@ -56,7 +56,7 @@ static int system_journal_open(JournalFile **f) {
         if (!fn)
                 return -ENOMEM;
 
-        r = journal_file_open(fn, O_RDONLY, 0640, f);
+        r = journal_file_open(fn, O_RDONLY, 0640, NULL, f);
         free(fn);
 
         if (r < 0) {

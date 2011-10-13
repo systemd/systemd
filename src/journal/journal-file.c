@@ -35,6 +35,8 @@
 #define DEFAULT_ARENA_MIN_SIZE (256ULL*1024ULL)
 #define DEFAULT_ARENA_KEEP_FREE (1ULL*1024ULL*1024ULL)
 
+#define DEFAULT_MAX_USE (16ULL*1024ULL*1024ULL*16ULL)
+
 #define DEFAULT_HASH_TABLE_SIZE (2047ULL*16ULL)
 #define DEFAULT_BISECT_TABLE_SIZE ((DEFAULT_ARENA_MAX_SIZE/(64ULL*1024ULL))*8ULL)
 
@@ -47,11 +49,12 @@ static const char signature[] = { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' };
 void journal_file_close(JournalFile *f) {
         assert(f);
 
-        if (f->fd >= 0)
-                close_nointr_nofail(f->fd);
+        if (f->header) {
+                if (f->writable && f->header->state == htole32(STATE_ONLINE))
+                        f->header->state = htole32(STATE_OFFLINE);
 
-        if (f->header)
                 munmap(f->header, PAGE_ALIGN(sizeof(Header)));
+        }
 
         if (f->hash_table_window)
                 munmap(f->hash_table_window, f->hash_table_window_size);
@@ -62,11 +65,14 @@ void journal_file_close(JournalFile *f) {
         if (f->window)
                 munmap(f->window, f->window_size);
 
+        if (f->fd >= 0)
+                close_nointr_nofail(f->fd);
+
         free(f->path);
         free(f);
 }
 
-static int journal_file_init_header(JournalFile *f) {
+static int journal_file_init_header(JournalFile *f, JournalFile *template) {
         Header h;
         ssize_t k;
         int r;
@@ -84,7 +90,11 @@ static int journal_file_init_header(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        h.seqnum_id = h.file_id;
+        if (template) {
+                h.seqnum_id = template->header->seqnum_id;
+                h.seqnum = template->header->seqnum;
+        } else
+                h.seqnum_id = h.file_id;
 
         k = pwrite(f->fd, &h, sizeof(h), 0);
         if (k < 0)
@@ -674,9 +684,10 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         o->entry.prev_entry_offset = f->header->tail_entry_offset;
         o->entry.next_entry_offset = 0;
 
-        if (p == 0)
+        if (p == 0) {
                 f->header->head_entry_offset = htole64(offset);
-        else {
+                f->header->head_entry_realtime = o->entry.realtime;
+        } else {
                 /* Temporarily move back to the previous entry, to
                  * patch in pointer */
 
@@ -692,6 +703,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         }
 
         f->header->tail_entry_offset = htole64(offset);
+        f->header->tail_entry_realtime = o->entry.realtime;
 
         /* Link up the items */
         n = journal_file_entry_n_items(o);
@@ -1087,6 +1099,7 @@ int journal_file_open(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                JournalFile *template,
                 JournalFile **ret) {
 
         JournalFile *f;
@@ -1103,18 +1116,21 @@ int journal_file_open(
         if (!f)
                 return -ENOMEM;
 
+        f->fd = -1;
+        f->flags = flags;
+        f->mode = mode;
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
         f->prot = prot_from_flags(flags);
-
-        f->fd = open(fname, flags|O_CLOEXEC, mode);
-        if (f->fd < 0) {
-                r = -errno;
-                goto fail;
-        }
 
         f->path = strdup(fname);
         if (!f->path) {
                 r = -ENOMEM;
+                goto fail;
+        }
+
+        f->fd = open(f->path, f->flags|O_CLOEXEC, f->mode);
+        if (f->fd < 0) {
+                r = -errno;
                 goto fail;
         }
 
@@ -1126,7 +1142,7 @@ int journal_file_open(
         if (f->last_stat.st_size == 0 && f->writable) {
                 newly_created = true;
 
-                r = journal_file_init_header(f);
+                r = journal_file_init_header(f, template);
                 if (r < 0)
                         goto fail;
 
@@ -1186,6 +1202,209 @@ int journal_file_open(
 
 fail:
         journal_file_close(f);
+
+        return r;
+}
+
+int journal_file_rotate(JournalFile **f) {
+        char *p;
+        size_t l;
+        JournalFile *old_file, *new_file = NULL;
+        int r;
+
+        assert(f);
+        assert(*f);
+
+        old_file = *f;
+
+        if (!old_file->writable)
+                return -EINVAL;
+
+        if (!endswith(old_file->path, ".journal"))
+                return -EINVAL;
+
+        l = strlen(old_file->path);
+
+        p = new(char, l + 1 + 16 + 1 + 32 + 1 + 16 + 1);
+        if (!p)
+                return -ENOMEM;
+
+        memcpy(p, old_file->path, l - 8);
+        p[l-8] = '@';
+        sd_id128_to_string(old_file->header->seqnum_id, p + l - 8 + 1);
+        snprintf(p + l - 8 + 1 + 32, 1 + 16 + 1 + 16 + 8 + 1,
+                 "-%016llx-%016llx.journal",
+                 (unsigned long long) le64toh((*f)->header->seqnum),
+                 (unsigned long long) le64toh((*f)->header->tail_entry_realtime));
+
+        r = rename(old_file->path, p);
+        free(p);
+
+        if (r < 0)
+                return -errno;
+
+        old_file->header->state = le32toh(STATE_ARCHIVED);
+
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, old_file, &new_file);
+        journal_file_close(old_file);
+
+        *f = new_file;
+        return r;
+}
+
+struct vacuum_info {
+        off_t usage;
+        char *filename;
+
+        uint64_t realtime;
+        sd_id128_t seqnum_id;
+        uint64_t seqnum;
+};
+
+static int vacuum_compare(const void *_a, const void *_b) {
+        const struct vacuum_info *a, *b;
+
+        a = _a;
+        b = _b;
+
+        if (sd_id128_equal(a->seqnum_id, b->seqnum_id)) {
+                if (a->seqnum < b->seqnum)
+                        return -1;
+                else if (a->seqnum > b->seqnum)
+                        return 1;
+                else
+                        return 0;
+        }
+
+        if (a->realtime < b->realtime)
+                return -1;
+        else if (a->realtime > b->realtime)
+                return 1;
+        else
+                return memcmp(&a->seqnum_id, &b->seqnum_id, 16);
+}
+
+int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free) {
+        DIR *d;
+        int r = 0;
+        struct vacuum_info *list = NULL;
+        unsigned n_list = 0, n_allocated = 0, i;
+        uint64_t sum = 0;
+
+        assert(directory);
+
+        if (max_use <= 0)
+                max_use = DEFAULT_MAX_USE;
+
+        d = opendir(directory);
+        if (!d)
+                return -errno;
+
+        for (;;) {
+                int k;
+                struct dirent buf, *de;
+                size_t q;
+                struct stat st;
+                char *p;
+                unsigned long long seqnum, realtime;
+                sd_id128_t seqnum_id;
+
+                k = readdir_r(d, &buf, &de);
+                if (k != 0) {
+                        r = -k;
+                        goto finish;
+                }
+
+                if (!de)
+                        break;
+
+                if (!dirent_is_file_with_suffix(de, ".journal"))
+                        continue;
+
+                q = strlen(de->d_name);
+
+                if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8)
+                        continue;
+
+                if (de->d_name[q-8-16-1] != '-' ||
+                    de->d_name[q-8-16-1-16-1] != '-' ||
+                    de->d_name[q-8-16-1-16-1-32-1] != '@')
+                        continue;
+
+                if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        continue;
+
+                if (!S_ISREG(st.st_mode))
+                        continue;
+
+                p = strdup(de->d_name);
+                if (!p) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                de->d_name[q-8-16-1-16-1] = 0;
+                if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
+                        free(p);
+                        continue;
+                }
+
+                if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
+                        free(p);
+                        continue;
+                }
+
+                if (n_list >= n_allocated) {
+                        struct vacuum_info *j;
+
+                        n_allocated = MAX(n_allocated * 2U, 8U);
+                        j = realloc(list, n_allocated * sizeof(struct vacuum_info));
+                        if (!j) {
+                                free(p);
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        list = j;
+                }
+
+                list[n_list].filename = p;
+                list[n_list].usage = (uint64_t) st.st_blksize * (uint64_t) st.st_blocks;
+                list[n_list].seqnum = seqnum;
+                list[n_list].realtime = realtime;
+                list[n_list].seqnum_id = seqnum_id;
+
+                sum += list[n_list].usage;
+
+                n_list ++;
+        }
+
+        qsort(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
+
+        for(i = 0; i < n_list; i++) {
+                struct statvfs ss;
+
+                if (fstatvfs(dirfd(d), &ss) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (sum <= max_use &&
+                    (uint64_t) ss.f_bavail * (uint64_t) ss.f_bsize >= min_free)
+                        break;
+
+                if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
+                        log_debug("Deleted archived journal %s/%s.", directory, list[i].filename);
+                        sum -= list[i].usage;
+                } else if (errno != ENOENT)
+                        log_warning("Failed to delete %s/%s: %m", directory, list[i].filename);
+        }
+
+finish:
+        for (i = 0; i < n_list; i++)
+                free(list[i].filename);
+
+        free(list);
 
         return r;
 }

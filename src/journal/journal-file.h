@@ -32,6 +32,8 @@ typedef struct JournalFile {
         int fd;
         char *path;
         struct stat last_stat;
+        mode_t mode;
+        int flags;
         int prot;
         bool writable;
 
@@ -63,7 +65,7 @@ typedef struct JournalCursor {
         uint64_t xor_hash;
 } JournalCursor;
 
-int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile **ret);
+int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile *template, JournalFile **ret);
 
 void journal_file_close(JournalFile *j);
 
@@ -82,5 +84,10 @@ int journal_file_next_entry(JournalFile *f, Object *o, Object **ret, uint64_t *o
 int journal_file_prev_entry(JournalFile *f, Object *o, Object **ret, uint64_t *offset);
 
 void journal_file_dump(JournalFile *f);
+
+int journal_file_rotate(JournalFile **f);
+
+int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free);
+
 
 #endif

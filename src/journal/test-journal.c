@@ -20,6 +20,7 @@
 ***/
 
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "journal-file.h"
 #include "log.h"
@@ -33,7 +34,9 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        assert_se(journal_file_open("test", O_RDWR|O_CREAT, 0666, &f) == 0);
+        unlink("test.journal");
+
+        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, NULL, &f) == 0);
 
         dual_timestamp_get(&ts);
 
@@ -87,7 +90,12 @@ int main(int argc, char *argv[]) {
 
         assert(journal_file_move_to_entry(f, 10, &o, NULL) == 0);
 
+        journal_file_rotate(&f);
+        journal_file_rotate(&f);
+
         journal_file_close(f);
+
+        journal_directory_vacuum(".", 3000000, 0);
 
         return 0;
 }
