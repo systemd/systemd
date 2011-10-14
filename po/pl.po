@@ -1,12 +1,13 @@
 # translation of pl.po to Polish
 # Piotr Drąg <piotrdrag@gmail.com>, 2011.
+# Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2011.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2011-08-22 15:43+0200\n"
-"PO-Revision-Date: 2011-08-22 15:45+0200\n"
+"POT-Creation-Date: 2011-10-14 16:18+0200\n"
+"PO-Revision-Date: 2011-10-14 16:20+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -44,10 +45,18 @@ msgid "Set static host name"
 msgstr "Ustawienie statycznej nazwy komputera"
 
 #: ../src/org.freedesktop.locale1.policy.in.h:1
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić klawiaturę systemu."
+
+#: ../src/org.freedesktop.locale1.policy.in.h:2
 msgid "Authentication is required to set the system locale."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić lokalizację systemu."
 
-#: ../src/org.freedesktop.locale1.policy.in.h:2
+#: ../src/org.freedesktop.locale1.policy.in.h:3
+msgid "Set system keyboard settings"
+msgstr "Ustawienie klawiatury systemu"
+
+#: ../src/org.freedesktop.locale1.policy.in.h:4
 msgid "Set system locale"
 msgstr "Ustawienie lokalizacji systemu"
 
