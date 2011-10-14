@@ -54,6 +54,11 @@ typedef struct JournalFile {
         uint64_t current_offset;
 } JournalFile;
 
+typedef enum direction {
+        DIRECTION_UP,
+        DIRECTION_DOWN
+} direction_t;
+
 int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile *template, JournalFile **ret);
 
 void journal_file_close(JournalFile *j);
@@ -66,11 +71,9 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
 int journal_file_move_to_entry(JournalFile *f, uint64_t seqnum, Object **ret, uint64_t *offset);
 
-int journal_file_find_first_entry(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset);
-int journal_file_find_last_entry(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset);
+int journal_file_find_first_entry(JournalFile *f, const void *data, uint64_t size, direction_t direction, Object **ret, uint64_t *offset);
 
-int journal_file_next_entry(JournalFile *f, Object *o, Object **ret, uint64_t *offset);
-int journal_file_prev_entry(JournalFile *f, Object *o, Object **ret, uint64_t *offset);
+int journal_file_next_entry(JournalFile *f, Object *o, direction_t direction, Object **ret, uint64_t *offset);
 
 void journal_file_dump(JournalFile *f);
 

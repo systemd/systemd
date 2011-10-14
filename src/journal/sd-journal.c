@@ -162,7 +162,7 @@ static int compare_order(JournalFile *af, Object *ao, uint64_t ap,
         return 0;
 }
 
-static int move_to_next_with_matches(sd_journal *j, JournalFile *f, Object **o, uint64_t *p) {
+static int move_to_next_with_matches(sd_journal *j, JournalFile *f, direction_t direction, Object **o, uint64_t *p) {
         int r;
         uint64_t cp;
         Object *c;
@@ -182,7 +182,7 @@ static int move_to_next_with_matches(sd_journal *j, JournalFile *f, Object **o, 
                 } else
                         c = NULL;
 
-                return journal_file_next_entry(f, c, o, p);
+                return journal_file_next_entry(f, c, direction, o, p);
         }
 
         /* So there are matches we have to adhere to, let's find the
@@ -191,7 +191,7 @@ static int move_to_next_with_matches(sd_journal *j, JournalFile *f, Object **o, 
         if (f->current_offset > 0)
                 cp = f->current_offset;
         else {
-                r = journal_file_find_first_entry(f, j->matches->data, j->matches->size, &c, &cp);
+                r = journal_file_find_first_entry(f, j->matches->data, j->matches->size, direction, &c, &cp);
                 if (r <= 0)
                         return r;
 
@@ -237,9 +237,18 @@ static int move_to_next_with_matches(sd_journal *j, JournalFile *f, Object **o, 
                         /* Hmm, so, this field matched, let's remember
                          * where we'd have to try next, in case the other
                          * matches are not OK */
-                        q = le64toh(c->entry.items[k].next_entry_offset);
-                        if (q > np)
-                                np = q;
+
+                        if (direction == DIRECTION_DOWN) {
+                                q = le64toh(c->entry.items[k].next_entry_offset);
+
+                                if (q > np)
+                                        np = q;
+                        } else {
+                                q = le64toh(c->entry.items[k].prev_entry_offset);
+
+                                if (q != 0 && (np == 0 || q < np))
+                                        np = q;
+                        }
                 }
 
                 /* Did this entry match against all matches? */
@@ -259,7 +268,7 @@ static int move_to_next_with_matches(sd_journal *j, JournalFile *f, Object **o, 
         }
 }
 
-int sd_journal_next(sd_journal *j) {
+static int real_journal_next(sd_journal *j, direction_t direction) {
         JournalFile *f, *new_current = NULL;
         Iterator i;
         int r;
@@ -272,7 +281,7 @@ int sd_journal_next(sd_journal *j) {
                 Object *o;
                 uint64_t p;
 
-                r = move_to_next_with_matches(j, f, &o, &p);
+                r = move_to_next_with_matches(j, f, direction, &o, &p);
                 if (r < 0)
                         return r;
                 else if (r == 0)
@@ -300,7 +309,7 @@ int sd_journal_next(sd_journal *j) {
                         if (j->current_file == f)
                                 continue;
 
-                        r = move_to_next_with_matches(j, f, &o, &p);
+                        r = move_to_next_with_matches(j, f, direction, &o, &p);
                         if (r < 0)
                                 return r;
                         else if (r == 0)
@@ -316,74 +325,12 @@ int sd_journal_next(sd_journal *j) {
         return 0;
 }
 
+int sd_journal_next(sd_journal *j) {
+        return real_journal_next(j, DIRECTION_DOWN);
+}
+
 int sd_journal_previous(sd_journal *j) {
-        JournalFile *f, *new_current = NULL;
-        Iterator i;
-        int r;
-        uint64_t new_offset = 0;
-        Object *new_entry = NULL;
-
-        assert(j);
-
-        HASHMAP_FOREACH(f, j->files, i) {
-                Object *o;
-                uint64_t p;
-
-                if (f->current_offset > 0) {
-                        r = journal_file_move_to_object(f, f->current_offset, OBJECT_ENTRY, &o);
-                        if (r < 0)
-                                return r;
-                } else
-                        o = NULL;
-
-                r = journal_file_prev_entry(f, o, &o, &p);
-                if (r < 0)
-                        return r;
-                else if (r == 0)
-                        continue;
-
-                if (!new_current || compare_order(new_current, new_entry, new_offset, f, o, p) > 0) {
-                        new_current = f;
-                        new_entry = o;
-                        new_offset = p;
-                }
-        }
-
-        if (new_current) {
-                j->current_file = new_current;
-                j->current_file->current_offset = new_offset;
-                j->current_field = 0;
-
-                /* Skip over any identical entries in the other files too */
-
-                HASHMAP_FOREACH(f, j->files, i) {
-                        Object *o;
-                        uint64_t p;
-
-                        if (j->current_file == f)
-                                continue;
-
-                        if (f->current_offset > 0) {
-                                r = journal_file_move_to_object(f, f->current_offset, OBJECT_ENTRY, &o);
-                                if (r < 0)
-                                        return r;
-                        } else
-                                o = NULL;
-
-                        r = journal_file_prev_entry(f, o, &o, &p);
-                        if (r < 0)
-                                return r;
-                        else if (r == 0)
-                                continue;
-
-                        if (compare_order(new_current, new_entry, new_offset, f, o, p) == 0)
-                                f->current_offset = p;
-                }
-
-                return 1;
-        }
-
-        return 0;
+        return real_journal_next(j, DIRECTION_UP);
 }
 
 int sd_journal_get_cursor(sd_journal *j, char **cursor) {

@@ -892,19 +892,23 @@ int journal_file_move_to_entry(JournalFile *f, uint64_t seqnum, Object **ret, ui
         return 0;
 }
 
-int journal_file_next_entry(JournalFile *f, Object *o, Object **ret, uint64_t *offset) {
+int journal_file_next_entry(JournalFile *f, Object *o, direction_t direction, Object **ret, uint64_t *offset) {
         uint64_t np;
         int r;
 
         assert(f);
 
         if (!o)
-                np = le64toh(f->header->head_entry_offset);
+                np = le64toh(direction == DIRECTION_DOWN ?
+                             f->header->head_entry_offset :
+                             f->header->tail_entry_offset);
         else {
                 if (le64toh(o->object.type) != OBJECT_ENTRY)
                         return -EINVAL;
 
-                np = le64toh(o->entry.next_entry_offset);
+                np = le64toh(direction == DIRECTION_DOWN ?
+                             o->entry.next_entry_offset :
+                             o->entry.prev_entry_offset);
         }
 
         if (np == 0)
@@ -954,7 +958,7 @@ int journal_file_prev_entry(JournalFile *f, Object *o, Object **ret, uint64_t *o
         return 1;
 }
 
-int journal_file_find_first_entry(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset) {
+int journal_file_find_first_entry(JournalFile *f, const void *data, uint64_t size, direction_t direction, Object **ret, uint64_t *offset) {
         uint64_t p, osize, hash, h;
         int r;
 
@@ -980,10 +984,13 @@ int journal_file_find_first_entry(JournalFile *f, const void *data, uint64_t siz
                         if (le64toh(o->data.hash) != hash)
                                 return -EBADMSG;
 
-                        if (o->data.head_entry_offset == 0)
+                        p = le64toh(direction == DIRECTION_DOWN ?
+                                    o->data.head_entry_offset :
+                                    o->data.tail_entry_offset);
+
+                        if (p == 0)
                                 return 0;
 
-                        p = le64toh(o->data.head_entry_offset);
                         r = journal_file_move_to_object(f, p, OBJECT_ENTRY, &o);
                         if (r < 0)
                                 return r;
@@ -998,55 +1005,6 @@ int journal_file_find_first_entry(JournalFile *f, const void *data, uint64_t siz
                 }
 
                 p = le64toh(o->data.next_hash_offset);
-        }
-
-        return 0;
-}
-
-int journal_file_find_last_entry(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset) {
-        uint64_t p, osize, hash, h;
-        int r;
-
-        assert(f);
-        assert(data || size == 0);
-
-        osize = offsetof(Object, data.payload) + size;
-
-        hash = hash64(data, size);
-        h = hash % (le64toh(f->header->hash_table_size) / sizeof(HashItem));
-        p = le64toh(f->hash_table[h].tail_hash_offset);
-
-        while (p != 0) {
-                Object *o;
-
-                r = journal_file_move_to_object(f, p, OBJECT_DATA, &o);
-                if (r < 0)
-                        return r;
-
-                if (le64toh(o->object.size) == osize &&
-                    memcmp(o->data.payload, data, size) == 0) {
-
-                        if (le64toh(o->data.hash) != hash)
-                                return -EBADMSG;
-
-                        if (o->data.tail_entry_offset == 0)
-                                return 0;
-
-                        p = le64toh(o->data.tail_entry_offset);
-                        r = journal_file_move_to_object(f, p, OBJECT_ENTRY, &o);
-                        if (r < 0)
-                                return r;
-
-                        if (ret)
-                                *ret = o;
-
-                        if (offset)
-                                *offset = p;
-
-                        return 1;
-                }
-
-                p = le64toh(o->data.prev_hash_offset);
         }
 
         return 0;
