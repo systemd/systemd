@@ -364,12 +364,24 @@ int journal_file_move_to_object(JournalFile *f, uint64_t offset, int type, Objec
         return 0;
 }
 
-static uint64_t journal_file_seqnum(JournalFile *f) {
+static uint64_t journal_file_seqnum(JournalFile *f, uint64_t *seqnum) {
         uint64_t r;
 
         assert(f);
 
         r = le64toh(f->header->seqnum) + 1;
+
+        if (seqnum) {
+                /* If an external seqno counter was passed, we update
+                 * both the local and the external one, and set it to
+                 * the maximum of both */
+
+                if (*seqnum + 1 > r)
+                        r = *seqnum + 1;
+
+                *seqnum = r;
+        }
+
         f->header->seqnum = htole64(r);
 
         return r;
@@ -733,6 +745,7 @@ static int journal_file_append_entry_internal(
                 const dual_timestamp *ts,
                 uint64_t xor_hash,
                 const EntryItem items[], unsigned n_items,
+                uint64_t *seqno,
                 Object **ret, uint64_t *offset) {
         uint64_t np;
         uint64_t osize;
@@ -749,7 +762,7 @@ static int journal_file_append_entry_internal(
                 return r;
 
         o->object.type = htole64(OBJECT_ENTRY);
-        o->entry.seqnum = htole64(journal_file_seqnum(f));
+        o->entry.seqnum = htole64(journal_file_seqnum(f, seqno));
         memcpy(o->entry.items, items, n_items * sizeof(EntryItem));
         o->entry.realtime = htole64(ts ? ts->realtime : now(CLOCK_REALTIME));
         o->entry.monotonic = htole64(ts ? ts->monotonic : now(CLOCK_MONOTONIC));
@@ -769,7 +782,7 @@ static int journal_file_append_entry_internal(
         return 0;
 }
 
-int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, Object **ret, uint64_t *offset) {
+int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqno, Object **ret, uint64_t *offset) {
         unsigned i;
         EntryItem *items;
         int r;
@@ -794,7 +807,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
                 items[i].object_offset = htole64(p);
         }
 
-        r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, ret, offset);
+        r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqno, ret, offset);
 
 finish:
         free(items);

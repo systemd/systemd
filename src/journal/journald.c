@@ -43,6 +43,8 @@ typedef struct Server {
         JournalFile *runtime_journal;
         JournalFile *system_journal;
         Hashmap *user_journals;
+
+        uint64_t seqnum;
 } Server;
 
 static void fix_perms(JournalFile *f, uid_t uid) {
@@ -118,7 +120,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (asprintf(&p, "/var/log/journal/%s/user-%lu.journal", sd_id128_to_string(machine, ids), (unsigned long) uid) < 0)
                 return s->system_journal;
 
-        r = journal_file_open(p, O_RDWR|O_CREAT, 0640, NULL, &f);
+        r = journal_file_open(p, O_RDWR|O_CREAT, 0640, s->system_journal, &f);
         free(p);
 
         if (r < 0)
@@ -252,7 +254,7 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
         if (!f)
                 log_warning("Dropping message, as we can't find a place to store the data.");
         else {
-                r = journal_file_append_entry(f, NULL, iovec, n, NULL, NULL);
+                r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
 
                 if (r < 0)
                         log_error("Failed to write entry, ignoring: %s", strerror(-r));

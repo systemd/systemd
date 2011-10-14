@@ -63,7 +63,7 @@ int journal_file_move_to_object(JournalFile *f, uint64_t offset, int type, Objec
 
 uint64_t journal_file_entry_n_items(Object *o);
 
-int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, Object **ret, uint64_t *offset);
+int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqno, Object **ret, uint64_t *offset);
 
 int journal_file_move_to_entry(JournalFile *f, uint64_t seqnum, Object **ret, uint64_t *offset);
 

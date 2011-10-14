@@ -56,7 +56,6 @@ void sd_journal_flush_matches(sd_journal *j);
 int sd_journal_seek_head(sd_journal *j);
 int sd_journal_seek_tail(sd_journal *j);
 
-int sd_journal_seek_seqnum(sd_journal *j, uint64_t seqnum);
 int sd_journal_seek_monotonic_usec(sd_journal *j, uint64_t usec);
 int sd_journal_seek_realtime_usec(sd_journal *j, uint64_t usec);
 

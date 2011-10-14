@@ -561,3 +561,13 @@ int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *size) {
 
         return 1;
 }
+
+int sd_journal_seek_head(sd_journal *j) {
+        assert(j);
+        return -EINVAL;
+}
+
+int sd_journal_seek_tail(sd_journal *j) {
+        assert(j);
+        return -EINVAL;
+}

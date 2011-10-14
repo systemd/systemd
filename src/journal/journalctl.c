@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
                 const void *data;
                 size_t length;
                 char *cursor;
+                uint64_t realtime = 0, monotonic = 0;
 
                 r = sd_journal_get_cursor(j, &cursor);
                 if (r < 0) {
@@ -59,6 +60,13 @@ int main(int argc, char *argv[]) {
 
                 printf("entry: %s\n", cursor);
                 free(cursor);
+
+                sd_journal_get_realtime_usec(j, &realtime);
+                sd_journal_get_monotonic_usec(j, &monotonic);
+                printf("realtime: %llu\n"
+                       "monotonic: %llu\n",
+                       (unsigned long long) realtime,
+                       (unsigned long long) monotonic);
 
                 SD_JOURNAL_FOREACH_FIELD(j, data, length)
                         printf("\t%.*s\n", (int) length, (const char*) data);
