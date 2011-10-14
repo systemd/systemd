@@ -48,28 +48,29 @@ struct sd_journal {
         LIST_HEAD(Match, matches);
 };
 
-int sd_journal_add_match(sd_journal *j, const char *field, const void *data, size_t size) {
+int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
         Match *m;
-        char *e;
 
         assert(j);
-        assert(field);
-        assert(data || size == 0);
+
+        if (size <= 0)
+                return -EINVAL;
+
+        assert(data);
 
         m = new0(Match, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->size = strlen(field) + 1 + size;
+        m->size = size;
+
         m->data = malloc(m->size);
         if (!m->data) {
                 free(m);
                 return -ENOMEM;
         }
 
-        e = stpcpy(m->data, field);
-        *(e++) = '=';
-        memcpy(e, data, size);
+        memcpy(m->data, data, size);
 
         LIST_PREPEND(Match, matches, j->matches, m);
         return 0;
@@ -93,7 +94,16 @@ static int compare_order(JournalFile *af, Object *ao, uint64_t ap,
         uint64_t a, b;
 
         /* We operate on two different files here, hence we can access
-         * two objects at the same time, which we normally can't */
+         * two objects at the same time, which we normally can't.
+         *
+         * If contents and timestamps match, these entries are
+         * identical, even if the seqnum does not match */
+
+        if (sd_id128_equal(ao->entry.boot_id, bo->entry.boot_id) &&
+            ao->entry.monotonic == bo->entry.monotonic &&
+            ao->entry.realtime == bo->entry.realtime &&
+            ao->entry.xor_hash == bo->entry.xor_hash)
+                return 0;
 
         if (sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id)) {
 
@@ -106,6 +116,10 @@ static int compare_order(JournalFile *af, Object *ao, uint64_t ap,
                         return -1;
                 if (a > b)
                         return 1;
+
+                /* Wow! This is weird, different data but the same
+                 * seqnums? Something is borked, but let's make the
+                 * best of it and compare by time. */
         }
 
         if (sd_id128_equal(ao->entry.boot_id, bo->entry.boot_id)) {
@@ -473,6 +487,8 @@ void sd_journal_close(sd_journal *j) {
 
                 hashmap_free(j->files);
         }
+
+        sd_journal_flush_matches(j);
 
         free(j);
 }

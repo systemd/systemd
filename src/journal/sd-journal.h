@@ -35,6 +35,8 @@
  *   - implement stdout gateway
  *   - extend hash table/bisect table as we go
  *   - accelerate looking for "all hostnames" and suchlike.
+ *   - throttling
+ *   - enforce limit on open journal files in journald and journalctl
  */
 
 typedef struct sd_journal sd_journal;
@@ -50,7 +52,7 @@ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret);
 int sd_journal_get_field(sd_journal *j, const char *field, const void **data, size_t *l);
 int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *l);
 
-int sd_journal_add_match(sd_journal *j, const char *field, const void *data, size_t size);
+int sd_journal_add_match(sd_journal *j, const void *data, size_t size);
 void sd_journal_flush_matches(sd_journal *j);
 
 int sd_journal_seek_head(sd_journal *j);
@@ -63,6 +65,14 @@ int sd_journal_get_cursor(sd_journal *j, char **cursor);
 int sd_journal_set_cursor(sd_journal *j, const char *cursor);
 
 int sd_journal_get_fd(sd_journal *j);
+
+enum {
+        SD_JOURNAL_NOP,
+        SD_JOURNAL_APPEND,
+        SD_JOURNAL_DROP
+};
+
+int sd_journal_process(sd_journal *j);
 
 #define SD_JOURNAL_FOREACH(j)                   \
         while (sd_journal_next(j) > 0)
