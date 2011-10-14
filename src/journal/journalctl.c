@@ -22,104 +22,51 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stddef.h>
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
 
-#include "journal-file.h"
-
-static int system_journal_open(JournalFile **f) {
-        int r;
-        char *fn;
-        sd_id128_t machine;
-        char ids[33];
-
-        assert(f);
-
-        r = sd_id128_get_machine(&machine);
-        if (r < 0)
-                return r;
-
-        fn = join("/var/log/journal/", sd_id128_to_string(machine, ids), "/system.journal", NULL);
-        if (!fn)
-                return -ENOMEM;
-
-        r = journal_file_open(fn, O_RDONLY, 0640, NULL, f);
-        free(fn);
-
-        if (r >= 0)
-                return r;
-
-        if (r < 0 && r != -ENOENT) {
-                log_error("Failed to open system journal: %s", strerror(-r));
-                return r;
-        }
-
-        fn = join("/run/log/journal/", ids, "/system.journal", NULL);
-        if (!fn)
-                return -ENOMEM;
-
-        r = journal_file_open(fn, O_RDONLY, 0640, NULL, f);
-        free(fn);
-
-        if (r < 0) {
-                log_error("Failed to open system journal: %s", strerror(-r));
-                return r;
-        }
-
-        return r;
-}
+#include "sd-journal.h"
+#include "log.h"
 
 int main(int argc, char *argv[]) {
         int r;
-        JournalFile *f;
-        Object *o = NULL;
+        sd_journal *j = NULL;
+
+        log_set_max_level(LOG_DEBUG);
+        log_set_target(LOG_TARGET_CONSOLE);
 
         log_parse_environment();
         log_open();
 
-        r = system_journal_open(&f);
+        r = sd_journal_open(&j);
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
-                return EXIT_FAILURE;
+                goto finish;
         }
 
-        for (;;) {
-                uint64_t offset;
-                uint64_t n, i;
+        SD_JOURNAL_FOREACH(j) {
+                const void *data;
+                size_t length;
+                char *cursor;
 
-                r = journal_file_next_entry(f, o, &o, &offset);
+                r = sd_journal_get_cursor(j, &cursor);
                 if (r < 0) {
-                        log_error("Failed to read journal: %s", strerror(-r));
+                        log_error("Failed to get cursor: %s", strerror(-r));
                         goto finish;
                 }
 
-                if (r == 0)
-                        break;
+                printf("entry: %s\n", cursor);
+                free(cursor);
 
-                printf("entry: %llu\n", (unsigned long long) le64toh(o->entry.seqnum));
-
-                n = journal_file_entry_n_items(o);
-                for (i = 0; i < n; i++) {
-                        uint64_t p, l;
-
-                        p = le64toh(o->entry.items[i].object_offset);
-                        r = journal_file_move_to_object(f, p, OBJECT_DATA, &o);
-                        if (r < 0) {
-                                log_error("Failed to move to data: %s", strerror(-r));
-                                goto finish;
-                        }
-
-                        l = o->object.size - offsetof(Object, data.payload);
-                        printf("\t[%.*s]\n", (int) l, o->data.payload);
-
-                        r = journal_file_move_to_object(f, offset, OBJECT_ENTRY, &o);
-                        if (r < 0) {
-                                log_error("Failed to move back to entry: %s", strerror(-r));
-                                goto finish;
-                        }
-                }
+                SD_JOURNAL_FOREACH_FIELD(j, data, length)
+                        printf("\t%.*s\n", (int) length, (const char*) data);
         }
 
 finish:
-        journal_file_close(f);
+        if (j)
+                sd_journal_close(j);
 
-        return 0;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

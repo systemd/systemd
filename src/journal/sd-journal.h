@@ -27,13 +27,14 @@
 
 /* TODO:
  *
- *   - implement rotation
  *   - check LE/BE conversion for 8bit, 16bit, 32bit values
  *   - implement parallel traversal
  *   - implement inotify usage on client
  *   - implement audit gateway
  *   - implement native gateway
+ *   - implement stdout gateway
  *   - extend hash table/bisect table as we go
+ *   - accelerate looking for "all hostnames" and suchlike.
  */
 
 typedef struct sd_journal sd_journal;
@@ -44,10 +45,10 @@ void sd_journal_close(sd_journal *j);
 int sd_journal_previous(sd_journal *j);
 int sd_journal_next(sd_journal *j);
 
-int sd_journal_get(sd_journal *j, const char *field, const void **data, size_t *size);
-int sd_journal_get_seqnum(sd_journal *j, uint64_t *ret);
 int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret);
 int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret);
+int sd_journal_get_field(sd_journal *j, const char *field, const void **data, size_t *l);
+int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *l);
 
 int sd_journal_add_match(sd_journal *j, const char *field, const void *data, size_t size);
 void sd_journal_flush_matches(sd_journal *j);
@@ -59,9 +60,18 @@ int sd_journal_seek_seqnum(sd_journal *j, uint64_t seqnum);
 int sd_journal_seek_monotonic_usec(sd_journal *j, uint64_t usec);
 int sd_journal_seek_realtime_usec(sd_journal *j, uint64_t usec);
 
-int sd_journal_get_cursor(sd_journal *j, void **cursor, size_t *size);
-int sd_journal_set_cursor(sd_journal *j, const void *cursor, size_t size);
+int sd_journal_get_cursor(sd_journal *j, char **cursor);
+int sd_journal_set_cursor(sd_journal *j, const char *cursor);
 
 int sd_journal_get_fd(sd_journal *j);
+
+#define SD_JOURNAL_FOREACH(j)                   \
+        while (sd_journal_next(j) > 0)
+
+#define SD_JOURNAL_FOREACH_BACKWARDS(j)         \
+        while (sd_journal_previous(j) > 0)
+
+#define SD_JOURNAL_FOREACH_FIELD(j, data, l)                            \
+        while (sd_journal_iterate_fields((j), &(data), &(l)) > 0)
 
 #endif

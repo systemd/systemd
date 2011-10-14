@@ -52,18 +52,8 @@ typedef struct JournalFile {
         uint64_t window_size;
 
         uint64_t current_offset;
+        uint64_t current_field;
 } JournalFile;
-
-typedef struct JournalCursor {
-        uint8_t version;
-        uint8_t reserved[7];
-        uint64_t seqnum;
-        sd_id128_t seqnum_id;
-        sd_id128_t boot_id;
-        uint64_t monotonic;
-        uint64_t realtime;
-        uint64_t xor_hash;
-} JournalCursor;
 
 int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile *template, JournalFile **ret);
 

@@ -751,8 +751,8 @@ static int journal_file_append_entry_internal(
         o->object.type = htole64(OBJECT_ENTRY);
         o->entry.seqnum = htole64(journal_file_seqnum(f));
         memcpy(o->entry.items, items, n_items * sizeof(EntryItem));
-        o->entry.realtime = ts ? htole64(ts->realtime) : 0;
-        o->entry.monotonic = ts ? htole64(ts->monotonic) : 0;
+        o->entry.realtime = htole64(ts ? ts->realtime : now(CLOCK_REALTIME));
+        o->entry.monotonic = htole64(ts ? ts->monotonic : now(CLOCK_MONOTONIC));
         o->entry.xor_hash = htole64(xor_hash);
         o->entry.boot_id = f->header->boot_id;
 
@@ -1072,7 +1072,10 @@ void journal_file_dump(JournalFile *f) {
                         break;
 
                 case OBJECT_ENTRY:
-                        printf("Type: OBJECT_ENTRY %llu\n", (unsigned long long) le64toh(o->entry.seqnum));
+                        printf("Type: OBJECT_ENTRY %llu %llu %llu\n",
+                               (unsigned long long) le64toh(o->entry.seqnum),
+                               (unsigned long long) le64toh(o->entry.monotonic),
+                               (unsigned long long) le64toh(o->entry.realtime));
                         break;
 
                 case OBJECT_HASH_TABLE:

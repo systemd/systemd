@@ -95,6 +95,8 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         char *p;
         int r;
         JournalFile *f;
+        char ids[33];
+        sd_id128_t machine;
 
         assert(s);
 
@@ -105,11 +107,15 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (uid <= 0)
                 return s->system_journal;
 
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return s->system_journal;
+
         f = hashmap_get(s->user_journals, UINT32_TO_PTR(uid));
         if (f)
                 return f;
 
-        if (asprintf(&p, "/var/log/journal/user-%lu.journal", (unsigned long) uid) < 0)
+        if (asprintf(&p, "/var/log/journal/%s/user-%lu.journal", sd_id128_to_string(machine, ids), (unsigned long) uid) < 0)
                 return s->system_journal;
 
         r = journal_file_open(p, O_RDWR|O_CREAT, 0640, NULL, &f);
@@ -401,16 +407,11 @@ static int system_journal_open(Server *s) {
 
         /* /var didn't work, so try /run, but this time we
          * create the prefix too */
-        fn = strappend("/run/log/journal/", ids);
-        if (!fn)
-                return -ENOMEM;
-        (void) mkdir_p(fn, 0755);
-        free(fn);
-
-        /* Then create the runtime journal file */
         fn = join("/run/log/journal/", ids, "/system.journal", NULL);
         if (!fn)
                 return -ENOMEM;
+
+        (void) mkdir_parents(fn, 0755);
         r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
         free(fn);
 
