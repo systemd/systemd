@@ -43,6 +43,7 @@ struct sd_journal {
         Hashmap *files;
 
         JournalFile *current_file;
+        uint64_t current_field;
 
         LIST_HEAD(Match, matches);
 };
@@ -177,7 +178,7 @@ int sd_journal_next(sd_journal *j) {
         if (new_current) {
                 j->current_file = new_current;
                 j->current_file->current_offset = new_offset;
-                j->current_file->current_field = 0;
+                j->current_field = 0;
 
                 /* Skip over any identical entries in the other files too */
 
@@ -201,10 +202,8 @@ int sd_journal_next(sd_journal *j) {
                         else if (r == 0)
                                 continue;
 
-                        if (compare_order(new_current, new_entry, new_offset, f, o, p) == 0) {
+                        if (compare_order(new_current, new_entry, new_offset, f, o, p) == 0)
                                 f->current_offset = p;
-                                f->current_field = 0;
-                        }
                 }
 
                 return 1;
@@ -249,7 +248,34 @@ int sd_journal_previous(sd_journal *j) {
         if (new_current) {
                 j->current_file = new_current;
                 j->current_file->current_offset = new_offset;
-                j->current_file->current_field = 0;
+                j->current_field = 0;
+
+                /* Skip over any identical entries in the other files too */
+
+                HASHMAP_FOREACH(f, j->files, i) {
+                        Object *o;
+                        uint64_t p;
+
+                        if (j->current_file == f)
+                                continue;
+
+                        if (f->current_offset > 0) {
+                                r = journal_file_move_to_object(f, f->current_offset, OBJECT_ENTRY, &o);
+                                if (r < 0)
+                                        return r;
+                        } else
+                                o = NULL;
+
+                        r = journal_file_prev_entry(f, o, &o, &p);
+                        if (r < 0)
+                                return r;
+                        else if (r == 0)
+                                continue;
+
+                        if (compare_order(new_current, new_entry, new_offset, f, o, p) == 0)
+                                f->current_offset = p;
+                }
+
                 return 1;
         }
 
@@ -592,10 +618,10 @@ int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *size) {
                 return r;
 
         n = journal_file_entry_n_items(o);
-        if (f->current_field >= n)
+        if (j->current_field >= n)
                 return 0;
 
-        p = le64toh(o->entry.items[f->current_field].object_offset);
+        p = le64toh(o->entry.items[j->current_field].object_offset);
         r = journal_file_move_to_object(f, p, OBJECT_DATA, &o);
         if (r < 0)
                 return r;
@@ -610,7 +636,7 @@ int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *size) {
         *data = o->data.payload;
         *size = t;
 
-        f->current_field ++;
+        j->current_field ++;
 
         return 1;
 }

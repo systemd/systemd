@@ -52,7 +52,6 @@ typedef struct JournalFile {
         uint64_t window_size;
 
         uint64_t current_offset;
-        uint64_t current_field;
 } JournalFile;
 
 int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile *template, JournalFile **ret);
