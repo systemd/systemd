@@ -493,22 +493,24 @@ int sd_journal_get_field(sd_journal *j, const char *field, const void **data, si
 
                 l = le64toh(o->object.size) - offsetof(Object, data.payload);
 
-                if (field_length+1 > l)
-                        continue;
+                if (l >= field_length+1 &&
+                    memcmp(o->data.payload, field, field_length) == 0 &&
+                    o->data.payload[field_length] == '=') {
 
-                if (memcmp(o->data.payload, field, field_length) ||
-                    o->data.payload[field_length] != '=')
-                        continue;
+                        t = (size_t) l;
 
-                t = (size_t) l;
+                        if ((uint64_t) t != l)
+                                return -E2BIG;
 
-                if ((uint64_t) t != l)
-                        return -E2BIG;
+                        *data = o->data.payload;
+                        *size = t;
 
-                *data = o->data.payload;
-                *size = t;
+                        return 1;
+                }
 
-                return 1;
+                r = journal_file_move_to_object(f, f->current_offset, OBJECT_ENTRY, &o);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
