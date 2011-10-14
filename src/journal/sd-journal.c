@@ -87,9 +87,12 @@ void sd_journal_flush_matches(sd_journal *j) {
 }
 
 static int compare_order(JournalFile *af, Object *ao, uint64_t ap,
-                            JournalFile *bf, Object *bo, uint64_t bp) {
+                         JournalFile *bf, Object *bo, uint64_t bp) {
 
         uint64_t a, b;
+
+        /* We operate on two different files here, hence we can access
+         * two objects at the same time, which we normally can't */
 
         if (sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id)) {
 
@@ -98,23 +101,43 @@ static int compare_order(JournalFile *af, Object *ao, uint64_t ap,
                 a = le64toh(ao->entry.seqnum);
                 b = le64toh(bo->entry.seqnum);
 
+                if (a < b)
+                        return -1;
+                if (a > b)
+                        return 1;
+        }
 
-        } else if (sd_id128_equal(ao->entry.boot_id, bo->entry.boot_id)) {
+        if (sd_id128_equal(ao->entry.boot_id, bo->entry.boot_id)) {
 
                 /* If the boot id matches compare monotonic time */
                 a = le64toh(ao->entry.monotonic);
                 b = le64toh(bo->entry.monotonic);
 
-        } else {
-
-                /* Otherwise compare UTC time */
-                a = le64toh(ao->entry.realtime);
-                b = le64toh(ao->entry.realtime);
+                if (a < b)
+                        return -1;
+                if (a > b)
+                        return 1;
         }
 
-        return
-                a < b ? -1 :
-                a > b ? +1 : 0;
+        /* Otherwise compare UTC time */
+        a = le64toh(ao->entry.realtime);
+        b = le64toh(ao->entry.realtime);
+
+        if (a < b)
+                return -1;
+        if (a > b)
+                return 1;
+
+        /* Finally, compare by contents */
+        a = le64toh(ao->entry.xor_hash);
+        b = le64toh(ao->entry.xor_hash);
+
+        if (a < b)
+                return -1;
+        if (a > b)
+                return 1;
+
+        return 0;
 }
 
 int sd_journal_next(sd_journal *j) {
@@ -143,7 +166,8 @@ int sd_journal_next(sd_journal *j) {
                 else if (r == 0)
                         continue;
 
-                if (!new_current || compare_order(new_current, new_entry, new_offset, f, o, p) > 0) {
+                if (!new_current ||
+                    compare_order(new_current, new_entry, new_offset, f, o, p) > 0) {
                         new_current = f;
                         new_entry = o;
                         new_offset = p;
@@ -154,6 +178,35 @@ int sd_journal_next(sd_journal *j) {
                 j->current_file = new_current;
                 j->current_file->current_offset = new_offset;
                 j->current_file->current_field = 0;
+
+                /* Skip over any identical entries in the other files too */
+
+                HASHMAP_FOREACH(f, j->files, i) {
+                        Object *o;
+                        uint64_t p;
+
+                        if (j->current_file == f)
+                                continue;
+
+                        if (f->current_offset > 0) {
+                                r = journal_file_move_to_object(f, f->current_offset, OBJECT_ENTRY, &o);
+                                if (r < 0)
+                                        return r;
+                        } else
+                                o = NULL;
+
+                        r = journal_file_next_entry(f, o, &o, &p);
+                        if (r < 0)
+                                return r;
+                        else if (r == 0)
+                                continue;
+
+                        if (compare_order(new_current, new_entry, new_offset, f, o, p) == 0) {
+                                f->current_offset = p;
+                                f->current_field = 0;
+                        }
+                }
+
                 return 1;
         }
 
