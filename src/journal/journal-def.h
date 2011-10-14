@@ -65,6 +65,7 @@ _packed_ struct DataObject {
 
 _packed_ struct EntryItem {
         uint64_t object_offset;
+        uint64_t hash;
         uint64_t prev_entry_offset;
         uint64_t next_entry_offset;
 };

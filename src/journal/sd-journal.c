@@ -28,13 +28,14 @@
 #include "journal-file.h"
 #include "hashmap.h"
 #include "list.h"
+#include "lookup3.h"
 
 typedef struct Match Match;
 
 struct Match {
         char *data;
         size_t size;
-        uint64_t hash;
+        uint64_t le_hash;
 
         LIST_FIELDS(Match, matches);
 };
@@ -46,6 +47,7 @@ struct sd_journal {
         uint64_t current_field;
 
         LIST_HEAD(Match, matches);
+        unsigned n_matches;
 };
 
 int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
@@ -71,8 +73,11 @@ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
         }
 
         memcpy(m->data, data, size);
+        m->le_hash = hash64(m->data, size);
 
         LIST_PREPEND(Match, matches, j->matches, m);
+        j->n_matches ++;
+
         return 0;
 }
 
@@ -86,6 +91,8 @@ void sd_journal_flush_matches(sd_journal *j) {
                 free(m->data);
                 free(m);
         }
+
+        j->n_matches = 0;
 }
 
 static int compare_order(JournalFile *af, Object *ao, uint64_t ap,
@@ -155,6 +162,103 @@ static int compare_order(JournalFile *af, Object *ao, uint64_t ap,
         return 0;
 }
 
+static int move_to_next_with_matches(sd_journal *j, JournalFile *f, Object **o, uint64_t *p) {
+        int r;
+        uint64_t cp;
+        Object *c;
+
+        assert(j);
+        assert(f);
+        assert(o);
+        assert(p);
+
+        if (!j->matches) {
+                /* No matches is easy, just go on to the next entry */
+
+                if (f->current_offset > 0) {
+                        r = journal_file_move_to_object(f, f->current_offset, OBJECT_ENTRY, &c);
+                        if (r < 0)
+                                return r;
+                } else
+                        c = NULL;
+
+                return journal_file_next_entry(f, c, o, p);
+        }
+
+        /* So there are matches we have to adhere to, let's find the
+         * first entry that matches all of them */
+
+        if (f->current_offset > 0)
+                cp = f->current_offset;
+        else {
+                r = journal_file_find_first_entry(f, j->matches->data, j->matches->size, &c, &cp);
+                if (r <= 0)
+                        return r;
+
+                /* We can shortcut this if there's only one match */
+                if (j->n_matches == 1) {
+                        *o = c;
+                        *p = cp;
+                        return r;
+                }
+        }
+
+        for (;;) {
+                uint64_t np, n;
+                bool found;
+                Match *m;
+
+                r = journal_file_move_to_object(f, cp, OBJECT_ENTRY, &c);
+                if (r < 0)
+                        return r;
+
+                n = journal_file_entry_n_items(c);
+
+                /* Make sure we don't match the entry we are starting
+                 * from. */
+                found = f->current_offset != cp;
+
+                np = 0;
+                LIST_FOREACH(matches, m, j->matches) {
+                        uint64_t q, k;
+
+                        for (k = 0; k < n; k++)
+                                if (c->entry.items[k].hash == m->le_hash)
+                                        break;
+
+                        if (k >= n) {
+                                /* Hmm, didn't find any field that matched, so ignore
+                                 * this match. Go on with next match */
+
+                                found = false;
+                                continue;
+                        }
+
+                        /* Hmm, so, this field matched, let's remember
+                         * where we'd have to try next, in case the other
+                         * matches are not OK */
+                        q = le64toh(c->entry.items[k].next_entry_offset);
+                        if (q > np)
+                                np = q;
+                }
+
+                /* Did this entry match against all matches? */
+                if (found) {
+                        *o = c;
+                        *p = cp;
+                        return 1;
+                }
+
+                /* Did we find a subsequent entry? */
+                if (np == 0)
+                        return 0;
+
+                /* Hmm, ok, this entry only matched partially, so
+                 * let's try another one */
+                cp = np;
+        }
+}
+
 int sd_journal_next(sd_journal *j) {
         JournalFile *f, *new_current = NULL;
         Iterator i;
@@ -168,14 +272,7 @@ int sd_journal_next(sd_journal *j) {
                 Object *o;
                 uint64_t p;
 
-                if (f->current_offset > 0) {
-                        r = journal_file_move_to_object(f, f->current_offset, OBJECT_ENTRY, &o);
-                        if (r < 0)
-                                return r;
-                } else
-                        o = NULL;
-
-                r = journal_file_next_entry(f, o, &o, &p);
+                r = move_to_next_with_matches(j, f, &o, &p);
                 if (r < 0)
                         return r;
                 else if (r == 0)
@@ -203,14 +300,7 @@ int sd_journal_next(sd_journal *j) {
                         if (j->current_file == f)
                                 continue;
 
-                        if (f->current_offset > 0) {
-                                r = journal_file_move_to_object(f, f->current_offset, OBJECT_ENTRY, &o);
-                                if (r < 0)
-                                        return r;
-                        } else
-                                o = NULL;
-
-                        r = journal_file_next_entry(f, o, &o, &p);
+                        r = move_to_next_with_matches(j, f, &o, &p);
                         if (r < 0)
                                 return r;
                         else if (r == 0)
@@ -532,7 +622,7 @@ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret) {
         if (f->current_offset <= 0)
                 return 0;
 
-        r = sd_id128_get_machine(&id);
+        r = sd_id128_get_boot(&id);
         if (r < 0)
                 return r;
 
@@ -578,13 +668,17 @@ int sd_journal_get_field(sd_journal *j, const char *field, const void **data, si
 
         n = journal_file_entry_n_items(o);
         for (i = 0; i < n; i++) {
-                uint64_t p, l;
+                uint64_t p, l, h;
                 size_t t;
 
                 p = le64toh(o->entry.items[i].object_offset);
+                h = o->entry.items[j->current_field].hash;
                 r = journal_file_move_to_object(f, p, OBJECT_DATA, &o);
                 if (r < 0)
                         return r;
+
+                if (h != o->data.hash)
+                        return -EBADMSG;
 
                 l = le64toh(o->object.size) - offsetof(Object, data.payload);
 
@@ -613,7 +707,7 @@ int sd_journal_get_field(sd_journal *j, const char *field, const void **data, si
 
 int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *size) {
         JournalFile *f;
-        uint64_t p, l, n;
+        uint64_t p, l, n, h;
         size_t t;
         int r;
         Object *o;
@@ -638,9 +732,13 @@ int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *size) {
                 return 0;
 
         p = le64toh(o->entry.items[j->current_field].object_offset);
+        h = o->entry.items[j->current_field].hash;
         r = journal_file_move_to_object(f, p, OBJECT_DATA, &o);
         if (r < 0)
                 return r;
+
+        if (h != o->data.hash)
+                return -EBADMSG;
 
         l = le64toh(o->object.size) - offsetof(Object, data.payload);
         t = (size_t) l;

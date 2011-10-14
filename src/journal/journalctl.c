@@ -31,7 +31,7 @@
 #include "log.h"
 
 int main(int argc, char *argv[]) {
-        int r;
+        int r, i;
         sd_journal *j = NULL;
 
         log_set_max_level(LOG_DEBUG);
@@ -44,6 +44,14 @@ int main(int argc, char *argv[]) {
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 goto finish;
+        }
+
+        for (i = 1; i < argc; i++) {
+                r = sd_journal_add_match(j, argv[i], strlen(argv[i]));
+                if (r < 0) {
+                        log_error("Failed to add match: %s", strerror(-r));
+                        goto finish;
+                }
         }
 
         SD_JOURNAL_FOREACH(j) {

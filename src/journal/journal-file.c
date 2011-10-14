@@ -805,6 +805,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
                 xor_hash ^= le64toh(o->data.hash);
                 items[i].object_offset = htole64(p);
+                items[i].hash = o->data.hash;
         }
 
         r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqno, ret, offset);
