@@ -585,7 +585,7 @@ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret) {
 
 }
 
-int sd_journal_get_field(sd_journal *j, const char *field, const void **data, size_t *size) {
+int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *size) {
         JournalFile *f;
         uint64_t i, n;
         size_t field_length;
@@ -652,7 +652,7 @@ int sd_journal_get_field(sd_journal *j, const char *field, const void **data, si
         return 0;
 }
 
-int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *size) {
+int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *size) {
         JournalFile *f;
         uint64_t p, l, n, h;
         size_t t;
@@ -702,12 +702,31 @@ int sd_journal_iterate_fields(sd_journal *j, const void **data, size_t *size) {
         return 1;
 }
 
-int sd_journal_seek_head(sd_journal *j) {
+void sd_journal_start_data(sd_journal *j) {
         assert(j);
-        return -EINVAL;
+
+        j->current_field = 0;
+}
+
+static int real_journal_seek_head(sd_journal *j, direction_t direction) {
+        Iterator i;
+        JournalFile *f;
+
+        assert(j);
+
+        j->current_file = NULL;
+        j->current_field = 0;
+
+        HASHMAP_FOREACH(f, j->files, i)
+                f->current_offset = 0;
+
+        return real_journal_next(j, direction);
+}
+
+int sd_journal_seek_head(sd_journal *j) {
+        return real_journal_seek_head(j, DIRECTION_DOWN);
 }
 
 int sd_journal_seek_tail(sd_journal *j) {
-        assert(j);
-        return -EINVAL;
+        return real_journal_seek_head(j, DIRECTION_UP);
 }

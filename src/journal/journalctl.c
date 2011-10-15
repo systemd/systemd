@@ -54,7 +54,8 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        SD_JOURNAL_FOREACH(j) {
+        SD_JOURNAL_FOREACH_BEGIN(j) {
+
                 const void *data;
                 size_t length;
                 char *cursor;
@@ -76,9 +77,10 @@ int main(int argc, char *argv[]) {
                        (unsigned long long) realtime,
                        (unsigned long long) monotonic);
 
-                SD_JOURNAL_FOREACH_FIELD(j, data, length)
+                SD_JOURNAL_FOREACH_DATA(j, data, length)
                         printf("\t%.*s\n", (int) length, (const char*) data);
-        }
+
+        } SD_JOURNAL_FOREACH_END(j);
 
 finish:
         if (j)
