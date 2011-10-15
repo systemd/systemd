@@ -50,6 +50,19 @@ struct sd_journal {
         unsigned n_matches;
 };
 
+static void reset_location(sd_journal *j) {
+        Iterator i;
+        JournalFile *f;
+
+        assert(j);
+
+        j->current_file = NULL;
+        j->current_field = 0;
+
+        HASHMAP_FOREACH(f, j->files, i)
+                f->current_offset = 0;
+}
+
 int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
         Match *m;
 
@@ -78,6 +91,8 @@ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
         LIST_PREPEND(Match, matches, j->matches, m);
         j->n_matches ++;
 
+        reset_location(j);
+
         return 0;
 }
 
@@ -93,6 +108,8 @@ void sd_journal_flush_matches(sd_journal *j) {
         }
 
         j->n_matches = 0;
+
+        reset_location(j);
 }
 
 static int compare_order(JournalFile *af, Object *ao, uint64_t ap,
@@ -708,25 +725,18 @@ void sd_journal_start_data(sd_journal *j) {
         j->current_field = 0;
 }
 
-static int real_journal_seek_head(sd_journal *j, direction_t direction) {
-        Iterator i;
-        JournalFile *f;
-
+int sd_journal_seek_head(sd_journal *j) {
         assert(j);
 
-        j->current_file = NULL;
-        j->current_field = 0;
+        reset_location(j);
 
-        HASHMAP_FOREACH(f, j->files, i)
-                f->current_offset = 0;
-
-        return real_journal_next(j, direction);
-}
-
-int sd_journal_seek_head(sd_journal *j) {
-        return real_journal_seek_head(j, DIRECTION_DOWN);
+        return real_journal_next(j, DIRECTION_DOWN);
 }
 
 int sd_journal_seek_tail(sd_journal *j) {
-        return real_journal_seek_head(j, DIRECTION_UP);
+        assert(j);
+
+        reset_location(j);
+
+        return real_journal_next(j, DIRECTION_UP);
 }

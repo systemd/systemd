@@ -76,7 +76,7 @@ enum {
         SD_JOURNAL_DROP
 };
 
-int sd_journal_process(sd_journal *j);
+int sd_journal_process(sd_journal *j);                             /* missing */
 
 #define SD_JOURNAL_FOREACH_BEGIN(j)             \
         if (sd_journal_seek_head(j) > 0) do {
