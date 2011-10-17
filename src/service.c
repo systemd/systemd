@@ -83,7 +83,7 @@ static const struct {
 
 #define RUNLEVELS_UP "12345"
 /* #define RUNLEVELS_DOWN "06" */
-/* #define RUNLEVELS_BOOT "bBsS" */
+#define RUNLEVELS_BOOT "bBsS"
 #endif
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
@@ -811,6 +811,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
+        if (s->sysv_runlevels &&
+            chars_intersect(RUNLEVELS_BOOT, s->sysv_runlevels) &&
+            chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
+                /* Service has both boot and "up" runlevels
+                   configured.  Kill the "up" ones. */
+                delete_chars(s->sysv_runlevels, RUNLEVELS_UP);
+        }
 
         if (s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
                 /* If there a runlevels configured for this service
