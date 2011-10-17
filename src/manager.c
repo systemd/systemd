@@ -286,7 +286,10 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
                 goto fail;
 
 #ifdef HAVE_AUDIT
-        if ((m->audit_fd = audit_open()) < 0)
+        if ((m->audit_fd = audit_open()) < 0 &&
+            /* If the kernel lacks netlink or audit support,
+             * don't worry about it. */
+            errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
                 log_error("Failed to connect to audit log: %m");
 #endif
 
