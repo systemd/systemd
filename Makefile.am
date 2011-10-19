@@ -679,8 +679,13 @@ git-release:
 	head -1 ChangeLog | grep -q "to v$(VERSION)"
 	head -1 NEWS | grep -q "udev $(VERSION)"
 	git commit -a -m "release $(VERSION)"
-	git tag $(VERSION)
+	git tag -m "udev $(VERSION)" -s $(VERSION)
 	git gc --prune=0
+
+tar:
+	make distcheck
+	gpg --armor --detach-sign udev-$(VERSION).tar.gz
+	gpg --armor --detach-sign udev-$(VERSION).tar.bz2
 
 git-sync:
 	git push
