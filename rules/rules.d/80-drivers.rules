@@ -7,7 +7,6 @@ SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD", RUN+="/sbin/modprobe -bv tifm_sd"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN+="/sbin/modprobe -bv tifm_ms"
 SUBSYSTEM=="memstick", RUN+="/sbin/modprobe -bv --all ms_block mspro_block"
 SUBSYSTEM=="i2o", RUN+="/sbin/modprobe -bv i2o_block"
-SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe -bv sg"
 SUBSYSTEM=="module", KERNEL=="parport_pc", RUN+="/sbin/modprobe -bv ppdev"
 
 LABEL="drivers_end"
