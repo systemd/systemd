@@ -1,4 +1,4 @@
-udev 173+
+udev 174
 ========
 Bugfixes.
 
@@ -24,6 +24,12 @@ RUN{fail_event_on_error} attribute was removed.
 
 The udev control socket is now created in /run/udev/control
 and no longer as an abstract namespace one.
+
+The rules to create persistent network interface and cdrom link
+rules automatically in /etc/udev/rules.d/ have been disabled by
+default. Explicit configuration will be required for these use
+cases, udev will no longer try to write any persistent system
+configuration from a device hotplug path.
 
 udev 173
 ========

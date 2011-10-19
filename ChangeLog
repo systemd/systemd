@@ -1,3 +1,71 @@
+Summary of changes from v173 to v174
+============================================
+
+David Zeuthen (1):
+      ata_id: Check for Compact Flash card
+
+Jerone Young (1):
+      Add mic mute keycode support for Lenovo Thinkpad USB keyboard
+
+Kay Sievers (34):
+      gtk-doc: delete empty files
+      libudev: list - use binary search for list lookup
+      rules: move input_id to default rules
+      implement path_id, usb_id, input_id as built-in command
+      do not remove static nodes on module unload
+      rules: remove legacy rules for cdrom and usb printer
+      update TODO
+      preserve 'sticky bit' on 'add/change' events
+      libudev: util_get_sys_(subsystem,driver}() -> util_get_sys_core_link_value()
+      export USEC_INITIALIZED= and take timestamp on message receive time
+      libudev: udev_device_get_sysattr_value() return syspath of custom links
+      libudev: list - properly sort linked list not only the index
+      mknod: do not complain about existing node
+      update README
+      libudev: fix typo in documentation
+      rules: fuse: do not mount fusectl from udev rules
+      keymap: add genius keymap to Makefile
+      update NEWS
+      usb_id: can't use global variables when used as built-in
+      remove 'udevadm trigger --type=failed' and SYSFS, ID, BUS keys
+      libudev: export udev_util_encode_string()
+      update TODO
+      systemd: no not start udev in a container
+      systemd: no not start udev in a container
+      delete left-over files in extras/
+      systemd: update drop-in sd-daemon files
+      udevadm: control - use /run/udev/control socket instead of abstract namespace one
+      udevd: control - no not delete socket file when --daemon is used
+      udev_ctrl_cleanup()- accept NULL as argument
+      update NEWS
+      udevd: install into /lib/udev instead of /sbin
+      udevd: add missing braces
+      systemd: use ConditionCapability=CAP_MKNOD instead of ConditionVirtualization=!container
+      rules: do not load sg module
+
+Kir Kolyshkin (1):
+      keymap: add Genius SlimStar 320
+
+Martin Pitt (1):
+      keymap: Update Acer Aspire 5920g
+
+Matthias Clasen (1):
+      make: allow to pass ${ACLOCAL_FLAGS}
+
+Paul Fox (1):
+      keymap: update the OLPC keymap for correct function key behavior
+
+Petr Uzel (1):
+      udevadm: settle - return failure if unknown option is given
+
+Steve Langasek (1):
+      udevd: exit - process events before signals in worker
+
+Thomas Hood (2):
+      keymap: Support keymap overrides in /etc/udev/keymaps
+      keymap: Support for microphone mute button on ThinkPad X220 et al
+
+
 Summary of changes from v172 to v173
 ============================================
 

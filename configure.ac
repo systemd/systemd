@@ -1,6 +1,6 @@
 AC_PREREQ(2.60)
 AC_INIT([udev],
-	[173],
+	[174],
 	[linux-hotplug@vger.kernel.org],
 	[udev],
 	[http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev.html])
@@ -173,8 +173,8 @@ AM_CONDITIONAL([ENABLE_MTD_PROBE], [test "x$enable_mtd_probe" = xyes])
 # rule_generator - persistent network and optical device rule generator
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([rule_generator],
-	AS_HELP_STRING([--disable-rule_generator], [disable persistent network, cdrom support]),
-	[], [enable_rule_generator=yes])
+	AS_HELP_STRING([--enable-rule_generator], [enable persistent network + cdrom links support]),
+	[], [enable_rule_generator=no])
 AM_CONDITIONAL([ENABLE_RULE_GENERATOR], [test "x$enable_rule_generator" = xyes])
 
 # ------------------------------------------------------------------------------
