@@ -1612,7 +1612,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 			continue;
 		}
+
 		err(rules->udev, "unknown key '%s' in %s:%u\n", key, filename, lineno);
+		goto invalid;
 	}
 
 	/* add rule token */
