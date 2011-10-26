@@ -48,4 +48,6 @@ ENV{DMI_VENDOR}=="HANNspree", ATTR{[dmi/id]product_name}=="SN10E100", RUN+="keyb
 
 ENV{DMI_VENDOR}=="GIGABYTE", ATTR{[dmi/id]product_name}=="i1520M", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
 
+ENV{DMI_VENDOR}=="BenQ", ATTR{[dmi/id]product_name}=="*nScreen*", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
 LABEL="force_release_end"
