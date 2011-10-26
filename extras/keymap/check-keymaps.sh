@@ -3,8 +3,8 @@
 # check that all key names in keymaps/* are known in <linux/input.h>
 # and that all key maps listed in the rules are valid and present in
 # Makefile.am
-SRCDIR=$1
-KEYLIST=$2
+SRCDIR=${1:-.}
+KEYLIST=${2:-extras/keymap/keys.txt}
 KEYMAPS_DIR=$SRCDIR/extras/keymap/keymaps #extras/keymap/keymaps
 RULES=$SRCDIR/extras/keymap/95-keymap.rules
 
