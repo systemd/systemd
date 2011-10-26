@@ -20,7 +20,7 @@ keyboard_devices() {
     # standard AT keyboard
     for dev in `udevadm trigger --dry-run --verbose --property-match=ID_INPUT_KEYBOARD=1`; do
         walk=`udevadm info --attribute-walk --path=$dev`
-	env=`udevadm info --query=env --path=$dev`
+        env=`udevadm info --query=env --path=$dev`
         # filter out non-event devices, such as the parent input devices which
         # have no devnode
         if ! echo "$env" | grep -q '^DEVNAME='; then
@@ -28,12 +28,12 @@ keyboard_devices() {
         fi
         if echo "$walk" | grep -q 'DRIVERS=="atkbd"'; then
             echo -n 'AT keyboard: '
-	elif echo "$env" | grep -q '^ID_USB_DRIVER=usbhid'; then
+        elif echo "$env" | grep -q '^ID_USB_DRIVER=usbhid'; then
             echo -n 'USB keyboard: '
-	else
-	    echo -n 'Unknown type: '
+        else
+            echo -n 'Unknown type: '
         fi
-	udevadm info --query=name --path=$dev
+        udevadm info --query=name --path=$dev
     done
 
     # modules
@@ -43,11 +43,11 @@ keyboard_devices() {
     module="$module
 `udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='Sony Vaio Keys'`"
     for m in $module; do
-	evdev=`ls -d $m/event* 2>/dev/null`
-	if [ -e "$evdev/dev" ]; then
-	    echo -n 'module: '
-	    udevadm info --query=name --path=$evdev
-	fi
+        evdev=`ls -d $m/event* 2>/dev/null`
+        if [ -e "$evdev/dev" ]; then
+            echo -n 'module: '
+            udevadm info --query=name --path=$evdev
+        fi
     done
 }
 
