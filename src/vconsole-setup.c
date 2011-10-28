@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
 #ifdef TARGET_GENTOO
         char *vc_unicode = NULL;
 #endif
-#ifdef TARGET_MANDRIVA
+#if defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
         char *vc_keytable = NULL;
 #endif
         int fd = -1;
@@ -371,7 +371,7 @@ int main(int argc, char **argv) {
                                 log_warning("Failed to read /etc/conf.d/keymaps: %s", strerror(-r));
                 }
 
-#elif defined(TARGET_MANDRIVA)
+#elif defined(TARGET_MANDRIVA) || defined (TARGET_MAGEIA)
 
                 if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
                                         "SYSFONT", &vc_font,

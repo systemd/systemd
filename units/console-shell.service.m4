@@ -23,6 +23,9 @@ After=rc-local.service
 m4_ifdef(`TARGET_MANDRIVA',
 After=rc-local.service
 )m4_dnl
+m4_ifdef(`TARGET_MAGEIA',
+After=rc-local.service
+)m4_dnl
 Before=getty.target
 
 [Service]

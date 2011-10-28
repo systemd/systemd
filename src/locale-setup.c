@@ -199,7 +199,7 @@ int locale_setup(void) {
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/profile.env: %s", strerror(-r));
         }
-#elif defined(TARGET_MANDRIVA)
+#elif defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA )
         if (r <= 0 &&
             (r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
                                 "LANG",              &variables[VARIABLE_LANG],
