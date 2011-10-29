@@ -538,7 +538,7 @@ out:
  * @key: Name of property.
  *
  * Look up the value for @key on @device and convert it to an unsigned
- * 64-bit integer using strtoll().
+ * 64-bit integer using strtoul().
  *
  * Returns: The value  for @key or 0 if @key doesn't  exist or isn't a
  * #guint64.
@@ -558,7 +558,7 @@ g_udev_device_get_property_as_uint64 (GUdevDevice  *device,
   if (s == NULL)
     goto out;
 
-  result = strtoll (s, NULL, 0);
+  result = strtoul (s, NULL, 0);
 out:
   return result;
 }
@@ -756,7 +756,7 @@ out:
  * @name: Name of the sysfs attribute.
  *
  * Look up the sysfs attribute with @name on @device and convert it to an unsigned
- * 64-bit integer using strtoll().
+ * 64-bit integer using strtoul().
  *
  * Returns: The value of the sysfs attribute or 0 if there is no such
  * attribute.
@@ -776,7 +776,7 @@ g_udev_device_get_sysfs_attr_as_uint64 (GUdevDevice  *device,
   if (s == NULL)
     goto out;
 
-  result = strtoll (s, NULL, 0);
+  result = strtoul (s, NULL, 0);
 out:
   return result;
 }
