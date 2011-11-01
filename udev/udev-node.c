@@ -416,20 +416,19 @@ int udev_node_remove(struct udev_device *dev)
 	if (devnode == NULL)
 		goto out;
 
-	if (stat(devnode, &stats) != 0) {
+	if (stat(devnode, &stats) == 0) {
+		if (stats.st_rdev != udev_device_get_devnum(dev)) {
+			info(udev, "device node '%s' points to a different device, skip removal\n", devnode);
+			err = -1;
+			goto out;
+		}
+
+		if (stats.st_mode & 01000) {
+			info(udev, "device node '%s' has sticky bit set, skip removal\n", devnode);
+			goto out;
+		}
+	} else {
 		info(udev, "device node '%s' not found\n", devnode);
-		goto out;
-	}
-
-	if (stats.st_rdev != udev_device_get_devnum(dev)) {
-		info(udev, "device node '%s' points to a different device, skip removal\n", devnode);
-		err = -1;
-		goto out;
-	}
-
-	if (stats.st_mode & 01000) {
-		info(udev, "device node '%s' has sticky bit set, skip removal\n", devnode);
-		goto out;
 	}
 
 	dev_check = udev_device_new_from_syspath(udev, udev_device_get_syspath(dev));
