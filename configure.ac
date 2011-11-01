@@ -7,12 +7,11 @@ AC_INIT([udev],
 AC_CONFIG_SRCDIR([udev/udevd.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([check-news foreign 1.11 -Wall -Wno-portability silent-rules tar-pax dist-bzip2 subdir-objects])
-AC_DISABLE_STATIC
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 AC_CONFIG_MACRO_DIR([m4])
 AM_SILENT_RULES([yes])
-LT_INIT
+LT_INIT([disable-static])
 AC_PROG_AWK
 GTK_DOC_CHECK(1.10)
 AC_PREFIX_DEFAULT([/usr])
