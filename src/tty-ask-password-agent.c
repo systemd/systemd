@@ -206,6 +206,7 @@ static int ask_password_plymouth(
                                 continue;
 
                         memcpy(&size, buffer+1, sizeof(size));
+                        size = le32toh(size);
                         if (size+5 > sizeof(buffer)) {
                                 r = -EIO;
                                 goto finish;
