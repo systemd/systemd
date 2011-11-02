@@ -179,3 +179,86 @@ _systemctl () {
         return 0
 }
 complete -F _systemctl systemctl
+
+__get_all_sessions () { systemd-loginctl list-sessions | awk '{print $1}' ; }
+__get_all_users    () { systemd-loginctl list-users    | awk '{print $2}' ; }
+__get_all_seats    () { systemd-loginctl list-seats    | awk '{print $1}' ; }
+
+_systemd_loginctl () {
+        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+        local verb comps
+
+        local -A OPTS=(
+               [STANDALONE]='--all -a --help -h --no-pager --privileged -P --version'
+                      [ARG]='--host -H --kill-who --property -p --signal -s'
+        )
+
+        if __contains_word "$prev" ${OPTS[ARG]}; then
+                case $prev in
+                        --signal|-s)
+                                comps=$(compgen -A signal)
+                        ;;
+                        --kill-who)
+                                comps='all leader'
+                        ;;
+                        --host|-H)
+                                comps=$(compgen -A hostname)
+                        ;;
+                        --property|-p)
+                                comps=''
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
+                return 0
+        fi
+
+
+        if [[ "$cur" = -* ]]; then
+                COMPREPLY=( $(compgen -W "${OPTS[*]}" -- "$cur") )
+                return 0
+        fi
+
+        local -A VERBS=(
+                [SESSIONS]='session-status show-session activate lock-session unlock-session terminate-session kill-session'
+                [USERS]='user-status show-user enable-linger disable-linger terminate-user kill-user'
+                [SEATS]='seat-status show-seat terminate-seat'
+                [STANDALONE]='list-sessions list-users list-seats flush-devices'
+                [ATTACH]='attach'
+        )
+
+        for ((i=0; $i <= $COMP_CWORD; i++)); do
+                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG}]}; then
+                        verb=${COMP_WORDS[i]}
+                        break
+                fi
+        done
+
+        if   [[ -z $verb ]]; then
+                comps="${VERBS[*]}"
+
+        elif __contains_word "$verb" ${VERBS[SESSIONS]}; then
+                comps=$( __get_all_sessions )
+
+        elif __contains_word "$verb" ${VERBS[USERS]}; then
+                comps=$( __get_all_users )
+
+        elif __contains_word "$verb" ${VERBS[SEATS]}; then
+                comps=$( __get_all_seats )
+
+        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+                comps=''
+
+        elif __contains_word "$verb" ${VERBS[ATTACH]}; then
+                if [[ $prev = $verb ]]; then
+                        comps=$( __get_all_seats )
+                else
+                        comps=$(compgen -A file -- "$cur" )
+                        compopt -o filenames
+                fi
+        fi
+
+        COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
+        return 0
+}
+complete -F _systemd_loginctl systemd-loginctl
