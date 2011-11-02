@@ -23,6 +23,20 @@ using Pango;
 
 static bool user = false;
 
+public string format_time(uint64 time_ns) {
+        if (time_ns <= 0)
+                return "";
+        Time timestamp = Time.local((time_t) (time_ns / 1000000));
+        return timestamp.format("%a, %d %b %Y %H:%M:%S");
+}
+
+public void new_column(TreeView view, int column_id, string title) {
+        TreeViewColumn col;
+        col = new TreeViewColumn.with_attributes(title, new CellRendererText(), "text", column_id);
+        col.set_sort_column_id(column_id);
+        view.insert_column(col, -1);
+}
+
 public class LeftLabel : Label {
         public LeftLabel(string? text = null) {
                 if (text != null)
@@ -32,12 +46,11 @@ public class LeftLabel : Label {
         }
 }
 
-public class RightLabel : Label {
+public class RightLabel : WrapLabel {
+
         public RightLabel(string? text = null) {
-                set_text_or_na(text);
-                set_alignment(0, 0);
-                set_ellipsize(EllipsizeMode.START);
                 set_selectable(true);
+                set_text_or_na(text);
         }
 
         public void set_text_or_na(string? text = null) {
@@ -66,6 +79,8 @@ public class MainWindow : Window {
         private ListStore unit_model;
         private ListStore job_model;
 
+        private Gee.HashMap<string, Unit> unit_map;
+
         private Button start_button;
         private Button stop_button;
         private Button restart_button;
@@ -81,7 +96,6 @@ public class MainWindow : Window {
         private Manager manager;
 
         private RightLabel unit_id_label;
-        private RightLabel unit_aliases_label;
         private RightLabel unit_dependency_label;
         private RightLabel unit_description_label;
         private RightLabel unit_load_state_label;
@@ -99,6 +113,7 @@ public class MainWindow : Window {
         private RightLabel job_type_label;
 
         private ComboBox unit_type_combo_box;
+        private CheckButton inactive_checkbox;
 
         public MainWindow() throws IOError {
                 title = user ? "systemd User Service Manager" : "systemd System Manager";
@@ -123,17 +138,23 @@ public class MainWindow : Window {
                 type_hbox.pack_start(unit_type_combo_box, false, false, 0);
                 unit_vbox.pack_start(type_hbox, false, false, 0);
 
-                unit_type_combo_box.append_text("Show All Units");
-                unit_type_combo_box.append_text("Show Only Live Units");
+                unit_type_combo_box.append_text("All unit types");
+                unit_type_combo_box.append_text("Targets");
                 unit_type_combo_box.append_text("Services");
-                unit_type_combo_box.append_text("Sockets");
                 unit_type_combo_box.append_text("Devices");
                 unit_type_combo_box.append_text("Mounts");
                 unit_type_combo_box.append_text("Automounts");
-                unit_type_combo_box.append_text("Targets");
+                unit_type_combo_box.append_text("Swaps");
+                unit_type_combo_box.append_text("Sockets");
+                unit_type_combo_box.append_text("Paths");
+                unit_type_combo_box.append_text("Timers");
                 unit_type_combo_box.append_text("Snapshots");
-                unit_type_combo_box.set_active(1);
+                unit_type_combo_box.set_active(0); // Show All
                 unit_type_combo_box.changed.connect(unit_type_changed);
+
+                inactive_checkbox = new CheckButton.with_label("inactive too");
+                inactive_checkbox.toggled.connect(unit_type_changed);
+                type_hbox.pack_start(inactive_checkbox, false, false, 0);
 
                 unit_load_entry = new Entry();
                 unit_load_button = new Button.with_mnemonic("_Load");
@@ -160,26 +181,30 @@ public class MainWindow : Window {
                 unit_model = new ListStore(7, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(Unit));
                 job_model = new ListStore(6, typeof(string), typeof(string), typeof(string), typeof(string), typeof(Job), typeof(uint32));
 
+                unit_map = new Gee.HashMap<string, Unit>();
+
                 TreeModelFilter unit_model_filter;
                 unit_model_filter = new TreeModelFilter(unit_model, null);
                 unit_model_filter.set_visible_func(unit_filter);
 
-                unit_view = new TreeView.with_model(unit_model_filter);
+                TreeModelSort unit_model_sort = new TreeModelSort.with_model(unit_model_filter);
+
+                unit_view = new TreeView.with_model(unit_model_sort);
                 job_view = new TreeView.with_model(job_model);
 
                 unit_view.cursor_changed.connect(unit_changed);
                 job_view.cursor_changed.connect(job_changed);
 
-                unit_view.insert_column_with_attributes(-1, "Load State", new CellRendererText(), "text", 2);
-                unit_view.insert_column_with_attributes(-1, "Active State", new CellRendererText(), "text", 3);
-                unit_view.insert_column_with_attributes(-1, "Unit State", new CellRendererText(), "text", 4);
-                unit_view.insert_column_with_attributes(-1, "Unit", new CellRendererText(), "text", 0);
-                unit_view.insert_column_with_attributes(-1, "Job", new CellRendererText(), "text", 5);
+                new_column(unit_view, 2, "Load State");
+                new_column(unit_view, 3, "Active State");
+                new_column(unit_view, 4, "Unit State");
+                new_column(unit_view, 0, "Unit");
+                new_column(unit_view, 5, "Job");
 
-                job_view.insert_column_with_attributes(-1, "Job", new CellRendererText(), "text", 0);
-                job_view.insert_column_with_attributes(-1, "Unit", new CellRendererText(), "text", 1);
-                job_view.insert_column_with_attributes(-1, "Type", new CellRendererText(), "text", 2);
-                job_view.insert_column_with_attributes(-1, "State", new CellRendererText(), "text", 3);
+                new_column(job_view, 0, "Job");
+                new_column(job_view, 1, "Unit");
+                new_column(job_view, 2, "Type");
+                new_column(job_view, 3, "State");
 
                 ScrolledWindow scroll = new ScrolledWindow(null, null);
                 scroll.set_policy(PolicyType.AUTOMATIC, PolicyType.AUTOMATIC);
@@ -194,7 +219,6 @@ public class MainWindow : Window {
                 job_vbox.pack_start(scroll, true, true, 0);
 
                 unit_id_label = new RightLabel();
-                unit_aliases_label = new RightLabel();
                 unit_dependency_label = new RightLabel();
                 unit_description_label = new RightLabel();
                 unit_load_state_label = new RightLabel();
@@ -212,7 +236,7 @@ public class MainWindow : Window {
                 job_type_label = new RightLabel();
 
                 unit_dependency_label.set_track_visited_links(false);
-                unit_dependency_label.set_selectable(false);
+                unit_dependency_label.set_selectable(true);
                 unit_dependency_label.activate_link.connect(on_activate_link);
 
                 unit_fragment_path_label.set_track_visited_links(false);
@@ -229,33 +253,31 @@ public class MainWindow : Window {
 
                 unit_table.attach(new LeftLabel("Id:"),                     0, 1, 0, 1, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(unit_id_label,                            1, 6, 0, 1, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Aliases:"),                0, 1, 1, 2, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_aliases_label,                       1, 6, 1, 2, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Description:"),            0, 1, 2, 3, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_description_label,                   1, 6, 2, 3, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Dependencies:"),           0, 1, 3, 4, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_dependency_label,                    1, 6, 3, 4, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Fragment Path:"),          0, 1, 4, 5, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_fragment_path_label,                 1, 6, 4, 5, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Control Group:"),          0, 1, 5, 6, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_cgroup_label,                        1, 6, 5, 6, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Description:"),            0, 1, 1, 2, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_description_label,                   1, 6, 1, 2, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Dependencies:"),           0, 1, 2, 3, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_dependency_label,                    1, 6, 2, 3, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Fragment Path:"),          0, 1, 3, 4, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_fragment_path_label,                 1, 6, 3, 4, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Control Group:"),          0, 1, 4, 5, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_cgroup_label,                        1, 6, 4, 5, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Load State:"),             0, 1, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_load_state_label,                    1, 2, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Active State:"),           0, 1, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_state_label,                  1, 2, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Unit State:"),             0, 1, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_sub_state_label,                     1, 2, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Load State:"),             0, 1, 5, 6, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_load_state_label,                    1, 2, 5, 6, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Active State:"),           0, 1, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_state_label,                  1, 2, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Unit State:"),             0, 1, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_sub_state_label,                     1, 2, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Active Enter Timestamp:"), 2, 3, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_enter_timestamp_label,        3, 4, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Active Exit Timestamp:"),  2, 3, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_exit_timestamp_label,         3, 4, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Activated:"),              2, 3, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_enter_timestamp_label,        3, 4, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Deactivated:"),            2, 3, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_exit_timestamp_label,         3, 4, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Can Start/Stop:"),         4, 5, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_can_start_label,                     5, 6, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Can Reload:"),             4, 5, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_can_reload_label,                    5, 6, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Can Start/Stop:"),         4, 5, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_can_start_label,                     5, 6, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Can Reload:"),             4, 5, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_can_reload_label,                    5, 6, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
                 job_table.attach(new LeftLabel("Id:"),                      0, 1, 0, 1, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 job_table.attach(job_id_label,                              1, 2, 0, 1, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
@@ -333,6 +355,8 @@ public class MainWindow : Window {
                                         "org.freedesktop.systemd1",
                                         i.unit_path);
 
+                        unit_map[i.id] = u;
+
                         unit_model.append(out iter);
                         unit_model.set(iter,
                                        0, i.id,
@@ -393,6 +417,10 @@ public class MainWindow : Window {
                 return u;
         }
 
+        public Unit? get_unit(string id) {
+                return this.unit_map[id];
+        }
+
         public void unit_changed() {
                 Unit u = get_current_unit();
 
@@ -411,7 +439,6 @@ public class MainWindow : Window {
                 restart_button.set_sensitive(false);
 
                 unit_id_label.set_text_or_na();
-                unit_aliases_label.set_text_or_na();
                 unit_description_label.set_text_or_na();
                 unit_description_label.set_text_or_na();
                 unit_load_state_label.set_text_or_na();
@@ -425,7 +452,33 @@ public class MainWindow : Window {
                 unit_cgroup_label.set_text_or_na();
         }
 
+        public string format_unit_link(string i, bool link) {
+                Unit? u = get_unit(i);
+                if(u == null)
+                        return "<span color='grey'>" + i + "</span";
+
+                string color;
+                switch (u.sub_state) {
+                case "active": color = "blue"; break;
+                case "dead": color = "red"; break;
+                case "running": color = "green"; break;
+                default: color = "black"; break;
+                }
+                string span = "<span underline='none' color='" + color + "'>"
+                              + i + "(" +
+                              u.sub_state + ")" + "</span>";
+                if(link)
+                        return  " <a href='" + i + "'>" + span + "</a>";
+                else
+                        return span;
+        }
+
+
         public string make_dependency_string(string? prefix, string word, string[] dependencies) {
+                Gee.Collection<unowned string> sorted = new Gee.TreeSet<string>();
+                foreach (string i in dependencies)
+                        sorted.add(i);
+
                 bool first = true;
                 string r;
 
@@ -434,16 +487,16 @@ public class MainWindow : Window {
                 else
                         r = prefix;
 
-                foreach (string i in dependencies) {
+                foreach (string i in sorted) {
                         if (r != "")
                                 r += first ? "\n" : ",";
 
                         if (first) {
-                                r += word;
+                                r += "<b>" + word + ":</b>";
                                 first = false;
                         }
 
-                        r += " <a href=\"" + i + "\">" + i + "</a>";
+                        r += format_unit_link(i, true);
                 }
 
                 return r;
@@ -452,20 +505,23 @@ public class MainWindow : Window {
         public void show_unit(Unit unit) {
                 current_unit_id = unit.id;
 
-                unit_id_label.set_text_or_na(current_unit_id);
-
-                string a = "";
+                string id_display = format_unit_link(current_unit_id, false);
+                bool has_alias = false;
                 foreach (string i in unit.names) {
                         if (i == current_unit_id)
                                 continue;
 
-                        if (a == "")
-                                a = i;
-                        else
-                                a += "\n" + i;
-                }
+                        if (!has_alias) {
+                                id_display += " (aliases:";
+                                has_alias = true;
+                        }
 
-                unit_aliases_label.set_text_or_na(a);
+                        id_display += " " + i;
+                }
+                if(has_alias)
+                        id_display += ")";
+
+                unit_id_label.set_markup_or_na(id_display);
 
                 string[]
                         requires = unit.requires,
@@ -511,23 +567,16 @@ public class MainWindow : Window {
 
                 string fp = unit.fragment_path;
                 if (fp != "")
-                        unit_fragment_path_label.set_markup_or_na("<a href=\"file://" + fp +"\">" + fp + "</a>" );
+                        unit_fragment_path_label.set_markup_or_na(
+                                "<a href=\"file://" + fp +"\">" +
+                                "<span underline='none' color='black'>" + fp + "</span></a>");
                 else
                         unit_fragment_path_label.set_text_or_na();
 
-                uint64 t = unit.active_enter_timestamp;
-                if (t > 0) {
-                        Time timestamp = Time.local((time_t) (t / 1000000));
-                        unit_active_enter_timestamp_label.set_text_or_na(timestamp.format("%a, %d %b %Y %H:%M:%S %z"));
-                } else
-                        unit_active_enter_timestamp_label.set_text_or_na();
 
-                t = unit.active_exit_timestamp;
-                if (t > 0) {
-                        Time timestamp = Time.local((time_t) (t / 1000000));
-                        unit_active_exit_timestamp_label.set_text_or_na(timestamp.format("%a, %d %b %Y %H:%M:%S %z"));
-                } else
-                        unit_active_exit_timestamp_label.set_text_or_na();
+                unit_active_enter_timestamp_label.set_text_or_na(format_time(unit.active_enter_timestamp));
+
+                unit_active_exit_timestamp_label.set_text_or_na(format_time(unit.active_exit_timestamp));
 
                 bool b = unit.can_start;
                 start_button.set_sensitive(b);
@@ -596,7 +645,7 @@ public class MainWindow : Window {
 
                 try {
                         u.start("replace");
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -609,7 +658,7 @@ public class MainWindow : Window {
 
                 try {
                         u.stop("replace");
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -622,7 +671,7 @@ public class MainWindow : Window {
 
                 try {
                         u.reload("replace");
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -635,7 +684,7 @@ public class MainWindow : Window {
 
                 try {
                         u.restart("replace");
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -648,7 +697,7 @@ public class MainWindow : Window {
 
                 try {
                         j.cancel();
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -676,7 +725,7 @@ public class MainWindow : Window {
                                        4, u.sub_state,
                                        5, t != "" ? "→ %s".printf(t) : "",
                                        6, u);
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -699,8 +748,10 @@ public class MainWindow : Window {
                                         "org.freedesktop.systemd1",
                                         path);
 
+                        unit_map[id] = u;
+
                         update_unit_iter(iter, id, u);
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -736,7 +787,7 @@ public class MainWindow : Window {
 
                         update_job_iter(iter, id, j);
 
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -760,6 +811,8 @@ public class MainWindow : Window {
                         }
 
                 } while (unit_model.iter_next(ref iter));
+
+                unit_map.unset(id);
         }
 
         public void on_job_removed(uint32 id, ObjectPath path, string res) {
@@ -816,7 +869,7 @@ public class MainWindow : Window {
 
                         } while (unit_model.iter_next(ref iter));
 
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -852,7 +905,7 @@ public class MainWindow : Window {
 
                         } while (job_model.iter_next(ref iter));
 
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -865,41 +918,41 @@ public class MainWindow : Window {
                 if (id == null)
                         return false;
 
+                if (!inactive_checkbox.get_active()
+                    && active_state == "inactive" && job == "")
+                        return false;
+
                 switch (unit_type_combo_box.get_active()) {
-
-                        case 0:
-                                return true;
-
-                        case 1:
-                                return active_state != "inactive" || job != "";
-
-                        case 2:
-                                return id.has_suffix(".service");
-
-                        case 3:
-                                return id.has_suffix(".socket");
-
-                        case 4:
-                                return id.has_suffix(".device");
-
-                        case 5:
-                                return id.has_suffix(".mount");
-
-                        case 6:
-                                return id.has_suffix(".automount");
-
-                        case 7:
-                                return id.has_suffix(".target");
-
-                        case 8:
-                                return id.has_suffix(".snapshot");
+                case 0:
+                        return true;
+                case 1:
+                        return id.has_suffix(".target");
+                case 2:
+                        return id.has_suffix(".service");
+                case 3:
+                        return id.has_suffix(".device");
+                case 4:
+                        return id.has_suffix(".mount");
+                case 5:
+                        return id.has_suffix(".automount");
+                case 6:
+                        return id.has_suffix(".swap");
+                case 7:
+                        return id.has_suffix(".socket");
+                case 8:
+                        return id.has_suffix(".path");
+                case 9:
+                        return id.has_suffix(".timer");
+                case 10:
+                        return id.has_suffix(".snapshot");
+                default:
+                        assert(false);
+                        return false;
                 }
-
-                return false;
         }
 
         public void unit_type_changed() {
-                TreeModelFilter model = (TreeModelFilter) unit_view.get_model();
+                TreeModelFilter model = (TreeModelFilter) ((TreeModelSort) unit_view.get_model()).get_model();
 
                 model.refilter();
         }
@@ -907,7 +960,7 @@ public class MainWindow : Window {
         public void on_server_reload() {
                 try {
                         manager.reload();
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -919,7 +972,7 @@ public class MainWindow : Window {
                         if (unit_type_combo_box.get_active() != 0)
                                 unit_type_combo_box.set_active(8);
 
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -948,7 +1001,7 @@ public class MainWindow : Window {
                         m.destroy();
 
                         show_unit(u);
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
         }
@@ -968,7 +1021,7 @@ public class MainWindow : Window {
                                         path);
 
                         show_unit(u);
-                } catch (IOError e) {
+                } catch (Error e) {
                         show_error(e.message);
                 }
 

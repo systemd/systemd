@@ -12,4 +12,5 @@ org.freedesktop.systemd1.policy
 gnome-ask-password-agent.c
 systemd-interfaces.c
 systemadm.c
+wraplabel.c
 73-seat-late.rules

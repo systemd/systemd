@@ -1440,7 +1440,8 @@ systemd_stdio_bridge_LDADD = \
 
 systemadm_SOURCES = \
 	src/systemadm.vala \
-	src/systemd-interfaces.vala
+	src/systemd-interfaces.vala \
+	src/wraplabel.vala
 
 systemadm_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1453,6 +1454,7 @@ systemadm_CFLAGS = \
 systemadm_VALAFLAGS = \
 	--pkg=posix \
 	--pkg=gtk+-2.0 \
+	--pkg=gee-1.0 \
 	-g
 
 systemadm_LDADD = \
