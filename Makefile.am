@@ -321,7 +321,7 @@ dbusinterface_DATA += \
 endif
 
 dist_bashcompletion_DATA = \
-	src/systemctl-bash-completion.sh
+	src/systemd-bash-completion.sh
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
