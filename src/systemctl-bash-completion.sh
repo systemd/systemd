@@ -16,7 +16,7 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __systemctl() {
-        systemctl --no-legend "$@"
+        systemctl --full --no-legend "$@"
 }
 
 __contains_word () {
@@ -36,10 +36,13 @@ __filter_units_by_property () {
         done
 }
 
-__get_all_units      () { __systemctl list-units --full --all | awk '                 {print $1}' ; }
-__get_active_units   () { __systemctl list-units --full       | awk '                 {print $1}' ; }
-__get_inactive_units () { __systemctl list-units --full --all | awk '$3 == "inactive" {print $1}' ; }
-__get_failed_units   () { __systemctl list-units --full       | awk '$3 == "failed"   {print $1}' ; }
+__get_all_units      () { __systemctl list-units --all | awk '                 {print $1}' ; }
+__get_active_units   () { __systemctl list-units       | awk '                 {print $1}' ; }
+__get_inactive_units () { __systemctl list-units --all | awk '$3 == "inactive" {print $1}' ; }
+__get_failed_units   () { __systemctl list-units       | awk '$3 == "failed"   {print $1}' ; }
+__get_enabled_units  () { __systemctl list-unit-files  | awk '$2 == "enabled"  {print $1}' ; }
+__get_disabled_units () { __systemctl list-unit-files  | awk '$2 == "disabled" {print $1}' ; }
+__get_masked_units   () { __systemctl list-unit-files  | awk '$2 == "masked"   {print $1}' ; }
 
 _systemctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -47,15 +50,15 @@ _systemctl () {
 
         local -A OPTS=(
                [STANDALONE]='--all -a --defaults --fail --ignore-dependencies --failed --force -f --full --global
-                             --help -h --no-ask-password --no-block --no-pager --no-reload --no-wall
-                             --order --require --quiet -q --privileged -P --system --user --version'
-                      [ARG]='--host -H --kill-mode --kill-who --property -p --signal -s --type -t'
+                             --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
+                             --order --require --quiet -q --privileged -P --system --user --version --runtime'
+                      [ARG]='--host -H --kill-mode --kill-who --property -p --signal -s --type -t --root'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]}; then
                 case $prev in
                         --signal|-s)
-                                comps=$(compgen -A signal | grep '^SIG' | grep -Ev 'RTMIN|RTMAX|JUNK')
+                                comps=$(compgen -A signal)
                         ;;
                         --type|-t)
                                 comps='automount device mount path service snapshot socket swap target timer'
@@ -66,7 +69,14 @@ _systemctl () {
                         --kill-mode)
                                 comps='control-group process'
                         ;;
-                        --property|-p|--host|-H)
+                        --root)
+                                comps=$(compgen -A directory -- "$cur" )
+                                compopt -o filenames
+                        ;;
+                        --host|-H)
+                                comps=$(compgen -A hostname)
+                        ;;
+                        --property|-p)
                                 comps=''
                         ;;
                 esac
@@ -81,22 +91,26 @@ _systemctl () {
         fi
 
         local -A VERBS=(
-                [ALL_UNITS]='enable disable is-active is-enabled status show'
+                [ALL_UNITS]='is-active is-enabled status show mask preset'
+            [ENABLED_UNITS]='disable reenable'
+           [DISABLED_UNITS]='enable'
              [FAILED_UNITS]='reset-failed'
           [STARTABLE_UNITS]='start'
-          [STOPPABLE_UNITS]='stop kill try-restart condrestart'
+          [STOPPABLE_UNITS]='stop condstop kill try-restart condrestart'
          [ISOLATABLE_UNITS]='isolate'
-         [RELOADABLE_UNITS]='reload reload-or-try-restart force-reload'
-          [RESTARTABLE_UNITS]='restart reload-or-restart'
+         [RELOADABLE_UNITS]='reload condreload reload-or-try-restart force-reload'
+        [RESTARTABLE_UNITS]='restart reload-or-restart'
+             [MASKED_UNITS]='unmask'
                      [JOBS]='cancel'
                 [SNAPSHOTS]='delete'
                      [ENVS]='set-environment unset-environment'
-               [STANDALONE]='daemon-reexec daemon-reload default dot dump emergency exit halt kexec
-                             list-jobs list-units poweroff reboot rescue show-environment'
+               [STANDALONE]='daemon-reexec daemon-reload default dot dump
+                             emergency exit halt kexec list-jobs list-units
+                             list-unit-files poweroff reboot rescue show-environment'
                      [NAME]='snapshot load'
+                     [FILE]='link'
         )
 
-        local verb
         for ((i=0; $i <= $COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG}]}; then
@@ -110,6 +124,12 @@ _systemctl () {
 
         elif __contains_word "$verb" ${VERBS[ALL_UNITS]}; then
                 comps=$( __get_all_units )
+
+        elif __contains_word "$verb" ${VERBS[ENABLED_UNITS]}; then
+                comps=$( __get_enabled_units )
+
+        elif __contains_word "$verb" ${VERBS[DISABLED_UNITS]}; then
+                comps=$( __get_disabled_units )
 
         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
@@ -134,6 +154,9 @@ _systemctl () {
         elif __contains_word "$verb" ${VERBS[FAILED_UNITS]}; then
                 comps=$( __get_failed_units )
 
+        elif __contains_word "$verb" ${VERBS[MASKED_UNITS]}; then
+                comps=$( __get_masked_units )
+
         elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[NAME]}; then
                 comps=''
 
@@ -146,6 +169,10 @@ _systemctl () {
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
                 comps=$( __systemctl show-environment | sed 's_\([^=]\+=\).*_\1_' )
                 compopt -o nospace
+
+        elif __contains_word "$verb" ${VERBS[FILE]}; then
+                comps=$( compgen -A file -- "$cur" )
+                compopt -o filenames
         fi
 
         COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
