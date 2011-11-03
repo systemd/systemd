@@ -19,6 +19,8 @@ Bugfixes:
 
 Features:
 
+* when an instanced service exits, remove its parent cgroup too if possible.
+
 * as Tom Gundersen pointed out there's a always a dep loop if people use crypto file systems with random keys
 
 * unset container= in PID1?
