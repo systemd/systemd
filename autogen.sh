@@ -31,5 +31,4 @@ args="--prefix=/usr \
 --with-selinux \
 --enable-gtk-doc"
 
-export CFLAGS="$CFLAGS $MYCFLAGS"
-./configure $args $@
+./configure $args CFLAGS="${CFLAGS} ${MYCFLAGS}" $@

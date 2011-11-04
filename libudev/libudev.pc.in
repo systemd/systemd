@@ -1,7 +1,7 @@
 prefix=@prefix@
-exec_prefix=@prefix@
+exec_prefix=@exec_prefix@
 libdir=@libdir@
-includedir=@prefix@/include
+includedir=@includedir@
 
 Name: libudev
 Description: Library to access udev device information

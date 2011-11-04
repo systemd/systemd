@@ -61,6 +61,7 @@ libudev_libudev_la_SOURCES =\
 	libudev/libudev-queue.c
 
 libudev_libudev_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
 	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE)
 
 noinst_LTLIBRARIES = \
