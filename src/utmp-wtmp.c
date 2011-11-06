@@ -155,11 +155,11 @@ static int write_entry_wtmp(const struct utmpx *store) {
         return -errno;
 }
 
-static int write_entry_both(const struct utmpx *store) {
+static int write_utmp_wtmp(const struct utmpx *store_utmp, const struct utmpx *store_wtmp) {
         int r, s;
 
-        r = write_entry_utmp(store);
-        s = write_entry_wtmp(store);
+        r = write_entry_utmp(store_utmp);
+        s = write_entry_wtmp(store_wtmp);
 
         if (r >= 0)
                 r = s;
@@ -170,6 +170,10 @@ static int write_entry_both(const struct utmpx *store) {
                 r = 0;
 
         return r;
+}
+
+static int write_entry_both(const struct utmpx *store) {
+        return write_utmp_wtmp(store, store);
 }
 
 int utmp_put_shutdown(void) {
@@ -226,7 +230,7 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
 }
 
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
-        struct utmpx lookup, store, *found;
+        struct utmpx lookup, store, store_wtmp, *found;
 
         assert(id);
 
@@ -251,7 +255,11 @@ int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
         zero(store.ut_host);
         zero(store.ut_tv);
 
-        return write_entry_both(&store);
+        memcpy(&store_wtmp, &store, sizeof(store_wtmp));
+        /* wtmp wants the current time */
+        init_timestamp(&store_wtmp, 0);
+
+        return write_utmp_wtmp(&store, &store_wtmp);
 }
 
 
