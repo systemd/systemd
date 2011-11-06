@@ -242,8 +242,6 @@ int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
         if (found->ut_pid != pid)
                 return 0;
 
-        zero(store);
-
         memcpy(&store, &lookup, sizeof(store));
         store.ut_type = DEAD_PROCESS;
         store.ut_exit.e_termination = code;
