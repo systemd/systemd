@@ -284,7 +284,7 @@ static int on_shutdown(Context *c) {
                 }
 #endif
 
-        if ((q = utmp_put_shutdown(0)) < 0) {
+        if ((q = utmp_put_shutdown()) < 0) {
                 log_error("Failed to write utmp record: %s", strerror(-q));
                 r = q;
         }
@@ -339,7 +339,7 @@ static int on_runlevel(Context *c) {
         }
 #endif
 
-        if ((q = utmp_put_runlevel(0, runlevel, previous)) < 0) {
+        if ((q = utmp_put_runlevel(runlevel, previous)) < 0) {
                 log_error("Failed to write utmp record: %s", strerror(-q));
                 r = q;
         }

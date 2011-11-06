@@ -172,10 +172,10 @@ static int write_entry_both(const struct utmpx *store) {
         return r;
 }
 
-int utmp_put_shutdown(usec_t t) {
+int utmp_put_shutdown(void) {
         struct utmpx store;
 
-        init_entry(&store, t);
+        init_entry(&store, 0);
 
         store.ut_type = RUN_LVL;
         strncpy(store.ut_user, "shutdown", sizeof(store.ut_user));
@@ -206,12 +206,12 @@ static const char *sanitize_id(const char *id) {
         return id + l - sizeof(((struct utmpx*) NULL)->ut_id);
 }
 
-int utmp_put_init_process(usec_t t, const char *id, pid_t pid, pid_t sid, const char *line) {
+int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line) {
         struct utmpx store;
 
         assert(id);
 
-        init_timestamp(&store, t);
+        init_timestamp(&store, 0);
 
         store.ut_type = INIT_PROCESS;
         store.ut_pid = pid;
@@ -257,7 +257,7 @@ int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
 }
 
 
-int utmp_put_runlevel(usec_t t, int runlevel, int previous) {
+int utmp_put_runlevel(int runlevel, int previous) {
         struct utmpx store;
         int r;
 
@@ -277,7 +277,7 @@ int utmp_put_runlevel(usec_t t, int runlevel, int previous) {
         if (previous == runlevel)
                 return 0;
 
-        init_entry(&store, t);
+        init_entry(&store, 0);
 
         store.ut_type = RUN_LVL;
         store.ut_pid = (runlevel & 0xFF) | ((previous & 0xFF) << 8);

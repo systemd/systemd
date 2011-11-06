@@ -26,12 +26,12 @@
 
 int utmp_get_runlevel(int *runlevel, int *previous);
 
-int utmp_put_shutdown(usec_t timestamp);
+int utmp_put_shutdown(void);
 int utmp_put_reboot(usec_t timestamp);
-int utmp_put_runlevel(usec_t timestamp, int runlevel, int previous);
+int utmp_put_runlevel(int runlevel, int previous);
 
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status);
-int utmp_put_init_process(usec_t timestamp, const char *id, pid_t pid, pid_t sid, const char *line);
+int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line);
 
 int utmp_wall(const char *message, bool (*match_tty)(const char *tty));
 

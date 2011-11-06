@@ -1170,7 +1170,7 @@ int exec_spawn(ExecCommand *command,
                         }
 
                 if (context->utmp_id)
-                        utmp_put_init_process(0, context->utmp_id, getpid(), getsid(0), context->tty_path);
+                        utmp_put_init_process(context->utmp_id, getpid(), getsid(0), context->tty_path);
 
                 if (context->user) {
                         username = context->user;

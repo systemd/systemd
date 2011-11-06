@@ -5156,7 +5156,7 @@ static int halt_main(DBusConnection *bus) {
         if (!arg_no_wtmp) {
                 if (sd_booted() > 0)
                         log_debug("Not writing utmp record, assuming that systemd-update-utmp is used.");
-                else if ((r = utmp_put_shutdown(0)) < 0)
+                else if ((r = utmp_put_shutdown()) < 0)
                         log_warning("Failed to write utmp record: %s", strerror(-r));
         }
 
