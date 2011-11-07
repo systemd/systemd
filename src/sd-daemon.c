@@ -32,7 +32,11 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#ifdef __BIONIC__
+#include <linux/fcntl.h>
+#else
 #include <sys/fcntl.h>
+#endif
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <errno.h>
