@@ -70,7 +70,7 @@ SUBSYSTEM=="block", GROUP="disk"
 SUBSYSTEM=="block", KERNEL=="fd[0-9]", GROUP="floppy"
 
 # cdrom
-SUBSYSTEM=="block", KERNEL=="sr[0-9]*". GROUP="cdrom"
+SUBSYSTEM=="block", KERNEL=="sr[0-9]*", GROUP="cdrom"
 SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", GROUP="cdrom"
 KERNEL=="pktcdvd[0-9]*", GROUP="cdrom"
 KERNEL=="pktcdvd", GROUP="cdrom"
