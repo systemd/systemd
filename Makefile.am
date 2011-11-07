@@ -299,7 +299,7 @@ if ENABLE_GUDEV
 # GUdev - libudev gobject interface
 # ------------------------------------------------------------------------------
 LIBGUDEV_CURRENT=1
-LIBGUDEV_REVISION=0
+LIBGUDEV_REVISION=1
 LIBGUDEV_AGE=1
 
 SUBDIRS += extras/gudev/docs

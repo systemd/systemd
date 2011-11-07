@@ -1,3 +1,36 @@
+Summary of changes from v174 to v175
+============================================
+
+David Zeuthen (2):
+      gudev: Use strtoul to parse unsigned 64-bit integers
+      gudev: Use g_ascii_strtoull() instead of strtoul()
+
+Harald Hoyer (1):
+      extras/keymap/findkeyboards: beautify shell code and get rid of grep
+
+Jerone Young (1):
+      keymap: Fix micmute remap for Lenovo Thinkpads
+
+Kay Sievers (7):
+      make: add gpg signing bits
+      ignore entire rules line if unknown keys are used
+      do not skip /dev/{disk,char}/M:m removal when the device node is already gone
+      replace AC_DISABLE_STATIC with LT_INIT([disable-static])
+      make: tweak some autofoo according to Flameeyes' recommendations for libabc
+      rules: restore rule to set cdrom group for optical drives
+      rules: fix typo
+
+Martin Pitt (8):
+      check-keymaps.sh: Allow running separately
+      extras/keymap/findkeyboards: Filter out non-event devices
+      findkeyboards: Consistently use spaces instead of tabs
+      keymap: Fix stuck keys on GIGABYTE i1520M
+      keymap: More Asus module variants
+      keymap: Fix "internet" key on HP G62
+      keymap: Fix bluetooth key on Acer TravelMate 7720
+      keymap: Fix stuck keys on BenQ nScreen
+
+
 Summary of changes from v173 to v174
 ============================================
 
