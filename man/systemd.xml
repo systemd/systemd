@@ -813,7 +813,7 @@
                                 <listitem><para>Sets the log level to
                                 <literal>debug</literal>
                                 (resp. <literal>info</literal> on
-                                <literal>SIGRTMIN+32</literal>), as
+                                <literal>SIGRTMIN+23</literal>), as
                                 controlled via
                                 <varname>systemd.log_level=debug</varname>
                                 (resp. <varname>systemd.log_level=info</varname>
