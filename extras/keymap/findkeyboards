@@ -14,6 +14,20 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
 
+# returns OK if $1 contains $2
+strstr() {
+    [ "${1#*$2*}" != "$1" ]
+}
+
+# returns OK if $1 contains $2 at the beginning
+str_starts() {
+    [ "${1#$2*}" != "$1" ]
+}
+
+str_line_starts() {
+    while read a; do str_starts "$a" "$1" && return 0;done
+    return 1;
+}
 
 # print a list of input devices which are keyboard-like
 keyboard_devices() {
@@ -23,12 +37,12 @@ keyboard_devices() {
         env=`udevadm info --query=env --path=$dev`
         # filter out non-event devices, such as the parent input devices which
         # have no devnode
-        if ! echo "$env" | grep -q '^DEVNAME='; then
+        if ! echo "$env" | str_line_starts 'DEVNAME='; then
             continue
         fi
-        if echo "$walk" | grep -q 'DRIVERS=="atkbd"'; then
+        if strstr "$walk" 'DRIVERS=="atkbd"'; then
             echo -n 'AT keyboard: '
-        elif echo "$env" | grep -q '^ID_USB_DRIVER=usbhid'; then
+        elif echo "$env" | str_line_starts 'ID_USB_DRIVER=usbhid'; then
             echo -n 'USB keyboard: '
         else
             echo -n 'Unknown type: '
@@ -37,17 +51,18 @@ keyboard_devices() {
     done
 
     # modules
-    module=`udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*Extra Buttons'`
+    module=$(udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*Extra Buttons')
     module="$module
-`udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*extra buttons'`"
+$(udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*extra buttons')"
     module="$module
-`udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='Sony Vaio Keys'`"
+$(udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='Sony Vaio Keys')"
     for m in $module; do
-        evdev=`ls -d $m/event* 2>/dev/null`
-        if [ -e "$evdev/dev" ]; then
-            echo -n 'module: '
-            udevadm info --query=name --path=$evdev
-        fi
+        for evdev in $m/event*/dev; do
+            if [ -e "$evdev" ]; then
+		echo -n 'module: '
+		udevadm info --query=name --path=${evdev%%/dev}
+            fi
+	done
     done
 }
 
