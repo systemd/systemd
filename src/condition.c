@@ -187,6 +187,8 @@ static bool test_capability(const char *parameter) {
                 }
         }
 
+        fclose(f);
+
         return !!(capabilities & (1ULL << value));
 }
 

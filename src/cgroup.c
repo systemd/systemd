@@ -38,9 +38,6 @@ int cgroup_bonding_realize(CGroupBonding *b) {
         assert(b->path);
         assert(b->controller);
 
-        if (b->realized)
-                return 0;
-
         r = cg_create(b->controller, b->path);
         if (r < 0) {
                 log_warning("Failed to create cgroup %s:%s: %s", b->controller, b->path, strerror(-r));
@@ -366,7 +363,8 @@ int cgroup_notify_empty(Manager *m, const char *group) {
         assert(m);
         assert(group);
 
-        if (!(l = hashmap_get(m->cgroup_bondings, group)))
+        l = hashmap_get(m->cgroup_bondings, group);
+        if (!l)
                 return 0;
 
         LIST_FOREACH(by_path, b, l) {
@@ -375,7 +373,8 @@ int cgroup_notify_empty(Manager *m, const char *group) {
                 if (!b->unit)
                         continue;
 
-                if ((t = cgroup_bonding_is_empty_list(b)) < 0) {
+                t = cgroup_bonding_is_empty_list(b);
+                if (t < 0) {
 
                         /* If we don't know, we don't know */
                         if (t != -EAGAIN)
@@ -384,9 +383,13 @@ int cgroup_notify_empty(Manager *m, const char *group) {
                         continue;
                 }
 
-                if (t > 0)
+                if (t > 0) {
+                        /* If it is empty, let's delete it */
+                        cgroup_bonding_trim_list(b->unit->meta.cgroup_bondings, true);
+
                         if (UNIT_VTABLE(b->unit)->cgroup_notify_empty)
                                 UNIT_VTABLE(b->unit)->cgroup_notify_empty(b->unit);
+                }
         }
 
         return 0;

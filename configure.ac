@@ -327,7 +327,7 @@ AM_CONDITIONAL(ENABLE_LOCALED, [test "$have_localed" = "yes"])
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
-        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 glib-2.0 > 2.26 gio-unix-2.0 ],
+        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 glib-2.0 > 2.26 gio-unix-2.0 gee-1.0],
                 [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
         AC_SUBST(GTK_CFLAGS)
         AC_SUBST(GTK_LIBS)
@@ -371,6 +371,7 @@ if test "z$with_distro" = "z"; then
                 test -f "/etc/mandriva-release" && with_distro="mandriva"
                 test -f "/etc/meego-release" && with_distro="meego"
                 test -f "/etc/angstrom-version" && with_distro="angstrom"
+                test -f "/etc/mageia-release" && with_distro="mageia"
                 if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
                         with_distro="ubuntu"
                 fi
@@ -458,6 +459,12 @@ case $with_distro in
                 AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
                 M4_DEFINES=-DTARGET_ANGSTROM=1
                 ;;
+        mageia)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
+                AC_DEFINE(TARGET_MAGEIA, [], [Target is Mageia])
+                M4_DISTRO_FLAG=-DTARGET_MAGEIA=1
+                have_plymouth=yes
+                ;;
         other)
                 ;;
         *)
@@ -515,6 +522,7 @@ AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
 AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
 AM_CONDITIONAL(TARGET_MEEGO, test x"$with_distro" = xmeego)
 AM_CONDITIONAL(TARGET_ANGSTROM, test x"$with_distro" = xangstrom)
+AM_CONDITIONAL(TARGET_MAGEIA, test x"$with_distro" = xmageia)
 
 AM_CONDITIONAL(HAVE_PLYMOUTH, test "$have_plymouth" = "yes")
 AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")

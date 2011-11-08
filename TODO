@@ -23,7 +23,13 @@ Features:
 
 * check utf8 everywhere
 
+* when an instanced service exits, remove its parent cgroup too if possible.
+
+* as Tom Gundersen pointed out there's a always a dep loop if people use crypto file systems with random keys
+
 * unset container= in PID1?
+
+* automatically escape unit names passed on the service (i.e. think "systemctl start serial-getty.service@serial/by-path/jshdfjsdfhkjh" being automatically escaped as necessary.
 
 * if we can not get user quota for tmpfs, mount a separate tmpfs instance
   for every user in /run/user/$USER with a configured maximum size

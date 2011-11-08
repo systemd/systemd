@@ -51,7 +51,11 @@ int main(int argc, char *argv[]) {
 
         /* Read pool size, if possible */
         if ((f = fopen("/proc/sys/kernel/random/poolsize", "re"))) {
-                fscanf(f, "%zu", &buf_size);
+                if (fscanf(f, "%zu", &buf_size) > 0) {
+                        /* poolsize is in bits on 2.6, but we want bytes */
+                        buf_size /= 8;
+                }
+
                 fclose(f);
         }
 

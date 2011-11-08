@@ -327,7 +327,7 @@ static bool needs_quota(MountParameters *p) {
 }
 
 static int mount_add_fstab_links(Mount *m) {
-        const char *target, *after = NULL;
+        const char *target, *after = NULL, *after2 = NULL;
         MountParameters *p;
         Unit *tu;
         int r;
@@ -358,6 +358,7 @@ static int mount_add_fstab_links(Mount *m) {
         if (mount_is_network(p)) {
                 target = SPECIAL_REMOTE_FS_TARGET;
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
+                after2 = SPECIAL_NETWORK_TARGET;
         } else {
                 target = SPECIAL_LOCAL_FS_TARGET;
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
@@ -372,6 +373,10 @@ static int mount_add_fstab_links(Mount *m) {
 
         if (after)
                 if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true)) < 0)
+                        return r;
+
+        if (after2)
+                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after2, NULL, true)) < 0)
                         return r;
 
         if (automount) {

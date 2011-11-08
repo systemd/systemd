@@ -527,6 +527,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
         Unit *other;
         JobType t;
         Iterator i;
+        bool recursed = false;
 
         assert(j);
         assert(j->installed);
@@ -573,23 +574,29 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
                                 if (other->meta.job &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.job->type == JOB_RELOAD_OR_START))
+                                     other->meta.job->type == JOB_RELOAD_OR_START)) {
                                         job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
+                                        recursed = true;
+                                }
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_BOUND_BY], i)
                                 if (other->meta.job &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.job->type == JOB_RELOAD_OR_START))
+                                     other->meta.job->type == JOB_RELOAD_OR_START)) {
                                         job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
+                                        recursed = true;
+                                }
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
                                 if (other->meta.job &&
                                     !other->meta.job->override &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.job->type == JOB_RELOAD_OR_START))
+                                     other->meta.job->type == JOB_RELOAD_OR_START)) {
                                         job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
+                                        recursed = true;
+                                }
 
                 } else if (t == JOB_STOP) {
 
@@ -597,8 +604,10 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
                                 if (other->meta.job &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.job->type == JOB_RELOAD_OR_START))
+                                     other->meta.job->type == JOB_RELOAD_OR_START)) {
                                         job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
+                                        recursed = true;
+                                }
                 }
         }
 
@@ -626,7 +635,7 @@ finish:
 
         manager_check_finished(u->meta.manager);
 
-        return 0;
+        return recursed;
 }
 
 int job_start_timer(Job *j) {

@@ -119,6 +119,13 @@ AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
 	-DKBD_SETFONT=\"/bin/setfont\" \
 	-DDEFAULT_FONT=\"latarcyrheb-sun16\"
+else
+if TARGET_MAGEIA
+AM_CPPFLAGS += \
+	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
+	-DKBD_SETFONT=\"/bin/setfont\" \
+	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+endif
 endif
 endif
 endif
@@ -318,7 +325,7 @@ dbusinterface_DATA += \
 endif
 
 dist_bashcompletion_DATA = \
-	src/systemctl-bash-completion.sh
+	src/systemd-bash-completion.sh
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
@@ -544,6 +551,13 @@ if TARGET_SUSE
 dist_systemunit_DATA += \
 	units/suse/rc-local.service \
 	units/suse/halt-local.service
+endif
+
+if TARGET_MAGEIA
+dist_systemunit_DATA += \
+	units/mageia/prefdm.service \
+	units/fedora/rc-local.service \
+	units/fedora/halt-local.service
 endif
 
 if HAVE_PLYMOUTH
@@ -1488,7 +1502,8 @@ systemd_stdio_bridge_LDADD = \
 
 systemadm_SOURCES = \
 	src/systemadm.vala \
-	src/systemd-interfaces.vala
+	src/systemd-interfaces.vala \
+	src/wraplabel.vala
 
 systemadm_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1501,6 +1516,7 @@ systemadm_CFLAGS = \
 systemadm_VALAFLAGS = \
 	--pkg=posix \
 	--pkg=gtk+-2.0 \
+	--pkg=gee-1.0 \
 	-g
 
 systemadm_LDADD = \
@@ -2059,6 +2075,23 @@ if TARGET_SUSE
 	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
 		rm -f halt-local.service && \
 		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
+endif
+
+if TARGET_MAGEIA
+	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
+		rm -f halt-local.service && \
+		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f display-manager.service && \
+		$(LN_S) prefdm.service display-manager.service && \
+		$(LN_S) prefdm.service dm.service )
+	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
 
 if HAVE_SYSV_COMPAT

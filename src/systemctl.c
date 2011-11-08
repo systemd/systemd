@@ -551,11 +551,30 @@ static bool output_show_unit_file(const UnitFileList *u) {
 }
 
 static void output_unit_file_list(const UnitFileList *units, unsigned c) {
-        unsigned n_shown = 0;
+        unsigned max_id_len, id_cols, state_cols, n_shown = 0;
         const UnitFileList *u;
 
-        if (on_tty())
-                printf("%-25s %-6s\n", "UNIT FILE", "STATE");
+        max_id_len = sizeof("UNIT FILE")-1;
+        state_cols = sizeof("STATE")-1;
+        for (u = units; u < units + c; u++) {
+                if (!output_show_unit_file(u))
+                        continue;
+
+                max_id_len = MAX(max_id_len, strlen(file_name_from_path(u->path)));
+                state_cols = MAX(state_cols, strlen(unit_file_state_to_string(u->state)));
+        }
+
+        if (!arg_full) {
+                unsigned basic_cols;
+                id_cols = MIN(max_id_len, 25);
+                basic_cols = 1 + id_cols + state_cols;
+                if (basic_cols < (unsigned) columns())
+                        id_cols += MIN(columns() - basic_cols, max_id_len - id_cols);
+        } else
+                id_cols = max_id_len;
+
+        if (!arg_no_legend)
+                printf("%-*s %-*s\n", id_cols, "UNIT FILE", state_cols, "STATE");
 
         for (u = units; u < units + c; u++) {
                 char *e;
@@ -580,16 +599,16 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 
                 id = file_name_from_path(u->path);
 
-                e = arg_full ? NULL : ellipsize(id, 25, 33);
+                e = arg_full ? NULL : ellipsize(id, id_cols, 33);
 
-                printf("%-25s %s%-6s%s\n",
-                       e ? e : id,
-                       on, unit_file_state_to_string(u->state), off);
+                printf("%-*s %s%-*s%s\n",
+                       id_cols, e ? e : id,
+                       on, state_cols, unit_file_state_to_string(u->state), off);
 
                 free(e);
         }
 
-        if (on_tty())
+        if (!arg_no_legend)
                 printf("\n%u unit files listed.\n", n_shown);
 }
 
@@ -3443,7 +3462,7 @@ finish:
 static int enable_sysv_units(char **args) {
         int r = 0;
 
-#if defined (HAVE_SYSV_COMPAT) && (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_SUSE) || defined(TARGET_MEEGO) || defined(TARGET_ALTLINUX))
+#if defined (HAVE_SYSV_COMPAT) && (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_SUSE) || defined(TARGET_MEEGO) || defined(TARGET_ALTLINUX) || defined(TARGET_MAGEIA))
         const char *verb = args[0];
         unsigned f = 1, t = 1;
         LookupPaths paths;

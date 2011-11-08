@@ -286,7 +286,10 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
                 goto fail;
 
 #ifdef HAVE_AUDIT
-        if ((m->audit_fd = audit_open()) < 0)
+        if ((m->audit_fd = audit_open()) < 0 &&
+            /* If the kernel lacks netlink or audit support,
+             * don't worry about it. */
+            errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
                 log_error("Failed to connect to audit log: %m");
 #endif
 
@@ -1214,13 +1217,18 @@ static int transaction_apply(Manager *m, JobMode mode) {
 
                 /* When isolating first kill all installed jobs which
                  * aren't part of the new transaction */
+        rescan:
                 HASHMAP_FOREACH(j, m->jobs, i) {
                         assert(j->installed);
 
                         if (hashmap_get(m->transaction_jobs, j->unit))
                                 continue;
 
-                        job_finish_and_invalidate(j, JOB_CANCELED);
+                        /* 'j' itself is safe to remove, but if other jobs
+                           are invalidated recursively, our iterator may become
+                           invalid and we need to start over. */
+                        if (job_finish_and_invalidate(j, JOB_CANCELED) > 0)
+                                goto rescan;
                 }
         }
 
