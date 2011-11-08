@@ -333,7 +333,7 @@ UDEV_EXPORT void udev_set_log_fn(struct udev *udev,
 				    const char *format, va_list args))
 {
 	udev->log_fn = log_fn;
-	info(udev, "custom logging function %p registered\n", udev);
+	info(udev, "custom logging function %p registered\n", log_fn);
 }
 
 /**
