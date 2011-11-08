@@ -17,7 +17,11 @@ Bugfixes:
 
 * make polkit checks async
 
+* properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
+
 Features:
+
+* check utf8 everywhere
 
 * unset container= in PID1?
 
