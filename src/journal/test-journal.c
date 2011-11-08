@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
         struct iovec iovec;
         static const char test[] = "test", test2[] = "test2";
         Object *o;
+        uint64_t p;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -54,41 +55,55 @@ int main(int argc, char *argv[]) {
 
         journal_file_dump(f);
 
-        assert(journal_file_next_entry(f, NULL, DIRECTION_DOWN, &o, NULL) == 1);
+        assert(journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, &p) == 1);
         assert(le64toh(o->entry.seqnum) == 1);
 
-        assert(journal_file_next_entry(f, o, DIRECTION_DOWN, &o, NULL) == 1);
+        assert(journal_file_next_entry(f, o, p, DIRECTION_DOWN, &o, &p) == 1);
         assert(le64toh(o->entry.seqnum) == 2);
 
-        assert(journal_file_next_entry(f, o, DIRECTION_DOWN, &o, NULL) == 1);
+        assert(journal_file_next_entry(f, o, p, DIRECTION_DOWN, &o, &p) == 1);
         assert(le64toh(o->entry.seqnum) == 3);
 
-        assert(journal_file_next_entry(f, o, DIRECTION_DOWN, &o, NULL) == 0);
+        assert(journal_file_next_entry(f, o, p, DIRECTION_DOWN, &o, &p) == 0);
 
-        assert(journal_file_find_first_entry(f, test, strlen(test), DIRECTION_DOWN, &o, NULL) == 1);
+        assert(journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, &p) == 1);
         assert(le64toh(o->entry.seqnum) == 1);
 
-        assert(journal_file_find_first_entry(f, test, strlen(test), DIRECTION_UP, &o, NULL) == 1);
+        assert(journal_file_skip_entry(f, o, p, 2, &o, &p) == 1);
         assert(le64toh(o->entry.seqnum) == 3);
 
-        assert(journal_file_find_first_entry(f, test2, strlen(test2), DIRECTION_UP, &o, NULL) == 1);
-        assert(le64toh(o->entry.seqnum) == 2);
-
-        assert(journal_file_find_first_entry(f, test2, strlen(test2), DIRECTION_DOWN, &o, NULL) == 1);
-        assert(le64toh(o->entry.seqnum) == 2);
-
-        assert(journal_file_find_first_entry(f, "quux", 4, DIRECTION_DOWN, &o, NULL) == 0);
-
-        assert(journal_file_move_to_entry(f, 1, &o, NULL) == 1);
+        assert(journal_file_skip_entry(f, o, p, -2, &o, &p) == 1);
         assert(le64toh(o->entry.seqnum) == 1);
 
-        assert(journal_file_move_to_entry(f, 3, &o, NULL) == 1);
+        assert(journal_file_skip_entry(f, o, p, -2, &o, &p) == 1);
+        assert(le64toh(o->entry.seqnum) == 1);
+
+        assert(journal_file_find_data_object(f, test, strlen(test), NULL, &p) == 1);
+        assert(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
+        assert(le64toh(o->entry.seqnum) == 1);
+
+        assert(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_UP, &o, NULL) == 1);
         assert(le64toh(o->entry.seqnum) == 3);
 
-        assert(journal_file_move_to_entry(f, 2, &o, NULL) == 1);
+        assert(journal_file_find_data_object(f, test2, strlen(test2), NULL, &p) == 1);
+        assert(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_UP, &o, NULL) == 1);
         assert(le64toh(o->entry.seqnum) == 2);
 
-        assert(journal_file_move_to_entry(f, 10, &o, NULL) == 0);
+        assert(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
+        assert(le64toh(o->entry.seqnum) == 2);
+
+        assert(journal_file_find_data_object(f, "quux", 4, NULL, &p) == 0);
+
+        assert(journal_file_move_to_entry_by_seqnum(f, 1, DIRECTION_DOWN, &o, NULL) == 1);
+        assert(le64toh(o->entry.seqnum) == 1);
+
+        assert(journal_file_move_to_entry_by_seqnum(f, 3, DIRECTION_DOWN, &o, NULL) == 1);
+        assert(le64toh(o->entry.seqnum) == 3);
+
+        assert(journal_file_move_to_entry_by_seqnum(f, 2, DIRECTION_DOWN, &o, NULL) == 1);
+        assert(le64toh(o->entry.seqnum) == 2);
+
+        assert(journal_file_move_to_entry_by_seqnum(f, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
         journal_file_rotate(&f);
         journal_file_rotate(&f);

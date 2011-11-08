@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        SD_JOURNAL_FOREACH_BEGIN(j) {
+        SD_JOURNAL_FOREACH(j) {
 
                 const void *data;
                 size_t length;
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
                 free(cursor);
 
                 sd_journal_get_realtime_usec(j, &realtime);
-                sd_journal_get_monotonic_usec(j, &monotonic);
+                sd_journal_get_monotonic_usec(j, &monotonic, NULL);
                 printf("realtime: %llu\n"
                        "monotonic: %llu\n",
                        (unsigned long long) realtime,
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
                 SD_JOURNAL_FOREACH_DATA(j, data, length)
                         printf("\t%.*s\n", (int) length, (const char*) data);
 
-        } SD_JOURNAL_FOREACH_END(j);
+        }
 
 finish:
         if (j)

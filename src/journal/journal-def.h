@@ -31,9 +31,10 @@ typedef struct Header Header;
 typedef struct ObjectHeader ObjectHeader;
 typedef union Object Object;
 typedef struct DataObject DataObject;
+typedef struct FieldObject FieldObject;
 typedef struct EntryObject EntryObject;
 typedef struct HashTableObject HashTableObject;
-typedef struct BisectTableObject BisectTableObject;
+typedef struct EntryArrayObject EntryArrayObject;
 typedef struct EntryItem EntryItem;
 typedef struct HashItem HashItem;
 
@@ -41,9 +42,12 @@ typedef struct HashItem HashItem;
 enum {
         OBJECT_UNUSED,
         OBJECT_DATA,
+        OBJECT_FIELD,
         OBJECT_ENTRY,
-        OBJECT_HASH_TABLE,
-        OBJECT_BISECT_TABLE
+        OBJECT_DATA_HASH_TABLE,
+        OBJECT_FIELD_HASH_TABLE,
+        OBJECT_ENTRY_ARRAY,
+        _OBJECT_TYPE_MAX
 };
 
 _packed_ struct ObjectHeader {
@@ -56,18 +60,26 @@ _packed_ struct ObjectHeader {
 _packed_ struct DataObject {
         ObjectHeader object;
         uint64_t hash;
-        uint64_t head_entry_offset;
-        uint64_t tail_entry_offset;
-        uint64_t prev_hash_offset;
         uint64_t next_hash_offset;
+        uint64_t next_field_offset;
+        uint64_t entry_offset; /* the first array entry we store inline */
+        uint64_t entry_array_offset;
+        uint64_t n_entries;
+        uint8_t payload[];
+};
+
+_packed_ struct FieldObject {
+        ObjectHeader object;
+        uint64_t hash;
+        uint64_t next_hash_offset;
+        uint64_t head_data_offset;
+        uint64_t tail_data_offset;
         uint8_t payload[];
 };
 
 _packed_ struct EntryItem {
         uint64_t object_offset;
         uint64_t hash;
-        uint64_t prev_entry_offset;
-        uint64_t next_entry_offset;
 };
 
 _packed_ struct EntryObject {
@@ -77,8 +89,6 @@ _packed_ struct EntryObject {
         uint64_t monotonic;
         sd_id128_t boot_id;
         uint64_t xor_hash;
-        uint64_t prev_entry_offset;
-        uint64_t next_entry_offset;
         EntryItem items[];
 };
 
@@ -89,20 +99,22 @@ _packed_ struct HashItem {
 
 _packed_ struct HashTableObject {
         ObjectHeader object;
-        HashItem table[];
+        HashItem items[];
 };
 
-_packed_ struct BisectTableObject {
+_packed_ struct EntryArrayObject {
         ObjectHeader object;
-        uint64_t table[];
+        uint64_t next_entry_array_offset;
+        uint64_t items[];
 };
 
 union Object {
         ObjectHeader object;
         DataObject data;
+        FieldObject field;
         EntryObject entry;
         HashTableObject hash_table;
-        BisectTableObject bisect_table;
+        EntryArrayObject entry_array;
 };
 
 enum {
@@ -115,30 +127,30 @@ _packed_ struct Header {
         uint8_t signature[8]; /* "LPKSHHRH" */
         uint32_t compatible_flags;
         uint32_t incompatible_flags;
-        uint32_t state;
-        uint8_t reserved[4];
+        uint8_t state;
+        uint8_t reserved[7];
         sd_id128_t file_id;
         sd_id128_t machine_id;
         sd_id128_t boot_id;
         sd_id128_t seqnum_id;
         uint64_t arena_offset;
         uint64_t arena_size;
-        uint64_t arena_max_size;
-        uint64_t arena_min_size;
-        uint64_t arena_keep_free;
-        uint64_t hash_table_offset;     /* for looking up data objects */
-        uint64_t hash_table_size;
-        uint64_t bisect_table_offset;   /* for looking up entry objects */
-        uint64_t bisect_table_size;
-        uint64_t head_object_offset;
+        uint64_t arena_max_size;  /* obsolete */
+        uint64_t arena_min_size;  /* obsolete */
+        uint64_t arena_keep_free; /* obsolete */
+        uint64_t data_hash_table_offset;     /* for looking up data objects */
+        uint64_t data_hash_table_size;
+        uint64_t field_hash_table_offset;     /* for looking up field objects */
+        uint64_t field_hash_table_size;
         uint64_t tail_object_offset;
-        uint64_t head_entry_offset;
-        uint64_t tail_entry_offset;
-        uint64_t last_bisect_offset;
         uint64_t n_objects;
+        uint64_t n_entries;
         uint64_t seqnum;
+        uint64_t first_seqnum;
+        uint64_t entry_array_offset;
         uint64_t head_entry_realtime;
         uint64_t tail_entry_realtime;
+        uint64_t tail_entry_monotonic;
 };
 
 #endif

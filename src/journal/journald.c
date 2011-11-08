@@ -144,14 +144,14 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
                 *audit_session = NULL, *audit_loginuid = NULL,
                 *syslog_priority = NULL, *syslog_facility = NULL,
                 *exe = NULL, *cgroup = NULL;
-        struct iovec iovec[16];
+        struct iovec iovec[17];
         unsigned n = 0;
         char idbuf[33];
         sd_id128_t id;
         int r;
         char *t;
         int priority = LOG_USER | LOG_INFO;
-        uid_t loginuid = 0;
+        uid_t loginuid = 0, realuid = 0;
         JournalFile *f;
 
         parse_syslog_priority((char**) &buf, &priority);
@@ -171,18 +171,20 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
                 uint32_t session;
                 char *path;
 
-                if (asprintf(&pid, "PID=%lu", (unsigned long) ucred->pid) >= 0)
+                realuid = ucred->uid;
+
+                if (asprintf(&pid, "_PID=%lu", (unsigned long) ucred->pid) >= 0)
                         IOVEC_SET_STRING(iovec[n++], pid);
 
-                if (asprintf(&uid, "UID=%lu", (unsigned long) ucred->uid) >= 0)
+                if (asprintf(&uid, "_UID=%lu", (unsigned long) ucred->uid) >= 0)
                         IOVEC_SET_STRING(iovec[n++], uid);
 
-                if (asprintf(&gid, "GID=%lu", (unsigned long) ucred->gid) >= 0)
+                if (asprintf(&gid, "_GID=%lu", (unsigned long) ucred->gid) >= 0)
                         IOVEC_SET_STRING(iovec[n++], gid);
 
                 r = get_process_comm(ucred->pid, &t);
                 if (r >= 0) {
-                        comm = strappend("COMM=", t);
+                        comm = strappend("_COMM=", t);
                         if (comm)
                                 IOVEC_SET_STRING(iovec[n++], comm);
                         free(t);
@@ -190,7 +192,7 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
 
                 r = get_process_exe(ucred->pid, &t);
                 if (r >= 0) {
-                        exe = strappend("EXE=", t);
+                        exe = strappend("_EXE=", t);
                         if (comm)
                                 IOVEC_SET_STRING(iovec[n++], exe);
                         free(t);
@@ -198,7 +200,7 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
 
                 r = get_process_cmdline(ucred->pid, LINE_MAX, false, &t);
                 if (r >= 0) {
-                        cmdline = strappend("CMDLINE=", t);
+                        cmdline = strappend("_CMDLINE=", t);
                         if (cmdline)
                                 IOVEC_SET_STRING(iovec[n++], cmdline);
                         free(t);
@@ -206,17 +208,17 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
 
                 r = audit_session_from_pid(ucred->pid, &session);
                 if (r >= 0)
-                        if (asprintf(&audit_session, "AUDIT_SESSION=%lu", (unsigned long) session) >= 0)
+                        if (asprintf(&audit_session, "_AUDIT_SESSION=%lu", (unsigned long) session) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_session);
 
                 r = audit_loginuid_from_pid(ucred->pid, &loginuid);
                 if (r >= 0)
-                        if (asprintf(&audit_loginuid, "AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
+                        if (asprintf(&audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_loginuid);
 
                 r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, ucred->pid, &path);
                 if (r >= 0) {
-                        cgroup = strappend("SYSTEMD_CGROUP=", path);
+                        cgroup = strappend("_SYSTEMD_CGROUP=", path);
                         if (cgroup)
                                 IOVEC_SET_STRING(iovec[n++], cgroup);
                         free(path);
@@ -224,7 +226,7 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
         }
 
         if (tv) {
-                if (asprintf(&source_time, "SOURCE_REALTIME_TIMESTAMP=%llu",
+                if (asprintf(&source_time, "_SOURCE_REALTIME_TIMESTAMP=%llu",
                              (unsigned long long) timeval_load(tv)) >= 0)
                         IOVEC_SET_STRING(iovec[n++], source_time);
         }
@@ -234,23 +236,23 @@ static void process_message(Server *s, const char *buf, struct ucred *ucred, str
          * anyway. However, we need this indexed, too. */
         r = sd_id128_get_boot(&id);
         if (r >= 0)
-                if (asprintf(&boot_id, "BOOT_ID=%s", sd_id128_to_string(id, idbuf)) >= 0)
+                if (asprintf(&boot_id, "_BOOT_ID=%s", sd_id128_to_string(id, idbuf)) >= 0)
                         IOVEC_SET_STRING(iovec[n++], boot_id);
 
         r = sd_id128_get_machine(&id);
         if (r >= 0)
-                if (asprintf(&machine_id, "MACHINE_ID=%s", sd_id128_to_string(id, idbuf)) >= 0)
+                if (asprintf(&machine_id, "_MACHINE_ID=%s", sd_id128_to_string(id, idbuf)) >= 0)
                         IOVEC_SET_STRING(iovec[n++], machine_id);
 
         t = gethostname_malloc();
         if (t) {
-                hostname = strappend("HOSTNAME=", t);
+                hostname = strappend("_HOSTNAME=", t);
                 if (hostname)
                         IOVEC_SET_STRING(iovec[n++], hostname);
                 free(t);
         }
 
-        f = find_journal(s, loginuid);
+        f = find_journal(s, realuid == 0 ? 0 : loginuid);
         if (!f)
                 log_warning("Dropping message, as we can't find a place to store the data.");
         else {
