@@ -13,6 +13,5 @@ ConditionFileIsExecutable=/etc/rc.d/rc.local
 Type=forking
 ExecStart=/etc/rc.d/rc.local start
 TimeoutSec=0
-StandardOutput=tty
 RemainAfterExit=yes
 SysVStartPriority=99
