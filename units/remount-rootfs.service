@@ -17,4 +17,3 @@ Wants=local-fs-pre.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/bin/mount / -o remount
-StandardOutput=syslog

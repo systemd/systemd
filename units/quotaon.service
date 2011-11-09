@@ -16,4 +16,3 @@ ConditionPathExists=/sbin/quotaon
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/sbin/quotaon -aug
-StandardOutput=syslog
