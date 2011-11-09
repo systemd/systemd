@@ -13,6 +13,5 @@ ConditionFileIsExecutable=/etc/init.d/boot.local
 Type=oneshot
 ExecStart=/etc/init.d/boot.local
 TimeoutSec=0
-StandardOutput=tty
 RemainAfterExit=yes
 SysVStartPriority=99
