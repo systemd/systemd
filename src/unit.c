@@ -924,7 +924,7 @@ int unit_start(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        unit_status_printf(u, "Starting %s...\n", unit_description(u));
+        unit_status_printf(u, NULL, "Starting %s...", unit_description(u));
         return UNIT_VTABLE(u)->start(u);
 }
 
@@ -966,7 +966,7 @@ int unit_stop(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        unit_status_printf(u, "Stopping %s...\n", unit_description(u));
+        unit_status_printf(u, NULL, "Stopping %s...", unit_description(u));
         return UNIT_VTABLE(u)->stop(u);
 }
 
@@ -2426,8 +2426,11 @@ int unit_coldplug(Unit *u) {
         return 0;
 }
 
-void unit_status_printf(Unit *u, const char *format, ...) {
+void unit_status_printf(Unit *u, const char *status, const char *format, ...) {
         va_list ap;
+        char *s, *e;
+        int err;
+        const unsigned emax = status ? 80 - (sizeof("[  OK  ]")-1) : 80;
 
         assert(u);
         assert(format);
@@ -2442,8 +2445,21 @@ void unit_status_printf(Unit *u, const char *format, ...) {
                 return;
 
         va_start(ap, format);
-        status_vprintf(format, ap);
+        err = vasprintf(&s, format, ap);
         va_end(ap);
+        if (err < 0)
+                return;
+
+        e = ellipsize(s, emax, 100);
+        free(s);
+        if (!e)
+                return;
+
+        if (status)
+                status_printf("%s%*s[%s]\n", e, emax - strlen(e), "", status);
+        else
+                status_printf("%s\n", e);
+        free(e);
 }
 
 bool unit_need_daemon_reload(Unit *u) {

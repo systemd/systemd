@@ -484,19 +484,20 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 switch (result) {
 
                 case JOB_DONE:
-                        unit_status_printf(u, "Started %s.\n", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, "Started %s", unit_description(u));
                         break;
 
                 case JOB_FAILED:
-                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ", see 'systemctl status %s' for details.\n", unit_description(u), u->meta.id);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_ON "FAILED" ANSI_HIGHLIGHT_OFF, "Failed to start %s", unit_description(u));
+                        unit_status_printf(u, NULL, "See 'systemctl status %s' for details.", u->meta.id);
                         break;
 
                 case JOB_DEPENDENCY:
-                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "aborted" ANSI_HIGHLIGHT_OFF " because a dependency failed.\n", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_ON " ABORT" ANSI_HIGHLIGHT_OFF, "Dependency failed. Aborted start of %s", unit_description(u));
                         break;
 
                 case JOB_TIMEOUT:
-                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out starting %s", unit_description(u));
                         break;
 
                 default:
@@ -508,12 +509,12 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 switch (result) {
 
                 case JOB_TIMEOUT:
-                        unit_status_printf(u, "Stopping %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out stopping %s", unit_description(u));
                         break;
 
                 case JOB_DONE:
                 case JOB_FAILED:
-                        unit_status_printf(u, "Stopped %s.\n", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, "Stopped %s", unit_description(u));
                         break;
 
                 default:

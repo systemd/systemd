@@ -512,7 +512,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants);
 
 int unit_coldplug(Unit *u);
 
-void unit_status_printf(Unit *u, const char *format, ...);
+void unit_status_printf(Unit *u, const char *status, const char *format, ...);
 
 bool unit_need_daemon_reload(Unit *u);
 
