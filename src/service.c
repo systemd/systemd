@@ -1290,7 +1290,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         free(p2);
 }
 
-static int service_load_pid_file(Service *s, bool warn_if_missing) {
+static int service_load_pid_file(Service *s, bool may_warn) {
         char *k;
         int r;
         pid_t pid;
@@ -1301,7 +1301,7 @@ static int service_load_pid_file(Service *s, bool warn_if_missing) {
                 return -ENOENT;
 
         if ((r = read_one_line_file(s->pid_file, &k)) < 0) {
-                if (warn_if_missing)
+                if (may_warn)
                         log_warning("Failed to read PID file %s after %s. The service might be broken.",
                                     s->pid_file, service_state_to_string(s->state));
                 return r;
@@ -1314,8 +1314,9 @@ static int service_load_pid_file(Service *s, bool warn_if_missing) {
                 return r;
 
         if (kill(pid, 0) < 0 && errno != EPERM) {
-                log_warning("PID %lu read from file %s does not exist. Your service or init script might be broken.",
-                            (unsigned long) pid, s->pid_file);
+                if (may_warn)
+                        log_warning("PID %lu read from file %s does not exist. Your service or init script might be broken.",
+                                    (unsigned long) pid, s->pid_file);
                 return -ESRCH;
         }
 
