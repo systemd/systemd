@@ -166,7 +166,7 @@
                 for details.</para>
 
                 <para><function>sd_notifyf()</function> is similar to
-                <function>sd_notifyf()</function> but takes a
+                <function>sd_notify()</function> but takes a
                 <function>printf()</function>-like format string plus
                 arguments.</para>
         </refsect1>
