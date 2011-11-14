@@ -80,7 +80,7 @@ static void start_target(const char *target, bool isolate) {
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
 
-                /* Don't print a waring if we aren't called during
+                /* Don't print a warning if we aren't called during
                  * startup */
                 if (!dbus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
                         log_error("Failed to start unit: %s", bus_error_message(&error));
