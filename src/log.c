@@ -237,6 +237,10 @@ void log_close(void) {
         log_close_syslog();
 }
 
+void log_forget_fds(void) {
+        console_fd = kmsg_fd = syslog_fd = -1;
+}
+
 void log_set_max_level(int level) {
         assert((level & LOG_PRIMASK) == level);
 
