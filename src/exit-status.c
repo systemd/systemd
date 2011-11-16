@@ -119,6 +119,9 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 
                 case EXIT_NETWORK:
                         return "NETWORK";
+
+                case EXIT_NAMESPACE:
+                        return "NAMESPACE";
                 }
         }
 
