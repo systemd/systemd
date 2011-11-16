@@ -716,6 +716,7 @@ static int setup_pam(
         pam_handle_t *handle = NULL;
         sigset_t ss, old_ss;
         int pam_code = PAM_SUCCESS;
+        int err;
         char **e = NULL;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
@@ -835,6 +836,11 @@ static int setup_pam(
         return 0;
 
 fail:
+        if (pam_code != PAM_SUCCESS)
+                err = -EPERM;  /* PAM errors do not map to errno */
+        else
+                err = -errno;
+
         if (handle) {
                 if (close_session)
                         pam_code = pam_close_session(handle, PAM_DATA_SILENT);
@@ -851,7 +857,7 @@ fail:
                 kill(pam_pid, SIGCONT);
         }
 
-        return EXIT_PAM;
+        return err;
 }
 #endif
 
