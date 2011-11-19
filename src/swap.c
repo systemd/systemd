@@ -74,7 +74,7 @@ static void swap_unset_proc_swaps(Swap *s) {
         s->parameters_proc_swaps.what = NULL;
 }
 
- static void swap_init(Unit *u) {
+static void swap_init(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);
@@ -83,7 +83,8 @@ static void swap_unset_proc_swaps(Swap *s) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
 
         exec_context_init(&s->exec_context);
-        s->exec_context.std_output = EXEC_OUTPUT_KMSG;
+        s->exec_context.std_output = u->meta.manager->default_std_output;
+        s->exec_context.std_error = u->meta.manager->default_std_error;
 
         s->parameters_etc_fstab.priority = s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 
