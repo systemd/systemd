@@ -472,7 +472,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 get_seat_from_display(display, &seat, &vtnr);
 
         type = !isempty(display) ? "x11" :
-                   !isempty(tty) ? "tty" : "other";
+                   !isempty(tty) ? "tty" : "unspecified";
 
         remote = !isempty(remote_host) && !streq(remote_host, "localhost") && !streq(remote_host, "localhost.localdomain");
 
