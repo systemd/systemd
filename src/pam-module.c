@@ -463,6 +463,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 if (isempty(display))
                         display = tty;
                 tty = "";
+        } else if (streq(tty, "cron")) {
+                /* cron has been setting PAM_TTY to "cron" for a very long time
+                 * and it cannot stop doing that for compatibility reasons. */
+                tty = "";
         }
 
         if (!isempty(cvtnr))

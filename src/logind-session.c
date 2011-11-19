@@ -536,7 +536,7 @@ int session_start(Session *s) {
         if (r < 0)
                 return r;
 
-        log_full(s->display || s->tty ? LOG_INFO : LOG_DEBUG,
+        log_full(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
                  "New session %s of user %s.", s->id, s->user->name);
 
         /* Create cgroup */
@@ -659,7 +659,7 @@ int session_stop(Session *s) {
         assert(s);
 
         if (s->started)
-                log_full(s->display || s->tty ? LOG_INFO : LOG_DEBUG,
+                log_full(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
                          "Removed session %s.", s->id);
 
         /* Kill cgroup */
