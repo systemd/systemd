@@ -16,10 +16,14 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-AC_PREREQ(2.63)
+AC_PREREQ([2.64])
 
-AC_INIT([systemd],[182],[systemd-devel@lists.freedesktop.org])
-AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
+AC_INIT([systemd],
+        [182],
+        [http://bugs.freedesktop.org/enter_bug.cgi?product=systemd],
+        [systemd],
+        [http://www.freedesktop.org/wiki/Software/systemd])
+
 AC_CONFIG_SRCDIR([src/core/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
