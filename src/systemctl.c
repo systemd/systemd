@@ -622,8 +622,6 @@ static int list_unit_files(DBusConnection *bus, char **args) {
 
         dbus_error_init(&error);
 
-        assert(bus);
-
         pager_open_if_enabled();
 
         if (avoid_bus()) {
@@ -659,6 +657,8 @@ static int list_unit_files(DBusConnection *bus, char **args) {
 
                 hashmap_free(h);
         } else {
+                assert(bus);
+
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
@@ -5001,6 +5001,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
         if (!streq(verbs[i].verb, "enable") &&
             !streq(verbs[i].verb, "disable") &&
             !streq(verbs[i].verb, "is-enable") &&
+            !streq(verbs[i].verb, "list-unit-files") &&
             !streq(verbs[i].verb, "reenable") &&
             !streq(verbs[i].verb, "preset") &&
             !streq(verbs[i].verb, "mask") &&
