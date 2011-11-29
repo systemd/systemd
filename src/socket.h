@@ -118,6 +118,7 @@ struct Socket {
         bool free_bind;
         bool transparent;
         bool broadcast;
+        bool pass_cred;
         int priority;
         int mark;
         size_t receive_buffer;
