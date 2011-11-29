@@ -61,6 +61,8 @@ ENV{MATCHADDR}=="52:54:4c:*", GOTO="globally_administered_whitelist"
 ENV{MATCHADDR}=="52:54:ab:*", GOTO="globally_administered_whitelist"
 # Kingston Technologies
 ENV{MATCHADDR}=="e2:0c:0f:*", GOTO="globally_administered_whitelist"
+# Xensource
+ENV{MATCHADDR}=="00:16:3e:*", GOTO="globally_administered_whitelist"
 
 # match interface dev_id
 ATTR{dev_id}=="?*", ENV{MATCHDEVID}="$attr{dev_id}"
