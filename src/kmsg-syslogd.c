@@ -91,7 +91,7 @@ static int server_init(Server *s, unsigned n_sockets) {
         }
 
         for (i = 0; i < n_sockets; i++) {
-                int fd, one = 1;
+                int fd;
 
                 fd = SD_LISTEN_FDS_START+i;
 
@@ -105,9 +105,6 @@ static int server_init(Server *s, unsigned n_sockets) {
                         r = -EINVAL;
                         goto fail;
                 }
-
-                if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
-                        log_error("SO_PASSCRED failed: %m");
 
                 zero(ev);
                 ev.events = EPOLLIN;
