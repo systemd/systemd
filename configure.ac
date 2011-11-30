@@ -201,9 +201,9 @@ AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
 	udev/udev.pc
-	init/udev.service
-	init/udev-trigger.service
-	init/udev-settle.service
+	systemd/udev.service
+	systemd/udev-trigger.service
+	systemd/udev-settle.service
 	libudev/libudev.pc
 	libudev/docs/Makefile
 	libudev/docs/version.xml
