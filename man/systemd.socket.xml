@@ -525,6 +525,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>PassCred=</varname></term>
+                                <listitem><para>Takes a boolean
+                                value. This controls the SO_PASSCRED
+                                option, which allows UNIX sockets to
+                                receive the credentials of the sending
+                                process in an ancillary message.
+                                Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>TCPCongestion=</varname></term>
                                 <listitem><para>Takes a string
                                 value. Controls the TCP congestion
