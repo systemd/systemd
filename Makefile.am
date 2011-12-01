@@ -114,13 +114,15 @@ EXTRA_DIST += \
 udevrulesdir = $(libexecdir)/rules.d
 dist_udevrules_DATA = \
 	rules/rules.d/50-udev-default.rules \
-	rules/rules.d/60-persistent-storage.rules \
 	rules/rules.d/60-persistent-storage-tape.rules \
 	rules/rules.d/60-persistent-serial.rules \
 	rules/rules.d/60-persistent-input.rules \
 	rules/rules.d/60-persistent-alsa.rules \
-	rules/rules.d/80-drivers.rules \
 	rules/rules.d/95-udev-late.rules
+
+udevrules_DATA = \
+	rules/rules.d/60-persistent-storage.rules \
+	rules/rules.d/80-drivers.rules
 
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = udev.conf
@@ -151,7 +153,7 @@ systemd-install-hook:
 INSTALL_DATA_HOOKS += systemd-install-hook
 endif
 
-sbin_PROGRAMS = \
+bin_PROGRAMS = \
 	udev/udevadm
 
 libexec_PROGRAMS = \

@@ -1798,13 +1798,13 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	if (udev_get_rules_path(udev) == NULL) {
 		char filename[UTIL_PATH_SIZE];
 
-		/* /lib/udev -- default/package rules */
+		/* /usr/lib/udev -- system rules */
 		add_matching_files(udev, &file_list, LIBEXECDIR "/rules.d", ".rules");
 
-		/* /etc/udev -- system-specific/user/admin rules */
+		/* /etc/udev -- local administration rules */
 		add_matching_files(udev, &file_list, SYSCONFDIR "/udev/rules.d", ".rules");
 
-		/* /run/udev -- throw-away/temporary rules */
+		/* /run/udev -- runtime rules */
 		util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/rules.d", NULL);
 		add_matching_files(udev, &file_list, filename, ".rules");
 	} else {

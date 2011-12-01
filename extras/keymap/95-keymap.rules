@@ -2,7 +2,7 @@
 #
 # Key map overrides can be specified by either giving scancode/keyname pairs
 # directly as keymap arguments (if there are just one or two to change), or as
-# a file name (in /lib/udev/keymaps), which has to contain scancode/keyname
+# a file name (in /usr/lib/udev/keymaps), which has to contain scancode/keyname
 # pairs.
 
 ACTION=="remove", GOTO="keyboard_end"

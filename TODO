@@ -1,3 +1,7 @@
+ - move cc opts from autogen to configure.ac
+
+ - move /lib/udev/devices/ to tmpfiles
+
  - trigger --subsystem-match=usb/usb_device
 
  - test (now fixed) /dev/tape/ links

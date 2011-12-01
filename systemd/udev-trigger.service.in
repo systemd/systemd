@@ -7,4 +7,4 @@ DefaultDependencies=no
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@sbindir@/udevadm trigger --type=subsystems --action=add ; @sbindir@/udevadm trigger --type=devices --action=add
+ExecStart=@bindir@/udevadm trigger --type=subsystems --action=add ; @bindir@/udevadm trigger --type=devices --action=add

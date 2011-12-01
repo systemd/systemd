@@ -200,6 +200,9 @@ AM_CONDITIONAL([ENABLE_EDD], [test "x$enable_edd" = "xyes"])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
+	extras/mtd_probe/75-probe_mtd.rules
+	rules/rules.d/80-drivers.rules
+	rules/rules.d/60-persistent-storage.rules
 	udev/udev.pc
 	systemd/udev.service
 	systemd/udev-trigger.service
@@ -210,6 +213,7 @@ AC_CONFIG_FILES([
 	extras/gudev/gudev-1.0.pc
 	extras/gudev/docs/Makefile
 	extras/gudev/docs/version.xml
+	extras/keymap/keyboard-force-release.sh
 ])
 
 AC_OUTPUT
@@ -219,7 +223,8 @@ AC_MSG_RESULT([
 
 	prefix:			${prefix}
 	sysconfdir:		${sysconfdir}
-	sbindir:		${sbindir}
+	bindir:			${bindir}
+	sbindir:		${bindir}
 	libdir:			${libdir}
 	rootlibdir:		${rootlib_execdir}
 	libexecdir:		${libexecdir}

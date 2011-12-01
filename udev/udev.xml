@@ -41,8 +41,8 @@
   </refsect1>
 
   <refsect1><title>Configuration</title>
-    <para>udev configuration files are placed in <filename>/etc/udev/</filename>
-    and <filename>/lib/udev/</filename>. All empty lines or lines beginning with
+    <para>udev configuration files are placed in <filename>/etc/udev</filename>
+    and <filename>/usr/lib/udev</filename>. All empty lines or lines beginning with
     '#' are ignored.</para>
 
     <refsect2><title>Configuration file</title>
@@ -71,9 +71,9 @@
 
     <refsect2><title>Rules files</title>
       <para>The udev rules are read from the files located in the
-      system rules directory <filename>/lib/udev/rules.d/</filename>,
-      the local administration directory <filename>/etc/udev/rules.d/</filename>
-      and the volatile runtime directory <filename>/run/udev/rules.d/</filename>.
+      system rules directory <filename>/usr/lib/udev/rules.d</filename>,
+      the local administration directory <filename>/etc/udev/rules.d</filename>
+      and the volatile runtime directory <filename>/run/udev/rules.d</filename>.
       All rules files are collectively sorted and processed in lexical order,
       regardless of the directories in which they live. However, files with
       identical file names replace each other. Files in <filename>/run</filename>
@@ -398,7 +398,7 @@
             detached from the event process itself.</para>
             <para>If no absolute path is given, the program is expected to live in
             the directory provided at compile-time to configure via --libexecdir
-            (this is usually <filename>/lib/udev</filename>), otherwise the absolute
+            (this is usually <filename>/usr/lib/udev</filename>), otherwise the absolute
             path must be specified. The program name and following arguments are
             separated by spaces. Single quotes can be used to specify arguments with
             spaces.</para>
@@ -511,7 +511,7 @@
                 <listitem>
                   <para>Apply the permissions specified in this rule to the static device node with
                   the specified name. Static device nodes might be provided by kernel modules
-                  or copied from <filename>/lib/udev/devices</filename>. These nodes might not have
+                  or copied from <filename>/usr/lib/udev/devices</filename>. These nodes might not have
                   a corresponding kernel device at the time udevd is started; they can trigger
                   automatic kernel module loading.</para>
                 </listitem>

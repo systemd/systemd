@@ -44,7 +44,7 @@ for inclusion you need to do the following steps:
 
  1. Find the keyboard device.
 
- Run /lib/udev/findkeyboards. This should always give you an "AT
+ Run /usr/lib/udev/findkeyboards. This should always give you an "AT
  keyboard" and possibly a "module". Some laptops (notably Thinkpads, Sonys, and
  Acers) have multimedia/function keys on a separate input device instead of the
  primary keyboard. The keyboard device should have a name like "input/event3".
@@ -53,7 +53,7 @@ for inclusion you need to do the following steps:
 
  2. Find broken scan codes:
 
- sudo /lib/udev/keymap -i input/eventX
+ sudo /usr/lib/udev/keymap -i input/eventX
 
  Press all multimedia/function keys and check if the key name that gets printed
  out is plausible. If it is unknown or wrong, write down the scan code (looks
@@ -67,14 +67,14 @@ for inclusion you need to do the following steps:
    0x1E www # Fn+F2 web browser
 
  Repeat that for all other keys. Write the resulting list into a file. Look at
- /lib/udev/keymaps/ for existing key map files and make sure that you use the
+ /usr/lib/udev/keymaps/ for existing key map files and make sure that you use the
  same structure.
 
  If the key only ever works once and then your keyboard (or the entire desktop)
  gets stuck for a long time, then it is likely that the BIOS fails to send a
  corresponding "key release" event after the key press event. Please note down
  this case as well, as it can be worked around in
- /lib/udev/keymaps/95-keyboard-force-release.rules .
+ /usr/lib/udev/keymaps/95-keyboard-force-release.rules .
 
  3. Find out your system vendor and product:
 
@@ -87,8 +87,8 @@ for inclusion you need to do the following steps:
  and /tmp/udev-db.txt from step 4 to the linux-hotplug@vger.kernel.org mailing
  list, so that they can be included in the next release.
 
-For local testing, copy your map file to /lib/udev/keymaps/ with an appropriate
-name, and add an appropriate udev rule to /lib/udev/rules.d/95-keymap.rules:
+For local testing, copy your map file to /usr/lib/udev/keymaps/ with an appropriate
+name, and add an appropriate udev rule to /usr/lib/udev/rules.d/95-keymap.rules:
 
   * If you selected an "AT keyboard", add the rule to the section after
   'LABEL="keyboard_vendorcheck"'.

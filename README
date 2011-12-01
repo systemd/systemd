@@ -10,10 +10,10 @@ The upstream udev project's set of default rules may require a most recent
 kernel release to work properly. This is currently version 2.6.32.
 
 Tools and rules shipped by udev are not public API and may change at any time.
-Never call any private tool in /lib/udev from any external application; it might
-just go away in the next release. Access to udev information is only offered
-by udevadm and libudev. Tools and rules in /lib/udev and the entire contents of
-the /run/udev directory are private to udev and do change whenever needed.
+Never call any private tool in /usr/lib/udev from any external application; it
+might just go away in the next release. Access to udev information is only offered
+by udevadm and libudev. Tools and rules in /usr/lib/udev and the entire contents
+of the /run/udev directory are private to udev and do change whenever needed.
 
 Requirements:
   - Version 2.6.34 of the Linux kernel with sysfs, procfs, signalfd, inotify,
@@ -72,8 +72,8 @@ Setup:
   - The udev daemon should be started to handle device events sent by the kernel.
     During bootup, the events for already existing devices can be replayed, so
     that they are configured by udev. This is usually done by:
-      /sbin/udevadm trigger --action=add --type=subsystems
-      /sbin/udevadm trigger --action=add --type=devices
+      udevadm trigger --action=add --type=subsystems
+      udevadm trigger --action=add --type=devices
 
   - Restarting the daemon never applies any rules to existing devices.
 

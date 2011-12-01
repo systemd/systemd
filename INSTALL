@@ -1,30 +1,43 @@
-Usual options for udev installed in the root filesystem are:
-  ./configure \
+The options used used usually look like:
+  %configure \
     --prefix=/usr \
     --sysconfdir=/etc \
-    --sbindir=/sbin \
+    --bindir=/usr/bin \
+    --sbindir=/usr/sbin \
     --libdir=/usr/lib64 \
-    --with-rootlibdir=/lib64 \
-    --libexecdir=/lib/udev \
+    --libexecdir=/usr/lib/udev \
+    --with-systemdsystemunitdir=/usr/lib/systemd/system \
     --with-selinux
 
-The options used in a RPM spec file usually look like:
+The options used in a RPM spec file look like:
   %configure \
     --prefix=%{_prefix} \
     --sysconfdir=%{_sysconfdir} \
-    --sbindir=/sbin \
+    --bindir=%{_bindir} \
+    --sbindir=%{_sbindir} \
     --libdir=%{_libdir} \
-    --with-rootlibdir=/%{_lib} \
-    --libexecdir=/lib/udev \
+    --libexecdir=%{_prefix}/lib/udev \
+    --with-systemdsystemunitdir=%{_prefix}/lib/systemd/system \
     --with-selinux
 
+The options to install udev in the rootfs instead of /usr,
+and udevadm in /sbin:
+    --bindir=/sbin
+    --sbindir=/sbin
+    --libexecdir=/lib/udev
+    --with-systemdsystemunitdir=/lib/systemd/system
+    --with-rootlibdir=/lib64
+
+Some tools expect udevadm in 'sbin'. A symlink to udevadm in 'bin'
+needs to be manually created if needed.
+
 The defined location for scripts and binaries which are called
-from rules is /lib/udev/ on all systems and architectures. Any
+from rules is /usr/lib/udev/ on all systems and architectures. Any
 other location will break other packages, who rightfully expect
-the /lib/udev/ directory, to install their rule helper and udev
+the /usr/lib/udev/ directory, to install their rule helper and udev
 rule files.
 
-It is possible to use the /lib/udev/devices/ directory to place
+It is possible to use the /usr/lib/udev/devices/ directory to place
 device nodes, directories and symlinks, which are copied to /dev/
 at every bootup. That way, nodes for devices which can not be
 detected automatically, or are activated on-demand by opening the

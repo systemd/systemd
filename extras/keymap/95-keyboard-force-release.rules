@@ -5,10 +5,10 @@
 # The atkbd driver has a quirk handler for generating synthetic
 # release events, which can be configured via sysfs since 2.6.32.
 # Simply add a file with a list of scancodes for your laptop model
-# in /lib/udev/keymaps, and add a rule here.
+# in /usr/lib/udev/keymaps, and add a rule here.
 # If the hotkeys also need a keymap assignment you can copy the
 # scancodes from the keymap file, otherwise you can run
-# /lib/udev/keymap -i /dev/input/eventX
+# /usr/lib/udev/keymap -i /dev/input/eventX
 # on a Linux vt to find out.
 
 ACTION=="remove", GOTO="force_release_end"

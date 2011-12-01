@@ -15,10 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-PATH='/sbin:/bin'
-#
-
-PATH='/sbin:/bin'
+PATH='/usr/bin:/bin:/usr/sbin:/sbin'
 
 # Read a single line from file $1 in the $DEVPATH directory.
 # The function must not return an error even if the file does not exist.

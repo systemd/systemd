@@ -37,7 +37,7 @@
     instructions specified in udev rules. See <citerefentry>
         <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
       </citerefentry>.</para>
-    <para>On startup the content of the directory <filename>/lib/udev/devices</filename>
+    <para>On startup the content of the directory <filename>/usr/lib/udev/devices</filename>
     is copied to <filename>/dev</filename>. If kernel modules specify static device
     nodes, these nodes are created even without a corresponding kernel device, to
     allow on-demand loading of kernel modules. Matching permissions specified in udev
