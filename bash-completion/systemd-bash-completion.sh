@@ -122,7 +122,7 @@ _systemctl () {
 
         for ((i=0; $i <= $COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG}]}; then
+                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                         verb=${COMP_WORDS[i]}
                         break
                 fi
@@ -245,7 +245,7 @@ _loginctl () {
 
         for ((i=0; $i <= $COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG}]}; then
+                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                         verb=${COMP_WORDS[i]}
                         break
                 fi
