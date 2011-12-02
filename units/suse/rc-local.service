@@ -5,6 +5,8 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
+# This unit gets pulled automatically into multi-user.target by
+# systemd-rc-local-generator if /etc/init.d/boot.local is executable.
 [Unit]
 Description=/etc/init.d/boot.local Compatibility
 ConditionFileIsExecutable=/etc/init.d/boot.local

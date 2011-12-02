@@ -529,6 +529,8 @@ dist_systemunit_DATA += \
 	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service
+systemgenerator_PROGRAMS += \
+	systemd-rc-local-generator
 endif
 
 if TARGET_MANDRIVA
@@ -536,6 +538,8 @@ dist_systemunit_DATA += \
 	units/mandriva/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service
+systemgenerator_PROGRAMS += \
+	systemd-rc-local-generator
 endif
 
 if TARGET_FRUGALWARE
@@ -547,6 +551,8 @@ if TARGET_SUSE
 dist_systemunit_DATA += \
 	units/suse/rc-local.service \
 	units/suse/halt-local.service
+systemgenerator_PROGRAMS += \
+	systemd-rc-local-generator
 endif
 
 if TARGET_MAGEIA
@@ -554,6 +560,8 @@ dist_systemunit_DATA += \
 	units/mageia/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service
+systemgenerator_PROGRAMS += \
+	systemd-rc-local-generator
 endif
 
 if HAVE_PLYMOUTH
@@ -1270,6 +1278,15 @@ systemd_getty_generator_CFLAGS = \
 systemd_getty_generator_LDADD = \
 	libsystemd-basic.la
 
+systemd_rc_local_generator_SOURCES = \
+	src/rc-local-generator.c
+
+systemd_rc_local_generator_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_rc_local_generator_LDADD = \
+	libsystemd-basic.la
+
 systemd_user_sessions_SOURCES = \
 	src/user-sessions.c \
 	src/cgroup-util.c
@@ -1963,9 +1980,6 @@ endif
 
 if TARGET_FEDORA
 	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f rc-local.service && \
-		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
 	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
 		rm -f halt-local.service && \
 		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
@@ -1980,9 +1994,6 @@ endif
 
 if TARGET_MANDRIVA
 	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f rc-local.service && \
-		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
 	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
 		rm -f halt-local.service && \
 		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
@@ -2004,9 +2015,6 @@ endif
 
 if TARGET_SUSE
 	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f rc-local.service && \
-		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
@@ -2017,9 +2025,6 @@ endif
 
 if TARGET_MAGEIA
 	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f rc-local.service && \
-		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
 	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
 		rm -f halt-local.service && \
 		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
