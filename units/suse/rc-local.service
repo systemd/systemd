@@ -9,7 +9,6 @@
 # systemd-rc-local-generator if /etc/init.d/boot.local is executable.
 [Unit]
 Description=/etc/init.d/boot.local Compatibility
-ConditionFileIsExecutable=/etc/init.d/boot.local
 
 [Service]
 Type=oneshot

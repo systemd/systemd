@@ -9,7 +9,6 @@
 # systemd-rc-local-generator if /etc/rc.d/rc.local is executable.
 [Unit]
 Description=/etc/rc.d/rc.local Compatibility
-ConditionFileIsExecutable=/etc/rc.d/rc.local
 
 [Service]
 Type=forking
