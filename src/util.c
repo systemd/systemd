@@ -516,7 +516,7 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
                 return -errno;
 
         if (!(fgets(line, sizeof(line), f))) {
-                r = -errno;
+                r = feof(f) ? -EIO : -errno;
                 fclose(f);
                 return r;
         }
@@ -561,7 +561,7 @@ int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
                 return -errno;
 
         if (!(fgets(line, sizeof(line), f))) {
-                r = -errno;
+                r = feof(f) ? -EIO : -errno;
                 fclose(f);
                 return r;
         }
@@ -708,7 +708,7 @@ int read_one_line_file(const char *fn, char **line) {
                 return -errno;
 
         if (!(fgets(t, sizeof(t), f))) {
-                r = -errno;
+                r = feof(f) ? -EIO : -errno;
                 goto finish;
         }
 
@@ -3266,7 +3266,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
                 return -errno;
 
         if (!fgets(line, sizeof(line), f)) {
-                k = -errno;
+                k = feof(f) ? -EIO : -errno;
                 fclose(f);
                 return k;
         }
