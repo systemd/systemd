@@ -13,6 +13,9 @@ After=dev-%i.device systemd-user-sessions.service plymouth-quit-wait.service
 m4_ifdef(`TARGET_FEDORA',
 After=rc-local.service
 )m4_dnl
+m4_ifdef(`TARGET_DEBIAN',
+After=rc.local.service
+)m4_dnl
 m4_ifdef(`TARGET_ARCH',
 After=rc-local.service
 )m4_dnl
