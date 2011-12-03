@@ -60,6 +60,14 @@ typedef struct PathSpec {
 
 } PathSpec;
 
+int  pathspec_watch(PathSpec *s, Unit *u);
+void pathspec_unwatch(PathSpec *s, Unit *u);
+int  pathspec_fd_event(PathSpec *s, uint32_t events);
+void pathspec_done(PathSpec *s);
+static inline bool pathspec_owns_inotify_fd(PathSpec *s, int fd) {
+        return s->inotify_fd == fd;
+}
+
 struct Path {
         Meta meta;
 
