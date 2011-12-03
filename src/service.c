@@ -2870,20 +2870,22 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_START_POST:
-                                if (success) {
-                                        if (s->pid_file) {
-                                                int r = service_load_pid_file(s, true);
-                                                if (r < 0) {
-                                                        r = service_demand_pid_file(s);
-                                                        if (r < 0 || !cgroup_good(s))
-                                                                service_enter_stop(s, false);
-                                                        break;
-                                                }
-                                        } else
-                                                service_search_main_pid(s);
+                                if (!success) {
+                                        service_enter_stop(s, false);
+                                        break;
                                 }
 
-                                s->reload_failure = !success;
+                                if (s->pid_file) {
+                                        int r = service_load_pid_file(s, true);
+                                        if (r < 0) {
+                                                r = service_demand_pid_file(s);
+                                                if (r < 0 || !cgroup_good(s))
+                                                        service_enter_stop(s, false);
+                                                break;
+                                        }
+                                } else
+                                        service_search_main_pid(s);
+
                                 service_enter_running(s, true);
                                 break;
 
