@@ -556,7 +556,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         }
 
         if (ioctl(fd, FIONREAD, &l) < 0) {
-                log_error("FIONREAD failed: %s", strerror(errno));
+                log_error("FIONREAD failed: %m");
                 goto fail;
         }
 
@@ -568,7 +568,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         }
 
         if ((k = read(fd, buf, l)) < 0) {
-                log_error("Failed to read inotify event: %s", strerror(-errno));
+                log_error("Failed to read inotify event: %m");
                 goto fail;
         }
 
