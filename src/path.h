@@ -41,6 +41,7 @@ typedef enum PathType {
         PATH_EXISTS_GLOB,
         PATH_DIRECTORY_NOT_EMPTY,
         PATH_CHANGED,
+        PATH_MODIFIED,
         _PATH_TYPE_MAX,
         _PATH_TYPE_INVALID = -1
 } PathType;

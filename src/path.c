@@ -44,6 +44,7 @@ int pathspec_watch(PathSpec *s, Unit *u) {
                 [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_EXISTS_GLOB] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_CHANGED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
+                [PATH_MODIFIED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_MODIFY,
                 [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO
         };
 
@@ -713,6 +714,7 @@ static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS] = "PathExists",
         [PATH_EXISTS_GLOB] = "PathExistsGlob",
         [PATH_CHANGED] = "PathChanged",
+        [PATH_MODIFIED] = "PathModified",
         [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty"
 };
 

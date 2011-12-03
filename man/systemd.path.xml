@@ -113,6 +113,7 @@
                                 <term><varname>PathExists=</varname></term>
                                 <term><varname>PathExistsGlob=</varname></term>
                                 <term><varname>PathChanged=</varname></term>
+                                <term><varname>PathModified=</varname></term>
                                 <term><varname>DirectoryNotEmpty=</varname></term>
 
                                 <listitem><para>Defines paths to
@@ -129,8 +130,14 @@
                                 specified. <varname>PathChanged=</varname>
                                 may be used to watch a file or
                                 directory and activate the configured
-                                unit whenever it changes or is
-                                modified. <varname>DirectoryNotEmpty=</varname>
+                                unit whenever it changes. It is not activated
+                                on every write to the watched file but it is
+                                activated if the file which was open for writing
+                                gets closed. <varname>PathModified=</varname>
+                                is similar, but additionally it is activated
+                                also on simple writes to the watched file.
+
+                                <varname>DirectoryNotEmpty=</varname>
                                 may be used to watch a directory and
                                 activate the configured unit whenever
                                 it contains at least one file.</para>
@@ -154,11 +161,7 @@
                                 activated, then the configured unit is
                                 immediately activated as
                                 well. Something similar does not apply
-                                to
-                                <varname>PathChanged=</varname>. The
-                                latter is not activated on simple
-                                writes but only if files with were
-                                opened for writing are closed.
+                                to <varname>PathChanged=</varname>.
                                 </para></listitem>
                         </varlistentry>
                         <varlistentry>
