@@ -86,6 +86,8 @@ typedef enum NotifyAccess {
         _NOTIFY_ACCESS_INVALID = -1
 } NotifyAccess;
 
+typedef struct PathSpec PathSpec;
+
 struct Service {
         Meta meta;
 
@@ -157,6 +159,7 @@ struct Service {
         Set *configured_sockets;
 
         Watch timer_watch;
+        PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;
 };

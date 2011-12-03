@@ -1302,8 +1302,8 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         if ((r = read_one_line_file(s->pid_file, &k)) < 0) {
                 if (may_warn)
-                        log_warning("Failed to read PID file %s after %s. The service might be broken.",
-                                    s->pid_file, service_state_to_string(s->state));
+                        log_info("PID file %s not readable (yet?) after %s.",
+                                 s->pid_file, service_state_to_string(s->state));
                 return r;
         }
 
@@ -1315,8 +1315,8 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         if (kill(pid, 0) < 0 && errno != EPERM) {
                 if (may_warn)
-                        log_warning("PID %lu read from file %s does not exist. Your service or init script might be broken.",
-                                    (unsigned long) pid, s->pid_file);
+                        log_info("PID %lu read from file %s does not exist.",
+                                 (unsigned long) pid, s->pid_file);
                 return -ESRCH;
         }
 
@@ -1328,7 +1328,8 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                           (unsigned long) s->main_pid, (unsigned long) pid);
                 service_unwatch_main_pid(s);
                 s->main_pid_known = false;
-        }
+        } else
+                log_debug("Main PID loaded: %lu", (unsigned long) pid);
 
         if ((r = service_set_main_pid(s, pid)) < 0)
                 return r;
@@ -1359,6 +1360,7 @@ static int service_search_main_pid(Service *s) {
         if ((pid = cgroup_bonding_search_main_pid_list(s->meta.cgroup_bondings)) <= 0)
                 return -ENOENT;
 
+        log_debug("Main PID guessed: %lu", (unsigned long) pid);
         if ((r = service_set_main_pid(s, pid)) < 0)
                 return r;
 
@@ -1451,12 +1453,25 @@ static int service_notify_sockets_dead(Service *s) {
         return 0;
 }
 
+static void service_unwatch_pid_file(Service *s) {
+        if (!s->pid_file_pathspec)
+                return;
+
+        log_debug("Stopping watch for %s's PID file %s", s->meta.id, s->pid_file_pathspec->path);
+        pathspec_unwatch(s->pid_file_pathspec, UNIT(s));
+        pathspec_done(s->pid_file_pathspec);
+        free(s->pid_file_pathspec);
+        s->pid_file_pathspec = NULL;
+}
+
 static void service_set_state(Service *s, ServiceState state) {
         ServiceState old_state;
         assert(s);
 
         old_state = s->state;
         s->state = state;
+
+        service_unwatch_pid_file(s);
 
         if (state != SERVICE_START_PRE &&
             state != SERVICE_START &&
@@ -2602,6 +2617,95 @@ static bool service_check_snapshot(Unit *u) {
         return !s->got_socket_fd;
 }
 
+static int service_retry_pid_file(Service *s) {
+        int r;
+
+        assert(s->pid_file);
+        assert(s->state == SERVICE_START || s->state == SERVICE_START_POST);
+
+        r = service_load_pid_file(s, false);
+        if (r < 0)
+                return r;
+
+        service_unwatch_pid_file(s);
+
+        service_enter_running(s, true);
+        return 0;
+}
+
+static int service_watch_pid_file(Service *s) {
+        int r;
+
+        log_debug("Setting watch for %s's PID file %s", s->meta.id, s->pid_file_pathspec->path);
+        r = pathspec_watch(s->pid_file_pathspec, UNIT(s));
+        if (r < 0)
+                goto fail;
+
+        /* the pidfile might have appeared just before we set the watch */
+        service_retry_pid_file(s);
+
+        return 0;
+fail:
+        log_error("Failed to set a watch for %s's PID file %s: %s",
+                  s->meta.id, s->pid_file_pathspec->path, strerror(-r));
+        service_unwatch_pid_file(s);
+        return r;
+}
+
+static int service_demand_pid_file(Service *s) {
+        PathSpec *ps;
+
+        assert(s->pid_file);
+        assert(!s->pid_file_pathspec);
+
+        ps = new0(PathSpec, 1);
+        if (!ps)
+                return -ENOMEM;
+
+        ps->path = strdup(s->pid_file);
+        if (!ps->path) {
+                free(ps);
+                return -ENOMEM;
+        }
+
+        path_kill_slashes(ps->path);
+
+        /* PATH_CHANGED would not be enough. There are daemons (sendmail) that
+         * keep their PID file open all the time. */
+        ps->type = PATH_MODIFIED;
+        ps->inotify_fd = -1;
+
+        s->pid_file_pathspec = ps;
+
+        return service_watch_pid_file(s);
+}
+
+static void service_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+        assert(fd >= 0);
+        assert(s->state == SERVICE_START || s->state == SERVICE_START_POST);
+        assert(s->pid_file_pathspec);
+        assert(pathspec_owns_inotify_fd(s->pid_file_pathspec, fd));
+
+        log_debug("inotify event for %s", u->meta.id);
+
+        if (pathspec_fd_event(s->pid_file_pathspec, events) < 0)
+                goto fail;
+
+        if (service_retry_pid_file(s) == 0)
+                return;
+
+        if (service_watch_pid_file(s) < 0)
+                goto fail;
+
+        return;
+fail:
+        service_unwatch_pid_file(s);
+        service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
+}
+
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Service *s = SERVICE(u);
         bool success;
@@ -2707,7 +2811,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 success = true;
                 }
 
-               log_full(success ? LOG_DEBUG : LOG_NOTICE,
+                log_full(success ? LOG_DEBUG : LOG_NOTICE,
                          "%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
@@ -2742,27 +2846,41 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         case SERVICE_START:
                                 assert(s->type == SERVICE_FORKING);
 
-                                /* Let's try to load the pid
-                                 * file here if we can. We
-                                 * ignore the return value,
-                                 * since the PID file might
-                                 * actually be created by a
-                                 * START_POST script */
+                                if (!success) {
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                        break;
+                                }
 
-                                if (success) {
-                                        service_load_pid_file(s, !s->exec_command[SERVICE_EXEC_START_POST]);
+                                if (s->pid_file) {
+                                        /* Let's try to load the pid file here if we can.
+                                         * The PID file might actually be created by a START_POST
+                                         * script. In that case don't worry if the loading fails. */
+                                        bool has_start_post = !!s->exec_command[SERVICE_EXEC_START_POST];
+                                        int r = service_load_pid_file(s, !has_start_post);
+                                        if (!has_start_post && r < 0) {
+                                                r = service_demand_pid_file(s);
+                                                if (r < 0 || !cgroup_good(s))
+                                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                                break;
+                                        }
+                                } else
                                         service_search_main_pid(s);
 
-                                        service_enter_start_post(s);
-                                } else
-                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
-
+                                service_enter_start_post(s);
                                 break;
 
                         case SERVICE_START_POST:
                                 if (success) {
-                                        service_load_pid_file(s, true);
-                                        service_search_main_pid(s);
+                                        if (s->pid_file) {
+                                                int r = service_load_pid_file(s, true);
+                                                if (r < 0) {
+                                                        r = service_demand_pid_file(s);
+                                                        if (r < 0 || !cgroup_good(s))
+                                                                service_enter_stop(s, false);
+                                                        break;
+                                                }
+                                        } else
+                                                service_search_main_pid(s);
                                 }
 
                                 s->reload_failure = !success;
@@ -2906,6 +3024,20 @@ static void service_cgroup_notify_event(Unit *u) {
                  * why we ignore the cgroup events for most cases,
                  * except when we don't know pid which to expect the
                  * SIGCHLD for. */
+
+        case SERVICE_START:
+        case SERVICE_START_POST:
+                /* If we were hoping for the daemon to write its PID file,
+                 * we can give up now. */
+                if (s->pid_file_pathspec) {
+                        log_warning("%s never wrote its PID file. Failing.", s->meta.id);
+                        service_unwatch_pid_file(s);
+                        if (s->state == SERVICE_START)
+                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                        else
+                                service_enter_stop(s, false);
+                }
+                break;
 
         case SERVICE_RUNNING:
                 service_enter_running(s, true);
@@ -3216,7 +3348,7 @@ static int service_enumerate(Manager *m) {
         r = 0;
 
 #ifdef TARGET_SUSE
-	sysv_facility_in_insserv_conf (m);
+        sysv_facility_in_insserv_conf (m);
 #endif
 
 finish:
@@ -3511,6 +3643,7 @@ const UnitVTable service_vtable = {
 
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,
+        .fd_event = service_fd_event,
 
         .reset_failed = service_reset_failed,
 
