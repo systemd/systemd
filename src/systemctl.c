@@ -377,8 +377,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 n_shown++;
 
-                if (!streq(u->load_state, "loaded") &&
-                    !streq(u->load_state, "banned")) {
+                if (streq(u->load_state, "error")) {
                         on_loaded = ansi_highlight(true);
                         off_loaded = ansi_highlight(false);
                 } else
@@ -2063,8 +2062,7 @@ static void print_status_info(UnitStatusInfo *i) {
         if (i->following)
                 printf("\t  Follow: unit currently follows state of %s\n", i->following);
 
-        if (streq_ptr(i->load_state, "failed") ||
-            streq_ptr(i->load_state, "banned")) {
+        if (streq_ptr(i->load_state, "error")) {
                 on = ansi_highlight(true);
                 off = ansi_highlight(false);
         } else
