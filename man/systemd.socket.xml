@@ -156,7 +156,7 @@
                                 family.</para>
 
                                 <para>If the address starts with an
-                                ampersand (@) it is read as abstract
+                                at symbol (@) it is read as abstract
                                 namespace socket in the AF_UNIX
                                 family. The @ is replaced with a NUL
                                 character before binding. For details
