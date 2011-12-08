@@ -149,7 +149,8 @@ int pathspec_fd_event(PathSpec *s, uint32_t events) {
         while (k > 0) {
                 size_t step;
 
-                if (s->type == PATH_CHANGED && s->primary_wd == e->wd)
+                if ((s->type == PATH_CHANGED || s->type == PATH_MODIFIED) &&
+                    s->primary_wd == e->wd)
                         r = 1;
 
                 step = sizeof(struct inotify_event) + e->len;
@@ -184,7 +185,8 @@ static bool pathspec_check_good(PathSpec *s, bool initial) {
                 break;
         }
 
-        case PATH_CHANGED: {
+        case PATH_CHANGED:
+        case PATH_MODIFIED: {
                 bool b;
 
                 b = access(s->path, F_OK) >= 0;
