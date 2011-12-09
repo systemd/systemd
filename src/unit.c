@@ -1032,19 +1032,19 @@ static void unit_check_unneeded(Unit *u) {
                 return;
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
-                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                if (unit_pending_active(other))
                         return;
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
-                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                if (unit_pending_active(other))
                         return;
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_WANTED_BY], i)
-                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                if (unit_pending_active(other))
                         return;
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_BOUND_BY], i)
-                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                if (unit_pending_active(other))
                         return;
 
         log_info("Service %s is not needed anymore. Stopping.", u->meta.id);
@@ -2518,7 +2518,7 @@ bool unit_pending_inactive(Unit *u) {
 bool unit_pending_active(Unit *u) {
         assert(u);
 
-        /* Returns true if the unit is inactive or going down */
+        /* Returns true if the unit is active or going up */
 
         if (UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)))
                 return true;
