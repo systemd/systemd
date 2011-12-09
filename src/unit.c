@@ -1105,6 +1105,14 @@ static void retroactively_stop_dependencies(Unit *u) {
         SET_FOREACH(other, u->meta.dependencies[UNIT_BOUND_BY], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
+}
+
+static void check_unneeded_dependencies(Unit *u) {
+        Iterator i;
+        Unit *other;
+
+        assert(u);
+        assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
         /* Garbage collect services that might not be needed anymore, if enabled */
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
@@ -1262,6 +1270,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
                                 retroactively_stop_dependencies(u);
                 }
+
+                /* stop unneeded units regardless if going down was expected or not */
+                if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
+                        check_unneeded_dependencies(u);
 
                 if (ns != os && ns == UNIT_FAILED) {
                         log_notice("Unit %s entered failed state.", u->meta.id);
