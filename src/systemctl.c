@@ -4998,7 +4998,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
          * enable/disable */
         if (!streq(verbs[i].verb, "enable") &&
             !streq(verbs[i].verb, "disable") &&
-            !streq(verbs[i].verb, "is-enable") &&
+            !streq(verbs[i].verb, "is-enabled") &&
             !streq(verbs[i].verb, "list-unit-files") &&
             !streq(verbs[i].verb, "reenable") &&
             !streq(verbs[i].verb, "preset") &&
