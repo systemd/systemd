@@ -175,7 +175,7 @@ d    /run/user 0755 root root 10d</programlisting>
                         creating this file or directory. If omitted or
                         when set to - the default is used: 0755 for
                         directories, 0644 for files. This parameter is
-                        ignored for x, r, R lines.</para>
+                        ignored for x, r, R, Z lines.</para>
                 </refsect2>
 
                 <refsect2>
@@ -186,7 +186,7 @@ d    /run/user 0755 root root 10d</programlisting>
                         user/group ID or a user or group name. If
                         omitted or when set to - the default 0 (root)
                         is used. . These parameters are ignored for x,
-                        r, R lines.</para>
+                        r, R, Z lines.</para>
                 </refsect2>
 
                 <refsect2>
