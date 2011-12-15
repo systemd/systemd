@@ -405,8 +405,27 @@ finish:
         return r;
 }
 
+static int item_set_perms(Item *i) {
+        if (i->mode_set)
+                if (chmod(i->path, i->mode) < 0) {
+                        log_error("chmod(%s) failed: %m", i->path);
+                        return -errno;
+                }
+
+        if (i->uid_set || i->gid_set)
+                if (chown(i->path,
+                          i->uid_set ? i->uid : (uid_t) -1,
+                          i->gid_set ? i->gid : (gid_t) -1) < 0) {
+
+                        log_error("chown(%s) failed: %m", i->path);
+                        return -errno;
+                }
+
+        return label_fix(i->path, false);
+}
+
 static int create_item(Item *i) {
-        int fd = -1, r;
+        int r;
         mode_t u;
         struct stat st;
 
@@ -420,7 +439,8 @@ static int create_item(Item *i) {
                 return 0;
 
         case CREATE_FILE:
-        case TRUNCATE_FILE:
+        case TRUNCATE_FILE: {
+                int fd;
 
                 u = umask(0);
                 fd = open(i->path, O_CREAT|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW|
@@ -429,39 +449,27 @@ static int create_item(Item *i) {
 
                 if (fd < 0) {
                         log_error("Failed to create file %s: %m", i->path);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
-                if (fstat(fd, &st) < 0) {
+                close_nointr_nofail(fd);
+
+                if (stat(i->path, &st) < 0) {
                         log_error("stat(%s) failed: %m", i->path);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 if (!S_ISREG(st.st_mode)) {
                         log_error("%s is not a file.", i->path);
-                        r = -EEXIST;
-                        goto finish;
+                        return -EEXIST;
                 }
 
-                if (i->mode_set)
-                        if (fchmod(fd, i->mode) < 0) {
-                                log_error("chmod(%s) failed: %m", i->path);
-                                r = -errno;
-                                goto finish;
-                        }
-
-                if (i->uid_set || i->gid_set)
-                        if (fchown(fd,
-                                   i->uid_set ? i->uid : (uid_t) -1,
-                                   i->gid_set ? i->gid : (gid_t) -1) < 0) {
-                                log_error("chown(%s) failed: %m", i->path);
-                                r = -errno;
-                                goto finish;
-                        }
+                r = item_set_perms(i);
+                if (r < 0)
+                        return r;
 
                 break;
+        }
 
         case TRUNCATE_DIRECTORY:
         case CREATE_DIRECTORY:
@@ -473,38 +481,22 @@ static int create_item(Item *i) {
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("Failed to create directory %s: %m", i->path);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 if (stat(i->path, &st) < 0) {
                         log_error("stat(%s) failed: %m", i->path);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 if (!S_ISDIR(st.st_mode)) {
                         log_error("%s is not a directory.", i->path);
-                        r = -EEXIST;
-                        goto finish;
+                        return -EEXIST;
                 }
 
-                if (i->mode_set)
-                        if (chmod(i->path, i->mode) < 0) {
-                                log_error("chmod(%s) failed: %m", i->path);
-                                r = -errno;
-                                goto finish;
-                        }
-
-                if (i->uid_set || i->gid_set)
-                        if (chown(i->path,
-                                  i->uid_set ? i->uid : (uid_t) -1,
-                                  i->gid_set ? i->gid : (gid_t) -1) < 0) {
-
-                                log_error("chown(%s) failed: %m", i->path);
-                                r = -errno;
-                                goto finish;
-                        }
+                r = item_set_perms(i);
+                if (r < 0)
+                        return r;
 
                 break;
 
@@ -516,51 +508,29 @@ static int create_item(Item *i) {
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("Failed to create fifo %s: %m", i->path);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 if (stat(i->path, &st) < 0) {
                         log_error("stat(%s) failed: %m", i->path);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 if (!S_ISFIFO(st.st_mode)) {
                         log_error("%s is not a fifo.", i->path);
-                        r = -EEXIST;
-                        goto finish;
+                        return -EEXIST;
                 }
 
-                if (i->mode_set)
-                        if (chmod(i->path, i->mode) < 0) {
-                                log_error("chmod(%s) failed: %m", i->path);
-                                r = -errno;
-                                goto finish;
-                        }
-
-                if (i->uid_set || i->gid_set)
-                        if (chown(i->path,
-                                   i->uid_set ? i->uid : (uid_t) -1,
-                                   i->gid_set ? i->gid : (gid_t) -1) < 0) {
-                                log_error("chown(%s) failed: %m", i->path);
-                                r = -errno;
-                                goto finish;
-                        }
+                r = item_set_perms(i);
+                if (r < 0)
+                        return r;
 
                 break;
         }
 
-        if ((r = label_fix(i->path, false)) < 0)
-                goto finish;
-
         log_debug("%s created successfully.", i->path);
 
-finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        return r;
+        return 0;
 }
 
 static int remove_item_instance(Item *i, const char *instance) {
