@@ -50,7 +50,7 @@
  * properly owned directories beneath /tmp, /var/tmp, /run, which are
  * volatile and hence need to be recreated on bootup. */
 
-enum {
+typedef enum ItemType {
         /* These ones take file names */
         CREATE_FILE = 'f',
         TRUNCATE_FILE = 'F',
@@ -62,10 +62,10 @@ enum {
         IGNORE_PATH = 'x',
         REMOVE_PATH = 'r',
         RECURSIVE_REMOVE_PATH = 'R'
-};
+} ItemType;
 
 typedef struct Item {
-        char type;
+        ItemType type;
 
         char *path;
         uid_t uid;
@@ -90,7 +90,7 @@ static const char *arg_prefix = NULL;
 
 #define MAX_DEPTH 256
 
-static bool needs_glob(int t) {
+static bool needs_glob(ItemType t) {
         return t == IGNORE_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH;
 }
 
@@ -701,6 +701,7 @@ static bool item_equal(Item *a, Item *b) {
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
         Item *i, *existing;
         char *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
+        char type;
         Hashmap *h;
         int r;
 
@@ -720,7 +721,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                    "%ms "
                    "%ms "
                    "%ms",
-                   &i->type,
+                   &type,
                    &i->path,
                    &mode,
                    &user,
@@ -730,6 +731,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 r = -EIO;
                 goto finish;
         }
+        i->type = type;
 
         if (i->type != CREATE_FILE &&
             i->type != TRUNCATE_FILE &&
