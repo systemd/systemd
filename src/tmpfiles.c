@@ -405,6 +405,33 @@ finish:
         return r;
 }
 
+static int glob_item(Item *i, int (*action)(Item *, const char *)) {
+        int r = 0, k;
+        glob_t g;
+        char **fn;
+
+        zero(g);
+
+        errno = 0;
+        if ((k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g)) != 0) {
+
+                if (k != GLOB_NOMATCH) {
+                        if (errno != 0)
+                                errno = EIO;
+
+                        log_error("glob(%s) failed: %m", i->path);
+                        return -errno;
+                }
+        }
+
+        STRV_FOREACH(fn, g.gl_pathv)
+                if ((k = action(i, *fn)) < 0)
+                        r = k;
+
+        globfree(&g);
+        return r;
+}
+
 static int item_set_perms(Item *i) {
         if (i->mode_set)
                 if (chmod(i->path, i->mode) < 0) {
@@ -570,6 +597,8 @@ static int remove_item_instance(Item *i, const char *instance) {
 }
 
 static int remove_item(Item *i) {
+        int r = 0;
+
         assert(i);
 
         switch (i->type) {
@@ -583,35 +612,12 @@ static int remove_item(Item *i) {
 
         case REMOVE_PATH:
         case TRUNCATE_DIRECTORY:
-        case RECURSIVE_REMOVE_PATH: {
-                int r = 0, k;
-                glob_t g;
-                char **fn;
-
-                zero(g);
-
-                errno = 0;
-                if ((k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g)) != 0) {
-
-                        if (k != GLOB_NOMATCH) {
-                                if (errno != 0)
-                                        errno = EIO;
-
-                                log_error("glob(%s) failed: %m", i->path);
-                                return -errno;
-                        }
-                }
-
-                STRV_FOREACH(fn, g.gl_pathv)
-                        if ((k = remove_item_instance(i, *fn)) < 0)
-                                r = k;
-
-                globfree(&g);
-                return r;
-        }
+        case RECURSIVE_REMOVE_PATH:
+                r = glob_item(i, remove_item_instance);
+                break;
         }
 
-        return 0;
+        return r;
 }
 
 static int process_item(Item *i) {
