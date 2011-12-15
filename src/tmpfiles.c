@@ -563,7 +563,7 @@ finish:
         return r;
 }
 
-static int remove_item(Item *i, const char *instance) {
+static int remove_item_instance(Item *i, const char *instance) {
         int r;
 
         assert(i);
@@ -599,7 +599,7 @@ static int remove_item(Item *i, const char *instance) {
         return 0;
 }
 
-static int remove_item_glob(Item *i) {
+static int remove_item(Item *i) {
         assert(i);
 
         switch (i->type) {
@@ -633,7 +633,7 @@ static int remove_item_glob(Item *i) {
                 }
 
                 STRV_FOREACH(fn, g.gl_pathv)
-                        if ((k = remove_item(i, *fn)) < 0)
+                        if ((k = remove_item_instance(i, *fn)) < 0)
                                 r = k;
 
                 globfree(&g);
@@ -650,7 +650,7 @@ static int process_item(Item *i) {
         assert(i);
 
         r = arg_create ? create_item(i) : 0;
-        q = arg_remove ? remove_item_glob(i) : 0;
+        q = arg_remove ? remove_item(i) : 0;
         p = arg_clean ? clean_item(i) : 0;
 
         if (r < 0)
