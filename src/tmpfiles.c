@@ -61,7 +61,8 @@ typedef enum ItemType {
         /* These ones take globs */
         IGNORE_PATH = 'x',
         REMOVE_PATH = 'r',
-        RECURSIVE_REMOVE_PATH = 'R'
+        RECURSIVE_REMOVE_PATH = 'R',
+        RECURSIVE_RELABEL_PATH = 'Z'
 } ItemType;
 
 typedef struct Item {
@@ -91,7 +92,7 @@ static const char *arg_prefix = NULL;
 #define MAX_DEPTH 256
 
 static bool needs_glob(ItemType t) {
-        return t == IGNORE_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH;
+        return t == IGNORE_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH || t == RECURSIVE_RELABEL_PATH;
 }
 
 static struct Item* find_glob(Hashmap *h, const char *match) {
@@ -405,6 +406,96 @@ finish:
         return r;
 }
 
+static int recursive_relabel_children(const char *path) {
+        DIR *d;
+        int ret = 0;
+
+        /* This returns the first error we run into, but nevertheless
+         * tries to go on */
+
+        d = opendir(path);
+        if (!d)
+                return errno == ENOENT ? 0 : -errno;
+
+        for (;;) {
+                struct dirent buf, *de;
+                bool is_dir;
+                int r;
+                char *entry_path;
+
+                r = readdir_r(d, &buf, &de);
+                if (r != 0) {
+                        if (ret == 0)
+                                ret = -r;
+                        break;
+                }
+
+                if (!de)
+                        break;
+
+                if (streq(de->d_name, ".") || streq(de->d_name, ".."))
+                        continue;
+
+                if (asprintf(&entry_path, "%s/%s", path, de->d_name) < 0) {
+                        if (ret == 0)
+                                ret = -ENOMEM;
+                        continue;
+                }
+
+                if (de->d_type == DT_UNKNOWN) {
+                        struct stat st;
+
+                        if (lstat(entry_path, &st) < 0) {
+                                if (ret == 0 && errno != ENOENT)
+                                        ret = -errno;
+                                free(entry_path);
+                                continue;
+                        }
+
+                        is_dir = S_ISDIR(st.st_mode);
+
+                } else
+                        is_dir = de->d_type == DT_DIR;
+
+                r = label_fix(entry_path, false);
+                if (r < 0) {
+                        if (ret == 0 && r != -ENOENT)
+                                ret = r;
+                        free(entry_path);
+                        continue;
+                }
+
+                if (is_dir) {
+                        r = recursive_relabel_children(entry_path);
+                        if (r < 0 && ret == 0)
+                                ret = r;
+                }
+
+                free(entry_path);
+        }
+
+        closedir(d);
+
+        return ret;
+}
+
+static int recursive_relabel(Item *i, const char *path) {
+        int r;
+        struct stat st;
+
+        r = label_fix(path, false);
+        if (r < 0)
+                return r;
+
+        if (lstat(path, &st) < 0)
+                return -errno;
+
+        if (S_ISDIR(st.st_mode))
+                r = recursive_relabel_children(path);
+
+        return r;
+}
+
 static int glob_item(Item *i, int (*action)(Item *, const char *)) {
         int r = 0, k;
         glob_t g;
@@ -553,6 +644,12 @@ static int create_item(Item *i) {
                         return r;
 
                 break;
+
+        case RECURSIVE_RELABEL_PATH:
+
+                r = glob_item(i, recursive_relabel);
+                if (r < 0)
+                        return r;
         }
 
         log_debug("%s created successfully.", i->path);
@@ -572,6 +669,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case CREATE_DIRECTORY:
         case CREATE_FIFO:
         case IGNORE_PATH:
+        case RECURSIVE_RELABEL_PATH:
                 break;
 
         case REMOVE_PATH:
@@ -608,6 +706,7 @@ static int remove_item(Item *i) {
         case CREATE_DIRECTORY:
         case CREATE_FIFO:
         case IGNORE_PATH:
+        case RECURSIVE_RELABEL_PATH:
                 break;
 
         case REMOVE_PATH:
@@ -707,20 +806,21 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 r = -EIO;
                 goto finish;
         }
-        i->type = type;
 
-        if (i->type != CREATE_FILE &&
-            i->type != TRUNCATE_FILE &&
-            i->type != CREATE_DIRECTORY &&
-            i->type != TRUNCATE_DIRECTORY &&
-            i->type != CREATE_FIFO &&
-            i->type != IGNORE_PATH &&
-            i->type != REMOVE_PATH &&
-            i->type != RECURSIVE_REMOVE_PATH) {
-                log_error("[%s:%u] Unknown file type '%c'.", fname, line, i->type);
+        if (type != CREATE_FILE &&
+            type != TRUNCATE_FILE &&
+            type != CREATE_DIRECTORY &&
+            type != TRUNCATE_DIRECTORY &&
+            type != CREATE_FIFO &&
+            type != IGNORE_PATH &&
+            type != REMOVE_PATH &&
+            type != RECURSIVE_REMOVE_PATH &&
+            type != RECURSIVE_RELABEL_PATH) {
+                log_error("[%s:%u] Unknown file type '%c'.", fname, line, type);
                 r = -EBADMSG;
                 goto finish;
         }
+        i->type = type;
 
         if (!path_is_absolute(i->path)) {
                 log_error("[%s:%u] Path '%s' not absolute.", fname, line, i->path);
