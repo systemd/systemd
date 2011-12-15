@@ -155,6 +155,16 @@ d    /run/user 0755 root root 10d</programlisting>
                                         place of normal path
                                         names.</para></listitem>
                                 </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>Z</varname></term>
+                                        <listitem><para>Recursively
+                                        relabel security context of a path and
+                                        all its subdirectories (if it is a
+                                        directory). Lines of this type accept
+                                        shell-style globs in place of normal
+                                        path names.</para></listitem>
+                                </varlistentry>
                         </variablelist>
                 </refsect2>
 

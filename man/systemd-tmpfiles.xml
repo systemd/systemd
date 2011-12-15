@@ -84,7 +84,8 @@
                                 <listitem><para>If this option is passed all
                                 files and directories marked with f,
                                 F, d, D in the configuration files are
-                                created.</para></listitem>
+                                created. Files and directories marked with Z
+                                are relabeled.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
