@@ -24,6 +24,8 @@
 
 #include <inttypes.h>
 #include <sys/types.h>
+#include <stdarg.h>
+#include <sys/uio.h>
 
 #include "sd-id128.h"
 
@@ -42,6 +44,16 @@
  *   - fix space reservation logic
  *   - comm, argv can be manipulated, should it be _COMM=, _CMDLINE= or COMM=, CMDLINE=?
  */
+
+/* Write to daemon */
+
+int sd_journal_print(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
+int sd_journal_printv(const char *format, va_list ap);
+
+int sd_journal_send(const char *format, ...) __attribute__((sentinel));
+int sd_journal_sendv(const struct iovec *iov, int n);
+
+/* Browse journal stream */
 
 typedef struct sd_journal sd_journal;
 

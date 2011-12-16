@@ -983,6 +983,7 @@ test_journal_SOURCES = \
 	src/journal/sd-journal.c \
         src/journal/journal-file.c \
         src/journal/lookup3.c \
+        src/journal/journal-send.c \
         src/sd-id128.c
 
 test_journal_CFLAGS = \

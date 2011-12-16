@@ -21,6 +21,10 @@ Bugfixes:
 
 Features:
 
+* logind: allow showing logout dialog from system
+
+* document that %% can be used to write % in a string that is specifier extended
+
 * check utf8 everywhere
 
 * when an instanced service exits, remove its parent cgroup too if possible.
