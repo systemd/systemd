@@ -406,7 +406,27 @@ finish:
         return r;
 }
 
-static int recursive_relabel_children(const char *path) {
+static int item_set_perms(Item *i, const char *path) {
+        /* not using i->path directly because it may be a glob */
+        if (i->mode_set)
+                if (chmod(path, i->mode) < 0) {
+                        log_error("chmod(%s) failed: %m", path);
+                        return -errno;
+                }
+
+        if (i->uid_set || i->gid_set)
+                if (chown(path,
+                          i->uid_set ? i->uid : (uid_t) -1,
+                          i->gid_set ? i->gid : (gid_t) -1) < 0) {
+
+                        log_error("chown(%s) failed: %m", path);
+                        return -errno;
+                }
+
+        return label_fix(path, false);
+}
+
+static int recursive_relabel_children(Item *i, const char *path) {
         DIR *d;
         int ret = 0;
 
@@ -457,7 +477,7 @@ static int recursive_relabel_children(const char *path) {
                 } else
                         is_dir = de->d_type == DT_DIR;
 
-                r = label_fix(entry_path, false);
+                r = item_set_perms(i, entry_path);
                 if (r < 0) {
                         if (ret == 0 && r != -ENOENT)
                                 ret = r;
@@ -466,7 +486,7 @@ static int recursive_relabel_children(const char *path) {
                 }
 
                 if (is_dir) {
-                        r = recursive_relabel_children(entry_path);
+                        r = recursive_relabel_children(i, entry_path);
                         if (r < 0 && ret == 0)
                                 ret = r;
                 }
@@ -483,7 +503,7 @@ static int recursive_relabel(Item *i, const char *path) {
         int r;
         struct stat st;
 
-        r = label_fix(path, false);
+        r = item_set_perms(i, path);
         if (r < 0)
                 return r;
 
@@ -491,7 +511,7 @@ static int recursive_relabel(Item *i, const char *path) {
                 return -errno;
 
         if (S_ISDIR(st.st_mode))
-                r = recursive_relabel_children(path);
+                r = recursive_relabel_children(i, path);
 
         return r;
 }
@@ -521,25 +541,6 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
 
         globfree(&g);
         return r;
-}
-
-static int item_set_perms(Item *i) {
-        if (i->mode_set)
-                if (chmod(i->path, i->mode) < 0) {
-                        log_error("chmod(%s) failed: %m", i->path);
-                        return -errno;
-                }
-
-        if (i->uid_set || i->gid_set)
-                if (chown(i->path,
-                          i->uid_set ? i->uid : (uid_t) -1,
-                          i->gid_set ? i->gid : (gid_t) -1) < 0) {
-
-                        log_error("chown(%s) failed: %m", i->path);
-                        return -errno;
-                }
-
-        return label_fix(i->path, false);
 }
 
 static int create_item(Item *i) {
@@ -582,7 +583,7 @@ static int create_item(Item *i) {
                         return -EEXIST;
                 }
 
-                r = item_set_perms(i);
+                r = item_set_perms(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -612,7 +613,7 @@ static int create_item(Item *i) {
                         return -EEXIST;
                 }
 
-                r = item_set_perms(i);
+                r = item_set_perms(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -639,7 +640,7 @@ static int create_item(Item *i) {
                         return -EEXIST;
                 }
 
-                r = item_set_perms(i);
+                r = item_set_perms(i, i->path);
                 if (r < 0)
                         return r;
 

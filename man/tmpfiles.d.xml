@@ -158,8 +158,9 @@ d    /run/user 0755 root root 10d</programlisting>
 
                                 <varlistentry>
                                         <term><varname>Z</varname></term>
-                                        <listitem><para>Recursively
-                                        relabel security context of a path and
+                                        <listitem><para>Recursively set
+                                        ownership, access mode and relabel
+                                        security context of a path and
                                         all its subdirectories (if it is a
                                         directory). Lines of this type accept
                                         shell-style globs in place of normal
@@ -174,8 +175,10 @@ d    /run/user 0755 root root 10d</programlisting>
                         <para>The file access mode to use when
                         creating this file or directory. If omitted or
                         when set to - the default is used: 0755 for
-                        directories, 0644 for files. This parameter is
-                        ignored for x, r, R, Z lines.</para>
+                        directories, 0644 for files. For Z lines
+                        if omitted or when set to - the file access mode will
+                        not be modified. This parameter is ignored for x, r, R
+                        lines.</para>
                 </refsect2>
 
                 <refsect2>
@@ -185,8 +188,9 @@ d    /run/user 0755 root root 10d</programlisting>
                         or directory. This may either be a numeric
                         user/group ID or a user or group name. If
                         omitted or when set to - the default 0 (root)
-                        is used. . These parameters are ignored for x,
-                        r, R, Z lines.</para>
+                        is used. For Z lines when omitted or when set to -
+                        the file ownership will not be modified.
+                        These parameters are ignored for x, r, R lines.</para>
                 </refsect2>
 
                 <refsect2>
