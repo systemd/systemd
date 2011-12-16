@@ -157,6 +157,16 @@ d    /run/user 0755 root root 10d</programlisting>
                                 </varlistentry>
 
                                 <varlistentry>
+                                        <term><varname>z</varname></term>
+                                        <listitem><para>Set ownership, access
+                                        mode and relabel security context of
+                                        a file or directory if it exists.
+                                        Lines of this type accept shell-style
+                                        globs in place of normal path names.
+                                        </para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
                                         <term><varname>Z</varname></term>
                                         <listitem><para>Recursively set
                                         ownership, access mode and relabel
@@ -175,7 +185,7 @@ d    /run/user 0755 root root 10d</programlisting>
                         <para>The file access mode to use when
                         creating this file or directory. If omitted or
                         when set to - the default is used: 0755 for
-                        directories, 0644 for files. For Z lines
+                        directories, 0644 for files. For z, Z lines
                         if omitted or when set to - the file access mode will
                         not be modified. This parameter is ignored for x, r, R
                         lines.</para>
@@ -188,7 +198,7 @@ d    /run/user 0755 root root 10d</programlisting>
                         or directory. This may either be a numeric
                         user/group ID or a user or group name. If
                         omitted or when set to - the default 0 (root)
-                        is used. For Z lines when omitted or when set to -
+                        is used. For z, Z lines when omitted or when set to -
                         the file ownership will not be modified.
                         These parameters are ignored for x, r, R lines.</para>
                 </refsect2>

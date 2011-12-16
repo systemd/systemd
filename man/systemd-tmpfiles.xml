@@ -84,8 +84,8 @@
                                 <listitem><para>If this option is passed all
                                 files and directories marked with f,
                                 F, d, D in the configuration files are
-                                created. Files and directories marked with Z
-                                have their ownership, access mode and security
+                                created. Files and directories marked with z,
+                                Z have their ownership, access mode and security
                                 labels set.</para></listitem>
                         </varlistentry>
 

@@ -62,6 +62,7 @@ typedef enum ItemType {
         IGNORE_PATH = 'x',
         REMOVE_PATH = 'r',
         RECURSIVE_REMOVE_PATH = 'R',
+        RELABEL_PATH = 'z',
         RECURSIVE_RELABEL_PATH = 'Z'
 } ItemType;
 
@@ -92,7 +93,7 @@ static const char *arg_prefix = NULL;
 #define MAX_DEPTH 256
 
 static bool needs_glob(ItemType t) {
-        return t == IGNORE_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH || t == RECURSIVE_RELABEL_PATH;
+        return t == IGNORE_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH || t == RELABEL_PATH || t == RECURSIVE_RELABEL_PATH;
 }
 
 static struct Item* find_glob(Hashmap *h, const char *match) {
@@ -646,6 +647,13 @@ static int create_item(Item *i) {
 
                 break;
 
+        case RELABEL_PATH:
+
+                r = glob_item(i, item_set_perms);
+                if (r < 0)
+                        return 0;
+                break;
+
         case RECURSIVE_RELABEL_PATH:
 
                 r = glob_item(i, recursive_relabel);
@@ -670,6 +678,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case CREATE_DIRECTORY:
         case CREATE_FIFO:
         case IGNORE_PATH:
+        case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
                 break;
 
@@ -707,6 +716,7 @@ static int remove_item(Item *i) {
         case CREATE_DIRECTORY:
         case CREATE_FIFO:
         case IGNORE_PATH:
+        case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
                 break;
 
@@ -808,15 +818,19 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 goto finish;
         }
 
-        if (type != CREATE_FILE &&
-            type != TRUNCATE_FILE &&
-            type != CREATE_DIRECTORY &&
-            type != TRUNCATE_DIRECTORY &&
-            type != CREATE_FIFO &&
-            type != IGNORE_PATH &&
-            type != REMOVE_PATH &&
-            type != RECURSIVE_REMOVE_PATH &&
-            type != RECURSIVE_RELABEL_PATH) {
+        switch(type) {
+        case CREATE_FILE:
+        case TRUNCATE_FILE:
+        case CREATE_DIRECTORY:
+        case TRUNCATE_DIRECTORY:
+        case CREATE_FIFO:
+        case IGNORE_PATH:
+        case REMOVE_PATH:
+        case RECURSIVE_REMOVE_PATH:
+        case RELABEL_PATH:
+        case RECURSIVE_RELABEL_PATH:
+                break;
+        default:
                 log_error("[%s:%u] Unknown file type '%c'.", fname, line, type);
                 r = -EBADMSG;
                 goto finish;
