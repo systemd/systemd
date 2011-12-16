@@ -671,11 +671,11 @@
                                 <listitem><para>Specifies the name of
                                 the socket units this service shall
                                 inherit the sockets from when the
-                                service (ignoring the different suffix
-                                of course) is started. Normally it
+                                service is started. Normally it
                                 should not be necessary to use this
                                 setting as all sockets whose unit
                                 shares the same name as the service
+                                (ignoring the different suffix of course)
                                 are passed to the spawned
                                 process.</para>
 
