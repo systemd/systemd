@@ -34,12 +34,10 @@
  *   - check LE/BE conversion for 8bit, 16bit, 32bit values
  *   - implement inotify usage on client
  *   - implement audit gateway
- *   - implement native gateway
  *   - implement stdout gateway
  *   - extend hash tables table as we go
  *   - accelerate looking for "all hostnames" and suchlike.
  *   - throttling
- *   - enforce limit on open journal files in journald and journalctl
  *   - cryptographic hash
  *   - fix space reservation logic
  *   - comm, argv can be manipulated, should it be _COMM=, _CMDLINE= or COMM=, CMDLINE=?

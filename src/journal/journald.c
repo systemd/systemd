@@ -38,6 +38,8 @@
 #include "acl-util.h"
 #include "cgroup-util.h"
 
+#define USER_JOURNALS_MAX 1024
+
 typedef struct Server {
         int epoll_fd;
         int signal_fd;
@@ -126,6 +128,13 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
 
         if (asprintf(&p, "/var/log/journal/%s/user-%lu.journal", sd_id128_to_string(machine, ids), (unsigned long) uid) < 0)
                 return s->system_journal;
+
+        while (hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
+                /* Too many open? Then let's close one */
+                f = hashmap_steal_first(s->user_journals);
+                assert(f);
+                journal_file_close(f);
+        }
 
         r = journal_file_open(p, O_RDWR|O_CREAT, 0640, s->system_journal, &f);
         free(p);

@@ -30,6 +30,8 @@
 #include "list.h"
 #include "lookup3.h"
 
+#define JOURNAL_FILES_MAX 1024
+
 typedef struct Match Match;
 
 struct Match {
@@ -932,6 +934,11 @@ static int add_file(sd_journal *j, const char *prefix, const char *dir, const ch
         assert(prefix);
         assert(filename);
 
+        if (hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
+                log_debug("Too many open journal files, ignoring.");
+                return 0;
+        }
+
         if (dir)
                 fn = join(prefix, "/", dir, "/", filename, NULL);
         else
@@ -951,7 +958,6 @@ static int add_file(sd_journal *j, const char *prefix, const char *dir, const ch
         }
 
         journal_file_dump(f);
-
 
         r = hashmap_put(j->files, f->path, f);
         if (r < 0) {
