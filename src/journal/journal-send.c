@@ -52,30 +52,33 @@ retry:
         return fd;
 }
 
-int sd_journal_print(const char *format, ...) {
+int sd_journal_print(int priority, const char *format, ...) {
         int r;
         va_list ap;
 
         va_start(ap, format);
-        r = sd_journal_printv(format, ap);
+        r = sd_journal_printv(priority, format, ap);
         va_end(ap);
 
         return r;
 }
 
-int sd_journal_printv(const char *format, va_list ap) {
-        char buffer[8 + LINE_MAX];
-        struct iovec iov;
+int sd_journal_printv(int priority, const char *format, va_list ap) {
+        char buffer[8 + LINE_MAX], p[11];
+        struct iovec iov[2];
+
+        snprintf(p, sizeof(p), "PRIORITY=%i", priority & LOG_PRIMASK);
+        char_array_0(p);
 
         memcpy(buffer, "MESSAGE=", 8);
         vsnprintf(buffer+8, sizeof(buffer) - 8, format, ap);
-
         char_array_0(buffer);
 
         zero(iov);
-        IOVEC_SET_STRING(iov, buffer);
+        IOVEC_SET_STRING(iov[0], buffer);
+        IOVEC_SET_STRING(iov[1], p);
 
-        return sd_journal_sendv(&iov, 1);
+        return sd_journal_sendv(iov, 2);
 }
 
 int sd_journal_send(const char *format, ...) {
