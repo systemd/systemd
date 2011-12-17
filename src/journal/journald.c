@@ -376,9 +376,15 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 
                 q = memchr(p, '=', e - p);
                 if (q) {
-                        iovec[n].iov_base = (char*) p;
-                        iovec[n].iov_len = e - p;
-                        n++;
+                        if (p[0] != '_') {
+                                /* If the field name starts with an
+                                 * underscore, skip the variable,
+                                 * since that indidates a trusted
+                                 * field */
+                                iovec[n].iov_base = (char*) p;
+                                iovec[n].iov_len = e - p;
+                                n++;
+                        }
 
                         remaining -= (e - p) + 1;
                         p = e + 1;
@@ -411,9 +417,12 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                         k[e - p] = '=';
                         memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
 
-                        iovec[n].iov_base = k;
-                        iovec[n].iov_len = (e - p) + 1 + l;
-                        n++;
+                        if (k[0] != '_') {
+                                iovec[n].iov_base = k;
+                                iovec[n].iov_len = (e - p) + 1 + l;
+                                n++;
+                        } else
+                                free(k);
 
                         remaining -= (e - p) + 1 + sizeof(uint64_t) + l + 1;
                         p = e + 1 + sizeof(uint64_t) + l + 1;
