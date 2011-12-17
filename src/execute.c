@@ -1860,8 +1860,7 @@ void exec_status_start(ExecStatus *s, pid_t pid) {
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status) {
         assert(s);
 
-        if ((s->pid && s->pid != pid) ||
-            !s->start_timestamp.realtime <= 0)
+        if (s->pid && s->pid != pid)
                 zero(*s);
 
         s->pid = pid;
