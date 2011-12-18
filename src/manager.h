@@ -179,6 +179,7 @@ struct Manager {
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
         int32_t name_data_slot;
+        int32_t conn_data_slot;
         int32_t subscribed_data_slot;
 
         uint32_t current_job_id;

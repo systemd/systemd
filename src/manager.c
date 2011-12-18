@@ -231,7 +231,7 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         dual_timestamp_get(&m->startup_timestamp);
 
         m->running_as = running_as;
-        m->name_data_slot = m->subscribed_data_slot = -1;
+        m->name_data_slot = m->conn_data_slot = m->subscribed_data_slot = -1;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
 
