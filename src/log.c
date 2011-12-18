@@ -118,6 +118,9 @@ static int create_log_socket(int type) {
         struct timeval tv;
         int fd;
 
+        if (getpid() == 1)
+                /* systemd should not block on syslog */
+                type |= SOCK_NONBLOCK;
         if ((fd = socket(AF_UNIX, type|SOCK_CLOEXEC, 0)) < 0)
                 return -errno;
 
@@ -330,7 +333,8 @@ static int write_to_syslog(
         for (;;) {
                 ssize_t n;
 
-                if ((n = sendmsg(syslog_fd, &msghdr, MSG_NOSIGNAL)) < 0)
+                n = sendmsg(syslog_fd, &msghdr, MSG_NOSIGNAL);
+                if (n < 0)
                         return -errno;
 
                 if (!syslog_is_stream ||
@@ -407,8 +411,10 @@ static int log_dispatch(
                     log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                     log_target == LOG_TARGET_SYSLOG) {
 
-                        if ((k = write_to_syslog(level, file, line, func, buffer)) < 0) {
-                                log_close_syslog();
+                        k = write_to_syslog(level, file, line, func, buffer);
+                        if (k < 0) {
+                                if (k != -EAGAIN)
+                                        log_close_syslog();
                                 log_open_kmsg();
                         } else if (k > 0)
                                 r++;
@@ -419,16 +425,19 @@ static int log_dispatch(
                      log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                      log_target == LOG_TARGET_KMSG)) {
 
-                        if ((k = write_to_kmsg(level, file, line, func, buffer)) < 0) {
+                        k = write_to_kmsg(level, file, line, func, buffer);
+                        if (k < 0) {
                                 log_close_kmsg();
                                 log_open_console();
                         } else if (k > 0)
                                 r++;
                 }
 
-                if (k <= 0 &&
-                    (k = write_to_console(level, file, line, func, buffer)) < 0)
-                        return k;
+                if (k <= 0) {
+                        k = write_to_console(level, file, line, func, buffer);
+                        if (k < 0)
+                                return k;
+                }
 
                 buffer = e;
         } while (buffer);
