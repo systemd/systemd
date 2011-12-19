@@ -77,12 +77,22 @@
                 you need to utilize the D-Bus API of
                 systemd-logind, instead.</para>
 
-                <para>These functions access data in
+                <para>These functions synchronously access data in
                 <filename>/proc</filename>,
                 <filename>/sys/fs/cgroup</filename> and
                 <filename>/run</filename>. All of these are virtual
                 file systems, hence the runtime cost of the accesses
                 is relatively cheap.</para>
+
+                <para>It is possible (and often a very good choice) to
+                mix calls to the synchronous interface of
+                <filename>sd-login.h</filename> with the asynchronous
+                D-Bus interface of systemd-logind. However, if this is
+                done you need to think a bit about possible races
+                since the stream of events from D-Bus and from
+                <filename>sd-login.h</filename> interfaces such as the
+                login monitor are asynchronous and not ordered against
+                each other.</para>
 
                 <para>If the functions return string arrays, these are
                 generally NULL terminated and need to be freed by the
