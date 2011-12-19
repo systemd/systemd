@@ -1771,11 +1771,11 @@ XSLTPROC_PROCESS_MAN_IN = \
 
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
+	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl $<
 
 XSLTPROC_PROCESS_HTML_IN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
+	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl $< && \
 	mv ${@:.in=} $@
 
 man/%.1: man/%.xml
