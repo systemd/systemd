@@ -22,6 +22,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
+#include <unistd.h>
+#include <sys/inotify.h>
 
 #include "sd-journal.h"
 #include "journal-def.h"
@@ -72,6 +74,10 @@ struct sd_journal {
         Location current_location;
         JournalFile *current_file;
         uint64_t current_field;
+
+        int inotify_fd;
+        Hashmap *inotify_wd_dirs;
+        Hashmap *inotify_wd_roots;
 
         LIST_HEAD(Match, matches);
         unsigned n_matches;
@@ -934,11 +940,6 @@ static int add_file(sd_journal *j, const char *prefix, const char *dir, const ch
         assert(prefix);
         assert(filename);
 
-        if (hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
-                log_debug("Too many open journal files, ignoring.");
-                return 0;
-        }
-
         if (dir)
                 fn = join(prefix, "/", dir, "/", filename, NULL);
         else
@@ -946,6 +947,17 @@ static int add_file(sd_journal *j, const char *prefix, const char *dir, const ch
 
         if (!fn)
                 return -ENOMEM;
+
+        if (hashmap_get(j->files, fn)) {
+                free(fn);
+                return 0;
+        }
+
+        if (hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
+                log_debug("Too many open journal files, not adding %s, ignoring.", fn);
+                free(fn);
+                return 0;
+        }
 
         r = journal_file_open(fn, O_RDONLY, 0, NULL, &f);
         free(fn);
@@ -965,6 +977,37 @@ static int add_file(sd_journal *j, const char *prefix, const char *dir, const ch
                 return r;
         }
 
+        log_debug("File %s got added.", f->path);
+
+        return 0;
+}
+
+static int remove_file(sd_journal *j, const char *prefix, const char *dir, const char *filename) {
+        char *fn;
+        JournalFile *f;
+
+        assert(j);
+        assert(prefix);
+        assert(filename);
+
+        if (dir)
+                fn = join(prefix, "/", dir, "/", filename, NULL);
+        else
+                fn = join(prefix, "/", filename, NULL);
+
+        if (!fn)
+                return -ENOMEM;
+
+        f = hashmap_get(j->files, fn);
+        free(fn);
+
+        if (!f)
+                return 0;
+
+        hashmap_remove(j->files, f->path);
+        journal_file_close(f);
+
+        log_debug("File %s got removed.", f->path);
         return 0;
 }
 
@@ -972,6 +1015,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dir) {
         char *fn;
         int r;
         DIR *d;
+        int wd;
 
         assert(j);
         assert(prefix);
@@ -982,14 +1026,27 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dir) {
                 return -ENOMEM;
 
         d = opendir(fn);
-        free(fn);
 
         if (!d) {
+                free(fn);
                 if (errno == ENOENT)
                         return 0;
 
                 return -errno;
         }
+
+        wd = inotify_add_watch(j->inotify_fd, fn,
+                               IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
+                               IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT|
+                               IN_DONT_FOLLOW|IN_ONLYDIR);
+        if (wd > 0) {
+                if (hashmap_put(j->inotify_wd_dirs, INT_TO_PTR(wd), fn) < 0)
+                        inotify_rm_watch(j->inotify_fd, wd);
+                else
+                        fn = NULL;
+        }
+
+        free(fn);
 
         for (;;) {
                 struct dirent buf, *de;
@@ -1008,7 +1065,63 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dir) {
 
         closedir(d);
 
+        log_debug("Directory %s/%s got added.", prefix, dir);
+
         return 0;
+}
+
+static void remove_directory_wd(sd_journal *j, int wd) {
+        char *p;
+
+        assert(j);
+        assert(wd > 0);
+
+        if (j->inotify_fd >= 0)
+                inotify_rm_watch(j->inotify_fd, wd);
+
+        p = hashmap_remove(j->inotify_wd_dirs, INT_TO_PTR(wd));
+
+        if (p) {
+                log_debug("Directory %s got removed.", p);
+                free(p);
+        }
+}
+
+static void add_root_wd(sd_journal *j, const char *p) {
+        int wd;
+        char *k;
+
+        assert(j);
+        assert(p);
+
+        wd = inotify_add_watch(j->inotify_fd, p,
+                               IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
+                               IN_DONT_FOLLOW|IN_ONLYDIR);
+        if (wd <= 0)
+                return;
+
+        k = strdup(p);
+        if (!k || hashmap_put(j->inotify_wd_roots, INT_TO_PTR(wd), k) < 0) {
+                inotify_rm_watch(j->inotify_fd, wd);
+                free(k);
+        }
+}
+
+static void remove_root_wd(sd_journal *j, int wd) {
+        char *p;
+
+        assert(j);
+        assert(wd > 0);
+
+        if (j->inotify_fd >= 0)
+                inotify_rm_watch(j->inotify_fd, wd);
+
+        p = hashmap_remove(j->inotify_wd_roots, INT_TO_PTR(wd));
+
+        if (p) {
+                log_debug("Root %s got removed.", p);
+                free(p);
+        }
 }
 
 int sd_journal_open(sd_journal **ret) {
@@ -1025,8 +1138,22 @@ int sd_journal_open(sd_journal **ret) {
         if (!j)
                 return -ENOMEM;
 
+        j->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        if (j->inotify_fd < 0) {
+                r = -errno;
+                goto fail;
+        }
+
         j->files = hashmap_new(string_hash_func, string_compare_func);
         if (!j->files) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        j->inotify_wd_dirs = hashmap_new(trivial_hash_func, trivial_compare_func);
+        j->inotify_wd_roots = hashmap_new(trivial_hash_func, trivial_compare_func);
+
+        if (!j->inotify_wd_dirs || !j->inotify_wd_roots) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1043,6 +1170,8 @@ int sd_journal_open(sd_journal **ret) {
                                 log_debug("Failed to open %s: %m", p);
                         continue;
                 }
+
+                add_root_wd(j, p);
 
                 for (;;) {
                         struct dirent buf, *de;
@@ -1081,6 +1210,24 @@ fail:
 void sd_journal_close(sd_journal *j) {
         assert(j);
 
+        if (j->inotify_wd_dirs) {
+                void *k;
+
+                while ((k = hashmap_first_key(j->inotify_wd_dirs)))
+                        remove_directory_wd(j, PTR_TO_INT(k));
+
+                hashmap_free(j->inotify_wd_dirs);
+        }
+
+        if (j->inotify_wd_roots) {
+                void *k;
+
+                while ((k = hashmap_first_key(j->inotify_wd_roots)))
+                        remove_root_wd(j, PTR_TO_INT(k));
+
+                hashmap_free(j->inotify_wd_roots);
+        }
+
         if (j->files) {
                 JournalFile *f;
 
@@ -1091,6 +1238,9 @@ void sd_journal_close(sd_journal *j) {
         }
 
         sd_journal_flush_matches(j);
+
+        if (j->inotify_fd >= 0)
+                close_nointr_nofail(j->inotify_fd);
 
         free(j);
 }
@@ -1274,4 +1424,120 @@ void sd_journal_restart_data(sd_journal *j) {
         assert(j);
 
         j->current_field = 0;
+}
+
+int sd_journal_get_fd(sd_journal *j) {
+        assert(j);
+
+        return j->inotify_fd;
+}
+
+static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
+        char *p;
+        int r;
+
+        assert(j);
+        assert(e);
+
+        /* Is this a subdirectory we watch? */
+        p = hashmap_get(j->inotify_wd_dirs, INT_TO_PTR(e->wd));
+        if (p) {
+
+                if (!(e->mask & IN_ISDIR) && e->len > 0 && endswith(e->name, ".journal")) {
+
+                        /* Event for a journal file */
+
+                        if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
+                                r = add_file(j, p, NULL, e->name);
+                                if (r < 0)
+                                        log_debug("Failed to add file %s/%s: %s", p, e->name, strerror(-r));
+                        } else if (e->mask & (IN_DELETE|IN_UNMOUNT)) {
+
+                                r = remove_file(j, p, NULL, e->name);
+                                if (r < 0)
+                                        log_debug("Failed to remove file %s/%s: %s", p, e->name, strerror(-r));
+                        }
+
+                } else if (e->len == 0) {
+
+                        /* Event for the directory itself */
+
+                        if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT))
+                                remove_directory_wd(j, e->wd);
+                }
+
+                return;
+        }
+
+        /* Must be the root directory then? */
+        p = hashmap_get(j->inotify_wd_roots, INT_TO_PTR(e->wd));
+        if (p) {
+                sd_id128_t id;
+
+                if (!(e->mask & IN_ISDIR) && e->len > 0 && endswith(e->name, ".journal")) {
+
+                        /* Event for a journal file */
+
+                        if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
+                                r = add_file(j, p, NULL, e->name);
+                                if (r < 0)
+                                        log_debug("Failed to add file %s/%s: %s", p, e->name, strerror(-r));
+                        } else if (e->mask & (IN_DELETE|IN_UNMOUNT)) {
+
+                                r = remove_file(j, p, NULL, e->name);
+                                if (r < 0)
+                                        log_debug("Failed to remove file %s/%s: %s", p, e->name, strerror(-r));
+                        }
+
+                } else if ((e->mask & IN_ISDIR) && e->len > 0 && sd_id128_from_string(e->name, &id) >= 0) {
+
+                        /* Event for subdirectory */
+
+                        if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
+
+                                r = add_directory(j, p, e->name);
+                                if (r < 0)
+                                        log_debug("Failed to add directory %s/%s: %s", p, e->name, strerror(-r));
+                        }
+                }
+
+                return;
+        }
+
+        if (e->mask & IN_IGNORED)
+                return;
+
+        log_warning("Unknown inotify event.");
+}
+
+int sd_journal_process(sd_journal *j) {
+        uint8_t buffer[sizeof(struct inotify_event) + FILENAME_MAX];
+
+        assert(j);
+
+        for (;;) {
+                struct inotify_event *e;
+                ssize_t l;
+
+                l = read(j->inotify_fd, buffer, sizeof(buffer));
+                if (l < 0) {
+                        if (errno == EINTR || errno == EAGAIN)
+                                return 0;
+
+                        return -errno;
+                }
+
+                e = (struct inotify_event*) buffer;
+                while (l > 0) {
+                        size_t step;
+
+                        process_inotify_event(j, e);
+
+                        step = sizeof(struct inotify_event) + e->len;
+                        assert(step <= (size_t) l);
+
+                        e = (struct inotify_event*) ((uint8_t*) e + step);
+                        l -= step;
+                }
+        }
 }

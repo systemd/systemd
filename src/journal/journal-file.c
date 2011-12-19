@@ -879,6 +879,18 @@ static int journal_file_append_entry_internal(
         return 0;
 }
 
+static void journal_file_post_change(JournalFile *f) {
+        assert(f);
+
+        /* inotify() does not receive IN_MODIFY events from file
+         * accesses done via mmap(). After each access we hence
+         * trigger IN_MODIFY by truncating the journal file to its
+         * current size which triggers IN_MODIFY. */
+
+        if (ftruncate(f->fd, f->last_stat.st_size) < 0)
+                log_error("Failed to to truncate file to its own size: %m");
+}
+
 int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqnum, Object **ret, uint64_t *offset) {
         unsigned i;
         EntryItem *items;
@@ -922,6 +934,8 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         }
 
         r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
+
+        journal_file_post_change(f);
 
 finish:
         free(items);

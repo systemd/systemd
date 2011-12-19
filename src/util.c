@@ -2674,7 +2674,7 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                         ssize_t l;
                         struct inotify_event *e;
 
-                        if ((l = read(notify, &inotify_buffer, sizeof(inotify_buffer))) < 0) {
+                        if ((l = read(notify, inotify_buffer, sizeof(inotify_buffer))) < 0) {
 
                                 if (errno == EINTR)
                                         continue;

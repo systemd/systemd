@@ -26,12 +26,15 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/poll.h>
 
 #include "sd-journal.h"
 #include "log.h"
 
+static bool arg_follow = true;
+
 int main(int argc, char *argv[]) {
-        int r, i;
+        int r, i, fd;
         sd_journal *j = NULL;
 
         log_set_max_level(LOG_DEBUG);
@@ -54,32 +57,68 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        SD_JOURNAL_FOREACH(j) {
+        fd = sd_journal_get_fd(j);
+        if (fd < 0) {
+                log_error("Failed to get wakeup fd: %s", strerror(-fd));
+                goto finish;
+        }
 
-                const void *data;
-                size_t length;
-                char *cursor;
-                uint64_t realtime = 0, monotonic = 0;
+        r = sd_journal_seek_head(j);
+        if (r < 0) {
+                log_error("Failed to seek to head: %s", strerror(-r));
+                goto finish;
+        }
 
-                r = sd_journal_get_cursor(j, &cursor);
-                if (r < 0) {
-                        log_error("Failed to get cursor: %s", strerror(-r));
+        for (;;) {
+                struct pollfd pollfd;
+
+                while (sd_journal_next(j) > 0) {
+                        const void *data;
+                        size_t length;
+                        char *cursor;
+                        uint64_t realtime = 0, monotonic = 0;
+
+                        r = sd_journal_get_cursor(j, &cursor);
+                        if (r < 0) {
+                                log_error("Failed to get cursor: %s", strerror(-r));
+                                goto finish;
+                        }
+
+                        printf("entry: %s\n", cursor);
+                        free(cursor);
+
+                        sd_journal_get_realtime_usec(j, &realtime);
+                        sd_journal_get_monotonic_usec(j, &monotonic, NULL);
+                        printf("realtime: %llu\n"
+                               "monotonic: %llu\n",
+                               (unsigned long long) realtime,
+                               (unsigned long long) monotonic);
+
+                        SD_JOURNAL_FOREACH_DATA(j, data, length)
+                                printf("\t%.*s\n", (int) length, (const char*) data);
+                }
+
+                if (!arg_follow)
+                        break;
+
+                zero(pollfd);
+                pollfd.fd = fd;
+                pollfd.events = POLLIN;
+
+                if (poll(&pollfd, 1, -1) < 0) {
+                        if (errno == EINTR)
+                                break;
+
+                        log_error("poll(): %m");
+                        r = -errno;
                         goto finish;
                 }
 
-                printf("entry: %s\n", cursor);
-                free(cursor);
-
-                sd_journal_get_realtime_usec(j, &realtime);
-                sd_journal_get_monotonic_usec(j, &monotonic, NULL);
-                printf("realtime: %llu\n"
-                       "monotonic: %llu\n",
-                       (unsigned long long) realtime,
-                       (unsigned long long) monotonic);
-
-                SD_JOURNAL_FOREACH_DATA(j, data, length)
-                        printf("\t%.*s\n", (int) length, (const char*) data);
-
+                r = sd_journal_process(j);
+                if (r < 0) {
+                        log_error("Failed to process: %s", strerror(-r));
+                        goto finish;
+                }
         }
 
 finish:

@@ -32,7 +32,6 @@
 /* TODO:
  *
  *   - check LE/BE conversion for 8bit, 16bit, 32bit values
- *   - implement inotify usage on client
  *   - implement audit gateway
  *   - implement stdout gateway
  *   - extend hash tables table as we go
@@ -40,7 +39,7 @@
  *   - throttling
  *   - cryptographic hash
  *   - fix space reservation logic
- *   - comm, argv can be manipulated, should it be _COMM=, _CMDLINE= or COMM=, CMDLINE=?
+ *   - compression
  */
 
 /* Write to daemon */
@@ -92,16 +91,16 @@ enum {
         SD_JOURNAL_INVALIDATE_REMOVE
 };
 
-int sd_journal_get_fd(sd_journal *j);                              /* missing */
-int sd_journal_process(sd_journal *j);                             /* missing */
+int sd_journal_get_fd(sd_journal *j);
+int sd_journal_process(sd_journal *j);
 
 #define SD_JOURNAL_FOREACH(j)                                           \
         if (sd_journal_seek_head(j) >= 0)                               \
-                while (sd_journal_next(j) > 0)                          \
+                while (sd_journal_next(j) > 0)
 
 #define SD_JOURNAL_FOREACH_BACKWARDS(j)                                 \
         if (sd_journal_seek_tail(j) >= 0)                               \
-                while (sd_journal_previous(j) > 0)                      \
+                while (sd_journal_previous(j) > 0)
 
 #define SD_JOURNAL_FOREACH_DATA(j, data, l)                             \
         for (sd_journal_restart_data(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; )

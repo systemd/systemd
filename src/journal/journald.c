@@ -866,7 +866,7 @@ int main(int argc, char *argv[]) {
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing messages...");
-#
+
         for (;;) {
                 struct epoll_event event;
 
