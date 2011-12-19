@@ -1196,7 +1196,9 @@ static void shutdown_connection(Manager *m, DBusConnection *c) {
         }
 
         dbus_connection_set_dispatch_status_function(c, NULL, NULL, NULL);
-        dbus_connection_flush(c);
+        /* system manager cannot afford to block on DBus */
+        if (m->running_as != MANAGER_SYSTEM)
+                dbus_connection_flush(c);
         dbus_connection_close(c);
         dbus_connection_unref(c);
 }
