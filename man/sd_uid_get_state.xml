@@ -1,0 +1,182 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_uid_get_state">
+
+        <refentryinfo>
+                <title>sd_uid_get_state</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_uid_get_state</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_uid_get_state</refname>
+                <refname>sd_uid_is_on_seat</refname>
+                <refname>sd_uid_get_sessions</refname>
+                <refname>sd_uid_get_seats</refname>
+                <refpurpose>Determine login state of a specific Unix user ID</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-login.h&gt;</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_uid_get_state</function></funcdef>
+                                <paramdef>uid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>char** <parameter>state</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_uid_is_on_seat</function></funcdef>
+                                <paramdef>uid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>int <parameter>require_active</parameter></paramdef>
+                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_uid_get_sessions</function></funcdef>
+                                <paramdef>uid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>int <parameter>require_active</parameter></paramdef>
+                                <paramdef>char*** <parameter>sessions</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_uid_get_seats</function></funcdef>
+                                <paramdef>uid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>int <parameter>require_active</parameter></paramdef>
+                                <paramdef>char*** <parameter>seats</parameter></paramdef>
+                        </funcprototype>
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><function>sd_uid_get_state()</function> may be
+                used to determine the login state of a specific Unix
+                user identifier. The following states are currently
+                known: <literal>offline</literal> (user not logged in
+                at all), <literal>lingering</literal> (user not logged
+                in, but some user services running),
+                <literal>online</literal> (user logged in, but not
+                active), <literal>active</literal> (user logged in on
+                an active seat). In the future additional states might
+                be defined, client code should be written to be robust
+                in regards to additional state strings being
+                returned. The returned string needs to be freed with
+                the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
+                <para><function>sd_uid_is_on_seat()</function> may be
+                used to determine whether a specific user is logged in
+                or active on a specific seat. Accepts a Unix user
+                identifier and a seat identifier string as
+                parameters. The <parameter>require_active</parameter>
+                parameter is a boolean. If non-zero (true) this
+                function will test if the user is active (i.e. has a
+                session that is in the foreground and accepting user
+                input) on the specified seat, otherwise (false) only
+                if the user is logged in (and possibly inactive) on
+                the specified seat.</para>
+
+                <para><function>sd_uid_get_sessions()</function> may
+                be used to determine the current sessions of the
+                specified user. Acceptes a Unix user identifier as
+                parameter. The <parameter>require_active</parameter>
+                boolean parameter controls whether the returned list
+                shall consist of only those sessions where the user is
+                currently active (true) or where the user is currently
+                logged in at all, possibly inactive (false). The call
+                returns a NULL terminated string array of session
+                identifiers in <parameter>sessions</parameter> which
+                needs to be freed by the caller with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use, including all the strings referenced. If
+                the string array parameter is passed as NULL the array
+                will not be filled in, but the return code still
+                indicates the number of current sessions.</para>
+
+                <para>Similar, <function>sd_uid_get_seats()</function>
+                may be used to determine the list of seats on which
+                the user currently has sessions. Similar semantics
+                apply, however note that the user may have
+                multiple sessions on the same seat as well as sessions
+                with no attached seat and hence the number of entries
+                in the returned array may differ from the one returned
+                by <function>sd_uid_get_sessions()</function>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>On success
+                <function>sd_uid_get_state()</function> returns 0 or a
+                positive integer. If the test succeeds
+                <function>sd_uid_is_on_seat()</function> returns a
+                positive integer, if it fails
+                0. <function>sd_uid_get_sessions()</function> and
+                <function>sd_uid_get_seats()</function> return the
+                number of entries in the returned arrays. On failure,
+                these calls return a negative errno-style error
+                code.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>The <function>sd_uid_get_state()</function>,
+                <function>sd_uid_is_on_seat()</function>,
+                <function>sd_uid_get_sessions()</function>, and
+                <function>sd_uid_get_seats()</function> interfaces are
+                available as shared library, which can be compiled and
+                linked to with the <literal>libsystemd-login</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                </para>
+        </refsect1>
+
+</refentry>

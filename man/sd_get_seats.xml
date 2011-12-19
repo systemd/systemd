@@ -1,0 +1,125 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_get_seats">
+
+        <refentryinfo>
+                <title>sd_get_seats</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_get_seats</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_get_seats</refname>
+                <refname>sd_get_sessions</refname>
+                <refname>sd_get_uids</refname>
+                <refpurpose>Determine available seats, sessions and logged in users</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-login.h&gt;</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_get_seats</function></funcdef>
+                                <paramdef>char*** <parameter>seats</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_get_sessions</function></funcdef>
+                                <paramdef>char*** <parameter>sessions</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_get_uids</function></funcdef>
+                                <paramdef>char*** <parameter>sessions</parameter></paramdef>
+                        </funcprototype>
+
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><function>sd_get_seats()</function> may be used
+                to determine all currently available local
+                seats. Returns an array of seat identifiers. The
+                returned array and all strings it references need to
+                be freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
+                <para>Similar, <function>sd_get_sessions()</function> may
+                be used to determine all current login sessions.</para>
+
+                <para>Similar, <function>sd_get_uids()</function> may
+                be used to determine all Unix users who currently have login sessions.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>On success <function>sd_get_seats()</function>,
+                <function>sd_get_sessions()</function> and
+                <function>sd_get_uids()</function> return the number
+                of entries in the arrays. On failure, these calls
+                return a negative errno-style error code.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>The <function>sd_get_seats()</function>,
+                <function>sd_get_sessions()</function> and
+                <function>sd_get_uids()</function> interfaces
+                are available as shared library, which can be compiled
+                and linked to with the
+                <literal>libsystemd-login</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_session_get_seat</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                </para>
+        </refsect1>
+
+</refentry>

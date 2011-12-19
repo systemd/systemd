@@ -1,0 +1,172 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_login_monitor_new">
+
+        <refentryinfo>
+                <title>sd_login_monitor_new</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_login_monitor_new</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_login_monitor_new</refname>
+                <refname>sd_login_monitor_unref</refname>
+                <refname>sd_login_monitor_flush</refname>
+                <refname>sd_login_monitor_get_fd</refname>
+                <refpurpose>Monitor login sessions, seats and users</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-login.h&gt;</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_login_monitor_new</function></funcdef>
+                                <paramdef>const char* <parameter>category</parameter></paramdef>
+                                <paramdef>sd_login_monitor** <parameter>ret</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>sd_login_monitor* <function>sd_login_monitor_unref</function></funcdef>
+                                <paramdef>sd_login_monitor* <parameter>m</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_login_monitor_flush</function></funcdef>
+                                <paramdef>sd_login_monitor* <parameter>m</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_login_monitor_get_fd</function></funcdef>
+                                <paramdef>sd_login_monitor* <parameter>m</parameter></paramdef>
+                        </funcprototype>
+
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><function>sd_login_monitor_new()</function> may
+                be used to monitor login session, users and seats. Via
+                a monitor object a file descriptor can be integrated
+                into an application defined event loop which is woken
+                up each time a user logs in, logs out or a seat is
+                added or removed, or a session, user, or seat changes
+                state otherwise. The first parameter takes a string
+                which can be either <literal>seat</literal> (to get
+                only notifications about seats being added, removed or
+                changed), <literal>session</literal> (to get only
+                notifications about sessions being created or removed
+                or changed) or <literal>uid</literal> (to get only
+                notifications when a user changes state in respect to
+                logins). If notifications shall be generated in all
+                these conditions, NULL may be passed. Note that in
+                future additional categories may be defined. The
+                second parameter returns a monitor object and needs to
+                be freed with the
+                <function>sd_login_monitor_unref()</function> call
+                after use.</para>
+
+                <para><function>sd_login_monitor_unref()</function>
+                may be used to destroy a monitor object. Note that
+                this will invalidate any file descriptor returned by
+                <function>sd_login_monitor_get_fd()</function>.</para>
+
+                <para><function>sd_login_monitor_flush()</function>
+                may be used to reset the wakeup state of the monitor
+                object. Whenever an event causes the monitor to wake
+                up the event loop via the file descriptor this
+                function needs to be called to reset the wake-up
+                state. If this call is not invoked the file descriptor
+                will immediately wake up the event loop again.</para>
+
+                <para><function>sd_login_monitor_get_fd()</function>
+                may be used to retrieve the file descriptor of the
+                monitor object that may be integrated in an
+                application defined event loop, based around
+                <citerefentry><refentrytitle>poll</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                or a similar interface. The application should include
+                the returned file descriptor as wake up source for
+                POLLIN events. Whenever a wake-up is triggered the
+                file descriptor needs to be reset via
+                <function>sd_login_monitor_flush()</function>. An
+                application needs to reread the login state with a
+                function like
+                <citerefentry><refentrytitle>sd_get_seats</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                or similar to determine what changed.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>On success
+                <function>sd_login_monitor_new()</function> and
+                <function>sd_login_monitor_flush()</function> return 0
+                or a positive integer. On success
+                <function>sd_login_monitor_get_fd()</function> returns
+                a Unix file descriptor. On failure, these calls return
+                a negative errno-style error code.</para>
+
+                <para><function>sd_login_monitor_unref()</function>
+                always returns NULL.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>The <function>sd_login_monitor_new()</function>,
+                <function>sd_login_monitor_unref()</function>, <function>sd_login_monitor_flush()</function> and
+                <function>sd_login_monitor_get_fd()</function> interfaces
+                are available as shared library, which can be compiled
+                and linked to with the
+                <literal>libsystemd-login</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_get_seats</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                </para>
+        </refsect1>
+
+</refentry>
