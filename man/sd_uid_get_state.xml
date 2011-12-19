@@ -126,10 +126,13 @@
                 identifiers in <parameter>sessions</parameter> which
                 needs to be freed by the caller with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                call after use, including all the strings referenced. If
-                the string array parameter is passed as NULL the array
-                will not be filled in, but the return code still
-                indicates the number of current sessions.</para>
+                call after use, including all the strings
+                referenced. If the string array parameter is passed as
+                NULL the array will not be filled in, but the return
+                code still indicates the number of current
+                sessions. Note that instead of an empty array NULL may
+                be returned and should be considered equivalent to an
+                empty array.</para>
 
                 <para>Similar, <function>sd_uid_get_seats()</function>
                 may be used to determine the list of seats on which
@@ -175,7 +178,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

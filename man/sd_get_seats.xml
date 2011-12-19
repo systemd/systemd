@@ -76,11 +76,13 @@
 
                 <para><function>sd_get_seats()</function> may be used
                 to determine all currently available local
-                seats. Returns an array of seat identifiers. The
-                returned array and all strings it references need to
-                be freed with the libc
+                seats. Returns a NULL terminated array of seat
+                identifiers. The returned array and all strings it
+                references need to be freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                call after use.</para>
+                call after use. Note that instead of an empty array
+                NULL may be returned and should be considered
+                equivalent to an empty array.</para>
 
                 <para>Similar, <function>sd_get_sessions()</function> may
                 be used to determine all current login sessions.</para>
@@ -118,7 +120,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_session_get_seat</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_session_get_seat</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

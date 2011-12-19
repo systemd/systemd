@@ -101,7 +101,9 @@
                 determined. The arrays and the strings referenced by
                 them need to be freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                call after use.</para>
+                call after use. Note that instead of an empty array
+                NULL may be returned and should be considered
+                equivalent to an empty array.</para>
 
                 <para><function>sd_seat_can_multi_session()</function>
                 may be used to determine whether a specific seat is
@@ -143,7 +145,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_session_get_seat</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_session_get_seat</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
