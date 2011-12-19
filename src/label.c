@@ -109,7 +109,7 @@ int label_fix(const char *path, bool ignore_enoent) {
                         return 0;
 
                 if (r == 0) {
-                        r = setfilecon(path, fcon);
+                        r = lsetfilecon(path, fcon);
                         freecon(fcon);
 
                         /* If the FS doesn't support labels, then exit without warning */
