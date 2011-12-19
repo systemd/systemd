@@ -506,7 +506,8 @@ EXTRA_DIST = \
 	src/libsystemd-login.sym \
 	introspect.awk \
 	src/73-seat-late.rules.in \
-        src/99-systemd.rules.in
+        src/99-systemd.rules.in \
+        man/custom-html.xsl
 
 if ENABLE_BINFMT
 EXTRA_DIST += \
@@ -1758,7 +1759,7 @@ endif
 if HAVE_XSLTPROC
 XSLTPROC_FLAGS = \
 	--nonet \
-	--param funcsynopsis.style "'ansi'"
+	--stringparam funcsynopsis.style ansi
 
 XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
@@ -1771,11 +1772,11 @@ XSLTPROC_PROCESS_MAN_IN = \
 
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl $<
+	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) man/custom-html.xsl $<
 
 XSLTPROC_PROCESS_HTML_IN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl $< && \
+	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) man/custom-html.xsl $< && \
 	mv ${@:.in=} $@
 
 man/%.1: man/%.xml
