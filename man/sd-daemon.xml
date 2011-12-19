@@ -50,7 +50,7 @@
 
         <refsynopsisdiv>
                 <funcsynopsis>
-                        <funcsynopsisinfo>#include "sd-daemon.h"</funcsynopsisinfo>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
                 </funcsynopsis>
 
                 <cmdsynopsis>
