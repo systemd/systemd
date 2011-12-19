@@ -844,8 +844,22 @@ man/poweroff.8: man/halt.8
 man/sd_is_socket.3: man/sd_is_fifo.3
 man/sd_is_socket_unix.3: man/sd_is_fifo.3
 man/sd_is_socket_inet.3: man/sd_is_fifo.3
+man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_notifyf.3: man/sd_notify.3
 man/init.1: man/systemd.1
+man/sd_session_get_uid.3: man/sd_session_is_active.3
+man/sd_session_get_seat.3: man/sd_session_is_active.3
+man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
+man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
+man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
+man/sd_uid_get_seats.3: man/sd_uid_get_state.3
+man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
+man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
+man/sd_get_sessions.3: man/sd_get_seats.3
+man/sd_get_uids.3: man/sd_get_seats.3
+man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 
 dist_man_MANS = \
 	$(MANPAGES) \
