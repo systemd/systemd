@@ -1434,7 +1434,7 @@ int journal_file_next_entry_for_data(
         assert(p > 0 || !o);
 
         r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r <= 0)
+        if (r < 0)
                 return r;
 
         n = le64toh(d->data.n_entries);

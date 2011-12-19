@@ -525,6 +525,7 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
                 uint64_t np, n;
                 bool found, term_result = false;
                 Match *m, *term_match = NULL;
+                Object *npo = NULL;
 
                 n = journal_file_entry_n_items(c);
 
@@ -535,6 +536,7 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
                 np = 0;
                 LIST_FOREACH(matches, m, j->matches) {
                         uint64_t q, k;
+                        Object *qo = NULL;
 
                         /* Let's check if this is the beginning of a
                          * new term, i.e. has a different field prefix
@@ -567,22 +569,26 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
                          * where we'd have to try next, in case the other
                          * matches are not OK */
 
-                        r = journal_file_next_entry_for_data(f, c, cp, le64toh(c->entry.items[k].object_offset), direction, NULL, &q);
+                        r = journal_file_next_entry_for_data(f, c, cp, le64toh(c->entry.items[k].object_offset), direction, &qo, &q);
                         if (r > 0) {
 
                                 if (direction == DIRECTION_DOWN) {
-                                        if (q > np)
+                                        if (q > np) {
                                                 np = q;
+                                                npo = qo;
+                                        }
                                 } else {
-                                        if (np == 0 || q < np)
+                                        if (np == 0 || q < np) {
                                                 np = q;
+                                                npo = qo;
+                                        }
                                 }
                         }
                 }
 
                 /* Check the last term */
-                if (term_match && term_result)
-                        found = true;
+                if (term_match && !term_result)
+                        found = false;
 
                 /* Did this entry match against all matches? */
                 if (found) {
@@ -600,6 +606,7 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
                 /* Hmm, ok, this entry only matched partially, so
                  * let's try another one */
                 cp = np;
+                c = npo;
         }
 }
 
@@ -612,11 +619,11 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(f);
 
         if (f->current_offset > 0) {
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &c);
+                cp = f->current_offset;
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, cp, &c);
                 if (r < 0)
                         return r;
-
-                cp = f->current_offset;
 
                 r = next_with_matches(j, f, direction, &c, &cp);
                 if (r <= 0)
