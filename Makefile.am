@@ -831,6 +831,12 @@ MANPAGES_ALIAS = \
 	man/sd_is_socket_unix.3 \
 	man/sd_is_socket_inet.3 \
 	man/sd_notifyf.3 \
+        man/sd_pid_get_session.3 \
+        man/sd_uid_get_state.3 \
+        man/sd_session_is_active.3 \
+        man/sd_seat_get_active.3 \
+        man/sd_get_seats.3 \
+        man/sd_login_monitor_new.3 \
 	man/init.1
 
 man/reboot.8: man/halt.8
