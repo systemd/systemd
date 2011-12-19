@@ -799,6 +799,7 @@ MANPAGES = \
 	man/daemon.7 \
 	man/sd-daemon.7 \
 	man/sd-readahead.7 \
+	man/sd-login.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
 	man/halt.8 \
@@ -817,7 +818,13 @@ MANPAGES = \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
         man/systemd-ask-password.1 \
-        man/systemd-loginctl.1
+        man/systemd-loginctl.1 \
+        man/sd_pid_get_session.3 \
+        man/sd_uid_get_state.3 \
+        man/sd_session_is_active.3 \
+        man/sd_seat_get_active.3 \
+        man/sd_get_seats.3 \
+        man/sd_login_monitor_new.3
 
 if ENABLE_BINFMT
 MANPAGES += \
@@ -830,14 +837,22 @@ MANPAGES_ALIAS = \
 	man/sd_is_socket.3 \
 	man/sd_is_socket_unix.3 \
 	man/sd_is_socket_inet.3 \
+	man/sd_is_mq.3 \
 	man/sd_notifyf.3 \
-        man/sd_pid_get_session.3 \
-        man/sd_uid_get_state.3 \
-        man/sd_session_is_active.3 \
-        man/sd_seat_get_active.3 \
-        man/sd_get_seats.3 \
-        man/sd_login_monitor_new.3 \
-	man/init.1
+	man/init.1 \
+        man/sd_session_get_uid.3 \
+        man/sd_session_get_seat.3 \
+        man/sd_pid_get_owner_uid.3 \
+        man/sd_uid_is_on_seat.3 \
+        man/sd_uid_get_sessions.3 \
+        man/sd_uid_get_seats.3 \
+        man/sd_seat_get_sessions.3 \
+        man/sd_seat_can_multi_session.3 \
+        man/sd_get_sessions.3 \
+        man/sd_get_uids.3 \
+        man/sd_login_monitor_unref.3 \
+        man/sd_login_monitor_flush.3 \
+        man/sd_login_monitor_get_fd.3
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8

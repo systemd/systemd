@@ -71,16 +71,15 @@
 
                 <para><function>sd_pid_get_session()</function> may be
                 used to determine the login session identifier of a
-                process identified by the specified process identifier. The session
-                identifier is a short string (up to 64 characters),
-                consisting only of the characters a-zA-Z0-9 as well as
-                '-' and '_'. It is suitable for usage in file system
-                paths. Note that not all processes are part of a login
-                session (e.g. system service processes and user
-                processes that are shared between multiple sessions of
-                the same user). For processes not being part of a
-                login session this function will fail. The returned
-                string needs to be freed with the libc
+                process identified by the specified process
+                identifier. The session identifier is a short string,
+                suitable for usage in file system paths. Note that not
+                all processes are part of a login session (e.g. system
+                service processes and user processes that are shared
+                between multiple sessions of the same user). For
+                processes not being part of a login session this
+                function will fail. The returned string needs to be
+                freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
