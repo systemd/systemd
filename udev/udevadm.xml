@@ -363,7 +363,7 @@
         <varlistentry>
           <term><option>--timeout=</option><replaceable>seconds</replaceable></term>
           <listitem>
-            <para>The maximum number seonds to wait for a reply from udevd.</para>
+            <para>The maximum number seconds to wait for a reply from udevd.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
