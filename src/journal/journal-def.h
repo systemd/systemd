@@ -135,9 +135,6 @@ _packed_ struct Header {
         sd_id128_t seqnum_id;
         uint64_t arena_offset;
         uint64_t arena_size;
-        uint64_t arena_max_size;  /* obsolete */
-        uint64_t arena_min_size;  /* obsolete */
-        uint64_t arena_keep_free; /* obsolete */
         uint64_t data_hash_table_offset;     /* for looking up data objects */
         uint64_t data_hash_table_size;
         uint64_t field_hash_table_offset;     /* for looking up field objects */

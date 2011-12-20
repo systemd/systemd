@@ -31,12 +31,6 @@
 #include "journal-file.h"
 #include "lookup3.h"
 
-#define DEFAULT_ARENA_MAX_SIZE (16ULL*1024ULL*1024ULL*1024ULL)
-#define DEFAULT_ARENA_MIN_SIZE (256ULL*1024ULL)
-#define DEFAULT_ARENA_KEEP_FREE (1ULL*1024ULL*1024ULL)
-
-#define DEFAULT_MAX_USE (16ULL*1024ULL*1024ULL*16ULL)
-
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*16ULL)
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (2047ULL*16ULL)
 
@@ -76,9 +70,6 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
         zero(h);
         memcpy(h.signature, signature, 8);
         h.arena_offset = htole64(ALIGN64(sizeof(h)));
-        h.arena_max_size = htole64(DEFAULT_ARENA_MAX_SIZE);
-        h.arena_min_size = htole64(DEFAULT_ARENA_MIN_SIZE);
-        h.arena_keep_free = htole64(DEFAULT_ARENA_KEEP_FREE);
 
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
@@ -161,15 +152,9 @@ static int journal_file_verify_header(JournalFile *f) {
 }
 
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
-        uint64_t asize;
         uint64_t old_size, new_size;
 
         assert(f);
-
-        if (offset < le64toh(f->header->arena_offset))
-                return -EINVAL;
-
-        new_size = PAGE_ALIGN(offset + size);
 
         /* We assume that this file is not sparse, and we know that
          * for sure, since we always call posix_fallocate()
@@ -179,12 +164,19 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
                 le64toh(f->header->arena_offset) +
                 le64toh(f->header->arena_size);
 
-        if (old_size >= new_size)
+        new_size = PAGE_ALIGN(offset + size);
+        if (new_size < le64toh(f->header->arena_offset))
+                new_size = le64toh(f->header->arena_offset);
+
+        if (new_size <= old_size)
                 return 0;
 
-        asize = new_size - le64toh(f->header->arena_offset);
+        if (f->metrics.max_size > 0 &&
+            new_size > f->metrics.max_size)
+                return -E2BIG;
 
-        if (asize > le64toh(f->header->arena_min_size)) {
+        if (new_size > f->metrics.min_size &&
+            f->metrics.keep_free > 0) {
                 struct statvfs svfs;
 
                 if (fstatvfs(f->fd, &svfs) >= 0) {
@@ -192,8 +184,8 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
 
                         available = svfs.f_bfree * svfs.f_bsize;
 
-                        if (available >= f->header->arena_keep_free)
-                                available -= f->header->arena_keep_free;
+                        if (available >= f->metrics.keep_free)
+                                available -= f->metrics.keep_free;
                         else
                                 available = 0;
 
@@ -202,16 +194,16 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
                 }
         }
 
-        if (asize > le64toh(f->header->arena_max_size))
-                return -E2BIG;
-
+        /* Note that the glibc fallocate() fallback is very
+           inefficient, hence we try to minimize the allocation area
+           as we can. */
         if (posix_fallocate(f->fd, old_size, new_size - old_size) < 0)
                 return -errno;
 
         if (fstat(f->fd, &f->last_stat) < 0)
                 return -errno;
 
-        f->header->arena_size = htole64(asize);
+        f->header->arena_size = new_size - htole64(f->header->arena_offset);
 
         return 0;
 }
@@ -576,6 +568,9 @@ int journal_file_find_data_object_with_hash(
 
         osize = offsetof(Object, data.payload) + size;
 
+        if (f->header->data_hash_table_size == 0)
+                return -EBADMSG;
+
         h = hash % (le64toh(f->header->data_hash_table_size) / sizeof(HashItem));
         p = le64toh(f->data_hash_table[h].head_hash_offset);
 
@@ -816,7 +811,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         if (r < 0)
                 return r;
 
-        log_error("%s %lu", f->path, (unsigned long) f->header->n_entries);
+        log_error("=> %s seqnr=%lu n_entries=%lu", f->path, (unsigned long) o->entry.seqnum, (unsigned long) f->header->n_entries);
 
         if (f->header->head_entry_realtime == 0)
                 f->header->head_entry_realtime = o->entry.realtime;
@@ -886,6 +881,8 @@ static void journal_file_post_change(JournalFile *f) {
          * accesses done via mmap(). After each access we hence
          * trigger IN_MODIFY by truncating the journal file to its
          * current size which triggers IN_MODIFY. */
+
+        __sync_synchronize();
 
         if (ftruncate(f->fd, f->last_stat.st_size) < 0)
                 log_error("Failed to to truncate file to its own size: %m");
@@ -1625,6 +1622,10 @@ int journal_file_open(
         f->mode = mode;
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
         f->prot = prot_from_flags(flags);
+
+        f->metrics.max_size = DEFAULT_MAX_SIZE;
+        f->metrics.min_size = DEFAULT_MIN_SIZE;
+        f->metrics.keep_free = DEFAULT_KEEP_FREE;
 
         f->path = strdup(fname);
         if (!f->path) {

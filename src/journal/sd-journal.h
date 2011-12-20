@@ -38,7 +38,6 @@
  *   - accelerate looking for "all hostnames" and suchlike.
  *   - throttling
  *   - cryptographic hash
- *   - fix space reservation logic
  *   - compression
  */
 

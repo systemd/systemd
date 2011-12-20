@@ -28,6 +28,11 @@
 #include "util.h"
 #include "sd-id128.h"
 
+#define DEFAULT_MAX_SIZE (1024ULL*128ULL)
+#define DEFAULT_MIN_SIZE (256ULL*1024ULL)
+#define DEFAULT_KEEP_FREE (1ULL*1024ULL*1024ULL)
+#define DEFAULT_MAX_USE (16ULL*1024ULL*1024ULL*16ULL)
+
 typedef struct Window {
         void *ptr;
         uint64_t offset;
@@ -44,6 +49,12 @@ enum {
         WINDOW_HEADER,
         _WINDOW_MAX
 };
+
+typedef struct JournalMetrics {
+        uint64_t max_size;
+        uint64_t min_size;
+        uint64_t keep_free;
+} JournalMetrics;
 
 typedef struct JournalFile {
         int fd;
@@ -62,6 +73,8 @@ typedef struct JournalFile {
         Window windows[_WINDOW_MAX];
 
         uint64_t current_offset;
+
+        JournalMetrics metrics;
 } JournalFile;
 
 typedef enum direction {

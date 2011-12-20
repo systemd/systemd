@@ -54,6 +54,9 @@ typedef struct Server {
 
         char *buffer;
         size_t buffer_size;
+
+        JournalMetrics metrics;
+        uint64_t max_use;
 } Server;
 
 static void fix_perms(JournalFile *f, uid_t uid) {
@@ -153,6 +156,66 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         return f;
 }
 
+static void server_vacuum(Server *s) {
+        Iterator i;
+        void *k;
+        char *p;
+        char ids[33];
+        sd_id128_t machine;
+        int r;
+        JournalFile *f;
+
+        log_info("Rotating...");
+
+        if (s->runtime_journal) {
+                r = journal_file_rotate(&s->runtime_journal);
+                if (r < 0)
+                        log_error("Failed to rotate %s: %s", s->runtime_journal->path, strerror(-r));
+        }
+
+        if (s->system_journal) {
+                r = journal_file_rotate(&s->system_journal);
+                if (r < 0)
+                        log_error("Failed to rotate %s: %s", s->system_journal->path, strerror(-r));
+        }
+
+        HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+                r = journal_file_rotate(&f);
+                if (r < 0)
+                        log_error("Failed to rotate %s: %s", f->path, strerror(-r));
+                else
+                        hashmap_replace(s->user_journals, k, f);
+        }
+
+        log_info("Vacuuming...");
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0) {
+                log_error("Failed to get machine ID: %s", strerror(-r));
+                return;
+        }
+
+        if (asprintf(&p, "/var/log/journal/%s", sd_id128_to_string(machine, ids)) < 0) {
+                log_error("Out of memory.");
+                return;
+        }
+
+        r = journal_directory_vacuum(p, s->max_use, s->metrics.keep_free);
+        if (r < 0 && r != -ENOENT)
+                log_error("Failed to vacuum %s: %s", p, strerror(-r));
+        free(p);
+
+        if (asprintf(&p, "/run/log/journal/%s", ids) < 0) {
+                log_error("Out of memory.");
+                return;
+        }
+
+        r = journal_directory_vacuum(p, s->max_use, s->metrics.keep_free);
+        if (r < 0 && r != -ENOENT)
+                log_error("Failed to vacuum %s: %s", p, strerror(-r));
+        free(p);
+}
+
 static void dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, struct ucred *ucred, struct timeval *tv) {
         char *pid = NULL, *uid = NULL, *gid = NULL,
                 *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
@@ -166,6 +229,7 @@ static void dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigne
         char *t;
         uid_t loginuid = 0, realuid = 0;
         JournalFile *f;
+        bool vacuumed = false;
 
         assert(s);
         assert(iovec || n == 0);
@@ -262,11 +326,22 @@ static void dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigne
 
         assert(n <= m);
 
+retry:
         f = find_journal(s, realuid == 0 ? 0 : loginuid);
         if (!f)
                 log_warning("Dropping message, as we can't find a place to store the data.");
         else {
                 r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+
+                if (r == -E2BIG && !vacuumed) {
+                        log_info("Allocation limit reached.");
+
+                        server_vacuum(s);
+                        vacuumed = true;
+
+                        log_info("Retrying write.");
+                        goto retry;
+                }
 
                 if (r < 0)
                         log_error("Failed to write entry, ignoring: %s", strerror(-r));
@@ -715,6 +790,10 @@ static int server_init(Server *s) {
 
         zero(*s);
         s->syslog_fd = s->native_fd = s->signal_fd = -1;
+        s->metrics.max_size = DEFAULT_MAX_SIZE;
+        s->metrics.min_size = DEFAULT_MIN_SIZE;
+        s->metrics.keep_free = DEFAULT_KEEP_FREE;
+        s->max_use = DEFAULT_MAX_USE;
 
         s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {
