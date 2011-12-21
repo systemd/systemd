@@ -378,11 +378,12 @@ void status_vprintf(const char *format, va_list ap);
 void status_printf(const char *format, ...);
 void status_welcome(void);
 
-int columns(void);
+unsigned columns(void);
 
 int running_in_chroot(void);
 
-char *ellipsize(const char *s, unsigned length, unsigned percent);
+char *ellipsize(const char *s, size_t length, unsigned percent);
+char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent);
 
 int touch(const char *path);
 

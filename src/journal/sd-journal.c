@@ -977,7 +977,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *dir, const ch
                 return r;
         }
 
-        journal_file_dump(f);
+        /* journal_file_dump(f); */
 
         r = hashmap_put(j->files, f->path, f);
         if (r < 0) {

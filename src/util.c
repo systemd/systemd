@@ -3905,7 +3905,7 @@ char **replace_env_argv(char **argv, char **env) {
         return r;
 }
 
-int columns(void) {
+unsigned columns(void) {
         static __thread int parsed_columns = 0;
         const char *e;
 
@@ -3948,36 +3948,39 @@ int running_in_chroot(void) {
                 a.st_ino != b.st_ino;
 }
 
-char *ellipsize(const char *s, unsigned length, unsigned percent) {
-        size_t l, x;
+char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
+        size_t x;
         char *r;
 
         assert(s);
         assert(percent <= 100);
-        assert(length >= 3);
+        assert(new_length >= 3);
 
-        l = strlen(s);
+        if (old_length <= 3 || old_length <= new_length)
+                return strndup(s, old_length);
 
-        if (l <= 3 || l <= length)
-                return strdup(s);
-
-        if (!(r = new0(char, length+1)))
+        r = new0(char, new_length+1);
+        if (!r)
                 return r;
 
-        x = (length * percent) / 100;
+        x = (new_length * percent) / 100;
 
-        if (x > length - 3)
-                x = length - 3;
+        if (x > new_length - 3)
+                x = new_length - 3;
 
         memcpy(r, s, x);
         r[x] = '.';
         r[x+1] = '.';
         r[x+2] = '.';
         memcpy(r + x + 3,
-               s + l - (length - x - 3),
-               length - x - 3);
+               s + old_length - (new_length - x - 3),
+               new_length - x - 3);
 
         return r;
+}
+
+char *ellipsize(const char *s, size_t length, unsigned percent) {
+        return ellipsize_mem(s, strlen(s), length, percent);
 }
 
 int touch(const char *path) {
