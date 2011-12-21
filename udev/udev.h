@@ -158,6 +158,8 @@ struct udev_builtin {
 	const char *name;
 	int (*cmd)(struct udev_device *dev, const char *command, bool test);
 	const char *help;
+	int (*load)(struct udev *udev);
+	int (*unload)(struct udev *udev);
 	bool run_once;
 };
 extern const struct udev_builtin udev_builtin_path_id;
@@ -165,6 +167,8 @@ extern const struct udev_builtin udev_builtin_usb_id;
 extern const struct udev_builtin udev_builtin_input_id;
 extern const struct udev_builtin udev_builtin_blkid;
 extern const struct udev_builtin udev_builtin_kmod;
+int udev_builtin_load(struct udev *udev);
+int udev_builtin_unload(struct udev *udev);
 enum udev_builtin_cmd udev_builtin_lookup(const char *command);
 const char *udev_builtin_name(enum udev_builtin_cmd cmd);
 bool udev_builtin_run_once(enum udev_builtin_cmd cmd);

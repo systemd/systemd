@@ -99,6 +99,8 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 		goto out;
 	}
 
+	udev_builtin_load(udev);
+
 	cmd = udev_builtin_lookup(command);
 	if (cmd >= UDEV_BUILTIN_MAX) {
 		fprintf(stderr, "unknown command '%s'\n", command);
@@ -113,6 +115,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 	}
 out:
 	udev_device_unref(dev);
+	udev_builtin_unload(udev);
 	return rc;
 }
 

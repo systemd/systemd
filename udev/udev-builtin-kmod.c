@@ -1,5 +1,5 @@
 /*
- * probe disks for filesystems and partitions
+ * load kernel modules
  *
  * Copyright (C) 2011 Kay Sievers <kay.sievers@vrfy.org>
  *
@@ -28,15 +28,34 @@
 
 #include "udev.h"
 
+static char *kmod;
+
 static int builtin_kmod(struct udev_device *dev, const char *command, bool test)
 {
 	printf("soon we load a module here: '%s'\n", command);
+	printf("test: %s\n", kmod);
 	return EXIT_SUCCESS;
+}
+
+static int builtin_kmod_load(struct udev *udev)
+{
+	printf("load module index\n");
+	asprintf(&kmod, "pid: %u\n", getpid());
+	return 0;
+}
+
+static int builtin_kmod_unload(struct udev *udev)
+{
+	printf("unload module index\n");
+	free(kmod);
+	return 0;
 }
 
 const struct udev_builtin udev_builtin_kmod = {
 	.name = "kmod",
 	.cmd = builtin_kmod,
+	.load = builtin_kmod_load,
+	.unload = builtin_kmod_unload,
 	.help = "kernel module loader",
 	.run_once = false,
 };

@@ -1513,6 +1513,8 @@ int main(int argc, char *argv[])
 	}
 	fd_worker = worker_watch[READ_END];
 
+	udev_builtin_load(udev);
+
 	rules = udev_rules_new(udev, resolve_names);
 	if (rules == NULL) {
 		err(udev, "error reading rules\n");
@@ -1712,6 +1714,7 @@ exit_daemonize:
 	worker_list_cleanup(udev);
 	event_queue_cleanup(udev, EVENT_UNDEF);
 	udev_rules_unref(rules);
+	udev_builtin_unload(udev);
 	if (fd_signal >= 0)
 		close(fd_signal);
 	if (worker_watch[READ_END] >= 0)
