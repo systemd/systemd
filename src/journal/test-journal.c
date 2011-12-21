@@ -113,5 +113,7 @@ int main(int argc, char *argv[]) {
 
         journal_directory_vacuum(".", 3000000, 0);
 
+        log_error("Exiting...");
+
         return 0;
 }

@@ -1585,3 +1585,20 @@ int sd_journal_process(sd_journal *j) {
                 }
         }
 }
+
+int sd_journal_query_unique(sd_journal *j, const char *field) {
+        assert(j);
+        assert(field);
+
+        return -ENOTSUP;
+}
+
+int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l) {
+        assert(j);
+
+        return -ENOTSUP;
+}
+
+void sd_journal_restart_unique(sd_journal *j) {
+        assert(j);
+}

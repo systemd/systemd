@@ -395,6 +395,41 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         free(syslog_priority);
 }
 
+static bool valid_user_field(const char *p, size_t l) {
+        const char *a;
+
+        /* We kinda enforce POSIX syntax recommendations for
+           environment variables here, but make a couple of additional
+           requirements.
+
+           http://pubs.opengroup.org/onlinepubs/000095399/basedefs/xbd_chap08.html */
+
+        /* No empty field names */
+        if (l <= 0)
+                return false;
+
+        /* Don't allow names longer than 64 chars */
+        if (l > 64)
+                return false;
+
+        /* Variables starting with an underscore are protected */
+        if (p[0] == '_')
+                return false;
+
+        /* Don't allow digits as first character */
+        if (p[0] >= '0' && p[0] <= '9')
+                return false;
+
+        /* Only allow A-Z0-9 and '_' */
+        for (a = p; a < p + l; a++)
+                if (!((*a >= 'A' && *a <= 'Z') ||
+                      (*a >= '0' && *a <= '9') ||
+                      *a == '_'))
+                        return false;
+
+        return true;
+}
+
 static void process_native_message(Server *s, const void *buffer, size_t buffer_size, struct ucred *ucred, struct timeval *tv) {
         struct iovec *iovec = NULL;
         unsigned n = 0, m = 0, j;
@@ -428,8 +463,9 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                         continue;
                 }
 
-                if (*p == '.') {
-                        /* Control command, ignore for now */
+                if (*p == '.' || *p == '#') {
+                        /* Ignore control commands for now, and
+                         * comments too. */
                         remaining -= (e - p) + 1;
                         p = e + 1;
                         continue;
@@ -454,7 +490,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 
                 q = memchr(p, '=', e - p);
                 if (q) {
-                        if (p[0] != '_') {
+                        if (valid_user_field(p, q - p)) {
                                 /* If the field name starts with an
                                  * underscore, skip the variable,
                                  * since that indidates a trusted
@@ -495,7 +531,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                         k[e - p] = '=';
                         memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
 
-                        if (k[0] != '_') {
+                        if (valid_user_field(p, e - p)) {
                                 iovec[n].iov_base = k;
                                 iovec[n].iov_len = (e - p) + 1 + l;
                                 n++;
