@@ -239,7 +239,7 @@ out:
  * 6.) If the device supplies a serial number, this number
  *     is concatenated with the identification with an underscore '_'.
  */
-static int builtin_usb_id(struct udev_device *dev, bool test)
+static int builtin_usb_id(struct udev_device *dev, const char *command, bool test)
 {
 	char vendor_str[64];
 	char vendor_str_enc[256];
@@ -478,4 +478,5 @@ const struct udev_builtin udev_builtin_usb_id = {
 	.name = "usb_id",
 	.cmd = builtin_usb_id,
 	.help = "usb device properties",
+	.run_once = true,
 };

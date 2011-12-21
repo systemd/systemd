@@ -150,20 +150,25 @@ enum udev_builtin_cmd {
 	UDEV_BUILTIN_PATH_ID,
 	UDEV_BUILTIN_USB_ID,
 	UDEV_BUILTIN_INPUT_ID,
-	UDEV_BUILTIN_MODALIAS_MATCH,
+	UDEV_BUILTIN_BLKID,
+	UDEV_BUILTIN_KMOD,
 	UDEV_BUILTIN_MAX
 };
 struct udev_builtin {
 	const char *name;
-	int (*cmd)(struct udev_device *dev, bool test);
+	int (*cmd)(struct udev_device *dev, const char *command, bool test);
 	const char *help;
+	bool run_once;
 };
 extern const struct udev_builtin udev_builtin_path_id;
 extern const struct udev_builtin udev_builtin_usb_id;
 extern const struct udev_builtin udev_builtin_input_id;
-enum udev_builtin_cmd udev_builtin_lookup(const char *name);
+extern const struct udev_builtin udev_builtin_blkid;
+extern const struct udev_builtin udev_builtin_kmod;
+enum udev_builtin_cmd udev_builtin_lookup(const char *command);
 const char *udev_builtin_name(enum udev_builtin_cmd cmd);
-int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, bool test);
+bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
+int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
 int udev_builtin_list(struct udev *udev);
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val, ...);
 #endif

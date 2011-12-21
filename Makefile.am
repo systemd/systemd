@@ -203,7 +203,7 @@ bin_PROGRAMS = \
 libexec_PROGRAMS = \
 	udev/udevd
 
-udev_common_sources =\
+udev_common_sources = \
 	udev/udev.h \
 	udev/udev-event.c \
 	udev/udev-watch.c \
@@ -213,14 +213,24 @@ udev_common_sources =\
 	udev/udev-builtin.c \
 	udev/udev-builtin-path_id.c \
 	udev/udev-builtin-usb_id.c \
-	udev/udev-builtin-input_id.c
+	udev/udev-builtin-input_id.c \
+	udev/udev-builtin-blkid.c \
+	udev/udev-builtin-kmod.c
+
+udev_common_CFLAGS = \
+	$(BLKID_CFLAGS)
+
+udev_common_LDADD = \
+	libudev/libudev-private.la \
+	$(BLKID_LIBS)
 
 udev_udevd_SOURCES = \
 	$(udev_common_sources) \
 	udev/udevd.c \
 	udev/sd-daemon.h \
 	udev/sd-daemon.c
-udev_udevd_LDADD = libudev/libudev-private.la
+udev_udevd_CFLAGS = $(udev_common_CFLAGS)
+udev_udevd_LDADD = $(udev_common_LDADD)
 
 udev_udevadm_SOURCES = \
 	$(udev_common_sources) \
@@ -232,7 +242,8 @@ udev_udevadm_SOURCES = \
 	udev/udevadm-trigger.c \
 	udev/udevadm-test.c \
 	udev/udevadm-test-builtin.c
-udev_udevadm_LDADD = libudev/libudev-private.la
+udev_udevadm_CFLAGS = $(udev_common_CFLAGS)
+udev_udevadm_LDADD = $(udev_common_LDADD)
 
 # ------------------------------------------------------------------------------
 # udev man pages

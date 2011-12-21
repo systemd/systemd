@@ -390,7 +390,7 @@ out:
 	return parent;
 }
 
-static int builtin_path_id(struct udev_device *dev, bool test)
+static int builtin_path_id(struct udev_device *dev, const char *command, bool test)
 {
 	struct udev_device *parent;
 	char *path = NULL;
@@ -483,4 +483,5 @@ const struct udev_builtin udev_builtin_path_id = {
 	.name = "path_id",
 	.cmd = builtin_path_id,
 	.help = "compose persistent device path",
+	.run_once = true,
 };

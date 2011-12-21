@@ -107,7 +107,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 		goto out;
 	}
 
-	if (udev_builtin_run(dev, cmd, true) < 0) {
+	if (udev_builtin_run(dev, cmd, command, true) < 0) {
 		fprintf(stderr, "error executing '%s'\n\n", command);
 		rc = 6;
 	}

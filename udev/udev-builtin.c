@@ -29,6 +29,8 @@ static const struct udev_builtin *builtins[] = {
 	[UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,
 	[UDEV_BUILTIN_USB_ID] = &udev_builtin_usb_id,
 	[UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
+	[UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
+	[UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
 };
 
 int udev_builtin_list(struct udev *udev)
@@ -45,19 +47,30 @@ const char *udev_builtin_name(enum udev_builtin_cmd cmd)
 	return builtins[cmd]->name;
 }
 
-enum udev_builtin_cmd udev_builtin_lookup(const char *name)
+bool udev_builtin_run_once(enum udev_builtin_cmd cmd)
 {
-	enum udev_builtin_cmd i;
+	return builtins[cmd]->run_once;
+}
 
+enum udev_builtin_cmd udev_builtin_lookup(const char *command)
+{
+	char name[UTIL_PATH_SIZE];
+	enum udev_builtin_cmd i;
+	char *pos;
+
+	util_strscpy(name, sizeof(name), command);
+	pos = strchr(name, ' ');
+	if (pos)
+		pos[0] = '\0';
 	for (i = 0; i < ARRAY_SIZE(builtins); i++)
 		if (strcmp(builtins[i]->name, name) == 0)
 			return i;
 	return UDEV_BUILTIN_MAX;
 }
 
-int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, bool test)
+int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test)
 {
-	return builtins[cmd]->cmd(dev, test);
+	return builtins[cmd]->cmd(dev, command, test);
 }
 
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val, ...)
