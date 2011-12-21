@@ -5,8 +5,6 @@
 
 SUBDIRS = .
 
-EXTRA_DIST =
-
 ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
 AM_MAKEFLAGS = --no-print-directory
@@ -30,13 +28,39 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--enable-gtk-doc \
 	--with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)
 
-CLEANFILES =
 BUILT_SOURCES =
+EXTRA_DIST =
+CLEANFILES =
 INSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 DISTCHECK_HOOKS =
+libexec_SCRIPTS =
 dist_libexec_SCRIPTS =
+
+SED_PROCESS = \
+$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(SED) \
+	-e 's,@VERSION\@,$(VERSION),g' \
+	-e 's,@prefix\@,$(prefix),g' \
+	-e 's,@exec_prefix\@,$(exec_prefix),g' \
+	-e 's,@libdir\@,$(libdir),g' \
+	-e 's,@includedir\@,$(includedir),g' \
+	-e 's,@bindir\@,$(bindir),g' \
+	-e 's,@sbindir\@,$(sbindir),g' \
+	-e 's,@libexecdir\@,$(libexecdir),g' \
+	< $< > $@ || rm $@
+
+%.pc: %.pc.in Makefile
+	$(SED_PROCESS)
+
+%.rules: %.rules.in Makefile
+	$(SED_PROCESS)
+
+%.service: %.service.in
+	$(SED_PROCESS)
+
+%.sh: %.sh.in
+	$(SED_PROCESS)
 
 # ------------------------------------------------------------------------------
 # libudev
@@ -80,6 +104,8 @@ endif
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libudev/libudev.pc
+EXTRA_DIST += libudev/libudev.pc.in
+CLEANFILES += libudev/libudev.pc
 
 EXTRA_DIST += libudev/COPYING
 # move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
@@ -124,23 +150,41 @@ udevrules_DATA = \
 	rules/rules.d/60-persistent-storage.rules \
 	rules/rules.d/80-drivers.rules
 
+EXTRA_DIST += \
+	rules/rules.d/80-drivers.rules.in \
+	rules/rules.d/60-persistent-storage.rules.in
+
+CLEANFILES += \
+	rules/rules.d/80-drivers.rules \
+	rules/rules.d/60-persistent-storage.rules
+
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = udev.conf
 
 sharepkgconfigdir = $(datadir)/pkgconfig
 sharepkgconfig_DATA = udev/udev.pc
+EXTRA_DIST += udev/udev.pc.in
+CLEANFILES += udev/udev.pc
 
 if WITH_SYSTEMD
-systemdsystemunit_DATA = \
+dist_systemdsystemunit_DATA = \
 	systemd/udev-control.socket \
-	systemd/udev-kernel.socket \
+	systemd/udev-kernel.socket
+
+systemdsystemunit_DATA = \
 	systemd/udev.service \
 	systemd/udev-trigger.service \
 	systemd/udev-settle.service
 
 EXTRA_DIST += \
-	systemd/udev-control.socket \
-	systemd/udev-kernel.socket
+	systemd/udev.service.in \
+	systemd/udev-trigger.service.in \
+	systemd/udev-settle.service.in
+
+CLEANFILES += \
+	systemd/udev.service \
+	systemd/udev-trigger.service \
+	systemd/udev-settle.service
 
 systemd-install-hook:
 	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/sockets.target.wants
@@ -317,7 +361,10 @@ libgudev_include_HEADERS = \
 	extras/gudev/gudevenumerator.h
 
 lib_LTLIBRARIES += extras/gudev/libgudev-1.0.la
+
 pkgconfig_DATA += extras/gudev/gudev-1.0.pc
+EXTRA_DIST += extras/gudev/gudev-1.0.pc.in
+CLEANFILES += extras/gudev/gudev-1.0.pc
 
 extras_gudev_libgudev_1_0_la_SOURCES = \
 	extras/gudev/gudevenums.h \
@@ -332,12 +379,12 @@ extras_gudev_libgudev_1_0_la_SOURCES = \
 	extras/gudev/gudevenumerator.c \
 	extras/gudev/gudevprivate.h
 
-dist_extras_gudev_libgudev_1_0_la_SOURCES = \
+nodist_extras_gudev_libgudev_1_0_la_SOURCES = \
 	extras/gudev/gudevmarshal.h \
 	extras/gudev/gudevmarshal.c \
 	extras/gudev/gudevenumtypes.h \
 	extras/gudev/gudevenumtypes.c
-BUILT_SOURCES += $(dist_extras_gudev_libgudev_1_0_la_SOURCES)
+BUILT_SOURCES += $(nodist_extras_gudev_libgudev_1_0_la_SOURCES)
 
 extras_gudev_libgudev_1_0_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -471,16 +518,24 @@ nodist_extras_keymap_keymap_SOURCES = \
 	extras/keymap/keys-to-name.h
 BUILT_SOURCES += $(nodist_extras_keymap_keymap_SOURCES)
 
-EXTRA_DIST += extras/keymap/check-keymaps.sh
-dist_udevrules_DATA += extras/keymap/95-keymap.rules
-dist_udevrules_DATA += extras/keymap/95-keyboard-force-release.rules
 libexec_PROGRAMS += extras/keymap/keymap
-dist_libexec_SCRIPTS += extras/keymap/findkeyboards
-dist_libexec_SCRIPTS += extras/keymap/keyboard-force-release.sh
 dist_doc_DATA = extras/keymap/README.keymap.txt
+
+dist_udevrules_DATA += \
+	extras/keymap/95-keymap.rules \
+	extras/keymap/95-keyboard-force-release.rules
+
+dist_libexec_SCRIPTS += extras/keymap/findkeyboards
+libexec_SCRIPTS += extras/keymap/keyboard-force-release.sh
+
+EXTRA_DIST += \
+	extras/keymap/check-keymaps.sh \
+	extras/keymap/keyboard-force-release.sh.in
+
 CLEANFILES += \
 	extras/keymap/keys.txt \
-	extras/keymap/keys-from-name.gperf
+	extras/keymap/keys-from-name.gperf \
+	extras/keymap/keyboard-force-release.sh
 
 udevkeymapdir = $(libexecdir)/keymaps
 dist_udevkeymap_DATA = \
@@ -575,8 +630,10 @@ extras_mtd_probe_mtd_probe_SOURCES =  \
 	extras/mtd_probe/mtd_probe.h \
 	extras/mtd_probe/probe_smartmedia.c
 extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
-dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
+udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
 libexec_PROGRAMS += extras/mtd_probe/mtd_probe
+EXTRA_DIST += extras/mtd_probe/75-probe_mtd.rules.in
+CLEANFILES += extras/mtd_probe/75-probe_mtd.rules
 endif
 
 if ENABLE_RULE_GENERATOR
@@ -641,13 +698,12 @@ clean-local:
 distclean-local:
 	rm -rf autom4te.cache
 
-CLEANFILES += \
-	udev-$(VERSION).tar.gz \
-	udev-$(VERSION).tar.bz2 \
-	$(BUILT_SOURCES)
+EXTRA_DIST += \
+	$(TESTS) \
+	test/rule-syntax-check.py
 
-EXTRA_DIST += $(TESTS)
-EXTRA_DIST += test/rule-syntax-check.py
+CLEANFILES += \
+	$(BUILT_SOURCES)
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
@@ -687,15 +743,14 @@ git-release:
 
 tar:
 	make distcheck
-	gpg --armor --detach-sign udev-$(VERSION).tar.gz
-	gpg --armor --detach-sign udev-$(VERSION).tar.bz2
+	gpg --armor --detach-sign udev-$(VERSION).tar.xz
 
 git-sync:
 	git push
 	git push --tags $(VERSION)
 
 tar-sync:
-	scp udev-$(VERSION).tar.gz master.kernel.org:/pub/linux/utils/kernel/hotplug/
+	scp udev-$(VERSION).tar.xz master.kernel.org:/pub/linux/utils/kernel/hotplug/
 
 doc-sync:
 	rsync -av udev/*.html master.kernel.org:/pub/linux/utils/kernel/hotplug/udev/

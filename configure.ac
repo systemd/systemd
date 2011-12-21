@@ -6,13 +6,15 @@ AC_INIT([udev],
 	[http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev.html])
 AC_CONFIG_SRCDIR([udev/udevd.c])
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([check-news foreign 1.11 -Wall -Wno-portability silent-rules tar-pax dist-bzip2 subdir-objects])
+AM_INIT_AUTOMAKE([check-news foreign 1.11 -Wall -Wno-portability silent-rules tar-pax dist-xz subdir-objects])
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 AC_CONFIG_MACRO_DIR([m4])
 AM_SILENT_RULES([yes])
 LT_INIT([disable-static])
 AC_PROG_AWK
+AC_PROG_SED
+AC_PROG_MKDIR_P
 GTK_DOC_CHECK(1.10)
 AC_PREFIX_DEFAULT([/usr])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
@@ -200,20 +202,10 @@ AM_CONDITIONAL([ENABLE_EDD], [test "x$enable_edd" = "xyes"])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
-	extras/mtd_probe/75-probe_mtd.rules
-	rules/rules.d/80-drivers.rules
-	rules/rules.d/60-persistent-storage.rules
-	udev/udev.pc
-	systemd/udev.service
-	systemd/udev-trigger.service
-	systemd/udev-settle.service
-	libudev/libudev.pc
 	libudev/docs/Makefile
 	libudev/docs/version.xml
-	extras/gudev/gudev-1.0.pc
 	extras/gudev/docs/Makefile
 	extras/gudev/docs/version.xml
-	extras/keymap/keyboard-force-release.sh
 ])
 
 AC_OUTPUT

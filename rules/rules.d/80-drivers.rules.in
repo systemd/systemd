@@ -5,7 +5,7 @@ ACTION=="remove", GOTO="drivers_end"
 DRIVER!="?*", ENV{MODALIAS}=="?*", RUN+="@sbindir@/modprobe -bv $env{MODALIAS}"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD", RUN+="@sbindir@/modprobe -bv tifm_sd"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN+="@sbindir@/modprobe -bv tifm_ms"
-SUBSYSTEM=="memstick", RUN+="@sbindir/modprobe -bv --all ms_block mspro_block"
+SUBSYSTEM=="memstick", RUN+="@sbindir@/modprobe -bv --all ms_block mspro_block"
 SUBSYSTEM=="i2o", RUN+="@sbindir@/modprobe -bv i2o_block"
 SUBSYSTEM=="module", KERNEL=="parport_pc", RUN+="@sbindir@/modprobe -bv ppdev"
 
