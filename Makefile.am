@@ -1069,7 +1069,8 @@ systemd_journalctl_SOURCES = \
 	src/journal/sd-journal.c \
         src/journal/journal-file.c \
         src/journal/lookup3.c \
-        src/sd-id128.c
+        src/sd-id128.c \
+        src/pager.c
 
 systemd_journalctl_CFLAGS = \
 	$(AM_CFLAGS)
