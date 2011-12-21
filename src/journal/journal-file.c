@@ -1218,7 +1218,6 @@ static int generic_array_bisect_plus_one(JournalFile *f,
 
         /* This bisects the array in object 'first', but first checks
          * an extra  */
-
         r = test_object(f, extra, needle);
         if (r < 0)
                 return r;
@@ -1234,6 +1233,11 @@ static int generic_array_bisect_plus_one(JournalFile *f,
 
                 if (offset)
                         *offset = extra;
+
+                if (idx)
+                        *idx = 0;
+
+                return 1;
         } else if (r == TEST_RIGHT)
                 return 0;
 
