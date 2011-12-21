@@ -57,6 +57,7 @@ typedef struct Server {
 
         JournalMetrics metrics;
         uint64_t max_use;
+        bool compress;
 } Server;
 
 static void fix_perms(JournalFile *f, uid_t uid) {
@@ -146,6 +147,8 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 return s->system_journal;
 
         fix_perms(f, uid);
+        f->metrics = s->metrics;
+        f->compress = s->compress;
 
         r = hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
         if (r < 0) {
@@ -661,6 +664,9 @@ static int system_journal_open(Server *s) {
         free(fn);
 
         if (r >= 0) {
+                s->system_journal->metrics = s->metrics;
+                s->system_journal->compress = s->compress;
+
                 fix_perms(s->system_journal, 0);
                 return r;
         }
@@ -684,6 +690,9 @@ static int system_journal_open(Server *s) {
                 log_error("Failed to open runtime journal: %s", strerror(-r));
                 return r;
         }
+
+        s->runtime_journal->metrics = s->metrics;
+        s->runtime_journal->compress = s->compress;
 
         fix_perms(s->runtime_journal, 0);
         return r;
@@ -794,6 +803,7 @@ static int server_init(Server *s) {
         s->metrics.min_size = DEFAULT_MIN_SIZE;
         s->metrics.keep_free = DEFAULT_KEEP_FREE;
         s->max_use = DEFAULT_MAX_USE;
+        s->compress = true;
 
         s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {
@@ -931,6 +941,7 @@ int main(int argc, char *argv[]) {
         }
 
         log_set_target(LOG_TARGET_CONSOLE);
+        log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
 

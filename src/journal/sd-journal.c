@@ -31,6 +31,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "lookup3.h"
+#include "compress.h"
 
 #define JOURNAL_FILES_MAX 1024
 
@@ -1344,7 +1345,7 @@ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, siz
                 size_t t;
 
                 p = le64toh(o->entry.items[i].object_offset);
-                le_hash = o->entry.items[j->current_field].hash;
+                le_hash = o->entry.items[i].hash;
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
                 if (r < 0)
                         return r;
@@ -1354,9 +1355,31 @@ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, siz
 
                 l = le64toh(o->object.size) - offsetof(Object, data.payload);
 
-                if (l >= field_length+1 &&
-                    memcmp(o->data.payload, field, field_length) == 0 &&
-                    o->data.payload[field_length] == '=') {
+                if (o->object.flags & OBJECT_COMPRESSED) {
+
+#ifdef HAVE_XZ
+                        if (uncompress_startswith(o->data.payload, l,
+                                                  &f->compress_buffer, &f->compress_buffer_size,
+                                                  field, field_length, '=')) {
+
+                                uint64_t rsize;
+
+                                if (!uncompress_blob(o->data.payload, l,
+                                                     &f->compress_buffer, &f->compress_buffer_size, &rsize))
+                                        return -EBADMSG;
+
+                                *data = f->compress_buffer;
+                                *size = (size_t) rsize;
+
+                                return 0;
+                        }
+#else
+                        return -EPROTONOSUPPORT;
+#endif
+
+                } else if (l >= field_length+1 &&
+                           memcmp(o->data.payload, field, field_length) == 0 &&
+                           o->data.payload[field_length] == '=') {
 
                         t = (size_t) l;
 
@@ -1419,8 +1442,22 @@ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *size) {
         if ((uint64_t) t != l)
                 return -E2BIG;
 
-        *data = o->data.payload;
-        *size = t;
+        if (o->object.flags & OBJECT_COMPRESSED) {
+#ifdef HAVE_XZ
+                uint64_t rsize;
+
+                if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize))
+                        return -EBADMSG;
+
+                *data = f->compress_buffer;
+                *size = (size_t) rsize;
+#else
+                return -EPROTONOSUPPORT;
+#endif
+        } else {
+                *data = o->data.payload;
+                *size = t;
+        }
 
         j->current_field ++;
 

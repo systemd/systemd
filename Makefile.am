@@ -1028,6 +1028,15 @@ test_journal_CFLAGS = \
 test_journal_LDADD = \
 	libsystemd-basic.la
 
+if HAVE_XZ
+test_journal_SOURCES += \
+        src/journal/compress.c
+test_journal_CFLAGS += \
+        $(XZ_CFLAGS)
+test_journal_LDADD += \
+        $(XZ_LIBS)
+endif
+
 systemd_journald_SOURCES = \
 	src/journal/journald.c \
 	src/journal/sd-journal.c \
@@ -1046,6 +1055,15 @@ systemd_journald_LDADD = \
         libsystemd-daemon.la \
         $(ACL_LIBS)
 
+if HAVE_XZ
+systemd_journald_SOURCES += \
+        src/journal/compress.c
+systemd_journald_CFLAGS += \
+        $(XZ_CFLAGS)
+systemd_journald_LDADD += \
+        $(XZ_LIBS)
+endif
+
 systemd_journalctl_SOURCES = \
 	src/journal/journalctl.c \
 	src/journal/sd-journal.c \
@@ -1058,6 +1076,15 @@ systemd_journalctl_CFLAGS = \
 
 systemd_journalctl_LDADD = \
 	libsystemd-basic.la
+
+if HAVE_XZ
+systemd_journalctl_SOURCES += \
+        src/journal/compress.c
+systemd_journalctl_CFLAGS += \
+        $(XZ_CFLAGS)
+systemd_journalctl_LDADD += \
+        $(XZ_LIBS)
+endif
 
 systemd_stdout_syslog_bridge_SOURCES = \
 	src/stdout-syslog-bridge.c \

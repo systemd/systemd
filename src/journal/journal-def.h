@@ -50,9 +50,15 @@ enum {
         _OBJECT_TYPE_MAX
 };
 
+/* Object flags */
+enum {
+        OBJECT_COMPRESSED = 1
+};
+
 _packed_ struct ObjectHeader {
         uint8_t type;
-        uint8_t reserved[7];
+        uint8_t flags;
+        uint8_t reserved[6];
         uint64_t size;
         uint8_t payload[];
 };
@@ -121,6 +127,11 @@ enum {
         STATE_OFFLINE,
         STATE_ONLINE,
         STATE_ARCHIVED
+};
+
+/* Header flags */
+enum {
+        HEADER_INCOMPATIBLE_COMPRESSED = 1
 };
 
 _packed_ struct Header {

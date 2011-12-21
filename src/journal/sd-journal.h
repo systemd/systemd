@@ -38,7 +38,7 @@
  *   - accelerate looking for "all hostnames" and suchlike.
  *   - throttling
  *   - cryptographic hash
- *   - compression
+ *   - never access beyond fle size check
  */
 
 /* Write to daemon */

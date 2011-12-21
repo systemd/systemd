@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* logind: sends SessionNew on Lock()?
+
 * logind: allow showing logout dialog from system
 
 * document that %% can be used to write % in a string that is specifier extended

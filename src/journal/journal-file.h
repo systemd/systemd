@@ -75,6 +75,13 @@ typedef struct JournalFile {
         uint64_t current_offset;
 
         JournalMetrics metrics;
+
+        bool compress;
+
+#ifdef HAVE_XZ
+        void *compress_buffer;
+        size_t compress_buffer_size;
+#endif
 } JournalFile;
 
 typedef enum direction {
