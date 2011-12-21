@@ -493,7 +493,7 @@ static int spawn_exec(struct udev_event *event,
 	return err;
 }
 
-static int spawn_read(struct udev_event *event,
+static void spawn_read(struct udev_event *event,
 		      const char *cmd,
 		      int fd_stdout, int fd_stderr,
 		      char *result, size_t ressize)
@@ -502,15 +502,13 @@ static int spawn_read(struct udev_event *event,
 	size_t respos = 0;
 	int fd_ep = -1;
 	struct epoll_event ep_outpipe, ep_errpipe;
-	int err = 0;
 
 	/* read from child if requested */
 	if (fd_stdout < 0 && fd_stderr < 0)
-		return 0;
+		return;
 
 	fd_ep = epoll_create1(EPOLL_CLOEXEC);
 	if (fd_ep < 0) {
-		err = -errno;
 		err(udev, "error creating epoll fd: %m\n");
 		goto out;
 	}
@@ -547,7 +545,6 @@ static int spawn_read(struct udev_event *event,
 
 			age_usec = now_usec() - event->birth_usec;
 			if (age_usec >= event->timeout_usec) {
-				err = -ETIMEDOUT;
 				err(udev, "timeout '%s'\n", cmd);
 				goto out;
 			}
@@ -560,12 +557,10 @@ static int spawn_read(struct udev_event *event,
 		if (fdcount < 0) {
 			if (errno == EINTR)
 				continue;
-			err = -errno;
 			err(udev, "failed to poll: %m\n");
 			goto out;
 		}
 		if (fdcount == 0) {
-			err  = -ETIMEDOUT;
 			err(udev, "timeout '%s'\n", cmd);
 			goto out;
 		}
@@ -589,7 +584,6 @@ static int spawn_read(struct udev_event *event,
 						respos += count;
 					} else {
 						err(udev, "'%s' ressize %zd too short\n", cmd, ressize);
-						err = -ENOBUFS;
 					}
 				}
 
@@ -606,7 +600,6 @@ static int spawn_read(struct udev_event *event,
 				}
 			} else if (ev[i].events & EPOLLHUP) {
 				if (epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL) < 0) {
-					err = -errno;
 					err(udev, "failed to remove fd from epoll: %m\n");
 					goto out;
 				}
@@ -623,7 +616,6 @@ static int spawn_read(struct udev_event *event,
 out:
 	if (fd_ep >= 0)
 		close(fd_ep);
-	return err;
 }
 
 static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
@@ -805,9 +797,9 @@ int udev_event_spawn(struct udev_event *event,
 			errpipe[WRITE_END] = -1;
 		}
 
-		err = spawn_read(event, cmd,
-				 outpipe[READ_END], errpipe[READ_END],
-				 result, ressize);
+		spawn_read(event, cmd,
+			 outpipe[READ_END], errpipe[READ_END],
+			 result, ressize);
 
 		err = spawn_wait(event, cmd, pid);
 	}
