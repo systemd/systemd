@@ -52,7 +52,7 @@ static int disk_scsi_inquiry_command(int      fd,
 				     size_t   buf_len)
 {
 	struct sg_io_v4 io_v4;
-	uint8_t cdb[12];
+	uint8_t cdb[6];
 	uint8_t sense[32];
 	int ret;
 
