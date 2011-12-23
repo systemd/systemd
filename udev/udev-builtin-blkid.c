@@ -105,7 +105,7 @@ static int probe_superblocks(blkid_probe pr)
 	return blkid_do_safeprobe(pr);
 }
 
-static int builtin_blkid(struct udev_device *dev, const char *command, bool test)
+static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool test)
 {
 	char *device = "/dev/sda3";
 	int64_t offset = 0;
@@ -167,5 +167,5 @@ const struct udev_builtin udev_builtin_blkid = {
 	.name = "blkid",
 	.cmd = builtin_blkid,
 	.help = "filesystem and partition probing",
-	.run_once = false,
+	.run_once = true,
 };

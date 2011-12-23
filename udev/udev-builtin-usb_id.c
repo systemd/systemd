@@ -239,7 +239,7 @@ out:
  * 6.) If the device supplies a serial number, this number
  *     is concatenated with the identification with an underscore '_'.
  */
-static int builtin_usb_id(struct udev_device *dev, const char *command, bool test)
+static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool test)
 {
 	char vendor_str[64];
 	char vendor_str_enc[256];

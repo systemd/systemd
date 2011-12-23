@@ -698,6 +698,41 @@ out:
 	return err;
 }
 
+int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[])
+{
+	int i = 0;
+	char *pos;
+
+	if (strchr(cmd, ' ') == NULL) {
+		argv[i++] = cmd;
+		goto out;
+	}
+
+	pos = cmd;
+	while (pos != NULL && pos[0] != '\0') {
+		if (pos[0] == '\'') {
+			/* do not separate quotes */
+			pos++;
+			argv[i] = strsep(&pos, "\'");
+			if (pos != NULL)
+				while (pos[0] == ' ')
+					pos++;
+		} else {
+			argv[i] = strsep(&pos, " ");
+			if (pos != NULL)
+				while (pos[0] == ' ')
+					pos++;
+		}
+		dbg(udev, "argv[%i] '%s'\n", i, argv[i]);
+		i++;
+	}
+out:
+	argv[i] = NULL;
+	if (argc)
+		*argc = i;
+	return 0;
+}
+
 int udev_event_spawn(struct udev_event *event,
 		     const char *cmd, char **envp, const sigset_t *sigmask,
 		     char *result, size_t ressize)
@@ -707,39 +742,12 @@ int udev_event_spawn(struct udev_event *event,
 	int errpipe[2] = {-1, -1};
 	pid_t pid;
 	char arg[UTIL_PATH_SIZE];
+	char *argv[128];
 	char program[UTIL_PATH_SIZE];
-	char *argv[((sizeof(arg) + 1) / 2) + 1];
-	int i;
 	int err = 0;
 
-	/* build argv from command */
 	util_strscpy(arg, sizeof(arg), cmd);
-	i = 0;
-	if (strchr(arg, ' ') != NULL) {
-		char *pos = arg;
-
-		while (pos != NULL && pos[0] != '\0') {
-			if (pos[0] == '\'') {
-				/* do not separate quotes */
-				pos++;
-				argv[i] = strsep(&pos, "\'");
-				if (pos != NULL)
-					while (pos[0] == ' ')
-						pos++;
-			} else {
-				argv[i] = strsep(&pos, " ");
-				if (pos != NULL)
-					while (pos[0] == ' ')
-						pos++;
-			}
-			dbg(udev, "arg[%i] '%s'\n", i, argv[i]);
-			i++;
-		}
-		argv[i] = NULL;
-	} else {
-		argv[0] = arg;
-		argv[1] = NULL;
-	}
+	udev_build_argv(event->udev, arg, NULL, argv);
 
 	/* pipes from child to parent */
 	if (result != NULL || udev_get_log_priority(udev) >= LOG_INFO) {

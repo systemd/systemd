@@ -284,7 +284,8 @@ libudev_test_libudev_LDADD = libudev/libudev.la
 udev_test_udev_SOURCES = \
 	$(udev_common_sources) \
 	udev/test-udev.c
-udev_test_udev_LDADD = libudev/libudev-private.la
+udev_test_udev_CFLAGS = $(udev_common_CFLAGS)
+udev_test_udev_LDADD = $(udev_common_LDADD)
 
 # ------------------------------------------------------------------------------
 # firmware - firmware loading

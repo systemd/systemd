@@ -30,23 +30,30 @@
 
 static char *kmod;
 
-static int builtin_kmod(struct udev_device *dev, const char *command, bool test)
+static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test)
 {
-	printf("soon we load a module here: '%s'\n", command);
+	struct udev *udev = udev_device_get_udev(dev);
+
+	if (argc < 3) {
+		err(udev, "missing command + argument\n");
+		return EXIT_FAILURE;
+	}
+
+	printf("soon we '%s' the module '%s' (%i) here\n", argv[1], argv[2], argc);
 	printf("test: %s\n", kmod);
 	return EXIT_SUCCESS;
 }
 
 static int builtin_kmod_load(struct udev *udev)
 {
-	printf("load module index\n");
-	asprintf(&kmod, "pid: %u\n", getpid());
+	info(udev, "load module index\n");
+	asprintf(&kmod, "pid: %u", getpid());
 	return 0;
 }
 
 static int builtin_kmod_unload(struct udev *udev)
 {
-	printf("unload module index\n");
+	info(udev, "unload module index\n");
 	free(kmod);
 	return 0;
 }

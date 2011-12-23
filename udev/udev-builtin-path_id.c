@@ -390,7 +390,7 @@ out:
 	return parent;
 }
 
-static int builtin_path_id(struct udev_device *dev, const char *command, bool test)
+static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool test)
 {
 	struct udev_device *parent;
 	char *path = NULL;

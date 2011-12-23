@@ -181,7 +181,7 @@ static void test_key (struct udev_device *dev,
 		udev_builtin_add_property(dev, test, "ID_INPUT_KEYBOARD", "1");
 }
 
-static int builtin_input_id(struct udev_device *dev, const char *command, bool test)
+static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], bool test)
 {
 	struct udev_device *pdev;
 	unsigned long bitmask_ev[NBITS(EV_MAX)];

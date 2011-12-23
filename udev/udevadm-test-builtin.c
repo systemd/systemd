@@ -70,6 +70,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 			goto out;
 		}
 	}
+
 	command = argv[optind++];
 	if (command == NULL) {
 		fprintf(stderr, "command missing\n");
@@ -85,6 +86,16 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 		goto out;
 	}
 
+	udev_builtin_load(udev);
+
+	cmd = udev_builtin_lookup(command);
+	if (cmd >= UDEV_BUILTIN_MAX) {
+		fprintf(stderr, "unknown command '%s'\n", command);
+		help(udev);
+		rc = 5;
+		goto out;
+	}
+
 	/* add /sys if needed */
 	if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0)
 		util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), syspath, NULL);
@@ -96,16 +107,6 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 	if (dev == NULL) {
 		fprintf(stderr, "unable to open device '%s'\n\n", filename);
 		rc = 4;
-		goto out;
-	}
-
-	udev_builtin_load(udev);
-
-	cmd = udev_builtin_lookup(command);
-	if (cmd >= UDEV_BUILTIN_MAX) {
-		fprintf(stderr, "unknown command '%s'\n", command);
-		help(udev);
-		rc = 5;
 		goto out;
 	}
 

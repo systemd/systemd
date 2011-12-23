@@ -14,4 +14,4 @@ type python >/dev/null 2>&1 || {
     exit 0
 }
 
-$srcdir/test/rule-syntax-check.py `find $srcdir/rules -type f`
+$srcdir/test/rule-syntax-check.py `find $srcdir/rules -name '*.rules'`
