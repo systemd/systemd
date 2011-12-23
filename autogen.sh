@@ -24,11 +24,12 @@ libdir() {
 
 args="--prefix=/usr \
 --sysconfdir=/etc \
---bindir=/usr/bin \
---sbindir=/usr/sbin \
+--bindir=/sbin \
+--sbindir=/sbin \
 --libdir=$(libdir /usr/lib) \
---libexecdir=/usr/lib/udev \
---with-systemdsystemunitdir=/usr/lib/systemd/system
+--with-rootlibdir=$(libdir /lib) \
+--libexecdir=/lib/udev \
+--with-systemdsystemunitdir=/lib/systemd/system
 --with-selinux \
 --enable-gtk-doc"
 

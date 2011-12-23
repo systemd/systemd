@@ -171,7 +171,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
 	if (err < 0)
 		goto out;
 
-	info(udev, "probe %s %sraid offset=%llu",
+	info(udev, "probe %s %sraid offset=%llu\n",
 	     udev_device_get_devnode(dev),
 	     noraid ? "no" : "", (unsigned long long) offset);
 
