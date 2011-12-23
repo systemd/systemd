@@ -40,6 +40,9 @@ static void print_property(struct udev_device *dev, bool test, const char *name,
 	if (!strcmp(name, "TYPE")) {
 		udev_builtin_add_property(dev, test, "ID_FS_TYPE", value);
 
+	} else if (!strcmp(name, "USAGE")) {
+		udev_builtin_add_property(dev, test, "ID_FS_USAGE", value);
+
 	} else if (!strcmp(name, "VERSION")) {
 		udev_builtin_add_property(dev, test, "ID_FS_VERSION", value);
 
