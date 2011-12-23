@@ -145,16 +145,8 @@ dist_udevrules_DATA = \
 	rules/rules.d/60-persistent-input.rules \
 	rules/rules.d/60-persistent-alsa.rules \
 	rules/rules.d/60-persistent-storage.rules \
+	rules/rules.d/80-drivers.rules \
 	rules/rules.d/95-udev-late.rules
-
-udevrules_DATA = \
-	rules/rules.d/80-drivers.rules
-
-EXTRA_DIST += \
-	rules/rules.d/80-drivers.rules.in
-
-CLEANFILES += \
-	rules/rules.d/80-drivers.rules
 
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = udev.conf
@@ -640,10 +632,8 @@ extras_mtd_probe_mtd_probe_SOURCES =  \
 	extras/mtd_probe/mtd_probe.h \
 	extras/mtd_probe/probe_smartmedia.c
 extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
-udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
+dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
 libexec_PROGRAMS += extras/mtd_probe/mtd_probe
-EXTRA_DIST += extras/mtd_probe/75-probe_mtd.rules.in
-CLEANFILES += extras/mtd_probe/75-probe_mtd.rules
 endif
 
 if ENABLE_RULE_GENERATOR
