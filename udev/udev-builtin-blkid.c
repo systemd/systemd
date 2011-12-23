@@ -25,52 +25,57 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <blkid/blkid.h>
 
 #include "udev.h"
 
-static void print_property(const char *name, const char *value)
+static void print_property(struct udev_device *dev, bool test, const char *name, const char *value)
 {
-	char enc[265], safe[256];
-	size_t namelen = strlen(name);
+	char s[265];
 
-	enc[0] = '\0';
-	safe[0] = '\0';
+	s[0] = '\0';
 
-	if (!strcmp(name, "TYPE") || !strcmp(name, "VERSION")) {
-		blkid_encode_string(value, enc, sizeof(enc));
-		printf("ID_FS_%s=%s\n", name, enc);
+	if (!strcmp(name, "TYPE")) {
+		udev_builtin_add_property(dev, test, "ID_FS_TYPE", value);
 
-	} else if (!strcmp(name, "UUID") ||
-		 !strcmp(name, "LABEL") ||
-		 !strcmp(name, "UUID_SUB")) {
+	} else if (!strcmp(name, "VERSION")) {
+		udev_builtin_add_property(dev, test, "ID_FS_VERSION", value);
 
-		blkid_safe_string(value, safe, sizeof(safe));
-		printf("ID_FS_%s=%s\n", name, safe);
+	} else if (!strcmp(name, "UUID")) {
+		blkid_safe_string(value, s, sizeof(s));
+		udev_builtin_add_property(dev, test, "ID_FS_UUID", s);
+		blkid_encode_string(value, s, sizeof(s));
+		udev_builtin_add_property(dev, test, "ID_FS_UUID_ENC", s);
 
-		blkid_encode_string(value, enc, sizeof(enc));
-		printf("ID_FS_%s_ENC=%s\n", name, enc);
+	} else if (!strcmp(name, "UUID_SUB")) {
+		blkid_safe_string(value, s, sizeof(s));
+		udev_builtin_add_property(dev, test, "ID_FS_UUID_SUB", s);
+		blkid_encode_string(value, s, sizeof(s));
+		udev_builtin_add_property(dev, test, "ID_FS_UUID_SUB_ENC", s);
+
+	} else if (!strcmp(name, "LABEL")) {
+		blkid_safe_string(value, s, sizeof(s));
+		udev_builtin_add_property(dev, test, "ID_FS_LABEL", s);
+		blkid_encode_string(value, s, sizeof(s));
+		udev_builtin_add_property(dev, test, "ID_FS_LABEL_ENC", s);
 
 	} else if (!strcmp(name, "PTTYPE")) {
-		printf("ID_PART_TABLE_TYPE=%s\n", value);
+		udev_builtin_add_property(dev, test, "ID_PART_TABLE_TYPE", value);
 
-	} else if (!strcmp(name, "PART_ENTRY_NAME") ||
-		  !strcmp(name, "PART_ENTRY_TYPE")) {
+	} else if (!strcmp(name, "PART_ENTRY_NAME")) {
+		blkid_encode_string(value, s, sizeof(s));
+		udev_builtin_add_property(dev, test, "PART_ENTRY_NAME", s);
 
-		blkid_encode_string(value, enc, sizeof(enc));
-		printf("ID_%s=%s\n", name, enc);
+	} else if (!strcmp(name, "PART_ENTRY_TYPE")) {
+		blkid_encode_string(value, s, sizeof(s));
+		udev_builtin_add_property(dev, test, "PART_ENTRY_TYPE", s);
 
-	} else if (!strncmp(name, "PART_ENTRY_", 11))
-		printf("ID_%s=%s\n", name, value);
-
-	else if (namelen >= 15 && (
-		   !strcmp(name + (namelen - 12), "_SECTOR_SIZE") ||
-		   !strcmp(name + (namelen - 8), "_IO_SIZE") ||
-		   !strcmp(name, "ALIGNMENT_OFFSET")))
-			printf("ID_IOLIMIT_%s=%s\n", name, value);
-	else
-		printf("ID_FS_%s=%s\n", name, value);
+	} else if (!strncmp(name, "PART_ENTRY_", 11)) {
+		util_strscpyl(s, sizeof(s), "ID_", name, NULL);
+		udev_builtin_add_property(dev, test, name, value);
+	}
 }
 
 static int probe_superblocks(blkid_probe pr)
@@ -107,9 +112,9 @@ static int probe_superblocks(blkid_probe pr)
 
 static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool test)
 {
-	char *device = "/dev/sda3";
+	struct udev *udev = udev_device_get_udev(dev);
 	int64_t offset = 0;
-	//int noraid = 0;
+	bool noraid = false;
 	int fd = -1;
 	blkid_probe pr;
 	const char *data;
@@ -119,7 +124,28 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
 	size_t len;
 	int err = 0;
 
-	//FIXME: read offset, read noraid
+	static const struct option options[] = {
+		{ "offset", optional_argument, NULL, 'o' },
+		{ "noraid", no_argument, NULL, 'R' },
+		{}
+	};
+
+	for (;;) {
+		int option;
+
+		option = getopt_long(argc, argv, "oR", options, NULL);
+		if (option == -1)
+			break;
+
+		switch (option) {
+		case 'o':
+			offset = strtoull(optarg, NULL, 0);
+			break;
+		case 'R':
+			noraid = true;
+			break;
+		}
+	}
 
 	pr = blkid_new_probe();
 	if (!pr) {
@@ -132,15 +158,22 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
 		BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
 		BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
-	fd = open(device, O_RDONLY|O_CLOEXEC);
+	if (noraid)
+		blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
+
+	fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC);
 	if (fd < 0) {
-		fprintf(stderr, "error: %s: %m\n", device);
+		fprintf(stderr, "error: %s: %m\n", udev_device_get_devnode(dev));
 		goto out;
 	}
 
 	err = blkid_probe_set_device(pr, fd, offset, 0);
 	if (err < 0)
 		goto out;
+
+	info(udev, "probe %s %sraid offset=%llu",
+	     udev_device_get_devnode(dev),
+	     noraid ? "no" : "", (unsigned long long) offset);
 
 	err = probe_superblocks(pr);
 	if (err < 0)
@@ -151,7 +184,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
 		if (blkid_probe_get_value(pr, i, &name, &data, &len))
 			continue;
 		len = strnlen((char *) data, len);
-		print_property(name, (char *) data);
+		print_property(dev, test, name, (char *) data);
 	}
 
 	blkid_free_probe(pr);

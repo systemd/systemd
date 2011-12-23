@@ -175,5 +175,5 @@ const char *udev_builtin_name(enum udev_builtin_cmd cmd);
 bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
 int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
 int udev_builtin_list(struct udev *udev);
-int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val, ...);
+int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
 #endif
