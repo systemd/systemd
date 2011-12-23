@@ -2885,7 +2885,8 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         while (nbytes > 0) {
                 ssize_t k;
 
-                if ((k = write(fd, p, nbytes)) <= 0) {
+                k = write(fd, p, nbytes);
+                if (k <= 0) {
 
                         if (k < 0 && errno == EINTR)
                                 continue;

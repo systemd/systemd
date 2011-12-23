@@ -33,7 +33,6 @@
  *
  *   - check LE/BE conversion for 8bit, 16bit, 32bit values
  *   - implement audit gateway
- *   - implement stdout gateway
  *   - extend hash tables table as we go
  *   - accelerate looking for "all hostnames" and suchlike.
  *   - throttling
@@ -48,6 +47,8 @@ int sd_journal_printv(int priority, const char *format, va_list ap);
 
 int sd_journal_send(const char *format, ...) __attribute__((sentinel));
 int sd_journal_sendv(const struct iovec *iov, int n);
+
+int sd_journal_stream_fd(const char *tag, int priority, int priority_prefix);
 
 /* Browse journal stream */
 

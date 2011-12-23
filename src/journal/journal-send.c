@@ -26,6 +26,7 @@
 
 #include "sd-journal.h"
 #include "util.h"
+#include "socket-util.h"
 
 /* We open a single fd, and we'll share it with the current process,
  * all its threads, and all its subprocesses. This means we need to
@@ -66,6 +67,12 @@ int sd_journal_print(int priority, const char *format, ...) {
 int sd_journal_printv(int priority, const char *format, va_list ap) {
         char buffer[8 + LINE_MAX], p[11];
         struct iovec iov[2];
+
+        if (priority < 0 || priority > 7)
+                return -EINVAL;
+
+        if (!format)
+                return -EINVAL;
 
         snprintf(p, sizeof(p), "PRIORITY=%i", priority & LOG_PRIMASK);
         char_array_0(p);
@@ -196,4 +203,57 @@ int sd_journal_sendv(const struct iovec *iov, int n) {
                 return -errno;
 
         return 0;
+}
+
+int sd_journal_stream_fd(const char *tag, int priority, int priority_prefix) {
+        union sockaddr_union sa;
+        int fd;
+        char *header;
+        size_t l;
+        ssize_t r;
+
+        if (priority < 0 || priority > 7)
+                return -EINVAL;
+
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return -errno;
+
+        zero(sa);
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, "/run/systemd/stdout", sizeof(sa.un.sun_path));
+
+        r = connect(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
+        if (r < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        if (!tag)
+                tag = "";
+
+        l = strlen(tag);
+        header = alloca(l + 1 + 2 + 2 + 2);
+
+        memcpy(header, tag, l);
+        header[l++] = '\n';
+        header[l++] = '0' + priority;
+        header[l++] = '\n';
+        header[l++] = '0' + !!priority_prefix;
+        header[l++] = '\n';
+        header[l++] = '0';
+        header[l++] = '\n';
+
+        r = loop_write(fd, header, l, false);
+        if (r < 0) {
+                close_nointr_nofail(fd);
+                return (int) r;
+        }
+
+        if ((size_t) r != l) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        return fd;
 }
