@@ -46,7 +46,6 @@ $(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(SED) \
 	-e 's,@libdir\@,$(libdir),g' \
 	-e 's,@includedir\@,$(includedir),g' \
 	-e 's,@bindir\@,$(bindir),g' \
-	-e 's,@sbindir\@,$(sbindir),g' \
 	-e 's,@libexecdir\@,$(libexecdir),g' \
 	< $< > $@ || rm $@
 
