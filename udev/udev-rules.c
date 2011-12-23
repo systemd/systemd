@@ -2304,7 +2304,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			break;
 		}
 		case TK_M_IMPORT_BUILTIN: {
-			const char *command = &rules->buf[cur->key.value_off];
+			char command[UTIL_PATH_SIZE];
 
 			if (udev_builtin_run_once(cur->key.builtin_cmd)) {
 				/* check if we ran already */
@@ -2322,10 +2322,13 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				/* mark as ran */
 				event->builtin_run |= (1 << cur->key.builtin_cmd);
 			}
+
+			udev_event_apply_format(event, &rules->buf[cur->key.value_off], command, sizeof(command));
 			info(event->udev, "IMPORT builtin '%s' %s:%u\n",
 			     udev_builtin_name(cur->key.builtin_cmd),
 			     &rules->buf[rule->rule.filename_off],
 			     rule->rule.filename_line);
+
 			if (udev_builtin_run(event->dev, cur->key.builtin_cmd, command, false) != 0) {
 				/* remember failure */
 				info(rules->udev, "IMPORT builtin '%s' returned non-zero\n",
