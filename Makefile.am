@@ -144,19 +144,17 @@ dist_udevrules_DATA = \
 	rules/rules.d/60-persistent-serial.rules \
 	rules/rules.d/60-persistent-input.rules \
 	rules/rules.d/60-persistent-alsa.rules \
+	rules/rules.d/60-persistent-storage.rules \
 	rules/rules.d/95-udev-late.rules
 
 udevrules_DATA = \
-	rules/rules.d/60-persistent-storage.rules \
 	rules/rules.d/80-drivers.rules
 
 EXTRA_DIST += \
-	rules/rules.d/80-drivers.rules.in \
-	rules/rules.d/60-persistent-storage.rules.in
+	rules/rules.d/80-drivers.rules.in
 
 CLEANFILES += \
-	rules/rules.d/80-drivers.rules \
-	rules/rules.d/60-persistent-storage.rules
+	rules/rules.d/80-drivers.rules
 
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = udev.conf
