@@ -214,7 +214,7 @@ udev_common_CFLAGS = \
 udev_common_LDADD = \
 	libudev/libudev-private.la \
 	$(BLKID_LIBS) \
-	$(BLKID_KMOD)
+	$(KMOD_LIBS)
 
 udev_udevd_SOURCES = \
 	$(udev_common_sources) \

@@ -20,6 +20,8 @@ AC_PREFIX_DEFAULT([/usr])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([POSIX RT library not found])])
+PKG_CHECK_MODULES(BLKID, blkid >= 2.20)
+PKG_CHECK_MODULES(KMOD, libkmod >= 2)
 
 AC_ARG_WITH([rootlibdir],
 	AS_HELP_STRING([--with-rootlibdir=DIR], [rootfs directory to install shared libraries]),
@@ -72,8 +74,6 @@ AC_ARG_WITH([systemdsystemunitdir],
 	[], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
 AS_IF([test "x$with_systemdsystemunitdir" != "xno"], [ AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir]) ])
 AM_CONDITIONAL(WITH_SYSTEMD, [test -n "$with_systemdsystemunitdir" -a "x$with_systemdsystemunitdir" != "xno" ])
-
-PKG_CHECK_MODULES(BLKID, blkid >= 2.20)
 
 # ------------------------------------------------------------------------------
 # GUdev - libudev gobject interface
