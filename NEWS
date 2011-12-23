@@ -1,11 +1,21 @@
-udev 176
+udev 175
 ========
-The udevadm tool moved from 'sbin' to 'bin'. Some tools expect
+The default install location moved from /lib/udev to /usr/lib/udev
+to support systems without the / vs. /usr split. --libbexecdir=
+can still be configured to install things to the rootfs.
+
+The udevadm tool moved from /sbin to /usr/bin. Some tools expect
 udevadm in 'sbin'. A symlink to udevadm in 'bin' needs to be
-manually created if needed.
+manually created if needed. Alternatively --bindir=/sbin installs
+udevadm in /sbin.
 
 The systemd socket files use PassCred=yes, which requires systemd
 version 38.
+
+The blkid tool is no longer called from udev rules. Udev links directly
+to libblkid now.
+
+The udev build system only creates a .xz tarball now.
 
 udev 175
 ========
