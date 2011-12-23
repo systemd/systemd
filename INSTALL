@@ -3,7 +3,6 @@ The options used used usually look like:
     --prefix=/usr \
     --sysconfdir=/etc \
     --bindir=/usr/bin \
-    --sbindir=/usr/sbin \
     --libdir=/usr/lib64 \
     --libexecdir=/usr/lib/udev \
     --with-systemdsystemunitdir=/usr/lib/systemd/system \
@@ -14,7 +13,6 @@ The options used in a RPM spec file look like:
     --prefix=%{_prefix} \
     --sysconfdir=%{_sysconfdir} \
     --bindir=%{_bindir} \
-    --sbindir=%{_sbindir} \
     --libdir=%{_libdir} \
     --libexecdir=%{_prefix}/lib/udev \
     --with-systemdsystemunitdir=%{_prefix}/lib/systemd/system \
@@ -23,7 +21,6 @@ The options used in a RPM spec file look like:
 The options to install udev in the rootfs instead of /usr,
 and udevadm in /sbin:
     --bindir=/sbin
-    --sbindir=/sbin
     --libexecdir=/lib/udev
     --with-systemdsystemunitdir=/lib/systemd/system
     --with-rootlibdir=/lib64

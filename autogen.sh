@@ -25,7 +25,6 @@ libdir() {
 args="--prefix=/usr \
 --sysconfdir=/etc \
 --bindir=/sbin \
---sbindir=/sbin \
 --libdir=$(libdir /usr/lib) \
 --with-rootlibdir=$(libdir /lib) \
 --libexecdir=/lib/udev \

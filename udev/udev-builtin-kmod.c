@@ -25,36 +25,52 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include "udev.h"
-
-static char *kmod;
 
 static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test)
 {
 	struct udev *udev = udev_device_get_udev(dev);
+	pid_t pid;
+	char *m[5];
 
 	if (argc < 3) {
 		err(udev, "missing command + argument\n");
 		return EXIT_FAILURE;
 	}
 
-	printf("soon we '%s' the module '%s' (%i) here\n", argv[1], argv[2], argc);
-	printf("test: %s\n", kmod);
+	err(udev, "'%s' the module '%s' (%i)\n", argv[1], argv[2], argc);
+
+	m[0] = "/sbin/modprobe";
+	m[1] = "-bv";
+	m[1] = argv[2];
+	m[2] = argv[3];
+	m[3] = NULL;
+
+	pid = fork();
+	switch(pid) {
+	case 0:
+		execv(m[0], m);
+		_exit(1);
+	case -1:
+		return EXIT_FAILURE;
+	default:
+		waitpid(pid, NULL, 0);
+	}
+
 	return EXIT_SUCCESS;
 }
 
 static int builtin_kmod_load(struct udev *udev)
 {
 	info(udev, "load module index\n");
-	asprintf(&kmod, "pid: %u", getpid());
 	return 0;
 }
 
 static int builtin_kmod_unload(struct udev *udev)
 {
 	info(udev, "unload module index\n");
-	free(kmod);
 	return 0;
 }
 

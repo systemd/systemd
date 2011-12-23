@@ -218,7 +218,6 @@ AC_MSG_RESULT([
 	prefix:			${prefix}
 	sysconfdir:		${sysconfdir}
 	bindir:			${bindir}
-	sbindir:		${sbindir}
 	libdir:			${libdir}
 	rootlibdir:		${rootlib_execdir}
 	libexecdir:		${libexecdir}
