@@ -3,21 +3,6 @@
 gtkdocize
 autoreconf --install --symlink
 
-MYCFLAGS="-g -Wall \
--Wmissing-declarations -Wmissing-prototypes \
--Wnested-externs -Wpointer-arith \
--Wpointer-arith -Wsign-compare -Wchar-subscripts \
--Wstrict-prototypes -Wshadow \
--Wformat-security -Wtype-limits"
-
-case "$CFLAGS" in
-	*-O[0-9]*)
-		;;
-	*)
-		MYCFLAGS="$MYCFLAGS -O2"
-		;;
-esac
-
 libdir() {
 	echo $(cd $1/$(gcc -print-multi-os-directory); pwd)
 }
@@ -28,8 +13,14 @@ args="--prefix=/usr \
 --libdir=$(libdir /usr/lib) \
 --with-rootlibdir=$(libdir /lib) \
 --libexecdir=/lib/udev \
---with-systemdsystemunitdir=/lib/systemd/system
+--with-systemdsystemunitdir=/lib/systemd/system \
 --with-selinux \
 --enable-gtk-doc"
 
-./configure $args CFLAGS="${CFLAGS} ${MYCFLAGS}" $@
+echo
+echo "---------------------------------------------------------------------"
+echo "Initialized udev build system. For a common configuration please run:"
+echo "---------------------------------------------------------------------"
+echo
+echo "# ./configure $args"
+echo

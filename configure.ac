@@ -201,6 +201,14 @@ AC_ARG_ENABLE([edd],
 	[], [enable_edd=no])
 AM_CONDITIONAL([ENABLE_EDD], [test "x$enable_edd" = "xyes"])
 
+my_CFLAGS="-Wall \
+-Wmissing-declarations -Wmissing-prototypes \
+-Wnested-externs -Wpointer-arith \
+-Wpointer-arith -Wsign-compare -Wchar-subscripts \
+-Wstrict-prototypes -Wshadow \
+-Wformat-security -Wtype-limits"
+AC_SUBST([my_CFLAGS])
+
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile

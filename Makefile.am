@@ -16,6 +16,7 @@ AM_CPPFLAGS = \
 	-DLIBEXECDIR=\""$(libexecdir)"\"
 
 AM_CFLAGS = \
+	${my_CFLAGS} \
 	-fvisibility=hidden \
 	-ffunction-sections \
 	-fdata-sections
@@ -207,11 +208,13 @@ udev_common_sources = \
 	udev/udev-builtin-kmod.c
 
 udev_common_CFLAGS = \
-	$(BLKID_CFLAGS)
+	$(BLKID_CFLAGS) \
+	$(KMOD_CFLAGS)
 
 udev_common_LDADD = \
 	libudev/libudev-private.la \
-	$(BLKID_LIBS)
+	$(BLKID_LIBS) \
+	$(BLKID_KMOD)
 
 udev_udevd_SOURCES = \
 	$(udev_common_sources) \
