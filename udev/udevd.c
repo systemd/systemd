@@ -1701,6 +1701,9 @@ int main(int argc, char *argv[])
 				rules = rules_new;
 			}
 			reload_config = 0;
+
+			udev_builtin_unload(udev);
+			udev_builtin_load(udev);
 		}
 	}
 

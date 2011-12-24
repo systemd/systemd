@@ -350,7 +350,7 @@ static int builtin_kmod_load(struct udev *udev)
 
 static int builtin_kmod_unload(struct udev *udev)
 {
-	kmod_unref(ctx);
+	ctx = kmod_unref(ctx);
 	info(udev, "unload module index\n");
 	return 0;
 }
