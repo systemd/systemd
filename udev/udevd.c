@@ -1513,7 +1513,7 @@ int main(int argc, char *argv[])
 	}
 	fd_worker = worker_watch[READ_END];
 
-	udev_builtin_load(udev);
+	udev_builtin_init(udev);
 
 	rules = udev_rules_new(udev, resolve_names);
 	if (rules == NULL) {
@@ -1702,8 +1702,8 @@ int main(int argc, char *argv[])
 			}
 			reload_config = 0;
 
-			udev_builtin_unload(udev);
-			udev_builtin_load(udev);
+			udev_builtin_exit(udev);
+			udev_builtin_init(udev);
 		}
 	}
 
@@ -1717,7 +1717,7 @@ exit_daemonize:
 	worker_list_cleanup(udev);
 	event_queue_cleanup(udev, EVENT_UNDEF);
 	udev_rules_unref(rules);
-	udev_builtin_unload(udev);
+	udev_builtin_exit(udev);
 	if (fd_signal >= 0)
 		close(fd_signal);
 	if (worker_watch[READ_END] >= 0)

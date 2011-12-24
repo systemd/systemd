@@ -86,7 +86,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 		goto out;
 	}
 
-	udev_builtin_load(udev);
+	udev_builtin_init(udev);
 
 	cmd = udev_builtin_lookup(command);
 	if (cmd >= UDEV_BUILTIN_MAX) {
@@ -116,7 +116,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 	}
 out:
 	udev_device_unref(dev);
-	udev_builtin_unload(udev);
+	udev_builtin_exit(udev);
 	return rc;
 }
 

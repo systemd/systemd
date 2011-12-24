@@ -159,8 +159,8 @@ struct udev_builtin {
 	const char *name;
 	int (*cmd)(struct udev_device *dev, int argc, char *argv[], bool test);
 	const char *help;
-	int (*load)(struct udev *udev);
-	int (*unload)(struct udev *udev);
+	int (*init)(struct udev *udev);
+	int (*exit)(struct udev *udev);
 	bool run_once;
 };
 extern const struct udev_builtin udev_builtin_path_id;

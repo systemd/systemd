@@ -2,7 +2,7 @@
  * load kernel modules
  *
  * Copyright (C) 2011 Kay Sievers <kay.sievers@vrfy.org>
- * Copyright (C) 2011  ProFUSION embedded systems
+ * Copyright (C) 2011 ProFUSION embedded systems
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -337,7 +337,7 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 	return EXIT_SUCCESS;
 }
 
-static int builtin_kmod_load(struct udev *udev)
+static int builtin_kmod_init(struct udev *udev)
 {
 	kmod_unref(ctx);
 	ctx = kmod_new(NULL, NULL);
@@ -348,7 +348,7 @@ static int builtin_kmod_load(struct udev *udev)
 	return 0;
 }
 
-static int builtin_kmod_unload(struct udev *udev)
+static int builtin_kmod_exit(struct udev *udev)
 {
 	ctx = kmod_unref(ctx);
 	info(udev, "unload module index\n");
@@ -358,8 +358,8 @@ static int builtin_kmod_unload(struct udev *udev)
 const struct udev_builtin udev_builtin_kmod = {
 	.name = "kmod",
 	.cmd = builtin_kmod,
-	.load = builtin_kmod_load,
-	.unload = builtin_kmod_unload,
+	.init = builtin_kmod_init,
+	.exit = builtin_kmod_exit,
 	.help = "kernel module loader",
 	.run_once = false,
 };

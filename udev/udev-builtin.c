@@ -33,23 +33,23 @@ static const struct udev_builtin *builtins[] = {
 	[UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
 };
 
-int udev_builtin_load(struct udev *udev)
+int udev_builtin_init(struct udev *udev)
 {
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(builtins); i++)
-		if (builtins[i]->load)
-			builtins[i]->load(udev);
+		if (builtins[i]->init)
+			builtins[i]->init(udev);
 	return 0;
 }
 
-int udev_builtin_unload(struct udev *udev)
+int udev_builtin_exit(struct udev *udev)
 {
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(builtins); i++)
-		if (builtins[i]->unload)
-			builtins[i]->unload(udev);
+		if (builtins[i]->exit)
+			builtins[i]->exit(udev);
 	return 0;
 }
 
