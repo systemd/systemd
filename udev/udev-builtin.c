@@ -26,11 +26,12 @@
 #include "udev.h"
 
 static const struct udev_builtin *builtins[] = {
+	[UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
+	[UDEV_BUILTIN_FIRMWARE] = &udev_builtin_firmware,
+	[UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
+	[UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
 	[UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,
 	[UDEV_BUILTIN_USB_ID] = &udev_builtin_usb_id,
-	[UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
-	[UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
-	[UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
 };
 
 int udev_builtin_init(struct udev *udev)

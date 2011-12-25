@@ -15,6 +15,11 @@ The /sbin/modprobe tool is no longer executed by udev.
 The /sbin/blkid tool is no longer executed from udev rules. Udev links
 directly to libblkid now.
 
+Firmware is loaded natively by udev now, the external firmware loading
+binary is no longer used.
+
+All built-in tools can be listed and tested with 'udevadm test-builtin'.
+
 The 'udevadm control --reload-rules' option has been renamed to '--reload'.
 It reloads the kernel module configuration.
 

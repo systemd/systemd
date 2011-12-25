@@ -201,11 +201,12 @@ udev_common_sources = \
 	udev/udev-rules.c \
 	udev/udev-ctrl.c \
 	udev/udev-builtin.c \
-	udev/udev-builtin-path_id.c \
-	udev/udev-builtin-usb_id.c \
-	udev/udev-builtin-input_id.c \
 	udev/udev-builtin-blkid.c \
-	udev/udev-builtin-kmod.c
+	udev/udev-builtin-firmware.c \
+	udev/udev-builtin-input_id.c \
+	udev/udev-builtin-kmod.c \
+	udev/udev-builtin-path_id.c \
+	udev/udev-builtin-usb_id.c
 
 udev_common_CFLAGS = \
 	$(BLKID_CFLAGS) \
@@ -216,6 +217,10 @@ udev_common_LDADD = \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
+udev_common_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DFIRMWARE_PATH="$(FIRMWARE_PATH)"
+
 udev_udevd_SOURCES = \
 	$(udev_common_sources) \
 	udev/udevd.c \
@@ -223,6 +228,7 @@ udev_udevd_SOURCES = \
 	udev/sd-daemon.c
 udev_udevd_CFLAGS = $(udev_common_CFLAGS)
 udev_udevd_LDADD = $(udev_common_LDADD)
+udev_udevd_CPPFLAGS = $(udev_common_CPPFLAGS)
 
 udev_udevadm_SOURCES = \
 	$(udev_common_sources) \
@@ -236,6 +242,7 @@ udev_udevadm_SOURCES = \
 	udev/udevadm-test-builtin.c
 udev_udevadm_CFLAGS = $(udev_common_CFLAGS)
 udev_udevadm_LDADD = $(udev_common_LDADD)
+udev_udevadm_CPPFLAGS = $(udev_common_CPPFLAGS)
 
 # ------------------------------------------------------------------------------
 # udev man pages
@@ -278,15 +285,7 @@ udev_test_udev_SOURCES = \
 	udev/test-udev.c
 udev_test_udev_CFLAGS = $(udev_common_CFLAGS)
 udev_test_udev_LDADD = $(udev_common_LDADD)
-
-# ------------------------------------------------------------------------------
-# firmware - firmware loading
-# ------------------------------------------------------------------------------
-extras_firmware_firmware_SOURCES = extras/firmware/firmware.c
-extras_firmware_firmware_LDADD = libudev/libudev-private.la
-extras_firmware_firmware_CPPFLAGS = $(AM_CPPFLAGS) -DFIRMWARE_PATH="$(FIRMWARE_PATH)"
-dist_udevrules_DATA += extras/firmware/50-firmware.rules
-libexec_PROGRAMS += extras/firmware/firmware
+udev_test_udev_CPPFLAGS = $(udev_common_CPPFLAGS)
 
 # ------------------------------------------------------------------------------
 # ata_id - ATA identify

@@ -148,11 +148,12 @@ extern const struct udevadm_cmd udevadm_test_builtin;
 
 /* built-in commands */
 enum udev_builtin_cmd {
+	UDEV_BUILTIN_BLKID,
+	UDEV_BUILTIN_FIRMWARE,
+	UDEV_BUILTIN_INPUT_ID,
+	UDEV_BUILTIN_KMOD,
 	UDEV_BUILTIN_PATH_ID,
 	UDEV_BUILTIN_USB_ID,
-	UDEV_BUILTIN_INPUT_ID,
-	UDEV_BUILTIN_BLKID,
-	UDEV_BUILTIN_KMOD,
 	UDEV_BUILTIN_MAX
 };
 struct udev_builtin {
@@ -163,11 +164,12 @@ struct udev_builtin {
 	int (*exit)(struct udev *udev);
 	bool run_once;
 };
+extern const struct udev_builtin udev_builtin_blkid;
+extern const struct udev_builtin udev_builtin_firmware;
+extern const struct udev_builtin udev_builtin_input_id;
+extern const struct udev_builtin udev_builtin_kmod;
 extern const struct udev_builtin udev_builtin_path_id;
 extern const struct udev_builtin udev_builtin_usb_id;
-extern const struct udev_builtin udev_builtin_input_id;
-extern const struct udev_builtin udev_builtin_blkid;
-extern const struct udev_builtin udev_builtin_kmod;
 int udev_builtin_load(struct udev *udev);
 int udev_builtin_unload(struct udev *udev);
 enum udev_builtin_cmd udev_builtin_lookup(const char *command);

@@ -103,3 +103,5 @@ SUBSYSTEM=="rtc", DRIVERS=="rtc_cmos", SYMLINK+="rtc"
 KERNEL=="mmtimer",		MODE="0644"
 KERNEL=="rflash[0-9]*",		MODE="0400"
 KERNEL=="rrom[0-9]*",		MODE="0400"
+
+SUBSYSTEM=="firmware", ACTION=="add", IMPORT{builtin}="firmware"

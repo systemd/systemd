@@ -336,7 +336,7 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 	}
 
 	for (i = 2; argv[i]; i++) {
-		info(udev, "%s '%s'\n", argv[1], argv[i]);
+		info(udev, "execute '%s' '%s'\n", argv[1], argv[i]);
 		insmod(ctx, argv[i], NULL);
 	}
 
