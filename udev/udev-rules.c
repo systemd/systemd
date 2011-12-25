@@ -1890,16 +1890,17 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	return rules;
 }
 
-void udev_rules_unref(struct udev_rules *rules)
+struct udev_rules *udev_rules_unref(struct udev_rules *rules)
 {
 	if (rules == NULL)
-		return;
+		return NULL;
 	free(rules->tokens);
 	free(rules->buf);
 	free(rules->trie_nodes);
 	free(rules->uids);
 	free(rules->gids);
 	free(rules);
+	return NULL;
 }
 
 static int match_key(struct udev_rules *rules, struct token *token, const char *val)

@@ -339,12 +339,11 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><option>--reload-rules</option></term>
+          <term><option>--reload</option></term>
           <listitem>
-            <para>Signal udevd to reload the rules files.
-            The udev daemon detects changes automatically, this option is
-            usually not needed. Reloading rules does not apply any changes
-            to already existing devices.</para>
+            <para>Signal udevd to reload the rules files and other databases like the kernel
+            module index. Reloading rules and databases does not apply any changes to already
+            existing devices; the new configuration will only be applied to new events.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

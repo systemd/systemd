@@ -30,7 +30,7 @@ enum udev_ctrl_msg_type {
 	UDEV_CTRL_SET_LOG_LEVEL,
 	UDEV_CTRL_STOP_EXEC_QUEUE,
 	UDEV_CTRL_START_EXEC_QUEUE,
-	UDEV_CTRL_RELOAD_RULES,
+	UDEV_CTRL_RELOAD,
 	UDEV_CTRL_SET_ENV,
 	UDEV_CTRL_SET_CHILDREN_MAX,
 	UDEV_CTRL_PING,
@@ -310,9 +310,9 @@ int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, int timeout)
 	return ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL, timeout);
 }
 
-int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl, int timeout)
+int udev_ctrl_send_reload(struct udev_ctrl *uctrl, int timeout)
 {
-	return ctrl_send(uctrl, UDEV_CTRL_RELOAD_RULES, 0, NULL, timeout);
+	return ctrl_send(uctrl, UDEV_CTRL_RELOAD, 0, NULL, timeout);
 }
 
 int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, int timeout)
@@ -458,9 +458,9 @@ int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg)
 	return -1;
 }
 
-int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg)
+int udev_ctrl_get_reload(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_RELOAD_RULES)
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_RELOAD)
 		return 1;
 	return -1;
 }

@@ -124,4 +124,5 @@ const struct udevadm_cmd udevadm_test_builtin = {
 	.name = "test-builtin",
 	.cmd = adm_builtin,
 	.help = "test a built-in command",
+	.debug = true,
 };

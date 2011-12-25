@@ -66,7 +66,7 @@ struct udev_watch {
 /* udev-rules.c */
 struct udev_rules;
 struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
-void udev_rules_unref(struct udev_rules *rules);
+struct udev_rules *udev_rules_unref(struct udev_rules *rules);
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event, const sigset_t *sigmask);
 void udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
@@ -109,7 +109,7 @@ int udev_ctrl_get_fd(struct udev_ctrl *uctrl);
 int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, int timeout);
 int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, int timeout);
 int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl, int timeout);
+int udev_ctrl_send_reload(struct udev_ctrl *uctrl, int timeout);
 int udev_ctrl_send_ping(struct udev_ctrl *uctrl, int timeout);
 int udev_ctrl_send_exit(struct udev_ctrl *uctrl, int timeout);
 int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, int timeout);
@@ -125,7 +125,7 @@ struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_stop_exec_queue(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg);
-int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg);
+int udev_ctrl_get_reload(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_ping(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_exit(struct udev_ctrl_msg *ctrl_msg);
 const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);

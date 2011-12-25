@@ -321,11 +321,17 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 	struct udev *udev = udev_device_get_udev(dev);
 	int i;
 
-	if (!ctx)
-		return EXIT_FAILURE;
+	if (!ctx) {
+		ctx = kmod_new(NULL, NULL);
+		if (!ctx)
+			return -ENOMEM;
 
-	if (argc < 3) {
-		err(udev, "missing command + argument\n");
+		info(udev, "load module index\n");
+		kmod_load_resources(ctx);
+	}
+
+	if (argc < 3 || strcmp(argv[1], "load")) {
+		err(udev, "expect: %s load <module>\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 
@@ -339,12 +345,15 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 
 static int builtin_kmod_init(struct udev *udev)
 {
-	kmod_unref(ctx);
+	if (ctx)
+		return 0;
+
 	ctx = kmod_new(NULL, NULL);
 	if (!ctx)
 		return -ENOMEM;
 
 	info(udev, "load module index\n");
+	kmod_load_resources(ctx);
 	return 0;
 }
 

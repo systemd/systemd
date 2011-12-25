@@ -76,7 +76,7 @@ static int fd_signal = -1;
 static int fd_ep = -1;
 static int fd_inotify = -1;
 static bool stop_exec_queue;
-static bool reload_config;
+static bool reload;
 static int children;
 static int children_max;
 static int exec_delay;
@@ -662,9 +662,9 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
 		stop_exec_queue = false;
 	}
 
-	if (udev_ctrl_get_reload_rules(ctrl_msg) > 0) {
-		info(udev, "udevd message (RELOAD_RULES) received\n");
-		reload_config = true;
+	if (udev_ctrl_get_reload(ctrl_msg) > 0) {
+		info(udev, "udevd message (RELOAD) received\n");
+		reload = true;
 	}
 
 	str = udev_ctrl_get_set_env(ctrl_msg);
@@ -745,7 +745,7 @@ static int handle_inotify(struct udev *udev)
 				continue;
 			if (strlen(s) != strlen(".rules"))
 				continue;
-			reload_config = true;
+			reload = true;
 			continue;
 		}
 
@@ -831,7 +831,7 @@ static void handle_signal(struct udev *udev, int signo)
 		}
 		break;
 	case SIGHUP:
-		reload_config = true;
+		reload = true;
 		break;
 	}
 }
@@ -1658,8 +1658,12 @@ int main(int argc, char *argv[])
 		}
 
 		/* start new events */
-		if (!udev_list_node_is_empty(&event_list) && !udev_exit && !stop_exec_queue)
-			event_queue_start(udev);
+		if (!udev_list_node_is_empty(&event_list) && !udev_exit && !stop_exec_queue) {
+			if (rules == NULL)
+				rules = udev_rules_new(udev, resolve_names);
+			if (rules != NULL)
+				event_queue_start(udev);
+		}
 
 		if (is_signal) {
 			struct signalfd_siginfo fdsi;
@@ -1691,19 +1695,11 @@ int main(int argc, char *argv[])
 			ctrl_conn = handle_ctrl_msg(udev_ctrl);
 
 		/* rules changed, set by inotify or a HUP signal */
-		if (reload_config) {
-			struct udev_rules *rules_new;
-
+		if (reload) {
 			worker_kill(udev, 0);
-			rules_new = udev_rules_new(udev, resolve_names);
-			if (rules_new != NULL) {
-				udev_rules_unref(rules);
-				rules = rules_new;
-			}
-			reload_config = 0;
-
+			rules = udev_rules_unref(rules);
 			udev_builtin_exit(udev);
-			udev_builtin_init(udev);
+			reload = 0;
 		}
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2011 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,9 +32,9 @@ static void print_help(void)
 	printf("Usage: udevadm control COMMAND\n"
 		"  --exit                   instruct the daemon to cleanup and exit\n"
 		"  --log-priority=<level>   set the udev log level for the daemon\n"
-		"  --stop-exec-queue        keep udevd from executing events, queue only\n"
+		"  --stop-exec-queue        do not execute events, queue only\n"
 		"  --start-exec-queue       execute events, flush queue\n"
-		"  --reload-rules           reloads the rules files\n"
+		"  --reload                 reload rules and databases\n"
 		"  --property=<KEY>=<value> set a global property for all events\n"
 		"  --children-max=<N>       maximum number of children\n"
 		"  --timeout=<seconds>      maximum time to block for a reply\n"
@@ -52,6 +52,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[])
 		{ "log-priority", required_argument, NULL, 'l' },
 		{ "stop-exec-queue", no_argument, NULL, 's' },
 		{ "start-exec-queue", no_argument, NULL, 'S' },
+		{ "reload", no_argument, NULL, 'R' },
 		{ "reload-rules", no_argument, NULL, 'R' },
 		{ "property", required_argument, NULL, 'p' },
 		{ "env", required_argument, NULL, 'p' },
@@ -111,7 +112,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[])
 				rc = 0;
 			break;
 		case 'R':
-			if (udev_ctrl_send_reload_rules(uctrl, timeout) < 0)
+			if (udev_ctrl_send_reload(uctrl, timeout) < 0)
 				rc = 2;
 			else
 				rc = 0;
