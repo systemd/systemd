@@ -1,18 +1,16 @@
 udev 175
 ========
-The default configure options have changed, packages need to be adapted
-otherwise udev will be installed in /usr. Example configuration options
-are in INSTALL.
-
-The default prefix moved from / to /usr to support installations without
-the historic / vs. /usr split.
+The default 'configure' install locations have changed. Packages for systems
+with the historic / vs. /usr split need to be adapted, otherwise udev will
+be installed in /usr and not work properly. Example configuration options are
+in INSTALL.
 
 The default install location of the 'udevadm' tool moved from 'sbin'
 to /usr/bin. Some tools expect udevadm in 'sbin'. A symlink to udevadm
 needs to be manually created if needed.
 
-Kernel modules are now loaded directly by linking udev to 'libkmod'.
-The 'modprobe' tool is no longer executed by udev.
+Kernel modules are now loaded directly by linking udev to 'libkmod'. The
+'modprobe' tool is no longer executed by udev.
 
 The 'blkid' tool is no longer executed from udev rules. Udev links
 directly to libblkid now.
