@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/usr/bin/env sh
 # Find "real" keyboard devices and print their device path.
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
 #
@@ -13,6 +13,8 @@
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
+
+set -e
 
 # returns OK if $1 contains $2
 strstr() {

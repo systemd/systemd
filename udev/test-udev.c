@@ -30,6 +30,10 @@
 
 #include "udev.h"
 
+void udev_main_log(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args) {}
+
 int main(int argc, char *argv[])
 {
 	struct udev *udev;

@@ -1,4 +1,6 @@
-#!/bin/sh -e
+#!/usr/bin/env sh
+
+set -e
 
 gtkdocize
 autoreconf --install --symlink
@@ -7,7 +9,9 @@ libdir() {
 	echo $(cd $1/$(gcc -print-multi-os-directory); pwd)
 }
 
-args="--prefix=/usr \
+args="\
+--prefix=/usr \
+--with-rootprefix= \
 --sysconfdir=/etc \
 --bindir=/sbin \
 --libdir=$(libdir /usr/lib) \

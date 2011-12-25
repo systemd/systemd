@@ -1,22 +1,24 @@
 udev 175
 ========
-The default install location moved from /lib/udev to /usr/lib/udev,
-to support systems without the / vs. /usr split. --libexecdir=
-can still be configured to install things to /lib/udev.
+The default configure options have changed, packages need to be adapted
+otherwise udev will be installed in /usr. Example configuration options
+are in INSTALL.
+
+The default prefix moved from / to /usr to support installations without
+the historic / vs. /usr split.
 
 The default install location of the 'udevadm' tool moved from 'sbin'
-to /usr/bin. --bindir= can still be configured to install it in
-/sbin. Some tools expect udevadm in 'sbin'. A symlink to udevadm
-in /usr/bin needs to be manually created if needed.
+to /usr/bin. Some tools expect udevadm in 'sbin'. A symlink to udevadm
+needs to be manually created if needed.
 
 Kernel modules are now loaded directly by linking udev to 'libkmod'.
-The /sbin/modprobe tool is no longer executed by udev.
+The 'modprobe' tool is no longer executed by udev.
 
-The /sbin/blkid tool is no longer executed from udev rules. Udev links
+The 'blkid' tool is no longer executed from udev rules. Udev links
 directly to libblkid now.
 
-Firmware is loaded natively by udev now, the external firmware loading
-binary is no longer used.
+Firmware is loaded natively by udev now, the external 'firmware' binary
+is no longer used.
 
 All built-in tools can be listed and tested with 'udevadm test-builtin'.
 

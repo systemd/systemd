@@ -40,9 +40,10 @@ libexec_SCRIPTS =
 dist_libexec_SCRIPTS =
 
 SED_PROCESS = \
-$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(SED) \
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(SED) \
 	-e 's,@VERSION\@,$(VERSION),g' \
 	-e 's,@prefix\@,$(prefix),g' \
+	-e 's,@rootprefix\@,$(rootprefix),g' \
 	-e 's,@exec_prefix\@,$(exec_prefix),g' \
 	-e 's,@libdir\@,$(libdir),g' \
 	-e 's,@includedir\@,$(includedir),g' \
@@ -56,11 +57,16 @@ $(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(SED) \
 %.rules: %.rules.in Makefile
 	$(SED_PROCESS)
 
-%.service: %.service.in
+%.service: %.service.in Makefile
 	$(SED_PROCESS)
 
-%.sh: %.sh.in
+%.sh: %.sh.in Makefile
 	$(SED_PROCESS)
+	$(AM_V_GEN)chmod +x $@
+
+%.pl: %.pl.in Makefile
+	$(SED_PROCESS)
+	$(AM_V_GEN)chmod +x $@
 
 # ------------------------------------------------------------------------------
 # libudev
@@ -271,7 +277,15 @@ udev/%.html : udev/%.xml
 # ------------------------------------------------------------------------------
 # udev tests
 # ------------------------------------------------------------------------------
-TESTS = test/udev-test.pl test/rules-test.sh
+TESTS = \
+	test/udev-test.pl \
+	test/rules-test.sh
+
+EXTRA_DIST += \
+	test/udev-test.pl.in
+
+CLEANFILES += \
+	test/udev-test.pl
 
 check_PROGRAMS = \
 	libudev/test-libudev \

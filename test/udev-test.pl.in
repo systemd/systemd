@@ -227,7 +227,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "aaa",
 		rules		=> <<EOF
-KERNEL=="ttyACM0", PROGRAM=="/bin/echo -e \\101", RESULT=="A", SYMLINK+="aaa"
+KERNEL=="ttyACM0", PROGRAM=="@rootprefix@/bin/echo -e \\101", RESULT=="A", SYMLINK+="aaa"
 EOF
 	},
 	{
@@ -292,7 +292,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "node12345678",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", IMPORT{program}="/bin/echo -e \' TEST_KEY=12345678\\n  TEST_key2=98765\'", SYMLINK+="node\$env{TEST_KEY}"
+SUBSYSTEMS=="scsi", IMPORT{program}="@rootprefix@/bin/echo -e \' TEST_KEY=12345678\\n  TEST_key2=98765\'", SYMLINK+="node\$env{TEST_KEY}"
 KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
 	},
@@ -313,8 +313,8 @@ EOF
 		exp_name	=> "special-device-5" ,
 		not_exp_name	=> "not" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="-special-*", SYMLINK+="not"
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="special-*", SYMLINK+="%c-%n"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n special-device", RESULT=="-special-*", SYMLINK+="not"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n special-device", RESULT=="special-*", SYMLINK+="%c-%n"
 EOF
 	},
 	{
@@ -323,7 +323,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "newline_removed" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo test", RESULT=="test", SYMLINK+="newline_removed"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo test", RESULT=="test", SYMLINK+="newline_removed"
 EOF
 	},
 	{
@@ -332,7 +332,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "test-0:0:0:0" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n test-%b", RESULT=="test-0:0*", SYMLINK+="%c"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n test-%b", RESULT=="test-0:0*", SYMLINK+="%c"
 EOF
 	},
 	{
@@ -341,7 +341,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "foo9" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="%c{7}"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="%c{7}"
 EOF
 	},
 	{
@@ -350,7 +350,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "bar9" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'echo foo3 foo4 foo5 foo6 foo7 foo8 foo9 | sed  s/foo9/bar9/'", KERNEL=="sda5", SYMLINK+="%c{7}"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/sh -c 'echo foo3 foo4 foo5 foo6 foo7 foo8 foo9 | sed  s/foo9/bar9/'", KERNEL=="sda5", SYMLINK+="%c{7}"
 EOF
 	},
 	{
@@ -359,7 +359,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "foo7" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n 'foo3 foo4'   'foo5   foo6   foo7 foo8'", KERNEL=="sda5", SYMLINK+="%c{5}"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n 'foo3 foo4'   'foo5   foo6   foo7 foo8'", KERNEL=="sda5", SYMLINK+="%c{5}"
 EOF
 	},
 	{
@@ -368,7 +368,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "my-foo9" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="my-%c{7}"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="my-%c{7}"
 EOF
 	},
 	{
@@ -377,7 +377,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "my-foo8" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="my-%c{6}"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="my-%c{6}"
 EOF
 	},
 	{
@@ -431,7 +431,7 @@ EOF
 		devpath		=> "/devices/virtual/tty/console",
 		exp_name	=> "TTY",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo", RESULT=="foo", SYMLINK+="foo"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n foo", RESULT=="foo", SYMLINK+="foo"
 KERNEL=="console", SYMLINK+="TTY"
 EOF
 	},
@@ -487,9 +487,9 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "scsi-0:0:0:0" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="usb", PROGRAM=="/bin/echo -n usb-%b", SYMLINK+="%c"
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n scsi-%b", SYMLINK+="%c"
-SUBSYSTEMS=="foo", PROGRAM=="/bin/echo -n foo-%b", SYMLINK+="%c"
+SUBSYSTEMS=="usb", PROGRAM=="@rootprefix@/bin/echo -n usb-%b", SYMLINK+="%c"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n scsi-%b", SYMLINK+="%c"
+SUBSYSTEMS=="foo", PROGRAM=="@rootprefix@/bin/echo -n foo-%b", SYMLINK+="%c"
 EOF
 	},
 	{
@@ -920,7 +920,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "test",
 		rules		=> <<EOF
-KERNEL=="ttyACM[0-9]*", PROGRAM=="/bin/echo test", SYMLINK+="%c"
+KERNEL=="ttyACM[0-9]*", PROGRAM=="@rootprefix@/bin/echo test", SYMLINK+="%c"
 EOF
 	},
 	{
@@ -929,7 +929,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "test",
 		rules		=> <<EOF
-KERNEL=="ttyACM[0-9]*", PROGRAM=="/bin/echo symlink test this", SYMLINK+="%c{2}"
+KERNEL=="ttyACM[0-9]*", PROGRAM=="@rootprefix@/bin/echo symlink test this", SYMLINK+="%c{2}"
 EOF
 	},
 	{
@@ -938,7 +938,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "this",
 		rules		=> <<EOF
-KERNEL=="ttyACM[0-9]*", PROGRAM=="/bin/echo symlink test this", SYMLINK+="%c{2+}"
+KERNEL=="ttyACM[0-9]*", PROGRAM=="@rootprefix@/bin/echo symlink test this", SYMLINK+="%c{2+}"
 EOF
 	},
 	{
@@ -947,7 +947,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "test",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo link test this" SYMLINK+="%c{2+}"
+SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="@rootprefix@/bin/echo link test this" SYMLINK+="%c{2+}"
 EOF
 	},
 	{
@@ -965,7 +965,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "link1",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n node link1 link2", RESULT=="node *", SYMLINK+="%c{2} %c{3}"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n node link1 link2", RESULT=="node *", SYMLINK+="%c{2} %c{3}"
 EOF
 	},
 	{
@@ -974,7 +974,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "link4",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n node link1 link2 link3 link4", RESULT=="node *", SYMLINK+="%c{2+}"
+SUBSYSTEMS=="scsi", PROGRAM=="@rootprefix@/bin/echo -n node link1 link2 link3 link4", RESULT=="node *", SYMLINK+="%c{2+}"
 EOF
 	},
 	{
@@ -1004,7 +1004,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "node",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/usr/bin/test -b %N" SYMLINK+="node"
+SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/usr@rootprefix@/bin/test -b %N" SYMLINK+="node"
 EOF
 	},
 	{
@@ -1076,7 +1076,7 @@ EOF
 		exp_name	=> "nonzero-program",
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="before"
-KERNEL=="sda1", PROGRAM!="/bin/false", SYMLINK+="nonzero-program"
+KERNEL=="sda1", PROGRAM!="@rootprefix@/bin/false", SYMLINK+="nonzero-program"
 EOF
 	},
 	{
@@ -1158,7 +1158,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
 		exp_name	=> "sane",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e name; (/usr/bin/badprogram)", RESULT=="name_ _/usr/bin/badprogram_", SYMLINK+="sane"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="@rootprefix@/bin/echo -e name; (/usr/bin/badprogram)", RESULT=="name_ _/usr/bin/badprogram_", SYMLINK+="sane"
 EOF
 	},
 	{
@@ -1167,7 +1167,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
 		exp_name	=> "uber",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xc3\\xbcber" RESULT=="\xc3\xbcber", SYMLINK+="uber"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="@rootprefix@/bin/echo -e \\xc3\\xbcber" RESULT=="\xc3\xbcber", SYMLINK+="uber"
 EOF
 	},
 	{
@@ -1176,7 +1176,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
 		exp_name	=> "replaced",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xef\\xe8garbage", RESULT=="__garbage", SYMLINK+="replaced"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="@rootprefix@/bin/echo -e \\xef\\xe8garbage", RESULT=="__garbage", SYMLINK+="replaced"
 EOF
 	},
 	{
@@ -1217,8 +1217,8 @@ EOF
 		exp_name	=> "testsymlink2",
 		exp_target	=> "ok2",
 		rules		=> <<EOF
-KERNEL=="sda", NAME="ok2", RUN+="/bin/ln -s ok2 %r/testsymlink2"
-KERNEL=="sda", ACTION=="remove", RUN+="/bin/rm -f %r/testsymlink2"
+KERNEL=="sda", NAME="ok2", RUN+="@rootprefix@/bin/ln -s ok2 %r/testsymlink2"
+KERNEL=="sda", ACTION=="remove", RUN+="@rootprefix@/bin/rm -f %r/testsymlink2"
 EOF
 	},
 	{
@@ -1330,7 +1330,7 @@ EOF
 		exp_name	=> "parent",
 		option		=> "keep",
 		rules		=> <<EOF
-KERNEL=="sda", IMPORT{program}="/bin/echo -e \'PARENT_KEY=parent_right\\nWRONG_PARENT_KEY=parent_wrong'"
+KERNEL=="sda", IMPORT{program}="@rootprefix@/bin/echo -e \'PARENT_KEY=parent_right\\nWRONG_PARENT_KEY=parent_wrong'"
 KERNEL=="sda", SYMLINK+="parent"
 EOF
 	},
@@ -1479,7 +1479,7 @@ EOF
 		exp_rem_error	=> "yes",
 		rules		=> <<EOF
 KERNEL=="sda", MODE="666"
-KERNEL=="sda", PROGRAM=="/bin/echo 5000 100 0400", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
+KERNEL=="sda", PROGRAM=="@rootprefix@/bin/echo 5000 100 0400", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
 EOF
 	},
 	{
@@ -1491,7 +1491,7 @@ EOF
 		exp_rem_error	=> "yes",
 		rules		=> <<EOF
 KERNEL=="sda", MODE="440"
-KERNEL=="sda", PROGRAM=="/bin/echo 0 0 0400letsdoabuffferoverflow0123456789012345789012345678901234567890", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
+KERNEL=="sda", PROGRAM=="@rootprefix@/bin/echo 0 0 0400letsdoabuffferoverflow0123456789012345789012345678901234567890", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
 EOF
 	},
 	{
@@ -1501,7 +1501,7 @@ EOF
 		exp_name	=> "sda-8741C4G-end",
 		exp_perms	=> "0:0:0600",
 		rules		=> <<EOF
-KERNEL=="sda", PROGRAM="/bin/true create-envp"
+KERNEL=="sda", PROGRAM="@rootprefix@/bin/true create-envp"
 KERNEL=="sda", ENV{TESTENV}="change-envp"
 KERNEL=="sda", SYMLINK+="%k-%s{[dmi/id]product_name}-end", RUN+="socket:@/org/kernel/udev/monitor"
 EOF

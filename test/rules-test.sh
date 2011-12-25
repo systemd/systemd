@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Call the udev rule syntax checker on all rules that we ship
 #
 # (C) 2010 Canonical Ltd.

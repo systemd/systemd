@@ -23,6 +23,11 @@ AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([POSIX RT library not fo
 PKG_CHECK_MODULES(BLKID, blkid >= 2.20)
 PKG_CHECK_MODULES(KMOD, libkmod >= 2)
 
+AC_ARG_WITH([rootprefix],
+	AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
+	[], [with_rootprefix=$prefix])
+AC_SUBST([rootprefix], [$with_rootprefix])
+
 AC_ARG_WITH([rootlibdir],
 	AS_HELP_STRING([--with-rootlibdir=DIR], [rootfs directory to install shared libraries]),
 	[], [with_rootlibdir=$libdir])
@@ -56,7 +61,7 @@ AS_IF([test "x$enable_logging" = "xyes"], [ AC_DEFINE(ENABLE_LOGGING, [1], [Syst
 AC_ARG_WITH(firmware-path,
 	AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
 	   [Firmware search path (default=/lib/firmware/updates:/lib/firmware)]),
-	[], [with_firmware_path="/lib/firmware/updates:/lib/firmware"])
+	[], [with_firmware_path="$rootprefix/lib/firmware/updates:$rootprefix/lib/firmware"])
 OLD_IFS=$IFS
 IFS=:
 for i in $with_firmware_path; do
@@ -224,6 +229,7 @@ AC_MSG_RESULT([
 	========
 
 	prefix:			${prefix}
+	rootprefix:		${rootprefix}
 	sysconfdir:		${sysconfdir}
 	bindir:			${bindir}
 	libdir:			${libdir}

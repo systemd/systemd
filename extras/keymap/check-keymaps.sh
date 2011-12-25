@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # check that all key names in keymaps/* are known in <linux/input.h>
 # and that all key maps listed in the rules are valid and present in
