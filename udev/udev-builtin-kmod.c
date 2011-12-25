@@ -316,6 +316,12 @@ static int insmod(struct kmod_ctx *ctx, const char *name, const char *extra_opti
 		return insmod_alias(ctx, name, extra_options);
 }
 
+static void udev_kmod_log(void *data, int priority, const char *file, int line,
+			  const char *fn, const char *format, va_list args)
+{
+	udev_main_log(data, priority, file, line, fn, format, args);
+}
+
 static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test)
 {
 	struct udev *udev = udev_device_get_udev(dev);
@@ -327,6 +333,7 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 			return -ENOMEM;
 
 		info(udev, "load module index\n");
+		kmod_set_log_fn(ctx, udev_kmod_log, udev);
 		kmod_load_resources(ctx);
 	}
 
@@ -353,6 +360,7 @@ static int builtin_kmod_init(struct udev *udev)
 		return -ENOMEM;
 
 	info(udev, "load module index\n");
+	kmod_set_log_fn(ctx, udev_kmod_log, udev);
 	kmod_load_resources(ctx);
 	return 0;
 }

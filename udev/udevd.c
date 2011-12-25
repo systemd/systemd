@@ -49,7 +49,7 @@
 
 static bool debug;
 
-static void log_fn(struct udev *udev, int priority,
+void udev_main_log(struct udev *udev, int priority,
 		   const char *file, int line, const char *fn,
 		   const char *format, va_list args)
 {
@@ -1198,7 +1198,7 @@ int main(int argc, char *argv[])
 		goto exit;
 
 	udev_log_init("udevd");
-	udev_set_log_fn(udev, log_fn);
+	udev_set_log_fn(udev, udev_main_log);
 	info(udev, "version %s\n", VERSION);
 	udev_selinux_init(udev);
 

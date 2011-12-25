@@ -131,21 +131,6 @@ int udev_ctrl_get_exit(struct udev_ctrl_msg *ctrl_msg);
 const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
 
-/* udevadm commands */
-struct udevadm_cmd {
-	const char *name;
-	int (*cmd)(struct udev *udev, int argc, char *argv[]);
-	const char *help;
-	int debug;
-};
-extern const struct udevadm_cmd udevadm_monitor;
-extern const struct udevadm_cmd udevadm_info;
-extern const struct udevadm_cmd udevadm_control;
-extern const struct udevadm_cmd udevadm_trigger;
-extern const struct udevadm_cmd udevadm_settle;
-extern const struct udevadm_cmd udevadm_test;
-extern const struct udevadm_cmd udevadm_test_builtin;
-
 /* built-in commands */
 enum udev_builtin_cmd {
 	UDEV_BUILTIN_BLKID,
@@ -178,4 +163,24 @@ bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
 int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
 int udev_builtin_list(struct udev *udev);
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
+
+/* udev logging */
+void udev_main_log(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args);
+
+/* udevadm commands */
+struct udevadm_cmd {
+	const char *name;
+	int (*cmd)(struct udev *udev, int argc, char *argv[]);
+	const char *help;
+	int debug;
+};
+extern const struct udevadm_cmd udevadm_info;
+extern const struct udevadm_cmd udevadm_trigger;
+extern const struct udevadm_cmd udevadm_settle;
+extern const struct udevadm_cmd udevadm_control;
+extern const struct udevadm_cmd udevadm_monitor;
+extern const struct udevadm_cmd udevadm_test;
+extern const struct udevadm_cmd udevadm_test_builtin;
 #endif
