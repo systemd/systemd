@@ -1,4 +1,4 @@
- - move cc opts from autogen to configure.ac
+ - remove TIMEOUT= handling
 
  - move /lib/udev/devices/ to tmpfiles
 
@@ -6,13 +6,11 @@
 
  - test (now fixed) /dev/tape/ links
 
- - move udevadm -> --bindir
-
- - have a $attrs{} ?
-
  - kill rules_generator
 
  - kill tabs?
+
+ - have a $attrs{} ?
 
  - deprecate and warn about RUN+="socket:"
 
@@ -21,4 +19,3 @@
      - return object with *_unref()
      - udev_monitor_from_socket()
      - udev_queue_get_failed_list_entry()
-

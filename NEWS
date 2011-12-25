@@ -1,19 +1,25 @@
 udev 175
 ========
-The default install location moved from /lib/udev to /usr/lib/udev
-to support systems without the / vs. /usr split. --libbexecdir=
-can still be configured to install things to the rootfs.
+The default install location moved from /lib/udev to /usr/lib/udev,
+to support systems without the / vs. /usr split. --libexecdir=
+can still be configured to install things to /lib/udev.
 
-The udevadm tool moved from /sbin to /usr/bin. Some tools expect
-udevadm in 'sbin'. A symlink to udevadm in 'bin' needs to be
-manually created if needed. Alternatively --bindir=/sbin installs
-udevadm in /sbin.
+The default install location of the 'udevadm' tool moved from 'sbin'
+to /usr/bin. --bindir= can still be configured to install it in
+/sbin. Some tools expect udevadm in 'sbin'. A symlink to udevadm
+in /usr/bin needs to be manually created if needed.
+
+Kernel modules are now loaded directly by linking udev to 'libkmod'.
+The /sbin/modprobe tool is no longer executed by udev.
+
+The /sbin/blkid tool is no longer executed from udev rules. Udev links
+directly to libblkid now.
+
+The 'udevadm control --reload-rules' option has been renamed to '--reload'.
+It reloads the kernel module configuration.
 
 The systemd socket files use PassCred=yes, which requires systemd
 version 38.
-
-The blkid tool is no longer called from udev rules. Udev links directly
-to libblkid now.
 
 The udev build system only creates a .xz tarball now.
 
