@@ -151,6 +151,9 @@ dist_udevrules_DATA = \
 	rules/rules.d/60-persistent-input.rules \
 	rules/rules.d/60-persistent-alsa.rules \
 	rules/rules.d/60-persistent-storage.rules \
+	rules/rules.d/75-net-description.rules \
+	rules/rules.d/75-tty-description.rules \
+	rules/rules.d/78-sound-card.rules \
 	rules/rules.d/80-drivers.rules \
 	rules/rules.d/95-udev-late.rules
 
@@ -209,6 +212,7 @@ udev_common_sources = \
 	udev/udev-builtin.c \
 	udev/udev-builtin-blkid.c \
 	udev/udev-builtin-firmware.c \
+	udev/udev-builtin-hwdb.c \
 	udev/udev-builtin-input_id.c \
 	udev/udev-builtin-kmod.c \
 	udev/udev-builtin-path_id.c \
@@ -225,7 +229,8 @@ udev_common_LDADD = \
 
 udev_common_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
-	-DFIRMWARE_PATH="$(FIRMWARE_PATH)"
+	-DFIRMWARE_PATH="$(FIRMWARE_PATH)" \
+	-DUSB_DATABASE=\"$(USB_DATABASE)\" -DPCI_DATABASE=\"$(PCI_DATABASE)\"
 
 udev_udevd_SOURCES = \
 	$(udev_common_sources) \
@@ -503,25 +508,6 @@ libgudev-uninstall-move-hook:
 
 INSTALL_EXEC_HOOKS += libgudev-install-move-hook
 UNINSTALL_EXEC_HOOKS += libgudev-uninstall-move-hook
-endif
-
-if ENABLE_HWDB
-# ------------------------------------------------------------------------------
-# usb/pci-db - read vendor/device string database
-# ------------------------------------------------------------------------------
-extras_usb_db_usb_db_SOURCES = extras/usb-db/usb-db.c
-extras_usb_db_usb_db_CPPFLAGS = $(AM_CPPFLAGS) -DUSB_DATABASE=\"$(USB_DATABASE)\" -DBUILD_FOR_USB
-extras_usb_db_usb_db_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/usb-db/usb-db
-dist_udevrules_DATA += \
-	rules/rules.d/75-net-description.rules \
-	rules/rules.d/75-tty-description.rules \
-	rules/rules.d/78-sound-card.rules
-
-extras_usb_db_pci_db_SOURCES = extras/usb-db/usb-db.c
-extras_usb_db_pci_db_CPPFLAGS = $(AM_CPPFLAGS) -DPCI_DATABASE=\"$(PCI_DATABASE)\" -DBUILD_FOR_PCI
-extras_usb_db_pci_db_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/usb-db/pci-db
 endif
 
 if ENABLE_KEYMAP

@@ -20,8 +20,41 @@ AC_PREFIX_DEFAULT([/usr])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([POSIX RT library not found])])
+
 PKG_CHECK_MODULES(BLKID, blkid >= 2.20)
+
 PKG_CHECK_MODULES(KMOD, libkmod >= 2)
+
+if test "x$cross_compiling" = "xno" ; then
+	AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
+	AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
+	AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
+fi
+
+AC_ARG_WITH(usb-ids-path,
+	[AS_HELP_STRING([--with-usb-ids-path=DIR], [Path to usb.ids file])],
+	[USB_DATABASE=${withval}],
+	[if test -n "$usbids" ; then
+		USB_DATABASE="$usbids"
+	else
+		PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
+		AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
+	fi])
+AC_MSG_CHECKING([for USB database location])
+AC_MSG_RESULT([$USB_DATABASE])
+AC_SUBST(USB_DATABASE)
+
+AC_ARG_WITH(pci-ids-path,
+	[AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
+	[PCI_DATABASE=${withval}],
+	[if test -n "$pciids" ; then
+		PCI_DATABASE="$pciids"
+	else
+		AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
+	fi])
+AC_MSG_CHECKING([for PCI database location])
+AC_MSG_RESULT([$PCI_DATABASE])
+AC_SUBST(PCI_DATABASE)
 
 AC_ARG_WITH([rootprefix],
 	AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
@@ -102,46 +135,6 @@ AS_IF([test "x$enable_introspection" = "xyes"], [
 ])
 AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = "xyes"])
 AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = "xyes"])
-
-# ------------------------------------------------------------------------------
-# usb/pci-db - read vendor/device string database
-# ------------------------------------------------------------------------------
-AC_ARG_ENABLE([hwdb],
-	AS_HELP_STRING([--disable-hwdb], [disable hardware database support @<:@default=enabled@:>@]),
-	[], [enable_hwdb=yes])
-AS_IF([test "x$enable_hwdb" = "xyes"], [
-	if test "x$cross_compiling" = "xno" ; then
-		AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
-		AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
-		AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
-	fi
-
-	AC_ARG_WITH(usb-ids-path,
-		[AS_HELP_STRING([--with-usb-ids-path=DIR], [Path to usb.ids file])],
-		[USB_DATABASE=${withval}],
-		[if test -n "$usbids" ; then
-			USB_DATABASE="$usbids"
-		else
-			PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
-			AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
-		fi])
-	AC_MSG_CHECKING([for USB database location])
-	AC_MSG_RESULT([$USB_DATABASE])
-	AC_SUBST(USB_DATABASE)
-
-	AC_ARG_WITH(pci-ids-path,
-		[AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
-		[PCI_DATABASE=${withval}],
-		[if test -n "$pciids" ; then
-			PCI_DATABASE="$pciids"
-		else
-			AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
-		fi])
-	AC_MSG_CHECKING([for PCI database location])
-	AC_MSG_RESULT([$PCI_DATABASE])
-	AC_SUBST(PCI_DATABASE)
-])
-AM_CONDITIONAL([ENABLE_HWDB], [test "x$enable_hwdb" = "xyes"])
 
 # ------------------------------------------------------------------------------
 # keymap - map custom hardware's multimedia keys
@@ -241,6 +234,8 @@ AC_MSG_RESULT([
 	include_prefix:		${INCLUDE_PREFIX}
 	systemdsystemunitdir:	${systemdsystemunitdir}
 	firmware path:		${FIRMWARE_PATH}
+	usb.ids:		${USB_DATABASE}
+	pci.ids:		${PCI_DATABASE}
 
 	compiler:		${CC}
 	cflags:			${CFLAGS}
@@ -255,9 +250,6 @@ AC_MSG_RESULT([
 	gudev:			${enable_gudev}
 	gintrospection:		${enable_introspection}
 	keymap:			${enable_keymap}
-	hwdb:			${enable_hwdb}
-	  usb.ids:		${USB_DATABASE}
-	  pci.ids:		${PCI_DATABASE}
 	mtd_probe:		${enable_mtd_probe}
 	rule_generator:		${enable_rule_generator}
 	udev_acl:		${enable_udev_acl}

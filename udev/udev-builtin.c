@@ -31,6 +31,8 @@ static const struct udev_builtin *builtins[] = {
 	[UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
 	[UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
 	[UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,
+	[UDEV_BUILTIN_PCI_DB] = &udev_builtin_pci_db,
+	[UDEV_BUILTIN_USB_DB] = &udev_builtin_usb_db,
 	[UDEV_BUILTIN_USB_ID] = &udev_builtin_usb_id,
 };
 

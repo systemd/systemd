@@ -38,10 +38,10 @@ KERNEL!="card*", GOTO="sound_end"
 ENV{SOUND_INITIALIZED}="1"
 
 SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
-SUBSYSTEMS=="usb", ENV{ID_VENDOR_FROM_DATABASE}=="", IMPORT{program}="usb-db %p"
+SUBSYSTEMS=="usb", IMPORT{builtin}="usb-db"
 SUBSYSTEMS=="usb", GOTO="skip_pci"
 
-SUBSYSTEMS=="pci", ENV{ID_VENDOR_FROM_DATABASE}=="", IMPORT{program}="pci-db %p"
+SUBSYSTEMS=="pci", IMPORT{builtin}="pci-db"
 SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}"
 
 LABEL="skip_pci"
