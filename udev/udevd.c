@@ -1318,6 +1318,9 @@ int main(int argc, char *argv[])
 	chdir("/");
 	umask(022);
 
+	/* /run/udev */
+	mkdir(udev_get_run_path(udev), 0755);
+
 	/* create standard links, copy static nodes, create nodes from modules */
 	static_dev_create(udev);
 	static_dev_create_from_modules(udev);
