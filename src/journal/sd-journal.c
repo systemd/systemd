@@ -437,7 +437,7 @@ static int find_location(sd_journal *j, JournalFile *f, direction_t direction, O
                                             (direction == DIRECTION_DOWN && cp < tp) ||
                                             (direction == DIRECTION_UP && cp > tp)) {
                                                 to = c;
-                                                tp = tp;
+                                                tp = cp;
                                         }
 
                                 }
