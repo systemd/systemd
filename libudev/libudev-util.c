@@ -552,12 +552,17 @@ uint64_t util_string_bloom64(const char *str)
 
 #define USEC_PER_SEC  1000000ULL
 #define NSEC_PER_USEC 1000ULL
+unsigned long long ts_usec(const struct timespec *ts)
+{
+	return (unsigned long long) ts->tv_sec * USEC_PER_SEC +
+	       (unsigned long long) ts->tv_nsec / NSEC_PER_USEC;
+}
+
 unsigned long long now_usec(void)
 {
 	struct timespec ts;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
 		return 0;
-	return (unsigned long long) ts.tv_sec * USEC_PER_SEC +
-	       (unsigned long long) ts.tv_nsec / NSEC_PER_USEC;
+	return ts_usec(&ts);
 }

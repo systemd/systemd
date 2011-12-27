@@ -736,19 +736,6 @@ static int handle_inotify(struct udev *udev)
 		struct udev_device *dev;
 
 		ev = (struct inotify_event *)(buf + pos);
-		if (ev->len) {
-			const char *s;
-
-			info(udev, "inotify event: %x for %s\n", ev->mask, ev->name);
-			s = strstr(ev->name, ".rules");
-			if (s == NULL)
-				continue;
-			if (strlen(s) != strlen(".rules"))
-				continue;
-			reload = true;
-			continue;
-		}
-
 		dev = udev_watch_lookup(udev, ev->wd);
 		if (dev != NULL) {
 			info(udev, "inotify event: %x for %s\n", ev->mask, udev_device_get_devnode(dev));
@@ -1169,6 +1156,36 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink)
 	return 0;
 }
 
+static bool check_rules_timestamp(struct udev *udev)
+{
+	char **p;
+	unsigned long long *stamp_usec;
+	int i, n;
+	bool changed = false;
+
+	n = udev_get_rules_path(udev, &p, &stamp_usec);
+	for (i = 0; i < n; i++) {
+		struct stat stats;
+
+		if (stat(p[i], &stats) < 0)
+			continue;
+
+		if (stamp_usec[i] == ts_usec(&stats.st_mtim))
+			continue;
+
+		/* first check */
+		if (stamp_usec[i] != 0) {
+			info(udev, "reload - timestamp of '%s' changed\n", p[i]);
+			changed = true;
+		}
+
+		/* update timestamp */
+		stamp_usec[i] = ts_usec(&stats.st_mtim);
+	}
+
+	return changed;
+}
+
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
@@ -1191,6 +1208,7 @@ int main(int argc, char *argv[])
 	int fd_worker = -1;
 	struct epoll_event ep_ctrl, ep_inotify, ep_signal, ep_netlink, ep_worker;
 	struct udev_ctrl_connection *ctrl_conn = NULL;
+	char **s;
 	int rc = 1;
 
 	udev = udev_new();
@@ -1201,31 +1219,6 @@ int main(int argc, char *argv[])
 	udev_set_log_fn(udev, udev_main_log);
 	info(udev, "version %s\n", VERSION);
 	udev_selinux_init(udev);
-
-	/* make sure, that our runtime dir exists and is writable */
-	if (utimensat(AT_FDCWD, udev_get_run_config_path(udev), NULL, 0) < 0) {
-		/* try to create our own subdirectory, do not create parent directories */
-		mkdir(udev_get_run_config_path(udev), 0755);
-
-		if (utimensat(AT_FDCWD, udev_get_run_config_path(udev), NULL, 0) >= 0) {
-			/* directory seems writable now */
-			udev_set_run_path(udev, udev_get_run_config_path(udev));
-		} else {
-			/* fall back to /dev/.udev */
-			char filename[UTIL_PATH_SIZE];
-
-			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev", NULL);
-			if (udev_set_run_path(udev, filename) == NULL)
-				goto exit;
-			mkdir(udev_get_run_path(udev), 0755);
-			err(udev, "error: runtime directory '%s' not writable, for now falling back to '%s'",
-			    udev_get_run_config_path(udev), udev_get_run_path(udev));
-		}
-	}
-	/* relabel runtime dir only if it resides below /dev */
-	if (strncmp(udev_get_run_path(udev), udev_get_dev_path(udev), strlen(udev_get_dev_path(udev))) == 0)
-		udev_selinux_lsetfilecon(udev, udev_get_run_path(udev), 0755);
-	info(udev, "runtime dir '%s'\n", udev_get_run_path(udev));
 
 	for (;;) {
 		int option;
@@ -1469,28 +1462,6 @@ int main(int argc, char *argv[])
 		rc = 4;
 		goto exit;
 	}
-
-	if (udev_get_rules_path(udev) != NULL) {
-		inotify_add_watch(fd_inotify, udev_get_rules_path(udev),
-				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-	} else {
-		char filename[UTIL_PATH_SIZE];
-		struct stat statbuf;
-
-		inotify_add_watch(fd_inotify, LIBEXECDIR "/rules.d",
-				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-		inotify_add_watch(fd_inotify, SYSCONFDIR "/udev/rules.d",
-				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-
-		/* watch dynamic rules directory */
-		util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/rules.d", NULL);
-		if (stat(filename, &statbuf) != 0) {
-			util_create_path(udev, filename);
-			mkdir(filename, 0755);
-		}
-		inotify_add_watch(fd_inotify, filename,
-				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-	}
 	udev_watch_restore(udev);
 
 	/* block and listen to all signals on signalfd */
@@ -1575,6 +1546,7 @@ int main(int argc, char *argv[])
 	udev_list_node_init(&worker_list);
 
 	for (;;) {
+		static unsigned long long last_usec;
 		struct epoll_event ev[8];
 		int fdcount;
 		int timeout;
@@ -1642,6 +1614,24 @@ int main(int argc, char *argv[])
 				is_ctrl = true;
 		}
 
+		/* check for changed config, every 3 seconds at most */
+		if ((now_usec() - last_usec) > 3 * 1000 * 1000) {
+			if (check_rules_timestamp(udev))
+				reload = true;
+			if (udev_builtin_validate(udev))
+				reload = true;
+
+			last_usec = now_usec();
+		}
+
+		/* reload requested, HUP signal received, rules changed, builtin changed */
+		if (reload) {
+			worker_kill(udev, 0);
+			rules = udev_rules_unref(rules);
+			udev_builtin_exit(udev);
+			reload = 0;
+		}
+
 		/* event has finished */
 		if (is_worker)
 			worker_returned(fd_worker);
@@ -1678,7 +1668,7 @@ int main(int argc, char *argv[])
 		if (udev_exit)
 			continue;
 
-		/* device node and rules directory inotify watch */
+		/* device node watch */
 		if (is_inotify)
 			handle_inotify(udev);
 
@@ -1693,14 +1683,6 @@ int main(int argc, char *argv[])
 		 */
 		if (is_ctrl)
 			ctrl_conn = handle_ctrl_msg(udev_ctrl);
-
-		/* rules changed, set by inotify or a HUP signal */
-		if (reload) {
-			worker_kill(udev, 0);
-			rules = udev_rules_unref(rules);
-			udev_builtin_exit(udev);
-			reload = 0;
-		}
 	}
 
 	rc = EXIT_SUCCESS;

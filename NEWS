@@ -1,5 +1,8 @@
 udev 175
 ========
+A writable /run directory (tmpfs) is required now for a fully functional
+udev.
+
 The default 'configure' install locations have changed. Packages for systems
 with the historic / vs. /usr split need to be adapted, otherwise udev will
 be installed in /usr and not work properly. Example configuration options are

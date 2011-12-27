@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -42,8 +43,9 @@ struct udev {
 	void *userdata;
 	char *sys_path;
 	char *dev_path;
-	char *rules_path;
-	char *run_config_path;
+	char *rules_path[4];
+	unsigned long long rules_path_ts[4];
+	int rules_path_count;
 	char *run_path;
 	struct udev_list properties_list;
 	int log_priority;
@@ -218,11 +220,12 @@ UDEV_EXPORT struct udev *udev_new(void)
 				continue;
 			}
 			if (strcmp(key, "udev_run") == 0) {
-				set_value(&udev->run_config_path, val);
+				set_value(&udev->run_path, val);
 				continue;
 			}
 			if (strcmp(key, "udev_rules") == 0) {
-				set_value(&udev->rules_path, val);
+				set_value(&udev->rules_path[0], val);
+				udev->rules_path_count = 1;
 				continue;
 			}
 		}
@@ -255,18 +258,35 @@ UDEV_EXPORT struct udev *udev_new(void)
 		if (set_value(&udev->sys_path, "/sys") == NULL)
 			goto err;
 
-	if (udev->run_config_path == NULL)
-		if (set_value(&udev->run_config_path, "/run/udev") == NULL)
+	if (udev->run_path == NULL)
+		if (set_value(&udev->run_path, "/run/udev") == NULL)
 			goto err;
+
+	if (udev->rules_path[0] == NULL) {
+		/* /usr/lib/udev -- system rules */
+		udev->rules_path[0] = strdup(LIBEXECDIR "/rules.d");
+		if (!udev->rules_path[0])
+			goto err;
+
+		/* /etc/udev -- local administration rules */
+		udev->rules_path[1] = strdup(SYSCONFDIR "/udev/rules.d");
+		if (!udev->rules_path[1])
+			goto err;
+
+		/* /run/udev -- runtime rules */
+		if (asprintf(&udev->rules_path[2], "%s/rules.d", udev->run_path) < 0)
+			goto err;
+
+		udev->rules_path_count = 3;
+	}
 
 	dbg(udev, "context %p created\n", udev);
 	dbg(udev, "log_priority=%d\n", udev->log_priority);
 	dbg(udev, "config_file='%s'\n", config_file);
 	dbg(udev, "dev_path='%s'\n", udev->dev_path);
 	dbg(udev, "sys_path='%s'\n", udev->sys_path);
-	dbg(udev, "run_path='%s'\n", udev->run_config_path);
-	if (udev->rules_path != NULL)
-		dbg(udev, "rules_path='%s'\n", udev->rules_path);
+	dbg(udev, "run_path='%s'\n", udev->run_path);
+	dbg(udev, "rules_path='%s':'%s':'%s'\n", udev->rules_path[0], udev->rules_path[1], udev->rules_path[2]);
 	free(config_file);
 	return udev;
 err:
@@ -310,9 +330,10 @@ UDEV_EXPORT void udev_unref(struct udev *udev)
 	udev_list_cleanup(&udev->properties_list);
 	free(udev->dev_path);
 	free(udev->sys_path);
-	free(udev->rules_path);
+	free(udev->rules_path[0]);
+	free(udev->rules_path[1]);
+	free(udev->rules_path[2]);
 	free(udev->run_path);
-	free(udev->run_config_path);
 	dbg(udev, "context %p released\n", udev);
 	free(udev);
 }
@@ -367,9 +388,12 @@ UDEV_EXPORT void udev_set_log_priority(struct udev *udev, int priority)
 	udev_add_property(udev, "UDEV_LOG", num);
 }
 
-const char *udev_get_rules_path(struct udev *udev)
+int udev_get_rules_path(struct udev *udev, char **path[], unsigned long long *stamp_usec[])
 {
-	return udev->rules_path;
+	*path = udev->rules_path;
+	if (stamp_usec)
+		*stamp_usec = udev->rules_path_ts;
+	return udev->rules_path_count;
 }
 
 /**
@@ -406,11 +430,6 @@ UDEV_EXPORT const char *udev_get_dev_path(struct udev *udev)
 	return udev->dev_path;
 }
 
-const char *udev_get_run_config_path(struct udev *udev)
-{
-	return udev->run_config_path;
-}
-
 /**
  * udev_get_run_path:
  * @udev: udev library context
@@ -421,30 +440,9 @@ const char *udev_get_run_config_path(struct udev *udev)
  **/
 UDEV_EXPORT const char *udev_get_run_path(struct udev *udev)
 {
-	if (udev->run_path != NULL)
-		return udev->run_path;
-
-	/* check if configured path exists */
-	if (access(udev->run_config_path, F_OK) < 0) {
-		char filename[UTIL_PATH_SIZE];
-
-		/* fall back to /dev/.udev if that exists */
-		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev", NULL);
-		if (access(filename, F_OK) >= 0)
-			if (set_value(&udev->run_path, filename) != NULL)
-				return udev->run_path;
-	}
-
-	/* use default path */
-	set_value(&udev->run_path, udev->run_config_path);
-	if (udev->run_path == NULL)
-		return udev->run_config_path;
+	if (udev == NULL)
+		return NULL;
 	return udev->run_path;
-}
-
-const char *udev_set_run_path(struct udev *udev, const char *path)
-{
-	return set_value(&udev->run_path, path);
 }
 
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value)

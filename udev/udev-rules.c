@@ -1750,6 +1750,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	struct udev_list file_list;
 	struct udev_list_entry *file_loop;
 	struct token end_token;
+	char **s;
 
 	rules = calloc(1, sizeof(struct udev_rules));
 	if (rules == NULL)
@@ -1791,22 +1792,8 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));
 	rules->trie_nodes_cur = 1;
 
-	if (udev_get_rules_path(udev) == NULL) {
-		char filename[UTIL_PATH_SIZE];
-
-		/* /usr/lib/udev -- system rules */
-		add_matching_files(udev, &file_list, LIBEXECDIR "/rules.d", ".rules");
-
-		/* /etc/udev -- local administration rules */
-		add_matching_files(udev, &file_list, SYSCONFDIR "/udev/rules.d", ".rules");
-
-		/* /run/udev -- runtime rules */
-		util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/rules.d", NULL);
-		add_matching_files(udev, &file_list, filename, ".rules");
-	} else {
-		/* custom rules files location for testing */
-		add_matching_files(udev, &file_list, udev_get_rules_path(udev), ".rules");
-	}
+	for (udev_get_rules_path(udev, &s, NULL); *s != NULL; s++)
+		add_matching_files(udev, &file_list, *s, ".rules");
 
 	/* add all filenames to the string buffer */
 	udev_list_entry_foreach(file_loop, udev_list_get_entry(&file_list)) {

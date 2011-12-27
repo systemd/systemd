@@ -62,9 +62,7 @@ void udev_log(struct udev *udev,
 	      int priority, const char *file, int line, const char *fn,
 	      const char *format, ...)
 	      __attribute__((format(printf, 6, 7)));
-const char *udev_get_rules_path(struct udev *udev);
-const char *udev_get_run_config_path(struct udev *udev);
-const char *udev_set_run_path(struct udev *udev, const char *path);
+int udev_get_rules_path(struct udev *udev, char **path[], unsigned long long *ts_usec[]);
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 
@@ -195,6 +193,7 @@ uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string,
 				      char *result, size_t maxsize, int read_value);
+unsigned long long ts_usec(const struct timespec *ts);
 unsigned long long now_usec(void);
 
 /* libudev-selinux-private.c */

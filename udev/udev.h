@@ -146,7 +146,8 @@ struct udev_builtin {
 	int (*cmd)(struct udev_device *dev, int argc, char *argv[], bool test);
 	const char *help;
 	int (*init)(struct udev *udev);
-	int (*exit)(struct udev *udev);
+	void (*exit)(struct udev *udev);
+	bool (*validate)(struct udev *udev);
 	bool run_once;
 };
 extern const struct udev_builtin udev_builtin_blkid;
@@ -155,13 +156,13 @@ extern const struct udev_builtin udev_builtin_input_id;
 extern const struct udev_builtin udev_builtin_kmod;
 extern const struct udev_builtin udev_builtin_path_id;
 extern const struct udev_builtin udev_builtin_usb_id;
-int udev_builtin_load(struct udev *udev);
-int udev_builtin_unload(struct udev *udev);
+int udev_builtin_init(struct udev *udev);
+void udev_builtin_exit(struct udev *udev);
 enum udev_builtin_cmd udev_builtin_lookup(const char *command);
 const char *udev_builtin_name(enum udev_builtin_cmd cmd);
 bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
 int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
-int udev_builtin_list(struct udev *udev);
+void udev_builtin_list(struct udev *udev);
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
 
 /* udev logging */

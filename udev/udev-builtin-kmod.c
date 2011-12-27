@@ -322,6 +322,7 @@ static void udev_kmod_log(void *data, int priority, const char *file, int line,
 	udev_main_log(data, priority, file, line, fn, format, args);
 }
 
+/* needs to re-instantiate the context after a reload */
 static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test)
 {
 	struct udev *udev = udev_device_get_udev(dev);
@@ -350,6 +351,7 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 	return EXIT_SUCCESS;
 }
 
+/* called at udev startup */
 static int builtin_kmod_init(struct udev *udev)
 {
 	if (ctx)
@@ -365,11 +367,18 @@ static int builtin_kmod_init(struct udev *udev)
 	return 0;
 }
 
-static int builtin_kmod_exit(struct udev *udev)
+/* called on udev shutdown and reload request */
+static void builtin_kmod_exit(struct udev *udev)
 {
 	ctx = kmod_unref(ctx);
 	info(udev, "unload module index\n");
-	return 0;
+}
+
+/* called every couple of seconds during event activity; 'true' if config has changed */
+static bool builtin_kmod_validate(struct udev *udev)
+{
+	info(udev, "validate module index\n");
+	return false;
 }
 
 const struct udev_builtin udev_builtin_kmod = {
@@ -377,6 +386,7 @@ const struct udev_builtin udev_builtin_kmod = {
 	.cmd = builtin_kmod,
 	.init = builtin_kmod_init,
 	.exit = builtin_kmod_exit,
+	.validate = builtin_kmod_validate,
 	.help = "kernel module loader",
 	.run_once = false,
 };

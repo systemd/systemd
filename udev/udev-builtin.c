@@ -37,30 +37,45 @@ static const struct udev_builtin *builtins[] = {
 int udev_builtin_init(struct udev *udev)
 {
 	unsigned int i;
+	int err;
 
-	for (i = 0; i < ARRAY_SIZE(builtins); i++)
-		if (builtins[i]->init)
-			builtins[i]->init(udev);
-	return 0;
+	for (i = 0; i < ARRAY_SIZE(builtins); i++) {
+		if (builtins[i]->init) {
+			err = builtins[i]->init(udev);
+			if (err < 0)
+				break;
+		}
+	}
+	return err;
 }
 
-int udev_builtin_exit(struct udev *udev)
+void udev_builtin_exit(struct udev *udev)
 {
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(builtins); i++)
 		if (builtins[i]->exit)
 			builtins[i]->exit(udev);
-	return 0;
 }
 
-int udev_builtin_list(struct udev *udev)
+bool udev_builtin_validate(struct udev *udev)
+{
+	unsigned int i;
+	bool change = false;
+
+	for (i = 0; i < ARRAY_SIZE(builtins); i++)
+		if (builtins[i]->validate)
+			if (builtins[i]->validate(udev))
+				change = true;
+	return change;
+}
+
+void udev_builtin_list(struct udev *udev)
 {
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(builtins); i++)
 		fprintf(stderr, "  %-12s %s\n", builtins[i]->name, builtins[i]->help);
-	return 0;
 }
 
 const char *udev_builtin_name(enum udev_builtin_cmd cmd)
