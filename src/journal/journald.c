@@ -30,6 +30,7 @@
 #include <stddef.h>
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
+#include <sys/statvfs.h>
 
 #include "hashmap.h"
 #include "journal-file.h"
@@ -38,6 +39,7 @@
 #include "acl-util.h"
 #include "cgroup-util.h"
 #include "list.h"
+#include "journal-rate-limit.h"
 
 #define USER_JOURNALS_MAX 1024
 #define STDOUT_STREAMS_MAX 4096
@@ -59,6 +61,8 @@ typedef struct Server {
 
         char *buffer;
         size_t buffer_size;
+
+        JournalRateLimit *rate_limit;
 
         JournalMetrics metrics;
         uint64_t max_use;
@@ -94,6 +98,76 @@ struct StdoutStream {
 
         LIST_FIELDS(StdoutStream, stdout_stream);
 };
+
+static uint64_t available_space(Server *s) {
+        char ids[33];
+        sd_id128_t machine;
+        char *p;
+        const char *f;
+        struct statvfs ss;
+        uint64_t sum = 0, avail = 0, ss_avail = 0;
+        int r;
+        DIR *d;
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return 0;
+
+        if (s->system_journal)
+                f = "/var/log/journal/";
+        else
+                f = "/run/log/journal/";
+
+        p = strappend(f, sd_id128_to_string(machine, ids));
+        if (!p)
+                return 0;
+
+        d = opendir(p);
+        free(p);
+
+        if (!d)
+                return 0;
+
+        if (fstatvfs(dirfd(d), &ss) < 0)
+                goto finish;
+
+        for (;;) {
+                struct stat st;
+                struct dirent buf, *de;
+                int k;
+
+                k = readdir_r(d, &buf, &de);
+                if (k != 0) {
+                        r = -k;
+                        goto finish;
+                }
+
+                if (!de)
+                        break;
+
+                if (!dirent_is_file_with_suffix(de, ".journal"))
+                        continue;
+
+                if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        continue;
+
+                sum += (uint64_t) st.st_blocks * (uint64_t) st.st_blksize;
+        }
+
+        avail = sum >= s->max_use ? 0 : s->max_use - sum;
+
+        ss_avail = ss.f_bsize * ss.f_bavail;
+
+        ss_avail = ss_avail < s->metrics.keep_free ? 0 : ss_avail - s->metrics.keep_free;
+
+        if (ss_avail < avail)
+                avail = ss_avail;
+
+finish:
+        closedir(d);
+
+        return avail;
+}
 
 static void fix_perms(JournalFile *f, uid_t uid) {
         acl_t acl;
@@ -254,7 +328,40 @@ static void server_vacuum(Server *s) {
         free(p);
 }
 
-static void dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, struct ucred *ucred, struct timeval *tv) {
+static char *shortened_cgroup_path(pid_t pid) {
+        int r;
+        char *process_path, *init_path, *path;
+
+        assert(pid > 0);
+
+        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &process_path);
+        if (r < 0)
+                return NULL;
+
+        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &init_path);
+        if (r < 0) {
+                free(process_path);
+                return NULL;
+        }
+
+        if (streq(init_path, "/"))
+                init_path[0] = 0;
+
+        if (startswith(process_path, init_path))
+                path = process_path + strlen(init_path);
+        else
+                path = process_path;
+
+        free(init_path);
+
+        return path;
+}
+
+static void dispatch_message_real(Server *s,
+                             struct iovec *iovec, unsigned n, unsigned m,
+                             struct ucred *ucred,
+                             struct timeval *tv) {
+
         char *pid = NULL, *uid = NULL, *gid = NULL,
                 *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
                 *comm = NULL, *cmdline = NULL, *hostname = NULL,
@@ -270,11 +377,8 @@ static void dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigne
         bool vacuumed = false;
 
         assert(s);
-        assert(iovec || n == 0);
-
-        if (n == 0)
-                return;
-
+        assert(iovec);
+        assert(n > 0);
         assert(n + 13 <= m);
 
         if (ucred) {
@@ -326,11 +430,12 @@ static void dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigne
                         if (asprintf(&audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_loginuid);
 
-                r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, ucred->pid, &path);
-                if (r >= 0) {
+                path = shortened_cgroup_path(ucred->pid);
+                if (path) {
                         cgroup = strappend("_SYSTEMD_CGROUP=", path);
                         if (cgroup)
                                 IOVEC_SET_STRING(iovec[n++], cgroup);
+
                         free(path);
                 }
         }
@@ -400,6 +505,72 @@ retry:
         free(cgroup);
 }
 
+static void dispatch_message(Server *s,
+                             struct iovec *iovec, unsigned n, unsigned m,
+                             struct ucred *ucred,
+                             struct timeval *tv,
+                             int priority) {
+        int rl;
+        char *path, *c;
+
+        assert(s);
+        assert(iovec || n == 0);
+
+        if (n == 0)
+                return;
+
+        if (!ucred)
+                goto finish;
+
+        path = shortened_cgroup_path(ucred->pid);
+        if (!path)
+                goto finish;
+
+        /* example: /user/lennart/3/foobar
+         *          /system/dbus.service/foobar
+         *
+         * So let's cut of everything past the third /, since that is
+         * wher user directories start */
+
+        c = strchr(path, '/');
+        if (c) {
+                c = strchr(c+1, '/');
+                if (c) {
+                        c = strchr(c+1, '/');
+                        if (c)
+                                *c = 0;
+                }
+        }
+
+        rl = journal_rate_limit_test(s->rate_limit, path, priority, available_space(s));
+
+        if (rl == 0) {
+                free(path);
+                return;
+        }
+
+        if (rl > 1) {
+                int j = 0;
+                char suppress_message[LINE_MAX];
+                struct iovec suppress_iovec[15];
+
+                /* Write a suppression message if we suppressed something */
+
+                snprintf(suppress_message, sizeof(suppress_message), "MESSAGE=Suppressed %u messages from %s", rl - 1, path);
+                char_array_0(suppress_message);
+
+                IOVEC_SET_STRING(suppress_iovec[j++], "PRIORITY=5");
+                IOVEC_SET_STRING(suppress_iovec[j++], suppress_message);
+
+                dispatch_message_real(s, suppress_iovec, j, ELEMENTSOF(suppress_iovec), NULL, NULL);
+        }
+
+        free(path);
+
+finish:
+        dispatch_message_real(s, iovec, n, m, ucred, tv);
+}
+
 static void process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv) {
         char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL;
         struct iovec iovec[16];
@@ -422,7 +593,7 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv);
+        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, priority & LOG_PRIMASK);
 
         free(message);
         free(syslog_facility);
@@ -469,6 +640,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
         unsigned n = 0, m = 0, j;
         const char *p;
         size_t remaining;
+        int priority = LOG_INFO;
 
         assert(s);
         assert(buffer || n == 0);
@@ -489,8 +661,9 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 
                 if (e == p) {
                         /* Entry separator */
-                        dispatch_message(s, iovec, n, m, ucred, tv);
+                        dispatch_message(s, iovec, n, m, ucred, tv, priority);
                         n = 0;
+                        priority = LOG_INFO;
 
                         p++;
                         remaining--;
@@ -532,6 +705,15 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                                 iovec[n].iov_base = (char*) p;
                                 iovec[n].iov_len = e - p;
                                 n++;
+
+                                /* We need to determine the priority
+                                 * of this entry for the rate limiting
+                                 * logic */
+                                if (e - p == 10 &&
+                                    memcmp(p, "PRIORITY=", 10) == 0 &&
+                                    p[10] >= '0' &&
+                                    p[10] <= '9')
+                                        priority = p[10] - '0';
                         }
 
                         remaining -= (e - p) + 1;
@@ -577,7 +759,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                 }
         }
 
-        dispatch_message(s, iovec, n, m, ucred, tv);
+        dispatch_message(s, iovec, n, m, ucred, tv, priority);
 
         for (j = 0; j < n; j++)
                 if (iovec[j].iov_base < buffer ||
@@ -630,7 +812,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, size_t l) {
                 n++;
         }
 
-        dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL);
+        dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, priority);
 
         if (s->tee_console) {
                 int console;
@@ -1378,6 +1560,10 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
+        s->rate_limit = journal_rate_limit_new(10*USEC_PER_SEC, 2);
+        if (!s->rate_limit)
+                return -ENOMEM;
+
         return 0;
 }
 
@@ -1413,6 +1599,9 @@ static void server_done(Server *s) {
 
         if (s->stdout_fd >= 0)
                 close_nointr_nofail(s->stdout_fd);
+
+        if (s->rate_limit)
+                journal_rate_limit_free(s->rate_limit);
 }
 
 int main(int argc, char *argv[]) {

@@ -1042,6 +1042,7 @@ systemd_journald_SOURCES = \
 	src/journal/sd-journal.c \
         src/journal/journal-file.c \
         src/journal/lookup3.c \
+        src/journal/journal-rate-limit.c \
         src/sd-id128.c \
         src/acl-util.c \
         src/cgroup-util.c

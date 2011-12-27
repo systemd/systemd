@@ -38,6 +38,7 @@
  *   - throttling
  *   - cryptographic hash
  *   - never access beyond fle size check
+ *   - OR of matches is borked...
  */
 
 /* Write to daemon */
