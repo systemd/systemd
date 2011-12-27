@@ -50,6 +50,8 @@ static int load_module(struct udev *udev, const char *alias)
 
 	if (list == NULL)
 		info(udev, "no module matches '%s'\n", alias);
+	else if (listb == NULL)
+		info(udev, "modules matching '%s' are blacklisted\n", alias);
 
 	kmod_list_foreach(l, listb) {
 		struct kmod_module *mod = kmod_module_get_module(l);
