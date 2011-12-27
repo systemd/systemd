@@ -44,6 +44,8 @@
 #define USER_JOURNALS_MAX 1024
 #define STDOUT_STREAMS_MAX 4096
 
+#define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
+
 typedef struct StdoutStream StdoutStream;
 
 typedef struct Server {
@@ -67,6 +69,9 @@ typedef struct Server {
         JournalMetrics metrics;
         uint64_t max_use;
         bool compress;
+
+        uint64_t cached_available_space;
+        usec_t cached_available_space_timestamp;
 
         LIST_HEAD(StdoutStream, stdout_streams);
         unsigned n_stdout_streams;
@@ -108,6 +113,10 @@ static uint64_t available_space(Server *s) {
         uint64_t sum = 0, avail = 0, ss_avail = 0;
         int r;
         DIR *d;
+        usec_t ts = now(CLOCK_MONOTONIC);
+
+        if (s->cached_available_space_timestamp + RECHECK_AVAILABLE_SPACE_USEC > ts)
+                return s->cached_available_space;
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
@@ -162,6 +171,9 @@ static uint64_t available_space(Server *s) {
 
         if (ss_avail < avail)
                 avail = ss_avail;
+
+        s->cached_available_space = avail;
+        s->cached_available_space_timestamp = ts;
 
 finish:
         closedir(d);
@@ -326,6 +338,8 @@ static void server_vacuum(Server *s) {
         if (r < 0 && r != -ENOENT)
                 log_error("Failed to vacuum %s: %s", p, strerror(-r));
         free(p);
+
+        s->cached_available_space_timestamp = 0;
 }
 
 static char *shortened_cgroup_path(pid_t pid) {
