@@ -595,7 +595,7 @@ int journal_file_find_data_object_with_hash(
                         return r;
 
                 if (le64toh(o->data.hash) != hash)
-                        return -EBADMSG;
+                        goto next;
 
                 if (o->object.flags & OBJECT_COMPRESSED) {
 #ifdef HAVE_XZ
@@ -637,6 +637,7 @@ int journal_file_find_data_object_with_hash(
                         return 1;
                 }
 
+        next:
                 p = le64toh(o->data.next_hash_offset);
         }
 

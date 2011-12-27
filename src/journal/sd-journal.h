@@ -35,7 +35,6 @@
  *   - implement audit gateway
  *   - extend hash tables table as we go
  *   - accelerate looking for "all hostnames" and suchlike.
- *   - throttling
  *   - cryptographic hash
  *   - never access beyond fle size check
  *   - OR of matches is borked...
