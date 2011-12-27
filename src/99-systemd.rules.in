@@ -44,7 +44,7 @@ SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:
 
 # Apply sysctl variables to network devices (and only to those) as they appear.
 
-SUBSYSTEM=="net", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/$name --prefix=/proc/sys/net/ipv4/neigh/$name --prefix=/proc/sys/net/ipv6/conf/$name --prefix=/proc/sys/net/ipv6/neigh/$name"
+SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/$name --prefix=/proc/sys/net/ipv4/neigh/$name --prefix=/proc/sys/net/ipv6/conf/$name --prefix=/proc/sys/net/ipv6/neigh/$name"
 
 # Asynchronously mount file systems implemented by these modules as
 # soon as they are loaded.
