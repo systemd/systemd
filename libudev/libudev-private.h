@@ -88,7 +88,6 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device);
 void udev_device_set_is_initialized(struct udev_device *udev_device);
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
 void udev_device_cleanup_tags_list(struct udev_device *udev_device);
-int udev_device_get_timeout(struct udev_device *udev_device);
 unsigned long long udev_device_get_usec_initialized(struct udev_device *udev_device);
 void udev_device_set_usec_initialized(struct udev_device *udev_device, unsigned long long usec_initialized);
 int udev_device_get_devlink_priority(struct udev_device *udev_device);

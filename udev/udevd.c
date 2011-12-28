@@ -457,13 +457,6 @@ static int event_queue_insert(struct udev_device *dev)
 
 	event->state = EVENT_QUEUED;
 	udev_list_node_append(&event->node, &event_list);
-
-	/* run all events with a timeout set immediately */
-	if (udev_device_get_timeout(dev) > 0) {
-		event_run(event, true);
-		return 0;
-	}
-
 	return 0;
 }
 

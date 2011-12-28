@@ -1,5 +1,3 @@
- - remove TIMEOUT= handling
-
  - move /lib/udev/devices/ to tmpfiles
 
  - trigger --subsystem-match=usb/usb_device
