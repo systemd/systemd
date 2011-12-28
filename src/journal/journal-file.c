@@ -241,6 +241,10 @@ static int journal_file_map(
         wsize = size + (offset - woffset);
         wsize = PAGE_ALIGN(wsize);
 
+        /* Avoid SIGBUS on invalid accesses */
+        if (woffset + wsize > (uint64_t) PAGE_ALIGN(f->last_stat.st_size))
+                return -EADDRNOTAVAIL;
+
         window = mmap(NULL, wsize, f->prot, MAP_SHARED, f->fd, woffset);
         if (window == MAP_FAILED)
                 return -errno;
@@ -304,6 +308,15 @@ static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_
                 size += (DEFAULT_WINDOW_SIZE - delta);
         } else
                 delta = 0;
+
+        if (offset > (uint64_t) f->last_stat.st_size)
+                return -EADDRNOTAVAIL;
+
+        if (offset + size > (uint64_t) f->last_stat.st_size)
+                size = PAGE_ALIGN((uint64_t) f->last_stat.st_size - offset);
+
+        if (size <= 0)
+                return -EADDRNOTAVAIL;
 
         r = journal_file_map(f,
                              offset, size,

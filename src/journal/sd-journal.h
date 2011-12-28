@@ -36,8 +36,14 @@
  *   - extend hash tables table as we go
  *   - accelerate looking for "all hostnames" and suchlike.
  *   - cryptographic hash
- *   - never access beyond fle size check
  *   - OR of matches is borked...
+ *   - flush /run to /var
+ *   - hookup with systemctl
+ *   - local deserializer
+ *   - think about manipulations of header
+ *   - http server
+ *   - handle incomplete header
+ *   - message catalog
  */
 
 /* Write to daemon */
