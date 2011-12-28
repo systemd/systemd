@@ -398,7 +398,7 @@ out:
 	}
 }
 
-static void event_run(struct event *event, bool force)
+static void event_run(struct event *event)
 {
 	struct udev_list_node *loop;
 
@@ -423,7 +423,7 @@ static void event_run(struct event *event, bool force)
 		return;
 	}
 
-	if (!force && children >= children_max) {
+	if (children >= children_max) {
 		if (children_max > 1)
 			info(event->udev, "maximum number (%i) of children reached\n", children);
 		return;
@@ -573,7 +573,7 @@ static void event_queue_start(struct udev *udev)
 			continue;
 		}
 
-		event_run(event, false);
+		event_run(event);
 	}
 }
 

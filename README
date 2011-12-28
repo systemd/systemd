@@ -7,7 +7,7 @@ does not recommend replacing a distro's udev installation with the upstream
 version.
 
 The upstream udev project's set of default rules may require a most recent
-kernel release to work properly. This is currently version 2.6.32.
+kernel release to work properly.
 
 Tools and rules shipped by udev are not public API and may change at any time.
 Never call any private tool in /usr/lib/udev from any external application; it
@@ -22,26 +22,30 @@ Requirements:
   - Some architectures might need a later kernel, that supports accept4(),
     or need to backport the accept4() syscall wiring in the kernel.
 
-  - These options are needed:
+  - These options are required:
+      CONFIG_DEVTMPFS=y
       CONFIG_HOTPLUG=y
-      CONFIG_UEVENT_HELPER_PATH=""
+      CONFIG_INOTIFY_USER=y
       CONFIG_NET=y
-      CONFIG_UNIX=y
+      CONFIG_PROC_FS=y
+      CONFIG_SIGNALFD=y
       CONFIG_SYSFS=y
       CONFIG_SYSFS_DEPRECATED*=n
-      CONFIG_PROC_FS=y
-      CONFIG_INOTIFY_USER=y
-      CONFIG_SIGNALFD=y
+      CONFIG_UEVENT_HELPER_PATH=""
 
   - These options might be needed:
-      CONFIG_TMPFS=y
-      CONFIG_TMPFS_POSIX_ACL=y (user ACLs for device nodes)
       CONFIG_BLK_DEV_BSG=y (SCSI devices)
+      CONFIG_TMPFS_POSIX_ACL=y (user ACLs for device nodes)
 
-  - Udev does not work with the CONFIG_SYSFS_DEPRECATED* option.
+  - The /dev directory needs the 'devtmpfs' filesystem mounted.
+    Udev only manages the permissions and ownership of the
+    kernel-provided device nodes, and possibly creates additional symlinks.
 
-  - Unix domain sockets (CONFIG_UNIX) as a loadable kernel module may work,
-    but it is not supported.
+  - Udev requires /run to be writable, which is usually done by mounting a
+    'tmpfs' filesystem.
+
+  - This version of udev does not work properly with the CONFIG_SYSFS_DEPRECATED*
+    option enabled.
 
   - The deprecated hotplug helper /sbin/hotplug should be disabled in the
     kernel configuration, it is not needed today, and may render the system
@@ -59,26 +63,19 @@ Requirements:
     available.
 
   - Some udev extras have external dependencies like:
-      libacl, libglib2, usbutils, pciutils, and gperf.
+      libglib2, usbutils, pciutils, and gperf.
     All these extras can be disabled with configure options.
 
 Setup:
-  - At bootup, the /dev directory should get the 'devtmpfs' filesystem
-    mounted. Udev manages the permissions and ownership of the kernel-created
-    device nodes, and udev possibly creates additional symlinks. If needed, udev also
-    works on an empty 'tmpfs' filesystem, but some device nodes like
-    /dev/null, /dev/console, /dev/kmsg should be created before udevd is started.
-
   - The udev daemon should be started to handle device events sent by the kernel.
     During bootup, the events for already existing devices can be replayed, so
-    that they are configured by udev. This is usually done by:
-      udevadm trigger --action=add --type=subsystems
-      udevadm trigger --action=add --type=devices
+    that they are configured by udev. The systemd service files contain the
+    needed commands to start the udev daemon and the coldplug sequence.
 
   - Restarting the daemon never applies any rules to existing devices.
 
-  - New/changed rule files are picked up automatically; there is no daemon
-    restart or signal needed.
+  - New/changed rule files are picked up automatically; there is usually no
+    daemon restart or signal needed.
 
 Operation:
   - Based on events the kernel sends out on device creation/removal, udev
