@@ -454,7 +454,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = sd_journal_open(&j);
+        r = sd_journal_open(&j, 0);
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 goto finish;

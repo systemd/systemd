@@ -40,6 +40,8 @@
 #include "cgroup-util.h"
 #include "list.h"
 #include "journal-rate-limit.h"
+#include "sd-journal.h"
+#include "journal-internal.h"
 
 #define USER_JOURNALS_MAX 1024
 #define STDOUT_STREAMS_MAX 4096
@@ -106,6 +108,8 @@ struct StdoutStream {
 
         LIST_FIELDS(StdoutStream, stdout_stream);
 };
+
+static int server_flush_to_var(Server *s);
 
 static uint64_t available_space(Server *s) {
         char ids[33];
@@ -239,8 +243,12 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
 
         assert(s);
 
-        /* We split up user logs only on /var, not on /run */
-        if (!s->system_journal)
+        /* We split up user logs only on /var, not on /run. If the
+         * runtime file is open, we write to it exclusively, in order
+         * to guarantee proper order as soon as we flush /run to
+         * /var and close the runtime file. */
+
+        if (s->runtime_journal)
                 return s->runtime_journal;
 
         if (uid <= 0)
@@ -485,6 +493,8 @@ static void dispatch_message_real(Server *s,
         }
 
         assert(n <= m);
+
+        server_flush_to_var(s);
 
 retry:
         f = find_journal(s, realuid == 0 ? 0 : loginuid);
@@ -1088,6 +1098,170 @@ fail:
         return r;
 }
 
+static int system_journal_open(Server *s) {
+        int r;
+        char *fn;
+        sd_id128_t machine;
+        char ids[33];
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return r;
+
+        sd_id128_to_string(machine, ids);
+
+        if (!s->system_journal) {
+
+                /* First try to create the machine path, but not the prefix */
+                fn = strappend("/var/log/journal/", ids);
+                if (!fn)
+                        return -ENOMEM;
+                (void) mkdir(fn, 0755);
+                free(fn);
+
+                /* The create the system journal file */
+                fn = join("/var/log/journal/", ids, "/system.journal", NULL);
+                if (!fn)
+                        return -ENOMEM;
+
+                r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->system_journal);
+                free(fn);
+
+                if (r >= 0) {
+                        s->system_journal->metrics = s->metrics;
+                        s->system_journal->compress = s->compress;
+
+                        fix_perms(s->system_journal, 0);
+                } else if (r < 0) {
+
+                        if (r == -ENOENT)
+                                r = 0;
+                        else {
+                                log_error("Failed to open system journal: %s", strerror(-r));
+                                return r;
+                        }
+                }
+        }
+
+        if (!s->runtime_journal) {
+
+                fn = join("/run/log/journal/", ids, "/system.journal", NULL);
+                if (!fn)
+                        return -ENOMEM;
+
+                if (s->system_journal) {
+
+                        /* Try to open the runtime journal, but only
+                         * if it already exists, so that we can flush
+                         * it into the system journal */
+
+                        r = journal_file_open(fn, O_RDWR, 0640, NULL, &s->runtime_journal);
+                        free(fn);
+
+                        if (r < 0) {
+
+                                if (r == -ENOENT)
+                                        r = 0;
+                                else {
+                                        log_error("Failed to open runtime journal: %s", strerror(-r));
+                                        return r;
+                                }
+                        }
+
+                } else {
+
+                        /* OK, we really need the runtime journal, so create
+                         * it if necessary. */
+
+                        (void) mkdir_parents(fn, 0755);
+                        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
+                        free(fn);
+
+                        if (r < 0) {
+                                log_error("Failed to open runtime journal: %s", strerror(-r));
+                                return r;
+                        }
+                }
+
+                if (s->runtime_journal) {
+                        s->runtime_journal->metrics = s->metrics;
+                        s->runtime_journal->compress = s->compress;
+
+                        fix_perms(s->runtime_journal, 0);
+                }
+        }
+
+        return r;
+}
+
+static int server_flush_to_var(Server *s) {
+        char path[] = "/run/log/journal/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+        Object *o = NULL;
+        int r;
+        sd_id128_t machine;
+        sd_journal *j;
+
+        assert(s);
+
+        system_journal_open(s);
+
+        if (!s->system_journal || !s->runtime_journal)
+                return 0;
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0) {
+                log_error("Failed to get machine id: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
+        if (r < 0) {
+                log_error("Failed to read runtime journal: %s", strerror(-r));
+                return r;
+        }
+
+        SD_JOURNAL_FOREACH(j) {
+                JournalFile *f;
+
+                f = j->current_file;
+                assert(f && f->current_offset > 0);
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+                if (r < 0) {
+                        log_error("Can't read entry: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                if (r == -E2BIG) {
+                        log_info("Allocation limit reached.");
+
+                        journal_file_post_change(s->system_journal);
+                        server_vacuum(s);
+
+                        r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                }
+
+                if (r < 0) {
+                        log_error("Can't write entry: %s", strerror(-r));
+                        goto finish;
+                }
+        }
+
+finish:
+        journal_file_post_change(s->system_journal);
+
+        journal_file_close(s->runtime_journal);
+        s->runtime_journal = NULL;
+
+        if (r >= 0) {
+                sd_id128_to_string(machine, path + 17);
+                rm_rf(path, false, true, false);
+        }
+
+        return r;
+}
+
 static int process_event(Server *s, struct epoll_event *ev) {
         assert(s);
 
@@ -1110,6 +1284,11 @@ static int process_event(Server *s, struct epoll_event *ev) {
                                 return 0;
 
                         return -errno;
+                }
+
+                if (sfsi.ssi_signo == SIGUSR1) {
+                        server_flush_to_var(s);
+                        return 0;
                 }
 
                 log_debug("Received SIG%s", signal_to_string(sfsi.ssi_signo));
@@ -1245,66 +1424,6 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
         log_error("Unknown event.");
         return 0;
-}
-
-static int system_journal_open(Server *s) {
-        int r;
-        char *fn;
-        sd_id128_t machine;
-        char ids[33];
-
-        r = sd_id128_get_machine(&machine);
-        if (r < 0)
-                return r;
-
-        /* First try to create the machine path, but not the prefix */
-        fn = strappend("/var/log/journal/", sd_id128_to_string(machine, ids));
-        if (!fn)
-                return -ENOMEM;
-        (void) mkdir(fn, 0755);
-        free(fn);
-
-        /* The create the system journal file */
-        fn = join("/var/log/journal/", ids, "/system.journal", NULL);
-        if (!fn)
-                return -ENOMEM;
-
-        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->system_journal);
-        free(fn);
-
-        if (r >= 0) {
-                s->system_journal->metrics = s->metrics;
-                s->system_journal->compress = s->compress;
-
-                fix_perms(s->system_journal, 0);
-                return r;
-        }
-
-        if (r < 0 && r != -ENOENT) {
-                log_error("Failed to open system journal: %s", strerror(-r));
-                return r;
-        }
-
-        /* /var didn't work, so try /run, but this time we
-         * create the prefix too */
-        fn = join("/run/log/journal/", ids, "/system.journal", NULL);
-        if (!fn)
-                return -ENOMEM;
-
-        (void) mkdir_parents(fn, 0755);
-        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
-        free(fn);
-
-        if (r < 0) {
-                log_error("Failed to open runtime journal: %s", strerror(-r));
-                return r;
-        }
-
-        s->runtime_journal->metrics = s->metrics;
-        s->runtime_journal->compress = s->compress;
-
-        fix_perms(s->runtime_journal, 0);
-        return r;
 }
 
 static int open_syslog_socket(Server *s) {
@@ -1470,7 +1589,7 @@ static int open_signalfd(Server *s) {
         assert(s);
 
         assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
+        sigset_add_many(&mask, SIGINT, SIGTERM, SIGUSR1, -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         s->signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
@@ -1651,6 +1770,9 @@ int main(int argc, char *argv[]) {
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");
+
+        server_vacuum(&server);
+        server_flush_to_var(&server);
 
         for (;;) {
                 struct epoll_event event;

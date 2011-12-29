@@ -31,19 +31,20 @@
 
 /* TODO:
  *
- *   - check LE/BE conversion for 8bit, 16bit, 32bit values
- *   - implement audit gateway
+ *   - OR of matches is borked...
  *   - extend hash tables table as we go
  *   - accelerate looking for "all hostnames" and suchlike.
- *   - cryptographic hash
- *   - OR of matches is borked...
- *   - flush /run to /var
  *   - hookup with systemctl
- *   - local deserializer
- *   - think about manipulations of header
- *   - http server
  *   - handle incomplete header
+ *
+ *   - local deserializer
+ *   - http server
  *   - message catalog
+ *
+ *   - check LE/BE conversion for 8bit, 16bit, 32bit values
+ *   - cryptographic hash
+ *   - think about manipulations of header
+ *   - implement audit gateway
  */
 
 /* Write to daemon */
@@ -60,7 +61,13 @@ int sd_journal_stream_fd(const char *tag, int priority, int priority_prefix);
 
 typedef struct sd_journal sd_journal;
 
-int sd_journal_open(sd_journal **ret);
+enum {
+        SD_JOURNAL_LOCAL_ONLY = 1,
+        SD_JOURNAL_RUNTIME_ONLY = 2,
+        SD_JOURNAL_SYSTEM_ONLY = 4
+};
+
+int sd_journal_open(sd_journal **ret, int flags);
 void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);

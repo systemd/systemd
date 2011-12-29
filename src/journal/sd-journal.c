@@ -32,57 +32,9 @@
 #include "list.h"
 #include "lookup3.h"
 #include "compress.h"
+#include "journal-internal.h"
 
 #define JOURNAL_FILES_MAX 1024
-
-typedef struct Match Match;
-
-struct Match {
-        char *data;
-        size_t size;
-        uint64_t le_hash;
-
-        LIST_FIELDS(Match, matches);
-};
-
-typedef enum location_type {
-        LOCATION_HEAD,
-        LOCATION_TAIL,
-        LOCATION_DISCRETE
-} location_type_t;
-
-typedef struct Location {
-        location_type_t type;
-
-        uint64_t seqnum;
-        sd_id128_t seqnum_id;
-        bool seqnum_set;
-
-        uint64_t realtime;
-        bool realtime_set;
-
-        uint64_t monotonic;
-        sd_id128_t boot_id;
-        bool monotonic_set;
-
-        uint64_t xor_hash;
-        bool xor_hash_set;
-} Location;
-
-struct sd_journal {
-        Hashmap *files;
-
-        Location current_location;
-        JournalFile *current_file;
-        uint64_t current_field;
-
-        int inotify_fd;
-        Hashmap *inotify_wd_dirs;
-        Hashmap *inotify_wd_roots;
-
-        LIST_HEAD(Match, matches);
-        unsigned n_matches;
-};
 
 static void detach_location(sd_journal *j) {
         Iterator i;
@@ -948,6 +900,10 @@ static int add_file(sd_journal *j, const char *prefix, const char *dir, const ch
         assert(prefix);
         assert(filename);
 
+        if ((j->flags & SD_JOURNAL_SYSTEM_ONLY) &&
+            !startswith(filename, "system.journal"))
+                return 0;
+
         if (dir)
                 fn = join(prefix, "/", dir, "/", filename, NULL);
         else
@@ -1024,10 +980,17 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dir) {
         int r;
         DIR *d;
         int wd;
+        sd_id128_t id, mid;
 
         assert(j);
         assert(prefix);
         assert(dir);
+
+        if ((j->flags & SD_JOURNAL_LOCAL_ONLY) &&
+            (sd_id128_from_string(dir, &id) < 0 ||
+             sd_id128_get_machine(&mid) < 0 ||
+             !sd_id128_equal(id, mid)))
+            return 0;
 
         fn = join(prefix, "/", dir, NULL);
         if (!fn)
@@ -1132,7 +1095,7 @@ static void remove_root_wd(sd_journal *j, int wd) {
         }
 }
 
-int sd_journal_open(sd_journal **ret) {
+int sd_journal_open(sd_journal **ret, int flags) {
         sd_journal *j;
         const char *p;
         const char search_paths[] =
@@ -1145,6 +1108,8 @@ int sd_journal_open(sd_journal **ret) {
         j = new0(sd_journal, 1);
         if (!j)
                 return -ENOMEM;
+
+        j->flags = flags;
 
         j->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (j->inotify_fd < 0) {
@@ -1171,6 +1136,10 @@ int sd_journal_open(sd_journal **ret) {
 
         NULSTR_FOREACH(p, search_paths) {
                 DIR *d;
+
+                if ((flags & SD_JOURNAL_RUNTIME_ONLY) &&
+                    !path_startswith(p, "/run"))
+                        continue;
 
                 d = opendir(p);
                 if (!d) {

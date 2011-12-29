@@ -113,10 +113,14 @@ int journal_file_move_to_entry_by_monotonic(JournalFile *f, sd_id128_t boot_id, 
 int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, uint64_t data_offset, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, uint64_t data_offset, uint64_t realtime, direction_t direction, Object **ret, uint64_t *offset);
 
+int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset);
+
 void journal_file_dump(JournalFile *f);
 
 int journal_file_rotate(JournalFile **f);
 
 int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free);
+
+void journal_file_post_change(JournalFile *f);
 
 #endif

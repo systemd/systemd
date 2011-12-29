@@ -950,7 +950,7 @@ static int journal_file_append_entry_internal(
         return 0;
 }
 
-static void journal_file_post_change(JournalFile *f) {
+void journal_file_post_change(JournalFile *f) {
         assert(f);
 
         /* inotify() does not receive IN_MODIFY events from file
@@ -989,9 +989,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         if (ts->realtime < le64toh(f->header->tail_entry_realtime))
                 return -EINVAL;
 
-        items = new(EntryItem, n_iovec);
-        if (!items)
-                return -ENOMEM;
+        items = alloca(sizeof(EntryItem) * n_iovec);
 
         for (i = 0; i < n_iovec; i++) {
                 uint64_t p;
@@ -999,7 +997,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
                 r = journal_file_append_data(f, iovec[i].iov_base, iovec[i].iov_len, &o, &p);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 xor_hash ^= le64toh(o->data.hash);
                 items[i].object_offset = htole64(p);
@@ -1009,9 +1007,6 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
 
         journal_file_post_change(f);
-
-finish:
-        free(items);
 
         return r;
 }
@@ -1998,4 +1993,86 @@ finish:
                 closedir(d);
 
         return r;
+}
+
+int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
+        uint64_t i, n;
+        uint64_t q, xor_hash = 0;
+        int r;
+        EntryItem *items;
+        dual_timestamp ts;
+
+        assert(from);
+        assert(to);
+        assert(o);
+        assert(p);
+
+        if (!to->writable)
+                return -EPERM;
+
+        ts.monotonic = le64toh(o->entry.monotonic);
+        ts.realtime = le64toh(o->entry.realtime);
+
+        if (to->tail_entry_monotonic_valid &&
+            ts.monotonic < le64toh(to->header->tail_entry_monotonic))
+                return -EINVAL;
+
+        if (ts.realtime < le64toh(to->header->tail_entry_realtime))
+                return -EINVAL;
+
+        n = journal_file_entry_n_items(o);
+        items = alloca(sizeof(EntryItem) * n);
+
+        for (i = 0; i < n; i++) {
+                uint64_t le_hash, l, h;
+                size_t t;
+                void *data;
+                Object *u;
+
+                q = le64toh(o->entry.items[i].object_offset);
+                le_hash = o->entry.items[i].hash;
+
+                r = journal_file_move_to_object(from, OBJECT_DATA, q, &o);
+                if (r < 0)
+                        return r;
+
+                if (le_hash != o->data.hash)
+                        return -EBADMSG;
+
+                l = le64toh(o->object.size) - offsetof(Object, data.payload);
+                t = (size_t) l;
+
+                /* We hit the limit on 32bit machines */
+                if ((uint64_t) t != l)
+                        return -E2BIG;
+
+                if (o->object.flags & OBJECT_COMPRESSED) {
+#ifdef HAVE_XZ
+                        uint64_t rsize;
+
+                        if (!uncompress_blob(o->data.payload, l, &from->compress_buffer, &from->compress_buffer_size, &rsize))
+                                return -EBADMSG;
+
+                        data = from->compress_buffer;
+                        l = rsize;
+#else
+                        return -EPROTONOSUPPORT;
+#endif
+                } else
+                        data = o->data.payload;
+
+                r = journal_file_append_data(to, data, l, &u, &h);
+                if (r < 0)
+                        return r;
+
+                xor_hash ^= le64toh(u->data.hash);
+                items[i].object_offset = htole64(h);
+                items[i].hash = u->data.hash;
+
+                r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
+                if (r < 0)
+                        return r;
+        }
+
+        return journal_file_append_entry_internal(to, &ts, xor_hash, items, n, seqnum, ret, offset);
 }
