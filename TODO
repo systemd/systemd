@@ -222,11 +222,17 @@ External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup?
 
+* NTP: the kernel's 11-minutes-mode syncs the system time to the RTC, but only
+  in an ~30 minutes window. It does not adjust larger differences. Find a way
+  to tell the kernel, to always do a full time sync when the RTC is in UTC and
+  we are in 11-minutes-mode. When we trust the system time to NTP we also want
+  the RTC to sync up.
+
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
-    http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match
-  (Rafael J. Wysocki's sysdev rework is on the way. After that CPUs can be exported a proper bus.)
+    (patches in linux-next, on the way to the next kernel)
 
 * kernel: add /proc/sys file exposing CAP_LAST_CAP? sysconf?
+    merged: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=73efc0394e148d0e15583e13712637831f926720
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
