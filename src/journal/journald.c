@@ -44,6 +44,9 @@
 #define USER_JOURNALS_MAX 1024
 #define STDOUT_STREAMS_MAX 4096
 
+#define DEFAULT_RATE_LIMIT_INTERVAL (10*USEC_PER_SEC)
+#define DEFAULT_RATE_LIMIT_BURST 200
+
 #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
 
 typedef struct StdoutStream StdoutStream;
@@ -1574,7 +1577,7 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        s->rate_limit = journal_rate_limit_new(10*USEC_PER_SEC, 2);
+        s->rate_limit = journal_rate_limit_new(DEFAULT_RATE_LIMIT_INTERVAL, DEFAULT_RATE_LIMIT_BURST);
         if (!s->rate_limit)
                 return -ENOMEM;
 
