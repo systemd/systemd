@@ -51,6 +51,8 @@
 
 #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
 
+#define RECHECK_VAR_AVAILABLE_USEC (30*USEC_PER_SEC)
+
 typedef struct StdoutStream StdoutStream;
 
 typedef struct Server {
@@ -77,6 +79,8 @@ typedef struct Server {
 
         uint64_t cached_available_space;
         usec_t cached_available_space_timestamp;
+
+        uint64_t var_available_timestamp;
 
         LIST_HEAD(StdoutStream, stdout_streams);
         unsigned n_stdout_streams;
@@ -1200,12 +1204,22 @@ static int server_flush_to_var(Server *s) {
         int r;
         sd_id128_t machine;
         sd_journal *j;
+        usec_t ts;
 
         assert(s);
 
+        if (!s->runtime_journal)
+                return 0;
+
+        ts = now(CLOCK_MONOTONIC);
+        if (s->var_available_timestamp + RECHECK_VAR_AVAILABLE_USEC > ts)
+                return 0;
+
+        s->var_available_timestamp = ts;
+
         system_journal_open(s);
 
-        if (!s->system_journal || !s->runtime_journal)
+        if (!s->system_journal)
                 return 0;
 
         r = sd_id128_get_machine(&machine);

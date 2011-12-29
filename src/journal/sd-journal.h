@@ -36,6 +36,7 @@
  *   - accelerate looking for "all hostnames" and suchlike.
  *   - hookup with systemctl
  *   - handle incomplete header
+ *   - write unit files
  *
  *   - local deserializer
  *   - http server
