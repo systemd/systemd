@@ -111,6 +111,8 @@ void journal_rate_limit_free(JournalRateLimit *r) {
 
         while (r->lru)
                 journal_rate_limit_group_free(r->lru);
+
+        free(r);
 }
 
 static bool journal_rate_limit_group_expired(JournalRateLimitGroup *g, usec_t ts) {

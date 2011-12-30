@@ -378,11 +378,22 @@ static char *shortened_cgroup_path(pid_t pid) {
         if (streq(init_path, "/"))
                 init_path[0] = 0;
 
-        if (startswith(process_path, init_path))
-                path = process_path + strlen(init_path);
-        else
-                path = process_path;
+        if (startswith(process_path, init_path)) {
+                char *p;
 
+                p = strdup(process_path + strlen(init_path));
+                if (!p) {
+                        free(process_path);
+                        free(init_path);
+                        return NULL;
+                }
+                path = p;
+        } else {
+                path = process_path;
+                process_path = NULL;
+        }
+
+        free(process_path);
         free(init_path);
 
         return path;
@@ -544,7 +555,7 @@ static void dispatch_message(Server *s,
                              struct timeval *tv,
                              int priority) {
         int rl;
-        char *path, *c;
+        char *path = NULL, *c;
 
         assert(s);
         assert(iovec || n == 0);
@@ -1828,6 +1839,8 @@ static void server_done(Server *s) {
 
         if (s->rate_limit)
                 journal_rate_limit_free(s->rate_limit);
+
+        free(s->buffer);
 }
 
 int main(int argc, char *argv[]) {
