@@ -444,9 +444,6 @@ int main(int argc, char *argv[]) {
         sd_journal *j = NULL;
         unsigned line = 0;
 
-        log_set_max_level(LOG_DEBUG);
-        log_set_target(LOG_TARGET_CONSOLE);
-
         log_parse_environment();
         log_open();
 
