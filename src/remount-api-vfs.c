@@ -54,12 +54,14 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (!(f = setmntent("/etc/fstab", "r"))) {
+        f = setmntent("/etc/fstab", "r");
+        if (!f) {
                 log_error("Failed to open /etc/fstab: %m");
                 goto finish;
         }
 
-        if (!(pids = hashmap_new(trivial_hash_func, trivial_compare_func))) {
+        pids = hashmap_new(trivial_hash_func, trivial_compare_func);
+        if (!pids) {
                 log_error("Failed to allocate set");
                 goto finish;
         }
@@ -76,9 +78,10 @@ int main(int argc, char *argv[]) {
 
                 log_debug("Remounting %s", me->mnt_dir);
 
-                if ((pid = fork()) < 0) {
+                pid = fork();
+                if (pid < 0) {
                         log_error("Failed to fork: %m");
-                        ret = 1;
+                        ret = EXIT_FAILURE;
                         continue;
                 }
 
@@ -101,8 +104,15 @@ int main(int argc, char *argv[]) {
                 /* Parent */
 
                 s = strdup(me->mnt_dir);
+                if (!s) {
+                        log_error("Out of memory.");
+                        ret = EXIT_FAILURE;
+                        continue;
+                }
 
-                if ((k = hashmap_put(pids, UINT_TO_PTR(pid), s)) < 0) {
+
+                k = hashmap_put(pids, UINT_TO_PTR(pid), s);
+                if (k < 0) {
                         log_error("Failed to add PID to set: %s", strerror(-k));
                         ret = EXIT_FAILURE;
                         continue;
@@ -124,7 +134,8 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                if ((s = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
+                s = hashmap_remove(pids, UINT_TO_PTR(si.si_pid));
+                if (s) {
                         if (!is_clean_exit(si.si_code, si.si_status)) {
                                 if (si.si_code == CLD_EXITED)
                                         log_error("/bin/mount for %s exited with exit status %i.", s, si.si_status);

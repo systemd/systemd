@@ -236,7 +236,6 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
 
                         writev(console, iovec, 4);
                 }
-
         }
 
         return 0;
@@ -366,7 +365,6 @@ static int stream_process(Stream *s, usec_t ts) {
                 return -errno;
         }
 
-
         if (l == 0)
                 return 0;
 
@@ -409,8 +407,10 @@ static int stream_new(Server *s, int server_fd) {
         int r;
 
         assert(s);
+        assert(server_fd >= 0);
 
-        if ((fd = accept4(server_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC)) < 0)
+        fd = accept4(server_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        if (fd < 0)
                 return -errno;
 
         if (s->n_streams >= STREAMS_MAX) {
@@ -649,7 +649,8 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if ((n = sd_listen_fds(true)) < 0) {
+        n = sd_listen_fds(true);
+        if (n < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
                 return EXIT_FAILURE;
         }

@@ -248,8 +248,9 @@ int parent_of_path(const char *path, char **parent);
 
 int rmdir_parents(const char *path, const char *stop);
 
-int get_process_name(pid_t pid, char **name);
-int get_process_cmdline(pid_t pid, size_t max_length, char **line);
+int get_process_comm(pid_t pid, char **name);
+int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line);
+int get_process_exe(pid_t pid, char **name);
 
 char hexchar(int x);
 int unhexchar(char c);
@@ -274,7 +275,9 @@ bool path_equal(const char *a, const char *b);
 
 char *ascii_strlower(char *path);
 
-bool dirent_is_file(struct dirent *de);
+bool dirent_is_file(const struct dirent *de);
+bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix);
+
 bool ignore_file(const char *filename);
 
 bool chars_intersect(const char *a, const char *b);
@@ -363,6 +366,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d);
 int get_ctty(pid_t, dev_t *_devnr, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
+int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
 
 int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky);
 
@@ -374,11 +378,12 @@ void status_vprintf(const char *format, va_list ap);
 void status_printf(const char *format, ...);
 void status_welcome(void);
 
-int columns(void);
+unsigned columns(void);
 
 int running_in_chroot(void);
 
-char *ellipsize(const char *s, unsigned length, unsigned percent);
+char *ellipsize(const char *s, size_t length, unsigned percent);
+char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent);
 
 int touch(const char *path);
 
@@ -415,6 +420,8 @@ bool nulstr_contains(const char*nulstr, const char *needle);
 bool plymouth_running(void);
 
 void parse_syslog_priority(char **p, int *priority);
+void skip_syslog_pid(char **buf);
+void skip_syslog_date(char **buf);
 
 int have_effective_cap(int value);
 
@@ -443,6 +450,7 @@ int hwclock_get_time(struct tm *tm);
 int hwclock_set_time(const struct tm *tm);
 
 int audit_session_from_pid(pid_t pid, uint32_t *id);
+int audit_loginuid_from_pid(pid_t pid, uid_t *uid);
 
 bool display_is_local(const char *display);
 int socket_from_display(const char *display, char **path);
@@ -505,6 +513,8 @@ extern int saved_argc;
 extern char **saved_argv;
 
 bool kexec_loaded(void);
+
+int prot_from_flags(int flags);
 
 unsigned long cap_last_cap(void);
 

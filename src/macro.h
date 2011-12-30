@@ -149,7 +149,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                 char *_s = (char *)(s);         \
                 _i->iov_base = _s;              \
                 _i->iov_len = strlen(_s);       \
-        } while(false);
+        } while(false)
 
 static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, unsigned n) {
         unsigned j;

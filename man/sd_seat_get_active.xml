@@ -1,0 +1,152 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_seat_get_active">
+
+        <refentryinfo>
+                <title>sd_seat_get_active</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_seat_get_active</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_seat_get_active</refname>
+                <refname>sd_seat_get_sessions</refname>
+                <refname>sd_seat_can_multi_session</refname>
+                <refpurpose>Determine state of a specific seat</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-login.h&gt;</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_seat_get_active</function></funcdef>
+                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                                <paramdef>char** <parameter>session</parameter></paramdef>
+                                <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_seat_get_sessions</function></funcdef>
+                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                                <paramdef>char*** <parameter>sessions</parameter></paramdef>
+                                <paramdef>uid_t** <parameter>uid</parameter></paramdef>
+                                <paramdef>unsigned* <parameter>n_uids</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_seat_can_multi_session</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                        </funcprototype>
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><function>sd_seat_get_active()</function> may be
+                used to determine which session is currently active on
+                a seat, if there is any. Returns the session
+                identifier and the user identifier of the Unix user
+                the session is belonging to. Either the session or the
+                user identifier parameter can be be passed NULL, in
+                case only one of the parameters shall be queried. The
+                returned string needs to be freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
+                <para><function>sd_seat_get_sessions()</function> may
+                be used to determine all sessions on the specified
+                seat. Returns two arrays, one (NULL terminated) with
+                the session identifiers of the sessions and one with
+                the user identifiers of the Unix users the sessions
+                belong to. An additional parameter may be used to
+                return the number of entries in the latter array. The
+                two arrays and the latter parameter may be passed as
+                NULL in case these values need not to be
+                determined. The arrays and the strings referenced by
+                them need to be freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use. Note that instead of an empty array
+                NULL may be returned and should be considered
+                equivalent to an empty array.</para>
+
+                <para><function>sd_seat_can_multi_session()</function>
+                may be used to determine whether a specific seat is
+                capable of multi-session, i.e. allows multiple login
+                sessions in parallel (whith only one being active at a
+                time).</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para> On success
+                <function>sd_seat_get_active()</function> return
+                return 0 or a positive integer. On success
+                <function>sd_seat_get_sessions()</function> returns
+                the number of entries in the session identifier
+                array. If the test succeeds
+                <function>sd_seat_can_multi_session</function> returns
+                a positive integer, if it fails 0. On failure, these
+                calls return a negative errno-style error code.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>The <function>sd_seat_get_active()</function>,
+                <function>sd_seat_get_sessions()</function>, and
+                <function>sd_seat_can_multi_session()</function> interfaces
+                are available as shared library, which can be compiled
+                and linked to with the
+                <literal>libsystemd-login</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_session_get_seat</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

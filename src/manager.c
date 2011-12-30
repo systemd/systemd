@@ -2032,7 +2032,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (si.si_code == CLD_EXITED || si.si_code == CLD_KILLED || si.si_code == CLD_DUMPED) {
                         char *name = NULL;
 
-                        get_process_name(si.si_pid, &name);
+                        get_process_comm(si.si_pid, &name);
                         log_debug("Got SIGCHLD for process %lu (%s)", (unsigned long) si.si_pid, strna(name));
                         free(name);
                 }
@@ -2117,7 +2117,7 @@ static int manager_process_signal_fd(Manager *m) {
                 if (sfsi.ssi_pid > 0) {
                         char *p = NULL;
 
-                        get_process_name(sfsi.ssi_pid, &p);
+                        get_process_comm(sfsi.ssi_pid, &p);
 
                         log_debug("Received SIG%s from PID %lu (%s).",
                                   signal_to_string(sfsi.ssi_signo),

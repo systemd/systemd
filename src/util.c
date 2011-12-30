@@ -55,6 +55,7 @@
 #include <linux/rtc.h>
 #include <glob.h>
 #include <grp.h>
+#include <sys/mman.h>
 
 #include "macro.h"
 #include "util.h"
@@ -73,7 +74,7 @@ size_t page_size(void) {
         static __thread size_t pgsz = 0;
         long r;
 
-        if (_likely_(pgsz))
+        if (_likely_(pgsz > 0))
                 return pgsz;
 
         assert_se((r = sysconf(_SC_PAGESIZE)) > 0);
@@ -993,46 +994,51 @@ char *truncate_nl(char *s) {
         return s;
 }
 
-int get_process_name(pid_t pid, char **name) {
-        char *p;
+int get_process_comm(pid_t pid, char **name) {
         int r;
 
-        assert(pid >= 1);
         assert(name);
 
-        if (asprintf(&p, "/proc/%lu/comm", (unsigned long) pid) < 0)
-                return -ENOMEM;
+        if (pid == 0)
+                r = read_one_line_file("/proc/self/comm", name);
+        else {
+                char *p;
+                if (asprintf(&p, "/proc/%lu/comm", (unsigned long) pid) < 0)
+                        return -ENOMEM;
 
-        r = read_one_line_file(p, name);
-        free(p);
+                r = read_one_line_file(p, name);
+                free(p);
+        }
 
-        if (r < 0)
-                return r;
-
-        return 0;
+        return r;
 }
 
-int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
-        char *p, *r, *k;
+int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
+        char *r, *k;
         int c;
         bool space = false;
         size_t left;
         FILE *f;
 
-        assert(pid >= 1);
         assert(max_length > 0);
         assert(line);
 
-        if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
-                return -ENOMEM;
+        if (pid == 0)
+                f = fopen("/proc/self/cmdline", "re");
+        else {
+                char *p;
+                if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
+                        return -ENOMEM;
 
-        f = fopen(p, "re");
-        free(p);
+                f = fopen(p, "re");
+                free(p);
+        }
 
         if (!f)
                 return -errno;
 
-        if (!(r = new(char, max_length))) {
+        r = new(char, max_length);
+        if (!r) {
                 fclose(f);
                 return -ENOMEM;
         }
@@ -1076,18 +1082,41 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
 
                 free(r);
 
-                if ((h = get_process_name(pid, &t)) < 0)
+                if (!comm_fallback)
+                        return -ENOENT;
+
+                h = get_process_comm(pid, &t);
+                if (h < 0)
                         return h;
 
-                h = asprintf(&r, "[%s]", t);
+                r = join("[", t, "]", NULL);
                 free(t);
 
-                if (h < 0)
+                if (!r)
                         return -ENOMEM;
         }
 
         *line = r;
         return 0;
+}
+
+int get_process_exe(pid_t pid, char **name) {
+        int r;
+
+        assert(name);
+
+        if (pid == 0)
+                r = readlink_malloc("/proc/self/exe", name);
+        else {
+                char *p;
+                if (asprintf(&p, "/proc/%lu/exe", (unsigned long) pid) < 0)
+                        return -ENOMEM;
+
+                r = readlink_malloc(p, name);
+                free(p);
+        }
+
+        return r;
 }
 
 char *strnappend(const char *s, const char *suffix, size_t b) {
@@ -2645,7 +2674,7 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                         ssize_t l;
                         struct inotify_event *e;
 
-                        if ((l = read(notify, &inotify_buffer, sizeof(inotify_buffer))) < 0) {
+                        if ((l = read(notify, inotify_buffer, sizeof(inotify_buffer))) < 0) {
 
                                 if (errno == EINTR)
                                         continue;
@@ -2856,7 +2885,8 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         while (nbytes > 0) {
                 ssize_t k;
 
-                if ((k = write(fd, p, nbytes)) <= 0) {
+                k = write(fd, p, nbytes);
+                if (k <= 0) {
 
                         if (k < 0 && errno == EINTR)
                                 continue;
@@ -3503,6 +3533,22 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         return 0;
 }
 
+int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid) {
+        assert(fd >= 0);
+
+        /* Under the assumption that we are running privileged we
+         * first change the access mode and only then hand out
+         * ownership to avoid a window where access is too open. */
+
+        if (fchmod(fd, mode) < 0)
+                return -errno;
+
+        if (fchown(fd, uid, gid) < 0)
+                return -errno;
+
+        return 0;
+}
+
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         cpu_set_t *r;
         unsigned n = 1024;
@@ -3860,7 +3906,7 @@ char **replace_env_argv(char **argv, char **env) {
         return r;
 }
 
-int columns(void) {
+unsigned columns(void) {
         static __thread int parsed_columns = 0;
         const char *e;
 
@@ -3903,36 +3949,39 @@ int running_in_chroot(void) {
                 a.st_ino != b.st_ino;
 }
 
-char *ellipsize(const char *s, unsigned length, unsigned percent) {
-        size_t l, x;
+char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
+        size_t x;
         char *r;
 
         assert(s);
         assert(percent <= 100);
-        assert(length >= 3);
+        assert(new_length >= 3);
 
-        l = strlen(s);
+        if (old_length <= 3 || old_length <= new_length)
+                return strndup(s, old_length);
 
-        if (l <= 3 || l <= length)
-                return strdup(s);
-
-        if (!(r = new0(char, length+1)))
+        r = new0(char, new_length+1);
+        if (!r)
                 return r;
 
-        x = (length * percent) / 100;
+        x = (new_length * percent) / 100;
 
-        if (x > length - 3)
-                x = length - 3;
+        if (x > new_length - 3)
+                x = new_length - 3;
 
         memcpy(r, s, x);
         r[x] = '.';
         r[x+1] = '.';
         r[x+2] = '.';
         memcpy(r + x + 3,
-               s + l - (length - x - 3),
-               length - x - 3);
+               s + old_length - (new_length - x - 3),
+               new_length - x - 3);
 
         return r;
+}
+
+char *ellipsize(const char *s, size_t length, unsigned percent) {
+        return ellipsize_mem(s, strlen(s), length, percent);
 }
 
 int touch(const char *path) {
@@ -4270,7 +4319,7 @@ const char *default_term_for_tty(const char *tty) {
         return term;
 }
 
-bool dirent_is_file(struct dirent *de) {
+bool dirent_is_file(const struct dirent *de) {
         assert(de);
 
         if (ignore_file(de->d_name))
@@ -4282,6 +4331,15 @@ bool dirent_is_file(struct dirent *de) {
                 return false;
 
         return true;
+}
+
+bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
+        assert(de);
+
+        if (!dirent_is_file(de))
+                return false;
+
+        return endswith(de->d_name, suffix);
 }
 
 void execute_directory(const char *directory, DIR *d, char *argv[]) {
@@ -4454,6 +4512,98 @@ void parse_syslog_priority(char **p, int *priority) {
 
         *priority = a*100+b*10+c;
         *p += k;
+}
+
+void skip_syslog_pid(char **buf) {
+        char *p;
+
+        assert(buf);
+        assert(*buf);
+
+        p = *buf;
+
+        if (*p != '[')
+                return;
+
+        p++;
+        p += strspn(p, "0123456789");
+
+        if (*p != ']')
+                return;
+
+        p++;
+
+        *buf = p;
+}
+
+void skip_syslog_date(char **buf) {
+        enum {
+                LETTER,
+                SPACE,
+                NUMBER,
+                SPACE_OR_NUMBER,
+                COLON
+        } sequence[] = {
+                LETTER, LETTER, LETTER,
+                SPACE,
+                SPACE_OR_NUMBER, NUMBER,
+                SPACE,
+                SPACE_OR_NUMBER, NUMBER,
+                COLON,
+                SPACE_OR_NUMBER, NUMBER,
+                COLON,
+                SPACE_OR_NUMBER, NUMBER,
+                SPACE
+        };
+
+        char *p;
+        unsigned i;
+
+        assert(buf);
+        assert(*buf);
+
+        p = *buf;
+
+        for (i = 0; i < ELEMENTSOF(sequence); i++, p++) {
+
+                if (!*p)
+                        return;
+
+                switch (sequence[i]) {
+
+                case SPACE:
+                        if (*p != ' ')
+                                return;
+                        break;
+
+                case SPACE_OR_NUMBER:
+                        if (*p == ' ')
+                                break;
+
+                        /* fall through */
+
+                case NUMBER:
+                        if (*p < '0' || *p > '9')
+                                return;
+
+                        break;
+
+                case LETTER:
+                        if (!(*p >= 'A' && *p <= 'Z') &&
+                            !(*p >= 'a' && *p <= 'z'))
+                                return;
+
+                        break;
+
+                case COLON:
+                        if (*p != ':')
+                                return;
+                        break;
+
+                }
+        }
+
+        *buf = p;
 }
 
 int have_effective_cap(int value) {
@@ -4675,21 +4825,6 @@ int vt_disallocate(const char *name) {
         return 0;
 }
 
-
-static int file_is_conf(const struct dirent *d, const char *suffix) {
-        assert(d);
-
-        if (ignore_file(d->d_name))
-                return 0;
-
-        if (d->d_type != DT_REG &&
-            d->d_type != DT_LNK &&
-            d->d_type != DT_UNKNOWN)
-                return 0;
-
-        return endswith(d->d_name, suffix);
-}
-
 static int files_add(Hashmap *h, const char *path, const char *suffix) {
         DIR *dir;
         struct dirent buffer, *de;
@@ -4715,7 +4850,7 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
                 if (!de)
                         break;
 
-                if (!file_is_conf(de, suffix))
+                if (!dirent_is_file_with_suffix(de, suffix))
                         continue;
 
                 if (asprintf(&p, "%s/%s", path, de->d_name) < 0) {
@@ -5066,21 +5201,27 @@ int symlink_or_copy_atomic(const char *from, const char *to) {
 }
 
 int audit_session_from_pid(pid_t pid, uint32_t *id) {
-        char *p, *s;
+        char *s;
         uint32_t u;
         int r;
 
-        assert(pid >= 1);
         assert(id);
 
         if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
                 return -ENOENT;
 
-        if (asprintf(&p, "/proc/%lu/sessionid", (unsigned long) pid) < 0)
-                return -ENOMEM;
+        if (pid == 0)
+                r = read_one_line_file("/proc/self/sessionid", &s);
+        else {
+                char *p;
 
-        r = read_one_line_file(p, &s);
-        free(p);
+                if (asprintf(&p, "/proc/%lu/sessionid", (unsigned long) pid) < 0)
+                        return -ENOMEM;
+
+                r = read_one_line_file(p, &s);
+                free(p);
+        }
+
         if (r < 0)
                 return r;
 
@@ -5094,6 +5235,51 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
                 return -ENOENT;
 
         *id = u;
+        return 0;
+}
+
+int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
+        char *s;
+        uid_t u;
+        int r;
+
+        assert(uid);
+
+        /* Only use audit login uid if we are executed with sufficient
+         * capabilities so that pam_loginuid could do its job. If we
+         * are lacking the CAP_AUDIT_CONTROL capabality we most likely
+         * are being run in a container and /proc/self/loginuid is
+         * useless since it probably contains a uid of the host
+         * system. */
+
+        if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
+                return -ENOENT;
+
+        if (pid == 0)
+                r = read_one_line_file("/proc/self/loginuid", &s);
+        else {
+                char *p;
+
+                if (asprintf(&p, "/proc/%lu/loginuid", (unsigned long) pid) < 0)
+                        return -ENOMEM;
+
+                r = read_one_line_file(p, &s);
+                free(p);
+        }
+
+        if (r < 0)
+                return r;
+
+        r = parse_uid(s, &u);
+        free(s);
+
+        if (r < 0)
+                return r;
+
+        if (u == (uid_t) -1)
+                return -ENOENT;
+
+        *uid = (uid_t) u;
         return 0;
 }
 
@@ -5702,6 +5888,24 @@ int strdup_or_null(const char *a, char **b) {
 
         *b = c;
         return 0;
+}
+
+int prot_from_flags(int flags) {
+
+        switch (flags & O_ACCMODE) {
+
+        case O_RDONLY:
+                return PROT_READ;
+
+        case O_WRONLY:
+                return PROT_WRITE;
+
+        case O_RDWR:
+                return PROT_READ|PROT_WRITE;
+
+        default:
+                return -EINVAL;
+        }
 }
 
 unsigned long cap_last_cap(void) {

@@ -27,6 +27,14 @@ LIBSYSTEMD_DAEMON_CURRENT=0
 LIBSYSTEMD_DAEMON_REVISION=0
 LIBSYSTEMD_DAEMON_AGE=0
 
+LIBSYSTEMD_ID128_CURRENT=0
+LIBSYSTEMD_ID128_REVISION=0
+LIBSYSTEMD_ID128_AGE=0
+
+LIBSYSTEMD_JOURNAL_CURRENT=0
+LIBSYSTEMD_JOURNAL_REVISION=0
+LIBSYSTEMD_JOURNAL_AGE=0
+
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
@@ -141,7 +149,8 @@ rootbin_PROGRAMS = \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
 	systemd-tmpfiles \
-	systemd-machine-id-setup
+	systemd-machine-id-setup \
+        systemd-journalctl
 
 bin_PROGRAMS = \
 	systemd-cgls \
@@ -180,7 +189,8 @@ rootlibexec_PROGRAMS = \
 	systemd-detect-virt \
 	systemd-sysctl \
         systemd-logind \
-        systemd-uaccess
+        systemd-uaccess \
+        systemd-journald
 
 if ENABLE_BINFMT
 rootlibexec_PROGRAMS += \
@@ -215,11 +225,15 @@ endif
 
 lib_LTLIBRARIES = \
 	libsystemd-daemon.la \
-	libsystemd-login.la
+	libsystemd-login.la \
+        libsystemd-id128.la \
+        libsystemd-journal.la
 
 pkginclude_HEADERS = \
 	src/sd-daemon.h \
-	src/sd-login.h
+	src/sd-login.h \
+        src/sd-id128.h \
+        src/journal/sd-journal.h
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -232,7 +246,9 @@ noinst_PROGRAMS = \
 	test-env-replace \
 	test-strv \
         test-login \
-        test-install
+        test-install \
+        test-id128 \
+        test-journal
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -385,7 +401,8 @@ dist_systemunit_DATA = \
 	units/quotaon.service \
 	units/systemd-ask-password-wall.path \
 	units/systemd-ask-password-console.path \
-	units/syslog.target
+	units/syslog.target \
+        units/systemd-journald.socket
 
 if HAVE_SYSV_COMPAT
 dist_systemunit_DATA += \
@@ -406,6 +423,7 @@ nodist_systemunit_DATA = \
 	units/systemd-stdout-syslog-bridge.service \
 	units/systemd-shutdownd.service \
 	units/systemd-logind.service \
+        units/systemd-journald.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
 	units/systemd-vconsole-setup.service \
@@ -469,7 +487,8 @@ EXTRA_DIST = \
 	units/systemd-stdout-syslog-bridge.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-logind.service.in \
-	units/systemd-kmsg-syslogd.service.in \
+        units/systemd-journald.service.in \
+        units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-vconsole-setup.service.in \
 	units/systemd-remount-api-vfs.service.in \
@@ -498,11 +517,16 @@ EXTRA_DIST = \
 	systemd.pc.in \
 	libsystemd-daemon.pc.in \
 	libsystemd-login.pc.in \
+        libsystemd-id128.pc.in \
+        libsystemd-journal.pc.in \
 	src/libsystemd-daemon.sym \
 	src/libsystemd-login.sym \
+	src/libsystemd-id128.sym \
+	src/libsystemd-journal.sym \
 	introspect.awk \
 	src/73-seat-late.rules.in \
-        src/99-systemd.rules.in
+        src/99-systemd.rules.in \
+        man/custom-html.xsl
 
 if ENABLE_BINFMT
 EXTRA_DIST += \
@@ -597,7 +621,9 @@ pkgconfigdata_DATA = \
 
 pkgconfiglib_DATA = \
         libsystemd-daemon.pc \
-        libsystemd-login.pc
+        libsystemd-login.pc \
+        libsystemd-id128.pc \
+        libsystemd-journal.pc
 
 # Passed through intltool only
 polkitpolicy_in_files = \
@@ -709,7 +735,8 @@ libsystemd_core_la_SOURCES = \
         src/dbus-common.c \
         src/sd-daemon.c \
         src/install.c \
-        src/cgroup-attr.c
+        src/cgroup-attr.c \
+        src/sd-id128.c
 
 nodist_libsystemd_core_la_SOURCES = \
         src/load-fragment-gperf.c \
@@ -772,7 +799,14 @@ EXTRA_DIST += \
         src/logind-user.h \
         src/logind-acl.h \
         src/dbus-loop.h \
-        src/spawn-agent.h
+        src/spawn-agent.h \
+        src/journal/journal-def.h \
+        src/journal/journal-internal.h \
+        src/journal/journal-file.h \
+        src/journal/lookup3.h \
+        src/journal/compress.h \
+        src/journal/journal-rate-limit.h \
+        src/acl-util.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -802,6 +836,7 @@ MANPAGES = \
 	man/daemon.7 \
 	man/sd-daemon.7 \
 	man/sd-readahead.7 \
+	man/sd-login.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
 	man/halt.8 \
@@ -820,7 +855,13 @@ MANPAGES = \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
         man/systemd-ask-password.1 \
-        man/systemd-loginctl.1
+        man/systemd-loginctl.1 \
+        man/sd_pid_get_session.3 \
+        man/sd_uid_get_state.3 \
+        man/sd_session_is_active.3 \
+        man/sd_seat_get_active.3 \
+        man/sd_get_seats.3 \
+        man/sd_login_monitor_new.3
 
 if ENABLE_BINFMT
 MANPAGES += \
@@ -833,16 +874,44 @@ MANPAGES_ALIAS = \
 	man/sd_is_socket.3 \
 	man/sd_is_socket_unix.3 \
 	man/sd_is_socket_inet.3 \
+	man/sd_is_mq.3 \
 	man/sd_notifyf.3 \
-	man/init.1
+	man/init.1 \
+        man/sd_session_get_uid.3 \
+        man/sd_session_get_seat.3 \
+        man/sd_pid_get_owner_uid.3 \
+        man/sd_uid_is_on_seat.3 \
+        man/sd_uid_get_sessions.3 \
+        man/sd_uid_get_seats.3 \
+        man/sd_seat_get_sessions.3 \
+        man/sd_seat_can_multi_session.3 \
+        man/sd_get_sessions.3 \
+        man/sd_get_uids.3 \
+        man/sd_login_monitor_unref.3 \
+        man/sd_login_monitor_flush.3 \
+        man/sd_login_monitor_get_fd.3
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/sd_is_socket.3: man/sd_is_fifo.3
 man/sd_is_socket_unix.3: man/sd_is_fifo.3
 man/sd_is_socket_inet.3: man/sd_is_fifo.3
+man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_notifyf.3: man/sd_notify.3
 man/init.1: man/systemd.1
+man/sd_session_get_uid.3: man/sd_session_is_active.3
+man/sd_session_get_seat.3: man/sd_session_is_active.3
+man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
+man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
+man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
+man/sd_uid_get_seats.3: man/sd_uid_get_state.3
+man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
+man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
+man/sd_get_sessions.3: man/sd_get_seats.3
+man/sd_get_uids.3: man/sd_get_seats.3
+man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 
 dist_man_MANS = \
 	$(MANPAGES) \
@@ -970,6 +1039,90 @@ test_install_CFLAGS = \
 
 test_install_LDADD = \
 	libsystemd-basic.la
+
+test_id128_SOURCES = \
+	src/test-id128.c \
+        src/sd-id128.c
+
+test_id128_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_id128_LDADD = \
+	libsystemd-basic.la
+
+test_journal_SOURCES = \
+	src/journal/test-journal.c \
+	src/journal/sd-journal.c \
+        src/journal/journal-file.c \
+        src/journal/lookup3.c \
+        src/journal/journal-send.c \
+        src/sd-id128.c
+
+test_journal_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_journal_LDADD = \
+	libsystemd-basic.la
+
+if HAVE_XZ
+test_journal_SOURCES += \
+        src/journal/compress.c
+test_journal_CFLAGS += \
+        $(XZ_CFLAGS)
+test_journal_LDADD += \
+        $(XZ_LIBS)
+endif
+
+systemd_journald_SOURCES = \
+	src/journal/journald.c \
+	src/journal/sd-journal.c \
+        src/journal/journal-file.c \
+        src/journal/lookup3.c \
+        src/journal/journal-rate-limit.c \
+        src/sd-id128.c \
+        src/acl-util.c \
+        src/cgroup-util.c
+
+systemd_journald_CFLAGS = \
+	$(AM_CFLAGS) \
+        $(ACL_CFLAGS)
+
+systemd_journald_LDADD = \
+	libsystemd-basic.la \
+        libsystemd-daemon.la \
+        $(ACL_LIBS)
+
+if HAVE_XZ
+systemd_journald_SOURCES += \
+        src/journal/compress.c
+systemd_journald_CFLAGS += \
+        $(XZ_CFLAGS)
+systemd_journald_LDADD += \
+        $(XZ_LIBS)
+endif
+
+systemd_journalctl_SOURCES = \
+	src/journal/journalctl.c \
+	src/journal/sd-journal.c \
+        src/journal/journal-file.c \
+        src/journal/lookup3.c \
+        src/sd-id128.c \
+        src/pager.c
+
+systemd_journalctl_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_journalctl_LDADD = \
+	libsystemd-basic.la
+
+if HAVE_XZ
+systemd_journalctl_SOURCES += \
+        src/journal/compress.c
+systemd_journalctl_CFLAGS += \
+        $(XZ_CFLAGS)
+systemd_journalctl_LDADD += \
+        $(XZ_LIBS)
+endif
 
 systemd_stdout_syslog_bridge_SOURCES = \
 	src/stdout-syslog-bridge.c \
@@ -1115,10 +1268,12 @@ systemd_uaccess_SOURCES = \
 
 if HAVE_ACL
 systemd_logind_SOURCES += \
-	src/logind-acl.c
+	src/logind-acl.c \
+        src/acl-util.c
 
 systemd_uaccess_SOURCES += \
-	src/logind-acl.c
+	src/logind-acl.c \
+        src/acl-util.c
 endif
 
 systemd_uaccess_CFLAGS = \
@@ -1166,7 +1321,8 @@ systemd_tmpfiles_LDADD = \
 
 systemd_machine_id_setup_SOURCES = \
 	src/machine-id-setup.c \
-	src/machine-id-main.c
+	src/machine-id-main.c \
+        src/sd-id128.c
 
 systemd_machine_id_setup_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1592,6 +1748,69 @@ libsystemd-login-install-hook:
 libsystemd-login-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
 
+libsystemd_id128_la_SOURCES = \
+        src/sd-id128.c
+
+libsystemd_id128_la_CFLAGS = \
+        $(AM_CFLAGS) \
+	-fvisibility=hidden
+
+libsystemd_id128_la_LDFLAGS = \
+        -shared \
+        -version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
+        -Wl,--version-script=$(top_srcdir)/src/libsystemd-id128.sym
+
+libsystemd_id128_la_LIBADD = \
+	libsystemd-basic.la
+
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-id128-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-id128.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-id128.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-id128.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+libsystemd-id128-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-id128.so*
+
+libsystemd_journal_la_SOURCES = \
+        src/journal/sd-journal.c \
+        src/journal/journal-file.c \
+        src/journal/compress.c \
+        src/journal/lookup3.c \
+        src/journal/journal-send.c
+
+libsystemd_journal_la_CFLAGS = \
+        $(AM_CFLAGS) \
+        $(XZ_CFLAGS) \
+	-fvisibility=hidden
+
+libsystemd_journal_la_LDFLAGS = \
+        -shared \
+        -version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
+        -Wl,--version-script=$(top_srcdir)/src/libsystemd-journal.sym
+
+libsystemd_journal_la_LIBADD = \
+	libsystemd-basic.la \
+        libsystemd-id128.la \
+        $(XZ_LIBS)
+
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-journal-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-journal.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-journal.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-journal.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+libsystemd-journal-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-journal.so*
+
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
@@ -1677,7 +1896,7 @@ endif
 if HAVE_XSLTPROC
 XSLTPROC_FLAGS = \
 	--nonet \
-	--param funcsynopsis.style "'ansi'"
+	--stringparam funcsynopsis.style ansi
 
 XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
@@ -1690,11 +1909,11 @@ XSLTPROC_PROCESS_MAN_IN = \
 
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
+	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) man/custom-html.xsl $<
 
 XSLTPROC_PROCESS_HTML_IN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $< && \
+	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) man/custom-html.xsl $< && \
 	mv ${@:.in=} $@
 
 man/%.1: man/%.xml
@@ -1808,11 +2027,12 @@ endif
 		rm -f user && \
 		$(LN_S) $(pkgsysconfdir)/user user )
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-initctl.socket systemd-stdout-syslog-bridge.socket systemd-shutdownd.socket syslog.socket && \
+		rm -f systemd-initctl.socket systemd-stdout-syslog-bridge.socket systemd-shutdownd.socket syslog.socket systemd-journald.socket && \
 		$(LN_S) ../systemd-stdout-syslog-bridge.socket systemd-stdout-syslog-bridge.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
 		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket && \
-		$(LN_S) ../syslog.socket syslog.socket )
+		$(LN_S) ../syslog.socket syslog.socket && \
+                $(LN_S) ../systemd-journald.socket )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel1.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
 		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )

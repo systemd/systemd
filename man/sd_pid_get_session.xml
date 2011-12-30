@@ -1,0 +1,135 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_pid_get_session">
+
+        <refentryinfo>
+                <title>sd_pid_get_session</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_pid_get_session</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_pid_get_session</refname>
+                <refname>sd_pid_get_owner_uid</refname>
+                <refpurpose>Determine session or owner of a session of a specific PID</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-login.h&gt;</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_pid_get_session</function></funcdef>
+                                <paramdef>pid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>char** <parameter>session</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_pid_get_owner_uid</function></funcdef>
+                                <paramdef>pid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                        </funcprototype>
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><function>sd_pid_get_session()</function> may be
+                used to determine the login session identifier of a
+                process identified by the specified process
+                identifier. The session identifier is a short string,
+                suitable for usage in file system paths. Note that not
+                all processes are part of a login session (e.g. system
+                service processes and user processes that are shared
+                between multiple sessions of the same user). For
+                processes not being part of a login session this
+                function will fail. The returned string needs to be
+                freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
+                <para><function>sd_pid_get_owner_uid()</function> may
+                be used to determine the Unix user identifier of the
+                owner of the session of a process identified the
+                specified PID. Note that this function will succeed
+                for user processes which are shared between multiple
+                login sessions of the same user, where
+                <function>sd_pid_get_session()</function> will
+                fail. For processes not being part of a login session
+                and not being a shared process of a user this function
+                will fail.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>On success these calls return 0 or a positive
+                integer. On failure, these calls return a negative
+                errno-style error code.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>The <function>sd_pid_get_session()</function>
+                and <function>sd_pid_get_owner_uid()</function>
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
+                <literal>libsystemd-login</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file.</para>
+
+                <para>Note that the login session identifier as
+                returned by <function>sd_pid_get_session()</function>
+                is completely unrelated to the process session
+                identifier as returned by
+                <citerefentry><refentrytitle>getsid</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_session_is_active</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>getsid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

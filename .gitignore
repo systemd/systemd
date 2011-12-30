@@ -1,3 +1,9 @@
+/libsystemd-journal.pc
+/libsystemd-id128.pc
+systemd-journalctl
+systemd-journald
+test-id128
+test-journal
 test-install
 org.freedesktop.hostname1.xml
 org.freedesktop.locale1.xml
@@ -91,7 +97,7 @@ install-sh
 missing
 stamp-*
 *.stamp
-Makefile
+/Makefile
 ltmain.sh
 *.tar.bz2
 *.tar.gz

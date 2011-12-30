@@ -53,7 +53,7 @@
 
         <refsynopsisdiv>
                 <funcsynopsis>
-                        <funcsynopsisinfo>#include "sd-daemon.h"</funcsynopsisinfo>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_is_fifo</function></funcdef>

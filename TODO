@@ -17,7 +17,19 @@ Bugfixes:
 
 * make polkit checks async
 
+* properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
+
 Features:
+
+* logind: selinux is borked...
+
+* logind: sends SessionNew on Lock()?
+
+* logind: allow showing logout dialog from system
+
+* document that %% can be used to write % in a string that is specifier extended
+
+* check utf8 everywhere
 
 * when an instanced service exits, remove its parent cgroup too if possible.
 

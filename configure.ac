@@ -149,6 +149,19 @@ if test "x$enable_selinux" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
 
+have_xz=no
+AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
+if test "x$enable_xz" != "xno"; then
+        PKG_CHECK_MODULES(XZ, [ liblzma ],
+                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
+        AC_SUBST(XZ_CFLAGS)
+        AC_SUBST(XZ_LIBS)
+        if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
+                AC_MSG_ERROR([*** Xz support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
+
 AC_ARG_ENABLE([tcpwrap],
         AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),
                 [case "${enableval}" in
@@ -591,6 +604,7 @@ AC_MSG_RESULT([
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         SELinux:                 ${have_selinux}
+        XZ:                      ${have_xz}
         ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
         hostnamed:               ${have_hostnamed}

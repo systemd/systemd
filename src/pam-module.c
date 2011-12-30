@@ -163,42 +163,24 @@ static int get_user_data(
 
         const char *username = NULL;
         struct passwd *pw = NULL;
+        uid_t uid;
         int r;
-        bool have_loginuid = false;
-        char *s;
 
         assert(handle);
         assert(ret_username);
         assert(ret_pw);
 
-        if (have_effective_cap(CAP_AUDIT_CONTROL) > 0) {
-                /* Only use audit login uid if we are executed with
-                 * sufficient capabilities so that pam_loginuid could
-                 * do its job. If we are lacking the CAP_AUDIT_CONTROL
-                 * capabality we most likely are being run in a
-                 * container and /proc/self/loginuid is useless since
-                 * it probably contains a uid of the host system. */
-
-                if (read_one_line_file("/proc/self/loginuid", &s) >= 0) {
-                        uid_t uid;
-
-                        r = parse_uid(s, &uid);
-                        free(s);
-
-                        if (r >= 0 && uid != (uint32_t) -1) {
-                                have_loginuid = true;
-                                pw = pam_modutil_getpwuid(handle, uid);
-                        }
-                }
-        }
-
-        if (!have_loginuid) {
-                if ((r = pam_get_user(handle, &username, NULL)) != PAM_SUCCESS) {
+        r = audit_loginuid_from_pid(0, &uid);
+        if (r >= 0)
+                pw = pam_modutil_getpwuid(handle, uid);
+        else {
+                r = pam_get_user(handle, &username, NULL);
+                if (r != PAM_SUCCESS) {
                         pam_syslog(handle, LOG_ERR, "Failed to get user name.");
                         return r;
                 }
 
-                if (!username || !*username) {
+                if (isempty(username)) {
                         pam_syslog(handle, LOG_ERR, "User name not valid.");
                         return PAM_AUTH_ERR;
                 }

@@ -558,6 +558,17 @@ void* hashmap_first(Hashmap *h) {
         return h->iterate_list_head->value;
 }
 
+void* hashmap_first_key(Hashmap *h) {
+
+        if (!h)
+                return NULL;
+
+        if (!h->iterate_list_head)
+                return NULL;
+
+        return (void*) h->iterate_list_head->key;
+}
+
 void* hashmap_last(Hashmap *h) {
 
         if (!h)

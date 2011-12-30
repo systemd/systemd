@@ -31,21 +31,12 @@
 #include "macro.h"
 #include "util.h"
 #include "log.h"
-
-static void make_v4_uuid(unsigned char *id) {
-        /* Stolen from generate_random_uuid() of drivers/char/random.c
-         * in the kernel sources */
-
-        /* Set UUID version to 4 --- truly random generation */
-        id[6] = (id[6] & 0x0F) | 0x40;
-
-        /* Set the UUID variant to DCE */
-        id[8] = (id[8] & 0x3F) | 0x80;
-}
+#include "sd-id128.h"
 
 static int generate(char id[34]) {
-        int fd;
-        unsigned char buf[16], *p;
+        int fd, r;
+        unsigned char *p;
+        sd_id128_t buf;
         char *q;
         ssize_t k;
 
@@ -68,26 +59,13 @@ static int generate(char id[34]) {
         }
 
         /* If that didn't work, generate a random machine id */
-        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0) {
-                log_error("Failed to open /dev/urandom: %m");
-                return -errno;
+        r = sd_id128_randomize(&buf);
+        if (r < 0) {
+                log_error("Failed to open /dev/urandom: %s", strerror(-r));
+                return r;
         }
 
-        k = loop_read(fd, buf, sizeof(buf), false);
-        close_nointr_nofail(fd);
-
-        if (k != sizeof(buf)) {
-                log_error("Failed to read /dev/urandom: %s", strerror(k < 0 ? -k : EIO));
-                return k < 0 ? (int) k : -EIO;
-        }
-
-        /* Turn this into a valid v4 UUID, to be nice. Note that we
-         * only guarantee this for newly generated UUIDs, not for
-         * pre-existing ones.*/
-        make_v4_uuid(buf);
-
-        for (p = buf, q = id; p < buf + sizeof(buf); p++, q += 2) {
+        for (p = buf.bytes, q = id; p < buf.bytes + sizeof(buf); p++, q += 2) {
                 q[0] = hexchar(*p >> 4);
                 q[1] = hexchar(*p & 15);
         }
