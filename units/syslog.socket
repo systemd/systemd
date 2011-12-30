@@ -16,7 +16,7 @@ Before=sockets.target syslog.target
 Wants=syslog.target
 
 [Socket]
-ListenDatagram=/dev/log
+ListenDatagram=/run/systemd/syslog
 SocketMode=0666
 
 # The service we activate on incoming traffic is

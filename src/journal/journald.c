@@ -53,6 +53,8 @@
 
 #define RECHECK_VAR_AVAILABLE_USEC (30*USEC_PER_SEC)
 
+#define SYSLOG_TIMEOUT_USEC (5*USEC_PER_SEC)
+
 typedef struct StdoutStream StdoutStream;
 
 typedef struct Server {
@@ -1276,6 +1278,69 @@ finish:
         return r;
 }
 
+static void forward_syslog(Server *s, const void *buffer, size_t length, struct ucred *ucred, struct timeval *tv) {
+        struct msghdr msghdr;
+        struct iovec iovec;
+        struct cmsghdr *cmsg;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(sizeof(struct timeval))];
+        } control;
+        union sockaddr_union sa;
+
+        assert(s);
+
+        zero(msghdr);
+
+        zero(iovec);
+        iovec.iov_base = (void*) buffer;
+        iovec.iov_len = length;
+        msghdr.msg_iov = &iovec;
+        msghdr.msg_iovlen = 1;
+
+        zero(sa);
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, "/run/systemd/syslog", sizeof(sa.un.sun_path));
+        msghdr.msg_name = &sa;
+        msghdr.msg_namelen = offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path);
+
+        zero(control);
+        msghdr.msg_control = &control;
+        msghdr.msg_controllen = sizeof(control);
+
+        cmsg = CMSG_FIRSTHDR(&msghdr);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_CREDENTIALS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+        memcpy(CMSG_DATA(cmsg), ucred, sizeof(struct ucred));
+        msghdr.msg_controllen = cmsg->cmsg_len;
+
+        /* Forward the syslog message we received via /dev/log to
+         * /run/systemd/syslog. Unfortunately we currently can't set
+         * the SO_TIMESTAMP auxiliary data, and hence we don't. */
+
+        if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                return;
+
+        if (errno == ESRCH) {
+                struct ucred u;
+
+                /* Hmm, presumably the sender process vanished
+                 * by now, so let's fix it as good as we
+                 * can, and retry */
+
+                u = *ucred;
+                u.pid = getpid();
+                memcpy(CMSG_DATA(cmsg), &u, sizeof(struct ucred));
+
+                if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                        return;
+        }
+
+        log_debug("Failed to forward syslog message: %m");
+}
+
 static int process_event(Server *s, struct epoll_event *ev) {
         assert(s);
 
@@ -1396,6 +1461,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                                 else
                                         s->buffer[n] = 0;
 
+                                forward_syslog(s, s->buffer, n, ucred, tv);
                                 process_syslog_message(s, strstrip(s->buffer), ucred, tv);
                         } else
                                 process_native_message(s, s->buffer, n, ucred, tv);
@@ -1444,6 +1510,7 @@ static int open_syslog_socket(Server *s) {
         union sockaddr_union sa;
         int one, r;
         struct epoll_event ev;
+        struct timeval tv;
 
         assert(s);
 
@@ -1457,7 +1524,7 @@ static int open_syslog_socket(Server *s) {
 
                 zero(sa);
                 sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, "/run/systemd/syslog", sizeof(sa.un.sun_path));
+                strncpy(sa.un.sun_path, "/dev/log", sizeof(sa.un.sun_path));
 
                 unlink(sa.un.sun_path);
 
@@ -1481,6 +1548,15 @@ static int open_syslog_socket(Server *s) {
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
         if (r < 0) {
                 log_error("SO_TIMESTAMP failed: %m");
+                return -errno;
+        }
+
+        /* Since we use the same socket for forwarding this to some
+         * other syslog implementation, make sure we don't hang
+         * forever */
+        timeval_store(&tv, SYSLOG_TIMEOUT_USEC);
+        if (setsockopt(s->syslog_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
+                log_error("SO_SNDTIMEO failed: %m");
                 return -errno;
         }
 
