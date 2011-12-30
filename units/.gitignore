@@ -1,3 +1,4 @@
+/systemd-journald.service
 user@.service
 systemd-logind.service
 systemd-localed.service

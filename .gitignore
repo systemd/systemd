@@ -1,3 +1,5 @@
+/libsystemd-journal.pc
+/libsystemd-id128.pc
 systemd-journalctl
 systemd-journald
 test-id128

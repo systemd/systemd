@@ -1,0 +1,24 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+# See systemd.special(7) for details
+
+[Unit]
+Description=Journal Socket
+DefaultDependencies=no
+Before=sockets.target syslog.target
+
+# Mount and swap units need this. If this socket unit is removed by an
+# isolate request the mount and and swap units would be removed too,
+# hence let's exclude this from isolate requests.
+IgnoreOnIsolate=yes
+
+[Socket]
+ListenStream=/run/systemd/stdout
+ListenDatagram=/run/systemd/native
+ListenDatagram=/dev/log
+SocketMode=0666

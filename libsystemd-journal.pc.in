@@ -1,0 +1,19 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: systemd
+Description: systemd Journal Utility Library
+URL: @PACKAGE_URL@
+Version: @PACKAGE_VERSION@
+Requires: libsystemd-id128 = @PACKAGE_VERSION@
+Libs: -L${libdir} -lsystemd-journal
+Cflags: -I${includedir}
