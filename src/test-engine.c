@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL;
         Job *j;
 
-        assert_se(set_unit_path("test2") >= 0);
+        assert_se(set_unit_path("test") >= 0);
 
         assert_se(manager_new(MANAGER_SYSTEM, &m) >= 0);
 

@@ -1,9 +1,0 @@
-[Meta]
-Description=Simple Execution Demo
-
-[Service]
-ExecStartPre=/bin/ps -eo pid,uid,args,cgroup
-ExecStartPre=/bin/cat /etc/hosts
-ExecStart=/bin/bash -c '/bin/sleep 5 &'
-Type=forking
-Output=syslog
