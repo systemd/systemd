@@ -224,11 +224,6 @@ noinst_PROGRAMS = \
 	test-strv \
 	test-install
 
-if HAVE_PAM
-pamlib_LTLIBRARIES = \
-	pam_systemd.la
-endif
-
 dist_pkgsysconf_DATA = \
 	src/system.conf \
 	src/user.conf
@@ -1415,6 +1410,34 @@ libsystemd_login_la_LDFLAGS = \
 libsystemd_login_la_LIBADD = \
 	libsystemd-basic.la
 
+if HAVE_PAM
+pam_systemd_la_SOURCES = \
+	src/pam-module.c \
+	src/dbus-common.c
+
+pam_systemd_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(PAM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	-fvisibility=hidden
+
+pam_systemd_la_LDFLAGS = \
+	-module \
+	-export-dynamic \
+	-avoid-version \
+	-shared \
+	-export-symbols-regex '^pam_sm_.*'
+
+pam_systemd_la_LIBADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(PAM_LIBS) \
+	$(DBUS_LIBS)
+
+pamlib_LTLIBRARIES = \
+	pam_systemd.la
+endif
+
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-login-install-hook:
 	if test "$(libdir)" != "$(rootlibdir)"; then \
@@ -1882,29 +1905,6 @@ systemd_tty_ask_password_agent_SOURCES = \
 
 systemd_tty_ask_password_agent_LDADD = \
 	libsystemd-basic.la
-
-pam_systemd_la_SOURCES = \
-	src/pam-module.c \
-	src/dbus-common.c
-
-pam_systemd_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(PAM_CFLAGS) \
-	$(DBUS_CFLAGS) \
-	-fvisibility=hidden
-
-pam_systemd_la_LDFLAGS = \
-	-module \
-	-export-dynamic \
-	-avoid-version \
-	-shared \
-	-export-symbols-regex '^pam_sm_.*'
-
-pam_systemd_la_LIBADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(PAM_LIBS) \
-	$(DBUS_LIBS)
 
 libsystemd_daemon_la_SOURCES = \
 	src/sd-daemon.c
