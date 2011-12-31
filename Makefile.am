@@ -249,28 +249,8 @@ dist_pkgsysconf_DATA = \
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf
 
-if ENABLE_HOSTNAMED
-dist_dbuspolicy_DATA += \
-	src/org.freedesktop.hostname1.conf
-endif
-
-if ENABLE_LOCALED
-dist_dbuspolicy_DATA += \
-	src/org.freedesktop.locale1.conf
-endif
-
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service
-
-if ENABLE_HOSTNAMED
-dist_dbussystemservice_DATA += \
-	src/org.freedesktop.hostname1.service
-endif
-
-if ENABLE_LOCALED
-dist_dbussystemservice_DATA += \
-	src/org.freedesktop.locale1.service
-endif
 
 dist_udevrules_DATA = \
 	src/71-seat.rules
@@ -293,16 +273,6 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Snapshot.xml \
 	org.freedesktop.systemd1.Swap.xml \
 	org.freedesktop.systemd1.Path.xml
-
-if ENABLE_HOSTNAMED
-dbusinterface_DATA += \
-	org.freedesktop.hostname1.xml
-endif
-
-if ENABLE_LOCALED
-dbusinterface_DATA += \
-	org.freedesktop.locale1.xml
-endif
 
 dist_bashcompletion_DATA = \
 	src/systemd-bash-completion.sh
@@ -557,16 +527,6 @@ pkgconfiglib_DATA = \
 	libsystemd-daemon.pc \
 	libsystemd-id128.pc \
 	libsystemd-journal.pc
-
-if ENABLE_HOSTNAMED
-polkitpolicy_in_files += \
-	src/org.freedesktop.hostname1.policy.in
-endif
-
-if ENABLE_LOCALED
-polkitpolicy_in_files += \
-	src/org.freedesktop.locale1.policy.in
-endif
 
 # First passed through sed, followed by intltool
 polkitpolicy_in_in_files = \
@@ -1107,6 +1067,18 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-hostnamed.service
 
+dist_dbuspolicy_DATA += \
+	src/hostname/org.freedesktop.hostname1.conf
+
+dist_dbussystemservice_DATA += \
+	src/hostname/org.freedesktop.hostname1.service
+
+polkitpolicy_in_files += \
+	src/hostname/org.freedesktop.hostname1.policy.in
+
+dbusinterface_DATA += \
+	org.freedesktop.hostname1.xml
+
 org.freedesktop.hostname1.xml: systemd-hostnamed
 	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.hostname1 $< $@.tmp && \
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
@@ -1145,6 +1117,18 @@ nodist_systemunit_DATA += \
 
 rootlibexec_PROGRAMS += \
 	systemd-localed
+
+dist_dbuspolicy_DATA += \
+	src/locale/org.freedesktop.locale1.conf
+
+dist_dbussystemservice_DATA += \
+	src/locale/org.freedesktop.locale1.service
+
+polkitpolicy_in_files += \
+	src/locale/org.freedesktop.locale1.policy.in
+
+dbusinterface_DATA += \
+	org.freedesktop.locale1.xml
 
 org.freedesktop.locale1.xml: systemd-localed
 	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.locale1 $< $@.tmp && \
