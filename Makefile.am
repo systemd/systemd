@@ -186,8 +186,6 @@ rootlibexec_PROGRAMS = \
 	systemd-kmsg-syslogd \
 	systemd-vconsole-setup \
 	systemd-reply-password \
-	systemd-readahead-collect \
-	systemd-readahead-replay \
 	systemd-user-sessions \
 	systemd-fsck \
 	systemd-quotacheck \
@@ -314,7 +312,6 @@ dist_systemunit_DATA = \
 	units/sound.target \
 	units/bluetooth.target \
 	units/smartcard.target \
-	units/systemd-readahead-done.timer \
 	units/systemd-tmpfiles-clean.timer \
 	units/quotaon.service \
 	units/systemd-ask-password-wall.path \
@@ -341,9 +338,6 @@ nodist_systemunit_DATA = \
 	units/systemd-update-utmp-shutdown.service \
 	units/systemd-random-seed-save.service \
 	units/systemd-random-seed-load.service \
-	units/systemd-readahead-collect.service \
-	units/systemd-readahead-replay.service \
-	units/systemd-readahead-done.service \
 	units/systemd-tmpfiles-setup.service \
 	units/systemd-tmpfiles-clean.service \
 	units/systemd-user-sessions.service \
@@ -383,9 +377,6 @@ EXTRA_DIST += \
 	units/systemd-update-utmp-shutdown.service.in \
 	units/systemd-random-seed-save.service.in \
 	units/systemd-random-seed-load.service.in \
-	units/systemd-readahead-collect.service.in \
-	units/systemd-readahead-replay.service.in \
-	units/systemd-readahead-done.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in \
 	units/systemd-user-sessions.service.in \
@@ -471,11 +462,7 @@ endif
 dist_doc_DATA = \
 	README \
 	LICENSE \
-	DISTRO_PORTING \
-	src/sd-daemon.h \
-	src/sd-daemon.c \
-	src/sd-readahead.h \
-	src/sd-readahead.c
+	DISTRO_PORTING
 
 pkgconfigdata_DATA = \
 	systemd.pc
@@ -617,7 +604,6 @@ EXTRA_DIST += \
 	src/linux/auto_dev-ioctl.h \
 	src/linux/fanotify.h \
 	src/initreq.h \
-	src/sd-readahead.h \
 	src/special.h \
 	src/dbus-common.h \
 	src/bus-errors.h \
@@ -625,7 +611,6 @@ EXTRA_DIST += \
 	src/build.h \
 	src/shutdownd.h \
 	src/umount.h \
-	src/readahead-common.h \
 	src/ask-password-api.h \
 	src/pager.h \
 	src/sysfs-show.h \
@@ -642,11 +627,6 @@ MANPAGES = \
 	man/systemd-nspawn.1 \
 	man/systemd-tmpfiles.8 \
 	man/systemd-notify.1 \
-	man/sd_notify.3 \
-	man/sd_readahead.3 \
-	man/sd_booted.3 \
-	man/sd_listen_fds.3 \
-	man/sd_is_fifo.3 \
 	man/systemd.unit.5 \
 	man/systemd.service.5 \
 	man/systemd.socket.5 \
@@ -660,8 +640,6 @@ MANPAGES = \
 	man/systemd.snapshot.5 \
 	man/systemd.exec.5 \
 	man/daemon.7 \
-	man/sd-daemon.7 \
-	man/sd-readahead.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
 	man/halt.8 \
@@ -678,51 +656,16 @@ MANPAGES = \
 	man/machine-info.5 \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
-	man/systemd-ask-password.1 \
-	man/sd_pid_get_session.3 \
-	man/sd_uid_get_state.3 \
-	man/sd_session_is_active.3 \
-	man/sd_seat_get_active.3 \
-	man/sd_get_seats.3
+	man/systemd-ask-password.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
 	man/poweroff.8 \
-	man/sd_is_socket.3 \
-	man/sd_is_socket_unix.3 \
-	man/sd_is_socket_inet.3 \
-	man/sd_is_mq.3 \
-	man/sd_notifyf.3 \
-	man/init.1 \
-	man/sd_session_get_uid.3 \
-	man/sd_session_get_seat.3 \
-	man/sd_pid_get_owner_uid.3 \
-	man/sd_uid_is_on_seat.3 \
-	man/sd_uid_get_sessions.3 \
-	man/sd_uid_get_seats.3 \
-	man/sd_seat_get_sessions.3 \
-	man/sd_seat_can_multi_session.3 \
-	man/sd_get_sessions.3 \
-	man/sd_get_uids.3
+	man/init.1
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
-man/sd_is_socket.3: man/sd_is_fifo.3
-man/sd_is_socket_unix.3: man/sd_is_fifo.3
-man/sd_is_socket_inet.3: man/sd_is_fifo.3
-man/sd_is_mq.3: man/sd_is_fifo.3
-man/sd_notifyf.3: man/sd_notify.3
 man/init.1: man/systemd.1
-man/sd_session_get_uid.3: man/sd_session_is_active.3
-man/sd_session_get_seat.3: man/sd_session_is_active.3
-man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
-man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
-man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
-man/sd_uid_get_seats.3: man/sd_uid_get_state.3
-man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
-man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
-man/sd_get_sessions.3: man/sd_get_seats.3
-man/sd_get_uids.3: man/sd_get_seats.3
 
 dist_man_MANS = \
 	$(MANPAGES) \
@@ -1092,28 +1035,6 @@ systemd_reply_password_SOURCES = \
 systemd_reply_password_LDADD = \
 	libsystemd-basic.la
 
-systemd_readahead_collect_SOURCES = \
-	src/readahead-collect.c \
-	src/readahead-common.c
-
-systemd_readahead_collect_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(UDEV_LIBS)
-
-systemd_readahead_replay_SOURCES = \
-	src/readahead-replay.c \
-	src/readahead-common.c
-
-systemd_readahead_replay_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(UDEV_CFLAGS)
-
-systemd_readahead_replay_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(UDEV_LIBS)
-
 systemd_cgls_SOURCES = \
 	src/cgls.c \
 	src/cgroup-show.c \
@@ -1198,6 +1119,56 @@ systemd_tty_ask_password_agent_LDADD = \
 	libsystemd-basic.la
 
 # ------------------------------------------------------------------------------
+systemd_readahead_collect_SOURCES = \
+	src/readahead-collect.c \
+	src/readahead-common.c
+
+systemd_readahead_collect_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(UDEV_LIBS)
+
+systemd_readahead_replay_SOURCES = \
+	src/readahead-replay.c \
+	src/readahead-common.c
+
+systemd_readahead_replay_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_readahead_replay_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(UDEV_LIBS)
+
+rootlibexec_PROGRAMS += \
+	systemd-readahead-collect \
+	systemd-readahead-replay
+
+dist_systemunit_DATA += \
+	units/systemd-readahead-done.timer
+
+nodist_systemunit_DATA += \
+	units/systemd-readahead-collect.service \
+	units/systemd-readahead-replay.service \
+	units/systemd-readahead-done.service
+
+EXTRA_DIST += \
+	src/sd-readahead.h \
+	src/readahead-common.h \
+	units/systemd-readahead-collect.service.in \
+	units/systemd-readahead-replay.service.in \
+	units/systemd-readahead-done.service.in
+
+dist_doc_DATA += \
+	src/sd-readahead.h \
+	src/sd-readahead.c
+
+MANPAGES += \
+	man/sd_readahead.3 \
+	man/sd-readahead.7
+
+# ------------------------------------------------------------------------------
 libsystemd_daemon_la_SOURCES = \
 	src/sd-daemon.c
 
@@ -1232,6 +1203,30 @@ libsystemd-daemon-uninstall-hook:
 
 UNINSTALL_EXEC_HOOKS += \
 	libsystemd-daemon-uninstall-hook
+
+MANPAGES += \
+	man/sd-daemon.7 \
+	man/sd_notify.3 \
+	man/sd_listen_fds.3 \
+	man/sd_is_fifo.3 \
+	man/sd_booted.3
+
+MANPAGES_ALIAS += \
+	man/sd_is_socket.3 \
+	man/sd_is_socket_unix.3 \
+	man/sd_is_socket_inet.3 \
+	man/sd_is_mq.3 \
+	man/sd_notifyf.3
+
+man/sd_is_socket.3: man/sd_is_fifo.3
+man/sd_is_socket_unix.3: man/sd_is_fifo.3
+man/sd_is_socket_inet.3: man/sd_is_fifo.3
+man/sd_is_mq.3: man/sd_is_fifo.3
+man/sd_notifyf.3: man/sd_notify.3
+
+dist_doc_DATA += \
+	src/sd-daemon.h \
+	src/sd-daemon.c
 
 EXTRA_DIST += \
 	${libsystemd_daemon_la_SOURCES:.c=.h}
@@ -1846,16 +1841,41 @@ MANPAGES += \
 	man/systemd-logind.conf.5 \
 	man/sd-login.7 \
 	man/systemd-loginctl.1 \
-	man/sd_login_monitor_new.3
+	man/sd_login_monitor_new.3 \
+	man/sd_pid_get_session.3 \
+	man/sd_uid_get_state.3 \
+	man/sd_session_is_active.3 \
+	man/sd_seat_get_active.3 \
+	man/sd_get_seats.3
 
 MANPAGES_ALIAS += \
 	man/sd_login_monitor_unref.3 \
 	man/sd_login_monitor_flush.3 \
-	man/sd_login_monitor_get_fd.3
+	man/sd_login_monitor_get_fd.3 \
+	man/sd_session_get_uid.3 \
+	man/sd_session_get_seat.3 \
+	man/sd_pid_get_owner_uid.3 \
+	man/sd_uid_is_on_seat.3 \
+	man/sd_uid_get_sessions.3 \
+	man/sd_uid_get_seats.3 \
+	man/sd_seat_get_sessions.3 \
+	man/sd_seat_can_multi_session.3 \
+	man/sd_get_sessions.3 \
+	man/sd_get_uids.3
 
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
+man/sd_session_get_uid.3: man/sd_session_is_active.3
+man/sd_session_get_seat.3: man/sd_session_is_active.3
+man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
+man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
+man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
+man/sd_uid_get_seats.3: man/sd_uid_get_state.3
+man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
+man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
+man/sd_get_sessions.3: man/sd_get_seats.3
+man/sd_get_uids.3: man/sd_get_seats.3
 
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
