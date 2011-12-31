@@ -99,7 +99,7 @@ static int server_init(Server *s) {
         }
 
         for (i = 0; i < n; i++) {
-                int fd, one = 1;
+                int fd;
 
                 fd = SD_LISTEN_FDS_START+i;
 
