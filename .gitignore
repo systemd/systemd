@@ -1,3 +1,4 @@
+/systemd-rc-local-generator
 /libsystemd-journal.pc
 /libsystemd-id128.pc
 systemd-journalctl
