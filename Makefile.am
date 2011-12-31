@@ -1250,6 +1250,10 @@ nodist_systemd_logind_SOURCES = \
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf
 
+systemd_logind_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-I $(top_srcdir)/src/login
+
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
