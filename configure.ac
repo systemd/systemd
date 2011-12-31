@@ -316,6 +316,13 @@ if test "x$enable_binfmt" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
 
+have_logind=no
+AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
+if test "x$enable_logind" != "xno"; then
+	have_logind=yes
+fi
+AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
+
 have_hostnamed=no
 AC_ARG_ENABLE(hostnamed, AS_HELP_STRING([--disable-hostnamed], [disable hostname daemon]))
 if test "x$enable_hostnamed" != "xno"; then
@@ -607,6 +614,7 @@ AC_MSG_RESULT([
         XZ:                      ${have_xz}
         ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
+        logind:                  ${have_logind}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         localed:                 ${have_localed}

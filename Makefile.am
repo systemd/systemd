@@ -1,6 +1,7 @@
 #  This file is part of systemd.
 #
-#  Copyright 2010 Lennart Poettering
+#  Copyright 2011 Lennart Poettering
+#  Copyright 2011 Kay Sievers
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU General Public License as published by
@@ -61,6 +62,13 @@ rootlibexecdir=$(rootdir)/lib/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
 systemshutdowndir=$(rootlibexecdir)/system-shutdown
 systemunitdir=$(rootdir)/lib/systemd/system
+
+CLEANFILES =
+EXTRA_DIST =
+INSTALL_EXEC_HOOKS =
+UNINSTALL_EXEC_HOOKS =
+INSTALL_DATA_HOOKS =
+polkitpolicy_in_files =
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -144,7 +152,6 @@ endif
 rootbin_PROGRAMS = \
 	systemd \
 	systemctl \
-	systemd-loginctl \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
@@ -188,8 +195,6 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-	systemd-logind \
-	systemd-uaccess \
 	systemd-journald
 
 if ENABLE_BINFMT
@@ -225,13 +230,11 @@ endif
 
 lib_LTLIBRARIES = \
 	libsystemd-daemon.la \
-	libsystemd-login.la \
 	libsystemd-id128.la \
 	libsystemd-journal.la
 
 pkginclude_HEADERS = \
 	src/sd-daemon.h \
-	src/login/sd-login.h \
 	src/sd-id128.h \
 	src/journal/sd-journal.h
 
@@ -245,7 +248,6 @@ noinst_PROGRAMS = \
 	test-cgroup \
 	test-env-replace \
 	test-strv \
-	test-login \
 	test-install \
 	test-id128 \
 	test-journal
@@ -257,12 +259,10 @@ endif
 
 dist_pkgsysconf_DATA = \
 	src/system.conf \
-	src/user.conf \
-	src/login/systemd-logind.conf
+	src/user.conf
 
 dist_dbuspolicy_DATA = \
-	src/org.freedesktop.systemd1.conf \
-	src/login/org.freedesktop.login1.conf
+	src/org.freedesktop.systemd1.conf
 
 if ENABLE_HOSTNAMED
 dist_dbuspolicy_DATA += \
@@ -280,8 +280,7 @@ dist_dbuspolicy_DATA += \
 endif
 
 dist_dbussystemservice_DATA = \
-	src/org.freedesktop.systemd1.service \
-	src/login/org.freedesktop.login1.service
+	src/org.freedesktop.systemd1.service
 
 if ENABLE_HOSTNAMED
 dist_dbussystemservice_DATA += \
@@ -299,7 +298,6 @@ dist_dbussystemservice_DATA += \
 endif
 
 dist_udevrules_DATA = \
-	src/70-uaccess.rules \
 	src/71-seat.rules
 
 nodist_udevrules_DATA = \
@@ -422,7 +420,6 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-stdout-syslog-bridge.service \
 	units/systemd-shutdownd.service \
-	units/systemd-logind.service \
 	units/systemd-journald.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
@@ -478,7 +475,7 @@ dist_userunit_DATA = \
 nodist_userunit_DATA = \
 	units/user/exit.service
 
-EXTRA_DIST = \
+EXTRA_DIST += \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
 	units/console-shell.service.m4 \
@@ -486,7 +483,6 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-stdout-syslog-bridge.service.in \
 	units/systemd-shutdownd.service.in \
-	units/systemd-logind.service.in \
 	units/systemd-journald.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
@@ -516,11 +512,9 @@ EXTRA_DIST = \
 	units/user@.service.in \
 	systemd.pc.in \
 	libsystemd-daemon.pc.in \
-	libsystemd-login.pc.in \
 	libsystemd-id128.pc.in \
 	libsystemd-journal.pc.in \
 	src/libsystemd-daemon.sym \
-	src/login/libsystemd-login.sym \
 	src/libsystemd-id128.sym \
 	src/journal/libsystemd-journal.sym \
 	introspect.awk \
@@ -621,13 +615,8 @@ pkgconfigdata_DATA = \
 
 pkgconfiglib_DATA = \
 	libsystemd-daemon.pc \
-	libsystemd-login.pc \
 	libsystemd-id128.pc \
 	libsystemd-journal.pc
-
-# Passed through intltool only
-polkitpolicy_in_files = \
-	src/login/org.freedesktop.login1.policy.in
 
 if ENABLE_HOSTNAMED
 polkitpolicy_in_files += \
@@ -792,12 +781,6 @@ EXTRA_DIST += \
 	src/pager.h \
 	src/sysfs-show.h \
 	src/polkit.h \
-	src/login/logind.h \
-	src/login/logind-device.h \
-	src/login/logind-seat.h \
-	src/login/logind-session.h \
-	src/login/logind-user.h \
-	src/login/logind-acl.h \
 	src/dbus-loop.h \
 	src/spawn-agent.h \
 	src/journal/journal-def.h \
@@ -836,14 +819,12 @@ MANPAGES = \
 	man/daemon.7 \
 	man/sd-daemon.7 \
 	man/sd-readahead.7 \
-	man/sd-login.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
 	man/halt.8 \
 	man/shutdown.8 \
 	man/pam_systemd.8 \
 	man/systemd.conf.5 \
-	man/systemd-logind.conf.5 \
 	man/tmpfiles.d.5 \
 	man/hostname.5 \
 	man/timezone.5 \
@@ -855,13 +836,11 @@ MANPAGES = \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
 	man/systemd-ask-password.1 \
-	man/systemd-loginctl.1 \
 	man/sd_pid_get_session.3 \
 	man/sd_uid_get_state.3 \
 	man/sd_session_is_active.3 \
 	man/sd_seat_get_active.3 \
-	man/sd_get_seats.3 \
-	man/sd_login_monitor_new.3
+	man/sd_get_seats.3
 
 if ENABLE_BINFMT
 MANPAGES += \
@@ -886,10 +865,7 @@ MANPAGES_ALIAS = \
 	man/sd_seat_get_sessions.3 \
 	man/sd_seat_can_multi_session.3 \
 	man/sd_get_sessions.3 \
-	man/sd_get_uids.3 \
-	man/sd_login_monitor_unref.3 \
-	man/sd_login_monitor_flush.3 \
-	man/sd_login_monitor_get_fd.3
+	man/sd_get_uids.3
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -909,9 +885,6 @@ man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
 man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
 man/sd_get_sessions.3: man/sd_get_seats.3
 man/sd_get_uids.3: man/sd_get_seats.3
-man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
-man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
-man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 
 dist_man_MANS = \
 	$(MANPAGES) \
@@ -1016,16 +989,6 @@ test_strv_CFLAGS = \
 
 test_strv_LDADD = \
 	libsystemd-basic.la
-
-test_login_SOURCES = \
-	src/login/test-login.c
-
-test_login_CFLAGS = \
-	$(AM_CFLAGS)
-
-test_login_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-login.la
 
 test_install_SOURCES = \
 	src/test-install.c \
@@ -1229,6 +1192,8 @@ systemd_timedated_LDADD = \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
+# ------------------------------------------------------------------------------
+if ENABLE_LOGIND
 systemd_logind_SOURCES = \
 	src/login/logind.c \
 	src/login/logind-dbus.c \
@@ -1247,8 +1212,11 @@ systemd_logind_SOURCES = \
 nodist_systemd_logind_SOURCES = \
 	src/login/logind-gperf.c
 
-EXTRA_DIST += \
-	src/login/logind-gperf.gperf
+if HAVE_ACL
+systemd_logind_SOURCES += \
+	src/login/logind-acl.c \
+	src/acl-util.c
+endif
 
 systemd_logind_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -1267,14 +1235,114 @@ systemd_logind_LDADD = \
 	$(UDEV_LIBS) \
 	$(ACL_LIBS)
 
+rootlibexec_PROGRAMS += \
+	systemd-logind
+
+systemd_loginctl_SOURCES = \
+	src/login/loginctl.c \
+	src/dbus-common.c \
+	src/cgroup-show.c \
+	src/cgroup-util.c \
+	src/pager.c \
+	src/sysfs-show.c
+
+systemd_loginctl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_loginctl_LDADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS) \
+	$(UDEV_LIBS)
+
+rootbin_PROGRAMS += \
+	systemd-loginctl
+
+test_login_SOURCES = \
+	src/login/test-login.c
+
+test_login_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-login.la
+
+noinst_PROGRAMS += \
+	test-login
+
+libsystemd_login_la_SOURCES = \
+	src/login/sd-login.c \
+	src/cgroup-util.c
+
+libsystemd_login_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-fvisibility=hidden
+
+libsystemd_login_la_LDFLAGS = \
+	-shared \
+	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
+
+libsystemd_login_la_LIBADD = \
+	libsystemd-basic.la
+
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-login-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-login.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-login.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-login.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+INSTALL_EXEC_HOOKS += \
+	libsystemd-login-install-hook
+
+libsystemd-login-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
+
+UNINSTALL_EXEC_HOOKS += \
+	libsystemd-login-uninstall-hook
+
+nodist_systemunit_DATA += \
+	units/systemd-logind.service
+
+dist_dbussystemservice_DATA += \
+	src/login/org.freedesktop.login1.service
+
+dist_dbuspolicy_DATA += \
+	src/login/org.freedesktop.login1.conf
+
+dist_pkgsysconf_DATA += \
+	src/login/systemd-logind.conf
+
+pkginclude_HEADERS += \
+	src/login/sd-login.h
+
+lib_LTLIBRARIES += \
+	libsystemd-login.la
+
+pkgconfiglib_DATA += \
+	libsystemd-login.pc
+
+polkitpolicy_in_files += \
+	src/login/org.freedesktop.login1.policy.in
+
+logind-install-data:
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.login1.service && \
+		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f systemd-logind.service && \
+		$(LN_S) ../systemd-logind.service systemd-logind.service )
+
+INSTALL_DATA_HOOKS += \
+	logind-install-data
+
 systemd_uaccess_SOURCES = \
 	src/login/uaccess.c
 
 if HAVE_ACL
-systemd_logind_SOURCES += \
-	src/login/logind-acl.c \
-	src/acl-util.c
-
 systemd_uaccess_SOURCES += \
 	src/login/logind-acl.c \
 	src/acl-util.c
@@ -1291,6 +1359,44 @@ systemd_uaccess_LDADD = \
 	libsystemd-login.la \
 	$(UDEV_LIBS) \
 	$(ACL_LIBS)
+
+rootlibexec_PROGRAMS += \
+	systemd-uaccess
+
+dist_udevrules_DATA += \
+	src/70-uaccess.rules
+
+MANPAGES += \
+	man/systemd-logind.conf.5 \
+	man/sd-login.7 \
+	man/systemd-loginctl.1 \
+	man/sd_login_monitor_new.3
+
+MANPAGES_ALIAS += \
+	man/sd_login_monitor_unref.3 \
+	man/sd_login_monitor_flush.3 \
+	man/sd_login_monitor_get_fd.3
+
+man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
+
+EXTRA_DIST += \
+	src/login/logind-gperf.gperf \
+	units/systemd-logind.service.in \
+	libsystemd-login.pc.in \
+	src/login/libsystemd-login.sym \
+	src/login/logind.h \
+	src/login/logind-device.h \
+	src/login/logind-seat.h \
+	src/login/logind-session.h \
+	src/login/logind-user.h \
+	src/login/logind-acl.h
+
+CLEANFILES += \
+	src/login/logind-gperf.c
+endif
+# ------------------------------------------------------------------------------
 
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
@@ -1522,24 +1628,6 @@ systemctl_LDADD = \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
-systemd_loginctl_SOURCES = \
-	src/login/loginctl.c \
-	src/dbus-common.c \
-	src/cgroup-show.c \
-	src/cgroup-util.c \
-	src/pager.c \
-	src/sysfs-show.c
-
-systemd_loginctl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS)
-
-systemd_loginctl_LDADD = \
-	libsystemd-basic.la \
-	$(DBUS_LIBS) \
-	$(UDEV_LIBS)
-
 systemd_notify_SOURCES = \
 	src/notify.c \
 	src/sd-readahead.c
@@ -1723,35 +1811,6 @@ libsystemd-daemon-install-hook:
 libsystemd-daemon-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
 
-libsystemd_login_la_SOURCES = \
-	src/login/sd-login.c \
-	src/cgroup-util.c
-
-libsystemd_login_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=hidden
-
-libsystemd_login_la_LDFLAGS = \
-	-shared \
-	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
-
-libsystemd_login_la_LIBADD = \
-	libsystemd-basic.la
-
-# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
-libsystemd-login-install-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-login.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-login.so && \
-		mv $(DESTDIR)$(libdir)/libsystemd-login.so.* $(DESTDIR)$(rootlibdir); \
-	fi
-
-libsystemd-login-uninstall-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
-
 libsystemd_id128_la_SOURCES = \
 	src/sd-id128.c
 
@@ -1877,7 +1936,7 @@ units/%: units/%.m4 Makefile
 units/user/%: units/%.m4 Makefile
 	$(M4_PROCESS_USER)
 
-CLEANFILES = \
+CLEANFILES += \
 	$(nodist_systemunit_DATA) \
 	$(nodist_userunit_DATA) \
 	$(nodist_man_MANS) \
@@ -1889,8 +1948,7 @@ CLEANFILES = \
 	src/99-systemd.rules \
 	src/load-fragment-gperf.gperf \
 	src/load-fragment-gperf.c \
-	src/load-fragment-gperf-nulstr.c \
-	src/login/logind-gperf.c
+	src/load-fragment-gperf-nulstr.c
 
 if HAVE_VALAC
 CLEANFILES += \
@@ -1988,7 +2046,7 @@ org.freedesktop.timedate1.xml: systemd-timedated
 CLEANFILES += \
 	$(dbusinterface_DATA)
 
-install-data-hook:
+systemd-install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(tmpfilesdir) \
 		$(DESTDIR)$(sysconfdir)/tmpfiles.d \
@@ -2085,17 +2143,15 @@ endif
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.login1.service autovt@.service && \
+		rm -f default.target ctrl-alt-del.target autovt@.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
-		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service && \
 		$(LN_S) getty@.service autovt@.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path systemd-logind.service && \
+		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path && \
 		$(LN_S) ../getty.target getty.target && \
 		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service && \
-		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path && \
-		$(LN_S) ../systemd-logind.service systemd-logind.service )
+		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path)
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service )
@@ -2267,9 +2323,11 @@ if HAVE_SYSV_COMPAT
 		$(LN_S) ../var-lock.mount var-lock.mount )
 endif
 
-install-exec-hook: libsystemd-daemon-install-hook libsystemd-login-install-hook
+install-exec-hook: libsystemd-daemon-install-hook $(INSTALL_EXEC_HOOKS)
 
-uninstall-hook: libsystemd-daemon-uninstall-hook libsystemd-login-uninstall-hook
+uninstall-hook: libsystemd-daemon-uninstall-hook $(UNINSTALL_EXEC_HOOKS)
+
+install-data-hook: systemd-install-data-hook $(INSTALL_DATA_HOOKS)
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
