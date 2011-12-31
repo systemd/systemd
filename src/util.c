@@ -5942,7 +5942,7 @@ unsigned long cap_last_cap(void) {
 }
 
 char *format_bytes(char *buf, size_t l, off_t t) {
-        int i;
+        unsigned i;
 
         static const struct {
                 const char *suffix;
