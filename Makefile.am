@@ -231,7 +231,7 @@ lib_LTLIBRARIES = \
 
 pkginclude_HEADERS = \
 	src/sd-daemon.h \
-	src/sd-login.h \
+	src/login/sd-login.h \
         src/sd-id128.h \
         src/journal/sd-journal.h
 
@@ -792,12 +792,12 @@ EXTRA_DIST += \
         src/pager.h \
         src/sysfs-show.h \
         src/polkit.h \
-        src/logind.h \
-        src/logind-device.h \
-        src/logind-seat.h \
-        src/logind-session.h \
-        src/logind-user.h \
-        src/logind-acl.h \
+        src/login/logind.h \
+        src/login/logind-device.h \
+        src/login/logind-seat.h \
+        src/login/logind-session.h \
+        src/login/logind-user.h \
+        src/login/logind-acl.h \
         src/dbus-loop.h \
         src/spawn-agent.h \
         src/journal/journal-def.h \
@@ -1018,7 +1018,7 @@ test_strv_LDADD = \
 	libsystemd-basic.la
 
 test_login_SOURCES = \
-	src/test-login.c
+	src/login/test-login.c
 
 test_login_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1230,25 +1230,25 @@ systemd_timedated_LDADD = \
 	$(DBUS_LIBS)
 
 systemd_logind_SOURCES = \
-	src/logind.c \
-	src/logind-dbus.c \
-        src/logind-device.c \
-        src/logind-seat.c \
-        src/logind-seat-dbus.c \
-        src/logind-session.c \
-        src/logind-session-dbus.c \
-        src/logind-user.c \
-        src/logind-user-dbus.c \
+	src/login/logind.c \
+	src/login/logind-dbus.c \
+        src/login/logind-device.c \
+        src/login/logind-seat.c \
+        src/login/logind-seat-dbus.c \
+        src/login/logind-session.c \
+        src/login/logind-session-dbus.c \
+        src/login/logind-user.c \
+        src/login/logind-user-dbus.c \
         src/dbus-common.c \
         src/dbus-loop.c \
         src/cgroup-util.c \
         src/polkit.c
 
 nodist_systemd_logind_SOURCES = \
-        src/logind-gperf.c
+        src/login/logind-gperf.c
 
 EXTRA_DIST += \
-        src/logind-gperf.gperf
+        src/login/logind-gperf.gperf
 
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1264,15 +1264,15 @@ systemd_logind_LDADD = \
         $(ACL_LIBS)
 
 systemd_uaccess_SOURCES = \
-	src/uaccess.c
+	src/login/uaccess.c
 
 if HAVE_ACL
 systemd_logind_SOURCES += \
-	src/logind-acl.c \
+	src/login/logind-acl.c \
         src/acl-util.c
 
 systemd_uaccess_SOURCES += \
-	src/logind-acl.c \
+	src/login/logind-acl.c \
         src/acl-util.c
 endif
 
@@ -1519,7 +1519,7 @@ systemctl_LDADD = \
 	$(DBUS_LIBS)
 
 systemd_loginctl_SOURCES = \
-	src/loginctl.c \
+	src/login/loginctl.c \
 	src/dbus-common.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
@@ -1720,7 +1720,7 @@ libsystemd-daemon-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
 
 libsystemd_login_la_SOURCES = \
-        src/sd-login.c \
+        src/login/sd-login.c \
         src/cgroup-util.c
 
 libsystemd_login_la_CFLAGS = \
@@ -1886,7 +1886,7 @@ CLEANFILES = \
         src/load-fragment-gperf.gperf \
         src/load-fragment-gperf.c \
         src/load-fragment-gperf-nulstr.c \
-        src/logind-gperf.c
+        src/login/logind-gperf.c
 
 if HAVE_VALAC
 CLEANFILES += \
