@@ -12,7 +12,7 @@ src/dbus-target.c
 src/dbus-timer.c
 src/dbus-unit.c
 src/hostnamed.c
-src/localed.c
+src/locale/localed.c
 src/org.freedesktop.systemd1.policy.in.in
 src/timedate/timedated.c
 units/systemd-readahead-done.service.in

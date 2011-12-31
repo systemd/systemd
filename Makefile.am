@@ -207,11 +207,6 @@ rootlibexec_PROGRAMS += \
 	systemd-hostnamed
 endif
 
-if ENABLE_LOCALED
-rootlibexec_PROGRAMS += \
-	systemd-localed
-endif
-
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
 
@@ -438,11 +433,6 @@ nodist_systemunit_DATA += \
 	units/systemd-hostnamed.service
 endif
 
-if ENABLE_LOCALED
-nodist_systemunit_DATA += \
-	units/systemd-localed.service
-endif
-
 dist_userunit_DATA = \
 	units/user/default.target \
 	units/user/exit.target
@@ -505,11 +495,6 @@ endif
 if ENABLE_HOSTNAMED
 EXTRA_DIST += \
 	units/systemd-hostnamed.service.in
-endif
-
-if ENABLE_LOCALED
-EXTRA_DIST += \
-	units/systemd-localed.service.in
 endif
 
 if TARGET_FEDORA
@@ -1109,6 +1094,12 @@ systemd_shutdownd_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la
 
+dist_pkgdata_DATA = \
+	src/kbd-model-map
+
+dist_noinst_SCRIPT = \
+	src/generate-kbd-model-map
+
 systemd_hostnamed_SOURCES = \
 	src/hostnamed.c \
 	src/dbus-common.c \
@@ -1123,8 +1114,10 @@ systemd_hostnamed_LDADD = \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
+# ------------------------------------------------------------------------------
+if ENABLE_LOCALED
 systemd_localed_SOURCES = \
-	src/localed.c \
+	src/locale/localed.c \
 	src/dbus-common.c \
 	src/polkit.c
 
@@ -1137,11 +1130,28 @@ systemd_localed_LDADD = \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
-dist_pkgdata_DATA = \
-	src/kbd-model-map
+nodist_systemunit_DATA += \
+	units/systemd-localed.service
 
-dist_noinst_SCRIPT = \
-	src/generate-kbd-model-map
+rootlibexec_PROGRAMS += \
+	systemd-localed
+
+org.freedesktop.locale1.xml: systemd-localed
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.locale1 $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+localed-install-data-hook:
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.locale1.service && \
+		$(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service )
+
+INSTALL_DATA_HOOKS += \
+	localed-install-data-hook
+
+EXTRA_DIST += \
+	units/systemd-localed.service.in
+endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_TIMEDATED
@@ -2035,11 +2045,6 @@ org.freedesktop.hostname1.xml: systemd-hostnamed
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
-org.freedesktop.locale1.xml: systemd-localed
-	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.locale1 $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
-		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
-
 CLEANFILES += \
 	$(dbusinterface_DATA)
 
@@ -2195,11 +2200,6 @@ if ENABLE_HOSTNAMED
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.hostname1.service && \
 		$(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
-endif
-if ENABLE_LOCALED
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f dbus-org.freedesktop.locale1.service && \
-		$(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service )
 endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
