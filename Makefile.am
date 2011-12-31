@@ -522,7 +522,7 @@ EXTRA_DIST = \
 	src/libsystemd-daemon.sym \
 	src/login/libsystemd-login.sym \
 	src/libsystemd-id128.sym \
-	src/libsystemd-journal.sym \
+	src/journal/libsystemd-journal.sym \
 	introspect.awk \
 	src/73-seat-late.rules.in \
         src/99-systemd.rules.in \
@@ -1791,7 +1791,7 @@ libsystemd_journal_la_CFLAGS = \
 libsystemd_journal_la_LDFLAGS = \
         -shared \
         -version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
-        -Wl,--version-script=$(top_srcdir)/src/libsystemd-journal.sym
+        -Wl,--version-script=$(top_srcdir)/src/journal/libsystemd-journal.sym
 
 libsystemd_journal_la_LIBADD = \
 	libsystemd-basic.la \
