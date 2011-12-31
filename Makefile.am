@@ -258,11 +258,11 @@ endif
 dist_pkgsysconf_DATA = \
 	src/system.conf \
         src/user.conf \
-        src/systemd-logind.conf
+        src/login/systemd-logind.conf
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \
-        src/org.freedesktop.login1.conf
+        src/login/org.freedesktop.login1.conf
 
 if ENABLE_HOSTNAMED
 dist_dbuspolicy_DATA += \
@@ -281,7 +281,7 @@ endif
 
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service \
-        src/org.freedesktop.login1.service
+        src/login/org.freedesktop.login1.service
 
 if ENABLE_HOSTNAMED
 dist_dbussystemservice_DATA += \
@@ -520,7 +520,7 @@ EXTRA_DIST = \
         libsystemd-id128.pc.in \
         libsystemd-journal.pc.in \
 	src/libsystemd-daemon.sym \
-	src/libsystemd-login.sym \
+	src/login/libsystemd-login.sym \
 	src/libsystemd-id128.sym \
 	src/libsystemd-journal.sym \
 	introspect.awk \
@@ -627,7 +627,7 @@ pkgconfiglib_DATA = \
 
 # Passed through intltool only
 polkitpolicy_in_files = \
-        src/org.freedesktop.login1.policy.in
+        src/login/org.freedesktop.login1.policy.in
 
 if ENABLE_HOSTNAMED
 polkitpolicy_in_files += \
@@ -1730,7 +1730,7 @@ libsystemd_login_la_CFLAGS = \
 libsystemd_login_la_LDFLAGS = \
         -shared \
         -version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
-        -Wl,--version-script=$(top_srcdir)/src/libsystemd-login.sym
+        -Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
 
 libsystemd_login_la_LIBADD = \
 	libsystemd-basic.la
