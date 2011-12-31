@@ -18,7 +18,7 @@ Wants=syslog.target
 [Socket]
 ListenDatagram=/run/systemd/syslog
 SocketMode=0666
-PassCred=yes
+PassCredentials=yes
 
 # The service we activate on incoming traffic is
 # systemd-kmsg-syslogd.service. That doesn't mean however, that this

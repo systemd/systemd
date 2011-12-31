@@ -22,3 +22,4 @@ ListenStream=/run/systemd/stdout
 ListenDatagram=/run/systemd/native
 ListenDatagram=/dev/log
 SocketMode=0666
+PassCredentials=yes

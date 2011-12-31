@@ -177,7 +177,7 @@ Socket.PipeSize,                 config_parse_size,                  0,         
 Socket.FreeBind,                 config_parse_bool,                  0,                             offsetof(Socket, free_bind)
 Socket.Transparent,              config_parse_bool,                  0,                             offsetof(Socket, transparent)
 Socket.Broadcast,                config_parse_bool,                  0,                             offsetof(Socket, broadcast)
-Socket.PassCred,                 config_parse_bool,                  0,                             offsetof(Socket, pass_cred)
+Socket.PassCredentials,          config_parse_bool,                  0,                             offsetof(Socket, pass_cred)
 Socket.TCPCongestion,            config_parse_string,                0,                             offsetof(Socket, tcp_congestion)
 Socket.MessageQueueMaxMessages,  config_parse_long,                  0,                             offsetof(Socket, mq_maxmsg)
 Socket.MessageQueueMessageSize,  config_parse_long,                  0,                             offsetof(Socket, mq_msgsize)
