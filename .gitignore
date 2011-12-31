@@ -8,15 +8,15 @@ test-journal
 test-install
 org.freedesktop.hostname1.xml
 org.freedesktop.locale1.xml
-org.freedesktop.timedate1.xml
 libsystemd-daemon.pc
 libsystemd-login.pc
 test-login
 systemd-loginctl
 systemd-localed
 systemd-timedated
-systemd-uaccess
+org.freedesktop.timedate1.xml
 systemd-logind
+systemd-uaccess
 systemd-hostnamed
 systemd-binfmt
 systemd-getty-generator

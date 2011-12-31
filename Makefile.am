@@ -207,11 +207,6 @@ rootlibexec_PROGRAMS += \
 	systemd-hostnamed
 endif
 
-if ENABLE_TIMEDATED
-rootlibexec_PROGRAMS += \
-	systemd-timedated
-endif
-
 if ENABLE_LOCALED
 rootlibexec_PROGRAMS += \
 	systemd-localed
@@ -269,11 +264,6 @@ dist_dbuspolicy_DATA += \
 	src/org.freedesktop.hostname1.conf
 endif
 
-if ENABLE_TIMEDATED
-dist_dbuspolicy_DATA += \
-	src/org.freedesktop.timedate1.conf
-endif
-
 if ENABLE_LOCALED
 dist_dbuspolicy_DATA += \
 	src/org.freedesktop.locale1.conf
@@ -285,11 +275,6 @@ dist_dbussystemservice_DATA = \
 if ENABLE_HOSTNAMED
 dist_dbussystemservice_DATA += \
 	src/org.freedesktop.hostname1.service
-endif
-
-if ENABLE_TIMEDATED
-dist_dbussystemservice_DATA += \
-	src/org.freedesktop.timedate1.service
 endif
 
 if ENABLE_LOCALED
@@ -322,11 +307,6 @@ dbusinterface_DATA = \
 if ENABLE_HOSTNAMED
 dbusinterface_DATA += \
 	org.freedesktop.hostname1.xml
-endif
-
-if ENABLE_TIMEDATED
-dbusinterface_DATA += \
-	org.freedesktop.timedate1.xml
 endif
 
 if ENABLE_LOCALED
@@ -458,11 +438,6 @@ nodist_systemunit_DATA += \
 	units/systemd-hostnamed.service
 endif
 
-if ENABLE_TIMEDATED
-nodist_systemunit_DATA += \
-	units/systemd-timedated.service
-endif
-
 if ENABLE_LOCALED
 nodist_systemunit_DATA += \
 	units/systemd-localed.service
@@ -530,11 +505,6 @@ endif
 if ENABLE_HOSTNAMED
 EXTRA_DIST += \
 	units/systemd-hostnamed.service.in
-endif
-
-if ENABLE_TIMEDATED
-EXTRA_DIST += \
-	units/systemd-timedated.service.in
 endif
 
 if ENABLE_LOCALED
@@ -621,11 +591,6 @@ pkgconfiglib_DATA = \
 if ENABLE_HOSTNAMED
 polkitpolicy_in_files += \
 	src/org.freedesktop.hostname1.policy.in
-endif
-
-if ENABLE_TIMEDATED
-polkitpolicy_in_files += \
-	src/org.freedesktop.timedate1.policy.in
 endif
 
 if ENABLE_LOCALED
@@ -1178,8 +1143,10 @@ dist_pkgdata_DATA = \
 dist_noinst_SCRIPT = \
 	src/generate-kbd-model-map
 
+# ------------------------------------------------------------------------------
+if ENABLE_TIMEDATED
 systemd_timedated_SOURCES = \
-	src/timedated.c \
+	src/timedate/timedated.c \
 	src/dbus-common.c \
 	src/polkit.c
 
@@ -1191,6 +1158,41 @@ systemd_timedated_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
+
+rootlibexec_PROGRAMS += \
+	systemd-timedated
+
+dist_dbussystemservice_DATA += \
+	src/timedate/org.freedesktop.timedate1.service
+
+dist_dbuspolicy_DATA += \
+	src/timedate/org.freedesktop.timedate1.conf
+
+nodist_systemunit_DATA += \
+	units/systemd-timedated.service
+
+polkitpolicy_in_files += \
+	src/timedate/org.freedesktop.timedate1.policy.in
+
+org.freedesktop.timedate1.xml: systemd-timedated
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.timedate1 $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+dbusinterface_DATA += \
+	org.freedesktop.timedate1.xml
+
+timedated-install-data-hook:
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.timedate1.service  && \
+		$(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
+
+INSTALL_DATA_HOOKS += \
+	timedated-install-data-hook
+
+EXTRA_DIST += \
+	units/systemd-timedated.service.in
+endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOGIND
@@ -1328,7 +1330,7 @@ pkgconfiglib_DATA += \
 polkitpolicy_in_files += \
 	src/login/org.freedesktop.login1.policy.in
 
-logind-install-data:
+logind-install-data-hook:
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.login1.service && \
 		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
@@ -1337,7 +1339,7 @@ logind-install-data:
 		$(LN_S) ../systemd-logind.service systemd-logind.service )
 
 INSTALL_DATA_HOOKS += \
-	logind-install-data
+	logind-install-data-hook
 
 systemd_uaccess_SOURCES = \
 	src/login/uaccess.c
@@ -2038,11 +2040,6 @@ org.freedesktop.locale1.xml: systemd-localed
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
-org.freedesktop.timedate1.xml: systemd-timedated
-	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.timedate1 $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
-		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
-
 CLEANFILES += \
 	$(dbusinterface_DATA)
 
@@ -2198,11 +2195,6 @@ if ENABLE_HOSTNAMED
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.hostname1.service && \
 		$(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
-endif
-if ENABLE_TIMEDATED
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f dbus-org.freedesktop.timedate1.service  && \
-		$(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
 endif
 if ENABLE_LOCALED
 	( cd $(DESTDIR)$(systemunitdir) && \

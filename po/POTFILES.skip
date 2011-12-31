@@ -14,6 +14,6 @@ src/dbus-unit.c
 src/hostnamed.c
 src/localed.c
 src/org.freedesktop.systemd1.policy.in.in
-src/timedated.c
+src/timedate/timedated.c
 units/systemd-readahead-done.service.in
 units/user@.service.in
