@@ -1867,7 +1867,7 @@ lib_LTLIBRARIES += \
 	libsystemd-login.la
 
 pkgconfiglib_DATA += \
-	libsystemd-login.pc
+	src/login/libsystemd-login.pc
 
 polkitpolicy_in_files += \
 	src/login/org.freedesktop.login1.policy.in
@@ -1928,7 +1928,7 @@ man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
 	units/systemd-logind.service.in \
-	libsystemd-login.pc.in \
+        src/login/libsystemd-login.pc.in \
 	src/login/libsystemd-login.sym \
 	src/login/logind.h \
 	src/login/logind-device.h \
