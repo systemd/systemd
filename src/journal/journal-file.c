@@ -39,6 +39,25 @@
 
 #define COMPRESSION_SIZE_THRESHOLD (64ULL)
 
+/* This is the minimum journal file size */
+#define JOURNAL_FILE_SIZE_MIN (64ULL*1024ULL)
+
+/* These are the lower and upper bounds if we deduce the max_use value
+ * from the file system size */
+#define DEFAULT_MAX_USE_LOWER (1ULL*1024ULL*1024ULL)           /* 1 MiB */
+#define DEFAULT_MAX_USE_UPPER (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */
+
+/* This is the upper bound if we deduce max_size from max_use */
+#define DEFAULT_MAX_SIZE_UPPER (16ULL*1024ULL*1024ULL)         /* 16 MiB */
+
+/* This is the upper bound if we deduce the keep_free value from the
+ * file system size */
+#define DEFAULT_KEEP_FREE_UPPER (4ULL*1024ULL*1024ULL*1024ULL) /* 4 GiB */
+
+/* This is the keep_free value when we can't determine the system
+ * size */
+#define DEFAULT_KEEP_FREE (1024ULL*1024ULL)                    /* 1 MB */
+
 static const char signature[] = { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' };
 
 #define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
@@ -1701,10 +1720,6 @@ int journal_file_open(
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
         f->prot = prot_from_flags(flags);
 
-        f->metrics.max_size = DEFAULT_MAX_SIZE;
-        f->metrics.min_size = DEFAULT_MIN_SIZE;
-        f->metrics.keep_free = DEFAULT_KEEP_FREE;
-
         f->path = strdup(fname);
         if (!f->path) {
                 r = -ENOMEM;
@@ -1877,7 +1892,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
         assert(directory);
 
         if (max_use <= 0)
-                max_use = DEFAULT_MAX_USE;
+                return 0;
 
         d = opendir(directory);
         if (!d)
@@ -2075,4 +2090,79 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         }
 
         return journal_file_append_entry_internal(to, &ts, xor_hash, items, n, seqnum, ret, offset);
+}
+
+void journal_default_metrics(JournalMetrics *m, int fd) {
+        uint64_t fs_size = 0;
+        struct statvfs ss;
+        char a[64], b[64], c[64], d[64];
+
+        assert(m);
+        assert(fd >= 0);
+
+        if (fstatvfs(fd, &ss) >= 0)
+                fs_size = ss.f_frsize * ss.f_blocks;
+
+        if (m->max_use == (uint64_t) -1) {
+
+                if (fs_size > 0) {
+                        m->max_use = PAGE_ALIGN(fs_size / 10); /* 10% of file system size */
+
+                        if (m->max_use > DEFAULT_MAX_USE_UPPER)
+                                m->max_use = DEFAULT_MAX_USE_UPPER;
+
+                        if (m->max_use < DEFAULT_MAX_USE_LOWER)
+                                m->max_use = DEFAULT_MAX_USE_LOWER;
+                } else
+                        m->max_use = DEFAULT_MAX_USE_LOWER;
+        } else {
+                m->max_use = PAGE_ALIGN(m->max_use);
+
+                if (m->max_use < JOURNAL_FILE_SIZE_MIN*2)
+                        m->max_use = JOURNAL_FILE_SIZE_MIN*2;
+        }
+
+        if (m->max_size == (uint64_t) -1) {
+                m->max_size = PAGE_ALIGN(m->max_use / 8); /* 8 chunks */
+
+                if (m->max_size > DEFAULT_MAX_SIZE_UPPER)
+                        m->max_size = DEFAULT_MAX_SIZE_UPPER;
+        } else
+                m->max_size = PAGE_ALIGN(m->max_size);
+
+        if (m->max_size < JOURNAL_FILE_SIZE_MIN)
+                m->max_size = JOURNAL_FILE_SIZE_MIN;
+
+        if (m->max_size*2 > m->max_use)
+                m->max_use = m->max_size*2;
+
+        if (m->min_size == (uint64_t) -1)
+                m->min_size = JOURNAL_FILE_SIZE_MIN;
+        else {
+                m->min_size = PAGE_ALIGN(m->min_size);
+
+                if (m->min_size < JOURNAL_FILE_SIZE_MIN)
+                        m->min_size = JOURNAL_FILE_SIZE_MIN;
+
+                if (m->min_size > m->max_size)
+                        m->max_size = m->min_size;
+        }
+
+        if (m->keep_free == (uint64_t) -1) {
+
+                if (fs_size > 0) {
+                        m->keep_free = PAGE_ALIGN(fs_size / 20); /* 5% of file system size */
+
+                        if (m->keep_free > DEFAULT_KEEP_FREE_UPPER)
+                                m->keep_free = DEFAULT_KEEP_FREE_UPPER;
+
+                } else
+                        m->keep_free = DEFAULT_KEEP_FREE;
+        }
+
+        log_debug("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
+                  format_bytes(a, sizeof(a), m->max_use),
+                  format_bytes(b, sizeof(b), m->max_size),
+                  format_bytes(c, sizeof(c), m->min_size),
+                  format_bytes(d, sizeof(d), m->keep_free));
 }

@@ -5940,3 +5940,37 @@ unsigned long cap_last_cap(void) {
 
         return p;
 }
+
+char *format_bytes(char *buf, size_t l, off_t t) {
+        int i;
+
+        static const struct {
+                const char *suffix;
+                off_t factor;
+        } table[] = {
+                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
+                { "G", 1024ULL*1024ULL*1024ULL },
+                { "M", 1024ULL*1024ULL },
+                { "K", 1024ULL },
+        };
+
+        for (i = 0; i < ELEMENTSOF(table); i++) {
+
+                if (t >= table[i].factor) {
+                        snprintf(buf, l,
+                                 "%llu.%llu%s",
+                                 (unsigned long long) (t / table[i].factor),
+                                 (unsigned long long) (((t*10ULL) / table[i].factor) % 10ULL),
+                                 table[i].suffix);
+
+                        goto finish;
+                }
+        }
+
+        snprintf(buf, l, "%lluB", (unsigned long long) t);
+
+finish:
+        buf[l-1] = 0;
+        return buf;
+
+}

@@ -75,7 +75,9 @@ typedef struct Server {
 
         JournalRateLimit *rate_limit;
 
-        JournalMetrics metrics;
+        JournalMetrics runtime_metrics;
+        JournalMetrics system_metrics;
+
         bool compress;
 
         uint64_t cached_available_space;
@@ -117,15 +119,17 @@ struct StdoutStream {
 static int server_flush_to_var(Server *s);
 
 static uint64_t available_space(Server *s) {
-        char ids[33];
-        sd_id128_t machine;
-        char *p;
+        char ids[33], *p;
         const char *f;
+        sd_id128_t machine;
         struct statvfs ss;
         uint64_t sum = 0, avail = 0, ss_avail = 0;
         int r;
         DIR *d;
-        usec_t ts = now(CLOCK_MONOTONIC);
+        usec_t ts;
+        JournalMetrics *m;
+
+        ts = now(CLOCK_MONOTONIC);
 
         if (s->cached_available_space_timestamp + RECHECK_AVAILABLE_SPACE_USEC > ts)
                 return s->cached_available_space;
@@ -134,10 +138,15 @@ static uint64_t available_space(Server *s) {
         if (r < 0)
                 return 0;
 
-        if (s->system_journal)
+        if (s->system_journal) {
                 f = "/var/log/journal/";
-        else
+                m = &s->system_metrics;
+        } else {
                 f = "/run/log/journal/";
+                m = &s->runtime_metrics;
+        }
+
+        assert(m);
 
         p = strappend(f, sd_id128_to_string(machine, ids));
         if (!p)
@@ -175,11 +184,11 @@ static uint64_t available_space(Server *s) {
                 sum += (uint64_t) st.st_blocks * (uint64_t) st.st_blksize;
         }
 
-        avail = sum >= s->metrics.max_use ? 0 : s->metrics.max_use - sum;
+        avail = sum >= m->max_use ? 0 : m->max_use - sum;
 
         ss_avail = ss.f_bsize * ss.f_bavail;
 
-        ss_avail = ss_avail < s->metrics.keep_free ? 0 : ss_avail - s->metrics.keep_free;
+        ss_avail = ss_avail < m->keep_free ? 0 : ss_avail - m->keep_free;
 
         if (ss_avail < avail)
                 avail = ss_avail;
@@ -284,7 +293,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 return s->system_journal;
 
         fix_perms(f, uid);
-        f->metrics = s->metrics;
+        f->metrics = s->system_metrics;
         f->compress = s->compress;
 
         r = hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
@@ -335,25 +344,32 @@ static void server_vacuum(Server *s) {
                 return;
         }
 
-        if (asprintf(&p, "/var/log/journal/%s", sd_id128_to_string(machine, ids)) < 0) {
-                log_error("Out of memory.");
-                return;
+        sd_id128_to_string(machine, ids);
+
+        if (s->system_journal) {
+                if (asprintf(&p, "/var/log/journal/%s", ids) < 0) {
+                        log_error("Out of memory.");
+                        return;
+                }
+
+                r = journal_directory_vacuum(p, s->system_metrics.max_use, s->system_metrics.keep_free);
+                if (r < 0 && r != -ENOENT)
+                        log_error("Failed to vacuum %s: %s", p, strerror(-r));
+                free(p);
         }
 
-        r = journal_directory_vacuum(p, s->metrics.max_use, s->metrics.keep_free);
-        if (r < 0 && r != -ENOENT)
-                log_error("Failed to vacuum %s: %s", p, strerror(-r));
-        free(p);
 
-        if (asprintf(&p, "/run/log/journal/%s", ids) < 0) {
-                log_error("Out of memory.");
-                return;
+        if (s->runtime_journal) {
+                if (asprintf(&p, "/run/log/journal/%s", ids) < 0) {
+                        log_error("Out of memory.");
+                        return;
+                }
+
+                r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->runtime_metrics.keep_free);
+                if (r < 0 && r != -ENOENT)
+                        log_error("Failed to vacuum %s: %s", p, strerror(-r));
+                free(p);
         }
-
-        r = journal_directory_vacuum(p, s->metrics.max_use, s->metrics.keep_free);
-        if (r < 0 && r != -ENOENT)
-                log_error("Failed to vacuum %s: %s", p, strerror(-r));
-        free(p);
 
         s->cached_available_space_timestamp = 0;
 }
@@ -1144,7 +1160,9 @@ static int system_journal_open(Server *s) {
                 free(fn);
 
                 if (r >= 0) {
-                        s->system_journal->metrics = s->metrics;
+                        journal_default_metrics(&s->system_metrics, s->system_journal->fd);
+
+                        s->system_journal->metrics = s->system_metrics;
                         s->system_journal->compress = s->compress;
 
                         fix_perms(s->system_journal, 0);
@@ -1200,7 +1218,9 @@ static int system_journal_open(Server *s) {
                 }
 
                 if (s->runtime_journal) {
-                        s->runtime_journal->metrics = s->metrics;
+                        journal_default_metrics(&s->runtime_metrics, s->runtime_journal->fd);
+
+                        s->runtime_journal->metrics = s->runtime_metrics;
                         s->runtime_journal->compress = s->compress;
 
                         fix_perms(s->runtime_journal, 0);
@@ -1717,11 +1737,10 @@ static int server_init(Server *s) {
 
         zero(*s);
         s->syslog_fd = s->native_fd = s->stdout_fd = s->signal_fd = s->epoll_fd = -1;
-        s->metrics.max_size = DEFAULT_MAX_SIZE;
-        s->metrics.min_size = DEFAULT_MIN_SIZE;
-        s->metrics.keep_free = DEFAULT_KEEP_FREE;
-        s->metrics.max_use = DEFAULT_MAX_USE;
         s->compress = true;
+
+        memset(&s->system_metrics, 0xFF, sizeof(s->system_metrics));
+        memset(&s->runtime_metrics, 0xFF, sizeof(s->runtime_metrics));
 
         s->user_journals = hashmap_new(trivial_hash_func, trivial_compare_func);
         if (!s->user_journals) {
