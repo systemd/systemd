@@ -197,11 +197,6 @@ rootlibexec_PROGRAMS = \
 	systemd-sysctl \
 	systemd-journald
 
-if ENABLE_BINFMT
-rootlibexec_PROGRAMS += \
-	systemd-binfmt
-endif
-
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
 
@@ -347,12 +342,6 @@ dist_systemunit_DATA += \
 	units/var-lock.mount
 endif
 
-if ENABLE_BINFMT
-dist_systemunit_DATA += \
-	units/proc-sys-fs-binfmt_misc.automount \
-	units/proc-sys-fs-binfmt_misc.mount
-endif
-
 nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
@@ -387,11 +376,6 @@ nodist_systemunit_DATA = \
 	units/quotacheck.service \
 	units/rescue.service \
 	units/user@.service
-
-if ENABLE_BINFMT
-nodist_systemunit_DATA += \
-	units/systemd-binfmt.service
-endif
 
 dist_userunit_DATA = \
 	units/user/default.target \
@@ -446,11 +430,6 @@ EXTRA_DIST += \
 	src/73-seat-late.rules.in \
 	src/99-systemd.rules.in \
 	man/custom-html.xsl
-
-if ENABLE_BINFMT
-EXTRA_DIST += \
-	units/systemd-binfmt.service.in
-endif
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
@@ -736,11 +715,6 @@ MANPAGES = \
 	man/sd_session_is_active.3 \
 	man/sd_seat_get_active.3 \
 	man/sd_get_seats.3
-
-if ENABLE_BINFMT
-MANPAGES += \
-	man/binfmt.d.5
-endif
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -1044,6 +1018,44 @@ dist_pkgdata_DATA = \
 
 dist_noinst_SCRIPT = \
 	src/generate-kbd-model-map
+
+# ------------------------------------------------------------------------------
+if ENABLE_BINFMT
+systemd_binfmt_SOURCES = \
+	src/binfmt/binfmt.c
+
+systemd_binfmt_LDADD = \
+	libsystemd-basic.la
+
+rootlibexec_PROGRAMS += \
+	systemd-binfmt
+
+dist_systemunit_DATA += \
+	units/proc-sys-fs-binfmt_misc.automount \
+	units/proc-sys-fs-binfmt_misc.mount
+
+nodist_systemunit_DATA += \
+	units/systemd-binfmt.service
+
+binfmt-install-data-hook:
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(prefix)/lib/binfmt.d \
+		$(DESTDIR)$(sysconfdir)/binfmt.d
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f systemd-binfmt.service \
+			proc-sys-fs-binfmt_misc.automount && \
+		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
+		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount )
+
+INSTALL_DATA_HOOKS += \
+	binfmt-install-data-hook
+
+MANPAGES += \
+	man/binfmt.d.5
+
+EXTRA_DIST += \
+	units/systemd-binfmt.service.in
+endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_HOSTNAMED
@@ -1453,15 +1465,6 @@ systemd_sysctl_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_sysctl_LDADD = \
-	libsystemd-basic.la
-
-systemd_binfmt_SOURCES = \
-	src/binfmt.c
-
-systemd_binfmt_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_binfmt_LDADD = \
 	libsystemd-basic.la
 
 systemd_fsck_SOURCES = \
@@ -2048,11 +2051,6 @@ systemd-install-data-hook:
 		$(DESTDIR)$(systemshutdowndir) \
 		$(DESTDIR)$(systemgeneratordir) \
 		$(DESTDIR)$(usergeneratordir)
-if ENABLE_BINFMT
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(prefix)/lib/binfmt.d \
-		$(DESTDIR)$(sysconfdir)/binfmt.d
-endif
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(userunitdir) \
@@ -2178,13 +2176,6 @@ endif
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \
 		$(LN_S) ../systemd-kmsg-syslogd.service && \
 		$(LN_S) ../cryptsetup.target cryptsetup.target )
-if ENABLE_BINFMT
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f systemd-binfmt.service \
-			proc-sys-fs-binfmt_misc.automount && \
-		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
-		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount )
-endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
 		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )
