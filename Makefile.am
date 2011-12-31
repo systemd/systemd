@@ -1732,7 +1732,7 @@ libsystemd_login_la_LIBADD = \
 
 if HAVE_PAM
 pam_systemd_la_SOURCES = \
-	src/pam-module.c \
+	src/login/pam-module.c \
 	src/dbus-common.c
 
 pam_systemd_la_CFLAGS = \
