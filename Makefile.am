@@ -189,7 +189,6 @@ rootlibexec_PROGRAMS = \
 	systemd-remount-api-vfs \
 	systemd-kmsg-syslogd \
 	systemd-reply-password \
-	systemd-user-sessions \
 	systemd-fsck \
 	systemd-quotacheck \
 	systemd-timestamp \
@@ -339,7 +338,6 @@ nodist_systemunit_DATA = \
 	units/systemd-random-seed-load.service \
 	units/systemd-tmpfiles-setup.service \
 	units/systemd-tmpfiles-clean.service \
-	units/systemd-user-sessions.service \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
@@ -377,7 +375,6 @@ EXTRA_DIST += \
 	units/systemd-random-seed-load.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in \
-	units/systemd-user-sessions.service.in \
 	units/systemd-ask-password-wall.service.in \
 	units/systemd-ask-password-console.service.in \
 	units/systemd-sysctl.service.in \
@@ -941,13 +938,6 @@ systemd_rc_local_generator_SOURCES = \
 	src/rc-local-generator.c
 
 systemd_rc_local_generator_LDADD = \
-	libsystemd-basic.la
-
-systemd_user_sessions_SOURCES = \
-	src/user-sessions.c \
-	src/cgroup-util.c
-
-systemd_user_sessions_LDADD = \
 	libsystemd-basic.la
 
 systemd_remount_api_vfs_SOURCES = \
@@ -1702,8 +1692,16 @@ systemd_logind_LDADD = \
 	$(UDEV_LIBS) \
 	$(ACL_LIBS)
 
+systemd_user_sessions_SOURCES = \
+	src/login/user-sessions.c \
+	src/cgroup-util.c
+
+systemd_user_sessions_LDADD = \
+	libsystemd-basic.la
+
 rootlibexec_PROGRAMS += \
-	systemd-logind
+	systemd-logind \
+	systemd-user-sessions
 
 systemd_loginctl_SOURCES = \
 	src/login/loginctl.c \
@@ -1800,7 +1798,8 @@ UNINSTALL_EXEC_HOOKS += \
 	libsystemd-login-uninstall-hook
 
 nodist_systemunit_DATA += \
-	units/systemd-logind.service
+	units/systemd-logind.service \
+	units/systemd-user-sessions.service
 
 dist_dbussystemservice_DATA += \
 	src/login/org.freedesktop.login1.service
@@ -1828,8 +1827,9 @@ logind-install-data-hook:
 		rm -f dbus-org.freedesktop.login1.service && \
 		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f systemd-logind.service && \
-		$(LN_S) ../systemd-logind.service systemd-logind.service )
+		rm -f systemd-logind.service systemd-user-sessions.service && \
+		$(LN_S) ../systemd-logind.service systemd-logind.service && \
+		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service )
 
 INSTALL_DATA_HOOKS += \
 	logind-install-data-hook
@@ -1904,6 +1904,7 @@ man/sd_get_uids.3: man/sd_get_seats.3
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
 	units/systemd-logind.service.in \
+	units/systemd-user-sessions.service.in \
 	src/login/libsystemd-login.pc.in \
 	src/login/libsystemd-login.sym \
 	src/login/logind.h \
@@ -2171,9 +2172,8 @@ systemd-install-data-hook:
 		$(LN_S) reboot.target ctrl-alt-del.target && \
 		$(LN_S) getty@.service autovt@.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path && \
+		rm -f getty.target systemd-ask-password-wall.path && \
 		$(LN_S) ../getty.target getty.target && \
-		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service && \
 		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path)
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service && \
