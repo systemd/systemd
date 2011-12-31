@@ -69,6 +69,8 @@ INSTALL_EXEC_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
 pkginclude_HEADERS =
+lib_LTLIBRARIES =
+pkgconfiglib_DATA =
 polkitpolicy_in_files =
 
 AM_CPPFLAGS = \
@@ -204,9 +206,6 @@ rootlibexec_PROGRAMS += \
 systemgenerator_PROGRAMS += \
 	systemd-cryptsetup-generator
 endif
-
-lib_LTLIBRARIES = \
-	libsystemd-daemon.la
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -393,8 +392,6 @@ EXTRA_DIST += \
 	units/quotacheck.service.in \
 	units/user@.service.in \
 	systemd.pc.in \
-	libsystemd-daemon.pc.in \
-	src/libsystemd-daemon.sym \
 	introspect.awk \
 	src/73-seat-late.rules.in \
 	src/99-systemd.rules.in \
@@ -466,9 +463,6 @@ dist_doc_DATA = \
 
 pkgconfigdata_DATA = \
 	systemd.pc
-
-pkgconfiglib_DATA = \
-	libsystemd-daemon.pc
 
 # First passed through sed, followed by intltool
 polkitpolicy_in_in_files = \
@@ -1204,6 +1198,16 @@ libsystemd-daemon-uninstall-hook:
 UNINSTALL_EXEC_HOOKS += \
 	libsystemd-daemon-uninstall-hook
 
+lib_LTLIBRARIES += \
+	libsystemd-daemon.la
+
+pkgconfiglib_DATA += \
+	libsystemd-daemon.pc
+
+dist_doc_DATA += \
+	src/sd-daemon.h \
+	src/sd-daemon.c
+
 MANPAGES += \
 	man/sd-daemon.7 \
 	man/sd_notify.3 \
@@ -1224,12 +1228,10 @@ man/sd_is_socket_inet.3: man/sd_is_fifo.3
 man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_notifyf.3: man/sd_notify.3
 
-dist_doc_DATA += \
-	src/sd-daemon.h \
-	src/sd-daemon.c
-
 EXTRA_DIST += \
-	${libsystemd_daemon_la_SOURCES:.c=.h}
+	${libsystemd_daemon_la_SOURCES:.c=.h} \
+	libsystemd-daemon.pc.in \
+	src/libsystemd-daemon.sym
 
 # ------------------------------------------------------------------------------
 libsystemd_id128_la_SOURCES = \
