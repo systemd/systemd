@@ -316,6 +316,20 @@ if test "x$enable_binfmt" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
 
+have_vconsole=no
+AC_ARG_ENABLE(vconsole, AS_HELP_STRING([--disable-vconsole], [disable vconsole tool]))
+if test "x$enable_vconsole" != "xno"; then
+	have_vconsole=yes
+fi
+AM_CONDITIONAL(ENABLE_VCONSOLE, [test "$have_vconsole" = "yes"])
+
+have_readahead=no
+AC_ARG_ENABLE(readahead, AS_HELP_STRING([--disable-readahead], [disable readahead tools]))
+if test "x$enable_readahead" != "xno"; then
+	have_readahead=yes
+fi
+AM_CONDITIONAL(ENABLE_READAHEAD, [test "$have_readahead" = "yes"])
+
 have_logind=no
 AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
 if test "x$enable_logind" != "xno"; then
@@ -611,6 +625,8 @@ AC_MSG_RESULT([
         XZ:                      ${have_xz}
         ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
+        vconsole:                ${have_vconsole}
+        readahead:               ${have_readahead}
         logind:                  ${have_logind}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}

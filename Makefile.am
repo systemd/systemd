@@ -96,7 +96,9 @@ AM_CPPFLAGS = \
 	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
-	-I $(top_srcdir)/src
+	-I $(top_srcdir)/src \
+	-I $(top_srcdir)/src/readahead \
+	-I $(top_srcdir)/src/login
 
 if TARGET_GENTOO
 AM_CPPFLAGS += \
@@ -186,7 +188,6 @@ rootlibexec_PROGRAMS = \
 	systemd-modules-load \
 	systemd-remount-api-vfs \
 	systemd-kmsg-syslogd \
-	systemd-vconsole-setup \
 	systemd-reply-password \
 	systemd-user-sessions \
 	systemd-fsck \
@@ -331,7 +332,6 @@ nodist_systemunit_DATA = \
 	units/systemd-shutdownd.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
-	units/systemd-vconsole-setup.service \
 	units/systemd-remount-api-vfs.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
@@ -370,7 +370,6 @@ EXTRA_DIST += \
 	units/systemd-shutdownd.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
-	units/systemd-vconsole-setup.service.in \
 	units/systemd-remount-api-vfs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
@@ -644,7 +643,6 @@ MANPAGES = \
 	man/hostname.5 \
 	man/timezone.5 \
 	man/machine-id.5 \
-	man/vconsole.conf.5 \
 	man/locale.conf.5 \
 	man/os-release.5 \
 	man/machine-info.5 \
@@ -952,12 +950,6 @@ systemd_user_sessions_SOURCES = \
 systemd_user_sessions_LDADD = \
 	libsystemd-basic.la
 
-systemd_vconsole_setup_SOURCES = \
-	src/vconsole-setup.c
-
-systemd_vconsole_setup_LDADD = \
-	libsystemd-basic.la
-
 systemd_remount_api_vfs_SOURCES = \
 	src/remount-api-vfs.c \
 	src/mount-setup.c \
@@ -1010,7 +1002,7 @@ systemctl_LDADD = \
 
 systemd_notify_SOURCES = \
 	src/notify.c \
-	src/sd-readahead.c
+	src/readahead/sd-readahead.c
 
 systemd_notify_LDADD = \
 	libsystemd-basic.la \
@@ -1106,56 +1098,6 @@ systemd_tty_ask_password_agent_SOURCES = \
 
 systemd_tty_ask_password_agent_LDADD = \
 	libsystemd-basic.la
-
-# ------------------------------------------------------------------------------
-systemd_readahead_collect_SOURCES = \
-	src/readahead-collect.c \
-	src/readahead-common.c
-
-systemd_readahead_collect_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(UDEV_LIBS)
-
-systemd_readahead_replay_SOURCES = \
-	src/readahead-replay.c \
-	src/readahead-common.c
-
-systemd_readahead_replay_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(UDEV_CFLAGS)
-
-systemd_readahead_replay_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(UDEV_LIBS)
-
-rootlibexec_PROGRAMS += \
-	systemd-readahead-collect \
-	systemd-readahead-replay
-
-dist_systemunit_DATA += \
-	units/systemd-readahead-done.timer
-
-nodist_systemunit_DATA += \
-	units/systemd-readahead-collect.service \
-	units/systemd-readahead-replay.service \
-	units/systemd-readahead-done.service
-
-EXTRA_DIST += \
-	src/sd-readahead.h \
-	src/readahead-common.h \
-	units/systemd-readahead-collect.service.in \
-	units/systemd-readahead-replay.service.in \
-	units/systemd-readahead-done.service.in
-
-dist_doc_DATA += \
-	src/sd-readahead.h \
-	src/sd-readahead.c
-
-MANPAGES += \
-	man/sd_readahead.3 \
-	man/sd-readahead.7
 
 # ------------------------------------------------------------------------------
 libsystemd_daemon_la_SOURCES = \
@@ -1477,6 +1419,91 @@ MANPAGES += \
 
 EXTRA_DIST += \
 	units/systemd-binfmt.service.in
+endif
+
+# ------------------------------------------------------------------------------
+if ENABLE_VCONSOLE
+systemd_vconsole_setup_SOURCES = \
+	src/vconsole/vconsole-setup.c
+
+systemd_vconsole_setup_LDADD = \
+	libsystemd-basic.la
+
+rootlibexec_PROGRAMS += \
+	systemd-vconsole-setup
+
+nodist_systemunit_DATA += \
+	units/systemd-vconsole-setup.service
+
+vconsole-install-data-hook:
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f systemd-vconsole-setup.service && \
+		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service )
+
+INSTALL_DATA_HOOKS += \
+	vconsole-install-data-hook
+
+MANPAGES += \
+	man/vconsole.conf.5
+
+EXTRA_DIST += \
+	units/systemd-vconsole-setup.service.in
+endif
+
+# ------------------------------------------------------------------------------
+if ENABLE_READAHEAD
+systemd_readahead_collect_SOURCES = \
+	src/readahead/readahead-collect.c \
+	src/readahead/readahead-common.c
+
+systemd_readahead_collect_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(UDEV_LIBS)
+
+systemd_readahead_collect_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_readahead_replay_SOURCES = \
+	src/readahead/readahead-replay.c \
+	src/readahead/readahead-common.c
+
+systemd_readahead_replay_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_readahead_replay_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(UDEV_LIBS)
+
+rootlibexec_PROGRAMS += \
+	systemd-readahead-collect \
+	systemd-readahead-replay
+
+dist_systemunit_DATA += \
+	units/systemd-readahead-done.timer
+
+nodist_systemunit_DATA += \
+	units/systemd-readahead-collect.service \
+	units/systemd-readahead-replay.service \
+	units/systemd-readahead-done.service
+
+EXTRA_DIST += \
+	src/readahead/sd-readahead.h \
+	src/readahead/readahead-common.h \
+	units/systemd-readahead-collect.service.in \
+	units/systemd-readahead-replay.service.in \
+	units/systemd-readahead-done.service.in
+
+dist_doc_DATA += \
+	src/readahead/sd-readahead.h \
+	src/readahead/sd-readahead.c
+
+MANPAGES += \
+	man/sd_readahead.3 \
+	man/sd-readahead.7
 endif
 
 # ------------------------------------------------------------------------------
@@ -2161,7 +2188,6 @@ systemd-install-data-hook:
 			sys-kernel-debug.mount \
 			sys-kernel-security.mount \
 			sys-fs-fuse-connections.mount \
-			systemd-vconsole-setup.service \
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
 			systemd-tmpfiles-setup.service \
@@ -2175,7 +2201,6 @@ systemd-install-data-hook:
 		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
 		$(LN_S) ../sys-kernel-security.mount sys-kernel-security.mount && \
 		$(LN_S) ../sys-fs-fuse-connections.mount sys-fs-fuse-connections.mount && \
-		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
