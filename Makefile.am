@@ -207,12 +207,10 @@ systemgenerator_PROGRAMS += \
 endif
 
 lib_LTLIBRARIES = \
-	libsystemd-daemon.la \
-	libsystemd-id128.la
+	libsystemd-daemon.la
 
 pkginclude_HEADERS = \
-	src/sd-daemon.h \
-	src/sd-id128.h
+	src/sd-daemon.h
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -224,8 +222,7 @@ noinst_PROGRAMS = \
 	test-cgroup \
 	test-env-replace \
 	test-strv \
-	test-install \
-	test-id128
+	test-install
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -413,9 +410,7 @@ EXTRA_DIST += \
 	units/user@.service.in \
 	systemd.pc.in \
 	libsystemd-daemon.pc.in \
-	libsystemd-id128.pc.in \
 	src/libsystemd-daemon.sym \
-	src/libsystemd-id128.sym \
 	introspect.awk \
 	src/73-seat-late.rules.in \
 	src/99-systemd.rules.in \
@@ -493,8 +488,7 @@ pkgconfigdata_DATA = \
 	systemd.pc
 
 pkgconfiglib_DATA = \
-	libsystemd-daemon.pc \
-	libsystemd-id128.pc
+	libsystemd-daemon.pc
 
 # First passed through sed, followed by intltool
 polkitpolicy_in_in_files = \
@@ -855,16 +849,6 @@ test_install_CFLAGS = \
 test_install_LDADD = \
 	libsystemd-basic.la
 
-test_id128_SOURCES = \
-	src/test-id128.c \
-	src/sd-id128.c
-
-test_id128_CFLAGS = \
-	$(AM_CFLAGS)
-
-test_id128_LDADD = \
-	libsystemd-basic.la
-
 systemd_stdout_syslog_bridge_SOURCES = \
 	src/stdout-syslog-bridge.c \
 	src/tcpwrap.c
@@ -927,6 +911,67 @@ dist_pkgdata_DATA = \
 
 dist_noinst_SCRIPT = \
 	src/generate-kbd-model-map
+
+# ------------------------------------------------------------------------------
+libsystemd_id128_la_SOURCES = \
+	src/sd-id128.c
+
+libsystemd_id128_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-fvisibility=hidden
+
+libsystemd_id128_la_LDFLAGS = \
+	-shared \
+	-version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128.sym
+
+libsystemd_id128_la_LIBADD = \
+	libsystemd-basic.la
+
+test_id128_SOURCES = \
+	src/test-id128.c \
+	src/sd-id128.c
+
+test_id128_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_id128_LDADD = \
+	libsystemd-basic.la
+
+noinst_PROGRAMS += \
+	test-id128
+
+pkginclude_HEADERS += \
+	src/sd-id128.h
+
+lib_LTLIBRARIES += \
+	libsystemd-id128.la
+
+pkgconfiglib_DATA += \
+	libsystemd-id128.pc
+
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-id128-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-id128.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-id128.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-id128.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+INSTALL_EXEC_HOOKS += \
+	libsystemd-id128-install-hook
+
+libsystemd-id128-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-id128.so*
+
+UNINSTALL_EXEC_HOOKS += \
+	libsystemd-id128-uninstall-hook
+
+EXTRA_DIST += \
+	libsystemd-id128.pc.in \
+	src/libsystemd-id128.sym
 
 # ------------------------------------------------------------------------------
 systemd_journald_SOURCES = \
@@ -1886,34 +1931,6 @@ libsystemd-daemon-install-hook:
 
 libsystemd-daemon-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
-
-libsystemd_id128_la_SOURCES = \
-	src/sd-id128.c
-
-libsystemd_id128_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=hidden
-
-libsystemd_id128_la_LDFLAGS = \
-	-shared \
-	-version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128.sym
-
-libsystemd_id128_la_LIBADD = \
-	libsystemd-basic.la
-
-# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
-libsystemd-id128-install-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-id128.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-id128.so && \
-		mv $(DESTDIR)$(libdir)/libsystemd-id128.so.* $(DESTDIR)$(rootlibdir); \
-	fi
-
-libsystemd-id128-uninstall-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-id128.so*
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
