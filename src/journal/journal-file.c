@@ -283,7 +283,7 @@ static int journal_file_map(
 }
 
 static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_t size, void **ret) {
-        void *p;
+        void *p = NULL;
         uint64_t delta;
         int r;
         Window *w;
@@ -1036,7 +1036,7 @@ static int generic_array_get(JournalFile *f,
                              Object **ret, uint64_t *offset) {
 
         Object *o;
-        uint64_t p, a;
+        uint64_t p = 0, a;
         int r;
 
         assert(f);
