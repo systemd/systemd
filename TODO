@@ -72,8 +72,6 @@ Features:
 
 * don't set $HOME in services unless requested
 
-* remove hacks in vala code and require libnotify 0.7
-
 * hide PAM/TCPWrap options in fragment parser when compile time disabled
 
 * when we automatically restart a service, ensure we retsart its rdeps, too.

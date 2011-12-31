@@ -359,12 +359,9 @@ AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
 
 if test "$have_gtk" = "yes"; then
         PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify ])
-        PKG_CHECK_EXISTS([ libnotify >= 0.7.0 ], [ libnotify07=yes ])
-
         AC_SUBST(LIBNOTIFY_CFLAGS)
         AC_SUBST(LIBNOTIFY_LIBS)
 fi
-AM_CONDITIONAL(LIBNOTIFY07, [ test "$libnotify07" = "yes" ])
 
 AM_PROG_VALAC([0.10])
 AC_SUBST(VAPIDIR)

@@ -1092,12 +1092,7 @@ systemd_gnome_ask_password_agent_VALAFLAGS = \
 	--pkg=gtk+-2.0 \
 	--pkg=linux \
 	--pkg=gio-unix-2.0 \
-	--pkg=libnotify
-if LIBNOTIFY07
-systemd_gnome_ask_password_agent_VALAFLAGS += \
-	-D LIBNOTIFY07
-endif
-systemd_gnome_ask_password_agent_VALAFLAGS += \
+	--pkg=libnotify \
 	-g
 
 systemd_gnome_ask_password_agent_LDADD = \
