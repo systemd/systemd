@@ -803,17 +803,11 @@ test_cgroup_SOURCES = \
 	src/test-cgroup.c \
 	src/cgroup-util.c
 
-test_cgroup_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_cgroup_LDADD = \
 	libsystemd-basic.la
 
 test_env_replace_SOURCES = \
 	src/test-env-replace.c
-
-test_env_replace_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_env_replace_LDADD = \
 	libsystemd-basic.la
@@ -821,9 +815,6 @@ test_env_replace_LDADD = \
 test_strv_SOURCES = \
 	src/test-strv.c \
 	src/specifier.c
-
-test_strv_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_strv_LDADD = \
 	libsystemd-basic.la
@@ -881,9 +872,6 @@ systemd_update_utmp_LDADD = \
 systemd_random_seed_SOURCES = \
 	src/random-seed.c
 
-systemd_random_seed_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_random_seed_LDADD = \
 	libsystemd-basic.la
 
@@ -920,17 +908,11 @@ systemd_shutdown_LDADD = \
 systemd_modules_load_SOURCES = \
 	src/modules-load.c
 
-systemd_modules_load_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_modules_load_LDADD = \
 	libsystemd-basic.la
 
 systemd_tmpfiles_SOURCES = \
 	src/tmpfiles.c
-
-systemd_tmpfiles_CFLAGS = \
-	$(AM_CFLAGS)
 
 systemd_tmpfiles_LDADD = \
 	libsystemd-basic.la
@@ -940,17 +922,11 @@ systemd_machine_id_setup_SOURCES = \
 	src/machine-id-main.c \
 	src/sd-id128.c
 
-systemd_machine_id_setup_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_machine_id_setup_LDADD = \
 	libsystemd-basic.la
 
 systemd_sysctl_SOURCES = \
 	src/sysctl.c
-
-systemd_sysctl_CFLAGS = \
-	$(AM_CFLAGS)
 
 systemd_sysctl_LDADD = \
 	libsystemd-basic.la
@@ -972,17 +948,11 @@ systemd_fsck_LDADD = \
 systemd_quotacheck_SOURCES = \
 	src/quotacheck.c
 
-systemd_quotacheck_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_quotacheck_LDADD = \
 	libsystemd-basic.la
 
 systemd_timestamp_SOURCES = \
 	src/timestamp.c
-
-systemd_timestamp_CFLAGS = \
-	$(AM_CFLAGS)
 
 systemd_timestamp_LDADD = \
 	libsystemd-basic.la
@@ -1001,9 +971,6 @@ systemd_ac_power_LDADD = \
 systemd_detect_virt_SOURCES = \
 	src/detect-virt.c
 
-systemd_detect_virt_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_detect_virt_LDADD = \
 	libsystemd-basic.la
 
@@ -1012,9 +979,9 @@ systemd_cryptsetup_SOURCES = \
 	src/ask-password-api.c
 
 systemd_cryptsetup_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(LIBCRYPTSETUP_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(AM_CFLAGS)
+	$(UDEV_CFLAGS)
 
 systemd_cryptsetup_LDADD = \
 	$(LIBCRYPTSETUP_LIBS) \
@@ -1025,9 +992,6 @@ systemd_cryptsetup_generator_SOURCES = \
 	src/cryptsetup-generator.c \
 	src/unit-name.c
 
-systemd_cryptsetup_generator_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_cryptsetup_generator_LDADD = \
 	libsystemd-basic.la
 
@@ -1035,17 +999,11 @@ systemd_getty_generator_SOURCES = \
 	src/getty-generator.c \
 	src/unit-name.c
 
-systemd_getty_generator_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_getty_generator_LDADD = \
 	libsystemd-basic.la
 
 systemd_rc_local_generator_SOURCES = \
 	src/rc-local-generator.c
-
-systemd_rc_local_generator_CFLAGS = \
-	$(AM_CFLAGS)
 
 systemd_rc_local_generator_LDADD = \
 	libsystemd-basic.la
@@ -1054,17 +1012,11 @@ systemd_user_sessions_SOURCES = \
 	src/user-sessions.c \
 	src/cgroup-util.c
 
-systemd_user_sessions_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_user_sessions_LDADD = \
 	libsystemd-basic.la
 
 systemd_vconsole_setup_SOURCES = \
 	src/vconsole-setup.c
-
-systemd_vconsole_setup_CFLAGS = \
-	$(AM_CFLAGS)
 
 systemd_vconsole_setup_LDADD = \
 	libsystemd-basic.la
@@ -1073,9 +1025,6 @@ systemd_remount_api_vfs_SOURCES = \
 	src/remount-api-vfs.c \
 	src/mount-setup.c \
 	src/exit-status.c
-
-systemd_remount_api_vfs_CFLAGS = \
-	$(AM_CFLAGS)
 
 systemd_remount_api_vfs_LDADD = \
 	libsystemd-basic.la
@@ -1095,9 +1044,6 @@ systemd_cgroups_agent_LDADD = \
 systemd_kmsg_syslogd_SOURCES = \
 	src/kmsg-syslogd.c \
 	src/fdset.c
-
-systemd_kmsg_syslogd_CFLAGS = \
-	$(AM_CFLAGS)
 
 systemd_kmsg_syslogd_LDADD = \
 	libsystemd-basic.la \
@@ -1150,9 +1096,6 @@ systemd_readahead_collect_SOURCES = \
 	src/readahead-collect.c \
 	src/readahead-common.c
 
-systemd_readahead_collect_CFLAGS = \
-	$(UDEV_CFLAGS)
-
 systemd_readahead_collect_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
@@ -1163,6 +1106,7 @@ systemd_readahead_replay_SOURCES = \
 	src/readahead-common.c
 
 systemd_readahead_replay_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(UDEV_CFLAGS)
 
 systemd_readahead_replay_LDADD = \
@@ -1176,9 +1120,6 @@ systemd_cgls_SOURCES = \
 	src/cgroup-util.c \
 	src/pager.c
 
-systemd_cgls_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_cgls_LDADD = \
 	libsystemd-basic.la
 
@@ -1186,9 +1127,6 @@ systemd_nspawn_SOURCES = \
 	src/nspawn.c \
 	src/cgroup-util.c \
 	src/loopback-setup.c
-
-systemd_nspawn_CFLAGS = \
-	$(AM_CFLAGS)
 
 systemd_nspawn_LDADD = \
 	libsystemd-basic.la \
@@ -1318,9 +1256,6 @@ test_id128_SOURCES = \
 	src/test-id128.c \
 	src/sd-id128.c
 
-test_id128_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_id128_LDADD = \
 	libsystemd-basic.la
 
@@ -1396,16 +1331,13 @@ systemd_journalctl_SOURCES = \
 	src/sd-id128.c \
 	src/pager.c
 
-systemd_journalctl_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_journalctl_LDADD = \
 	libsystemd-basic.la
 
 if HAVE_XZ
 systemd_journalctl_SOURCES += \
 	src/journal/compress.c
-systemd_journalctl_CFLAGS += \
+systemd_journalctl_CFLAGS = \
 	$(XZ_CFLAGS)
 systemd_journalctl_LDADD += \
 	$(XZ_LIBS)
@@ -1928,7 +1860,7 @@ man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
 	units/systemd-logind.service.in \
-        src/login/libsystemd-login.pc.in \
+	src/login/libsystemd-login.pc.in \
 	src/login/libsystemd-login.sym \
 	src/login/logind.h \
 	src/login/logind-device.h \
