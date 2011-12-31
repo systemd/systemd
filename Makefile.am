@@ -199,14 +199,6 @@ rootlibexec_PROGRAMS = \
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
 
-if HAVE_LIBCRYPTSETUP
-rootlibexec_PROGRAMS += \
-	systemd-cryptsetup
-
-systemgenerator_PROGRAMS += \
-	systemd-cryptsetup-generator
-endif
-
 noinst_PROGRAMS = \
 	test-engine \
 	test-job-type \
@@ -278,7 +270,6 @@ dist_systemunit_DATA = \
 	units/local-fs-pre.target \
 	units/remote-fs.target \
 	units/remote-fs-pre.target \
-	units/cryptsetup.target \
 	units/network.target \
 	units/nss-lookup.target \
 	units/mail-transfer-agent.target \
@@ -579,7 +570,7 @@ libsystemd_core_la_LIBADD = \
 	$(CAP_LIBS)
 
 # This is needed because automake is buggy in how it generates the
-# rules for C programs, but not Vala programs.  We therefore can't
+# rules for C programs, but not Vala programs.	We therefore can't
 # list the .h files as dependencies if we want make dist to work.
 
 EXTRA_DIST += \
@@ -904,27 +895,6 @@ systemd_detect_virt_SOURCES = \
 	src/detect-virt.c
 
 systemd_detect_virt_LDADD = \
-	libsystemd-basic.la
-
-systemd_cryptsetup_SOURCES = \
-	src/cryptsetup.c \
-	src/ask-password-api.c
-
-systemd_cryptsetup_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(LIBCRYPTSETUP_CFLAGS) \
-	$(UDEV_CFLAGS)
-
-systemd_cryptsetup_LDADD = \
-	$(LIBCRYPTSETUP_LIBS) \
-	$(UDEV_LIBS) \
-	libsystemd-basic.la
-
-systemd_cryptsetup_generator_SOURCES = \
-	src/cryptsetup-generator.c \
-	src/unit-name.c
-
-systemd_cryptsetup_generator_LDADD = \
 	libsystemd-basic.la
 
 systemd_getty_generator_SOURCES = \
@@ -1488,6 +1458,47 @@ MANPAGES += \
 endif
 
 # ------------------------------------------------------------------------------
+if HAVE_LIBCRYPTSETUP
+rootlibexec_PROGRAMS += \
+	systemd-cryptsetup
+
+systemgenerator_PROGRAMS += \
+	systemd-cryptsetup-generator
+
+dist_systemunit_DATA += \
+	units/cryptsetup.target
+
+systemd_cryptsetup_SOURCES = \
+	src/cryptsetup/cryptsetup.c \
+	src/ask-password-api.c
+
+systemd_cryptsetup_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(LIBCRYPTSETUP_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_cryptsetup_LDADD = \
+	$(LIBCRYPTSETUP_LIBS) \
+	$(UDEV_LIBS) \
+	libsystemd-basic.la
+
+systemd_cryptsetup_generator_SOURCES = \
+	src/cryptsetup/cryptsetup-generator.c \
+	src/unit-name.c
+
+systemd_cryptsetup_generator_LDADD = \
+	libsystemd-basic.la
+
+cryptsetup-install-data-hook:
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f cryptsetup.target && \
+		$(LN_S) ../cryptsetup.target cryptsetup.target )
+
+INSTALL_DATA_HOOKS += \
+	cryptsetup-install-data-hook
+endif
+
+# ------------------------------------------------------------------------------
 if ENABLE_HOSTNAMED
 systemd_hostnamed_SOURCES = \
 	src/hostname/hostnamed.c \
@@ -1908,7 +1919,7 @@ endif
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
+	$(SED)	-e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
 		-e 's,@rootbindir\@,$(rootbindir),g' \
 		-e 's,@bindir\@,$(bindir),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
@@ -2180,8 +2191,7 @@ systemd-install-data-hook:
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
 			systemd-ask-password-console.path \
-			systemd-kmsg-syslogd.service \
-			cryptsetup.target && \
+			systemd-kmsg-syslogd.service && \
 		$(LN_S) ../dev-hugepages.mount dev-hugepages.mount && \
 		$(LN_S) ../dev-mqueue.mount dev-mqueue.mount && \
 		$(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
@@ -2193,8 +2203,7 @@ systemd-install-data-hook:
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \
-		$(LN_S) ../systemd-kmsg-syslogd.service && \
-		$(LN_S) ../cryptsetup.target cryptsetup.target )
+		$(LN_S) ../systemd-kmsg-syslogd.service )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
 		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )
