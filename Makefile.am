@@ -68,6 +68,7 @@ EXTRA_DIST =
 INSTALL_EXEC_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
+pkginclude_HEADERS =
 polkitpolicy_in_files =
 
 AM_CPPFLAGS = \
@@ -208,9 +209,6 @@ endif
 
 lib_LTLIBRARIES = \
 	libsystemd-daemon.la
-
-pkginclude_HEADERS = \
-	src/sd-daemon.h
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -610,7 +608,6 @@ libsystemd_core_la_LIBADD = \
 EXTRA_DIST += \
 	${libsystemd_basic_la_SOURCES:.c=.h} \
 	${libsystemd_core_la_SOURCES:.c=.h} \
-	${libsystemd_daemon_la_SOURCES:.c=.h} \
 	src/macro.h \
 	src/def.h \
 	src/ioprio.h \
@@ -906,6 +903,400 @@ dist_pkgdata_DATA = \
 
 dist_noinst_SCRIPT = \
 	src/generate-kbd-model-map
+
+systemd_shutdown_SOURCES = \
+	src/mount-setup.c \
+	src/umount.c \
+	src/shutdown.c
+
+systemd_shutdown_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_shutdown_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS)
+
+systemd_modules_load_SOURCES = \
+	src/modules-load.c
+
+systemd_modules_load_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_modules_load_LDADD = \
+	libsystemd-basic.la
+
+systemd_tmpfiles_SOURCES = \
+	src/tmpfiles.c
+
+systemd_tmpfiles_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_tmpfiles_LDADD = \
+	libsystemd-basic.la
+
+systemd_machine_id_setup_SOURCES = \
+	src/machine-id-setup.c \
+	src/machine-id-main.c \
+	src/sd-id128.c
+
+systemd_machine_id_setup_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_machine_id_setup_LDADD = \
+	libsystemd-basic.la
+
+systemd_sysctl_SOURCES = \
+	src/sysctl.c
+
+systemd_sysctl_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_sysctl_LDADD = \
+	libsystemd-basic.la
+
+systemd_fsck_SOURCES = \
+	src/fsck.c \
+	src/dbus-common.c
+
+systemd_fsck_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_fsck_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS) \
+	$(DBUS_LIBS)
+
+systemd_quotacheck_SOURCES = \
+	src/quotacheck.c
+
+systemd_quotacheck_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_quotacheck_LDADD = \
+	libsystemd-basic.la
+
+systemd_timestamp_SOURCES = \
+	src/timestamp.c
+
+systemd_timestamp_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_timestamp_LDADD = \
+	libsystemd-basic.la
+
+systemd_ac_power_SOURCES = \
+	src/ac-power.c
+
+systemd_ac_power_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_ac_power_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS)
+
+systemd_detect_virt_SOURCES = \
+	src/detect-virt.c
+
+systemd_detect_virt_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_detect_virt_LDADD = \
+	libsystemd-basic.la
+
+systemd_cryptsetup_SOURCES = \
+	src/cryptsetup.c \
+	src/ask-password-api.c
+
+systemd_cryptsetup_CFLAGS = \
+	$(LIBCRYPTSETUP_CFLAGS) \
+	$(UDEV_CFLAGS) \
+	$(AM_CFLAGS)
+
+systemd_cryptsetup_LDADD = \
+	$(LIBCRYPTSETUP_LIBS) \
+	$(UDEV_LIBS) \
+	libsystemd-basic.la
+
+systemd_cryptsetup_generator_SOURCES = \
+	src/cryptsetup-generator.c \
+	src/unit-name.c
+
+systemd_cryptsetup_generator_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_cryptsetup_generator_LDADD = \
+	libsystemd-basic.la
+
+systemd_getty_generator_SOURCES = \
+	src/getty-generator.c \
+	src/unit-name.c
+
+systemd_getty_generator_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_getty_generator_LDADD = \
+	libsystemd-basic.la
+
+systemd_rc_local_generator_SOURCES = \
+	src/rc-local-generator.c
+
+systemd_rc_local_generator_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_rc_local_generator_LDADD = \
+	libsystemd-basic.la
+
+systemd_user_sessions_SOURCES = \
+	src/user-sessions.c \
+	src/cgroup-util.c
+
+systemd_user_sessions_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_user_sessions_LDADD = \
+	libsystemd-basic.la
+
+systemd_vconsole_setup_SOURCES = \
+	src/vconsole-setup.c
+
+systemd_vconsole_setup_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_vconsole_setup_LDADD = \
+	libsystemd-basic.la
+
+systemd_remount_api_vfs_SOURCES = \
+	src/remount-api-vfs.c \
+	src/mount-setup.c \
+	src/exit-status.c
+
+systemd_remount_api_vfs_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_remount_api_vfs_LDADD = \
+	libsystemd-basic.la
+
+systemd_cgroups_agent_SOURCES = \
+	src/cgroups-agent.c \
+	src/dbus-common.c
+
+systemd_cgroups_agent_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_cgroups_agent_LDADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS)
+
+systemd_kmsg_syslogd_SOURCES = \
+	src/kmsg-syslogd.c \
+	src/fdset.c
+
+systemd_kmsg_syslogd_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_kmsg_syslogd_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la
+
+systemctl_SOURCES = \
+	src/systemctl.c \
+	src/utmp-wtmp.c \
+	src/dbus-common.c \
+	src/path-lookup.c \
+	src/cgroup-show.c \
+	src/cgroup-util.c \
+	src/exit-status.c \
+	src/unit-name.c \
+	src/pager.c \
+	src/install.c \
+	src/spawn-agent.c
+
+systemctl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemctl_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(DBUS_LIBS)
+
+systemd_notify_SOURCES = \
+	src/notify.c \
+	src/sd-readahead.c
+
+systemd_notify_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la
+
+systemd_ask_password_SOURCES = \
+	src/ask-password.c \
+	src/ask-password-api.c
+
+systemd_ask_password_LDADD = \
+	libsystemd-basic.la
+
+systemd_reply_password_SOURCES = \
+	src/reply-password.c
+
+systemd_reply_password_LDADD = \
+	libsystemd-basic.la
+
+systemd_readahead_collect_SOURCES = \
+	src/readahead-collect.c \
+	src/readahead-common.c
+
+systemd_readahead_collect_CFLAGS = \
+	$(UDEV_CFLAGS)
+
+systemd_readahead_collect_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(UDEV_LIBS)
+
+systemd_readahead_replay_SOURCES = \
+	src/readahead-replay.c \
+	src/readahead-common.c
+
+systemd_readahead_replay_CFLAGS = \
+	$(UDEV_CFLAGS)
+
+systemd_readahead_replay_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(UDEV_LIBS)
+
+systemd_cgls_SOURCES = \
+	src/cgls.c \
+	src/cgroup-show.c \
+	src/cgroup-util.c \
+	src/pager.c
+
+systemd_cgls_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_cgls_LDADD = \
+	libsystemd-basic.la
+
+systemd_nspawn_SOURCES = \
+	src/nspawn.c \
+	src/cgroup-util.c \
+	src/loopback-setup.c
+
+systemd_nspawn_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_nspawn_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la
+
+systemd_stdio_bridge_SOURCES = \
+	src/bridge.c
+
+systemd_stdio_bridge_LDADD = \
+	libsystemd-basic.la
+
+systemadm_SOURCES = \
+	src/systemadm.vala \
+	src/systemd-interfaces.vala \
+	src/wraplabel.vala
+
+systemadm_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(GTK_CFLAGS) \
+	-Wno-unused-variable \
+	-Wno-unused-function \
+	-Wno-shadow \
+	-Wno-format-nonliteral
+
+systemadm_VALAFLAGS = \
+	--pkg=posix \
+	--pkg=gtk+-2.0 \
+	--pkg=gee-1.0 \
+	-g
+
+systemadm_LDADD = \
+	$(GTK_LIBS)
+
+systemd_gnome_ask_password_agent_SOURCES = \
+	src/gnome-ask-password-agent.vala
+
+systemd_gnome_ask_password_agent_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(LIBNOTIFY_CFLAGS) \
+	$(GTK_CFLAGS) \
+	-Wno-unused-variable \
+	-Wno-unused-function \
+	-Wno-shadow \
+	-Wno-format-nonliteral
+
+systemd_gnome_ask_password_agent_VALAFLAGS = \
+	--pkg=posix \
+	--pkg=gtk+-2.0 \
+	--pkg=linux \
+	--pkg=gio-unix-2.0 \
+	--pkg=libnotify
+if LIBNOTIFY07
+systemd_gnome_ask_password_agent_VALAFLAGS += \
+	-D LIBNOTIFY07
+endif
+systemd_gnome_ask_password_agent_VALAFLAGS += \
+	-g
+
+systemd_gnome_ask_password_agent_LDADD = \
+	$(LIBNOTIFY_LIBS) \
+	$(GTK_LIBS)
+
+systemd_tty_ask_password_agent_SOURCES = \
+	src/tty-ask-password-agent.c \
+	src/ask-password-api.c \
+	src/utmp-wtmp.c
+
+systemd_tty_ask_password_agent_LDADD = \
+	libsystemd-basic.la
+
+# ------------------------------------------------------------------------------
+libsystemd_daemon_la_SOURCES = \
+	src/sd-daemon.c
+
+libsystemd_daemon_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-fvisibility=hidden \
+	-DSD_EXPORT_SYMBOLS
+
+libsystemd_daemon_la_LDFLAGS = \
+	-shared \
+	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
+
+pkginclude_HEADERS += \
+	src/sd-daemon.h
+
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-daemon-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-daemon.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-daemon.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-daemon.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+INSTALL_EXEC_HOOKS += \
+	libsystemd-daemon-install-hook
+
+libsystemd-daemon-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
+
+UNINSTALL_EXEC_HOOKS += \
+	libsystemd-daemon-uninstall-hook
+
+EXTRA_DIST += \
+	${libsystemd_daemon_la_SOURCES:.c=.h}
 
 # ------------------------------------------------------------------------------
 libsystemd_id128_la_SOURCES = \
@@ -1551,387 +1942,6 @@ CLEANFILES += \
 endif
 # ------------------------------------------------------------------------------
 
-systemd_shutdown_SOURCES = \
-	src/mount-setup.c \
-	src/umount.c \
-	src/shutdown.c
-
-systemd_shutdown_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(UDEV_CFLAGS)
-
-systemd_shutdown_LDADD = \
-	libsystemd-basic.la \
-	$(UDEV_LIBS)
-
-systemd_modules_load_SOURCES = \
-	src/modules-load.c
-
-systemd_modules_load_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_modules_load_LDADD = \
-	libsystemd-basic.la
-
-systemd_tmpfiles_SOURCES = \
-	src/tmpfiles.c
-
-systemd_tmpfiles_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_tmpfiles_LDADD = \
-	libsystemd-basic.la
-
-systemd_machine_id_setup_SOURCES = \
-	src/machine-id-setup.c \
-	src/machine-id-main.c \
-	src/sd-id128.c
-
-systemd_machine_id_setup_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_machine_id_setup_LDADD = \
-	libsystemd-basic.la
-
-systemd_sysctl_SOURCES = \
-	src/sysctl.c
-
-systemd_sysctl_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_sysctl_LDADD = \
-	libsystemd-basic.la
-
-systemd_fsck_SOURCES = \
-	src/fsck.c \
-	src/dbus-common.c
-
-systemd_fsck_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(DBUS_CFLAGS)
-
-systemd_fsck_LDADD = \
-	libsystemd-basic.la \
-	$(UDEV_LIBS) \
-	$(DBUS_LIBS)
-
-systemd_quotacheck_SOURCES = \
-	src/quotacheck.c
-
-systemd_quotacheck_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_quotacheck_LDADD = \
-	libsystemd-basic.la
-
-systemd_timestamp_SOURCES = \
-	src/timestamp.c
-
-systemd_timestamp_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_timestamp_LDADD = \
-	libsystemd-basic.la
-
-systemd_ac_power_SOURCES = \
-	src/ac-power.c
-
-systemd_ac_power_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(UDEV_CFLAGS)
-
-systemd_ac_power_LDADD = \
-	libsystemd-basic.la \
-	$(UDEV_LIBS)
-
-systemd_detect_virt_SOURCES = \
-	src/detect-virt.c
-
-systemd_detect_virt_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_detect_virt_LDADD = \
-	libsystemd-basic.la
-
-systemd_cryptsetup_SOURCES = \
-	src/cryptsetup.c \
-	src/ask-password-api.c
-
-systemd_cryptsetup_CFLAGS = \
-	$(LIBCRYPTSETUP_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(AM_CFLAGS)
-
-systemd_cryptsetup_LDADD = \
-	$(LIBCRYPTSETUP_LIBS) \
-	$(UDEV_LIBS) \
-	libsystemd-basic.la
-
-systemd_cryptsetup_generator_SOURCES = \
-	src/cryptsetup-generator.c \
-	src/unit-name.c
-
-systemd_cryptsetup_generator_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_cryptsetup_generator_LDADD = \
-	libsystemd-basic.la
-
-systemd_getty_generator_SOURCES = \
-	src/getty-generator.c \
-	src/unit-name.c
-
-systemd_getty_generator_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_getty_generator_LDADD = \
-	libsystemd-basic.la
-
-systemd_rc_local_generator_SOURCES = \
-	src/rc-local-generator.c
-
-systemd_rc_local_generator_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_rc_local_generator_LDADD = \
-	libsystemd-basic.la
-
-systemd_user_sessions_SOURCES = \
-	src/user-sessions.c \
-	src/cgroup-util.c
-
-systemd_user_sessions_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_user_sessions_LDADD = \
-	libsystemd-basic.la
-
-systemd_vconsole_setup_SOURCES = \
-	src/vconsole-setup.c
-
-systemd_vconsole_setup_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_vconsole_setup_LDADD = \
-	libsystemd-basic.la
-
-systemd_remount_api_vfs_SOURCES = \
-	src/remount-api-vfs.c \
-	src/mount-setup.c \
-	src/exit-status.c
-
-systemd_remount_api_vfs_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_remount_api_vfs_LDADD = \
-	libsystemd-basic.la
-
-systemd_cgroups_agent_SOURCES = \
-	src/cgroups-agent.c \
-	src/dbus-common.c
-
-systemd_cgroups_agent_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
-systemd_cgroups_agent_LDADD = \
-	libsystemd-basic.la \
-	$(DBUS_LIBS)
-
-systemd_kmsg_syslogd_SOURCES = \
-	src/kmsg-syslogd.c \
-	src/fdset.c
-
-systemd_kmsg_syslogd_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_kmsg_syslogd_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la
-
-systemctl_SOURCES = \
-	src/systemctl.c \
-	src/utmp-wtmp.c \
-	src/dbus-common.c \
-	src/path-lookup.c \
-	src/cgroup-show.c \
-	src/cgroup-util.c \
-	src/exit-status.c \
-	src/unit-name.c \
-	src/pager.c \
-	src/install.c \
-	src/spawn-agent.c
-
-systemctl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
-systemctl_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(DBUS_LIBS)
-
-systemd_notify_SOURCES = \
-	src/notify.c \
-	src/sd-readahead.c
-
-systemd_notify_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la
-
-systemd_ask_password_SOURCES = \
-	src/ask-password.c \
-	src/ask-password-api.c
-
-systemd_ask_password_LDADD = \
-	libsystemd-basic.la
-
-systemd_reply_password_SOURCES = \
-	src/reply-password.c
-
-systemd_reply_password_LDADD = \
-	libsystemd-basic.la
-
-systemd_readahead_collect_SOURCES = \
-	src/readahead-collect.c \
-	src/readahead-common.c
-
-systemd_readahead_collect_CFLAGS = \
-	$(UDEV_CFLAGS)
-
-systemd_readahead_collect_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(UDEV_LIBS)
-
-systemd_readahead_replay_SOURCES = \
-	src/readahead-replay.c \
-	src/readahead-common.c
-
-systemd_readahead_replay_CFLAGS = \
-	$(UDEV_CFLAGS)
-
-systemd_readahead_replay_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(UDEV_LIBS)
-
-systemd_cgls_SOURCES = \
-	src/cgls.c \
-	src/cgroup-show.c \
-	src/cgroup-util.c \
-	src/pager.c
-
-systemd_cgls_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_cgls_LDADD = \
-	libsystemd-basic.la
-
-systemd_nspawn_SOURCES = \
-	src/nspawn.c \
-	src/cgroup-util.c \
-	src/loopback-setup.c
-
-systemd_nspawn_CFLAGS = \
-	$(AM_CFLAGS)
-
-systemd_nspawn_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la
-
-systemd_stdio_bridge_SOURCES = \
-	src/bridge.c
-
-systemd_stdio_bridge_LDADD = \
-	libsystemd-basic.la
-
-systemadm_SOURCES = \
-	src/systemadm.vala \
-	src/systemd-interfaces.vala \
-	src/wraplabel.vala
-
-systemadm_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(GTK_CFLAGS) \
-	-Wno-unused-variable \
-	-Wno-unused-function \
-	-Wno-shadow \
-	-Wno-format-nonliteral
-
-systemadm_VALAFLAGS = \
-	--pkg=posix \
-	--pkg=gtk+-2.0 \
-	--pkg=gee-1.0 \
-	-g
-
-systemadm_LDADD = \
-	$(GTK_LIBS)
-
-systemd_gnome_ask_password_agent_SOURCES = \
-	src/gnome-ask-password-agent.vala
-
-systemd_gnome_ask_password_agent_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(LIBNOTIFY_CFLAGS) \
-	$(GTK_CFLAGS) \
-	-Wno-unused-variable \
-	-Wno-unused-function \
-	-Wno-shadow \
-	-Wno-format-nonliteral
-
-systemd_gnome_ask_password_agent_VALAFLAGS = \
-	--pkg=posix \
-	--pkg=gtk+-2.0 \
-	--pkg=linux \
-	--pkg=gio-unix-2.0 \
-	--pkg=libnotify
-if LIBNOTIFY07
-systemd_gnome_ask_password_agent_VALAFLAGS += \
-	-D LIBNOTIFY07
-endif
-systemd_gnome_ask_password_agent_VALAFLAGS += \
-	-g
-
-systemd_gnome_ask_password_agent_LDADD = \
-	$(LIBNOTIFY_LIBS) \
-	$(GTK_LIBS)
-
-systemd_tty_ask_password_agent_SOURCES = \
-	src/tty-ask-password-agent.c \
-	src/ask-password-api.c \
-	src/utmp-wtmp.c
-
-systemd_tty_ask_password_agent_LDADD = \
-	libsystemd-basic.la
-
-libsystemd_daemon_la_SOURCES = \
-	src/sd-daemon.c
-
-libsystemd_daemon_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=hidden \
-	-DSD_EXPORT_SYMBOLS
-
-libsystemd_daemon_la_LDFLAGS = \
-	-shared \
-	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
-
-# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
-libsystemd-daemon-install-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-daemon.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-daemon.so && \
-		mv $(DESTDIR)$(libdir)/libsystemd-daemon.so.* $(DESTDIR)$(rootlibdir); \
-	fi
-
-libsystemd-daemon-uninstall-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
-
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
@@ -2338,9 +2348,9 @@ if HAVE_SYSV_COMPAT
 		$(LN_S) ../var-lock.mount var-lock.mount )
 endif
 
-install-exec-hook: libsystemd-daemon-install-hook $(INSTALL_EXEC_HOOKS)
+install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
-uninstall-hook: libsystemd-daemon-uninstall-hook $(UNINSTALL_EXEC_HOOKS)
+uninstall-hook: $(UNINSTALL_EXEC_HOOKS)
 
 install-data-hook: systemd-install-data-hook $(INSTALL_DATA_HOOKS)
 
