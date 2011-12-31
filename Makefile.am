@@ -202,11 +202,6 @@ rootlibexec_PROGRAMS += \
 	systemd-binfmt
 endif
 
-if ENABLE_HOSTNAMED
-rootlibexec_PROGRAMS += \
-	systemd-hostnamed
-endif
-
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
 
@@ -428,11 +423,6 @@ nodist_systemunit_DATA += \
 	units/systemd-binfmt.service
 endif
 
-if ENABLE_HOSTNAMED
-nodist_systemunit_DATA += \
-	units/systemd-hostnamed.service
-endif
-
 dist_userunit_DATA = \
 	units/user/default.target \
 	units/user/exit.target
@@ -490,11 +480,6 @@ EXTRA_DIST += \
 if ENABLE_BINFMT
 EXTRA_DIST += \
 	units/systemd-binfmt.service.in
-endif
-
-if ENABLE_HOSTNAMED
-EXTRA_DIST += \
-	units/systemd-hostnamed.service.in
 endif
 
 if TARGET_FEDORA
@@ -1100,8 +1085,10 @@ dist_pkgdata_DATA = \
 dist_noinst_SCRIPT = \
 	src/generate-kbd-model-map
 
+# ------------------------------------------------------------------------------
+if ENABLE_HOSTNAMED
 systemd_hostnamed_SOURCES = \
-	src/hostnamed.c \
+	src/hostname/hostnamed.c \
 	src/dbus-common.c \
 	src/polkit.c
 
@@ -1113,6 +1100,29 @@ systemd_hostnamed_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
+
+rootlibexec_PROGRAMS += \
+	systemd-hostnamed
+
+nodist_systemunit_DATA += \
+	units/systemd-hostnamed.service
+
+org.freedesktop.hostname1.xml: systemd-hostnamed
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.hostname1 $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+hostnamed-install-data-hook:
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.hostname1.service && \
+		$(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
+
+INSTALL_DATA_HOOKS += \
+	hostnamed-install-data-hook
+
+EXTRA_DIST += \
+	units/systemd-hostnamed.service.in
+endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
@@ -2040,11 +2050,6 @@ org.freedesktop.systemd1.%.xml: systemd
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
-org.freedesktop.hostname1.xml: systemd-hostnamed
-	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.hostname1 $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
-		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
-
 CLEANFILES += \
 	$(dbusinterface_DATA)
 
@@ -2195,11 +2200,6 @@ if ENABLE_BINFMT
 			proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount )
-endif
-if ENABLE_HOSTNAMED
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f dbus-org.freedesktop.hostname1.service && \
-		$(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
 endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
