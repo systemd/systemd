@@ -84,7 +84,7 @@ AM_CPPFLAGS = \
 	-DSYSTEM_GENERATOR_PATH=\"$(systemgeneratordir)\" \
 	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
-        -DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
+	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
@@ -144,13 +144,13 @@ endif
 rootbin_PROGRAMS = \
 	systemd \
 	systemctl \
-        systemd-loginctl \
+	systemd-loginctl \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
 	systemd-tmpfiles \
 	systemd-machine-id-setup \
-        systemd-journalctl
+	systemd-journalctl
 
 bin_PROGRAMS = \
 	systemd-cgls \
@@ -188,9 +188,9 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-        systemd-logind \
-        systemd-uaccess \
-        systemd-journald
+	systemd-logind \
+	systemd-uaccess \
+	systemd-journald
 
 if ENABLE_BINFMT
 rootlibexec_PROGRAMS += \
@@ -226,14 +226,14 @@ endif
 lib_LTLIBRARIES = \
 	libsystemd-daemon.la \
 	libsystemd-login.la \
-        libsystemd-id128.la \
-        libsystemd-journal.la
+	libsystemd-id128.la \
+	libsystemd-journal.la
 
 pkginclude_HEADERS = \
 	src/sd-daemon.h \
 	src/login/sd-login.h \
-        src/sd-id128.h \
-        src/journal/sd-journal.h
+	src/sd-id128.h \
+	src/journal/sd-journal.h
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -245,10 +245,10 @@ noinst_PROGRAMS = \
 	test-cgroup \
 	test-env-replace \
 	test-strv \
-        test-login \
-        test-install \
-        test-id128 \
-        test-journal
+	test-login \
+	test-install \
+	test-id128 \
+	test-journal
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -257,12 +257,12 @@ endif
 
 dist_pkgsysconf_DATA = \
 	src/system.conf \
-        src/user.conf \
-        src/login/systemd-logind.conf
+	src/user.conf \
+	src/login/systemd-logind.conf
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \
-        src/login/org.freedesktop.login1.conf
+	src/login/org.freedesktop.login1.conf
 
 if ENABLE_HOSTNAMED
 dist_dbuspolicy_DATA += \
@@ -281,7 +281,7 @@ endif
 
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service \
-        src/login/org.freedesktop.login1.service
+	src/login/org.freedesktop.login1.service
 
 if ENABLE_HOSTNAMED
 dist_dbussystemservice_DATA += \
@@ -295,16 +295,16 @@ endif
 
 if ENABLE_LOCALED
 dist_dbussystemservice_DATA += \
-        src/org.freedesktop.locale1.service
+	src/org.freedesktop.locale1.service
 endif
 
 dist_udevrules_DATA = \
-        src/70-uaccess.rules \
-        src/71-seat.rules
+	src/70-uaccess.rules \
+	src/71-seat.rules
 
 nodist_udevrules_DATA = \
-        src/73-seat-late.rules \
-        src/99-systemd.rules
+	src/73-seat-late.rules \
+	src/99-systemd.rules
 
 dbusinterface_DATA = \
 	org.freedesktop.systemd1.Manager.xml \
@@ -360,9 +360,9 @@ dist_systemunit_DATA = \
 	units/halt.target \
 	units/kexec.target \
 	units/local-fs.target \
-        units/local-fs-pre.target \
+	units/local-fs-pre.target \
 	units/remote-fs.target \
-        units/remote-fs-pre.target \
+	units/remote-fs-pre.target \
 	units/cryptsetup.target \
 	units/network.target \
 	units/nss-lookup.target \
@@ -402,7 +402,7 @@ dist_systemunit_DATA = \
 	units/systemd-ask-password-wall.path \
 	units/systemd-ask-password-console.path \
 	units/syslog.target \
-        units/systemd-journald.socket
+	units/systemd-journald.socket
 
 if HAVE_SYSV_COMPAT
 dist_systemunit_DATA += \
@@ -423,7 +423,7 @@ nodist_systemunit_DATA = \
 	units/systemd-stdout-syslog-bridge.service \
 	units/systemd-shutdownd.service \
 	units/systemd-logind.service \
-        units/systemd-journald.service \
+	units/systemd-journald.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
 	units/systemd-vconsole-setup.service \
@@ -449,7 +449,7 @@ nodist_systemunit_DATA = \
 	units/fsck-root.service \
 	units/quotacheck.service \
 	units/rescue.service \
-        units/user@.service
+	units/user@.service
 
 if ENABLE_BINFMT
 nodist_systemunit_DATA += \
@@ -487,8 +487,8 @@ EXTRA_DIST = \
 	units/systemd-stdout-syslog-bridge.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-logind.service.in \
-        units/systemd-journald.service.in \
-        units/systemd-kmsg-syslogd.service.in \
+	units/systemd-journald.service.in \
+	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-vconsole-setup.service.in \
 	units/systemd-remount-api-vfs.service.in \
@@ -517,16 +517,16 @@ EXTRA_DIST = \
 	systemd.pc.in \
 	libsystemd-daemon.pc.in \
 	libsystemd-login.pc.in \
-        libsystemd-id128.pc.in \
-        libsystemd-journal.pc.in \
+	libsystemd-id128.pc.in \
+	libsystemd-journal.pc.in \
 	src/libsystemd-daemon.sym \
 	src/login/libsystemd-login.sym \
 	src/libsystemd-id128.sym \
 	src/journal/libsystemd-journal.sym \
 	introspect.awk \
 	src/73-seat-late.rules.in \
-        src/99-systemd.rules.in \
-        man/custom-html.xsl
+	src/99-systemd.rules.in \
+	man/custom-html.xsl
 
 if ENABLE_BINFMT
 EXTRA_DIST += \
@@ -620,14 +620,14 @@ pkgconfigdata_DATA = \
 	systemd.pc
 
 pkgconfiglib_DATA = \
-        libsystemd-daemon.pc \
-        libsystemd-login.pc \
-        libsystemd-id128.pc \
-        libsystemd-journal.pc
+	libsystemd-daemon.pc \
+	libsystemd-login.pc \
+	libsystemd-id128.pc \
+	libsystemd-journal.pc
 
 # Passed through intltool only
 polkitpolicy_in_files = \
-        src/login/org.freedesktop.login1.policy.in
+	src/login/org.freedesktop.login1.policy.in
 
 if ENABLE_HOSTNAMED
 polkitpolicy_in_files += \
@@ -641,7 +641,7 @@ endif
 
 if ENABLE_LOCALED
 polkitpolicy_in_files += \
-        src/org.freedesktop.locale1.policy.in
+	src/org.freedesktop.locale1.policy.in
 endif
 
 # First passed through sed, followed by intltool
@@ -649,12 +649,12 @@ polkitpolicy_in_in_files = \
 	src/org.freedesktop.systemd1.policy.in.in
 
 nodist_polkitpolicy_DATA = \
-        $(polkitpolicy_in_files:.policy.in=.policy) \
-        $(polkitpolicy_in_in_files:.policy.in.in=.policy)
+	$(polkitpolicy_in_files:.policy.in=.policy) \
+	$(polkitpolicy_in_in_files:.policy.in.in=.policy)
 
 EXTRA_DIST += \
-        $(polkitpolicy_in_files) \
-        $(polkitpolicy_in_in_files)
+	$(polkitpolicy_in_files) \
+	$(polkitpolicy_in_in_files)
 
 @INTLTOOL_POLICY_RULE@
 
@@ -664,7 +664,7 @@ noinst_LTLIBRARIES = \
 
 libsystemd_basic_la_SOURCES = \
 	src/util.c \
-        src/virt.c \
+	src/virt.c \
 	src/label.c \
 	src/hashmap.c \
 	src/set.c \
@@ -732,18 +732,18 @@ libsystemd_core_la_SOURCES = \
 	src/tcpwrap.c \
 	src/cgroup-util.c \
 	src/condition.c \
-        src/dbus-common.c \
-        src/sd-daemon.c \
-        src/install.c \
-        src/cgroup-attr.c \
-        src/sd-id128.c
+	src/dbus-common.c \
+	src/sd-daemon.c \
+	src/install.c \
+	src/cgroup-attr.c \
+	src/sd-id128.c
 
 nodist_libsystemd_core_la_SOURCES = \
-        src/load-fragment-gperf.c \
-        src/load-fragment-gperf-nulstr.c
+	src/load-fragment-gperf.c \
+	src/load-fragment-gperf-nulstr.c
 
 EXTRA_DIST += \
-        src/load-fragment-gperf.gperf.m4
+	src/load-fragment-gperf.gperf.m4
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -789,24 +789,24 @@ EXTRA_DIST += \
 	src/umount.h \
 	src/readahead-common.h \
 	src/ask-password-api.h \
-        src/pager.h \
-        src/sysfs-show.h \
-        src/polkit.h \
-        src/login/logind.h \
-        src/login/logind-device.h \
-        src/login/logind-seat.h \
-        src/login/logind-session.h \
-        src/login/logind-user.h \
-        src/login/logind-acl.h \
-        src/dbus-loop.h \
-        src/spawn-agent.h \
-        src/journal/journal-def.h \
-        src/journal/journal-internal.h \
-        src/journal/journal-file.h \
-        src/journal/lookup3.h \
-        src/journal/compress.h \
-        src/journal/journal-rate-limit.h \
-        src/acl-util.h
+	src/pager.h \
+	src/sysfs-show.h \
+	src/polkit.h \
+	src/login/logind.h \
+	src/login/logind-device.h \
+	src/login/logind-seat.h \
+	src/login/logind-session.h \
+	src/login/logind-user.h \
+	src/login/logind-acl.h \
+	src/dbus-loop.h \
+	src/spawn-agent.h \
+	src/journal/journal-def.h \
+	src/journal/journal-internal.h \
+	src/journal/journal-file.h \
+	src/journal/lookup3.h \
+	src/journal/compress.h \
+	src/journal/journal-rate-limit.h \
+	src/acl-util.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -846,22 +846,22 @@ MANPAGES = \
 	man/systemd-logind.conf.5 \
 	man/tmpfiles.d.5 \
 	man/hostname.5 \
-        man/timezone.5 \
+	man/timezone.5 \
 	man/machine-id.5 \
 	man/vconsole.conf.5 \
 	man/locale.conf.5 \
 	man/os-release.5 \
-        man/machine-info.5 \
+	man/machine-info.5 \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
-        man/systemd-ask-password.1 \
-        man/systemd-loginctl.1 \
-        man/sd_pid_get_session.3 \
-        man/sd_uid_get_state.3 \
-        man/sd_session_is_active.3 \
-        man/sd_seat_get_active.3 \
-        man/sd_get_seats.3 \
-        man/sd_login_monitor_new.3
+	man/systemd-ask-password.1 \
+	man/systemd-loginctl.1 \
+	man/sd_pid_get_session.3 \
+	man/sd_uid_get_state.3 \
+	man/sd_session_is_active.3 \
+	man/sd_seat_get_active.3 \
+	man/sd_get_seats.3 \
+	man/sd_login_monitor_new.3
 
 if ENABLE_BINFMT
 MANPAGES += \
@@ -877,19 +877,19 @@ MANPAGES_ALIAS = \
 	man/sd_is_mq.3 \
 	man/sd_notifyf.3 \
 	man/init.1 \
-        man/sd_session_get_uid.3 \
-        man/sd_session_get_seat.3 \
-        man/sd_pid_get_owner_uid.3 \
-        man/sd_uid_is_on_seat.3 \
-        man/sd_uid_get_sessions.3 \
-        man/sd_uid_get_seats.3 \
-        man/sd_seat_get_sessions.3 \
-        man/sd_seat_can_multi_session.3 \
-        man/sd_get_sessions.3 \
-        man/sd_get_uids.3 \
-        man/sd_login_monitor_unref.3 \
-        man/sd_login_monitor_flush.3 \
-        man/sd_login_monitor_get_fd.3
+	man/sd_session_get_uid.3 \
+	man/sd_session_get_seat.3 \
+	man/sd_pid_get_owner_uid.3 \
+	man/sd_uid_is_on_seat.3 \
+	man/sd_uid_get_sessions.3 \
+	man/sd_uid_get_seats.3 \
+	man/sd_seat_get_sessions.3 \
+	man/sd_seat_can_multi_session.3 \
+	man/sd_get_sessions.3 \
+	man/sd_get_uids.3 \
+	man/sd_login_monitor_unref.3 \
+	man/sd_login_monitor_flush.3 \
+	man/sd_login_monitor_get_fd.3
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -1025,24 +1025,24 @@ test_login_CFLAGS = \
 
 test_login_LDADD = \
 	libsystemd-basic.la \
-        libsystemd-login.la
+	libsystemd-login.la
 
 test_install_SOURCES = \
 	src/test-install.c \
-        src/install.c \
-        src/path-lookup.c \
-        src/unit-name.c
+	src/install.c \
+	src/path-lookup.c \
+	src/unit-name.c
 
 test_install_CFLAGS = \
 	$(AM_CFLAGS) \
-        $(DBUS_CFLAGS)
+	$(DBUS_CFLAGS)
 
 test_install_LDADD = \
 	libsystemd-basic.la
 
 test_id128_SOURCES = \
 	src/test-id128.c \
-        src/sd-id128.c
+	src/sd-id128.c
 
 test_id128_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1053,10 +1053,10 @@ test_id128_LDADD = \
 test_journal_SOURCES = \
 	src/journal/test-journal.c \
 	src/journal/sd-journal.c \
-        src/journal/journal-file.c \
-        src/journal/lookup3.c \
-        src/journal/journal-send.c \
-        src/sd-id128.c
+	src/journal/journal-file.c \
+	src/journal/lookup3.c \
+	src/journal/journal-send.c \
+	src/sd-id128.c
 
 test_journal_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1066,48 +1066,48 @@ test_journal_LDADD = \
 
 if HAVE_XZ
 test_journal_SOURCES += \
-        src/journal/compress.c
+	src/journal/compress.c
 test_journal_CFLAGS += \
-        $(XZ_CFLAGS)
+	$(XZ_CFLAGS)
 test_journal_LDADD += \
-        $(XZ_LIBS)
+	$(XZ_LIBS)
 endif
 
 systemd_journald_SOURCES = \
 	src/journal/journald.c \
 	src/journal/sd-journal.c \
-        src/journal/journal-file.c \
-        src/journal/lookup3.c \
-        src/journal/journal-rate-limit.c \
-        src/sd-id128.c \
-        src/acl-util.c \
-        src/cgroup-util.c
+	src/journal/journal-file.c \
+	src/journal/lookup3.c \
+	src/journal/journal-rate-limit.c \
+	src/sd-id128.c \
+	src/acl-util.c \
+	src/cgroup-util.c
 
 systemd_journald_CFLAGS = \
 	$(AM_CFLAGS) \
-        $(ACL_CFLAGS)
+	$(ACL_CFLAGS)
 
 systemd_journald_LDADD = \
 	libsystemd-basic.la \
-        libsystemd-daemon.la \
-        $(ACL_LIBS)
+	libsystemd-daemon.la \
+	$(ACL_LIBS)
 
 if HAVE_XZ
 systemd_journald_SOURCES += \
-        src/journal/compress.c
+	src/journal/compress.c
 systemd_journald_CFLAGS += \
-        $(XZ_CFLAGS)
+	$(XZ_CFLAGS)
 systemd_journald_LDADD += \
-        $(XZ_LIBS)
+	$(XZ_LIBS)
 endif
 
 systemd_journalctl_SOURCES = \
 	src/journal/journalctl.c \
 	src/journal/sd-journal.c \
-        src/journal/journal-file.c \
-        src/journal/lookup3.c \
-        src/sd-id128.c \
-        src/pager.c
+	src/journal/journal-file.c \
+	src/journal/lookup3.c \
+	src/sd-id128.c \
+	src/pager.c
 
 systemd_journalctl_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1117,11 +1117,11 @@ systemd_journalctl_LDADD = \
 
 if HAVE_XZ
 systemd_journalctl_SOURCES += \
-        src/journal/compress.c
+	src/journal/compress.c
 systemd_journalctl_CFLAGS += \
-        $(XZ_CFLAGS)
+	$(XZ_CFLAGS)
 systemd_journalctl_LDADD += \
-        $(XZ_LIBS)
+	$(XZ_LIBS)
 endif
 
 systemd_stdout_syslog_bridge_SOURCES = \
@@ -1183,8 +1183,8 @@ systemd_shutdownd_LDADD = \
 
 systemd_hostnamed_SOURCES = \
 	src/hostnamed.c \
-        src/dbus-common.c \
-        src/polkit.c
+	src/dbus-common.c \
+	src/polkit.c
 
 systemd_hostnamed_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1197,8 +1197,8 @@ systemd_hostnamed_LDADD = \
 
 systemd_localed_SOURCES = \
 	src/localed.c \
-        src/dbus-common.c \
-        src/polkit.c
+	src/dbus-common.c \
+	src/polkit.c
 
 systemd_localed_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1210,15 +1210,15 @@ systemd_localed_LDADD = \
 	$(DBUS_LIBS)
 
 dist_pkgdata_DATA = \
-        src/kbd-model-map
+	src/kbd-model-map
 
 dist_noinst_SCRIPT = \
-        src/generate-kbd-model-map
+	src/generate-kbd-model-map
 
 systemd_timedated_SOURCES = \
 	src/timedated.c \
-        src/dbus-common.c \
-        src/polkit.c
+	src/dbus-common.c \
+	src/polkit.c
 
 systemd_timedated_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1232,36 +1232,36 @@ systemd_timedated_LDADD = \
 systemd_logind_SOURCES = \
 	src/login/logind.c \
 	src/login/logind-dbus.c \
-        src/login/logind-device.c \
-        src/login/logind-seat.c \
-        src/login/logind-seat-dbus.c \
-        src/login/logind-session.c \
-        src/login/logind-session-dbus.c \
-        src/login/logind-user.c \
-        src/login/logind-user-dbus.c \
-        src/dbus-common.c \
-        src/dbus-loop.c \
-        src/cgroup-util.c \
-        src/polkit.c
+	src/login/logind-device.c \
+	src/login/logind-seat.c \
+	src/login/logind-seat-dbus.c \
+	src/login/logind-session.c \
+	src/login/logind-session-dbus.c \
+	src/login/logind-user.c \
+	src/login/logind-user-dbus.c \
+	src/dbus-common.c \
+	src/dbus-loop.c \
+	src/cgroup-util.c \
+	src/polkit.c
 
 nodist_systemd_logind_SOURCES = \
-        src/login/logind-gperf.c
+	src/login/logind-gperf.c
 
 EXTRA_DIST += \
-        src/login/logind-gperf.gperf
+	src/login/logind-gperf.gperf
 
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-        $(UDEV_CFLAGS) \
-        $(ACL_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(ACL_CFLAGS)
 
 systemd_logind_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS) \
-        $(UDEV_LIBS) \
-        $(ACL_LIBS)
+	$(UDEV_LIBS) \
+	$(ACL_LIBS)
 
 systemd_uaccess_SOURCES = \
 	src/login/uaccess.c
@@ -1269,24 +1269,24 @@ systemd_uaccess_SOURCES = \
 if HAVE_ACL
 systemd_logind_SOURCES += \
 	src/login/logind-acl.c \
-        src/acl-util.c
+	src/acl-util.c
 
 systemd_uaccess_SOURCES += \
 	src/login/logind-acl.c \
-        src/acl-util.c
+	src/acl-util.c
 endif
 
 systemd_uaccess_CFLAGS = \
 	$(AM_CFLAGS) \
-        $(UDEV_CFLAGS) \
-        $(ACL_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(ACL_CFLAGS)
 
 systemd_uaccess_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	libsystemd-login.la \
-        $(UDEV_LIBS) \
-        $(ACL_LIBS)
+	$(UDEV_LIBS) \
+	$(ACL_LIBS)
 
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
@@ -1322,7 +1322,7 @@ systemd_tmpfiles_LDADD = \
 systemd_machine_id_setup_SOURCES = \
 	src/machine-id-setup.c \
 	src/machine-id-main.c \
-        src/sd-id128.c
+	src/sd-id128.c
 
 systemd_machine_id_setup_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1505,9 +1505,9 @@ systemctl_SOURCES = \
 	src/cgroup-util.c \
 	src/exit-status.c \
 	src/unit-name.c \
-        src/pager.c \
-        src/install.c \
-        src/spawn-agent.c
+	src/pager.c \
+	src/install.c \
+	src/spawn-agent.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1523,18 +1523,18 @@ systemd_loginctl_SOURCES = \
 	src/dbus-common.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
-        src/pager.c \
-        src/sysfs-show.c
+	src/pager.c \
+	src/sysfs-show.c
 
 systemd_loginctl_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-        $(UDEV_CFLAGS)
+	$(UDEV_CFLAGS)
 
 systemd_loginctl_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS) \
-        $(UDEV_LIBS)
+	$(UDEV_LIBS)
 
 systemd_notify_SOURCES = \
 	src/notify.c \
@@ -1585,7 +1585,7 @@ systemd_cgls_SOURCES = \
 	src/cgls.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
-        src/pager.c
+	src/pager.c
 
 systemd_cgls_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1596,7 +1596,7 @@ systemd_cgls_LDADD = \
 systemd_nspawn_SOURCES = \
 	src/nspawn.c \
 	src/cgroup-util.c \
-        src/loopback-setup.c
+	src/loopback-setup.c
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1672,12 +1672,12 @@ systemd_tty_ask_password_agent_LDADD = \
 
 pam_systemd_la_SOURCES = \
 	src/pam-module.c \
-        src/dbus-common.c
+	src/dbus-common.c
 
 pam_systemd_la_CFLAGS = \
 	$(AM_CFLAGS) \
-        $(PAM_CFLAGS) \
-        $(DBUS_CFLAGS) \
+	$(PAM_CFLAGS) \
+	$(DBUS_CFLAGS) \
 	-fvisibility=hidden
 
 pam_systemd_la_LDFLAGS = \
@@ -1691,20 +1691,20 @@ pam_systemd_la_LIBADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(PAM_LIBS) \
-        $(DBUS_LIBS)
+	$(DBUS_LIBS)
 
 libsystemd_daemon_la_SOURCES = \
 	src/sd-daemon.c
 
 libsystemd_daemon_la_CFLAGS = \
-        $(AM_CFLAGS) \
+	$(AM_CFLAGS) \
 	-fvisibility=hidden \
-        -DSD_EXPORT_SYMBOLS
+	-DSD_EXPORT_SYMBOLS
 
 libsystemd_daemon_la_LDFLAGS = \
-        -shared \
-        -version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
-        -Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
+	-shared \
+	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-daemon-install-hook:
@@ -1720,17 +1720,17 @@ libsystemd-daemon-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
 
 libsystemd_login_la_SOURCES = \
-        src/login/sd-login.c \
-        src/cgroup-util.c
+	src/login/sd-login.c \
+	src/cgroup-util.c
 
 libsystemd_login_la_CFLAGS = \
-        $(AM_CFLAGS) \
+	$(AM_CFLAGS) \
 	-fvisibility=hidden
 
 libsystemd_login_la_LDFLAGS = \
-        -shared \
-        -version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
-        -Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
+	-shared \
+	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
 
 libsystemd_login_la_LIBADD = \
 	libsystemd-basic.la
@@ -1749,16 +1749,16 @@ libsystemd-login-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
 
 libsystemd_id128_la_SOURCES = \
-        src/sd-id128.c
+	src/sd-id128.c
 
 libsystemd_id128_la_CFLAGS = \
-        $(AM_CFLAGS) \
+	$(AM_CFLAGS) \
 	-fvisibility=hidden
 
 libsystemd_id128_la_LDFLAGS = \
-        -shared \
-        -version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
-        -Wl,--version-script=$(top_srcdir)/src/libsystemd-id128.sym
+	-shared \
+	-version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128.sym
 
 libsystemd_id128_la_LIBADD = \
 	libsystemd-basic.la
@@ -1777,26 +1777,26 @@ libsystemd-id128-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-id128.so*
 
 libsystemd_journal_la_SOURCES = \
-        src/journal/sd-journal.c \
-        src/journal/journal-file.c \
-        src/journal/compress.c \
-        src/journal/lookup3.c \
-        src/journal/journal-send.c
+	src/journal/sd-journal.c \
+	src/journal/journal-file.c \
+	src/journal/compress.c \
+	src/journal/lookup3.c \
+	src/journal/journal-send.c
 
 libsystemd_journal_la_CFLAGS = \
-        $(AM_CFLAGS) \
-        $(XZ_CFLAGS) \
+	$(AM_CFLAGS) \
+	$(XZ_CFLAGS) \
 	-fvisibility=hidden
 
 libsystemd_journal_la_LDFLAGS = \
-        -shared \
-        -version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
-        -Wl,--version-script=$(top_srcdir)/src/journal/libsystemd-journal.sym
+	-shared \
+	-version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/journal/libsystemd-journal.sym
 
 libsystemd_journal_la_LIBADD = \
 	libsystemd-basic.la \
-        libsystemd-id128.la \
-        $(XZ_LIBS)
+	libsystemd-id128.la \
+	$(XZ_LIBS)
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-journal-install-hook:
@@ -1857,7 +1857,7 @@ src/%: src/%.m4
 
 src/load-fragment-gperf-nulstr.c: src/load-fragment-gperf.gperf
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-        $(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@ || rm $@
+	$(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@ || rm $@
 
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
@@ -1881,12 +1881,12 @@ CLEANFILES = \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA) \
-        src/73-seat-late.rules \
-        src/99-systemd.rules \
-        src/load-fragment-gperf.gperf \
-        src/load-fragment-gperf.c \
-        src/load-fragment-gperf-nulstr.c \
-        src/login/logind-gperf.c
+	src/73-seat-late.rules \
+	src/99-systemd.rules \
+	src/load-fragment-gperf.gperf \
+	src/load-fragment-gperf.c \
+	src/load-fragment-gperf-nulstr.c \
+	src/login/logind-gperf.c
 
 if HAVE_VALAC
 CLEANFILES += \
@@ -2032,7 +2032,7 @@ endif
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
 		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket && \
 		$(LN_S) ../syslog.socket syslog.socket && \
-                $(LN_S) ../systemd-journald.socket )
+		$(LN_S) ../systemd-journald.socket )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel1.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
 		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
@@ -2084,14 +2084,14 @@ endif
 		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.login1.service autovt@.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
-                $(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service && \
-                $(LN_S) getty@.service autovt@.service )
+		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service && \
+		$(LN_S) getty@.service autovt@.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path systemd-logind.service && \
 		$(LN_S) ../getty.target getty.target && \
 		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service && \
 		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path && \
-                $(LN_S) ../systemd-logind.service systemd-logind.service )
+		$(LN_S) ../systemd-logind.service systemd-logind.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service )
@@ -2101,7 +2101,7 @@ endif
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.mount \
 			dev-mqueue.mount \
-                        sys-kernel-config.mount \
+			sys-kernel-config.mount \
 			sys-kernel-debug.mount \
 			sys-kernel-security.mount \
 			sys-fs-fuse-connections.mount \
@@ -2115,7 +2115,7 @@ endif
 			cryptsetup.target && \
 		$(LN_S) ../dev-hugepages.mount dev-hugepages.mount && \
 		$(LN_S) ../dev-mqueue.mount dev-mqueue.mount && \
-                $(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
+		$(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
 		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
 		$(LN_S) ../sys-kernel-security.mount sys-kernel-security.mount && \
 		$(LN_S) ../sys-fs-fuse-connections.mount sys-fs-fuse-connections.mount && \
@@ -2142,12 +2142,12 @@ endif
 if ENABLE_TIMEDATED
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.timedate1.service  && \
-                $(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
+		$(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
 endif
 if ENABLE_LOCALED
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.locale1.service && \
-                $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service )
+		$(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service )
 endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
