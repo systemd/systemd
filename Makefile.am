@@ -1675,10 +1675,6 @@ systemd_logind_SOURCES += \
 	src/acl-util.c
 endif
 
-systemd_logind_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
-	-I $(top_srcdir)/src/login
-
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
