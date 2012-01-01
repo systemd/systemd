@@ -32,7 +32,6 @@ struct udev_event {
 	struct udev_device *dev_parent;
 	struct udev_device *dev_db;
 	char *name;
-	char *tmp_node;
 	char *program_result;
 	mode_t mode;
 	uid_t uid;
@@ -51,7 +50,6 @@ struct udev_event {
 	bool owner_final;
 	bool mode_set;
 	bool mode_final;
-	bool static_node;
 	bool name_final;
 	bool devlink_final;
 	bool run_final;
@@ -91,7 +89,6 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev);
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd);
 
 /* udev-node.c */
-int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_t uid, gid_t gid);
 int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid);
 int udev_node_remove(struct udev_device *dev);
 void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old);

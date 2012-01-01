@@ -5,7 +5,7 @@ SUBSYSTEM!="block", GOTO="persistent_storage_edd_end"
 KERNEL!="sd*|hd*|cciss*", GOTO="persistent_storage_edd_end"
 
 # BIOS Enhanced Disk Device
-ENV{DEVTYPE}=="disk", IMPORT{program}="edd_id --export $tempnode"
+ENV{DEVTYPE}=="disk", IMPORT{program}="edd_id --export $devnode"
 ENV{DEVTYPE}=="disk", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
 ENV{DEVTYPE}=="partition", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
 

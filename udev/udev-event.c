@@ -59,7 +59,6 @@ void udev_event_unref(struct udev_event *event)
 	if (event == NULL)
 		return;
 	udev_list_cleanup(&event->run_list);
-	free(event->tmp_node);
 	free(event->program_result);
 	free(event->name);
 	dbg(event->udev, "free event %p\n", event);
@@ -71,7 +70,7 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
 	struct udev_device *dev = event->dev;
 	enum subst_type {
 		SUBST_UNKNOWN,
-		SUBST_TEMP_NODE,
+		SUBST_DEVNODE,
 		SUBST_ATTR,
 		SUBST_ENV,
 		SUBST_KERNEL,
@@ -93,7 +92,8 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
 		char fmt;
 		enum subst_type type;
 	} map[] = {
-		{ .name = "tempnode",	.fmt = 'N',	.type = SUBST_TEMP_NODE },
+		{ .name = "devnode",	.fmt = 'N',	.type = SUBST_DEVNODE },
+		{ .name = "tempnode",	.fmt = 'N',	.type = SUBST_DEVNODE },
 		{ .name = "attr",	.fmt = 's',	.type = SUBST_ATTR },
 		{ .name = "sysfs",	.fmt = 's',	.type = SUBST_ATTR },
 		{ .name = "env",	.fmt = 'E',	.type = SUBST_ENV },
@@ -332,7 +332,7 @@ subst:
 			dev_parent = udev_device_get_parent(event->dev);
 			if (dev_parent == NULL)
 				break;
-				devnode = udev_device_get_devnode(dev_parent);
+			devnode = udev_device_get_devnode(dev_parent);
 			if (devnode != NULL) {
 				size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
 
@@ -342,56 +342,10 @@ subst:
 			}
 			break;
 		}
-		case SUBST_TEMP_NODE: {
-			dev_t devnum;
-			struct stat statbuf;
-			char filename[UTIL_PATH_SIZE];
-			const char *devtype;
-
-			if (event->tmp_node != NULL) {
-				l = util_strpcpy(&s, l, event->tmp_node);
-				dbg(event->udev, "tempnode: return earlier created one\n");
-				break;
-			}
-			devnum = udev_device_get_devnum(dev);
-			if (major(devnum) == 0)
-				break;
-			/* lookup kernel provided node */
-			if (udev_device_get_knodename(dev) != NULL) {
-				util_strscpyl(filename, sizeof(filename),
-					      udev_get_dev_path(event->udev), "/", udev_device_get_knodename(dev), NULL);
-				if (stat(filename, &statbuf) == 0 && statbuf.st_rdev == devnum) {
-					l = util_strpcpy(&s, l, filename);
-					dbg(event->udev, "tempnode: return kernel node\n");
-					break;
-				}
-			}
-			/* lookup /dev/{char,block}/<maj>:<min> */
-			if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
-				devtype = "block";
-			else
-				devtype = "char";
-			snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
-				 udev_get_dev_path(event->udev), devtype,
-				 major(udev_device_get_devnum(dev)),
-				 minor(udev_device_get_devnum(dev)));
-			if (stat(filename, &statbuf) == 0 && statbuf.st_rdev == devnum) {
-				l = util_strpcpy(&s, l, filename);
-				dbg(event->udev, "tempnode: return maj:min node\n");
-				break;
-			}
-			/* create temporary node */
-			dbg(event->udev, "tempnode: create temp node\n");
-			asprintf(&event->tmp_node, "%s/.tmp-%s-%u:%u",
-				 udev_get_dev_path(event->udev), devtype,
-				 major(udev_device_get_devnum(dev)),
-				 minor(udev_device_get_devnum(dev)));
-			if (event->tmp_node == NULL)
-				break;
-			udev_node_mknod(dev, event->tmp_node, 0600, 0, 0);
-			l = util_strpcpy(&s, l, event->tmp_node);
+		case SUBST_DEVNODE:
+			if (udev_device_get_devnode(dev) != NULL)
+				l = util_strpcpy(&s, l, udev_device_get_devnode(dev));
 			break;
-		}
 		case SUBST_NAME:
 			if (event->name != NULL) {
 				l = util_strpcpy(&s, l, event->name);
@@ -975,44 +929,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
 		}
 
 		if (major(udev_device_get_devnum(dev)) != 0) {
-			char filename[UTIL_PATH_SIZE];
-
-			if (event->tmp_node != NULL) {
-				info(event->udev, "cleanup temporary device node\n");
-				util_unlink_secure(event->udev, event->tmp_node);
-				free(event->tmp_node);
-				event->tmp_node = NULL;
-			}
-
-			/* no rule, use kernel provided name */
-			if (event->name == NULL) {
-				if (udev_device_get_knodename(dev) != NULL) {
-					event->name = strdup(udev_device_get_knodename(dev));
-					info(event->udev, "no node name set, will use kernel supplied name '%s'\n", event->name);
-				} else {
-					event->name = strdup(udev_device_get_sysname(event->dev));
-					info(event->udev, "no node name set, will use device name '%s'\n", event->name);
-				}
-			}
-
-			if (event->name == NULL || event->name[0] == '\0') {
-				udev_device_delete_db(dev);
-				udev_device_tag_index(dev, NULL, false);
-				udev_device_unref(event->dev_db);
-				err = -ENOMEM;
-				err(event->udev, "no node name, something went wrong, ignoring\n");
-				goto out;
-			}
-
-			if (udev_device_get_knodename(dev) != NULL && strcmp(udev_device_get_knodename(dev), event->name) != 0)
-				err(event->udev, "kernel-provided name '%s' and NAME= '%s' disagree, "
-				    "please use SYMLINK+= or change the kernel to provide the proper name\n",
-				    udev_device_get_knodename(dev), event->name);
-
-			/* set device node name */
-			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", event->name, NULL);
-			udev_device_set_devnode(dev, filename);
-
 			/* remove/update possible left-over symlinks from old database entry */
 			if (event->dev_db != NULL)
 				udev_node_update_old_links(dev, event->dev_db);
@@ -1029,10 +945,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
 					event->mode = 0600;
 				}
 			}
-
-			/* set sticky bit, so we do not remove the node on module unload */
-			if (event->static_node)
-				event->mode |= 01000;
 
 			err = udev_node_add(dev, event->mode, event->uid, event->gid);
 		}

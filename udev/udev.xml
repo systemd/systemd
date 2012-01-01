@@ -167,9 +167,8 @@
         <varlistentry>
           <term><option>NAME</option></term>
           <listitem>
-            <para>Match the name of the node or network interface. It can
-            be used once the NAME key has been set in one of the preceding
-            rules.</para>
+            <para>Match the name of a network interface. It can be used once the
+            NAME key has been set in one of the preceding rules.</para>
           </listitem>
         </varlistentry>
 
@@ -319,17 +318,8 @@
         <varlistentry>
           <term><option>NAME</option></term>
           <listitem>
-            <para>What a network interface should be named.</para>
-            <para>Also, as a temporary workaround, this is what a device node
-            should be named; usually the kernel provides the defined node name or creates
-            and removes the node before udev even receives any event. Changing
-            the node name from the kernel's default creates inconsistencies
-            and is not supported. If the kernel and NAME specify different names,
-            an error is logged. udev is only expected to handle device node
-            permissions and to create additional symlinks, not to change
-            kernel-provided device node names. Instead of renaming a device node,
-            SYMLINK should be used. However, symlink names must never conflict with
-            device node names, as that would result in unpredictable behavior.</para>
+            <para>The name to use for a network interface. The name of a device node
+            can not be changed by udev, only additional symlinks can be created.</para>
           </listitem>
         </varlistentry>
 
@@ -637,7 +627,7 @@
         <varlistentry>
           <term><option>$name</option></term>
           <listitem>
-            <para>The current name of the device node. If not changed by a rule, it is the
+            <para>The current name of the device. If not changed by a rule, it is the
             name of the kernel device.</para>
           </listitem>
         </varlistentry>
@@ -665,10 +655,9 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>$tempnode</option>, <option>%N</option></term>
+          <term><option>$devnode</option>, <option>%N</option></term>
           <listitem>
-            <para>The name of a temporary device node created to provide access to
-            the device from a external program before the real node is created.</para>
+            <para>The name of the device node.</para>
           </listitem>
         </varlistentry>
 

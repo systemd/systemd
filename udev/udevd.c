@@ -863,11 +863,10 @@ static void static_dev_create_from_modules(struct udev *udev)
 		if (sscanf(devno, "%c%u:%u", &type, &maj, &min) != 3)
 			continue;
 
-		/* set sticky bit, so we do not remove the node on module unload */
 		if (type == 'c')
-			mode = 01600|S_IFCHR;
+			mode = S_IFCHR;
 		else if (type == 'b')
-			mode = 01600|S_IFBLK;
+			mode = S_IFBLK;
 		else
 			continue;
 

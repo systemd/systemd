@@ -223,6 +223,10 @@ UDEV_EXPORT struct udev *udev_new(void)
 				set_value(&udev->run_path, val);
 				continue;
 			}
+			if (strcmp(key, "udev_sys") == 0) {
+				set_value(&udev->sys_path, val);
+				continue;
+			}
 			if (strcmp(key, "udev_rules") == 0) {
 				set_value(&udev->rules_path[0], val);
 				udev->rules_path_count = 1;
@@ -236,18 +240,6 @@ UDEV_EXPORT struct udev *udev_new(void)
 	env = getenv("UDEV_LOG");
 	if (env != NULL)
 		udev_set_log_priority(udev, util_log_priority(env));
-
-	env = getenv("UDEV_ROOT");
-	if (env != NULL) {
-		set_value(&udev->dev_path, env);
-		udev_add_property(udev, "UDEV_ROOT", udev->dev_path);
-	}
-
-	env = getenv("SYSFS_PATH");
-	if (env != NULL) {
-		set_value(&udev->sys_path, env);
-		udev_add_property(udev, "SYSFS_PATH", udev->sys_path);
-	}
 
 	/* set defaults */
 	if (udev->dev_path == NULL)
@@ -401,8 +393,8 @@ int udev_get_rules_path(struct udev *udev, char **path[], unsigned long long *st
  * @udev: udev library context
  *
  * Retrieve the sysfs mount point. The default is "/sys". For
- * testing purposes, it can be overridden with the environment
- * variable SYSFS_PATH.
+ * testing purposes, it can be overridden with udev_sys=
+ * in the udev configuration file.
  *
  * Returns: the sys mount point
  **/

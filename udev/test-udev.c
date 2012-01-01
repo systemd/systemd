@@ -43,7 +43,6 @@ int main(int argc, char *argv[])
 	char syspath[UTIL_PATH_SIZE];
 	const char *devpath;
 	const char *action;
-	const char *subsystem;
 	sigset_t mask, sigmask_orig;
 	int err = -EINVAL;
 
@@ -55,12 +54,15 @@ int main(int argc, char *argv[])
 
 	sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
-	action = getenv("ACTION");
-	devpath = getenv("DEVPATH");
-	subsystem = getenv("SUBSYSTEM");
+	action = argv[1];
+	if (action == NULL) {
+		err(udev, "action missing\n");
+		goto out;
+	}
 
-	if (action == NULL || subsystem == NULL || devpath == NULL) {
-		err(udev, "action, subsystem or devpath missing\n");
+	devpath = argv[2];
+	if (devpath == NULL) {
+		err(udev, "devpath missing\n");
 		goto out;
 	}
 
@@ -73,10 +75,6 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	/* skip reading of db, but read kernel parameters */
-	udev_device_set_info_loaded(dev);
-	udev_device_read_uevent_file(dev);
-
 	udev_device_set_action(dev, action);
 	event = udev_event_new(dev);
 
@@ -86,6 +84,24 @@ int main(int argc, char *argv[])
 	if (event->fd_signal < 0) {
 		fprintf(stderr, "error creating signalfd\n");
 		goto out;
+	}
+
+	/* do what devtmpfs usually provides us */
+	if (udev_device_get_devnode(dev) != NULL) {
+		mode_t mode;
+
+		if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
+			mode |= S_IFBLK;
+		else
+			mode |= S_IFCHR;
+
+		if (strcmp(action, "remove") != 0) {
+			util_create_path(udev, udev_device_get_devnode(dev));
+			mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev));
+		} else {
+			unlink(udev_device_get_devnode(dev));
+			util_delete_path(udev, udev_device_get_devnode(dev));
+		}
 	}
 
 	err = udev_event_execute_rules(event, rules, &sigmask_orig);

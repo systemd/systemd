@@ -2,7 +2,7 @@
 
 ACTION!="add", GOTO="mtd_probe_end"
 
-KERNEL=="mtd*ro", IMPORT{program}="mtd_probe $tempnode"
+KERNEL=="mtd*ro", IMPORT{program}="mtd_probe $devnode"
 KERNEL=="mtd*ro", ENV{MTD_FTL}=="smartmedia", IMPORT{builtin}="kmod load sm_ftl"
 
 LABEL="mtd_probe_end"

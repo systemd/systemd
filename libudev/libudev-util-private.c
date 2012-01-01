@@ -113,23 +113,6 @@ int util_delete_path(struct udev *udev, const char *path)
 	return err;
 }
 
-/* Reset permissions on the device node, before unlinking it to make sure,
- * that permissions of possible hard links will be removed too.
- */
-int util_unlink_secure(struct udev *udev, const char *filename)
-{
-	int err;
-
-	chown(filename, 0, 0);
-	chmod(filename, 0000);
-	err = unlink(filename);
-	if (errno == ENOENT)
-		err = 0;
-	if (err)
-		err(udev, "unlink(%s) failed: %m\n", filename);
-	return err;
-}
-
 uid_t util_lookup_user(struct udev *udev, const char *user)
 {
 	char *endptr;

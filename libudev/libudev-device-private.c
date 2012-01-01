@@ -78,7 +78,6 @@ int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, 
 
 static bool device_has_info(struct udev_device *udev_device)
 {
-	struct udev *udev = udev_device_get_udev(udev_device);
 	struct udev_list_entry *list_entry;
 
 	if (udev_device_get_devlinks_list_entry(udev_device) != NULL)
@@ -90,12 +89,6 @@ static bool device_has_info(struct udev_device *udev_device)
 			return true;
 	if (udev_device_get_tags_list_entry(udev_device) != NULL)
 		return true;
-	if (udev_device_get_devnode(udev_device) != NULL && udev_device_get_knodename(udev_device) != NULL) {
-		size_t devlen = strlen(udev_get_dev_path(udev))+1;
-
-		if (strcmp(&udev_device_get_devnode(udev_device)[devlen], udev_device_get_knodename(udev_device)) != 0)
-			return true;
-	}
 	if (udev_device_get_watch_handle(udev_device) >= 0)
 		return true;
 	return false;
@@ -142,20 +135,22 @@ int udev_device_update_db(struct udev_device *udev_device)
 		fchmod(fileno(f), 01644);
 
 	if (has_info) {
-		size_t devlen = strlen(udev_get_dev_path(udev))+1;
 		struct udev_list_entry *list_entry;
 
-		if (udev_device_get_devnode(udev_device) != NULL) {
-			fprintf(f, "N:%s\n", &udev_device_get_devnode(udev_device)[devlen]);
+		if (major(udev_device_get_devnum(udev_device)) > 0) {
+			size_t devlen = strlen(udev_get_dev_path(udev))+1;
+
 			udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device))
 				fprintf(f, "S:%s\n", &udev_list_entry_get_name(list_entry)[devlen]);
+			if (udev_device_get_devlink_priority(udev_device) != 0)
+				fprintf(f, "L:%i\n", udev_device_get_devlink_priority(udev_device));
+			if (udev_device_get_watch_handle(udev_device) >= 0)
+				fprintf(f, "W:%i\n", udev_device_get_watch_handle(udev_device));
 		}
-		if (udev_device_get_devlink_priority(udev_device) != 0)
-			fprintf(f, "L:%i\n", udev_device_get_devlink_priority(udev_device));
-		if (udev_device_get_watch_handle(udev_device) >= 0)
-			fprintf(f, "W:%i\n", udev_device_get_watch_handle(udev_device));
+
 		if (udev_device_get_usec_initialized(udev_device) > 0)
 			fprintf(f, "I:%llu\n", udev_device_get_usec_initialized(udev_device));
+
 		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
 			if (!udev_list_entry_get_num(list_entry))
 				continue;
@@ -163,6 +158,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 				udev_list_entry_get_name(list_entry),
 				udev_list_entry_get_value(list_entry));
 		}
+
 		udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
 			fprintf(f, "G:%s\n", udev_list_entry_get_name(list_entry));
 	}

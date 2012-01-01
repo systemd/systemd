@@ -83,7 +83,6 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile);
 int udev_device_read_uevent_file(struct udev_device *udev_device);
 int udev_device_set_action(struct udev_device *udev_device, const char *action);
 const char *udev_device_get_devpath_old(struct udev_device *udev_device);
-const char *udev_device_get_knodename(struct udev_device *udev_device);
 const char *udev_device_get_id_filename(struct udev_device *udev_device);
 void udev_device_set_is_initialized(struct udev_device *udev_device);
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
@@ -187,7 +186,6 @@ uint64_t util_string_bloom64(const char *str);
 int util_create_path(struct udev *udev, const char *path);
 int util_create_path_selinux(struct udev *udev, const char *path);
 int util_delete_path(struct udev *udev, const char *path);
-int util_unlink_secure(struct udev *udev, const char *filename);
 uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string,

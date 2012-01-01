@@ -57,7 +57,6 @@ struct udev_device {
 	char *driver;
 	char *action;
 	char *devpath_old;
-	char *knodename;
 	char *id_filename;
 	char **envp;
 	char *monitor_buf;
@@ -158,23 +157,6 @@ static int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 	udev_device_add_property(udev_device, "MAJOR", num);
 	snprintf(num, sizeof(num), "%u", minor(devnum));
 	udev_device_add_property(udev_device, "MINOR", num);
-	return 0;
-}
-
-const char *udev_device_get_knodename(struct udev_device *udev_device)
-{
-	return udev_device->knodename;
-}
-
-static int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename)
-{
-	free(udev_device->knodename);
-	udev_device->knodename = strdup(knodename);
-	if (udev_device->knodename == NULL)
-		return -ENOMEM;
-	/* do not overwrite the udev property with the kernel property */
-	if (udev_device->devnode == NULL)
-		udev_device_add_property(udev_device, "DEVNAME", udev_device->knodename);
 	return 0;
 }
 
@@ -381,10 +363,7 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
 	} else if (strncmp(property, "DEVTYPE=", 8) == 0) {
 		udev_device_set_devtype(udev_device, &property[8]);
 	} else if (strncmp(property, "DEVNAME=", 8) == 0) {
-		if (property[8] == '/')
-			udev_device_set_devnode(udev_device, &property[8]);
-		else
-			udev_device_set_knodename(udev_device, &property[8]);
+		udev_device_set_devnode(udev_device, &property[8]);
 	} else if (strncmp(property, "DEVLINKS=", 9) == 0) {
 		char devlinks[UTIL_PATH_SIZE];
 		char *slink;
@@ -516,10 +495,6 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
 		line[len-1] = '\0';
 		val = &line[2];
 		switch(line[0]) {
-		case 'N':
-			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/", val, NULL);
-			udev_device_set_devnode(udev_device, filename);
-			break;
 		case 'S':
 			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/", val, NULL);
 			udev_device_add_devlink(udev_device, filename, 0);
@@ -582,7 +557,7 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 		else if (strncmp(line, "IFINDEX=", 8) == 0)
 			udev_device_set_ifindex(udev_device, strtoull(&line[8], NULL, 10));
 		else if (strncmp(line, "DEVNAME=", 8) == 0)
-			udev_device_set_knodename(udev_device, &line[8]);
+			udev_device_set_devnode(udev_device, &line[8]);
 		else if (strncmp(line, "DEVMODE=", 8) == 0)
 			udev_device->devnode_mode = strtoul(&line[8], NULL, 8);
 
@@ -1073,7 +1048,6 @@ UDEV_EXPORT void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
-	free(udev_device->knodename);
 	free(udev_device->id_filename);
 	free(udev_device->envp);
 	free(udev_device->monitor_buf);
@@ -1152,21 +1126,10 @@ UDEV_EXPORT const char *udev_device_get_devnode(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
 		return NULL;
-	if (!udev_device->info_loaded) {
-		udev_device_read_uevent_file(udev_device);
-		udev_device_read_db(udev_device, NULL);
-	}
-
-	/* we might get called before we handled an event and have a db, use the kernel-provided name */
-	if (udev_device->devnode == NULL && udev_device_get_knodename(udev_device) != NULL) {
-		char filename[UTIL_NAME_SIZE];
-
-		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/",
-			      udev_device_get_knodename(udev_device), NULL);
-		udev_device_set_devnode(udev_device, filename);
+	if (udev_device->devnode != NULL)
 		return udev_device->devnode;
-	}
-
+	if (!udev_device->info_loaded)
+		udev_device_read_uevent_file(udev_device);
 	return udev_device->devnode;
 }
 
@@ -1522,7 +1485,12 @@ int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath
 int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode)
 {
 	free(udev_device->devnode);
-	udev_device->devnode = strdup(devnode);
+	if (devnode[0] != '/') {
+		if (asprintf(&udev_device->devnode, "%s/%s", udev_get_dev_path(udev_device->udev), devnode) < 0)
+			udev_device->devnode = NULL;
+	} else {
+		udev_device->devnode = strdup(devnode);
+	}
 	if (udev_device->devnode == NULL)
 		return -ENOMEM;
 	udev_device_add_property(udev_device, "DEVNAME", udev_device->devnode);

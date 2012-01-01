@@ -33,90 +33,6 @@
 
 #define TMP_FILE_EXT		".udev-tmp"
 
-int udev_node_mknod(struct udev_device *dev, const char *file, mode_t mode, uid_t uid, gid_t gid)
-{
-	struct udev *udev = udev_device_get_udev(dev);
-	dev_t devnum = udev_device_get_devnum(dev);
-	struct stat stats;
-	int err = 0;
-
-
-	if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
-		mode |= S_IFBLK;
-	else
-		mode |= S_IFCHR;
-
-	if (file == NULL)
-		file = udev_device_get_devnode(dev);
-
-	if (lstat(file, &stats) == 0) {
-		if (((stats.st_mode & S_IFMT) == (mode & S_IFMT)) && (stats.st_rdev == devnum)) {
-			info(udev, "preserve file '%s', because it has correct dev_t\n", file);
-			if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
-				/* preserve 'sticky' bit, if already set */
-				mode |= stats.st_mode & 01000;
-				info(udev, "set permissions %s, %#o, uid=%u, gid=%u\n", file, mode, uid, gid);
-				chmod(file, mode);
-				chown(file, uid, gid);
-			} else {
-				info(udev, "preserve permissions %s, %#o, uid=%u, gid=%u\n", file, mode, uid, gid);
-			}
-			/*
-			 * Set initial selinux file context only on add events.
-			 * We set the proper context on bootup (triger) or for newly
-			 * added devices, but we don't change it later, in case
-			 * something else has set a custom context in the meantime.
-			 */
-			if (strcmp(udev_device_get_action(dev), "add") == 0)
-				udev_selinux_lsetfilecon(udev, file, mode);
-			/* always update timestamp when we re-use the node, like on media change events */
-			utimensat(AT_FDCWD, file, NULL, 0);
-		} else {
-			char file_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
-
-			info(udev, "atomically replace existing file '%s'\n", file);
-			util_strscpyl(file_tmp, sizeof(file_tmp), file, TMP_FILE_EXT, NULL);
-			unlink(file_tmp);
-			udev_selinux_setfscreatecon(udev, file_tmp, mode);
-			err = mknod(file_tmp, mode, devnum);
-			udev_selinux_resetfscreatecon(udev);
-			if (err != 0) {
-				err(udev, "mknod '%s' %u:%u %#o failed: %m\n",
-				    file_tmp, major(devnum), minor(devnum), mode);
-				goto exit;
-			}
-			err = rename(file_tmp, file);
-			if (err != 0) {
-				err(udev, "rename '%s' '%s' failed: %m\n", file_tmp, file);
-				unlink(file_tmp);
-				goto exit;
-			}
-			info(udev, "set permissions '%s' %#o uid=%u gid=%u\n", file, mode, uid, gid);
-			chmod(file, mode);
-			chown(file, uid, gid);
-		}
-	} else {
-		info(udev, "mknod '%s' %u:%u %#o\n", file, major(devnum), minor(devnum), mode);
-		do {
-			err = util_create_path_selinux(udev, file);
-			if (err != 0 && err != -ENOENT)
-				break;
-			udev_selinux_setfscreatecon(udev, file, mode);
-			err = mknod(file, mode, devnum);
-			if (err != 0)
-				err = -errno;
-			udev_selinux_resetfscreatecon(udev);
-		} while (err == -ENOENT);
-		if (err != 0 && err != -EEXIST)
-			err(udev, "mknod '%s' %u:%u %#o' failed: %m\n", file, major(devnum), minor(devnum), mode);
-		info(udev, "set permissions '%s' %#o uid=%u gid=%u\n", file, mode, uid, gid);
-		chmod(file, mode);
-		chown(file, uid, gid);
-	}
-exit:
-	return err;
-}
-
 static int node_symlink(struct udev *udev, const char *node, const char *slink)
 {
 	struct stat stats;
@@ -362,6 +278,55 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 	}
 }
 
+static int node_fixup(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
+{
+	struct udev *udev = udev_device_get_udev(dev);
+	const char *devnode = udev_device_get_devnode(dev);
+	dev_t devnum = udev_device_get_devnum(dev);
+	struct stat stats;
+	int err = 0;
+
+	if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
+		mode |= S_IFBLK;
+	else
+		mode |= S_IFCHR;
+
+	if (lstat(devnode, &stats) != 0) {
+		err = -errno;
+		info(udev, "can not stat() node '%s' (%m)\n", devnode);
+		goto out;
+	}
+
+	if (((stats.st_mode & S_IFMT) != (mode & S_IFMT)) || (stats.st_rdev != devnum)) {
+		err = -EEXIST;
+		info(udev, "found node '%s' with non-matching devnum %s, skip handling\n",
+		     udev_device_get_devnode(dev), udev_device_get_id_filename(dev));
+		goto out;
+	}
+
+	if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
+		info(udev, "set permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
+		chmod(devnode, mode);
+		chown(devnode, uid, gid);
+	} else {
+		info(udev, "preserve permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
+	}
+
+	/*
+	 * Set initial selinux file context only on add events.
+	 * We set the proper context on bootup (triger) or for newly
+	 * added devices, but we don't change it later, in case
+	 * something else has set a custom context in the meantime.
+	 */
+	if (strcmp(udev_device_get_action(dev), "add") == 0)
+		udev_selinux_lsetfilecon(udev, devnode, mode);
+
+	/* always update timestamp when we re-use the node, like on media change events */
+	utimensat(AT_FDCWD, devnode, NULL, 0);
+out:
+	return err;
+}
+
 int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct udev *udev = udev_device_get_udev(dev);
@@ -369,15 +334,12 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 	struct udev_list_entry *list_entry;
 	int err = 0;
 
-	info(udev, "creating device node '%s', devnum=%d:%d, mode=%#o, uid=%d, gid=%d\n",
-	     udev_device_get_devnode(dev),
-	     major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)),
-	     mode, uid, gid);
+	info(udev, "handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d\n",
+	     udev_device_get_devnode(dev), udev_device_get_id_filename(dev), mode, uid, gid);
 
-	if (udev_node_mknod(dev, NULL, mode, uid, gid) != 0) {
-		err = -1;
+	err = node_fixup(dev, mode, uid, gid);
+	if (err < 0)
 		goto exit;
-	}
 
 	/* always add /dev/{block,char}/$major:$minor */
 	snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
@@ -411,38 +373,6 @@ int udev_node_remove(struct udev_device *dev)
 	/* remove/update symlinks, remove symlinks from name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
 		link_update(dev, udev_list_entry_get_name(list_entry), 0);
-
-	devnode = udev_device_get_devnode(dev);
-	if (devnode == NULL)
-		goto out;
-
-	if (stat(devnode, &stats) == 0) {
-		if (stats.st_rdev != udev_device_get_devnum(dev)) {
-			info(udev, "device node '%s' points to a different device, skip removal\n", devnode);
-			err = -1;
-			goto out;
-		}
-
-		if (stats.st_mode & 01000) {
-			info(udev, "device node '%s' has sticky bit set, skip removal\n", devnode);
-			goto out;
-		}
-	} else {
-		info(udev, "device node '%s' not found\n", devnode);
-	}
-
-	dev_check = udev_device_new_from_syspath(udev, udev_device_get_syspath(dev));
-	if (dev_check != NULL) {
-		/* do not remove device node if the same sys-device is re-created in the meantime */
-		info(udev, "keeping device node of existing device'%s'\n", devnode);
-		udev_device_unref(dev_check);
-		goto out;
-	}
-
-	info(udev, "removing device node '%s'\n", devnode);
-	err = util_unlink_secure(udev, devnode);
-	if (err == 0)
-		util_delete_path(udev, devnode);
 
 	/* remove /dev/{block,char}/$major:$minor */
 	snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
