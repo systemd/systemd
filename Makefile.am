@@ -1131,10 +1131,6 @@ lib_LTLIBRARIES += \
 pkgconfiglib_DATA += \
 	libsystemd-daemon.pc
 
-dist_doc_DATA += \
-	src/sd-daemon.h \
-	src/sd-daemon.c
-
 MANPAGES += \
 	man/sd-daemon.7 \
 	man/sd_notify.3 \
@@ -1156,7 +1152,6 @@ man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_notifyf.3: man/sd_notify.3
 
 EXTRA_DIST += \
-	${libsystemd_daemon_la_SOURCES:.c=.h} \
 	libsystemd-daemon.pc.in \
 	src/libsystemd-daemon.sym
 
@@ -1486,10 +1481,6 @@ EXTRA_DIST += \
 	units/systemd-readahead-collect.service.in \
 	units/systemd-readahead-replay.service.in \
 	units/systemd-readahead-done.service.in
-
-dist_doc_DATA += \
-	src/readahead/sd-readahead.h \
-	src/readahead/sd-readahead.c
 
 MANPAGES += \
 	man/sd_readahead.3 \
