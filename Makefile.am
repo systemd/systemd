@@ -182,7 +182,6 @@ rootlibexec_PROGRAMS = \
 	systemd-cgroups-agent \
 	systemd-initctl \
 	systemd-update-utmp \
-	systemd-random-seed \
 	systemd-shutdownd \
 	systemd-shutdown \
 	systemd-modules-load \
@@ -190,7 +189,6 @@ rootlibexec_PROGRAMS = \
 	systemd-kmsg-syslogd \
 	systemd-reply-password \
 	systemd-fsck \
-	systemd-quotacheck \
 	systemd-timestamp \
 	systemd-ac-power \
 	systemd-detect-virt \
@@ -325,8 +323,6 @@ nodist_systemunit_DATA = \
 	units/systemd-remount-api-vfs.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
-	units/systemd-random-seed-save.service \
-	units/systemd-random-seed-load.service \
 	units/systemd-tmpfiles-setup.service \
 	units/systemd-tmpfiles-clean.service \
 	units/systemd-ask-password-wall.service \
@@ -338,7 +334,6 @@ nodist_systemunit_DATA = \
 	units/kexec.service \
 	units/fsck@.service \
 	units/fsck-root.service \
-	units/quotacheck.service \
 	units/rescue.service \
 	units/user@.service
 
@@ -362,8 +357,6 @@ EXTRA_DIST += \
 	units/systemd-remount-api-vfs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
-	units/systemd-random-seed-save.service.in \
-	units/systemd-random-seed-load.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in \
 	units/systemd-ask-password-wall.service.in \
@@ -376,7 +369,6 @@ EXTRA_DIST += \
 	units/user/exit.service.in \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
-	units/quotacheck.service.in \
 	units/user@.service.in \
 	systemd.pc.in \
 	introspect.awk \
@@ -792,12 +784,6 @@ systemd_update_utmp_LDADD = \
 	$(DBUS_LIBS) \
 	$(AUDIT_LIBS)
 
-systemd_random_seed_SOURCES = \
-	src/random-seed.c
-
-systemd_random_seed_LDADD = \
-	libsystemd-basic.la
-
 systemd_shutdownd_SOURCES = \
 	src/utmp-wtmp.c \
 	src/shutdownd.c
@@ -861,12 +847,6 @@ systemd_fsck_LDADD = \
 	libsystemd-basic.la \
 	$(UDEV_LIBS) \
 	$(DBUS_LIBS)
-
-systemd_quotacheck_SOURCES = \
-	src/quotacheck.c
-
-systemd_quotacheck_LDADD = \
-	libsystemd-basic.la
 
 systemd_timestamp_SOURCES = \
 	src/timestamp.c
@@ -1449,6 +1429,55 @@ EXTRA_DIST += \
 MANPAGES += \
 	man/sd_readahead.3 \
 	man/sd-readahead.7
+endif
+
+# ------------------------------------------------------------------------------
+if ENABLE_QUOTACHECK
+rootlibexec_PROGRAMS += \
+	systemd-quotacheck
+
+nodist_systemunit_DATA += \
+	units/quotacheck.service
+
+EXTRA_DIST += \
+	units/quotacheck.service.in
+
+systemd_quotacheck_SOURCES = \
+	src/quotacheck.c
+
+systemd_quotacheck_LDADD = \
+	libsystemd-basic.la
+endif
+
+# ------------------------------------------------------------------------------
+if ENABLE_RANDOMSEED
+rootlibexec_PROGRAMS += \
+	systemd-random-seed
+
+nodist_systemunit_DATA += \
+	units/systemd-random-seed-save.service \
+	units/systemd-random-seed-load.service
+
+EXTRA_DIST += \
+	units/systemd-random-seed-save.service.in \
+	units/systemd-random-seed-load.service.in
+
+systemd_random_seed_SOURCES = \
+	src/random-seed.c
+
+systemd_random_seed_LDADD = \
+	libsystemd-basic.la
+
+randomseed-install-data-hook:
+	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
+		rm -f systemd-random-seed-save.service && \
+		$(LN_S) ../systemd-random-seed-save.service systemd-random-seed-save.service )
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f systemd-random-seed-load.service && \
+		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service )
+
+INSTALL_DATA_HOOKS += \
+	randomseed-install-data-hook
 endif
 
 # ------------------------------------------------------------------------------
@@ -2137,10 +2166,8 @@ systemd-install-data-hook:
 		rm -f systemd-update-utmp-runlevel.service && \
 		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
 	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
-		rm -f systemd-update-utmp-shutdown.service \
-			systemd-random-seed-save.service && \
-		$(LN_S) ../systemd-update-utmp-shutdown.service systemd-update-utmp-shutdown.service && \
-		$(LN_S) ../systemd-random-seed-save.service systemd-random-seed-save.service )
+		rm -f systemd-update-utmp-shutdown.service && \
+		$(LN_S) ../systemd-update-utmp-shutdown.service systemd-update-utmp-shutdown.service )
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
 		rm -f systemd-remount-api-vfs.service \
 			fsck-root.service \
@@ -2191,7 +2218,6 @@ systemd-install-data-hook:
 			sys-kernel-security.mount \
 			sys-fs-fuse-connections.mount \
 			systemd-modules-load.service \
-			systemd-random-seed-load.service \
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
 			systemd-ask-password-console.path \
@@ -2203,7 +2229,6 @@ systemd-install-data-hook:
 		$(LN_S) ../sys-kernel-security.mount sys-kernel-security.mount && \
 		$(LN_S) ../sys-fs-fuse-connections.mount sys-fs-fuse-connections.mount && \
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
-		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \

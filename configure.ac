@@ -330,6 +330,20 @@ if test "x$enable_readahead" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_READAHEAD, [test "$have_readahead" = "yes"])
 
+have_quotacheck=no
+AC_ARG_ENABLE(quotacheck, AS_HELP_STRING([--disable-quotacheck], [disable quotacheck tools]))
+if test "x$enable_quotacheck" != "xno"; then
+	have_quotacheck=yes
+fi
+AM_CONDITIONAL(ENABLE_QUOTACHECK, [test "$have_quotacheck" = "yes"])
+
+have_randomseed=no
+AC_ARG_ENABLE(randomseed, AS_HELP_STRING([--disable-randomseed], [disable randomseed tools]))
+if test "x$enable_randomseed" != "xno"; then
+	have_randomseed=yes
+fi
+AM_CONDITIONAL(ENABLE_RANDOMSEED, [test "$have_randomseed" = "yes"])
+
 have_logind=no
 AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
 if test "x$enable_logind" != "xno"; then
@@ -627,6 +641,8 @@ AC_MSG_RESULT([
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}
+        quotacheck:              ${have_quotacheck}
+        randomseed:              ${have_randomseed}
         logind:                  ${have_logind}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
