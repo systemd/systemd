@@ -122,14 +122,16 @@ static int builtin_kmod_init(struct udev *udev)
 /* called on udev shutdown and reload request */
 static void builtin_kmod_exit(struct udev *udev)
 {
-	ctx = kmod_unref(ctx);
 	info(udev, "unload module index\n");
+	ctx = kmod_unref(ctx);
 }
 
 /* called every couple of seconds during event activity; 'true' if config has changed */
 static bool builtin_kmod_validate(struct udev *udev)
 {
 	info(udev, "validate module index\n");
+	if (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK)
+		return true;
 	return false;
 }
 
