@@ -809,12 +809,6 @@ systemd_shutdownd_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la
 
-dist_pkgdata_DATA = \
-	src/kbd-model-map
-
-dist_noinst_SCRIPT = \
-	src/generate-kbd-model-map
-
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
 	src/umount.c \
@@ -1598,6 +1592,16 @@ INSTALL_DATA_HOOKS += \
 
 EXTRA_DIST += \
 	units/systemd-localed.service.in
+
+dist_pkgdata_DATA = \
+	src/locale/kbd-model-map
+
+dist_noinst_SCRIPT = \
+	src/locale/generate-kbd-model-map
+
+update-kbd-model-map:
+	src/locale/generate-kbd-model-map > src/locale/kbd-model-map
+
 endif
 
 # ------------------------------------------------------------------------------
@@ -2340,6 +2344,3 @@ upload: all distcheck
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
-
-update-kbd-model-map:
-	src/generate-kbd-model-map > src/kbd-model-map
