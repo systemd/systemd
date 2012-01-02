@@ -101,11 +101,6 @@ static int lookup_vid_pid(const char *database,
 	for (;;) {
 		size_t n;
 
-		if (line) {
-			free(line);
-			line = NULL;
-		}
-
 		if (getline(&line, &n, f) < 0)
 			break;
 
