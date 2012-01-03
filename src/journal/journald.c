@@ -41,6 +41,7 @@
 #include "list.h"
 #include "journal-rate-limit.h"
 #include "sd-journal.h"
+#include "sd-login.h"
 #include "journal-internal.h"
 
 #define USER_JOURNALS_MAX 1024
@@ -423,7 +424,8 @@ static void dispatch_message_real(Server *s,
                 *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
                 *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *audit_session = NULL, *audit_loginuid = NULL,
-                *exe = NULL, *cgroup = NULL;
+                *exe = NULL, *cgroup = NULL, *session = NULL,
+                *owner_uid = NULL, *service = NULL;
 
         char idbuf[33];
         sd_id128_t id;
@@ -436,11 +438,11 @@ static void dispatch_message_real(Server *s,
         assert(s);
         assert(iovec);
         assert(n > 0);
-        assert(n + 13 <= m);
+        assert(n + 16 <= m);
 
         if (ucred) {
-                uint32_t session;
-                char *path;
+                uint32_t audit;
+                uid_t owner;
 
                 realuid = ucred->uid;
 
@@ -456,30 +458,33 @@ static void dispatch_message_real(Server *s,
                 r = get_process_comm(ucred->pid, &t);
                 if (r >= 0) {
                         comm = strappend("_COMM=", t);
+                        free(t);
+
                         if (comm)
                                 IOVEC_SET_STRING(iovec[n++], comm);
-                        free(t);
                 }
 
                 r = get_process_exe(ucred->pid, &t);
                 if (r >= 0) {
                         exe = strappend("_EXE=", t);
+                        free(t);
+
                         if (comm)
                                 IOVEC_SET_STRING(iovec[n++], exe);
-                        free(t);
                 }
 
                 r = get_process_cmdline(ucred->pid, LINE_MAX, false, &t);
                 if (r >= 0) {
                         cmdline = strappend("_CMDLINE=", t);
+                        free(t);
+
                         if (cmdline)
                                 IOVEC_SET_STRING(iovec[n++], cmdline);
-                        free(t);
                 }
 
-                r = audit_session_from_pid(ucred->pid, &session);
+                r = audit_session_from_pid(ucred->pid, &audit);
                 if (r >= 0)
-                        if (asprintf(&audit_session, "_AUDIT_SESSION=%lu", (unsigned long) session) >= 0)
+                        if (asprintf(&audit_session, "_AUDIT_SESSION=%lu", (unsigned long) audit) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_session);
 
                 r = audit_loginuid_from_pid(ucred->pid, &loginuid);
@@ -487,14 +492,34 @@ static void dispatch_message_real(Server *s,
                         if (asprintf(&audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_loginuid);
 
-                path = shortened_cgroup_path(ucred->pid);
-                if (path) {
-                        cgroup = strappend("_SYSTEMD_CGROUP=", path);
+                t = shortened_cgroup_path(ucred->pid);
+                if (t) {
+                        cgroup = strappend("_SYSTEMD_CGROUP=", t);
+                        free(t);
+
                         if (cgroup)
                                 IOVEC_SET_STRING(iovec[n++], cgroup);
-
-                        free(path);
                 }
+
+                if (sd_pid_get_session(ucred->pid, &t) >= 0) {
+                        session = strappend("_SYSTEMD_SESSION=", t);
+                        free(t);
+
+                        if (session)
+                                IOVEC_SET_STRING(iovec[n++], session);
+                }
+
+                if (sd_pid_get_service(ucred->pid, &t) >= 0) {
+                        service = strappend("_SYSTEMD_SERVICE=", t);
+                        free(t);
+
+                        if (service)
+                                IOVEC_SET_STRING(iovec[n++], service);
+                }
+
+                if (sd_pid_get_owner_uid(ucred->uid, &owner) >= 0)
+                        if (asprintf(&owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner) >= 0)
+                                IOVEC_SET_STRING(iovec[n++], owner_uid);
         }
 
         if (tv) {
@@ -519,9 +544,9 @@ static void dispatch_message_real(Server *s,
         t = gethostname_malloc();
         if (t) {
                 hostname = strappend("_HOSTNAME=", t);
+                free(t);
                 if (hostname)
                         IOVEC_SET_STRING(iovec[n++], hostname);
-                free(t);
         }
 
         assert(n <= m);
@@ -562,6 +587,9 @@ retry:
         free(audit_session);
         free(audit_loginuid);
         free(cgroup);
+        free(session);
+        free(owner_uid);
+        free(service);
 }
 
 static void dispatch_message(Server *s,
@@ -611,7 +639,7 @@ static void dispatch_message(Server *s,
         if (rl > 1) {
                 int j = 0;
                 char suppress_message[LINE_MAX];
-                struct iovec suppress_iovec[15];
+                struct iovec suppress_iovec[18];
 
                 /* Write a suppression message if we suppressed something */
 
@@ -632,7 +660,7 @@ finish:
 
 static void process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv) {
         char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL;
-        struct iovec iovec[16];
+        struct iovec iovec[19];
         unsigned n = 0;
         int priority = LOG_USER | LOG_INFO;
 
@@ -739,11 +767,11 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 
                 /* A property follows */
 
-                if (n+13 >= m) {
+                if (n+16 >= m) {
                         struct iovec *c;
                         unsigned u;
 
-                        u = MAX((n+13U) * 2U, 4U);
+                        u = MAX((n+16U) * 2U, 4U);
                         c = realloc(iovec, u * sizeof(struct iovec));
                         if (!c) {
                                 log_error("Out of memory");
@@ -827,7 +855,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 }
 
 static int stdout_stream_log(StdoutStream *s, const char *p, size_t l) {
-        struct iovec iovec[15];
+        struct iovec iovec[18];
         char *message = NULL, *syslog_priority = NULL;
         unsigned n = 0;
         size_t tag_len;
