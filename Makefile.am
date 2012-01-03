@@ -1175,6 +1175,7 @@ systemd_journald_CFLAGS = \
 systemd_journald_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
+	libsystemd-login.la \
 	$(ACL_LIBS)
 
 if HAVE_XZ

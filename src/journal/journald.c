@@ -1196,7 +1196,7 @@ static int system_journal_open(Server *s) {
                         fix_perms(s->system_journal, 0);
                 } else if (r < 0) {
 
-                        if (r == -ENOENT)
+                        if (r == -ENOENT || r == -EROFS)
                                 r = 0;
                         else {
                                 log_error("Failed to open system journal: %s", strerror(-r));
