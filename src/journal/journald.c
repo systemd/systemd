@@ -1196,12 +1196,10 @@ static int system_journal_open(Server *s) {
                         fix_perms(s->system_journal, 0);
                 } else if (r < 0) {
 
-                        if (r == -ENOENT || r == -EROFS)
-                                r = 0;
-                        else {
-                                log_error("Failed to open system journal: %s", strerror(-r));
-                                return r;
-                        }
+                        if (r != -ENOENT && r != -EROFS)
+                                log_warning("Failed to open system journal: %s", strerror(-r));
+
+                        r = 0;
                 }
         }
 
@@ -1221,13 +1219,10 @@ static int system_journal_open(Server *s) {
                         free(fn);
 
                         if (r < 0) {
+                                if (r != -ENOENT)
+                                        log_warning("Failed to open runtime journal: %s", strerror(-r));
 
-                                if (r == -ENOENT)
-                                        r = 0;
-                                else {
-                                        log_error("Failed to open runtime journal: %s", strerror(-r));
-                                        return r;
-                                }
+                                r = 0;
                         }
 
                 } else {
