@@ -955,7 +955,8 @@ static int manager_connect_udev(Manager *m) {
         ev.events = EPOLLIN;
         ev.data.u32 = FD_SEAT_UDEV;
 
-        if (m->n_autovts <= 0)
+        /* Don't bother watching VCSA devices, if nobody cares */
+        if (m->n_autovts <= 0 || m->console_active_fd < 0)
                 return 0;
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_seat_fd, &ev) < 0)
@@ -1074,13 +1075,13 @@ int manager_startup(Manager *m) {
         if (m->epoll_fd < 0)
                 return -errno;
 
-        /* Connect to udev */
-        r = manager_connect_udev(m);
+        /* Connect to console */
+        r = manager_connect_console(m);
         if (r < 0)
                 return r;
 
-        /* Connect to console */
-        r = manager_connect_console(m);
+        /* Connect to udev */
+        r = manager_connect_udev(m);
         if (r < 0)
                 return r;
 
