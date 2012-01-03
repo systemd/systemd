@@ -121,6 +121,33 @@ _public_ int sd_pid_get_session(pid_t pid, char **session) {
         return 0;
 }
 
+_public_ int sd_pid_get_service(pid_t pid, char **service) {
+        int r;
+        char *cgroup, *p;
+
+        if (!service)
+                return -EINVAL;
+
+        r = pid_get_cgroup(pid, NULL, &cgroup);
+        if (r < 0)
+                return r;
+
+        if (!startswith(cgroup, "/system/")) {
+                free(cgroup);
+                return -ENOENT;
+        }
+
+        p = cgroup + 8;
+        p = strndup(p, strcspn(p, "/"));
+        free(cgroup);
+
+        if (!p)
+                return -ENOMEM;
+
+        *service = p;
+        return 0;
+}
+
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         int r;
         char *root, *cgroup, *p, *cc;
