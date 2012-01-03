@@ -27,10 +27,11 @@
 #include "util.h"
 #include "macro.h"
 
-char *sd_id128_to_string(sd_id128_t id, char s[33]) {
+_public_ char *sd_id128_to_string(sd_id128_t id, char s[33]) {
         unsigned n;
 
-        assert(s);
+        if (!s)
+                return NULL;
 
         for (n = 0; n < 16; n++) {
                 s[n*2] = hexchar(id.bytes[n] >> 4);
@@ -42,12 +43,14 @@ char *sd_id128_to_string(sd_id128_t id, char s[33]) {
         return s;
 }
 
-int sd_id128_from_string(const char s[33], sd_id128_t *ret) {
+_public_ int sd_id128_from_string(const char s[33], sd_id128_t *ret) {
         unsigned n;
         sd_id128_t t;
 
-        assert(s);
-        assert(ret);
+        if (!s)
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
 
         for (n = 0; n < 16; n++) {
                 int a, b;
@@ -70,7 +73,7 @@ int sd_id128_from_string(const char s[33], sd_id128_t *ret) {
         return 0;
 }
 
-sd_id128_t sd_id128_make_v4_uuid(sd_id128_t id) {
+_public_ sd_id128_t sd_id128_make_v4_uuid(sd_id128_t id) {
         /* Stolen from generate_random_uuid() of drivers/char/random.c
          * in the kernel sources */
 
@@ -83,7 +86,7 @@ sd_id128_t sd_id128_make_v4_uuid(sd_id128_t id) {
         return id;
 }
 
-int sd_id128_get_machine(sd_id128_t *ret) {
+_public_ int sd_id128_get_machine(sd_id128_t *ret) {
         static __thread sd_id128_t saved_machine_id;
         static __thread bool saved_machine_id_valid = false;
         int fd;
@@ -91,6 +94,9 @@ int sd_id128_get_machine(sd_id128_t *ret) {
         ssize_t k;
         unsigned j;
         sd_id128_t t;
+
+        if (!ret)
+                return -EINVAL;
 
         if (saved_machine_id_valid) {
                 *ret = saved_machine_id;
@@ -129,7 +135,7 @@ int sd_id128_get_machine(sd_id128_t *ret) {
         return 0;
 }
 
-int sd_id128_get_boot(sd_id128_t *ret) {
+_public_ int sd_id128_get_boot(sd_id128_t *ret) {
         static __thread sd_id128_t saved_boot_id;
         static __thread bool saved_boot_id_valid = false;
         int fd;
@@ -138,6 +144,9 @@ int sd_id128_get_boot(sd_id128_t *ret) {
         unsigned j;
         sd_id128_t t;
         char *p;
+
+        if (!ret)
+                return -EINVAL;
 
         if (saved_boot_id_valid) {
                 *ret = saved_boot_id;
@@ -181,12 +190,13 @@ int sd_id128_get_boot(sd_id128_t *ret) {
         return 0;
 }
 
-int sd_id128_randomize(sd_id128_t *ret) {
+_public_ int sd_id128_randomize(sd_id128_t *ret) {
         int fd;
         ssize_t k;
         sd_id128_t t;
 
-        assert(ret);
+        if (!ret)
+                return -EINVAL;
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
