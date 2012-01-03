@@ -141,7 +141,7 @@ static int bus_seat_append_multi_session(DBusMessageIter *i, const char *propert
         assert(property);
         assert(s);
 
-        b = seat_is_vtconsole(s);
+        b = seat_can_multi_session(s);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;

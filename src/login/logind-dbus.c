@@ -301,7 +301,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 return -EINVAL;
 
         if (s) {
-                if (seat_is_vtconsole(s)) {
+                if (seat_can_multi_session(s)) {
                         if (vtnr <= 0 || vtnr > 63)
                                 return -EINVAL;
                 } else {

@@ -574,7 +574,7 @@ _public_ int sd_seat_can_multi_session(const char *seat) {
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE,
-                           "IS_VTCONSOLE", &s,
+                           "CAN_MULTI_SESSION", &s,
                            NULL);
         free(p);
 

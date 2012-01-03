@@ -185,7 +185,7 @@ int session_save(Session *s) {
                         "SERVICE=%s\n",
                         s->service);
 
-        if (s->seat && seat_is_vtconsole(s->seat))
+        if (s->seat && seat_can_multi_session(s->seat))
                 fprintf(f,
                         "VTNR=%i\n",
                         s->vtnr);
@@ -270,7 +270,7 @@ int session_load(Session *s) {
                         seat_attach_session(o, s);
         }
 
-        if (vtnr && s->seat && seat_is_vtconsole(s->seat)) {
+        if (vtnr && s->seat && seat_can_multi_session(s->seat)) {
                 int v;
 
                 k = safe_atoi(vtnr, &v);

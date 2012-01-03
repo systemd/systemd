@@ -655,7 +655,6 @@ int manager_dispatch_seat_udev(Manager *m) {
         return r;
 }
 
-
 int manager_dispatch_vcsa_udev(Manager *m) {
         struct udev_device *d;
         int r = 0;
@@ -906,6 +905,12 @@ static int manager_connect_console(Manager *m) {
 
         m->console_active_fd = open("/sys/class/tty/tty0/active", O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (m->console_active_fd < 0) {
+
+                /* On certain architectures (S390 and Xen), /dev/tty0
+                   does not exist, so don't fail if we can't open it.*/
+                if (errno == ENOENT)
+                        return 0;
+
                 log_error("Failed to open /sys/class/tty/tty0/active: %m");
                 return -errno;
         }

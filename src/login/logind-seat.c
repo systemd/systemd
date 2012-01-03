@@ -101,8 +101,10 @@ int seat_save(Seat *s) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "IS_VTCONSOLE=%i\n",
-                seat_is_vtconsole(s));
+                "IS_VTCONSOLE=%i\n"
+                "CAN_MULTI_SESSION=%i\n",
+                seat_is_vtconsole(s),
+                seat_can_multi_session(s));
 
         if (s->active) {
                 assert(s->active->user);
@@ -191,7 +193,7 @@ int seat_preallocate_vts(Seat *s) {
         if (s->manager->n_autovts <= 0)
                 return 0;
 
-        if (!seat_is_vtconsole(s))
+        if (!seat_can_multi_session(s))
                 return 0;
 
         for (i = 1; i <= s->manager->n_autovts; i++) {
@@ -266,7 +268,7 @@ int seat_active_vt_changed(Seat *s, int vtnr) {
         assert(s);
         assert(vtnr >= 1);
 
-        if (!seat_is_vtconsole(s))
+        if (!seat_can_multi_session(s))
                 return -EINVAL;
 
         log_debug("VT changed to %i", vtnr);
@@ -290,7 +292,7 @@ int seat_read_active_vt(Seat *s) {
 
         assert(s);
 
-        if (!seat_is_vtconsole(s))
+        if (!seat_can_multi_session(s))
                 return 0;
 
         lseek(s->manager->console_active_fd, SEEK_SET, 0);
@@ -388,7 +390,7 @@ int seat_attach_session(Seat *s, Session *session) {
         assert(session);
         assert(!session->seat);
 
-        if (!seat_is_vtconsole(s) && s->sessions)
+        if (!seat_can_multi_session(s) && s->sessions)
                 return -EEXIST;
 
         session->seat = s;
@@ -396,7 +398,7 @@ int seat_attach_session(Seat *s, Session *session) {
 
         seat_send_changed(s, "Sessions\0");
 
-        if (!seat_is_vtconsole(s)) {
+        if (!seat_can_multi_session(s)) {
                 assert(!s->active);
                 seat_set_active(s, session);
         }
@@ -408,6 +410,18 @@ bool seat_is_vtconsole(Seat *s) {
         assert(s);
 
         return s->manager->vtconsole == s;
+}
+
+bool seat_can_multi_session(Seat *s) {
+        assert(s);
+
+        if (!seat_is_vtconsole(s))
+                return false;
+
+        /* If we can't watch which VT is in the foreground, we don't
+         * support VT switching */
+
+        return s->manager->console_active_fd >= 0;
 }
 
 int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
