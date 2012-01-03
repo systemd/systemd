@@ -58,6 +58,7 @@
 #include "pager.h"
 #include "spawn-agent.h"
 #include "install.h"
+#include "logs-show.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -2260,6 +2261,9 @@ static void print_status_info(UnitStatusInfo *i) {
                         show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
                 }
         }
+
+        if (i->id && arg_transport != TRANSPORT_SSH)
+                show_journal_by_service(i->id, OUTPUT_SHORT, NULL, 0, 0, 0, arg_all);
 
         if (i->need_daemon_reload)
                 printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",

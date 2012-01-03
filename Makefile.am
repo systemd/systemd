@@ -98,7 +98,8 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/readahead \
-	-I $(top_srcdir)/src/login
+	-I $(top_srcdir)/src/login \
+	-I $(top_srcdir)/src/journal
 
 if TARGET_GENTOO
 AM_CPPFLAGS += \
@@ -923,7 +924,8 @@ systemctl_SOURCES = \
 	src/unit-name.c \
 	src/pager.c \
 	src/install.c \
-	src/spawn-agent.c
+	src/spawn-agent.c \
+        src/logs-show.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -932,6 +934,7 @@ systemctl_CFLAGS = \
 systemctl_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
+	libsystemd-journal.la \
 	$(DBUS_LIBS)
 
 systemd_notify_SOURCES = \
@@ -1189,14 +1192,12 @@ endif
 
 systemd_journalctl_SOURCES = \
 	src/journal/journalctl.c \
-	src/journal/sd-journal.c \
-	src/journal/journal-file.c \
-	src/journal/lookup3.c \
-	src/sd-id128.c \
-	src/pager.c
+	src/pager.c \
+        src/logs-show.c
 
 systemd_journalctl_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+        libsystemd-journal.la
 
 if HAVE_XZ
 systemd_journalctl_SOURCES += \
