@@ -266,8 +266,12 @@ int setup_namespace(
                 goto fail;
         }
 
-        /* We assume that by default mount events from us won't be
-         * propagated to the root namespace. */
+        /* Remount / as SLAVE so that nothing mounted in the namespace
+           shows up in the parent */
+        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+                r = -errno;
+                goto fail;
+        }
 
         for (p = paths; p < paths + n; p++)
                 if ((r = apply_mount(p, root_dir, inaccessible_dir, private_dir, flags)) < 0)
