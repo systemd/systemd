@@ -391,7 +391,9 @@ static char *shortened_cgroup_path(pid_t pid) {
                 return NULL;
         }
 
-        if (streq(init_path, "/"))
+        if (endswith(init_path, "/system"))
+                init_path[strlen(init_path) - 7] = 0;
+        else if (streq(init_path, "/"))
                 init_path[0] = 0;
 
         if (startswith(process_path, init_path)) {
