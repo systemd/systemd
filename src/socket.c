@@ -323,6 +323,17 @@ static int socket_add_default_dependencies(Socket *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
+static bool socket_has_exec(Socket *s) {
+        unsigned i;
+        assert(s);
+
+        for (i = 0; i < _SOCKET_EXEC_COMMAND_MAX; i++)
+                if (s->exec_command[i])
+                        return true;
+
+        return false;
+}
+
 static int socket_load(Unit *u) {
         Socket *s = SOCKET(u);
         int r;
@@ -352,8 +363,9 @@ static int socket_load(Unit *u) {
                 if ((r = socket_add_device_link(s)) < 0)
                         return r;
 
-                if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
-                        return r;
+                if (socket_has_exec(s))
+                        if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
+                                return r;
 
                 if ((r = unit_add_default_cgroups(u)) < 0)
                         return r;
