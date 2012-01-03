@@ -288,7 +288,7 @@ static DBusHandlerResult session_message_dispatch(
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Lock") ||
                    dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "Unlock")) {
 
-                if (session_send_signal(s, streq(dbus_message_get_member(message), "Lock")) < 0)
+                if (session_send_lock(s, streq(dbus_message_get_member(message), "Lock")) < 0)
                         goto oom;
 
                 reply = dbus_message_new_method_return(message);

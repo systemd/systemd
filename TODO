@@ -23,8 +23,6 @@ Features:
 
 * logind: selinux is borked...
 
-* logind: sends SessionNew on Lock()?
-
 * logind: allow showing logout dialog from system
 
 * document that %% can be used to write % in a string that is specifier extended
@@ -56,8 +54,6 @@ Features:
   needs to be auto-respawned?
 
 * Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
-
-* introduce sd_log_open() to create a connection to the syslog bridge via sd-daemon.h
 
 * when a bus name of a service disappears from the bus make sure to queue further activation requests
 
@@ -112,8 +108,6 @@ Features:
 * move nss-myhostname into systemd
 
 * and a dbus call to generate target from current state
-
-* detect LXC with $container=lxc
 
 * drop /.readahead on bigger upgrades with yum
 
