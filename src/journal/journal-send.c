@@ -53,7 +53,7 @@ retry:
         return fd;
 }
 
-int sd_journal_print(int priority, const char *format, ...) {
+_public_ int sd_journal_print(int priority, const char *format, ...) {
         int r;
         va_list ap;
 
@@ -64,7 +64,7 @@ int sd_journal_print(int priority, const char *format, ...) {
         return r;
 }
 
-int sd_journal_printv(int priority, const char *format, va_list ap) {
+_public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         char buffer[8 + LINE_MAX], p[11];
         struct iovec iov[2];
 
@@ -88,7 +88,7 @@ int sd_journal_printv(int priority, const char *format, va_list ap) {
         return sd_journal_sendv(iov, 2);
 }
 
-int sd_journal_send(const char *format, ...) {
+_public_ int sd_journal_send(const char *format, ...) {
         int r, n = 0, i = 0, j;
         va_list ap;
         struct iovec *iov = NULL;
@@ -131,7 +131,7 @@ fail:
         return r;
 }
 
-int sd_journal_sendv(const struct iovec *iov, int n) {
+_public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         int fd;
         struct iovec *w;
         uint64_t *l;
@@ -148,8 +148,12 @@ int sd_journal_sendv(const struct iovec *iov, int n) {
         for (i = 0; i < n; i++) {
                 char *c, *nl;
 
+                if (!iov[i].iov_base ||
+                    iov[i].iov_len <= 1)
+                        return -EINVAL;
+
                 c = memchr(iov[i].iov_base, '=', iov[i].iov_len);
-                if (!c)
+                if (!c || c == iov[i].iov_base)
                         return -EINVAL;
 
                 nl = memchr(iov[i].iov_base, '\n', iov[i].iov_len);
@@ -205,7 +209,7 @@ int sd_journal_sendv(const struct iovec *iov, int n) {
         return 0;
 }
 
-int sd_journal_stream_fd(const char *tag, int priority, int priority_prefix) {
+_public_ int sd_journal_stream_fd(const char *tag, int priority, int priority_prefix) {
         union sockaddr_union sa;
         int fd;
         char *header;

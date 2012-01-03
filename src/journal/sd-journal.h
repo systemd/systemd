@@ -31,12 +31,12 @@
 
 /* TODO:
  *
+ *   - add options for copy-to-console, copy-to-kmsg
  *   - OR of matches is borked...
  *   - extend hash tables table as we go
  *   - accelerate looking for "all hostnames" and suchlike.
  *   - hookup with systemctl
  *   - handle incomplete header
- *   - write unit files
  *
  *   - local deserializer
  *   - http server
