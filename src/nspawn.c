@@ -394,11 +394,9 @@ static int is_os_tree(const char *path) {
         return r < 0 ? 0 : 1;
 }
 
-#define BUFFER_SIZE 1024
-
 static int process_pty(int master, sigset_t *mask) {
 
-        char in_buffer[BUFFER_SIZE], out_buffer[BUFFER_SIZE];
+        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
         size_t in_buffer_full = 0, out_buffer_full = 0;
         struct epoll_event stdin_ev, stdout_ev, master_ev, signal_ev;
         bool stdin_readable = false, stdout_writable = false, master_readable = false, master_writable = false;
@@ -519,9 +517,9 @@ static int process_pty(int master, sigset_t *mask) {
                        (master_readable && out_buffer_full <= 0) ||
                        (stdout_writable && out_buffer_full > 0)) {
 
-                        if (stdin_readable && in_buffer_full < BUFFER_SIZE) {
+                        if (stdin_readable && in_buffer_full < LINE_MAX) {
 
-                                if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, BUFFER_SIZE - in_buffer_full)) < 0) {
+                                if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, LINE_MAX - in_buffer_full)) < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 stdin_readable = false;
@@ -553,9 +551,9 @@ static int process_pty(int master, sigset_t *mask) {
                                 }
                         }
 
-                        if (master_readable && out_buffer_full < BUFFER_SIZE) {
+                        if (master_readable && out_buffer_full < LINE_MAX) {
 
-                                if ((k = read(master, out_buffer + out_buffer_full, BUFFER_SIZE - out_buffer_full)) < 0) {
+                                if ((k = read(master, out_buffer + out_buffer_full, LINE_MAX - out_buffer_full)) < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 master_readable = false;
