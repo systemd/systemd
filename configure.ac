@@ -602,10 +602,9 @@ AC_ARG_WITH([pamlibdir],
         [],
         [with_pamlibdir=/lib/`$CC -print-multi-os-directory`/security])
 
-AC_ARG_WITH([rootdir],
-        AS_HELP_STRING([--with-rootdir=DIR], [Root directory for files necessary for boot]),
-        [],
-        [with_rootdir=${ac_default_prefix}])
+AC_ARG_WITH([rootprefix],
+        AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
+        [], [with_rootprefix=${ac_default_prefix}])
 
 AC_ARG_WITH([rootlibdir],
         AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
@@ -618,7 +617,7 @@ AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
 AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
-AC_SUBST([rootdir], [$with_rootdir])
+AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
 AC_CONFIG_FILES([Makefile po/Makefile.in])
@@ -649,7 +648,7 @@ AC_MSG_RESULT([
         localed:                 ${have_localed}
         plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
-        root dir:                ${with_rootdir}
+        rootprefix:              ${with_rootprefix}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
         pam modules dir:         ${with_pamlibdir}

@@ -76,7 +76,7 @@ else
           --localstatedir=/var \
           --libexecdir=/usr/lib \
           --libdir=$(libdir /usr/local/lib) \
-          --with-rootdir= \
+          --with-rootprefix= \
           "$@"
         make clean
     fi

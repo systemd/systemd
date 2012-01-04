@@ -56,12 +56,12 @@ usergeneratordir=$(pkglibexecdir)/user-generators
 pkgincludedir=$(includedir)/systemd
 
 # And these are the special ones for /
-rootdir=@rootdir@
-rootbindir=$(rootdir)/bin
-rootlibexecdir=$(rootdir)/lib/systemd
+rootprefix=@rootprefix@
+rootbindir=$(rootprefix)/bin
+rootlibexecdir=$(rootprefix)/lib/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
 systemshutdowndir=$(rootlibexecdir)/system-shutdown
-systemunitdir=$(rootdir)/lib/systemd/system
+systemunitdir=$(rootprefix)/lib/systemd/system
 
 CLEANFILES =
 EXTRA_DIST =
@@ -89,6 +89,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-DSYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH=\"$(rootbindir)/systemd-tty-ask-password-agent\" \
 	-DSYSTEMD_STDIO_BRIDGE_BINARY_PATH=\"$(bindir)/systemd-stdio-bridge\" \
+	-DROOTPREFIX=\"$(rootprefix)\" \
 	-DRUNTIME_DIR=\"/run\" \
 	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-DSYSTEMD_CRYPTSETUP_PATH=\"$(rootlibexecdir)/systemd-cryptsetup\" \
@@ -2396,7 +2397,7 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
-	--with-rootdir=$$dc_install_base/$(rootdir)
+	--with-rootprefix=$$dc_install_base/$(rootprefix)
 
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.bz2 /home/lennart/git.fedora/systemd/
