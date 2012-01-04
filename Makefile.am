@@ -1306,6 +1306,8 @@ pkgconfiglib_DATA += \
 	src/journal/libsystemd-journal.pc
 
 journal-install-data-hook:
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(systemunitdir)/sockets.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
 		rm -f systemd-journald.socket && \
 		$(LN_S) ../systemd-journald.socket )
@@ -1345,7 +1347,8 @@ nodist_systemunit_DATA += \
 binfmt-install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(prefix)/lib/binfmt.d \
-		$(DESTDIR)$(sysconfdir)/binfmt.d
+		$(DESTDIR)$(sysconfdir)/binfmt.d \
+		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f systemd-binfmt.service \
 			proc-sys-fs-binfmt_misc.automount && \
@@ -1377,6 +1380,8 @@ nodist_systemunit_DATA += \
 	units/systemd-vconsole-setup.service
 
 vconsole-install-data-hook:
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service )
@@ -1481,6 +1486,9 @@ systemd_random_seed_LDADD = \
 	libsystemd-basic.la
 
 randomseed-install-data-hook:
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(systemunitdir)/shutdown.target.wants \
+		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
 		rm -f systemd-random-seed-save.service && \
 		$(LN_S) ../systemd-random-seed-save.service systemd-random-seed-save.service )
@@ -1525,6 +1533,8 @@ systemd_cryptsetup_generator_LDADD = \
 	libsystemd-basic.la
 
 cryptsetup-install-data-hook:
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f cryptsetup.target && \
 		$(LN_S) ../cryptsetup.target cryptsetup.target )
@@ -1866,6 +1876,8 @@ polkitpolicy_in_files += \
 	src/login/org.freedesktop.login1.policy.in
 
 logind-install-data-hook:
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(systemunitdir)/multi-user.target.wants
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.login1.service && \
 		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
