@@ -349,7 +349,7 @@ static int find_location(sd_journal *j, JournalFile *f, direction_t direction, O
 
                         r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, &o, &p);
                         if (r <= 0)
-                                return r;
+                                return r == -ENOENT ? 0 : r;
                 }
 
                 LIST_FOREACH(matches, m, j->matches) {
