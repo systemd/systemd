@@ -2051,11 +2051,11 @@ XSLTPROC_PROCESS_MAN_IN = \
 
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) man/custom-html.xsl $<
+	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
 XSLTPROC_PROCESS_HTML_IN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) man/custom-html.xsl $< && \
+	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $< && \
 	mv ${@:.in=} $@
 
 man/%.1: man/%.xml
