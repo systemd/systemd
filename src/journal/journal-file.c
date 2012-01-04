@@ -332,11 +332,11 @@ static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_
 
                 delta = PAGE_ALIGN((DEFAULT_WINDOW_SIZE - size) / 2);
 
-                if (offset < delta)
+                if (delta > offset)
                         delta = offset;
 
                 offset -= delta;
-                size += (DEFAULT_WINDOW_SIZE - delta);
+                size = DEFAULT_WINDOW_SIZE;
         } else
                 delta = 0;
 
