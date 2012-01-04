@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
         printf("waldi: %s\n", sd_id128_to_string(ID128_WALDI, t));
 
-        printf("waldi2: " SD_FORMAT_ID128_STR "\n", SD_FORMAT_ID128_VAL(ID128_WALDI));
+        printf("waldi2: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(ID128_WALDI));
 
         return 0;
 }
