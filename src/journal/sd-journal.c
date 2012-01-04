@@ -372,6 +372,9 @@ static int find_location(sd_journal *j, JournalFile *f, direction_t direction, O
                         else
                                 r = journal_file_next_entry_for_data(f, NULL, 0, dp, direction, &c, &cp);
 
+                        if (r < 0)
+                                return r;
+
                         if (!term_match) {
                                 term_match = m;
 
