@@ -306,14 +306,11 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         return f;
 }
 
-static void server_vacuum(Server *s) {
-        Iterator i;
-        void *k;
-        char *p;
-        char ids[33];
-        sd_id128_t machine;
-        int r;
+static void server_rotate(Server *s) {
         JournalFile *f;
+        void *k;
+        Iterator i;
+        int r;
 
         log_info("Rotating...");
 
@@ -336,6 +333,13 @@ static void server_vacuum(Server *s) {
                 else
                         hashmap_replace(s->user_journals, k, f);
         }
+}
+
+static void server_vacuum(Server *s) {
+        char *p;
+        char ids[33];
+        sd_id128_t machine;
+        int r;
 
         log_info("Vacuuming...");
 
@@ -565,6 +569,7 @@ retry:
                 if (r == -E2BIG && !vacuumed) {
                         log_info("Allocation limit reached.");
 
+                        server_rotate(s);
                         server_vacuum(s);
                         vacuumed = true;
 
@@ -1308,6 +1313,7 @@ static int server_flush_to_var(Server *s) {
                         log_info("Allocation limit reached.");
 
                         journal_file_post_change(s->system_journal);
+                        server_rotate(s);
                         server_vacuum(s);
 
                         r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
