@@ -763,7 +763,7 @@ int config_parse_bytes(
                 void *data,
                 void *userdata) {
 
-        uint64_t *bytes = data;
+        off_t *bytes = data;
 
         assert(filename);
         assert(lvalue);
