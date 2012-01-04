@@ -42,7 +42,7 @@ static output_mode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
 static bool arg_show_all = false;
 static bool arg_no_pager = false;
-
+static int arg_lines = -1;
 
 static int help(void) {
 
@@ -53,6 +53,7 @@ static int help(void) {
                "     --no-pager       Do not pipe output into a pager\n"
                "  -a --all            Show all properties, including long and unprintable\n"
                "  -f --follow         Follow journal\n"
+               "  -n --lines=INTEGER  Lines to show\n"
                "  -o --output=STRING  Change output mode (short, verbose, export, json)\n",
                program_invocation_short_name);
 
@@ -73,15 +74,16 @@ static int parse_argv(int argc, char *argv[]) {
                 { "follow",    no_argument,       NULL, 'f'           },
                 { "output",    required_argument, NULL, 'o'           },
                 { "all",       no_argument,       NULL, 'a'           },
+                { "lines",     required_argument, NULL, 'n'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:a", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -120,6 +122,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'a':
                         arg_show_all = true;
+                        break;
+
+                case 'n':
+                        r = safe_atoi(optarg, &arg_lines);
+                        if (r < 0) {
+                                log_error("Failed to parse lines '%s'", optarg);
+                                return -EINVAL;
+                        }
                         break;
 
                 case '?':
@@ -166,10 +176,24 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_journal_seek_head(j);
-        if (r < 0) {
-                log_error("Failed to seek to head: %s", strerror(-r));
-                goto finish;
+        if (arg_lines >= 0) {
+                r = sd_journal_seek_tail(j);
+                if (r < 0) {
+                        log_error("Failed to seek to tail: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = sd_journal_previous_skip(j, arg_lines);
+                if (r < 0) {
+                        log_error("Failed to iterate through journal: %s", strerror(-r));
+                        goto finish;
+                }
+        } else {
+                r = sd_journal_seek_head(j);
+                if (r < 0) {
+                        log_error("Failed to seek to head: %s", strerror(-r));
+                        goto finish;
+                }
         }
 
         if (!arg_no_pager && !arg_follow) {
