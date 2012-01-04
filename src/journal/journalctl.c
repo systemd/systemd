@@ -148,6 +148,7 @@ int main(int argc, char *argv[]) {
         int r, i, fd;
         sd_journal *j = NULL;
         unsigned line = 0;
+        bool need_seek = false;
 
         log_parse_environment();
         log_open();
@@ -184,16 +185,19 @@ int main(int argc, char *argv[]) {
                 }
 
                 r = sd_journal_previous_skip(j, arg_lines);
-                if (r < 0) {
-                        log_error("Failed to iterate through journal: %s", strerror(-r));
-                        goto finish;
-                }
         } else {
                 r = sd_journal_seek_head(j);
                 if (r < 0) {
                         log_error("Failed to seek to head: %s", strerror(-r));
                         goto finish;
                 }
+
+                r = sd_journal_next(j);
+        }
+
+        if (r < 0) {
+                log_error("Failed to iterate through journal: %s", strerror(-r));
+                goto finish;
         }
 
         if (!arg_no_pager && !arg_follow) {
@@ -210,11 +214,12 @@ int main(int argc, char *argv[]) {
                 struct pollfd pollfd;
 
                 for (;;) {
-                        r = sd_journal_next(j);
-
-                        if (r < 0) {
-                                log_error("Failed to iterate through journal: %s", strerror(-r));
-                                goto finish;
+                        if (need_seek) {
+                                r = sd_journal_next(j);
+                                if (r < 0) {
+                                        log_error("Failed to iterate through journal: %s", strerror(-r));
+                                        goto finish;
+                                }
                         }
 
                         if (r == 0)
@@ -225,6 +230,8 @@ int main(int argc, char *argv[]) {
                         r = output_journal(j, arg_output, line, arg_show_all);
                         if (r < 0)
                                 goto finish;
+
+                        need_seek = true;
                 }
 
                 if (!arg_follow)

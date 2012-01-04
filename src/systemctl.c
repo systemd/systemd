@@ -2262,8 +2262,10 @@ static void print_status_info(UnitStatusInfo *i) {
                 }
         }
 
-        if (i->id && arg_transport != TRANSPORT_SSH)
+        if (i->id && arg_transport != TRANSPORT_SSH) {
+                printf("\n");
                 show_journal_by_service(i->id, OUTPUT_SHORT, NULL, 0, 0, 0, arg_all);
+        }
 
         if (i->need_daemon_reload)
                 printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",

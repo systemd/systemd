@@ -683,14 +683,23 @@ _public_ int sd_journal_previous(sd_journal *j) {
         return real_journal_next(j, DIRECTION_UP);
 }
 
-_public_ int sd_journal_next_skip(sd_journal *j, uint64_t skip) {
+static int real_journal_next_skip(sd_journal *j, direction_t direction, uint64_t skip) {
         int c = 0, r;
 
         if (!j)
                 return -EINVAL;
 
-        while (skip > 0) {
-                r = sd_journal_next(j);
+        if (skip == 0) {
+                /* If this is not a discrete skip, then at least
+                 * resolve the current location */
+                if (j->current_location.type != LOCATION_DISCRETE)
+                        return real_journal_next(j, direction);
+
+                return 0;
+        }
+
+        do {
+                r = real_journal_next(j, direction);
                 if (r < 0)
                         return r;
 
@@ -699,30 +708,17 @@ _public_ int sd_journal_next_skip(sd_journal *j, uint64_t skip) {
 
                 skip--;
                 c++;
-        }
+        } while (skip > 0);
 
         return c;
 }
 
+_public_ int sd_journal_next_skip(sd_journal *j, uint64_t skip) {
+        return real_journal_next_skip(j, DIRECTION_DOWN, skip);
+}
+
 _public_ int sd_journal_previous_skip(sd_journal *j, uint64_t skip) {
-        int c = 0, r;
-
-        if (!j)
-                return -EINVAL;
-
-        while (skip > 0) {
-                r = sd_journal_previous(j);
-                if (r < 0)
-                        return r;
-
-                if (r == 0)
-                        return c;
-
-                skip--;
-                c++;
-        }
-
-        return 1;
+        return real_journal_next_skip(j, DIRECTION_UP, skip);
 }
 
 _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
