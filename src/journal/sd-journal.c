@@ -524,6 +524,9 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
                          * matches are not OK */
 
                         r = journal_file_next_entry_for_data(f, c, cp, le64toh(c->entry.items[k].object_offset), direction, &qo, &q);
+                        if (r < 0)
+                                return r;
+
                         if (r > 0) {
 
                                 if (direction == DIRECTION_DOWN) {
