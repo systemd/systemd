@@ -1298,7 +1298,7 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
                         return r;
 
                 if (!sd_id128_equal(id, o->entry.boot_id))
-                        return -ENOENT;
+                        return -ESTALE;
         }
 
         *ret = le64toh(o->entry.monotonic);

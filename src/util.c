@@ -4694,6 +4694,24 @@ int pipe_eof(int fd) {
         return pollfd.revents & POLLHUP;
 }
 
+int fd_wait_for_event(int fd, int event) {
+        struct pollfd pollfd;
+        int r;
+
+        zero(pollfd);
+        pollfd.fd = fd;
+        pollfd.events = event;
+
+        r = poll(&pollfd, 1, -1);
+        if (r < 0)
+                return -errno;
+
+        if (r == 0)
+                return 0;
+
+        return pollfd.revents;
+}
+
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         FILE *f;
         char *t;

@@ -118,6 +118,9 @@ static enum transport {
         TRANSPORT_POLKIT
 } arg_transport = TRANSPORT_NORMAL;
 static const char *arg_host = NULL;
+static bool arg_follow = false;
+static unsigned arg_lines = 10;
+static OutputMode arg_output = OUTPUT_SHORT;
 
 static bool private_bus = false;
 
@@ -2001,6 +2004,7 @@ typedef struct UnitStatusInfo {
         const char *load_error;
 
         usec_t inactive_exit_timestamp;
+        usec_t inactive_exit_timestamp_monotonic;
         usec_t active_enter_timestamp;
         usec_t active_exit_timestamp;
         usec_t inactive_enter_timestamp;
@@ -2264,7 +2268,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->id && arg_transport != TRANSPORT_SSH) {
                 printf("\n");
-                show_journal_by_service(i->id, OUTPUT_SHORT, NULL, 0, 0, 0, arg_all);
+                show_journal_by_unit(i->id, arg_output, NULL, 0, i->inactive_exit_timestamp_monotonic, arg_lines, arg_all, arg_follow);
         }
 
         if (i->need_daemon_reload)
@@ -2391,6 +2395,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->inactive_enter_timestamp = (usec_t) u;
                 else if (streq(name, "InactiveExitTimestamp"))
                         i->inactive_exit_timestamp = (usec_t) u;
+                else if (streq(name, "InactiveExitTimestampMonotonic"))
+                        i->inactive_exit_timestamp_monotonic = (usec_t) u;
                 else if (streq(name, "ActiveExitTimestamp"))
                         i->active_exit_timestamp = (usec_t) u;
                 else if (streq(name, "ConditionTimestamp"))
@@ -3969,7 +3975,10 @@ static int systemctl_help(void) {
                "  -f --force          When enabling unit files, override existing symlinks\n"
                "                      When shutting down, execute action immediately\n"
                "     --root=PATH      Enable unit files in the specified root directory\n"
-               "     --runtime        Enable unit files only temporarily until next reboot\n\n"
+               "     --runtime        Enable unit files only temporarily until next reboot\n"
+               "  -n --lines=INTEGER  Journal entries to show\n"
+               "     --follow         Follow journal\n"
+               "  -o --output=STRING  Change journal output mode (short, verbose, export, json)\n\n"
                "Unit Commands:\n"
                "  list-units                      List loaded units\n"
                "  start [NAME...]                 Start (activate) one or more units\n"
@@ -4120,7 +4129,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_KILL_WHO,
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
-                ARG_RUNTIME
+                ARG_RUNTIME,
+                ARG_FOLLOW
         };
 
         static const struct option options[] = {
@@ -4153,6 +4163,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "host",      required_argument, NULL, 'H'           },
                 { "privileged",no_argument,       NULL, 'P'           },
                 { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
+                { "lines",     required_argument, NULL, 'n'           },
+                { "follow",    no_argument,       NULL, ARG_FOLLOW    },
+                { "output",    required_argument, NULL, 'o'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4164,7 +4177,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* Only when running as systemctl we ask for passwords */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:Pn:o:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -4300,6 +4313,25 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_RUNTIME:
                         arg_runtime = true;
+                        break;
+
+                case 'n':
+                        if (safe_atou(optarg, &arg_lines) < 0) {
+                                log_error("Failed to parse lines '%s'", optarg);
+                                return -EINVAL;
+                        }
+                        break;
+
+                case ARG_FOLLOW:
+                        arg_follow = true;
+                        break;
+
+                case 'o':
+                        arg_output = output_mode_from_string(optarg);
+                        if (arg_output < 0) {
+                                log_error("Unknown output '%s'.", optarg);
+                                return -EINVAL;
+                        }
                         break;
 
                 case '?':

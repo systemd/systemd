@@ -37,7 +37,7 @@
 #include "pager.h"
 #include "logs-show.h"
 
-static output_mode arg_output = OUTPUT_SHORT;
+static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
 static bool arg_show_all = false;
 static bool arg_no_pager = false;
@@ -47,15 +47,15 @@ static bool arg_no_tail = false;
 static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to or query the login manager.\n\n"
+               "Send control commands to or query the journal.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "     --no-pager       Do not pipe output into a pager\n"
                "  -a --all            Show all properties, including long and unprintable\n"
                "  -f --follow         Follow journal\n"
-               "  -n --lines=INTEGER  Lines to show\n"
+               "  -n --lines=INTEGER  Journal entries to show\n"
                "     --no-tail        Show all lines, even in follow mode\n"
-               "  -o --output=STRING  Change output mode (short, verbose, export, json)\n",
+               "  -o --output=STRING  Change journal output mode (short, verbose, export, json)\n",
                program_invocation_short_name);
 
         return 0;
@@ -109,18 +109,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (streq(optarg, "short"))
-                                arg_output = OUTPUT_SHORT;
-                        else if (streq(optarg, "verbose"))
-                                arg_output = OUTPUT_VERBOSE;
-                        else if (streq(optarg, "export"))
-                                arg_output = OUTPUT_EXPORT;
-                        else if (streq(optarg, "json"))
-                                arg_output = OUTPUT_JSON;
-                        else {
+                        arg_output =  output_mode_from_string(optarg);
+                        if (arg_output < 0) {
                                 log_error("Unknown output '%s'.", optarg);
                                 return -EINVAL;
                         }
+
                         break;
 
                 case 'a':
@@ -221,8 +215,6 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                struct pollfd pollfd;
-
                 for (;;) {
                         if (need_seek) {
                                 r = sd_journal_next(j);
@@ -247,16 +239,9 @@ int main(int argc, char *argv[]) {
                 if (!arg_follow)
                         break;
 
-                zero(pollfd);
-                pollfd.fd = fd;
-                pollfd.events = POLLIN;
-
-                if (poll(&pollfd, 1, -1) < 0) {
-                        if (errno == EINTR)
-                                break;
-
-                        log_error("poll(): %m");
-                        r = -errno;
+                r = fd_wait_for_event(fd, POLLIN);
+                if (r < 0) {
+                        log_error("Couldn't wait for event: %s", strerror(-r));
                         goto finish;
                 }
 

@@ -27,23 +27,28 @@
 #include "sd-journal.h"
 #include "util.h"
 
-typedef enum output_mode {
+typedef enum OutputMode {
         OUTPUT_SHORT,
         OUTPUT_VERBOSE,
         OUTPUT_EXPORT,
         OUTPUT_JSON,
-        _OUTPUT_MODE_MAX
-} output_mode;
+        _OUTPUT_MODE_MAX,
+        _OUTPUT_MODE_INVALID = -1
+} OutputMode;
 
-int output_journal(sd_journal *j, output_mode mode, unsigned line, bool show_all);
+int output_journal(sd_journal *j, OutputMode mode, unsigned line, bool show_all);
 
-int show_journal_by_service(
-                const char *service,
-                output_mode mode,
+int show_journal_by_unit(
+                const char *unit,
+                OutputMode mode,
                 const char *prefix,
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
-                bool show_all);
+                bool show_all,
+                bool follow);
+
+const char* output_mode_to_string(OutputMode m);
+OutputMode output_mode_from_string(const char *s);
 
 #endif

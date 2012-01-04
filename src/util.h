@@ -520,4 +520,6 @@ unsigned long cap_last_cap(void);
 
 char *format_bytes(char *buf, size_t l, off_t t);
 
+int fd_wait_for_event(int fd, int event);
+
 #endif

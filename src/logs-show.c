@@ -22,6 +22,7 @@
 #include <time.h>
 #include <assert.h>
 #include <errno.h>
+#include <sys/poll.h>
 
 #include "logs-show.h"
 #include "log.h"
@@ -328,50 +329,60 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, unsigned line, bool s
         [OUTPUT_JSON] = output_json
 };
 
-int output_journal(sd_journal *j, output_mode mode, unsigned line, bool show_all) {
+int output_journal(sd_journal *j, OutputMode mode, unsigned line, bool show_all) {
+        assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
         return output_funcs[mode](j, line, show_all);
 }
 
-int show_journal_by_service(
-                const char *service,
-                output_mode mode,
+int show_journal_by_unit(
+                const char *unit,
+                OutputMode mode,
                 const char *prefix,
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
-                bool show_all) {
+                bool show_all,
+                bool follow) {
 
         char *m = NULL;
         sd_journal *j;
         int r;
-        unsigned i;
+        int fd;
+        unsigned line = 0;
+        bool need_seek = false;
 
-        assert(service);
+        assert(mode >= 0);
+        assert(mode < _OUTPUT_MODE_MAX);
+        assert(unit);
 
-        if (!endswith(service, ".service") &&
-            !endswith(service, ".socket") &&
-            !endswith(service, ".mount") &&
-            !endswith(service, ".swap"))
+        if (!endswith(unit, ".service") &&
+            !endswith(unit, ".socket") &&
+            !endswith(unit, ".mount") &&
+            !endswith(unit, ".swap"))
+                return 0;
+
+        if (how_many <= 0)
                 return 0;
 
         if (n_columns <= 0)
                 n_columns = columns();
 
-        if (how_many <= 0)
-                how_many = 10;
-
         if (!prefix)
                 prefix = "";
 
-        if (asprintf(&m, "_SYSTEMD_UNIT=%s", service) < 0) {
+        if (asprintf(&m, "_SYSTEMD_UNIT=%s", unit) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM_ONLY);
         if (r < 0)
+                goto finish;
+
+        fd = sd_journal_get_fd(j);
+        if (fd < 0)
                 goto finish;
 
         r = sd_journal_add_match(j, m, strlen(m));
@@ -382,22 +393,66 @@ int show_journal_by_service(
         if (r < 0)
                 goto finish;
 
-        for (i = 0; i < how_many; i++)
-                sd_journal_previous(j);
+        r = sd_journal_previous_skip(j, how_many);
+        if (r < 0)
+                goto finish;
 
-        for (i = 0; i < how_many; i++) {
+        if (mode == OUTPUT_JSON) {
+                fputc('[', stdout);
+                fflush(stdout);
+        }
 
-                r = sd_journal_next(j);
-                if (r < 0)
-                        goto finish;
+        for (;;) {
+                for (;;) {
+                        usec_t usec;
 
-                if (r == 0)
+                        if (need_seek) {
+                                r = sd_journal_next(j);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        if (r == 0)
+                                break;
+
+                        need_seek = true;
+
+                        if (not_before > 0) {
+                                r = sd_journal_get_monotonic_usec(j, &usec, NULL);
+
+                                /* -ESTALE is returned if the
+                                   timestamp is not from this boot */
+                                if (r == -ESTALE)
+                                        continue;
+                                else if (r < 0)
+                                        goto finish;
+
+                                if (usec < not_before)
+                                        continue;
+                        }
+
+                        line ++;
+
+                        r = output_journal(j, mode, line, show_all);
+                        if (r < 0)
+                                goto finish;
+                }
+
+                if (!follow)
                         break;
 
-                r = output_journal(j, mode, i+1, show_all);
+                r = fd_wait_for_event(fd, POLLIN);
                 if (r < 0)
                         goto finish;
+
+                r = sd_journal_process(j);
+                if (r < 0)
+                        goto finish;
+
         }
+
+        if (mode == OUTPUT_JSON)
+                fputs("\n]\n", stdout);
 
 finish:
         if (m)
@@ -408,3 +463,12 @@ finish:
 
         return r;
 }
+
+static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
+        [OUTPUT_SHORT] = "short",
+        [OUTPUT_VERBOSE] = "verbose",
+        [OUTPUT_EXPORT] = "export",
+        [OUTPUT_JSON] = "json"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode);
