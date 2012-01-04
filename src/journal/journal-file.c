@@ -296,6 +296,15 @@ static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_
         assert(wt >= 0);
         assert(wt < _WINDOW_MAX);
 
+        if (offset + size > (uint64_t) f->last_stat.st_size) {
+                /* Hmm, out of range? Let's refresh the fstat() data
+                 * first, before we trust that check. */
+
+                if (fstat(f->fd, &f->last_stat) < 0 ||
+                    offset + size > (uint64_t) f->last_stat.st_size)
+                        return -EADDRNOTAVAIL;
+        }
+
         w = f->windows + wt;
 
         if (_likely_(w->ptr &&
@@ -330,9 +339,6 @@ static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_
                 size += (DEFAULT_WINDOW_SIZE - delta);
         } else
                 delta = 0;
-
-        if (offset > (uint64_t) f->last_stat.st_size)
-                return -EADDRNOTAVAIL;
 
         if (offset + size > (uint64_t) f->last_stat.st_size)
                 size = PAGE_ALIGN((uint64_t) f->last_stat.st_size - offset);
