@@ -138,6 +138,9 @@ static int journal_file_refresh_header(JournalFile *f) {
         f->header->boot_id = boot_id;
 
         f->header->state = STATE_ONLINE;
+
+        __sync_synchronize();
+
         return 0;
 }
 
@@ -897,6 +900,8 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         assert(o);
         assert(offset > 0);
         assert(o->object.type == OBJECT_ENTRY);
+
+        __sync_synchronize();
 
         /* Link up the entry itself */
         r = link_entry_into_array(f,
