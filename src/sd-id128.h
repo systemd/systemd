@@ -49,6 +49,13 @@ int sd_id128_get_boot(sd_id128_t *ret);
         ((sd_id128_t) { .bytes = { 0x##v0, 0x##v1, 0x##v2, 0x##v3, 0x##v4, 0x##v5, 0x##v6, 0x##v7, \
                                    0x##v8, 0x##v9, 0x##v10, 0x##v11, 0x##v12, 0x##v13, 0x##v14, 0x##v15 }})
 
+/* Note that SD_FORMAT_ID128_VAL will evaluate the passed argument 16
+ * times. It is hence not a good idea to call this macro with an
+ * expensive function as paramater or an expression with side
+ * effects */
+#define SD_FORMAT_ID128_STR "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
+#define SD_FORMAT_ID128_VAL(x) (x).bytes[0], (x).bytes[1], (x).bytes[2], (x).bytes[3], (x).bytes[4], (x).bytes[5], (x).bytes[6], (x).bytes[7], (x).bytes[8], (x).bytes[9], (x).bytes[10], (x).bytes[11], (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
+
 static inline bool sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;
 }
