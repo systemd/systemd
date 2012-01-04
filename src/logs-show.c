@@ -350,6 +350,12 @@ int show_journal_by_service(
 
         assert(service);
 
+        if (!endswith(service, ".service") &&
+            !endswith(service, ".socket") &&
+            !endswith(service, ".mount") &&
+            !endswith(service, ".swap"))
+                return 0;
+
         if (n_columns <= 0)
                 n_columns = columns();
 
