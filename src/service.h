@@ -25,6 +25,7 @@
 typedef struct Service Service;
 
 #include "unit.h"
+#include "path.h"
 #include "ratelimit.h"
 
 typedef enum ServiceState {
@@ -85,8 +86,6 @@ typedef enum NotifyAccess {
         _NOTIFY_ACCESS_MAX,
         _NOTIFY_ACCESS_INVALID = -1
 } NotifyAccess;
-
-typedef struct PathSpec PathSpec;
 
 struct Service {
         Meta meta;
