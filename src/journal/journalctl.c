@@ -38,11 +38,11 @@
 #include "logs-show.h"
 
 static output_mode arg_output = OUTPUT_SHORT;
-
 static bool arg_follow = false;
 static bool arg_show_all = false;
 static bool arg_no_pager = false;
 static int arg_lines = -1;
+static bool arg_no_tail = false;
 
 static int help(void) {
 
@@ -54,6 +54,7 @@ static int help(void) {
                "  -a --all            Show all properties, including long and unprintable\n"
                "  -f --follow         Follow journal\n"
                "  -n --lines=INTEGER  Lines to show\n"
+               "     --no-tail        Show all lines, even in follow mode\n"
                "  -o --output=STRING  Change output mode (short, verbose, export, json)\n",
                program_invocation_short_name);
 
@@ -64,7 +65,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
-                ARG_NO_PAGER
+                ARG_NO_PAGER,
+                ARG_NO_TAIL
         };
 
         static const struct option options[] = {
@@ -75,6 +77,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "output",    required_argument, NULL, 'o'           },
                 { "all",       no_argument,       NULL, 'a'           },
                 { "lines",     required_argument, NULL, 'n'           },
+                { "no-tail",   no_argument,       NULL, ARG_NO_TAIL   },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -126,10 +129,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         r = safe_atoi(optarg, &arg_lines);
-                        if (r < 0) {
+                        if (r < 0 || arg_lines < 0) {
                                 log_error("Failed to parse lines '%s'", optarg);
                                 return -EINVAL;
                         }
+                        break;
+
+                case ARG_NO_TAIL:
+                        arg_no_tail = true;
                         break;
 
                 case '?':
@@ -140,6 +147,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
         }
+
+        if (arg_follow && !arg_no_tail)
+                arg_lines = 10;
 
         return 1;
 }
