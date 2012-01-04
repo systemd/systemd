@@ -30,6 +30,7 @@
 #include <linux/vt.h>
 
 #include "logind.h"
+#include "sd-daemon.h"
 #include "dbus-common.h"
 #include "dbus-loop.h"
 #include "strv.h"
