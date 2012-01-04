@@ -488,7 +488,7 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
 
                 /* Make sure we don't match the entry we are starting
                  * from. */
-                found = cp > *offset;
+                found = cp != *offset;
 
                 np = 0;
                 LIST_FOREACH(matches, m, j->matches) {
