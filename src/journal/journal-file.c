@@ -1016,9 +1016,6 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
             ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                 return -EINVAL;
 
-        if (ts->realtime < le64toh(f->header->tail_entry_realtime))
-                return -EINVAL;
-
         items = alloca(sizeof(EntryItem) * n_iovec);
 
         for (i = 0; i < n_iovec; i++) {
