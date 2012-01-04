@@ -431,7 +431,7 @@ static void dispatch_message_real(Server *s,
                 *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *audit_session = NULL, *audit_loginuid = NULL,
                 *exe = NULL, *cgroup = NULL, *session = NULL,
-                *owner_uid = NULL, *service = NULL;
+                *owner_uid = NULL, *unit = NULL;
 
         char idbuf[33];
         sd_id128_t id;
@@ -515,12 +515,12 @@ static void dispatch_message_real(Server *s,
                                 IOVEC_SET_STRING(iovec[n++], session);
                 }
 
-                if (sd_pid_get_service(ucred->pid, &t) >= 0) {
-                        service = strappend("_SYSTEMD_SERVICE=", t);
+                if (sd_pid_get_unit(ucred->pid, &t) >= 0) {
+                        unit = strappend("_SYSTEMD_UNIT=", t);
                         free(t);
 
-                        if (service)
-                                IOVEC_SET_STRING(iovec[n++], service);
+                        if (unit)
+                                IOVEC_SET_STRING(iovec[n++], unit);
                 }
 
                 if (sd_pid_get_owner_uid(ucred->uid, &owner) >= 0)
@@ -596,7 +596,7 @@ retry:
         free(cgroup);
         free(session);
         free(owner_uid);
-        free(service);
+        free(unit);
 }
 
 static void dispatch_message(Server *s,

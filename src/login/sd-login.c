@@ -121,11 +121,11 @@ _public_ int sd_pid_get_session(pid_t pid, char **session) {
         return 0;
 }
 
-_public_ int sd_pid_get_service(pid_t pid, char **service) {
+_public_ int sd_pid_get_unit(pid_t pid, char **unit) {
         int r;
         char *cgroup, *p;
 
-        if (!service)
+        if (!unit)
                 return -EINVAL;
 
         r = pid_get_cgroup(pid, NULL, &cgroup);
@@ -144,7 +144,7 @@ _public_ int sd_pid_get_service(pid_t pid, char **service) {
         if (!p)
                 return -ENOMEM;
 
-        *service = p;
+        *unit = p;
         return 0;
 }
 

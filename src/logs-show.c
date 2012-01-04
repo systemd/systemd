@@ -359,7 +359,7 @@ int show_journal_by_service(
         if (!prefix)
                 prefix = "";
 
-        if (asprintf(&m, "_SYSTEMD_SERVICE=%s", service) < 0) {
+        if (asprintf(&m, "_SYSTEMD_UNIT=%s", service) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }

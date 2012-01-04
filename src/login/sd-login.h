@@ -53,9 +53,9 @@ int sd_pid_get_session(pid_t pid, char **session);
  * return an error for system processes. */
 int sd_pid_get_owner_uid(pid_t pid, uid_t *uid);
 
-/* Get service name from PID. This will return an error for
- * non-service processes. */
-int sd_pid_get_service(pid_t, char **service);
+/* Get systemd unit (i.e. service) name from PID. This will return an
+ * error for non-service processes. */
+int sd_pid_get_unit(pid_t, char **unit);
 
 /* Get state from uid. Possible states: offline, lingering, online, active */
 int sd_uid_get_state(uid_t uid, char**state);

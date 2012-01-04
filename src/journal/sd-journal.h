@@ -35,7 +35,6 @@
  *   - OR of matches is borked...
  *   - extend hash tables table as we go
  *   - accelerate looking for "all hostnames" and suchlike.
- *   - hookup with systemctl
  *   - handle incomplete header
  *
  *   - local deserializer

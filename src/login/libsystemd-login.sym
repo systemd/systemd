@@ -36,5 +36,5 @@ local:
 
 LIBSYSTEMD_LOGIN_38 {
 global:
-        sd_pid_get_service;
+        sd_pid_get_unit;
 } LIBSYSTEMD_LOGIN_31;

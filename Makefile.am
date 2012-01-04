@@ -1912,7 +1912,7 @@ MANPAGES_ALIAS += \
 	man/sd_session_get_uid.3 \
 	man/sd_session_get_seat.3 \
 	man/sd_pid_get_owner_uid.3 \
-	man/sd_pid_get_service.3 \
+	man/sd_pid_get_unit.3 \
 	man/sd_uid_is_on_seat.3 \
 	man/sd_uid_get_sessions.3 \
 	man/sd_uid_get_seats.3 \
@@ -1927,7 +1927,7 @@ man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 man/sd_session_get_uid.3: man/sd_session_is_active.3
 man/sd_session_get_seat.3: man/sd_session_is_active.3
 man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
-man/sd_pid_get_service.3: man/sd_pid_get_session.3
+man/sd_pid_get_unit.3: man/sd_pid_get_session.3
 man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
 man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
 man/sd_uid_get_seats.3: man/sd_uid_get_state.3
