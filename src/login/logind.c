@@ -1224,9 +1224,20 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        log_debug("systemd-logind running as pid %lu", (unsigned long) getpid());
+
+        sd_notify(false,
+                  "READY=1\n"
+                  "STATUS=Processing requests...");
+
         r = manager_run(m);
 
+        log_debug("systemd-logind stopped as pid %lu", (unsigned long) getpid());
+
 finish:
+        sd_notify(false,
+                  "STATUS=Shutting down...");
+
         if (m)
                 manager_free(m);
 

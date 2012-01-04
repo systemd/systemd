@@ -1171,6 +1171,9 @@ systemd_journald_SOURCES = \
 	src/acl-util.c \
 	src/cgroup-util.c
 
+nodist_systemd_journald_SOURCES = \
+        src/journal/journald-gperf.c
+
 systemd_journald_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(ACL_CFLAGS)
@@ -1302,6 +1305,9 @@ dist_systemunit_DATA += \
 nodist_systemunit_DATA += \
 	units/systemd-journald.service
 
+dist_pkgsysconf_DATA += \
+	src/journal/systemd-journald.conf
+
 pkgconfiglib_DATA += \
 	src/journal/libsystemd-journal.pc
 
@@ -1324,7 +1330,11 @@ EXTRA_DIST += \
 	src/journal/journal-rate-limit.h \
 	src/journal/libsystemd-journal.pc.in \
 	src/journal/libsystemd-journal.sym \
-	units/systemd-journald.service.in
+	units/systemd-journald.service.in \
+        src/journal/journald-gperf.gperf
+
+CLEANFILES += \
+        src/journal/journald-gperf.c
 
 # ------------------------------------------------------------------------------
 if ENABLE_BINFMT

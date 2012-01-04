@@ -1,1 +1,2 @@
-libsystemd-journal.pc
+/journald-gperf.c
+/libsystemd-journal.pc

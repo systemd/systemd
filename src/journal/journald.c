@@ -43,6 +43,8 @@
 #include "sd-journal.h"
 #include "sd-login.h"
 #include "journal-internal.h"
+#include "conf-parser.h"
+#include "journald.h"
 
 #define USER_JOURNALS_MAX 1024
 #define STDOUT_STREAMS_MAX 4096
@@ -55,40 +57,6 @@
 #define RECHECK_VAR_AVAILABLE_USEC (30*USEC_PER_SEC)
 
 #define SYSLOG_TIMEOUT_USEC (5*USEC_PER_SEC)
-
-typedef struct StdoutStream StdoutStream;
-
-typedef struct Server {
-        int epoll_fd;
-        int signal_fd;
-        int syslog_fd;
-        int native_fd;
-        int stdout_fd;
-
-        JournalFile *runtime_journal;
-        JournalFile *system_journal;
-        Hashmap *user_journals;
-
-        uint64_t seqnum;
-
-        char *buffer;
-        size_t buffer_size;
-
-        JournalRateLimit *rate_limit;
-
-        JournalMetrics runtime_metrics;
-        JournalMetrics system_metrics;
-
-        bool compress;
-
-        uint64_t cached_available_space;
-        usec_t cached_available_space_timestamp;
-
-        uint64_t var_available_timestamp;
-
-        LIST_HEAD(StdoutStream, stdout_streams);
-        unsigned n_stdout_streams;
-} Server;
 
 typedef enum StdoutStreamState {
         STDOUT_STREAM_TAG,
@@ -1761,6 +1729,32 @@ static int open_signalfd(Server *s) {
         return 0;
 }
 
+static int server_parse_config_file(Server *s) {
+        FILE *f;
+        const char *fn;
+        int r;
+
+        assert(s);
+
+        fn = "/etc/systemd/systemd-journald.conf";
+        f = fopen(fn, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                log_warning("Failed to open configuration file %s: %m", fn);
+                return -errno;
+        }
+
+        r = config_parse(fn, f, "Journal\0", config_item_perf_lookup, (void*) journald_gperf_lookup, false, s);
+        if (r < 0)
+                log_warning("Failed to parse configuration file: %s", strerror(-r));
+
+        fclose(f);
+
+        return r;
+}
+
 static int server_init(Server *s) {
         int n, r, fd;
 
@@ -1770,8 +1764,13 @@ static int server_init(Server *s) {
         s->syslog_fd = s->native_fd = s->stdout_fd = s->signal_fd = s->epoll_fd = -1;
         s->compress = true;
 
+        s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
+        s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
+
         memset(&s->system_metrics, 0xFF, sizeof(s->system_metrics));
         memset(&s->runtime_metrics, 0xFF, sizeof(s->runtime_metrics));
+
+        server_parse_config_file(s);
 
         s->user_journals = hashmap_new(trivial_hash_func, trivial_compare_func);
         if (!s->user_journals) {
@@ -1846,7 +1845,7 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        s->rate_limit = journal_rate_limit_new(DEFAULT_RATE_LIMIT_INTERVAL, DEFAULT_RATE_LIMIT_BURST);
+        s->rate_limit = journal_rate_limit_new(s->rate_limit_interval, s->rate_limit_burst);
         if (!s->rate_limit)
                 return -ENOMEM;
 
@@ -1916,14 +1915,14 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        server_vacuum(&server);
+        server_flush_to_var(&server);
+
         log_debug("systemd-journald running as pid %lu", (unsigned long) getpid());
 
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");
-
-        server_vacuum(&server);
-        server_flush_to_var(&server);
 
         for (;;) {
                 struct epoll_event event;

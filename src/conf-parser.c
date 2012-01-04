@@ -752,3 +752,30 @@ int config_parse_mode(
         *m = (mode_t) l;
         return 0;
 }
+
+int config_parse_bytes(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *bytes = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        assert_cc(sizeof(off_t) == sizeof(uint64_t));
+
+        if (parse_bytes(rvalue, bytes) < 0) {
+                log_error("[%s:%u] Failed to parse bytes value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
