@@ -1203,6 +1203,7 @@ if HAVE_XZ
 systemd_journalctl_SOURCES += \
 	src/journal/compress.c
 systemd_journalctl_CFLAGS = \
+        $(AM_CFLAGS) \
 	$(XZ_CFLAGS)
 systemd_journalctl_LDADD += \
 	$(XZ_LIBS)
@@ -1224,6 +1225,7 @@ test_journal_SOURCES += \
 	src/journal/compress.c
 
 test_journal_CFLAGS = \
+        $(AM_CFLAGS) \
 	$(XZ_CFLAGS)
 
 test_journal_LDADD += \
@@ -1233,13 +1235,11 @@ endif
 libsystemd_journal_la_SOURCES = \
 	src/journal/sd-journal.c \
 	src/journal/journal-file.c \
-	src/journal/compress.c \
 	src/journal/lookup3.c \
 	src/journal/journal-send.c
 
 libsystemd_journal_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(XZ_CFLAGS) \
 	-fvisibility=hidden
 
 libsystemd_journal_la_LDFLAGS = \
@@ -1249,8 +1249,18 @@ libsystemd_journal_la_LDFLAGS = \
 
 libsystemd_journal_la_LIBADD = \
 	libsystemd-basic.la \
-	libsystemd-id128.la \
+	libsystemd-id128.la
+
+if HAVE_XZ
+libsystemd_journal_la_SOURCES += \
+	src/journal/compress.c
+
+libsystemd_journal_la_CFLAGS += \
+	$(XZ_CFLAGS)
+
+libsystemd_journal_la_LIBADD += \
 	$(XZ_LIBS)
+endif
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-journal-install-hook:
