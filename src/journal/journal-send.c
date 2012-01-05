@@ -195,7 +195,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
         zero(sa);
         sa.sun_family = AF_UNIX;
-        strncpy(sa.sun_path,"/run/systemd/journal", sizeof(sa.sun_path));
+        strncpy(sa.sun_path,"/run/systemd/journal/socket", sizeof(sa.sun_path));
 
         zero(mh);
         mh.msg_name = &sa;
@@ -225,7 +225,7 @@ _public_ int sd_journal_stream_fd(const char *tag, int priority, int priority_pr
 
         zero(sa);
         sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, "/run/systemd/stdout", sizeof(sa.un.sun_path));
+        strncpy(sa.un.sun_path, "/run/systemd/journal/stdout", sizeof(sa.un.sun_path));
 
         r = connect(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
         if (r < 0) {

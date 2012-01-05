@@ -680,7 +680,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
 
         zero(sa);
         sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, "/run/systemd/syslog", sizeof(sa.un.sun_path));
+        strncpy(sa.un.sun_path, "/run/systemd/journal/syslog", sizeof(sa.un.sun_path));
         msghdr.msg_name = &sa;
         msghdr.msg_namelen = offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path);
 
@@ -1929,7 +1929,7 @@ static int open_native_socket(Server*s) {
 
                 zero(sa);
                 sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, "/run/systemd/journal", sizeof(sa.un.sun_path));
+                strncpy(sa.un.sun_path, "/run/systemd/journal/socket", sizeof(sa.un.sun_path));
 
                 unlink(sa.un.sun_path);
 
@@ -1984,7 +1984,7 @@ static int open_stdout_socket(Server *s) {
 
                 zero(sa);
                 sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, "/run/systemd/stdout", sizeof(sa.un.sun_path));
+                strncpy(sa.un.sun_path, "/run/systemd/journal/stdout", sizeof(sa.un.sun_path));
 
                 unlink(sa.un.sun_path);
 
@@ -2106,7 +2106,7 @@ static int server_init(Server *s) {
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
 
-                if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/run/systemd/native", 0) > 0) {
+                if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/run/systemd/journal/socket", 0) > 0) {
 
                         if (s->native_fd >= 0) {
                                 log_error("Too many native sockets passed.");
@@ -2115,7 +2115,7 @@ static int server_init(Server *s) {
 
                         s->native_fd = fd;
 
-                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, "/run/systemd/stdout", 0) > 0) {
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, "/run/systemd/journal/stdout", 0) > 0) {
 
                         if (s->stdout_fd >= 0) {
                                 log_error("Too many stdout sockets passed.");
