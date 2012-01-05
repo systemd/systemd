@@ -841,7 +841,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->restart = SERVICE_RESTART_NO;
 
         if (s->meta.manager->sysv_console)
-                s->exec_context.std_output = EXEC_OUTPUT_SYSLOG_AND_CONSOLE;
+                s->exec_context.std_output = EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
 
         s->exec_context.kill_mode = KILL_PROCESS;
 

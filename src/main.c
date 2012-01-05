@@ -77,7 +77,7 @@ static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char **arg_default_controllers = NULL;
 static char ***arg_join_controllers = NULL;
-static ExecOutput arg_default_std_output = EXEC_OUTPUT_SYSLOG;
+static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 
 static FILE* serialization = NULL;
@@ -348,9 +348,9 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n"
-                         "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console\n"
+                         "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
                          "                                         Set default log output for services\n"
-                         "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console\n"
+                         "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
                          "                                         Set default log error output for services\n");
 
         } else if (streq(word, "quiet")) {
