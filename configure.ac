@@ -23,7 +23,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
-
+AC_PREFIX_DEFAULT([/usr])
 AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects])
 
 AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
@@ -604,7 +604,7 @@ AC_ARG_WITH([pamlibdir],
 
 AC_ARG_WITH([rootprefix],
         AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
-        [], [with_rootprefix=${ac_default_prefix}])
+        [], [with_rootprefix=${prefix}])
 
 AC_ARG_WITH([rootlibdir],
         AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
