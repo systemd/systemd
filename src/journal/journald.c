@@ -65,7 +65,7 @@
 typedef enum StdoutStreamState {
         STDOUT_STREAM_TAG,
         STDOUT_STREAM_PRIORITY,
-        STDOUT_STREAM_PRIORITY_PREFIX,
+        STDOUT_STREAM_LEVEL_PREFIX,
         STDOUT_STREAM_FORWARD_TO_SYSLOG,
         STDOUT_STREAM_FORWARD_TO_KMSG,
         STDOUT_STREAM_FORWARD_TO_CONSOLE,
@@ -82,7 +82,7 @@ struct StdoutStream {
 
         char *tag;
         int priority;
-        bool priority_prefix:1;
+        bool level_prefix:1;
         bool forward_to_syslog:1;
         bool forward_to_kmsg:1;
         bool forward_to_console:1;
@@ -1235,7 +1235,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 
         priority = s->priority;
 
-        if (s->priority_prefix)
+        if (s->level_prefix)
                 parse_syslog_priority((char**) &p, &priority);
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
@@ -1303,17 +1303,17 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                         return -EINVAL;
                 }
 
-                s->state = STDOUT_STREAM_PRIORITY_PREFIX;
+                s->state = STDOUT_STREAM_LEVEL_PREFIX;
                 return 0;
 
-        case STDOUT_STREAM_PRIORITY_PREFIX:
+        case STDOUT_STREAM_LEVEL_PREFIX:
                 r = parse_boolean(p);
                 if (r < 0) {
-                        log_warning("Failed to parse priority prefix line.");
+                        log_warning("Failed to parse level prefix line.");
                         return -EINVAL;
                 }
 
-                s->priority_prefix = !!r;
+                s->level_prefix = !!r;
                 s->state = STDOUT_STREAM_FORWARD_TO_SYSLOG;
                 return 0;
 
