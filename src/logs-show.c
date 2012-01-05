@@ -23,6 +23,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <sys/poll.h>
+#include <string.h>
 
 #include "logs-show.h"
 #include "log.h"
@@ -40,6 +41,48 @@ static bool contains_unprintable(const void *p, size_t l) {
         return false;
 }
 
+static int parse_field(const void *data, size_t length, const char *field, char **target, size_t *target_size) {
+        size_t fl, nl;
+        void *buf;
+
+        assert(data);
+        assert(field);
+        assert(target);
+        assert(target_size);
+
+        fl = strlen(field);
+        if (length < fl)
+                return 0;
+
+        if (memcmp(data, field, fl))
+                return 0;
+
+        nl = length - fl;
+        buf = memdup((const char*) data + fl, nl);
+        if (!buf) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        *target = buf;
+        *target_size = nl;
+
+        return 1;
+}
+
+static bool shall_print(bool show_all, char *p, size_t l) {
+        if (show_all)
+                return true;
+
+        if (l > PRINT_THRESHOLD)
+                return false;
+
+        if (contains_unprintable(p, l))
+                return false;
+
+        return true;
+}
+
 static int output_short(sd_journal *j, unsigned line, bool show_all) {
         int r;
         uint64_t realtime;
@@ -49,55 +92,110 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
         const void *data;
         size_t length;
         size_t n = 0;
+        char *hostname = NULL, *tag = NULL, *comm = NULL, *pid = NULL, *message = NULL;
+        size_t hostname_len = 0, tag_len = 0, comm_len = 0, pid_len = 0, message_len = 0;
 
         assert(j);
+
+        SD_JOURNAL_FOREACH_DATA(j, data, length) {
+
+                r = parse_field(data, length, "_HOSTNAME=", &hostname, &hostname_len);
+                if (r < 0)
+                        goto finish;
+                else if (r > 0)
+                        continue;
+
+                r = parse_field(data, length, "SYSLOG_TAG=", &tag, &tag_len);
+                if (r < 0)
+                        goto finish;
+                else if (r > 0)
+                        continue;
+
+                r = parse_field(data, length, "_COMM=", &comm, &comm_len);
+                if (r < 0)
+                        goto finish;
+                else if (r > 0)
+                        continue;
+
+                r = parse_field(data, length, "_PID=", &pid, &pid_len);
+                if (r < 0)
+                        goto finish;
+                else if (r > 0)
+                        continue;
+
+                r = parse_field(data, length, "MESSAGE=", &message, &message_len);
+                if (r < 0)
+                        goto finish;
+        }
+
+        if (!message) {
+                r = 0;
+                goto finish;
+        }
 
         r = sd_journal_get_realtime_usec(j, &realtime);
         if (r < 0) {
                 log_error("Failed to get realtime: %s", strerror(-r));
-                return r;
+                goto finish;
         }
 
         t = (time_t) (realtime / USEC_PER_SEC);
         if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm)) <= 0) {
                 log_error("Failed to format time.");
-                return -EINVAL;
+                goto finish;
         }
 
         fputs(buf, stdout);
         n += strlen(buf);
 
-        if (sd_journal_get_data(j, "_HOSTNAME", &data, &length) >= 0 &&
-            (show_all || (!contains_unprintable(data, length) &&
-                          length < PRINT_THRESHOLD))) {
-                printf(" %.*s", (int) length - 10, ((const char*) data) + 10);
-                n += length - 10 + 1;
+        if (hostname && shall_print(show_all, hostname, hostname_len)) {
+                printf(" %.*s", (int) hostname_len, hostname);
+                n += hostname_len + 1;
         }
 
-        if (sd_journal_get_data(j, "MESSAGE", &data, &length) >= 0) {
-                if (show_all)
-                        printf(" %.*s", (int) length - 8, ((const char*) data) + 8);
-                else if (contains_unprintable(data, length))
-                        fputs(" [blob data]", stdout);
-                else if (length - 8 + n < columns())
-                        printf(" %.*s", (int) length - 8, ((const char*) data) + 8);
-                else if (n < columns()) {
-                        char *e;
-
-                        e = ellipsize_mem((const char *) data + 8, length - 8, columns() - n - 2, 90);
-
-                        if (!e)
-                                printf(" %.*s", (int) length - 8, ((const char*) data) + 8);
-                        else
-                                printf(" %s", e);
-
-                        free(e);
-                }
+        if (tag && shall_print(show_all, tag, tag_len)) {
+                printf(" %.*s", (int) tag_len, tag);
+                n += tag_len + 1;
+        } else if (comm && shall_print(show_all, comm, comm_len)) {
+                printf(" %.*s", (int) comm_len, comm);
+                n += comm_len + 1;
         }
 
-        fputc('\n', stdout);
+        if (pid && shall_print(show_all, pid, pid_len)) {
+                printf("[%.*s]", (int) pid_len, pid);
+                n += pid_len + 2;
+        }
 
-        return 0;
+        if (show_all)
+                printf(": %.*s\n", (int) message_len, message);
+        else if (contains_unprintable(message, message_len))
+                fputs(": [blob data]\n", stdout);
+        else if (message_len + n < columns())
+                printf(": %.*s\n", (int) message_len, message);
+        else if (n < columns()) {
+                char *e;
+
+                e = ellipsize_mem(message, message_len, columns() - n - 2, 90);
+
+                if (!e)
+                        printf(": %.*s\n", (int) message_len, message);
+                else
+                        printf(": %s", e);
+
+                free(e);
+        } else
+                fputs("\n", stdout);
+
+        r = 0;
+
+finish:
+        free(hostname);
+        free(tag);
+        free(comm);
+        free(pid);
+        free(message);
+
+        return r;
 }
 
 static int output_verbose(sd_journal *j, unsigned line, bool show_all) {

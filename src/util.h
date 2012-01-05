@@ -523,4 +523,6 @@ char *format_bytes(char *buf, size_t l, off_t t);
 
 int fd_wait_for_event(int fd, int event);
 
+void* memdup(const void *p, size_t l);
+
 #endif

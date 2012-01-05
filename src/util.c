@@ -6050,3 +6050,16 @@ finish:
         return buf;
 
 }
+
+void* memdup(const void *p, size_t l) {
+        void *r;
+
+        assert(p);
+
+        r = malloc(l);
+        if (!r)
+                return NULL;
+
+        memcpy(r, p, l);
+        return r;
+}
