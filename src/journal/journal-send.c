@@ -233,6 +233,11 @@ _public_ int sd_journal_stream_fd(const char *tag, int priority, int priority_pr
                 return -errno;
         }
 
+        if (shutdown(fd, SHUT_RD) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
         if (!tag)
                 tag = "";
 
