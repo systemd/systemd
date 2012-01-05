@@ -16,7 +16,7 @@ args="\
 --bindir=/sbin \
 --libdir=$(libdir /usr/lib) \
 --with-rootlibdir=$(libdir /lib) \
---libexecdir=/lib/udev \
+--libexecdir=/lib \
 --with-systemdsystemunitdir=/lib/systemd/system \
 --with-selinux \
 --enable-gtk-doc"

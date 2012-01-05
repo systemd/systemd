@@ -13,7 +13,7 @@ AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
 	-I$(top_srcdir)/libudev \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DLIBEXECDIR=\""$(libexecdir)"\"
+	-DPKGLIBEXECDIR=\""$(libexecdir)/udev"\"
 
 AM_CFLAGS = \
 	${my_CFLAGS} \
@@ -36,8 +36,9 @@ INSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 DISTCHECK_HOOKS =
-libexec_SCRIPTS =
-dist_libexec_SCRIPTS =
+pkglibexec_SCRIPTS =
+dist_pkglibexec_SCRIPTS =
+dist_pkglibexec_DATA =
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(SED) \
@@ -48,7 +49,7 @@ SED_PROCESS = \
 	-e 's,@libdir\@,$(libdir),g' \
 	-e 's,@includedir\@,$(includedir),g' \
 	-e 's,@bindir\@,$(bindir),g' \
-	-e 's,@libexecdir\@,$(libexecdir),g' \
+	-e 's,@pkglibexecdir\@,$(libexecdir)/udev,g' \
 	< $< > $@ || rm $@
 
 %.pc: %.pc.in Makefile
@@ -135,7 +136,7 @@ UNINSTALL_EXEC_HOOKS += libudev-uninstall-move-hook
 # ------------------------------------------------------------------------------
 udev-confdirs:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
-	-mkdir -p $(DESTDIR)$(libexecdir)/devices
+	-mkdir -p $(DESTDIR)$(libexecdir)/udev/devices
 
 INSTALL_DATA_HOOKS += udev-confdirs
 
@@ -143,7 +144,7 @@ EXTRA_DIST += \
 	rules/arch \
 	rules/misc
 
-udevrulesdir = $(libexecdir)/rules.d
+udevrulesdir = $(libexecdir)/udev/rules.d
 dist_udevrules_DATA = \
 	rules/rules.d/50-udev-default.rules \
 	rules/rules.d/60-persistent-storage-tape.rules \
@@ -199,7 +200,7 @@ endif
 bin_PROGRAMS = \
 	udev/udevadm
 
-libexec_PROGRAMS = \
+pkglibexec_PROGRAMS = \
 	udev/udevd
 
 udev_common_sources = \
@@ -311,14 +312,14 @@ udev_test_udev_CPPFLAGS = $(udev_common_CPPFLAGS)
 # ------------------------------------------------------------------------------
 extras_ata_id_ata_id_SOURCES = extras/ata_id/ata_id.c
 extras_ata_id_ata_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/ata_id/ata_id
+pkglibexec_PROGRAMS += extras/ata_id/ata_id
 
 # ------------------------------------------------------------------------------
 # cdrom_id - optical drive/media capability
 # ------------------------------------------------------------------------------
 extras_cdrom_id_cdrom_id_SOURCES = extras/cdrom_id/cdrom_id.c
 extras_cdrom_id_cdrom_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/cdrom_id/cdrom_id
+pkglibexec_PROGRAMS += extras/cdrom_id/cdrom_id
 dist_udevrules_DATA += extras/cdrom_id/60-cdrom_id.rules
 
 # ------------------------------------------------------------------------------
@@ -326,7 +327,7 @@ dist_udevrules_DATA += extras/cdrom_id/60-cdrom_id.rules
 # ------------------------------------------------------------------------------
 extras_collect_collect_SOURCES = extras/collect/collect.c
 extras_collect_collect_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/collect/collect
+pkglibexec_PROGRAMS += extras/collect/collect
 
 # ------------------------------------------------------------------------------
 # scsi_id - SCSI inquiry to get various serial numbers
@@ -337,7 +338,7 @@ extras_scsi_id_scsi_id_SOURCES =\
 	extras/scsi_id/scsi.h \
 	extras/scsi_id/scsi_id.h
 extras_scsi_id_scsi_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/scsi_id/scsi_id
+pkglibexec_PROGRAMS += extras/scsi_id/scsi_id
 dist_man_MANS += extras/scsi_id/scsi_id.8
 EXTRA_DIST += extras/scsi_id/README
 
@@ -346,7 +347,7 @@ EXTRA_DIST += extras/scsi_id/README
 # ------------------------------------------------------------------------------
 extras_v4l_id_v4l_id_SOURCES = extras/v4l_id/v4l_id.c
 extras_v4l_id_v4l_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/v4l_id/v4l_id
+pkglibexec_PROGRAMS += extras/v4l_id/v4l_id
 dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
 
 # ------------------------------------------------------------------------------
@@ -354,7 +355,7 @@ dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
 # ------------------------------------------------------------------------------
 extras_accelerometer_accelerometer_SOURCES = extras/accelerometer/accelerometer.c
 extras_accelerometer_accelerometer_LDADD = libudev/libudev-private.la -lm
-libexec_PROGRAMS += extras/accelerometer/accelerometer
+pkglibexec_PROGRAMS += extras/accelerometer/accelerometer
 dist_udevrules_DATA += extras/accelerometer/61-accelerometer.rules
 
 # ------------------------------------------------------------------------------
@@ -521,15 +522,15 @@ nodist_extras_keymap_keymap_SOURCES = \
 	extras/keymap/keys-to-name.h
 BUILT_SOURCES += $(nodist_extras_keymap_keymap_SOURCES)
 
-libexec_PROGRAMS += extras/keymap/keymap
+pkglibexec_PROGRAMS += extras/keymap/keymap
 dist_doc_DATA = extras/keymap/README.keymap.txt
 
 dist_udevrules_DATA += \
 	extras/keymap/95-keymap.rules \
 	extras/keymap/95-keyboard-force-release.rules
 
-dist_libexec_SCRIPTS += extras/keymap/findkeyboards
-libexec_SCRIPTS += extras/keymap/keyboard-force-release.sh
+dist_pkglibexec_SCRIPTS += extras/keymap/findkeyboards
+pkglibexec_SCRIPTS += extras/keymap/keyboard-force-release.sh
 
 EXTRA_DIST += \
 	extras/keymap/check-keymaps.sh \
@@ -540,7 +541,7 @@ CLEANFILES += \
 	extras/keymap/keys-from-name.gperf \
 	extras/keymap/keyboard-force-release.sh
 
-udevkeymapdir = $(libexecdir)/keymaps
+udevkeymapdir = $(libexecdir)/udev/keymaps
 dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/acer \
 	extras/keymap/keymaps/acer-aspire_5720 \
@@ -599,7 +600,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/toshiba-satellite_m30x \
 	extras/keymap/keymaps/zepto-znote
 
-udevkeymapforcereldir = $(libexecdir)/keymaps/force-release
+udevkeymapforcereldir = $(libexecdir)/udev/keymaps/force-release
 dist_udevkeymapforcerel_DATA = \
 	extras/keymap/force-release-maps/dell-touchpad \
 	extras/keymap/force-release-maps/hp-other \
@@ -634,21 +635,19 @@ extras_mtd_probe_mtd_probe_SOURCES =  \
 	extras/mtd_probe/probe_smartmedia.c
 extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
 dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
-libexec_PROGRAMS += extras/mtd_probe/mtd_probe
+pkglibexec_PROGRAMS += extras/mtd_probe/mtd_probe
 endif
 
 if ENABLE_RULE_GENERATOR
 # ------------------------------------------------------------------------------
 # rule_generator - persistent network and optical device rule generator
 # ------------------------------------------------------------------------------
-dist_libexec_SCRIPTS += \
+dist_pkglibexec_SCRIPTS += \
 	extras/rule_generator/write_cd_rules \
 	extras/rule_generator/write_net_rules
 
-udevhomedir = $(libexecdir)
-dist_udevhome_DATA = extras/rule_generator/rule_generator.functions
-
-dist_udevrules_DATA += \
+pkglibexec_DATA = extras/rule_generator/rule_generator.functions
+dist_pkglibexec_DATA += \
 	extras/rule_generator/75-cd-aliases-generator.rules \
 	extras/rule_generator/75-persistent-net-generator.rules
 endif
@@ -661,11 +660,11 @@ extras_udev_acl_udev_acl_SOURCES = extras/udev-acl/udev-acl.c
 extras_udev_acl_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 extras_udev_acl_udev_acl_LDADD = libudev/libudev-private.la -lacl $(GLIB_LIBS)
 dist_udevrules_DATA += extras/udev-acl/70-udev-acl.rules
-libexec_PROGRAMS += extras/udev-acl/udev-acl
+pkglibexec_PROGRAMS += extras/udev-acl/udev-acl
 
 udevacl-install-hook:
 	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d
-	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d/udev-acl.ck
+	ln -sf $(libexecdir)/udev/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d/udev-acl.ck
 
 INSTALL_EXEC_HOOKS += udevacl-install-hook
 endif
@@ -676,7 +675,7 @@ if ENABLE_FLOPPY
 # ------------------------------------------------------------------------------
 extras_floppy_create_floppy_devices_SOURCES = extras/floppy/create_floppy_devices.c
 extras_floppy_create_floppy_devices_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/floppy/create_floppy_devices
+pkglibexec_PROGRAMS += extras/floppy/create_floppy_devices
 dist_udevrules_DATA += extras/floppy/60-floppy.rules
 endif
 
@@ -686,7 +685,7 @@ if ENABLE_EDD
 # ------------------------------------------------------------------------------
 extras_edd_id_edd_id_SOURCES = extras/edd_id/edd_id.c
 extras_edd_id_edd_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS += extras/edd_id/edd_id
+pkglibexec_PROGRAMS += extras/edd_id/edd_id
 dist_udevrules_DATA += extras/edd_id/61-persistent-storage-edd.rules
 endif
 

@@ -2,4 +2,4 @@ Name: udev
 Description: udev
 Version: @VERSION@
 
-udevdir=@libexecdir@
+udevdir=@pkglibexecdir@

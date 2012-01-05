@@ -16,6 +16,9 @@ The default install location of the 'udevadm' tool moved from 'sbin'
 to /usr/bin. Some tools expect udevadm in 'sbin'. A symlink to udevadm
 needs to be manually created if needed.
 
+The expected value of '--libexecdir' has changed and must no longer contain
+the 'udev' directory.
+
 Kernel modules are now loaded directly by linking udev to 'libkmod'. The
 'modprobe' tool is no longer executed by udev.
 

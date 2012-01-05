@@ -4,7 +4,7 @@ The options used used usually look like:
     --sysconfdir=/etc \
     --bindir=/usr/bin \
     --libdir=/usr/lib64 \
-    --libexecdir=/usr/lib/udev \
+    --libexecdir=/usr/lib \
     --with-systemdsystemunitdir=/usr/lib/systemd/system \
     --with-selinux
 
@@ -14,7 +14,7 @@ The options used in a RPM spec file look like:
     --sysconfdir=%{_sysconfdir} \
     --bindir=%{_bindir} \
     --libdir=%{_libdir} \
-    --libexecdir=%{_prefix}/lib/udev \
+    --libexecdir=%{_prefix}/lib \
     --with-systemdsystemunitdir=%{_prefix}/lib/systemd/system \
     --with-selinux
 
@@ -26,7 +26,7 @@ and udevadm in /sbin:
     --bindir=/sbin \
     --libdir=%{_libdir} \
     --with-rootlibdir=/lib64 \
-    --libexecdir=/lib/udev \
+    --libexecdir=/lib \
     --with-systemdsystemunitdir=/lib/systemd/system \
     --with-selinux
 

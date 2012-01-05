@@ -423,7 +423,7 @@ int main(int argc, char **argv)
 			if (f) {
 				merge_table(fd, f);
 			} else {
-				snprintf(keymap_path, sizeof(keymap_path), "%s%s", LIBEXECDIR "/keymaps/", filearg);
+				snprintf(keymap_path, sizeof(keymap_path), "%s%s", PKGLIBEXECDIR "/keymaps/", filearg);
 				f = fopen(keymap_path, "r");
 				if (f)
 					merge_table(fd, f);

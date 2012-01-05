@@ -976,7 +976,7 @@ static void static_dev_create_from_devices(struct udev *udev, DIR *dir)
 {
 	DIR *dir_from;
 
-	dir_from = opendir(LIBEXECDIR "/devices");
+	dir_from = opendir(PKGLIBEXECDIR "/devices");
 	if (dir_from == NULL)
 		return;
 	copy_dev_dir(udev, dir_from, dir, 8);
