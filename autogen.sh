@@ -48,10 +48,6 @@ if [ -f .git/hooks/pre-commit.sample -a ! -f .git/hooks/pre-commit ] ; then
     echo "Activated pre-commit hook."
 fi
 
-if type -p colorgcc > /dev/null ; then
-   export CC=colorgcc
-fi
-
 libdir() {
     echo $(cd $1/$(gcc -print-multi-os-directory); pwd)
 }
