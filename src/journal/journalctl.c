@@ -44,6 +44,7 @@ static bool arg_show_all = false;
 static bool arg_no_pager = false;
 static int arg_lines = -1;
 static bool arg_no_tail = false;
+static bool arg_new_id = false;
 
 static int help(void) {
 
@@ -56,7 +57,8 @@ static int help(void) {
                "  -f --follow         Follow journal\n"
                "  -n --lines=INTEGER  Journal entries to show\n"
                "     --no-tail        Show all lines, even in follow mode\n"
-               "  -o --output=STRING  Change journal output mode (short, verbose, export, json)\n",
+               "  -o --output=STRING  Change journal output mode (short, verbose, export, json)\n"
+               "     --new-id         Generate a new 128 Bit id\n",
                program_invocation_short_name);
 
         return 0;
@@ -67,7 +69,8 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
-                ARG_NO_TAIL
+                ARG_NO_TAIL,
+                ARG_NEW_ID
         };
 
         static const struct option options[] = {
@@ -79,6 +82,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",       no_argument,       NULL, 'a'           },
                 { "lines",     required_argument, NULL, 'n'           },
                 { "no-tail",   no_argument,       NULL, ARG_NO_TAIL   },
+                { "new-id",    no_argument,       NULL, ARG_NEW_ID    },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -134,6 +138,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_no_tail = true;
                         break;
 
+                case ARG_NEW_ID:
+                        arg_new_id = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -149,6 +157,34 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int generate_new_id(void) {
+        sd_id128_t id;
+        int r;
+        unsigned i;
+
+        r = sd_id128_randomize(&id);
+        if (r < 0) {
+                log_error("Failed to generate ID: %s", strerror(-r));
+                return r;
+        }
+
+        printf("As string:\n"
+               SD_ID128_FORMAT_STR "\n\n"
+               "As UUID:\n"
+               "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n\n"
+               "As macro:\n"
+              "#define MESSAGE_XYZ SD_ID128_MAKE(",
+               SD_ID128_FORMAT_VAL(id),
+               SD_ID128_FORMAT_VAL(id));
+
+        for (i = 0; i < 16; i++)
+                printf("%02x%s", id.bytes[i], i != 15 ? "," : "");
+
+        fputs(")\n", stdout);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r, i, fd;
         sd_journal *j = NULL;
@@ -161,6 +197,11 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        if (arg_new_id) {
+                r = generate_new_id();
+                goto finish;
+        }
 
         r = sd_journal_open(&j, 0);
         if (r < 0) {
