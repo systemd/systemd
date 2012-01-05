@@ -95,7 +95,8 @@ static int log_open_kmsg(void) {
         if (kmsg_fd >= 0)
                 return 0;
 
-        if ((kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
+        kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (kmsg_fd < 0) {
                 log_error("Failed to open /dev/kmsg for logging: %s", strerror(errno));
                 return -errno;
         }
@@ -265,14 +266,16 @@ static int write_to_console(
         if (console_fd < 0)
                 return 0;
 
-        snprintf(location, sizeof(location), "(%s:%u) ", file, line);
-        char_array_0(location);
-
         highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         zero(iovec);
-        if (show_location)
+
+        if (show_location) {
+                snprintf(location, sizeof(location), "(%s:%u) ", file, line);
+                char_array_0(location);
                 IOVEC_SET_STRING(iovec[n++], location);
+        }
+
         if (highlight)
                 IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_ON);
         IOVEC_SET_STRING(iovec[n++], buffer);
