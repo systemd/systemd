@@ -649,6 +649,7 @@ AC_MSG_RESULT([
         plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}
+        libexec dir:             ${libexecdir}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
         pam modules dir:         ${with_pamlibdir}

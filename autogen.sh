@@ -68,11 +68,12 @@ else
 
     if [ "x$1" != "xac" ]; then
         CFLAGS="$CFLAGS -g -O0" ./configure \
+          --with-rootprefix= \
           --sysconfdir=/etc \
           --localstatedir=/var \
+          --libdir=$(libdir /usr/lib) \
+          --with-rootlibdir=$(libdir /lib) \
           --libexecdir=/usr/lib \
-          --libdir=$(libdir /usr/local/lib) \
-          --with-rootprefix= \
           "$@"
         make clean
     fi
