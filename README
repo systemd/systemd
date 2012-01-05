@@ -27,7 +27,8 @@ AUTHOR:
         Lennart Poettering with major support from Kay Sievers
 
 LICENSE:
-        GPLv2+ for all code, except sd-daemon.[ch] which is MIT
+        GPLv2+ for all code, except sd-daemon.[ch] and
+        sd-readahead.[ch] which are MIT
 
 REQUIREMENTS:
         Linux kernel >= 2.6.39
