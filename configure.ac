@@ -597,11 +597,6 @@ AC_ARG_WITH([udevrulesdir],
         [],
         [with_udevrulesdir=`pkg-config --variable=udevdir udev`/rules.d])
 
-AC_ARG_WITH([pamlibdir],
-        AS_HELP_STRING([--with-pamlibdir=DIR], [Diectory for PAM modules]),
-        [],
-        [with_pamlibdir=/lib/`$CC -print-multi-os-directory`/security])
-
 AC_ARG_WITH([rootprefix],
         AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
         [], [with_rootprefix=${prefix}])
@@ -610,6 +605,11 @@ AC_ARG_WITH([rootlibdir],
         AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
         [],
         [with_rootlibdir=${libdir}])
+
+AC_ARG_WITH([pamlibdir],
+        AS_HELP_STRING([--with-pamlibdir=DIR], [Diectory for PAM modules]),
+        [],
+        [with_pamlibdir=${with_rootlibdir}/security])
 
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
