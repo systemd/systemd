@@ -1290,7 +1290,8 @@ noinst_PROGRAMS += \
 	test-journal
 
 pkginclude_HEADERS += \
-	src/journal/sd-journal.h
+	src/journal/sd-journal.h \
+        src/journal/sd-messages.h
 
 lib_LTLIBRARIES += \
 	libsystemd-journal.la

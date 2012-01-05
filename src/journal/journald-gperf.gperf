@@ -25,3 +25,6 @@ Journal.RuntimeMaxUse,      config_parse_bytes,    0, offsetof(Server, runtime_m
 Journal.RuntimeMaxFileSize, config_parse_bytes,    0, offsetof(Server, runtime_metrics.max_size)
 Journal.RuntimeMinFileSize, config_parse_bytes,    0, offsetof(Server, runtime_metrics.min_size)
 Journal.RuntimeKeepFree,    config_parse_bytes,    0, offsetof(Server, runtime_metrics.keep_free)
+Journal.ForwardToSyslog,    config_parse_bool,     0, offsetof(Server, forward_to_syslog)
+Journal.ForwardToKMsg,      config_parse_bool,     0, offsetof(Server, forward_to_kmsg)
+Journal.ForwardToConsole,   config_parse_bool,     0, offsetof(Server, forward_to_console)

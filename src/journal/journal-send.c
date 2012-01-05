@@ -237,13 +237,17 @@ _public_ int sd_journal_stream_fd(const char *tag, int priority, int priority_pr
                 tag = "";
 
         l = strlen(tag);
-        header = alloca(l + 1 + 2 + 2 + 2);
+        header = alloca(l + 1 + 2 + 2 + 2 + 2 + 2);
 
         memcpy(header, tag, l);
         header[l++] = '\n';
         header[l++] = '0' + priority;
         header[l++] = '\n';
         header[l++] = '0' + !!priority_prefix;
+        header[l++] = '\n';
+        header[l++] = '0';
+        header[l++] = '\n';
+        header[l++] = '0';
         header[l++] = '\n';
         header[l++] = '0';
         header[l++] = '\n';

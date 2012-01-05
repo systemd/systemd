@@ -59,6 +59,10 @@ typedef struct Server {
 
         bool compress;
 
+        bool forward_to_kmsg;
+        bool forward_to_syslog;
+        bool forward_to_console;
+
         uint64_t cached_available_space;
         usec_t cached_available_space_timestamp;
 

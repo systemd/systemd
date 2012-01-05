@@ -44,6 +44,7 @@
 #include "sd-login.h"
 #include "journal-internal.h"
 #include "conf-parser.h"
+#include "sd-messages.h"
 #include "journald.h"
 
 #define USER_JOURNALS_MAX 1024
@@ -58,11 +59,15 @@
 
 #define SYSLOG_TIMEOUT_USEC (5*USEC_PER_SEC)
 
+#define N_IOVEC_META_FIELDS 16
+
 typedef enum StdoutStreamState {
         STDOUT_STREAM_TAG,
         STDOUT_STREAM_PRIORITY,
         STDOUT_STREAM_PRIORITY_PREFIX,
-        STDOUT_STREAM_TEE_CONSOLE,
+        STDOUT_STREAM_FORWARD_TO_SYSLOG,
+        STDOUT_STREAM_FORWARD_TO_KMSG,
+        STDOUT_STREAM_FORWARD_TO_CONSOLE,
         STDOUT_STREAM_RUNNING
 } StdoutStreamState;
 
@@ -77,7 +82,9 @@ struct StdoutStream {
         char *tag;
         int priority;
         bool priority_prefix:1;
-        bool tee_console:1;
+        bool forward_to_syslog:1;
+        bool forward_to_kmsg:1;
+        bool forward_to_console:1;
 
         char buffer[LINE_MAX+1];
         size_t length;
@@ -412,7 +419,7 @@ static void dispatch_message_real(Server *s,
         assert(s);
         assert(iovec);
         assert(n > 0);
-        assert(n + 16 <= m);
+        assert(n + N_IOVEC_META_FIELDS <= m);
 
         if (ucred) {
                 uint32_t audit;
@@ -567,6 +574,38 @@ retry:
         free(unit);
 }
 
+static void driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
+        char mid[11 + 32 + 1];
+        char buffer[16 + LINE_MAX + 1];
+        struct iovec iovec[N_IOVEC_META_FIELDS + 3];
+        int n = 0;
+        va_list ap;
+        struct ucred ucred;
+
+        assert(s);
+        assert(format);
+
+        IOVEC_SET_STRING(iovec[n++], "PRIORITY=5");
+
+        memcpy(buffer, "MESSAGE=", 8);
+        va_start(ap, format);
+        vsnprintf(buffer + 8, sizeof(buffer) - 8, format, ap);
+        va_end(ap);
+        char_array_0(buffer);
+        IOVEC_SET_STRING(iovec[n++], buffer);
+
+        snprintf(mid, sizeof(mid), "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(message_id));
+        char_array_0(mid);
+        IOVEC_SET_STRING(iovec[n++], mid);
+
+        zero(ucred);
+        ucred.pid = getpid();
+        ucred.uid = getuid();
+        ucred.gid = getgid();
+
+        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL);
+}
+
 static void dispatch_message(Server *s,
                              struct iovec *iovec, unsigned n, unsigned m,
                              struct ucred *ucred,
@@ -604,28 +643,16 @@ static void dispatch_message(Server *s,
                 }
         }
 
-        rl = journal_rate_limit_test(s->rate_limit, path, priority, available_space(s));
+        rl = journal_rate_limit_test(s->rate_limit, path, priority & LOG_PRIMASK, available_space(s));
 
         if (rl == 0) {
                 free(path);
                 return;
         }
 
-        if (rl > 1) {
-                int j = 0;
-                char suppress_message[LINE_MAX];
-                struct iovec suppress_iovec[18];
-
-                /* Write a suppression message if we suppressed something */
-
-                snprintf(suppress_message, sizeof(suppress_message), "MESSAGE=Suppressed %u messages from %s", rl - 1, path);
-                char_array_0(suppress_message);
-
-                IOVEC_SET_STRING(suppress_iovec[j++], "PRIORITY=5");
-                IOVEC_SET_STRING(suppress_iovec[j++], suppress_message);
-
-                dispatch_message_real(s, suppress_iovec, j, ELEMENTSOF(suppress_iovec), NULL, NULL);
-        }
+        /* Write a suppression message if we suppressed something */
+        if (rl > 1)
+                driver_message(s, SD_MESSAGE_JOURNAL_DROPPED, "Suppressed %u messages from %s", rl - 1, path);
 
         free(path);
 
@@ -633,33 +660,337 @@ finish:
         dispatch_message_real(s, iovec, n, m, ucred, tv);
 }
 
+static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
+        struct msghdr msghdr;
+        struct cmsghdr *cmsg;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+        } control;
+        union sockaddr_union sa;
+
+        assert(s);
+        assert(iovec);
+        assert(n_iovec > 0);
+
+        zero(msghdr);
+        msghdr.msg_iov = (struct iovec*) iovec;
+        msghdr.msg_iovlen = n_iovec;
+
+        zero(sa);
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, "/run/systemd/syslog", sizeof(sa.un.sun_path));
+        msghdr.msg_name = &sa;
+        msghdr.msg_namelen = offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path);
+
+        if (ucred) {
+                zero(control);
+                msghdr.msg_control = &control;
+                msghdr.msg_controllen = sizeof(control);
+
+                cmsg = CMSG_FIRSTHDR(&msghdr);
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_CREDENTIALS;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+                memcpy(CMSG_DATA(cmsg), ucred, sizeof(struct ucred));
+                msghdr.msg_controllen = cmsg->cmsg_len;
+        }
+
+        /* Forward the syslog message we received via /dev/log to
+         * /run/systemd/syslog. Unfortunately we currently can't set
+         * the SO_TIMESTAMP auxiliary data, and hence we don't. */
+
+        if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                return;
+
+        if (ucred && errno == ESRCH) {
+                struct ucred u;
+
+                /* Hmm, presumably the sender process vanished
+                 * by now, so let's fix it as good as we
+                 * can, and retry */
+
+                u = *ucred;
+                u.pid = getpid();
+                memcpy(CMSG_DATA(cmsg), &u, sizeof(struct ucred));
+
+                if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                        return;
+        }
+
+        log_debug("Failed to forward syslog message: %m");
+}
+
+static void forward_syslog_raw(Server *s, const char *buffer, struct ucred *ucred, struct timeval *tv) {
+        struct iovec iovec;
+
+        assert(s);
+        assert(buffer);
+
+        IOVEC_SET_STRING(iovec, buffer);
+        forward_syslog_iovec(s, &iovec, 1, ucred, tv);
+}
+
+static void forward_syslog(Server *s, int priority, const char *tag, const char *message, struct ucred *ucred, struct timeval *tv) {
+        struct iovec iovec[5];
+        char header_priority[6], header_time[64], header_pid[16];
+        int n = 0;
+        time_t t;
+        struct tm *tm;
+        char *tag_buf = NULL;
+
+        assert(s);
+        assert(priority >= 0);
+        assert(priority <= 999);
+        assert(message);
+
+        /* First: priority field */
+        snprintf(header_priority, sizeof(header_priority), "<%i>", priority);
+        char_array_0(header_priority);
+        IOVEC_SET_STRING(iovec[n++], header_priority);
+
+        /* Second: timestamp */
+        t = tv ? tv->tv_sec : ((time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC));
+        tm = localtime(&t);
+        if (!tm)
+                return;
+        if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
+                return;
+        IOVEC_SET_STRING(iovec[n++], header_time);
+
+        /* Third: tag and PID */
+        if (ucred) {
+                if (!tag) {
+                        get_process_comm(ucred->pid, &tag_buf);
+                        tag = tag_buf;
+                }
+
+                snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
+                char_array_0(header_pid);
+
+                if (tag)
+                        IOVEC_SET_STRING(iovec[n++], tag);
+
+                IOVEC_SET_STRING(iovec[n++], header_pid);
+        } else if (tag) {
+                IOVEC_SET_STRING(iovec[n++], tag);
+                IOVEC_SET_STRING(iovec[n++], ": ");
+        }
+
+        /* Fourth: message */
+        IOVEC_SET_STRING(iovec[n++], message);
+
+        forward_syslog_iovec(s, iovec, n, ucred, tv);
+
+        free(tag_buf);
+}
+
+static int fixup_priority(int priority) {
+
+        if ((priority & LOG_FACMASK) == 0)
+                return (priority & LOG_PRIMASK) | LOG_USER;
+
+        return priority;
+}
+
+static void forward_kmsg(Server *s, int priority, const char *tag, const char *message, struct ucred *ucred) {
+        struct iovec iovec[5];
+        char header_priority[6], header_pid[16];
+        int n = 0;
+        char *tag_buf = NULL;
+        int fd;
+
+        assert(s);
+        assert(priority >= 0);
+        assert(priority <= 999);
+        assert(message);
+
+        /* Never allow messages with kernel facility to be written to
+         * kmsg, regardless where the data comes from. */
+        priority = fixup_priority(priority);
+
+        /* First: priority field */
+        snprintf(header_priority, sizeof(header_priority), "<%i>", priority);
+        char_array_0(header_priority);
+        IOVEC_SET_STRING(iovec[n++], header_priority);
+
+        /* Second: tag and PID */
+        if (ucred) {
+                if (!tag) {
+                        get_process_comm(ucred->pid, &tag_buf);
+                        tag = tag_buf;
+                }
+
+                snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
+                char_array_0(header_pid);
+
+                if (tag)
+                        IOVEC_SET_STRING(iovec[n++], tag);
+
+                IOVEC_SET_STRING(iovec[n++], header_pid);
+        } else if (tag) {
+                IOVEC_SET_STRING(iovec[n++], tag);
+                IOVEC_SET_STRING(iovec[n++], ": ");
+        }
+
+        /* Fourth: message */
+        IOVEC_SET_STRING(iovec[n++], message);
+        IOVEC_SET_STRING(iovec[n++], "\n");
+
+        fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0) {
+                log_debug("Failed to open /dev/kmsg for logging: %s", strerror(errno));
+                goto finish;
+        }
+
+        if (writev(fd, iovec, n) < 0)
+                log_debug("Failed to write to /dev/kmsg for logging: %s", strerror(errno));
+
+        close_nointr_nofail(fd);
+
+finish:
+        free(tag_buf);
+}
+
+static void forward_console(Server *s, const char *tag, const char *message, struct ucred *ucred) {
+        struct iovec iovec[4];
+        char header_pid[16];
+        int n = 0, fd;
+        char *tag_buf = NULL;
+
+        assert(s);
+        assert(message);
+
+        /* First: tag and PID */
+        if (ucred) {
+                if (!tag) {
+                        get_process_comm(ucred->pid, &tag_buf);
+                        tag = tag_buf;
+                }
+
+                snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
+                char_array_0(header_pid);
+
+                if (tag)
+                        IOVEC_SET_STRING(iovec[n++], tag);
+
+                IOVEC_SET_STRING(iovec[n++], header_pid);
+        } else if (tag) {
+                IOVEC_SET_STRING(iovec[n++], tag);
+                IOVEC_SET_STRING(iovec[n++], ": ");
+        }
+
+        /* Third: message */
+        IOVEC_SET_STRING(iovec[n++], message);
+        IOVEC_SET_STRING(iovec[n++], "\n");
+
+        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0) {
+                log_debug("Failed to open /dev/console for logging: %s", strerror(errno));
+                goto finish;
+        }
+
+        if (writev(fd, iovec, n) < 0)
+                log_debug("Failed to write to /dev/console for logging: %s", strerror(errno));
+
+        close_nointr_nofail(fd);
+
+finish:
+        free(tag_buf);
+}
+
+static void read_tag(const char **buf, char **tag) {
+        const char *p;
+        char *t;
+        size_t l, e;
+
+        assert(buf);
+        assert(tag);
+
+        p = *buf;
+
+        p += strspn(p, WHITESPACE);
+        l = strcspn(p, WHITESPACE);
+
+        if (l <= 0 ||
+            p[l-1] != ':')
+                return;
+
+        e = l;
+        l--;
+
+        if (p[l-1] == ']') {
+                size_t k = l-1;
+
+                for (;;) {
+
+                        if (p[k] == '[') {
+                                l = k;
+                                break;
+                        }
+
+                        if (k == 0)
+                                break;
+
+                        k--;
+                }
+        }
+
+        t = strndup(p, l);
+        if (t)
+                *tag = t;
+
+        *buf = p + e;
+        *buf += strspn(*buf, WHITESPACE);
+}
+
 static void process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv) {
-        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL;
-        struct iovec iovec[19];
+        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_tag = NULL;
+        struct iovec iovec[N_IOVEC_META_FIELDS + 4];
         unsigned n = 0;
         int priority = LOG_USER | LOG_INFO;
+        char *tag = NULL;
 
         assert(s);
         assert(buf);
 
+        if (s->forward_to_syslog)
+                forward_syslog_raw(s, buf, ucred, tv);
+
         parse_syslog_priority((char**) &buf, &priority);
         skip_syslog_date((char**) &buf);
+        read_tag(&buf, &tag);
+
+        if (s->forward_to_kmsg)
+                forward_kmsg(s, priority, tag, buf, ucred);
+
+        if (s->forward_to_console)
+                forward_console(s, tag, buf, ucred);
 
         if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
                 IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
-        if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
-                IOVEC_SET_STRING(iovec[n++], syslog_facility);
+        if (priority & LOG_FACMASK)
+                if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
+                        IOVEC_SET_STRING(iovec[n++], syslog_facility);
+
+        if (tag) {
+                syslog_tag = strappend("SYSLOG_TAG=", tag);
+                if (syslog_tag)
+                        IOVEC_SET_STRING(iovec[n++], syslog_tag);
+        }
 
         message = strappend("MESSAGE=", buf);
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, priority & LOG_PRIMASK);
+        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, priority);
 
         free(message);
-        free(syslog_facility);
+        free(tag);
         free(syslog_priority);
+        free(syslog_facility);
+        free(syslog_tag);
 }
 
 static bool valid_user_field(const char *p, size_t l) {
@@ -703,6 +1034,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
         const char *p;
         size_t remaining;
         int priority = LOG_INFO;
+        char *tag = NULL, *message = NULL;
 
         assert(s);
         assert(buffer || n == 0);
@@ -742,11 +1074,11 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 
                 /* A property follows */
 
-                if (n+16 >= m) {
+                if (n+N_IOVEC_META_FIELDS >= m) {
                         struct iovec *c;
                         unsigned u;
 
-                        u = MAX((n+16U) * 2U, 4U);
+                        u = MAX((n+N_IOVEC_META_FIELDS) * 2U, 4U);
                         c = realloc(iovec, u * sizeof(struct iovec));
                         if (!c) {
                                 log_error("Out of memory");
@@ -760,22 +1092,56 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                 q = memchr(p, '=', e - p);
                 if (q) {
                         if (valid_user_field(p, q - p)) {
+                                size_t l;
+
+                                l = e - p;
+
                                 /* If the field name starts with an
                                  * underscore, skip the variable,
                                  * since that indidates a trusted
                                  * field */
                                 iovec[n].iov_base = (char*) p;
-                                iovec[n].iov_len = e - p;
+                                iovec[n].iov_len = l;
                                 n++;
 
                                 /* We need to determine the priority
                                  * of this entry for the rate limiting
                                  * logic */
-                                if (e - p == 10 &&
-                                    memcmp(p, "PRIORITY=", 10) == 0 &&
-                                    p[10] >= '0' &&
-                                    p[10] <= '9')
-                                        priority = p[10] - '0';
+                                if (l == 10 &&
+                                    memcmp(p, "PRIORITY=", 9) == 0 &&
+                                    p[9] >= '0' && p[9] <= '9')
+                                        priority = (priority & LOG_FACMASK) | (p[9] - '0');
+
+                                else if (l == 17 &&
+                                         memcmp(p, "SYSLOG_FACILITY=", 16) == 0 &&
+                                         p[16] >= '0' && p[16] <= '9')
+                                        priority = (priority & LOG_PRIMASK) | ((p[16] - '0') << 3);
+
+                                else if (l == 18 &&
+                                         memcmp(p, "SYSLOG_FACILITY=", 16) == 0 &&
+                                         p[16] >= '0' && p[16] <= '9' &&
+                                         p[17] >= '0' && p[17] <= '9')
+                                        priority = (priority & LOG_PRIMASK) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
+
+                                else if (l >= 12 &&
+                                         memcmp(p, "SYSLOG_TAG=", 11) == 0) {
+                                        char *t;
+
+                                        t = strndup(p + 11, l - 11);
+                                        if (t) {
+                                                free(tag);
+                                                tag = t;
+                                        }
+                                } else if (l >= 8 &&
+                                           memcmp(p, "MESSAGE=", 8) == 0) {
+                                        char *t;
+
+                                        t = strndup(p + 8, l - 8);
+                                        if (t) {
+                                                free(message);
+                                                message = t;
+                                        }
+                                }
                         }
 
                         remaining -= (e - p) + 1;
@@ -821,19 +1187,32 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                 }
         }
 
+        if (message) {
+                if (s->forward_to_syslog)
+                        forward_syslog(s, priority, tag, message, ucred, tv);
+
+                if (s->forward_to_kmsg)
+                        forward_kmsg(s, priority, tag, message, ucred);
+
+                if (s->forward_to_console)
+                        forward_console(s, tag, message, ucred);
+        }
+
         dispatch_message(s, iovec, n, m, ucred, tv, priority);
 
         for (j = 0; j < n; j++)
                 if (iovec[j].iov_base < buffer ||
                     (const uint8_t*) iovec[j].iov_base >= (const uint8_t*) buffer + buffer_size)
                         free(iovec[j].iov_base);
+
+        free(tag);
+        free(message);
 }
 
-static int stdout_stream_log(StdoutStream *s, const char *p, size_t l) {
-        struct iovec iovec[18];
-        char *message = NULL, *syslog_priority = NULL;
+static int stdout_stream_log(StdoutStream *s, const char *p) {
+        struct iovec iovec[N_IOVEC_META_FIELDS + 4];
+        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_tag = NULL;
         unsigned n = 0;
-        size_t tag_len;
         int priority;
 
         assert(s);
@@ -841,127 +1220,121 @@ static int stdout_stream_log(StdoutStream *s, const char *p, size_t l) {
 
         priority = s->priority;
 
-        if (s->priority_prefix &&
-            l > 3 &&
-            p[0] == '<' &&
-            p[1] >= '0' && p[1] <= '7' &&
-            p[2] == '>') {
+        if (s->priority_prefix)
+                parse_syslog_priority((char**) &p, &priority);
 
-                priority = p[1] - '0';
-                p += 3;
-                l -= 3;
-        }
+        if (s->forward_to_syslog || s->server->forward_to_syslog)
+                forward_syslog(s->server, fixup_priority(priority), s->tag, p, &s->ucred, NULL);
 
-        if (l <= 0)
-                return 0;
+        if (s->forward_to_kmsg || s->server->forward_to_kmsg)
+                forward_kmsg(s->server, priority, s->tag, p, &s->ucred);
 
-        if (asprintf(&syslog_priority, "PRIORITY=%i", priority) >= 0)
+        if (s->forward_to_console || s->server->forward_to_console)
+                forward_console(s->server, s->tag, p, &s->ucred);
+
+        if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
                 IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
-        tag_len = s->tag ? strlen(s->tag) + 2: 0;
-        message = malloc(8 + tag_len + l);
-        if (message) {
-                memcpy(message, "MESSAGE=", 8);
+        if (priority & LOG_FACMASK)
+                if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
+                        IOVEC_SET_STRING(iovec[n++], syslog_facility);
 
-                if (s->tag) {
-                        memcpy(message+8, s->tag, tag_len-2);
-                        memcpy(message+8+tag_len-2, ": ", 2);
-                }
-
-                memcpy(message+8+tag_len, p, l);
-                iovec[n].iov_base = message;
-                iovec[n].iov_len = 8+tag_len+l;
-                n++;
+        if (s->tag) {
+                syslog_tag = strappend("SYSLOG_TAG=", s->tag);
+                if (syslog_tag)
+                        IOVEC_SET_STRING(iovec[n++], syslog_tag);
         }
+
+        message = strappend("MESSAGE=", p);
+        if (message)
+                IOVEC_SET_STRING(iovec[n++], message);
 
         dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, priority);
 
-        if (s->tee_console) {
-                int console;
-
-                console = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-                if (console >= 0) {
-                        n = 0;
-                        if (s->tag) {
-                                IOVEC_SET_STRING(iovec[n++], s->tag);
-                                IOVEC_SET_STRING(iovec[n++], ": ");
-                        }
-
-                        iovec[n].iov_base = (void*) p;
-                        iovec[n].iov_len = l;
-                        n++;
-
-                        IOVEC_SET_STRING(iovec[n++], (char*) "\n");
-
-                        writev(console, iovec, n);
-                }
-        }
-
         free(message);
         free(syslog_priority);
+        free(syslog_facility);
+        free(syslog_tag);
 
         return 0;
 }
 
-static int stdout_stream_line(StdoutStream *s, const char *p, size_t l) {
+static int stdout_stream_line(StdoutStream *s, char *p) {
+        int r;
+
         assert(s);
         assert(p);
 
-        while (l > 0 && strchr(WHITESPACE, *p)) {
-                l--;
-                p++;
-        }
-
-        while (l > 0 && strchr(WHITESPACE, *(p+l-1)))
-                l--;
+        p = strstrip(p);
 
         switch (s->state) {
 
         case STDOUT_STREAM_TAG:
-
-                if (l > 0) {
-                        s->tag = strndup(p, l);
-                        if (!s->tag) {
-                                log_error("Out of memory");
-                                return -EINVAL;
-                        }
+                s->tag = strdup(p);
+                if (!s->tag) {
+                        log_error("Out of memory");
+                        return -ENOMEM;
                 }
 
                 s->state = STDOUT_STREAM_PRIORITY;
                 return 0;
 
         case STDOUT_STREAM_PRIORITY:
-                if (l != 1 || *p < '0' || *p > '7') {
+                r = safe_atoi(p, &s->priority);
+                if (r < 0 || s->priority <= 0 || s->priority >= 999) {
                         log_warning("Failed to parse log priority line.");
                         return -EINVAL;
                 }
 
-                s->priority = *p - '0';
                 s->state = STDOUT_STREAM_PRIORITY_PREFIX;
                 return 0;
 
         case STDOUT_STREAM_PRIORITY_PREFIX:
-                if (l != 1 || *p < '0' || *p > '1') {
+                r = parse_boolean(p);
+                if (r < 0) {
                         log_warning("Failed to parse priority prefix line.");
                         return -EINVAL;
                 }
 
-                s->priority_prefix = *p - '0';
-                s->state = STDOUT_STREAM_TEE_CONSOLE;
+                s->priority_prefix = !!r;
+                s->state = STDOUT_STREAM_FORWARD_TO_SYSLOG;
                 return 0;
 
-        case STDOUT_STREAM_TEE_CONSOLE:
-                if (l != 1 || *p < '0' || *p > '1') {
-                        log_warning("Failed to parse tee to console line.");
+        case STDOUT_STREAM_FORWARD_TO_SYSLOG:
+                r = parse_boolean(p);
+                if (r < 0) {
+                        log_warning("Failed to parse forward to syslog line.");
                         return -EINVAL;
                 }
 
-                s->tee_console = *p - '0';
+                s->forward_to_syslog = !!r;
+                s->state = STDOUT_STREAM_FORWARD_TO_KMSG;
+                return 0;
+
+        case STDOUT_STREAM_FORWARD_TO_KMSG:
+                r = parse_boolean(p);
+                if (r < 0) {
+                        log_warning("Failed to parse copy to kmsg line.");
+                        return -EINVAL;
+                }
+
+                s->forward_to_kmsg = !!r;
+                s->state = STDOUT_STREAM_FORWARD_TO_CONSOLE;
+                return 0;
+
+        case STDOUT_STREAM_FORWARD_TO_CONSOLE:
+                r = parse_boolean(p);
+                if (r < 0) {
+                        log_warning("Failed to parse copy to console line.");
+                        return -EINVAL;
+                }
+
+                s->forward_to_console = !!r;
                 s->state = STDOUT_STREAM_RUNNING;
                 return 0;
 
         case STDOUT_STREAM_RUNNING:
-                return stdout_stream_log(s, p, l);
+                return stdout_stream_log(s, p);
         }
 
         assert_not_reached("Unknown stream state");
@@ -981,16 +1354,17 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
                 size_t skip;
 
                 end = memchr(p, '\n', remaining);
-                if (!end) {
-                        if (remaining >= LINE_MAX) {
-                                end = p + LINE_MAX;
-                                skip = LINE_MAX;
-                        } else
-                                break;
-                } else
+                if (end)
                         skip = end - p + 1;
+                else if (remaining >= sizeof(s->buffer) - 1) {
+                        end = p + sizeof(s->buffer) - 1;
+                        skip = sizeof(s->buffer) - 1;
+                } else
+                        break;
 
-                r = stdout_stream_line(s, p, end - p);
+                *end = 0;
+
+                r = stdout_stream_line(s, p);
                 if (r < 0)
                         return r;
 
@@ -999,7 +1373,8 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
         }
 
         if (force_flush && remaining > 0) {
-                r = stdout_stream_line(s, p, remaining);
+                p[remaining] = 0;
+                r = stdout_stream_line(s, p);
                 if (r < 0)
                         return r;
 
@@ -1307,69 +1682,6 @@ finish:
         return r;
 }
 
-static void forward_syslog(Server *s, const void *buffer, size_t length, struct ucred *ucred, struct timeval *tv) {
-        struct msghdr msghdr;
-        struct iovec iovec;
-        struct cmsghdr *cmsg;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
-                            CMSG_SPACE(sizeof(struct timeval))];
-        } control;
-        union sockaddr_union sa;
-
-        assert(s);
-
-        zero(msghdr);
-
-        zero(iovec);
-        iovec.iov_base = (void*) buffer;
-        iovec.iov_len = length;
-        msghdr.msg_iov = &iovec;
-        msghdr.msg_iovlen = 1;
-
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, "/run/systemd/syslog", sizeof(sa.un.sun_path));
-        msghdr.msg_name = &sa;
-        msghdr.msg_namelen = offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path);
-
-        zero(control);
-        msghdr.msg_control = &control;
-        msghdr.msg_controllen = sizeof(control);
-
-        cmsg = CMSG_FIRSTHDR(&msghdr);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_CREDENTIALS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
-        memcpy(CMSG_DATA(cmsg), ucred, sizeof(struct ucred));
-        msghdr.msg_controllen = cmsg->cmsg_len;
-
-        /* Forward the syslog message we received via /dev/log to
-         * /run/systemd/syslog. Unfortunately we currently can't set
-         * the SO_TIMESTAMP auxiliary data, and hence we don't. */
-
-        if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
-                return;
-
-        if (errno == ESRCH) {
-                struct ucred u;
-
-                /* Hmm, presumably the sender process vanished
-                 * by now, so let's fix it as good as we
-                 * can, and retry */
-
-                u = *ucred;
-                u.pid = getpid();
-                memcpy(CMSG_DATA(cmsg), &u, sizeof(struct ucred));
-
-                if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
-                        return;
-        }
-
-        log_debug("Failed to forward syslog message: %m");
-}
-
 static int process_event(Server *s, struct epoll_event *ev) {
         assert(s);
 
@@ -1490,7 +1802,6 @@ static int process_event(Server *s, struct epoll_event *ev) {
                                 else
                                         s->buffer[n] = 0;
 
-                                forward_syslog(s, s->buffer, n, ucred, tv);
                                 process_syslog_message(s, strstrip(s->buffer), ucred, tv);
                         } else
                                 process_native_message(s, s->buffer, n, ucred, tv);
@@ -1767,6 +2078,8 @@ static int server_init(Server *s) {
         s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
         s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
 
+        s->forward_to_syslog = true;
+
         memset(&s->system_metrics, 0xFF, sizeof(s->system_metrics));
         memset(&s->runtime_metrics, 0xFF, sizeof(s->runtime_metrics));
 
@@ -1919,6 +2232,7 @@ int main(int argc, char *argv[]) {
         server_flush_to_var(&server);
 
         log_debug("systemd-journald running as pid %lu", (unsigned long) getpid());
+        driver_message(&server, SD_MESSAGE_JOURNAL_START, "Journal started");
 
         sd_notify(false,
                   "READY=1\n"
@@ -1947,6 +2261,7 @@ int main(int argc, char *argv[]) {
         }
 
         log_debug("systemd-journald stopped as pid %lu", (unsigned long) getpid());
+        driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
 
 finish:
         sd_notify(false,
