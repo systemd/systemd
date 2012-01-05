@@ -2455,7 +2455,7 @@ void unit_status_printf(Unit *u, const char *status, const char *format, ...) {
                 return;
 
         va_start(ap, format);
-        status_vprintf(status, format, ap);
+        status_vprintf(status, true, format, ap);
         va_end(ap);
 }
 

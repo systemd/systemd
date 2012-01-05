@@ -3577,7 +3577,7 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
-void status_vprintf(const char *status, const char *format, va_list ap) {
+void status_vprintf(const char *status, bool ellipse, const char *format, va_list ap) {
         char *s = NULL, *spaces = NULL, *e;
         int fd = -1, c;
         size_t emax, sl, left;
@@ -3592,38 +3592,42 @@ void status_vprintf(const char *status, const char *format, va_list ap) {
         if (vasprintf(&s, format, ap) < 0)
                 goto finish;
 
-        fd = open_terminal("/dev/tty", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 goto finish;
 
-        c = fd_columns(fd);
-        if (c <= 0)
-                c = 80;
+        if (ellipse) {
+                c = fd_columns(fd);
+                if (c <= 0)
+                        c = 80;
 
-        if (status) {
-                sl = 2 + 6 + 1; /* " [" status "]" */
-                emax = (size_t) c > sl ? c - sl - 1 : 0;
-        } else
-                emax = c - 1;
+                if (status) {
+                        sl = 2 + 6 + 1; /* " [" status "]" */
+                        emax = (size_t) c > sl ? c - sl - 1 : 0;
+                } else
+                        emax = c - 1;
 
-        e = ellipsize(s, emax, 75);
-        if (e) {
-                free(s);
-                s = e;
+                e = ellipsize(s, emax, 75);
+                if (e) {
+                        free(s);
+                        s = e;
+                }
         }
 
         zero(iovec);
         IOVEC_SET_STRING(iovec[n++], s);
 
-        sl = strlen(s);
-        left = emax > sl ? emax - sl : 0;
-        if (left > 0) {
-                spaces = malloc(left);
-                if (spaces) {
-                        memset(spaces, ' ', left);
-                        iovec[n].iov_base = spaces;
-                        iovec[n].iov_len = left;
-                        n++;
+        if (ellipse) {
+                sl = strlen(s);
+                left = emax > sl ? emax - sl : 0;
+                if (left > 0) {
+                        spaces = malloc(left);
+                        if (spaces) {
+                                memset(spaces, ' ', left);
+                                iovec[n].iov_base = spaces;
+                                iovec[n].iov_len = left;
+                                n++;
+                        }
                 }
         }
 
@@ -3644,13 +3648,13 @@ finish:
                 close_nointr_nofail(fd);
 }
 
-void status_printf(const char *status, const char *format, ...) {
+void status_printf(const char *status, bool ellipse, const char *format, ...) {
         va_list ap;
 
         assert(format);
 
         va_start(ap, format);
-        status_vprintf(status, format, ap);
+        status_vprintf(status, ellipse, format, ap);
         va_end(ap);
 }
 
@@ -3808,6 +3812,7 @@ void status_welcome(void) {
                 const_color = "1";
 
         status_printf(NULL,
+                      false,
                       "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
                       const_color ? const_color : ansi_color,
                       const_pretty ? const_pretty : pretty_name);
