@@ -41,6 +41,8 @@
 #include <libaudit.h>
 #endif
 
+#include <systemd/sd-daemon.h>
+
 #include "manager.h"
 #include "hashmap.h"
 #include "macro.h"
@@ -58,7 +60,6 @@
 #include "special.h"
 #include "bus-errors.h"
 #include "exit-status.h"
-#include "sd-daemon.h"
 #include "virt.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */

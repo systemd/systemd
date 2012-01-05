@@ -30,7 +30,8 @@
 #include <time.h>
 #include <getopt.h>
 
-#include "sd-journal.h"
+#include <systemd/sd-journal.h>
+
 #include "log.h"
 #include "util.h"
 #include "build.h"

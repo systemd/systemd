@@ -24,8 +24,9 @@
 
 #include <inttypes.h>
 
+#include <systemd/sd-id128.h>
+
 #include "macro.h"
-#include "sd-id128.h"
 
 typedef struct Header Header;
 typedef struct ObjectHeader ObjectHeader;

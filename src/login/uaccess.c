@@ -22,11 +22,12 @@
 #include <errno.h>
 #include <string.h>
 
+#include <systemd/sd-daemon.h>
+#include <systemd/sd-login.h>
+
 #include "logind-acl.h"
 #include "util.h"
 #include "log.h"
-#include "sd-daemon.h"
-#include "sd-login.h"
 
 int main(int argc, char *argv[]) {
         int r;

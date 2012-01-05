@@ -27,11 +27,12 @@
 #include <fcntl.h>
 #include <sys/mount.h>
 
+#include <systemd/sd-id128.h>
+
 #include "machine-id-setup.h"
 #include "macro.h"
 #include "util.h"
 #include "log.h"
-#include "sd-id128.h"
 
 static int generate(char id[34]) {
         int fd, r;

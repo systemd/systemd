@@ -34,13 +34,13 @@
 #include <ctype.h>
 
 #include <dbus/dbus.h>
+#include <systemd/sd-daemon.h>
 
 #include "util.h"
 #include "log.h"
 #include "list.h"
 #include "initreq.h"
 #include "special.h"
-#include "sd-daemon.h"
 #include "dbus-common.h"
 #include "def.h"
 

@@ -24,7 +24,8 @@
 
 #include <stdbool.h>
 
-#include "sd-journal.h"
+#include <systemd/sd-journal.h>
+
 #include "util.h"
 
 typedef enum OutputMode {

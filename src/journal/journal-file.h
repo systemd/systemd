@@ -24,9 +24,10 @@
 
 #include <inttypes.h>
 
+#include <systemd/sd-id128.h>
+
 #include "journal-def.h"
 #include "util.h"
-#include "sd-id128.h"
 
 typedef struct Window {
         void *ptr;

@@ -21,7 +21,7 @@
 
 #include <unistd.h>
 
-#include "sd-daemon.h"
+#include <systemd/sd-daemon.h>
 
 int main(int argc, char*argv[]) {
 

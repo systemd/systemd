@@ -32,10 +32,11 @@
 #include <sys/un.h>
 #include <fcntl.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "util.h"
 #include "log.h"
 #include "list.h"
-#include "sd-daemon.h"
 #include "tcpwrap.h"
 #include "def.h"
 

@@ -35,10 +35,11 @@
 #include <getopt.h>
 #include <sys/inotify.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "missing.h"
 #include "util.h"
 #include "set.h"
-#include "sd-daemon.h"
 #include "ioprio.h"
 #include "readahead-common.h"
 #include "virt.h"

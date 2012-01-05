@@ -39,11 +39,12 @@
 #include <grp.h>
 #include <linux/fs.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "log.h"
 #include "util.h"
 #include "missing.h"
 #include "cgroup-util.h"
-#include "sd-daemon.h"
 #include "strv.h"
 #include "loopback-setup.h"
 

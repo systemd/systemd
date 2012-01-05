@@ -100,7 +100,8 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/readahead \
 	-I $(top_srcdir)/src/login \
-	-I $(top_srcdir)/src/journal
+	-I $(top_srcdir)/src/journal \
+	-I $(top_srcdir)/src/systemd
 
 if TARGET_GENTOO
 AM_CPPFLAGS += \
@@ -1053,7 +1054,7 @@ libsystemd_daemon_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
 
 pkginclude_HEADERS += \
-	src/sd-daemon.h
+	src/systemd/sd-daemon.h
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-daemon-install-hook:
@@ -1131,7 +1132,7 @@ noinst_PROGRAMS += \
 	test-id128
 
 pkginclude_HEADERS += \
-	src/sd-id128.h
+	src/systemd/sd-id128.h
 
 lib_LTLIBRARIES += \
 	libsystemd-id128.la
@@ -1290,8 +1291,8 @@ noinst_PROGRAMS += \
 	test-journal
 
 pkginclude_HEADERS += \
-	src/journal/sd-journal.h \
-        src/journal/sd-messages.h
+	src/systemd/sd-journal.h \
+        src/systemd/sd-messages.h
 
 lib_LTLIBRARIES += \
 	libsystemd-journal.la
@@ -1451,7 +1452,7 @@ nodist_systemunit_DATA += \
 	units/systemd-readahead-done.service
 
 EXTRA_DIST += \
-	src/readahead/sd-readahead.h \
+	src/systemd/sd-readahead.h \
 	src/readahead/readahead-common.h \
 	units/systemd-readahead-collect.service.in \
 	units/systemd-readahead-replay.service.in \
@@ -1878,7 +1879,7 @@ dist_pkgsysconf_DATA += \
 	src/login/systemd-logind.conf
 
 pkginclude_HEADERS += \
-	src/login/sd-login.h
+	src/systemd/sd-login.h
 
 lib_LTLIBRARIES += \
 	libsystemd-login.la

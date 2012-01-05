@@ -27,10 +27,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "strv.h"
 #include "util.h"
 #include "log.h"
-#include "sd-daemon.h"
 #include "sd-readahead.h"
 
 static bool arg_ready = false;

@@ -35,6 +35,8 @@
 #include <sys/prctl.h>
 #include <dbus/dbus.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "log.h"
 #include "util.h"
 #include "macro.h"
@@ -49,7 +51,6 @@
 #include "list.h"
 #include "path-lookup.h"
 #include "conf-parser.h"
-#include "sd-daemon.h"
 #include "shutdownd.h"
 #include "exit-status.h"
 #include "bus-errors.h"

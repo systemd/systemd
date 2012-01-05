@@ -29,8 +29,9 @@
 #include <sys/ioctl.h>
 #include <linux/vt.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "logind.h"
-#include "sd-daemon.h"
 #include "dbus-common.h"
 #include "dbus-loop.h"
 #include "strv.h"

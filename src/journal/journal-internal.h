@@ -26,8 +26,9 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <systemd/sd-id128.h>
+
 #include "list.h"
-#include "sd-id128.h"
 
 typedef struct Match Match;
 

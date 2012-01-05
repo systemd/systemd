@@ -29,11 +29,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "shutdownd.h"
 #include "log.h"
 #include "macro.h"
 #include "util.h"
-#include "sd-daemon.h"
 #include "utmp-wtmp.h"
 
 static int read_packet(int fd, struct shutdownd_command *_c) {

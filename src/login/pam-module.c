@@ -32,9 +32,10 @@
 #include <security/pam_ext.h>
 #include <security/pam_misc.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "util.h"
 #include "macro.h"
-#include "sd-daemon.h"
 #include "strv.h"
 #include "dbus-common.h"
 #include "def.h"

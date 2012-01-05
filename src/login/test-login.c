@@ -22,7 +22,8 @@
 #include <sys/poll.h>
 #include <string.h>
 
-#include "sd-login.h"
+#include <systemd/sd-login.h>
+
 #include "util.h"
 #include "strv.h"
 

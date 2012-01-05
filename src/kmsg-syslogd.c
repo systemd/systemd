@@ -33,9 +33,10 @@
 #include <fcntl.h>
 #include <sys/signalfd.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "util.h"
 #include "log.h"
-#include "sd-daemon.h"
 #include "fdset.h"
 
 #define SERVER_FD_MAX 16
