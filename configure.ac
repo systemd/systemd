@@ -599,7 +599,7 @@ AC_ARG_WITH([udevrulesdir],
 
 AC_ARG_WITH([rootprefix],
         AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
-        [], [with_rootprefix=${prefix}])
+        [], [with_rootprefix=${ac_default_prefix}])
 
 AC_ARG_WITH([rootlibdir],
         AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
