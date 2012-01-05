@@ -86,8 +86,8 @@
                 <para>In addition, for details about the algorithms
                 check the liberally licensed reference implementation
                 sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-readahead.c"/>
-                resp. <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-readahead.h"/></para>
+                <ulink url="http://cgit.freedesktop.org/systemd/plain/src/readahead/sd-readahead.c"/>
+                resp. <ulink url="http://cgit.freedesktop.org/systemd/plain/src/systemd/sd-readahead.h"/></para>
 
                 <para>These APIs are implemented in the reference
                 implementation's drop-in

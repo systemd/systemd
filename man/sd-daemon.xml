@@ -130,8 +130,8 @@
                 <para>In addition, for details about the algorithms
                 check the liberally licensed reference implementation
                 sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.c"/>
-                resp. <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.h"/></para>
+                <ulink url="http://cgit.freedesktop.org/systemd/plain/src/sd-daemon.c"/>
+                resp. <ulink url="http://cgit.freedesktop.org/systemd/plain/src/systemd/sd-daemon.h"/></para>
 
                 <para>These APIs are implemented in the reference
                 implementation's <filename>sd-daemon.c</filename> and

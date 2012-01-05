@@ -93,9 +93,9 @@
 
                 <para>For details about the algorithm check the
                 liberally licensed reference implementation sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.c"/>
+                <ulink url="http://cgit.freedesktop.org/systemd/plain/src/sd-daemon.c"/>
                 resp. <ulink
-                url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.h"/></para>
+                url="http://cgit.freedesktop.org/systemd/plain/src/systemd/sd-daemon.h"/></para>
 
                 <para><function>sd_booted()</function> is implemented
                 in the reference implementation's
