@@ -46,6 +46,7 @@
                 <refname>sd_session_is_active</refname>
                 <refname>sd_session_get_uid</refname>
                 <refname>sd_session_get_seat</refname>
+                <refname>sd_session_get_service</refname>
                 <refpurpose>Determine state of a specific session</refpurpose>
         </refnamediv>
 
@@ -68,6 +69,12 @@
                                 <funcdef>int <function>sd_session_get_seat</function></funcdef>
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
                                 <paramdef>char** <parameter>seat</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_service</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>char** <parameter>service</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -94,6 +101,15 @@
                 returned string needs to be freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
+
+                <para><function>sd_session_get_service()</function>
+                may be used to determine the name of the service (as
+                passed during PAM session setup) that registered the
+                session identified by the specified session
+                identifier. The returned string needs to be freed with
+                the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
         </refsect1>
 
         <refsect1>
@@ -102,7 +118,8 @@
                 <para>If the test succeeds
                 <function>sd_session_is_active()</function> returns a
                 positive integer, if it fails 0.  On success
-                <function>sd_session_get_uid()</function> and
+                <function>sd_session_get_uid()</function>,
+                <function>sd_session_get_service()</function> and
                 <function>sd_session_get_seat()</function> return 0 or
                 a positive integer. On failure, these calls return a
                 negative errno-style error code.</para>
@@ -112,7 +129,8 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_session_is_active()</function>,
-                <function>sd_session_get_uid()</function>, and
+                <function>sd_session_get_uid()</function>,
+                <function>sd_session_get_service()</function> and
                 <function>sd_session_get_seat()</function> interfaces
                 are available as shared library, which can be compiled
                 and linked to with the

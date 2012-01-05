@@ -415,6 +415,34 @@ _public_ int sd_session_get_seat(const char *session, char **seat) {
         return 0;
 }
 
+_public_ int sd_session_get_service(const char *session, char **service) {
+        char *p, *s = NULL;
+        int r;
+
+        if (!session)
+                return -EINVAL;
+        if (!service)
+                return -EINVAL;
+
+        p = strappend("/run/systemd/sessions/", session);
+        if (!p)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "SERVICE", &s, NULL);
+        free(p);
+
+        if (r < 0) {
+                free(s);
+                return r;
+        }
+
+        if (isempty(s))
+                return -ENOENT;
+
+        *service = s;
+        return 0;
+}
+
 _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         char *p, *s = NULL, *t = NULL;
         int r;

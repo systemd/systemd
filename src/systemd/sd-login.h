@@ -83,6 +83,9 @@ int sd_session_get_uid(const char *session, uid_t *uid);
 /* Determine seat of session */
 int sd_session_get_seat(const char *session, char **seat);
 
+/* Determine the (PAM) service name this session was registered by. */
+int sd_session_get_service(const char *session, char **service);
+
 /* Return active session and user of seat */
 int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 
