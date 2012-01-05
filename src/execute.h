@@ -40,8 +40,6 @@ struct CGroupAttribute;
 #include "list.h"
 #include "util.h"
 
-#define STDOUT_SYSLOG_BRIDGE_SOCKET "/run/systemd/stdout-syslog-bridge"
-
 typedef enum KillMode {
         KILL_CONTROL_GROUP = 0,
         KILL_PROCESS,

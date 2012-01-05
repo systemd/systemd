@@ -173,24 +173,23 @@ static int open_null_as(int flags, int nfd) {
 
 static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, int nfd) {
         int fd, r;
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-        } sa;
+        union sockaddr_union sa;
 
         assert(context);
         assert(output < _EXEC_OUTPUT_MAX);
         assert(ident);
         assert(nfd >= 0);
 
-        if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0)
                 return -errno;
 
         zero(sa);
-        sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path, STDOUT_SYSLOG_BRIDGE_SOCKET, sizeof(sa.un.sun_path));
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, "/run/systemd/journal/stdout", sizeof(sa.un.sun_path));
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(STDOUT_SYSLOG_BRIDGE_SOCKET) - 1) < 0) {
+        r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+        if (r < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -200,26 +199,19 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 return -errno;
         }
 
-        /* We speak a very simple protocol between log server
-         * and client: one line for the log destination (kmsg
-         * or syslog), followed by the priority field,
-         * followed by the process name. Since we replaced
-         * stdin/stderr we simple use stdio to write to
-         * it. Note that we use stderr, to minimize buffer
-         * flushing issues. */
-
         dprintf(fd,
                 "%s\n"
                 "%i\n"
-                "%s\n"
+                "%i\n"
+                "%i\n"
+                "%i\n"
                 "%i\n",
-                output == EXEC_OUTPUT_KMSG ?             "kmsg" :
-                output == EXEC_OUTPUT_KMSG_AND_CONSOLE ? "kmsg+console" :
-                output == EXEC_OUTPUT_SYSLOG ?           "syslog" :
-                                                         "syslog+console",
-                context->syslog_priority,
                 context->syslog_identifier ? context->syslog_identifier : ident,
-                context->syslog_level_prefix);
+                context->syslog_priority,
+                !!context->syslog_level_prefix,
+                output == EXEC_OUTPUT_SYSLOG || output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
+                output == EXEC_OUTPUT_KMSG || output == EXEC_OUTPUT_KMSG_AND_CONSOLE,
+                output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || output == EXEC_OUTPUT_KMSG_AND_CONSOLE);
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;

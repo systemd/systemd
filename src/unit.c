@@ -573,7 +573,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
          * logging daemon is run first. */
 
         if (u->meta.manager->running_as == MANAGER_SYSTEM)
-                if ((r = unit_add_two_dependencies_by_name(u, UNIT_REQUIRES, UNIT_AFTER, SPECIAL_STDOUT_SYSLOG_BRIDGE_SOCKET, NULL, true)) < 0)
+                if ((r = unit_add_two_dependencies_by_name(u, UNIT_REQUIRES, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, NULL, true)) < 0)
                         return r;
 
         return 0;
