@@ -592,7 +592,8 @@ EXTRA_DIST += \
 	src/polkit.h \
 	src/dbus-loop.h \
 	src/spawn-agent.h \
-	src/acl-util.h
+	src/acl-util.h \
+	src/logs-show.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -926,7 +927,7 @@ systemctl_SOURCES = \
 	src/pager.c \
 	src/install.c \
 	src/spawn-agent.c \
-        src/logs-show.c
+	src/logs-show.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1173,7 +1174,7 @@ systemd_journald_SOURCES = \
 	src/cgroup-util.c
 
 nodist_systemd_journald_SOURCES = \
-        src/journal/journald-gperf.c
+	src/journal/journald-gperf.c
 
 systemd_journald_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1197,17 +1198,17 @@ endif
 systemd_journalctl_SOURCES = \
 	src/journal/journalctl.c \
 	src/pager.c \
-        src/logs-show.c
+	src/logs-show.c
 
 systemd_journalctl_LDADD = \
 	libsystemd-basic.la \
-        libsystemd-journal.la
+	libsystemd-journal.la
 
 if HAVE_XZ
 systemd_journalctl_SOURCES += \
 	src/journal/compress.c
 systemd_journalctl_CFLAGS = \
-        $(AM_CFLAGS) \
+	$(AM_CFLAGS) \
 	$(XZ_CFLAGS)
 systemd_journalctl_LDADD += \
 	$(XZ_LIBS)
@@ -1229,7 +1230,7 @@ test_journal_SOURCES += \
 	src/journal/compress.c
 
 test_journal_CFLAGS = \
-        $(AM_CFLAGS) \
+	$(AM_CFLAGS) \
 	$(XZ_CFLAGS)
 
 test_journal_LDADD += \
@@ -1323,6 +1324,7 @@ INSTALL_DATA_HOOKS += \
 	journal-install-data-hook
 
 EXTRA_DIST += \
+	src/journal/journald.h \
 	src/journal/journal-def.h \
 	src/journal/journal-internal.h \
 	src/journal/journal-file.h \
@@ -1332,10 +1334,10 @@ EXTRA_DIST += \
 	src/journal/libsystemd-journal.pc.in \
 	src/journal/libsystemd-journal.sym \
 	units/systemd-journald.service.in \
-        src/journal/journald-gperf.gperf
+	src/journal/journald-gperf.gperf
 
 CLEANFILES += \
-        src/journal/journald-gperf.c
+	src/journal/journald-gperf.c
 
 # ------------------------------------------------------------------------------
 if ENABLE_BINFMT
