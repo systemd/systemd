@@ -1,0 +1,13 @@
+0x90012 screenlock # Fn+F2
+0x90013 battery # Fn+F3
+0x90014 wlan # Fn+F5
+0x90016 switchvideomode # Fn+F7
+0x90017 f21 # Fn+F8  touchpadtoggle
+0x90019 suspend # Fn+F12
+0x9001A brightnessup # Fn+Home
+0x9001B brightnessdown # Fn+End
+0x9001D zoom # Fn+Space
+0x90011 prog1 # Thinkvantage button
+
+0x90015 camera # Fn+F6 headset/camera VoIP key  ??
+0x90010 micmute # Microphone mute button

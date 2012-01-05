@@ -4,7 +4,7 @@ AC_INIT([udev],
 	[linux-hotplug@vger.kernel.org],
 	[udev],
 	[http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev.html])
-AC_CONFIG_SRCDIR([udev/udevd.c])
+AC_CONFIG_SRCDIR([src/udevd.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([check-news foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects])
 AC_USE_SYSTEM_EXTENSIONS
@@ -210,10 +210,10 @@ AC_SUBST([my_CFLAGS])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
-	libudev/docs/Makefile
-	libudev/docs/version.xml
-	extras/gudev/docs/Makefile
-	extras/gudev/docs/version.xml
+	src/docs/Makefile
+	src/docs/version.xml
+	src/extras/gudev/docs/Makefile
+	src/extras/gudev/docs/version.xml
 ])
 
 AC_OUTPUT

@@ -25,3 +25,7 @@ stamp-h1
 depcomp
 udev-test-install
 gtk-doc.make
+udevd
+udevadm
+test-udev
+test-libudev

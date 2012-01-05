@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
+# Copyright (C) 2008-2012 Kay Sievers <kay.sievers@vrfy.org>
 # Copyright (C) 2009 Diego Elio 'Flameeyes' Pettenò <flameeyes@gmail.com>
 # ------------------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ AM_MAKEFLAGS = --no-print-directory
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
-	-I$(top_srcdir)/libudev \
+	-I$(top_srcdir)/src \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DPKGLIBEXECDIR=\""$(libexecdir)/udev"\"
 
@@ -36,9 +36,11 @@ INSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 DISTCHECK_HOOKS =
-pkglibexec_SCRIPTS =
-dist_pkglibexec_SCRIPTS =
-dist_pkglibexec_DATA =
+
+udevhomedir = $(libexecdir)/udev
+udevhome_SCRIPTS =
+dist_udevhome_SCRIPTS =
+dist_udevhome_DATA =
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(SED) \
@@ -76,45 +78,45 @@ LIBUDEV_CURRENT=13
 LIBUDEV_REVISION=0
 LIBUDEV_AGE=13
 
-SUBDIRS += libudev/docs
+SUBDIRS += src/docs
 
-include_HEADERS = libudev/libudev.h
-lib_LTLIBRARIES = libudev/libudev.la
+include_HEADERS = src/libudev.h
+lib_LTLIBRARIES = src/libudev.la
 
-libudev_libudev_la_SOURCES =\
-	libudev/libudev-private.h \
-	libudev/libudev.c \
-	libudev/libudev-list.c \
-	libudev/libudev-util.c \
-	libudev/libudev-device.c \
-	libudev/libudev-enumerate.c \
-	libudev/libudev-monitor.c \
-	libudev/libudev-queue.c
+src_libudev_la_SOURCES =\
+	src/libudev-private.h \
+	src/libudev.c \
+	src/libudev-list.c \
+	src/libudev-util.c \
+	src/libudev-device.c \
+	src/libudev-enumerate.c \
+	src/libudev-monitor.c \
+	src/libudev-queue.c
 
-libudev_libudev_la_LDFLAGS = \
+src_libudev_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE)
 
 noinst_LTLIBRARIES = \
-	libudev/libudev-private.la
+	src/libudev-private.la
 
-libudev_libudev_private_la_SOURCES =\
-	$(libudev_libudev_la_SOURCES) \
-	libudev/libudev-util-private.c \
-	libudev/libudev-device-private.c \
-	libudev/libudev-queue-private.c
+src_libudev_private_la_SOURCES =\
+	$(src_libudev_la_SOURCES) \
+	src/libudev-util-private.c \
+	src/libudev-device-private.c \
+	src/libudev-queue-private.c
 
 if WITH_SELINUX
-libudev_libudev_private_la_SOURCES += libudev/libudev-selinux-private.c
-libudev_libudev_private_la_LIBADD = $(SELINUX_LIBS)
+src_libudev_private_la_SOURCES += src/libudev-selinux-private.c
+src_libudev_private_la_LIBADD = $(SELINUX_LIBS)
 endif
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libudev/libudev.pc
-EXTRA_DIST += libudev/libudev.pc.in
-CLEANFILES += libudev/libudev.pc
+pkgconfig_DATA = src/libudev.pc
+EXTRA_DIST += src/libudev.pc.in
+CLEANFILES += src/libudev.pc
 
-EXTRA_DIST += libudev/COPYING
+EXTRA_DIST += src/COPYING
 # move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
 libudev-install-move-hook:
 	if test "$(libdir)" != "$(rootlib_execdir)"; then \
@@ -159,32 +161,32 @@ dist_udevrules_DATA = \
 	rules/rules.d/95-udev-late.rules
 
 udevconfdir = $(sysconfdir)/udev
-dist_udevconf_DATA = udev.conf
+dist_udevconf_DATA = src/udev.conf
 
 sharepkgconfigdir = $(datadir)/pkgconfig
-sharepkgconfig_DATA = udev/udev.pc
-EXTRA_DIST += udev/udev.pc.in
-CLEANFILES += udev/udev.pc
+sharepkgconfig_DATA = src/udev.pc
+EXTRA_DIST += src/udev.pc.in
+CLEANFILES += src/udev.pc
 
 if WITH_SYSTEMD
 dist_systemdsystemunit_DATA = \
-	systemd/udev-control.socket \
-	systemd/udev-kernel.socket
+	src/udev-control.socket \
+	src/udev-kernel.socket
 
 systemdsystemunit_DATA = \
-	systemd/udev.service \
-	systemd/udev-trigger.service \
-	systemd/udev-settle.service
+	src/udev.service \
+	src/udev-trigger.service \
+	src/udev-settle.service
 
 EXTRA_DIST += \
-	systemd/udev.service.in \
-	systemd/udev-trigger.service.in \
-	systemd/udev-settle.service.in
+	src/udev.service.in \
+	src/udev-trigger.service.in \
+	src/udev-settle.service.in
 
 CLEANFILES += \
-	systemd/udev.service \
-	systemd/udev-trigger.service \
-	systemd/udev-settle.service
+	src/udev.service \
+	src/udev-trigger.service \
+	src/udev-settle.service
 
 systemd-install-hook:
 	mkdir -p $(DESTDIR)$(systemdsystemunitdir)/sockets.target.wants
@@ -198,33 +200,33 @@ INSTALL_DATA_HOOKS += systemd-install-hook
 endif
 
 bin_PROGRAMS = \
-	udev/udevadm
+	src/udevadm
 
 pkglibexec_PROGRAMS = \
-	udev/udevd
+	src/udevd
 
 udev_common_sources = \
-	udev/udev.h \
-	udev/udev-event.c \
-	udev/udev-watch.c \
-	udev/udev-node.c \
-	udev/udev-rules.c \
-	udev/udev-ctrl.c \
-	udev/udev-builtin.c \
-	udev/udev-builtin-blkid.c \
-	udev/udev-builtin-firmware.c \
-	udev/udev-builtin-hwdb.c \
-	udev/udev-builtin-input_id.c \
-	udev/udev-builtin-kmod.c \
-	udev/udev-builtin-path_id.c \
-	udev/udev-builtin-usb_id.c
+	src/udev.h \
+	src/udev-event.c \
+	src/udev-watch.c \
+	src/udev-node.c \
+	src/udev-rules.c \
+	src/udev-ctrl.c \
+	src/udev-builtin.c \
+	src/udev-builtin-blkid.c \
+	src/udev-builtin-firmware.c \
+	src/udev-builtin-hwdb.c \
+	src/udev-builtin-input_id.c \
+	src/udev-builtin-kmod.c \
+	src/udev-builtin-path_id.c \
+	src/udev-builtin-usb_id.c
 
 udev_common_CFLAGS = \
 	$(BLKID_CFLAGS) \
 	$(KMOD_CFLAGS)
 
 udev_common_LDADD = \
-	libudev/libudev-private.la \
+	src/libudev-private.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
@@ -233,51 +235,51 @@ udev_common_CPPFLAGS = \
 	-DFIRMWARE_PATH="$(FIRMWARE_PATH)" \
 	-DUSB_DATABASE=\"$(USB_DATABASE)\" -DPCI_DATABASE=\"$(PCI_DATABASE)\"
 
-udev_udevd_SOURCES = \
+src_udevd_SOURCES = \
 	$(udev_common_sources) \
-	udev/udevd.c \
-	udev/sd-daemon.h \
-	udev/sd-daemon.c
-udev_udevd_CFLAGS = $(udev_common_CFLAGS)
-udev_udevd_LDADD = $(udev_common_LDADD)
-udev_udevd_CPPFLAGS = $(udev_common_CPPFLAGS)
+	src/udevd.c \
+	src/sd-daemon.h \
+	src/sd-daemon.c
+src_udevd_CFLAGS = $(udev_common_CFLAGS)
+src_udevd_LDADD = $(udev_common_LDADD)
+src_udevd_CPPFLAGS = $(udev_common_CPPFLAGS)
 
-udev_udevadm_SOURCES = \
+src_udevadm_SOURCES = \
 	$(udev_common_sources) \
-	udev/udevadm.c \
-	udev/udevadm-info.c \
-	udev/udevadm-control.c \
-	udev/udevadm-monitor.c \
-	udev/udevadm-settle.c \
-	udev/udevadm-trigger.c \
-	udev/udevadm-test.c \
-	udev/udevadm-test-builtin.c
-udev_udevadm_CFLAGS = $(udev_common_CFLAGS)
-udev_udevadm_LDADD = $(udev_common_LDADD)
-udev_udevadm_CPPFLAGS = $(udev_common_CPPFLAGS)
+	src/udevadm.c \
+	src/udevadm-info.c \
+	src/udevadm-control.c \
+	src/udevadm-monitor.c \
+	src/udevadm-settle.c \
+	src/udevadm-trigger.c \
+	src/udevadm-test.c \
+	src/udevadm-test-builtin.c
+src_udevadm_CFLAGS = $(udev_common_CFLAGS)
+src_udevadm_LDADD = $(udev_common_LDADD)
+src_udevadm_CPPFLAGS = $(udev_common_CPPFLAGS)
 
 # ------------------------------------------------------------------------------
 # udev man pages
 # ------------------------------------------------------------------------------
 dist_man_MANS = \
-	udev/udev.7 \
-	udev/udevadm.8 \
-	udev/udevd.8
+	src/udev.7 \
+	src/udevadm.8 \
+	src/udevd.8
 
 dist_noinst_DATA = \
-	udev/udev.html \
-	udev/udevadm.html \
-	udev/udevd.html
+	src/udev.html \
+	src/udevadm.html \
+	src/udevd.html
 
 EXTRA_DIST += \
-	udev/udev.xml \
-	udev/udevadm.xml \
-	udev/udevd.xml
+	src/udev.xml \
+	src/udevadm.xml \
+	src/udevd.xml
 
-udev/%.7 udev/%.8 : udev/%.xml
+src/%.7 src/%.8 : src/%.xml
 	$(AM_V_GEN)$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
-udev/%.html : udev/%.xml
+src/%.html : src/%.xml
 	$(AM_V_GEN)$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
 
 # ------------------------------------------------------------------------------
@@ -294,74 +296,74 @@ CLEANFILES += \
 	test/udev-test.pl
 
 check_PROGRAMS = \
-	libudev/test-libudev \
-	udev/test-udev
+	src/test-libudev \
+	src/test-udev
 
-libudev_test_libudev_SOURCES = libudev/test-libudev.c
-libudev_test_libudev_LDADD = libudev/libudev.la
+src_test_libudev_SOURCES = src/test-libudev.c
+src_test_libudev_LDADD = src/libudev.la
 
-udev_test_udev_SOURCES = \
+src_test_udev_SOURCES = \
 	$(udev_common_sources) \
-	udev/test-udev.c
-udev_test_udev_CFLAGS = $(udev_common_CFLAGS)
-udev_test_udev_LDADD = $(udev_common_LDADD)
-udev_test_udev_CPPFLAGS = $(udev_common_CPPFLAGS)
+	src/test-udev.c
+src_test_udev_CFLAGS = $(udev_common_CFLAGS)
+src_test_udev_LDADD = $(udev_common_LDADD)
+src_test_udev_CPPFLAGS = $(udev_common_CPPFLAGS)
 
 # ------------------------------------------------------------------------------
 # ata_id - ATA identify
 # ------------------------------------------------------------------------------
-extras_ata_id_ata_id_SOURCES = extras/ata_id/ata_id.c
-extras_ata_id_ata_id_LDADD = libudev/libudev-private.la
-pkglibexec_PROGRAMS += extras/ata_id/ata_id
+src_extras_ata_id_ata_id_SOURCES = src/extras/ata_id/ata_id.c
+src_extras_ata_id_ata_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/extras/ata_id/ata_id
 
 # ------------------------------------------------------------------------------
 # cdrom_id - optical drive/media capability
 # ------------------------------------------------------------------------------
-extras_cdrom_id_cdrom_id_SOURCES = extras/cdrom_id/cdrom_id.c
-extras_cdrom_id_cdrom_id_LDADD = libudev/libudev-private.la
-pkglibexec_PROGRAMS += extras/cdrom_id/cdrom_id
-dist_udevrules_DATA += extras/cdrom_id/60-cdrom_id.rules
+src_extras_cdrom_id_cdrom_id_SOURCES = src/extras/cdrom_id/cdrom_id.c
+src_extras_cdrom_id_cdrom_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/extras/cdrom_id/cdrom_id
+dist_udevrules_DATA += src/extras/cdrom_id/60-cdrom_id.rules
 
 # ------------------------------------------------------------------------------
 # collect - trigger action when a collection of devices appeared
 # ------------------------------------------------------------------------------
-extras_collect_collect_SOURCES = extras/collect/collect.c
-extras_collect_collect_LDADD = libudev/libudev-private.la
-pkglibexec_PROGRAMS += extras/collect/collect
+src_extras_collect_collect_SOURCES = src/extras/collect/collect.c
+src_extras_collect_collect_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/extras/collect/collect
 
 # ------------------------------------------------------------------------------
 # scsi_id - SCSI inquiry to get various serial numbers
 # ------------------------------------------------------------------------------
-extras_scsi_id_scsi_id_SOURCES =\
-	extras/scsi_id/scsi_id.c \
-	extras/scsi_id/scsi_serial.c \
-	extras/scsi_id/scsi.h \
-	extras/scsi_id/scsi_id.h
-extras_scsi_id_scsi_id_LDADD = libudev/libudev-private.la
-pkglibexec_PROGRAMS += extras/scsi_id/scsi_id
-dist_man_MANS += extras/scsi_id/scsi_id.8
-EXTRA_DIST += extras/scsi_id/README
+src_extras_scsi_id_scsi_id_SOURCES =\
+	src/extras/scsi_id/scsi_id.c \
+	src/extras/scsi_id/scsi_serial.c \
+	src/extras/scsi_id/scsi.h \
+	src/extras/scsi_id/scsi_id.h
+src_extras_scsi_id_scsi_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/extras/scsi_id/scsi_id
+dist_man_MANS += src/extras/scsi_id/scsi_id.8
+EXTRA_DIST += src/extras/scsi_id/README
 
 # ------------------------------------------------------------------------------
 # v4l_id - video4linux capabilities
 # ------------------------------------------------------------------------------
-extras_v4l_id_v4l_id_SOURCES = extras/v4l_id/v4l_id.c
-extras_v4l_id_v4l_id_LDADD = libudev/libudev-private.la
-pkglibexec_PROGRAMS += extras/v4l_id/v4l_id
-dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
+src_extras_v4l_id_v4l_id_SOURCES = src/extras/v4l_id/v4l_id.c
+src_extras_v4l_id_v4l_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/extras/v4l_id/v4l_id
+dist_udevrules_DATA += src/extras/v4l_id/60-persistent-v4l.rules
 
 # ------------------------------------------------------------------------------
 # accelerometer - updates device orientation
 # ------------------------------------------------------------------------------
-extras_accelerometer_accelerometer_SOURCES = extras/accelerometer/accelerometer.c
-extras_accelerometer_accelerometer_LDADD = libudev/libudev-private.la -lm
-pkglibexec_PROGRAMS += extras/accelerometer/accelerometer
-dist_udevrules_DATA += extras/accelerometer/61-accelerometer.rules
+src_extras_accelerometer_accelerometer_SOURCES = src/extras/accelerometer/accelerometer.c
+src_extras_accelerometer_accelerometer_LDADD = src/libudev-private.la -lm
+pkglibexec_PROGRAMS += src/extras/accelerometer/accelerometer
+dist_udevrules_DATA += src/extras/accelerometer/61-accelerometer.rules
 
 # ------------------------------------------------------------------------------
 # qemu -- qemu/kvm guest tweaks
 # ------------------------------------------------------------------------------
-dist_udevrules_DATA += extras/qemu/42-qemu-usb.rules
+dist_udevrules_DATA += src/extras/qemu/42-qemu-usb.rules
 
 if ENABLE_GUDEV
 # ------------------------------------------------------------------------------
@@ -371,125 +373,125 @@ LIBGUDEV_CURRENT=1
 LIBGUDEV_REVISION=1
 LIBGUDEV_AGE=1
 
-SUBDIRS += extras/gudev/docs
+SUBDIRS += src/extras/gudev/docs
 
-libgudev_includedir=$(includedir)/gudev-1.0/gudev
-libgudev_include_HEADERS = \
-	extras/gudev/gudev.h \
-	extras/gudev/gudevenums.h \
-	extras/gudev/gudevenumtypes.h \
-	extras/gudev/gudevtypes.h \
-	extras/gudev/gudevclient.h \
-	extras/gudev/gudevdevice.h \
-	extras/gudev/gudevenumerator.h
+src_extras_gudev_libgudev_includedir=$(includedir)/gudev-1.0/gudev
+src_extras_gudev_libgudev_include_HEADERS = \
+	src/extras/gudev/gudev.h \
+	src/extras/gudev/gudevenums.h \
+	src/extras/gudev/gudevenumtypes.h \
+	src/extras/gudev/gudevtypes.h \
+	src/extras/gudev/gudevclient.h \
+	src/extras/gudev/gudevdevice.h \
+	src/extras/gudev/gudevenumerator.h
 
-lib_LTLIBRARIES += extras/gudev/libgudev-1.0.la
+lib_LTLIBRARIES += src/extras/gudev/libgudev-1.0.la
 
-pkgconfig_DATA += extras/gudev/gudev-1.0.pc
-EXTRA_DIST += extras/gudev/gudev-1.0.pc.in
-CLEANFILES += extras/gudev/gudev-1.0.pc
+pkgconfig_DATA += src/extras/gudev/gudev-1.0.pc
+EXTRA_DIST += src/extras/gudev/gudev-1.0.pc.in
+CLEANFILES += src/extras/gudev/gudev-1.0.pc
 
-extras_gudev_libgudev_1_0_la_SOURCES = \
-	extras/gudev/gudevenums.h \
-	extras/gudev/gudevenumtypes.h \
-	extras/gudev/gudevenumtypes.h\
-	extras/gudev/gudevtypes.h \
-	extras/gudev/gudevclient.h \
-	extras/gudev/gudevclient.c \
-	extras/gudev/gudevdevice.h \
-	extras/gudev/gudevdevice.c \
-	extras/gudev/gudevenumerator.h \
-	extras/gudev/gudevenumerator.c \
-	extras/gudev/gudevprivate.h
+src_extras_gudev_libgudev_1_0_la_SOURCES = \
+	src/extras/gudev/gudevenums.h \
+	src/extras/gudev/gudevenumtypes.h \
+	src/extras/gudev/gudevenumtypes.h\
+	src/extras/gudev/gudevtypes.h \
+	src/extras/gudev/gudevclient.h \
+	src/extras/gudev/gudevclient.c \
+	src/extras/gudev/gudevdevice.h \
+	src/extras/gudev/gudevdevice.c \
+	src/extras/gudev/gudevenumerator.h \
+	src/extras/gudev/gudevenumerator.c \
+	src/extras/gudev/gudevprivate.h
 
-nodist_extras_gudev_libgudev_1_0_la_SOURCES = \
-	extras/gudev/gudevmarshal.h \
-	extras/gudev/gudevmarshal.c \
-	extras/gudev/gudevenumtypes.h \
-	extras/gudev/gudevenumtypes.c
-BUILT_SOURCES += $(nodist_extras_gudev_libgudev_1_0_la_SOURCES)
+nodist_src_extras_gudev_libgudev_1_0_la_SOURCES = \
+	src/extras/gudev/gudevmarshal.h \
+	src/extras/gudev/gudevmarshal.c \
+	src/extras/gudev/gudevenumtypes.h \
+	src/extras/gudev/gudevenumtypes.c
+BUILT_SOURCES += $(nodist_src_extras_gudev_libgudev_1_0_la_SOURCES)
 
-extras_gudev_libgudev_1_0_la_CPPFLAGS = \
+src_extras_gudev_libgudev_1_0_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
-	-I$(top_builddir)/extras \
-	-I$(top_srcdir)/extras \
-	-I$(top_builddir)/extras/gudev \
-	-I$(top_srcdir)/extras/gudev \
+	-I$(top_builddir)/src/extras \
+	-I$(top_srcdir)/src/extras \
+	-I$(top_builddir)/src/extras/gudev \
+	-I$(top_srcdir)/src/extras/gudev \
 	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT \
 	-D_GUDEV_COMPILATION \
 	-DG_LOG_DOMAIN=\"GUdev\"
 
-extras_gudev_libgudev_1_0_la_CFLAGS = \
+src_extras_gudev_libgudev_1_0_la_CFLAGS = \
 	-fvisibility=default \
 	$(GLIB_CFLAGS)
 
-extras_gudev_libgudev_1_0_la_LIBADD = libudev/libudev.la $(GLIB_LIBS)
+src_extras_gudev_libgudev_1_0_la_LIBADD = src/libudev.la $(GLIB_LIBS)
 
-extras_gudev_libgudev_1_0_la_LDFLAGS = \
+src_extras_gudev_libgudev_1_0_la_LDFLAGS = \
 	-version-info $(LIBGUDEV_CURRENT):$(LIBGUDEV_REVISION):$(LIBGUDEV_AGE) \
 	-export-dynamic -no-undefined \
 	-export-symbols-regex '^g_udev_.*'
 
 EXTRA_DIST += \
-	extras/gudev/COPYING \
-	extras/gudev/gudevmarshal.list \
-	extras/gudev/gudevenumtypes.h.template \
-	extras/gudev/gudevenumtypes.c.template \
-	extras/gudev/gjs-example.js \
-	extras/gudev/seed-example-enum.js \
-	extras/gudev/seed-example.js
+	src/extras/gudev/COPYING \
+	src/extras/gudev/gudevmarshal.list \
+	src/extras/gudev/gudevenumtypes.h.template \
+	src/extras/gudev/gudevenumtypes.c.template \
+	src/extras/gudev/gjs-example.js \
+	src/extras/gudev/seed-example-enum.js \
+	src/extras/gudev/seed-example.js
 
-extras/gudev/gudevmarshal.h: extras/gudev/gudevmarshal.list
+src/extras/gudev/gudevmarshal.h: src/extras/gudev/gudevmarshal.list
 	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
 
-extras/gudev/gudevmarshal.c: extras/gudev/gudevmarshal.list
+src/extras/gudev/gudevmarshal.c: src/extras/gudev/gudevmarshal.list
 	$(AM_V_GEN)echo "#include \"gudevmarshal.h\"" > $@ && \
 	glib-genmarshal $< --prefix=g_udev_marshal --body >> $@
 
-extras/gudev/gudevenumtypes.h: extras/gudev/gudevenumtypes.h.template extras/gudev/gudevenums.h
+src/extras/gudev/gudevenumtypes.h: src/extras/gudev/gudevenumtypes.h.template src/extras/gudev/gudevenums.h
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
-extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gudev/gudevenums.h
+src/extras/gudev/gudevenumtypes.c: src/extras/gudev/gudevenumtypes.c.template src/extras/gudev/gudevenums.h
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
 if ENABLE_INTROSPECTION
-extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER)
+src/extras/gudev/GUdev-1.0.gir: src/extras/gudev/libgudev-1.0.la $(G_IR_SCANNER)
 	$(AM_V_GEN)$(G_IR_SCANNER) -v \
 		--warn-all \
 		--namespace GUdev \
 		--nsversion=1.0 \
 		--include=GObject-2.0 \
 		--library=gudev-1.0 \
-		--library-path=$(top_builddir)/libudev \
-		--library-path=$(top_builddir)/extras/gudev \
+		--library-path=$(top_builddir)/src \
+		--library-path=$(top_builddir)/src/extras/gudev \
 		--output $@ \
 		--pkg=glib-2.0 \
 		--pkg=gobject-2.0 \
-		-I$(top_srcdir)/extras \
-		-I$(top_builddir)/extras \
+		-I$(top_srcdir)/src/extras \
+		-I$(top_builddir)/src/extras \
 		-D_GUDEV_COMPILATION \
 		-D_GUDEV_WORK_AROUND_DEV_T_BUG \
-		$(top_srcdir)/extras/gudev/gudev.h \
-		$(top_srcdir)/extras/gudev/gudevtypes.h \
-		$(top_srcdir)/extras/gudev/gudevenums.h \
-		$(or $(wildcard $(top_builddir)/extras/gudev/gudevenumtypes.h),$(top_srcdir)/extras/gudev/gudevenumtypes.h) \
-		$(top_srcdir)/extras/gudev/gudevclient.h \
-		$(top_srcdir)/extras/gudev/gudevdevice.h \
-		$(top_srcdir)/extras/gudev/gudevenumerator.h \
-		$(top_srcdir)/extras/gudev/gudevclient.c \
-		$(top_srcdir)/extras/gudev/gudevdevice.c \
-		$(top_srcdir)/extras/gudev/gudevenumerator.c
+		$(top_srcdir)/src/extras/gudev/gudev.h \
+		$(top_srcdir)/src/extras/gudev/gudevtypes.h \
+		$(top_srcdir)/src/extras/gudev/gudevenums.h \
+		$(or $(wildcard $(top_builddir)/src/extras/gudev/gudevenumtypes.h),$(top_srcdir)/src/extras/gudev/gudevenumtypes.h) \
+		$(top_srcdir)/src/extras/gudev/gudevclient.h \
+		$(top_srcdir)/src/extras/gudev/gudevdevice.h \
+		$(top_srcdir)/src/extras/gudev/gudevenumerator.h \
+		$(top_srcdir)/src/extras/gudev/gudevclient.c \
+		$(top_srcdir)/src/extras/gudev/gudevdevice.c \
+		$(top_srcdir)/src/extras/gudev/gudevenumerator.c
 
-extras/gudev/GUdev-1.0.typelib: extras/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
+src/extras/gudev/GUdev-1.0.typelib: src/extras/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
 	$(AM_V_GEN)g-ir-compiler $< -o $@
 
 girdir = $(GIRDIR)
-gir_DATA = extras/gudev/GUdev-1.0.gir
+gir_DATA = src/extras/gudev/GUdev-1.0.gir
 
 typelibsdir = $(GIRTYPELIBDIR)
-typelibs_DATA = extras/gudev/GUdev-1.0.typelib
+typelibs_DATA = src/extras/gudev/GUdev-1.0.typelib
 
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 endif # ENABLE_INTROSPECTION
@@ -515,113 +517,113 @@ if ENABLE_KEYMAP
 # ------------------------------------------------------------------------------
 # keymap - map custom hardware's multimedia keys
 # ------------------------------------------------------------------------------
-extras_keymap_keymap_SOURCES = extras/keymap/keymap.c
-extras_keymap_keymap_CPPFLAGS = $(AM_CPPFLAGS) -I extras/keymap
-nodist_extras_keymap_keymap_SOURCES = \
-	extras/keymap/keys-from-name.h \
-	extras/keymap/keys-to-name.h
-BUILT_SOURCES += $(nodist_extras_keymap_keymap_SOURCES)
+src_keymap_SOURCES = src/extras/keymap/keymap.c
+src_keymap_CPPFLAGS = $(AM_CPPFLAGS) -I src/extras/keymap
+nodist_src_keymap_SOURCES = \
+	src/extras/keymap/keys-from-name.h \
+	src/extras/keymap/keys-to-name.h
+BUILT_SOURCES += $(nodist_src_keymap_SOURCES)
 
-pkglibexec_PROGRAMS += extras/keymap/keymap
-dist_doc_DATA = extras/keymap/README.keymap.txt
+pkglibexec_PROGRAMS += src/keymap
+dist_doc_DATA = src/extras/keymap/README.keymap.txt
 
 dist_udevrules_DATA += \
-	extras/keymap/95-keymap.rules \
-	extras/keymap/95-keyboard-force-release.rules
+	src/extras/keymap/95-keymap.rules \
+	src/extras/keymap/95-keyboard-force-release.rules
 
-dist_pkglibexec_SCRIPTS += extras/keymap/findkeyboards
-pkglibexec_SCRIPTS += extras/keymap/keyboard-force-release.sh
+dist_udevhome_SCRIPTS += src/extras/keymap/findkeyboards
+udevhome_SCRIPTS += src/extras/keymap/keyboard-force-release.sh
 
 EXTRA_DIST += \
-	extras/keymap/check-keymaps.sh \
-	extras/keymap/keyboard-force-release.sh.in
+	src/extras/keymap/check-keymaps.sh \
+	src/extras/keymap/keyboard-force-release.sh.in
 
 CLEANFILES += \
-	extras/keymap/keys.txt \
-	extras/keymap/keys-from-name.gperf \
-	extras/keymap/keyboard-force-release.sh
+	src/extras/keymap/keys.txt \
+	src/extras/keymap/keys-from-name.gperf \
+	src/extras/keymap/keyboard-force-release.sh
 
 udevkeymapdir = $(libexecdir)/udev/keymaps
 dist_udevkeymap_DATA = \
-	extras/keymap/keymaps/acer \
-	extras/keymap/keymaps/acer-aspire_5720 \
-	extras/keymap/keymaps/acer-aspire_8930 \
-	extras/keymap/keymaps/acer-aspire_5920g \
-	extras/keymap/keymaps/acer-aspire_6920 \
-	extras/keymap/keymaps/acer-travelmate_c300 \
-	extras/keymap/keymaps/asus \
-	extras/keymap/keymaps/compaq-e_evo \
-	extras/keymap/keymaps/dell \
-	extras/keymap/keymaps/dell-latitude-xt2 \
-	extras/keymap/keymaps/everex-xt5000 \
-	extras/keymap/keymaps/fujitsu-amilo_pa_2548 \
-	extras/keymap/keymaps/fujitsu-amilo_pro_edition_v3505 \
-	extras/keymap/keymaps/fujitsu-amilo_pro_v3205 \
-	extras/keymap/keymaps/fujitsu-amilo_si_1520 \
-	extras/keymap/keymaps/fujitsu-esprimo_mobile_v5 \
-	extras/keymap/keymaps/fujitsu-esprimo_mobile_v6 \
-	extras/keymap/keymaps/genius-slimstar-320 \
-	extras/keymap/keymaps/hewlett-packard \
-	extras/keymap/keymaps/hewlett-packard-2510p_2530p \
-	extras/keymap/keymaps/hewlett-packard-compaq_elitebook \
-	extras/keymap/keymaps/hewlett-packard-pavilion \
-	extras/keymap/keymaps/hewlett-packard-presario-2100 \
-	extras/keymap/keymaps/hewlett-packard-tablet \
-	extras/keymap/keymaps/hewlett-packard-tx2 \
-	extras/keymap/keymaps/ibm-thinkpad-usb-keyboard-trackpoint \
-	extras/keymap/keymaps/inventec-symphony_6.0_7.0 \
-	extras/keymap/keymaps/lenovo-3000 \
-	extras/keymap/keymaps/lenovo-ideapad \
-	extras/keymap/keymaps/lenovo-thinkpad-usb-keyboard-trackpoint \
-	extras/keymap/keymaps/lenovo-thinkpad_x6_tablet \
-	extras/keymap/keymaps/lenovo-thinkpad_x200_tablet \
-	extras/keymap/keymaps/lg-x110 \
-	extras/keymap/keymaps/logitech-wave \
-	extras/keymap/keymaps/logitech-wave-cordless \
-	extras/keymap/keymaps/logitech-wave-pro-cordless \
-	extras/keymap/keymaps/maxdata-pro_7000 \
-	extras/keymap/keymaps/medion-fid2060 \
-	extras/keymap/keymaps/medionnb-a555 \
-	extras/keymap/keymaps/micro-star \
-	extras/keymap/keymaps/module-asus-w3j \
-	extras/keymap/keymaps/module-ibm \
-	extras/keymap/keymaps/module-lenovo \
-	extras/keymap/keymaps/module-sony \
-	extras/keymap/keymaps/module-sony-old \
-	extras/keymap/keymaps/module-sony-vgn \
-	extras/keymap/keymaps/olpc-xo \
-	extras/keymap/keymaps/onkyo \
-	extras/keymap/keymaps/oqo-model2 \
-	extras/keymap/keymaps/samsung-other \
-	extras/keymap/keymaps/samsung-sq1us \
-	extras/keymap/keymaps/samsung-sx20s \
-	extras/keymap/keymaps/toshiba-satellite_a100 \
-	extras/keymap/keymaps/toshiba-satellite_a110 \
-	extras/keymap/keymaps/toshiba-satellite_m30x \
-	extras/keymap/keymaps/zepto-znote
+	src/extras/keymap/keymaps/acer \
+	src/extras/keymap/keymaps/acer-aspire_5720 \
+	src/extras/keymap/keymaps/acer-aspire_8930 \
+	src/extras/keymap/keymaps/acer-aspire_5920g \
+	src/extras/keymap/keymaps/acer-aspire_6920 \
+	src/extras/keymap/keymaps/acer-travelmate_c300 \
+	src/extras/keymap/keymaps/asus \
+	src/extras/keymap/keymaps/compaq-e_evo \
+	src/extras/keymap/keymaps/dell \
+	src/extras/keymap/keymaps/dell-latitude-xt2 \
+	src/extras/keymap/keymaps/everex-xt5000 \
+	src/extras/keymap/keymaps/fujitsu-amilo_pa_2548 \
+	src/extras/keymap/keymaps/fujitsu-amilo_pro_edition_v3505 \
+	src/extras/keymap/keymaps/fujitsu-amilo_pro_v3205 \
+	src/extras/keymap/keymaps/fujitsu-amilo_si_1520 \
+	src/extras/keymap/keymaps/fujitsu-esprimo_mobile_v5 \
+	src/extras/keymap/keymaps/fujitsu-esprimo_mobile_v6 \
+	src/extras/keymap/keymaps/genius-slimstar-320 \
+	src/extras/keymap/keymaps/hewlett-packard \
+	src/extras/keymap/keymaps/hewlett-packard-2510p_2530p \
+	src/extras/keymap/keymaps/hewlett-packard-compaq_elitebook \
+	src/extras/keymap/keymaps/hewlett-packard-pavilion \
+	src/extras/keymap/keymaps/hewlett-packard-presario-2100 \
+	src/extras/keymap/keymaps/hewlett-packard-tablet \
+	src/extras/keymap/keymaps/hewlett-packard-tx2 \
+	src/extras/keymap/keymaps/ibm-thinkpad-usb-keyboard-trackpoint \
+	src/extras/keymap/keymaps/inventec-symphony_6.0_7.0 \
+	src/extras/keymap/keymaps/lenovo-3000 \
+	src/extras/keymap/keymaps/lenovo-ideapad \
+	src/extras/keymap/keymaps/lenovo-thinkpad-usb-keyboard-trackpoint \
+	src/extras/keymap/keymaps/lenovo-thinkpad_x6_tablet \
+	src/extras/keymap/keymaps/lenovo-thinkpad_x200_tablet \
+	src/extras/keymap/keymaps/lg-x110 \
+	src/extras/keymap/keymaps/logitech-wave \
+	src/extras/keymap/keymaps/logitech-wave-cordless \
+	src/extras/keymap/keymaps/logitech-wave-pro-cordless \
+	src/extras/keymap/keymaps/maxdata-pro_7000 \
+	src/extras/keymap/keymaps/medion-fid2060 \
+	src/extras/keymap/keymaps/medionnb-a555 \
+	src/extras/keymap/keymaps/micro-star \
+	src/extras/keymap/keymaps/module-asus-w3j \
+	src/extras/keymap/keymaps/module-ibm \
+	src/extras/keymap/keymaps/module-lenovo \
+	src/extras/keymap/keymaps/module-sony \
+	src/extras/keymap/keymaps/module-sony-old \
+	src/extras/keymap/keymaps/module-sony-vgn \
+	src/extras/keymap/keymaps/olpc-xo \
+	src/extras/keymap/keymaps/onkyo \
+	src/extras/keymap/keymaps/oqo-model2 \
+	src/extras/keymap/keymaps/samsung-other \
+	src/extras/keymap/keymaps/samsung-sq1us \
+	src/extras/keymap/keymaps/samsung-sx20s \
+	src/extras/keymap/keymaps/toshiba-satellite_a100 \
+	src/extras/keymap/keymaps/toshiba-satellite_a110 \
+	src/extras/keymap/keymaps/toshiba-satellite_m30x \
+	src/extras/keymap/keymaps/zepto-znote
 
 udevkeymapforcereldir = $(libexecdir)/udev/keymaps/force-release
 dist_udevkeymapforcerel_DATA = \
-	extras/keymap/force-release-maps/dell-touchpad \
-	extras/keymap/force-release-maps/hp-other \
-	extras/keymap/force-release-maps/samsung-other \
-	extras/keymap/force-release-maps/common-volume-keys
+	src/extras/keymap/force-release-maps/dell-touchpad \
+	src/extras/keymap/force-release-maps/hp-other \
+	src/extras/keymap/force-release-maps/samsung-other \
+	src/extras/keymap/force-release-maps/common-volume-keys
 
-extras/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
-	$(AM_V_at)mkdir -p extras/keymap
+src/extras/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
+	$(AM_V_at)mkdir -p src/extras/keymap
 	$(AM_V_GEN)$(AWK) '/^#define.*KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' < $< | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
-extras/keymap/keys-from-name.gperf: extras/keymap/keys.txt
+src/extras/keymap/keys-from-name.gperf: src/extras/keymap/keys.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
 
-extras/keymap/keys-from-name.h: extras/keymap/keys-from-name.gperf Makefile
+src/extras/keymap/keys-from-name.h: src/extras/keymap/keys-from-name.gperf Makefile
 	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
 
-extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
+src/extras/keymap/keys-to-name.h: src/extras/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
 
-keymaps-distcheck-hook: extras/keymap/keys.txt
-	$(top_srcdir)/extras/keymap/check-keymaps.sh $(top_srcdir) $^
+keymaps-distcheck-hook: src/extras/keymap/keys.txt
+	$(top_srcdir)/src/extras/keymap/check-keymaps.sh $(top_srcdir) $^
 DISTCHECK_HOOKS += keymaps-distcheck-hook
 endif
 
@@ -629,38 +631,38 @@ if ENABLE_MTD_PROBE
 # ------------------------------------------------------------------------------
 # mtd_probe - autoloads FTL module for mtd devices
 # ------------------------------------------------------------------------------
-extras_mtd_probe_mtd_probe_SOURCES =  \
-	extras/mtd_probe/mtd_probe.c \
-	extras/mtd_probe/mtd_probe.h \
-	extras/mtd_probe/probe_smartmedia.c
-extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
-dist_udevrules_DATA += extras/mtd_probe/75-probe_mtd.rules
-pkglibexec_PROGRAMS += extras/mtd_probe/mtd_probe
+src_mtd_probe_SOURCES =  \
+	src/extras/mtd_probe/mtd_probe.c \
+	src/extras/mtd_probe/mtd_probe.h \
+	src/extras/mtd_probe/probe_smartmedia.c
+src_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
+dist_udevrules_DATA += src/extras/mtd_probe/75-probe_mtd.rules
+pkglibexec_PROGRAMS += src/mtd_probe
 endif
 
 if ENABLE_RULE_GENERATOR
 # ------------------------------------------------------------------------------
 # rule_generator - persistent network and optical device rule generator
 # ------------------------------------------------------------------------------
-dist_pkglibexec_SCRIPTS += \
-	extras/rule_generator/write_cd_rules \
-	extras/rule_generator/write_net_rules
+dist_udevhome_SCRIPTS += \
+	src/extras/rule_generator/write_cd_rules \
+	src/extras/rule_generator/write_net_rules
 
-pkglibexec_DATA = extras/rule_generator/rule_generator.functions
-dist_pkglibexec_DATA += \
-	extras/rule_generator/75-cd-aliases-generator.rules \
-	extras/rule_generator/75-persistent-net-generator.rules
+udevhome_DATA = src/extras/rule_generator/rule_generator.functions
+dist_udevhome_DATA = \
+	src/extras/rule_generator/75-cd-aliases-generator.rules \
+	src/extras/rule_generator/75-persistent-net-generator.rules
 endif
 
 if ENABLE_UDEV_ACL
 # ------------------------------------------------------------------------------
 # udev_acl - apply ACLs for users with local forground sessions
 # ------------------------------------------------------------------------------
-extras_udev_acl_udev_acl_SOURCES = extras/udev-acl/udev-acl.c
-extras_udev_acl_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
-extras_udev_acl_udev_acl_LDADD = libudev/libudev-private.la -lacl $(GLIB_LIBS)
-dist_udevrules_DATA += extras/udev-acl/70-udev-acl.rules
-pkglibexec_PROGRAMS += extras/udev-acl/udev-acl
+src_udev_acl_SOURCES = src/extras/udev-acl/udev-acl.c
+src_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
+src_udev_acl_LDADD = src/libudev-private.la -lacl $(GLIB_LIBS)
+dist_udevrules_DATA += src/extras/udev-acl/70-udev-acl.rules
+pkglibexec_PROGRAMS += src/udev-acl
 
 udevacl-install-hook:
 	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d
@@ -673,20 +675,20 @@ if ENABLE_FLOPPY
 # ------------------------------------------------------------------------------
 # create_floppy_devices - historical floppy kernel device nodes (/dev/fd0h1440, ...)
 # ------------------------------------------------------------------------------
-extras_floppy_create_floppy_devices_SOURCES = extras/floppy/create_floppy_devices.c
-extras_floppy_create_floppy_devices_LDADD = libudev/libudev-private.la
-pkglibexec_PROGRAMS += extras/floppy/create_floppy_devices
-dist_udevrules_DATA += extras/floppy/60-floppy.rules
+src_create_floppy_devices_SOURCES = src/extras/floppy/create_floppy_devices.c
+src_create_floppy_devices_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/create_floppy_devices
+dist_udevrules_DATA += src/extras/floppy/60-floppy.rules
 endif
 
 if ENABLE_EDD
 # ------------------------------------------------------------------------------
 # edd_id - create /dev/disk/by-id/edd-* links for BIOS EDD data
 # ------------------------------------------------------------------------------
-extras_edd_id_edd_id_SOURCES = extras/edd_id/edd_id.c
-extras_edd_id_edd_id_LDADD = libudev/libudev-private.la
-pkglibexec_PROGRAMS += extras/edd_id/edd_id
-dist_udevrules_DATA += extras/edd_id/61-persistent-storage-edd.rules
+src_edd_id_SOURCES = src/extras/edd_id/edd_id.c
+src_edd_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/edd_id
+dist_udevrules_DATA += src/extras/edd_id/61-persistent-storage-edd.rules
 endif
 
 # ------------------------------------------------------------------------------
@@ -753,6 +755,6 @@ tar-sync:
 	scp udev-$(VERSION).tar.xz master.kernel.org:/pub/linux/utils/kernel/hotplug/
 
 doc-sync:
-	rsync -av udev/*.html master.kernel.org:/pub/linux/utils/kernel/hotplug/udev/
-	rsync -av --delete libudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/libudev/
-	rsync -av --delete extras/gudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/gudev/
+	rsync -av src/*.html master.kernel.org:/pub/linux/utils/kernel/hotplug/udev/
+	rsync -av --delete src/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/src/
+	rsync -av --delete src/extras/gudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/gudev/
