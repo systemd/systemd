@@ -578,7 +578,7 @@ retry:
 static void driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
         char mid[11 + 32 + 1];
         char buffer[16 + LINE_MAX + 1];
-        struct iovec iovec[N_IOVEC_META_FIELDS + 3];
+        struct iovec iovec[N_IOVEC_META_FIELDS + 4];
         int n = 0;
         va_list ap;
         struct ucred ucred;
@@ -587,6 +587,7 @@ static void driver_message(Server *s, sd_id128_t message_id, const char *format,
         assert(format);
 
         IOVEC_SET_STRING(iovec[n++], "PRIORITY=5");
+        IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=driver");
 
         memcpy(buffer, "MESSAGE=", 8);
         va_start(ap, format);
@@ -947,7 +948,7 @@ static void read_tag(const char **buf, char **tag) {
 
 static void process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv) {
         char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_tag = NULL;
-        struct iovec iovec[N_IOVEC_META_FIELDS + 4];
+        struct iovec iovec[N_IOVEC_META_FIELDS + 5];
         unsigned n = 0;
         int priority = LOG_USER | LOG_INFO;
         char *tag = NULL;
@@ -967,6 +968,8 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
 
         if (s->forward_to_console)
                 forward_console(s, tag, buf, ucred);
+
+        IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
         if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
                 IOVEC_SET_STRING(iovec[n++], syslog_priority);
@@ -1031,7 +1034,7 @@ static bool valid_user_field(const char *p, size_t l) {
 
 static void process_native_message(Server *s, const void *buffer, size_t buffer_size, struct ucred *ucred, struct timeval *tv) {
         struct iovec *iovec = NULL;
-        unsigned n = 0, m = 0, j;
+        unsigned n = 0, m = 0, j, tn = (unsigned) -1;
         const char *p;
         size_t remaining;
         int priority = LOG_INFO;
@@ -1079,7 +1082,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                         struct iovec *c;
                         unsigned u;
 
-                        u = MAX((n+N_IOVEC_META_FIELDS) * 2U, 4U);
+                        u = MAX((n+N_IOVEC_META_FIELDS+1) * 2U, 4U);
                         c = realloc(iovec, u * sizeof(struct iovec));
                         if (!c) {
                                 log_error("Out of memory");
@@ -1188,6 +1191,12 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                 }
         }
 
+        if (n <= 0)
+                goto finish;
+
+        tn = n++;
+        IOVEC_SET_STRING(iovec[tn], "_TRANSPORT=journal");
+
         if (message) {
                 if (s->forward_to_syslog)
                         forward_syslog(s, priority, tag, message, ucred, tv);
@@ -1201,17 +1210,22 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 
         dispatch_message(s, iovec, n, m, ucred, tv, priority);
 
-        for (j = 0; j < n; j++)
+finish:
+        for (j = 0; j < n; j++)  {
+                if (j == tn)
+                        continue;
+
                 if (iovec[j].iov_base < buffer ||
                     (const uint8_t*) iovec[j].iov_base >= (const uint8_t*) buffer + buffer_size)
                         free(iovec[j].iov_base);
+        }
 
         free(tag);
         free(message);
 }
 
 static int stdout_stream_log(StdoutStream *s, const char *p) {
-        struct iovec iovec[N_IOVEC_META_FIELDS + 4];
+        struct iovec iovec[N_IOVEC_META_FIELDS + 5];
         char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_tag = NULL;
         unsigned n = 0;
         int priority;
@@ -1232,6 +1246,8 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 
         if (s->forward_to_console || s->server->forward_to_console)
                 forward_console(s->server, s->tag, p, &s->ucred);
+
+        IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=stdout");
 
         if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
                 IOVEC_SET_STRING(iovec[n++], syslog_priority);
