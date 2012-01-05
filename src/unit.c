@@ -2441,9 +2441,6 @@ int unit_coldplug(Unit *u) {
 
 void unit_status_printf(Unit *u, const char *status, const char *format, ...) {
         va_list ap;
-        char *s, *e;
-        int err;
-        const unsigned emax = status ? 80 - (sizeof("[  OK  ]")-1) : 80;
 
         assert(u);
         assert(format);
@@ -2458,21 +2455,8 @@ void unit_status_printf(Unit *u, const char *status, const char *format, ...) {
                 return;
 
         va_start(ap, format);
-        err = vasprintf(&s, format, ap);
+        status_vprintf(status, format, ap);
         va_end(ap);
-        if (err < 0)
-                return;
-
-        e = ellipsize(s, emax, 100);
-        free(s);
-        if (!e)
-                return;
-
-        if (status)
-                status_printf("%s%*s[%s]\n", e, emax - strlen(e), "", status);
-        else
-                status_printf("%s\n", e);
-        free(e);
 }
 
 bool unit_need_daemon_reload(Unit *u) {

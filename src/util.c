@@ -3577,9 +3577,12 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
-void status_vprintf(const char *format, va_list ap) {
-        char *s = NULL;
-        int fd = -1;
+void status_vprintf(const char *status, const char *format, va_list ap) {
+        char *s = NULL, *spaces = NULL, *e;
+        int fd = -1, c;
+        size_t emax, sl, left;
+        struct iovec iovec[5];
+        int n = 0;
 
         assert(format);
 
@@ -3589,25 +3592,65 @@ void status_vprintf(const char *format, va_list ap) {
         if (vasprintf(&s, format, ap) < 0)
                 goto finish;
 
-        if ((fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
+        fd = open_terminal("/dev/tty", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
                 goto finish;
 
-        write(fd, s, strlen(s));
+        c = fd_columns(fd);
+        if (c <= 0)
+                c = 80;
+
+        if (status) {
+                sl = 2 + 6 + 1; /* " [" status "]" */
+                emax = (size_t) c > sl ? c - sl - 1 : 0;
+        } else
+                emax = c - 1;
+
+        e = ellipsize(s, emax, 75);
+        if (e) {
+                free(s);
+                s = e;
+        }
+
+        zero(iovec);
+        IOVEC_SET_STRING(iovec[n++], s);
+
+        sl = strlen(s);
+        left = emax > sl ? emax - sl : 0;
+        if (left > 0) {
+                spaces = malloc(left);
+                if (spaces) {
+                        memset(spaces, ' ', left);
+                        iovec[n].iov_base = spaces;
+                        iovec[n].iov_len = left;
+                        n++;
+                }
+        }
+
+        if (status) {
+                IOVEC_SET_STRING(iovec[n++], " [");
+                IOVEC_SET_STRING(iovec[n++], status);
+                IOVEC_SET_STRING(iovec[n++], "]\n");
+        } else
+                IOVEC_SET_STRING(iovec[n++], "\n");
+
+        writev(fd, iovec, n);
 
 finish:
         free(s);
+        free(spaces);
 
         if (fd >= 0)
                 close_nointr_nofail(fd);
 }
 
-void status_printf(const char *format, ...) {
+void status_printf(const char *status, const char *format, ...) {
         va_list ap;
 
         assert(format);
 
         va_start(ap, format);
-        status_vprintf(format, ap);
+        status_vprintf(status, format, ap);
         va_end(ap);
 }
 
@@ -3764,7 +3807,8 @@ void status_welcome(void) {
         if (!ansi_color && !const_color)
                 const_color = "1";
 
-        status_printf("\nWelcome to \x1B[%sm%s\x1B[0m!\n\n",
+        status_printf(NULL,
+                      "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
                       const_color ? const_color : ansi_color,
                       const_pretty ? const_pretty : pretty_name);
 
@@ -3906,6 +3950,19 @@ char **replace_env_argv(char **argv, char **env) {
         return r;
 }
 
+int fd_columns(int fd) {
+        struct winsize ws;
+        zero(ws);
+
+        if (ioctl(fd, TIOCGWINSZ, &ws) < 0)
+                return -errno;
+
+        if (ws.ws_col <= 0)
+                return -EIO;
+
+        return ws.ws_col;
+}
+
 unsigned columns(void) {
         static __thread int parsed_columns = 0;
         const char *e;
@@ -3913,16 +3970,12 @@ unsigned columns(void) {
         if (_likely_(parsed_columns > 0))
                 return parsed_columns;
 
-        if ((e = getenv("COLUMNS")))
+        e = getenv("COLUMNS");
+        if (e)
                 parsed_columns = atoi(e);
 
-        if (parsed_columns <= 0) {
-                struct winsize ws;
-                zero(ws);
-
-                if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                        parsed_columns = ws.ws_col;
-        }
+        if (parsed_columns <= 0)
+                parsed_columns = fd_columns(STDOUT_FILENO);
 
         if (parsed_columns <= 0)
                 parsed_columns = 80;
