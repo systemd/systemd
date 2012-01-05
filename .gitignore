@@ -61,7 +61,7 @@ test-ns
 test-loopback
 systemd-cgroups-agent
 systemd-initctl
-systemd
+/systemd
 test-engine
 test-job-type
 systemd-stdout-syslog-bridge
