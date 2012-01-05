@@ -209,7 +209,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         return 0;
 }
 
-_public_ int sd_journal_stream_fd(const char *tag, int priority, int priority_prefix) {
+_public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
         union sockaddr_union sa;
         int fd;
         char *header;
@@ -238,17 +238,17 @@ _public_ int sd_journal_stream_fd(const char *tag, int priority, int priority_pr
                 return -errno;
         }
 
-        if (!tag)
-                tag = "";
+        if (!identifier)
+                identifier = "";
 
-        l = strlen(tag);
+        l = strlen(identifier);
         header = alloca(l + 1 + 2 + 2 + 2 + 2 + 2);
 
-        memcpy(header, tag, l);
+        memcpy(header, identifier, l);
         header[l++] = '\n';
         header[l++] = '0' + priority;
         header[l++] = '\n';
-        header[l++] = '0' + !!priority_prefix;
+        header[l++] = '0' + !!level_prefix;
         header[l++] = '\n';
         header[l++] = '0';
         header[l++] = '\n';

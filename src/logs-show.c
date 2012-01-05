@@ -92,8 +92,8 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
         const void *data;
         size_t length;
         size_t n = 0;
-        char *hostname = NULL, *tag = NULL, *comm = NULL, *pid = NULL, *message = NULL;
-        size_t hostname_len = 0, tag_len = 0, comm_len = 0, pid_len = 0, message_len = 0;
+        char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *message = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, message_len = 0;
 
         assert(j);
 
@@ -105,7 +105,7 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
                 else if (r > 0)
                         continue;
 
-                r = parse_field(data, length, "SYSLOG_TAG=", &tag, &tag_len);
+                r = parse_field(data, length, "SYSLOG_IDENTIFIER=", &identifier, &identifier_len);
                 if (r < 0)
                         goto finish;
                 else if (r > 0)
@@ -153,9 +153,9 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
                 n += hostname_len + 1;
         }
 
-        if (tag && shall_print(show_all, tag, tag_len)) {
-                printf(" %.*s", (int) tag_len, tag);
-                n += tag_len + 1;
+        if (identifier && shall_print(show_all, identifier, identifier_len)) {
+                printf(" %.*s", (int) identifier_len, identifier);
+                n += identifier_len + 1;
         } else if (comm && shall_print(show_all, comm, comm_len)) {
                 printf(" %.*s", (int) comm_len, comm);
                 n += comm_len + 1;
@@ -190,7 +190,7 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
 
 finish:
         free(hostname);
-        free(tag);
+        free(identifier);
         free(comm);
         free(pid);
         free(message);

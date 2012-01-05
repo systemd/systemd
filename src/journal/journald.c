@@ -63,7 +63,7 @@
 #define N_IOVEC_META_FIELDS 16
 
 typedef enum StdoutStreamState {
-        STDOUT_STREAM_TAG,
+        STDOUT_STREAM_IDENTIFIER,
         STDOUT_STREAM_PRIORITY,
         STDOUT_STREAM_LEVEL_PREFIX,
         STDOUT_STREAM_FORWARD_TO_SYSLOG,
@@ -80,7 +80,7 @@ struct StdoutStream {
 
         struct ucred ucred;
 
-        char *tag;
+        char *identifier;
         int priority;
         bool level_prefix:1;
         bool forward_to_syslog:1;
@@ -733,13 +733,13 @@ static void forward_syslog_raw(Server *s, const char *buffer, struct ucred *ucre
         forward_syslog_iovec(s, &iovec, 1, ucred, tv);
 }
 
-static void forward_syslog(Server *s, int priority, const char *tag, const char *message, struct ucred *ucred, struct timeval *tv) {
+static void forward_syslog(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred, struct timeval *tv) {
         struct iovec iovec[5];
         char header_priority[6], header_time[64], header_pid[16];
         int n = 0;
         time_t t;
         struct tm *tm;
-        char *tag_buf = NULL;
+        char *ident_buf = NULL;
 
         assert(s);
         assert(priority >= 0);
@@ -760,22 +760,22 @@ static void forward_syslog(Server *s, int priority, const char *tag, const char 
                 return;
         IOVEC_SET_STRING(iovec[n++], header_time);
 
-        /* Third: tag and PID */
+        /* Third: identifier and PID */
         if (ucred) {
-                if (!tag) {
-                        get_process_comm(ucred->pid, &tag_buf);
-                        tag = tag_buf;
+                if (!identifier) {
+                        get_process_comm(ucred->pid, &ident_buf);
+                        identifier = ident_buf;
                 }
 
                 snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
                 char_array_0(header_pid);
 
-                if (tag)
-                        IOVEC_SET_STRING(iovec[n++], tag);
+                if (identifier)
+                        IOVEC_SET_STRING(iovec[n++], identifier);
 
                 IOVEC_SET_STRING(iovec[n++], header_pid);
-        } else if (tag) {
-                IOVEC_SET_STRING(iovec[n++], tag);
+        } else if (identifier) {
+                IOVEC_SET_STRING(iovec[n++], identifier);
                 IOVEC_SET_STRING(iovec[n++], ": ");
         }
 
@@ -784,7 +784,7 @@ static void forward_syslog(Server *s, int priority, const char *tag, const char 
 
         forward_syslog_iovec(s, iovec, n, ucred, tv);
 
-        free(tag_buf);
+        free(ident_buf);
 }
 
 static int fixup_priority(int priority) {
@@ -795,11 +795,11 @@ static int fixup_priority(int priority) {
         return priority;
 }
 
-static void forward_kmsg(Server *s, int priority, const char *tag, const char *message, struct ucred *ucred) {
+static void forward_kmsg(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred) {
         struct iovec iovec[5];
         char header_priority[6], header_pid[16];
         int n = 0;
-        char *tag_buf = NULL;
+        char *ident_buf = NULL;
         int fd;
 
         assert(s);
@@ -816,22 +816,22 @@ static void forward_kmsg(Server *s, int priority, const char *tag, const char *m
         char_array_0(header_priority);
         IOVEC_SET_STRING(iovec[n++], header_priority);
 
-        /* Second: tag and PID */
+        /* Second: identifier and PID */
         if (ucred) {
-                if (!tag) {
-                        get_process_comm(ucred->pid, &tag_buf);
-                        tag = tag_buf;
+                if (!identifier) {
+                        get_process_comm(ucred->pid, &ident_buf);
+                        identifier = ident_buf;
                 }
 
                 snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
                 char_array_0(header_pid);
 
-                if (tag)
-                        IOVEC_SET_STRING(iovec[n++], tag);
+                if (identifier)
+                        IOVEC_SET_STRING(iovec[n++], identifier);
 
                 IOVEC_SET_STRING(iovec[n++], header_pid);
-        } else if (tag) {
-                IOVEC_SET_STRING(iovec[n++], tag);
+        } else if (identifier) {
+                IOVEC_SET_STRING(iovec[n++], identifier);
                 IOVEC_SET_STRING(iovec[n++], ": ");
         }
 
@@ -851,34 +851,34 @@ static void forward_kmsg(Server *s, int priority, const char *tag, const char *m
         close_nointr_nofail(fd);
 
 finish:
-        free(tag_buf);
+        free(ident_buf);
 }
 
-static void forward_console(Server *s, const char *tag, const char *message, struct ucred *ucred) {
+static void forward_console(Server *s, const char *identifier, const char *message, struct ucred *ucred) {
         struct iovec iovec[4];
         char header_pid[16];
         int n = 0, fd;
-        char *tag_buf = NULL;
+        char *ident_buf = NULL;
 
         assert(s);
         assert(message);
 
-        /* First: tag and PID */
+        /* First: identifier and PID */
         if (ucred) {
-                if (!tag) {
-                        get_process_comm(ucred->pid, &tag_buf);
-                        tag = tag_buf;
+                if (!identifier) {
+                        get_process_comm(ucred->pid, &ident_buf);
+                        identifier = ident_buf;
                 }
 
                 snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
                 char_array_0(header_pid);
 
-                if (tag)
-                        IOVEC_SET_STRING(iovec[n++], tag);
+                if (identifier)
+                        IOVEC_SET_STRING(iovec[n++], identifier);
 
                 IOVEC_SET_STRING(iovec[n++], header_pid);
-        } else if (tag) {
-                IOVEC_SET_STRING(iovec[n++], tag);
+        } else if (identifier) {
+                IOVEC_SET_STRING(iovec[n++], identifier);
                 IOVEC_SET_STRING(iovec[n++], ": ");
         }
 
@@ -898,16 +898,16 @@ static void forward_console(Server *s, const char *tag, const char *message, str
         close_nointr_nofail(fd);
 
 finish:
-        free(tag_buf);
+        free(ident_buf);
 }
 
-static void read_tag(const char **buf, char **tag) {
+static void read_identifier(const char **buf, char **identifier) {
         const char *p;
         char *t;
         size_t l, e;
 
         assert(buf);
-        assert(tag);
+        assert(identifier);
 
         p = *buf;
 
@@ -940,18 +940,18 @@ static void read_tag(const char **buf, char **tag) {
 
         t = strndup(p, l);
         if (t)
-                *tag = t;
+                *identifier = t;
 
         *buf = p + e;
         *buf += strspn(*buf, WHITESPACE);
 }
 
 static void process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv) {
-        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_tag = NULL;
+        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 5];
         unsigned n = 0;
         int priority = LOG_USER | LOG_INFO;
-        char *tag = NULL;
+        char *identifier = NULL;
 
         assert(s);
         assert(buf);
@@ -961,13 +961,13 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
 
         parse_syslog_priority((char**) &buf, &priority);
         skip_syslog_date((char**) &buf);
-        read_tag(&buf, &tag);
+        read_identifier(&buf, &identifier);
 
         if (s->forward_to_kmsg)
-                forward_kmsg(s, priority, tag, buf, ucred);
+                forward_kmsg(s, priority, identifier, buf, ucred);
 
         if (s->forward_to_console)
-                forward_console(s, tag, buf, ucred);
+                forward_console(s, identifier, buf, ucred);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
@@ -978,10 +978,10 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
                 if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
                         IOVEC_SET_STRING(iovec[n++], syslog_facility);
 
-        if (tag) {
-                syslog_tag = strappend("SYSLOG_TAG=", tag);
-                if (syslog_tag)
-                        IOVEC_SET_STRING(iovec[n++], syslog_tag);
+        if (identifier) {
+                syslog_identifier = strappend("SYSLOG_IDENTIFIER=", identifier);
+                if (syslog_identifier)
+                        IOVEC_SET_STRING(iovec[n++], syslog_identifier);
         }
 
         message = strappend("MESSAGE=", buf);
@@ -991,10 +991,10 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, priority);
 
         free(message);
-        free(tag);
+        free(identifier);
         free(syslog_priority);
         free(syslog_facility);
-        free(syslog_tag);
+        free(syslog_identifier);
 }
 
 static bool valid_user_field(const char *p, size_t l) {
@@ -1038,7 +1038,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
         const char *p;
         size_t remaining;
         int priority = LOG_INFO;
-        char *tag = NULL, *message = NULL;
+        char *identifier = NULL, *message = NULL;
 
         assert(s);
         assert(buffer || n == 0);
@@ -1128,13 +1128,13 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                                         priority = (priority & LOG_PRIMASK) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
 
                                 else if (l >= 12 &&
-                                         memcmp(p, "SYSLOG_TAG=", 11) == 0) {
+                                         memcmp(p, "SYSLOG_IDENTIFIER=", 11) == 0) {
                                         char *t;
 
                                         t = strndup(p + 11, l - 11);
                                         if (t) {
-                                                free(tag);
-                                                tag = t;
+                                                free(identifier);
+                                                identifier = t;
                                         }
                                 } else if (l >= 8 &&
                                            memcmp(p, "MESSAGE=", 8) == 0) {
@@ -1199,13 +1199,13 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 
         if (message) {
                 if (s->forward_to_syslog)
-                        forward_syslog(s, priority, tag, message, ucred, tv);
+                        forward_syslog(s, priority, identifier, message, ucred, tv);
 
                 if (s->forward_to_kmsg)
-                        forward_kmsg(s, priority, tag, message, ucred);
+                        forward_kmsg(s, priority, identifier, message, ucred);
 
                 if (s->forward_to_console)
-                        forward_console(s, tag, message, ucred);
+                        forward_console(s, identifier, message, ucred);
         }
 
         dispatch_message(s, iovec, n, m, ucred, tv, priority);
@@ -1220,13 +1220,13 @@ finish:
                         free(iovec[j].iov_base);
         }
 
-        free(tag);
+        free(identifier);
         free(message);
 }
 
 static int stdout_stream_log(StdoutStream *s, const char *p) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 5];
-        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_tag = NULL;
+        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL;
         unsigned n = 0;
         int priority;
 
@@ -1239,13 +1239,13 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
                 parse_syslog_priority((char**) &p, &priority);
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
-                forward_syslog(s->server, fixup_priority(priority), s->tag, p, &s->ucred, NULL);
+                forward_syslog(s->server, fixup_priority(priority), s->identifier, p, &s->ucred, NULL);
 
         if (s->forward_to_kmsg || s->server->forward_to_kmsg)
-                forward_kmsg(s->server, priority, s->tag, p, &s->ucred);
+                forward_kmsg(s->server, priority, s->identifier, p, &s->ucred);
 
         if (s->forward_to_console || s->server->forward_to_console)
-                forward_console(s->server, s->tag, p, &s->ucred);
+                forward_console(s->server, s->identifier, p, &s->ucred);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=stdout");
 
@@ -1256,10 +1256,10 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
                 if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
                         IOVEC_SET_STRING(iovec[n++], syslog_facility);
 
-        if (s->tag) {
-                syslog_tag = strappend("SYSLOG_TAG=", s->tag);
-                if (syslog_tag)
-                        IOVEC_SET_STRING(iovec[n++], syslog_tag);
+        if (s->identifier) {
+                syslog_identifier = strappend("SYSLOG_IDENTIFIER=", s->identifier);
+                if (syslog_identifier)
+                        IOVEC_SET_STRING(iovec[n++], syslog_identifier);
         }
 
         message = strappend("MESSAGE=", p);
@@ -1271,7 +1271,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         free(message);
         free(syslog_priority);
         free(syslog_facility);
-        free(syslog_tag);
+        free(syslog_identifier);
 
         return 0;
 }
@@ -1286,9 +1286,9 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
 
         switch (s->state) {
 
-        case STDOUT_STREAM_TAG:
-                s->tag = strdup(p);
-                if (!s->tag) {
+        case STDOUT_STREAM_IDENTIFIER:
+                s->identifier = strdup(p);
+                if (!s->identifier) {
                         log_error("Out of memory");
                         return -ENOMEM;
                 }
@@ -1456,7 +1456,7 @@ static void stdout_stream_free(StdoutStream *s) {
                 close_nointr_nofail(s->fd);
         }
 
-        free(s->tag);
+        free(s->identifier);
         free(s);
 }
 
