@@ -181,7 +181,6 @@ bin_PROGRAMS += \
 endif
 
 rootlibexec_PROGRAMS = \
-	systemd-stdout-syslog-bridge \
 	systemd-cgroups-agent \
 	systemd-initctl \
 	systemd-update-utmp \
@@ -287,7 +286,6 @@ dist_systemunit_DATA = \
 	units/sockets.target \
 	units/swap.target \
 	units/systemd-initctl.socket \
-	units/systemd-stdout-syslog-bridge.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
 	units/dev-hugepages.mount \
@@ -319,7 +317,6 @@ nodist_systemunit_DATA = \
 	units/serial-getty@.service \
 	units/console-shell.service \
 	units/systemd-initctl.service \
-	units/systemd-stdout-syslog-bridge.service \
 	units/systemd-shutdownd.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
@@ -353,7 +350,6 @@ EXTRA_DIST += \
 	units/console-shell.service.m4 \
 	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \
-	units/systemd-stdout-syslog-bridge.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
@@ -810,15 +806,6 @@ test_install_CFLAGS = \
 
 test_install_LDADD = \
 	libsystemd-basic.la
-
-systemd_stdout_syslog_bridge_SOURCES = \
-	src/stdout-syslog-bridge.c \
-	src/tcpwrap.c
-
-systemd_stdout_syslog_bridge_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	$(LIBWRAP_LIBS)
 
 systemd_initctl_SOURCES = \
 	src/initctl.c \
@@ -2246,8 +2233,7 @@ systemd-install-data-hook:
 		rm -f user && \
 		$(LN_S) $(pkgsysconfdir)/user user )
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-initctl.socket systemd-stdout-syslog-bridge.socket systemd-shutdownd.socket syslog.socket && \
-		$(LN_S) ../systemd-stdout-syslog-bridge.socket systemd-stdout-syslog-bridge.socket && \
+		rm -f systemd-initctl.socket systemd-shutdownd.socket syslog.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
 		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket && \
 		$(LN_S) ../syslog.socket syslog.socket )
