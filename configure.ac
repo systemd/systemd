@@ -23,7 +23,7 @@ AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([POSIX RT library not fo
 
 PKG_CHECK_MODULES(BLKID, blkid >= 2.20)
 
-PKG_CHECK_MODULES(KMOD, libkmod >= 2)
+PKG_CHECK_MODULES(KMOD, libkmod >= 3)
 
 if test "x$cross_compiling" = "xno" ; then
 	AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
